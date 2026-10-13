@@ -238,6 +238,8 @@ var vscodeCommands = map[string]string{
 	"workbench.action.terminal.new":              "view.newTerminal",
 	"workbench.action.createTerminalEditor":      "view.terminalTab",
 	"workbench.action.splitEditor":               "view.splitRight",
+	"markdown.showPreview":                       "view.togglePreview",
+	"markdown.showPreviewToSide":                 "view.previewToSide",
 	"workbench.action.splitEditorRight":          "view.splitRight",
 	"workbench.action.focusNextGroup":            "view.nextColumn",
 	"workbench.action.focusPreviousGroup":        "view.prevColumn",

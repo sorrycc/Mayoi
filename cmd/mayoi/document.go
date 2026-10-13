@@ -83,6 +83,9 @@ type editor struct {
 	overview overview
 
 	vscroll ui.ScrollState // the text area's
+	// hovered is set while the pointer is over the text, as a preview
+	// scrolled beside it follows the text then.
+	hovered bool
 	hscroll ui.ScrollState // the container that scrolls it sideways
 	// lines is where the text area lays out the lines, while it wraps
 	// them.

@@ -2,10 +2,12 @@ package main
 
 import (
 	"bytes"
+	"fmt"
 	"image/png"
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 	"syscall"
 	"testing"
@@ -628,5 +630,72 @@ func TestMarkdownImageSpacing(t *testing.T) {
 				t.Fatalf("repeated or missing marker: %+v", blocks)
 			}
 		}
+	}
+}
+
+func TestMarkdownBlockLines(t *testing.T) {
+	src := "---\ntitle: x\n---\n# Title\n\nText\nmore\n\n- one\n- two\n\n```go\ncode\n```\n\n| a |\n|---|\n| b |\n"
+	var got []int
+	for _, b := range parseMarkdown([]byte(src), "", "", nil) {
+		got = append(got, b.line)
+	}
+	// Title, Text, one, two, the code (its first line), the table's head and row.
+	want := []int{3, 5, 8, 9, 12, 15, 17}
+	if !slices.Equal(got, want) {
+		t.Fatalf("lines %v, want %v", got, want)
+	}
+}
+
+func TestMarkdownPreviewScrollsItsText(t *testing.T) {
+	hs := newHarness(t, true)
+	a := hs.a
+	var text strings.Builder
+	for i := range 300 {
+		fmt.Fprintf(&text, "Paragraph %d.\n\n", i)
+	}
+	os.WriteFile(hs.path("README.md"), []byte(text.String()), 0o644)
+	a.openFile(hs.path("README.md"), true)
+	source := a.activeEditor()
+	a.run("view.previewToSide")
+	d := a.cols[1].tab().ed
+	hs.until("preview", func() bool { return d.preview != nil && d.preview.loaded })
+	hs.settle()
+	m := d.preview.markdown
+	m.list.ScrollTo(100, ui.Start)
+	hs.settle()
+	first, _ := m.list.Visible()
+	line := int((source.vscroll.Y - editorPadY) / a.font.lineH)
+	if want := m.blocks[first].line; line < want || line > m.blocks[first+1].line {
+		t.Fatalf("text at line %d, want within block %d's lines from %d", line, first, want)
+	}
+}
+
+func TestMarkdownPreviewToSideButton(t *testing.T) {
+	hs := newHarness(t, true)
+	a := hs.a
+	const label = "Open Preview to the Side"
+	a.openFile(hs.path("main.go"), true)
+	hs.settle()
+	if hs.tt.HasText(label) {
+		t.Fatal("button on Go source")
+	}
+	a.openFile(hs.path("README.md"), true)
+	hs.settle()
+	source := a.activeEditor()
+	for range 2 {
+		if err := hs.tt.Click(label); err != nil {
+			t.Fatal(err)
+		}
+		hs.settle()
+	}
+	if len(a.cols) != 2 || a.col != 0 || a.activeEditor() != source || source.preview != nil {
+		t.Fatalf("columns %d, column %d: want the text on the left", len(a.cols), a.col)
+	}
+	d := a.cols[1].tab().ed
+	hs.until("preview", func() bool { return d.preview != nil && d.preview.loaded })
+	a.setPreview(source, true)
+	hs.settle()
+	if hs.tt.HasText(label) {
+		t.Fatal("button on a preview")
 	}
 }

@@ -142,7 +142,16 @@ func (a *app) tabStrip(c *ui.Context, col *column) {
 				}
 			})
 		})
-		ui.Row(c).Padding(0, 6, 0, 4).Children(func() {
+		ui.Row(c).Padding(0, 6, 0, 4).Gap(2).Children(func() {
+			if t := col.tab(); t != nil && t.ed != nil && t.ed.preview == nil && canPreview(t.ed.document) &&
+				a.iconButton(c.Key("previewToSide"), iconPreviewSide, a.withKey("Open Preview to the Side", "view.previewToSide"), false).Clicked() {
+				a.post(func() {
+					if at := slices.Index(a.cols, col); at >= 0 {
+						a.col = at
+						a.previewToSide()
+					}
+				})
+			}
 			if a.iconButton(c, iconColumns, a.withKey("Split Right", "view.splitRight"), false).Clicked() {
 				a.post(func() {
 					if at := slices.Index(a.cols, col); at >= 0 {

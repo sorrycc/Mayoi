@@ -161,6 +161,7 @@ func (a *app) editorView(c *ui.Context, d *editor) {
 			Label("Editor " + d.name()).
 			ReadOnly(vimKeys || a.chording())
 		a.takeKeys(area, placeEditor, func(ev ui.InputEvent) bool { return a.editorKey(d, ev) })
+		d.hovered = area.Hovered()
 		if wrap {
 			area.TrackLines(&d.lines)
 		} else {

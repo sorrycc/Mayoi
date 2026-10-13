@@ -1,13 +1,16 @@
 package main
 
 import (
+	"bytes"
 	"cmp"
 	"html"
 	"maps"
+	"math"
 	"net/url"
 	"os"
 	"path/filepath"
 	"slices"
+	"sort"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -40,6 +43,21 @@ type markdownPreview struct {
 	pending    bool
 	running    bool
 	generation atomic.Uint64
+	// textY and previewY are where the text and the preview were scrolled
+	// the frame before, as syncMarkdown keeps them together.
+	textY, previewY float32
+	linked          bool // the preview met its text, at the text's place
+	// settle counts the frames the preview takes to reach the place the
+	// text sent it to, when its scrolling is not the user's.
+	settle int
+	// gliding is set while the preview has yet to reach the place its
+	// text sends it to, since glided, the frame it last moved toward it.
+	gliding bool
+	glided  time.Time
+	// rows are the rows of the blocks, where the last frame laid them out,
+	// which built those from lo to hi.
+	rows   []ui.Handle
+	lo, hi int
 }
 
 type markdownInline struct {
@@ -72,6 +90,7 @@ type markdownImageKey struct {
 // markdownBlock is a paragraph-sized row, including its enclosing lists and quotes.
 type markdownBlock struct {
 	kind                 markdownKind
+	line                 int // the line of the source it starts on
 	offset, markerWidth  float32
 	tight                bool
 	level, indent, quote int
@@ -179,12 +198,13 @@ func parseMarkdown(source []byte, path, root string, current func() bool, caches
 	}()
 	// Front matter is recognized only at the start, with exact delimiter lines
 	// around what looks like YAML.
+	skip := 0
 	if lines := strings.SplitAfter(string(source), "\n"); strings.TrimSuffix(strings.TrimSuffix(lines[0], "\n"), "\r") == "---" {
 		for i := 1; i < len(lines); i++ {
 			line := strings.TrimSuffix(strings.TrimSuffix(lines[i], "\n"), "\r")
 			if line == "---" || line == "..." {
 				if markdownFrontMatter(lines[1:i]) {
-					source = []byte(strings.Join(lines[i+1:], ""))
+					source, skip = []byte(strings.Join(lines[i+1:], "")), i+1
 				}
 				break
 			}
@@ -193,6 +213,21 @@ func parseMarkdown(source []byte, path, root string, current func() bool, caches
 
 	tree := markdownParser().Parse(text.NewReader(source))
 	var blocks []markdownBlock
+	// lineOf returns the line of the source a node starts on, counting on
+	// from the node before, as nodes come in their order.
+	atLine, counted := skip, 0
+	lineOf := func(n ast.Node) int {
+		at := markdownOffset(n)
+		if at < 0 {
+			return atLine
+		}
+		if at < counted {
+			atLine, counted = skip, 0
+		}
+		atLine += bytes.Count(source[counted:at], []byte("\n"))
+		counted = at
+		return atLine
+	}
 	var inline func(ast.Node, markdownInline) []markdownInline
 	inline = func(n ast.Node, style markdownInline) []markdownInline {
 		var out []markdownInline
@@ -292,7 +327,7 @@ func parseMarkdown(source []byte, path, root string, current func() bool, caches
 	}
 	var walk func(ast.Node, int, int, string, bool, float32, float32)
 	walk = func(n ast.Node, indent, quote int, marker string, tight bool, offset, markerWidth float32) {
-		b := markdownBlock{indent: indent, quote: quote, marker: marker, tight: tight, offset: offset, markerWidth: markerWidth}
+		b := markdownBlock{line: lineOf(n), indent: indent, quote: quote, marker: marker, tight: tight, offset: offset, markerWidth: markerWidth}
 		switch x := n.(type) {
 		case *ast.Heading:
 			b.kind, b.level = markdownHeading, x.Level
@@ -355,7 +390,7 @@ func parseMarkdown(source []byte, path, root string, current func() bool, caches
 		case *east.Table:
 			for row := n.FirstChild(); row != nil; row = row.NextSibling() {
 				rb := b
-				rb.kind = markdownTable
+				rb.kind, rb.line = markdownTable, lineOf(row)
 				rb.aligns = x.Alignments
 				_, head := row.(*east.TableHeader)
 				if head {
@@ -414,6 +449,137 @@ func parseMarkdown(source []byte, path, root string, current func() bool, caches
 	}
 	walk(tree, 0, 0, "", false, 0, 0)
 	return blocks
+}
+
+// markdownOffset returns where the text of a node starts in the source,
+// or -1 for a node without any, as a rule.
+func markdownOffset(n ast.Node) int {
+	if n.Type() == ast.TypeBlock && n.Lines().Len() > 0 {
+		return n.Lines().At(0).Start
+	}
+	if t, ok := n.(*ast.Text); ok {
+		return t.Segment.Start
+	}
+	for ch := n.FirstChild(); ch != nil; ch = ch.NextSibling() {
+		if at := markdownOffset(ch); at >= 0 {
+			return at
+		}
+	}
+	return -1
+}
+
+// syncMarkdown scrolls a Markdown preview and the text of its document in
+// another column together: the text, while the pointer is over it, takes
+// the preview to the same place in the same block, and else the preview
+// the text, as far into the block's lines as it is into the block.
+func (a *app) syncMarkdown(c *ui.Context, v *viewer) {
+	m := v.markdown
+	var d *editor
+	for _, col := range a.cols {
+		if t := col.tab(); t != nil && t.ed != nil && t.ed.document == v.doc && t.ed.preview == nil {
+			d = t.ed
+			break
+		}
+	}
+	if d == nil || len(m.blocks) == 0 || len(m.rows) != len(m.blocks) {
+		return
+	}
+	snap := d.buf.Snapshot()
+	g := a.geometry(d, snap.LineCount())
+	// lineOf is the line of block i, the line count past the last; topOf
+	// the top of block i in the preview, as the last frame laid it out, if
+	// it built it, as it does a few rows past those in view, and the
+	// bottom of the last block past it.
+	lineOf := func(i int) float32 {
+		if i >= len(m.blocks) {
+			return float32(snap.LineCount())
+		}
+		return float32(m.blocks[i].line)
+	}
+	pane := v.pane.Bounds(c).Y
+	first, last := m.list.Visible()
+	topOf := func(i int) (float32, bool) {
+		switch {
+		case m.hi < m.lo || i < m.lo || i > m.hi+1:
+			return 0, false
+		case i == m.hi+1:
+			r := m.rows[m.hi].Bounds(c)
+			return r.Y + r.H - pane + m.scroll.Y, r.H > 0
+		}
+		r := m.rows[i].Bounds(c)
+		return r.Y - pane + m.scroll.Y, r.H > 0
+	}
+	switch {
+	case !m.linked || m.gliding || d.hovered && d.vscroll.Y != m.textY:
+		y := max(0, d.vscroll.Y-editorPadY)
+		n := g.at(y)
+		at := float32(n)
+		if h := g.top(n+1) - g.top(n); h > 0 {
+			at += min(1, (y-g.top(n))/h)
+		}
+		i := max(0, sort.Search(len(m.blocks), func(i int) bool { return lineOf(i) > at })-1)
+		top, ok := topOf(i)
+		next, ok2 := topOf(i + 1)
+		var to float32
+		switch {
+		case d.vscroll.Y <= editorPadY:
+			// Both start with the same margin above their first line.
+			to = max(0, d.vscroll.Y)
+		case ok && ok2:
+			to = top + (next-top)*min(1, max(0, (at-lineOf(i))/max(1, lineOf(i+1)-lineOf(i))))
+		default:
+			m.list.ScrollTo(i, ui.Start)
+			m.gliding = false
+		}
+		if ok && ok2 || d.vscroll.Y <= editorPadY {
+			// A block much taller in the preview than in the text, as an image
+			// on one line, would have the preview leap past it as the text
+			// moves a line: the preview moves as far as the text did, twice
+			// over, and glides the rest of the way in a few frames. It moves
+			// on whole pixels: text drawn a fraction of a pixel off each frame
+			// shimmers.
+			now, step := time.Now(), 2*math.Abs(float64(d.vscroll.Y-m.textY))+1
+			dist := float64(to - m.scroll.Y)
+			if m.gliding = m.linked && math.Abs(dist) > step; m.gliding {
+				k := 1 - math.Exp(-min(0.05, now.Sub(m.glided).Seconds())/0.04)
+				to = m.scroll.Y + float32(math.Copysign(max(math.Abs(dist)*k, step), dist))
+			}
+			m.scroll.Y, m.glided = float32(math.Round(float64(to))), now
+		}
+		m.settle = 2
+		c.Invalidate()
+	case m.settle > 0:
+		m.settle--
+	case !d.hovered && m.scroll.Y != m.previewY && m.scroll.Y <= editorPadY:
+		y := max(0, m.scroll.Y)
+		m.textY, m.previewY = y, m.scroll.Y
+		a.post(func() { d.vscroll.Y, d.pinY = y, y })
+		c.Invalidate()
+		return
+	case !d.hovered && m.scroll.Y != m.previewY && first >= 0:
+		i := first
+		for i < last {
+			if next, ok := topOf(i + 1); !ok || next > m.scroll.Y {
+				break
+			}
+			i++
+		}
+		top, ok := topOf(i)
+		next, ok2 := topOf(i + 1)
+		if !ok || !ok2 || next <= top {
+			break
+		}
+		at := lineOf(i) + (lineOf(i+1)-lineOf(i))*min(1, max(0, (m.scroll.Y-top)/(next-top)))
+		n := int(at)
+		y := float32(math.Round(float64(editorPadY + g.top(n) + (g.top(n+1)-g.top(n))*(at-float32(n)))))
+		// The text was laid out this frame already, and keeps where it is
+		// scrolled to as the frame ends: scroll it after the frame.
+		m.textY, m.previewY = y, m.scroll.Y
+		a.post(func() { d.vscroll.Y, d.pinY = y, y })
+		c.Invalidate()
+		return
+	}
+	m.textY, m.previewY, m.linked = d.vscroll.Y, m.scroll.Y, true
 }
 
 // HTML comments may span lines; other HTML remains literal.
@@ -655,9 +821,15 @@ func (a *app) markdownView(c *ui.Context, v *viewer, name string) {
 		m.measure, _ = ui.ShapeText(strings.Repeat("0", 80), font, 0).Size()
 	}
 	width := m.measure
+	if len(m.rows) != len(m.blocks) {
+		m.rows = make([]ui.Handle, len(m.blocks))
+	}
+	a.syncMarkdown(c, v)
+	m.lo, m.hi = len(m.blocks), -1
 	ui.List(c.Key("markdown"), &m.list, len(m.blocks)).Bind(&v.pane).TrackScroll(&m.scroll).Fill().Background(p.editor).Label("Preview "+name).Padding(editorPadY, textPadR).Rows(func(row ui.ListRow) {
 		c := row.Context
 		b := m.blocks[row.Index]
+		m.lo, m.hi = min(m.lo, row.Index), max(m.hi, row.Index)
 		top, bottom := a.markdownSpacing(b)
 		if (b.tight && (row.Index+1 == len(m.blocks) || !m.blocks[row.Index+1].tight)) || (b.kind == markdownTable && (row.Index+1 == len(m.blocks) || m.blocks[row.Index+1].kind != markdownTable)) {
 			bottom = size * a.settings.LineHeight * 0.75
@@ -666,7 +838,7 @@ func (a *app) markdownView(c *ui.Context, v *viewer, name string) {
 		if b.quote > 0 && (row.Index+1 == len(m.blocks) || m.blocks[row.Index+1].quote < b.quote) {
 			outside, bottom = max(bottom, size*a.settings.LineHeight*0.75), 0
 		}
-		ui.Row(c).WidthPercent(100).Justify(ui.Center).Margin(0, 0, outside, 0).Children(func() {
+		ui.Row(c).Bind(&m.rows[row.Index]).WidthPercent(100).Justify(ui.Center).Margin(0, 0, outside, 0).Children(func() {
 			ui.Row(c).WidthPercent(100).MaxWidth(width).AlignItems(ui.Start).Padding(0, 0, 0, b.offset*size).Gap(size * 0.5).Children(func() {
 				for range b.quote {
 					ui.Box(c).Width(3).AlignSelf(ui.Stretch).Background(p.guideNow)

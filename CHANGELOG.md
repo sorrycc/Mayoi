@@ -37,6 +37,13 @@ needs a `## <version>` section here, or its build fails.
   the editor's fonts and colors. It follows your edits, and with the same
   file in another column shows its source beside it. An image or link
   starting with `/` is found from the repository's root, as on GitHub.
+- **Open Preview to the Side**, in the View menu or from the button beside
+  **Split Right** at the end of the tabs, shows a Markdown file's preview
+  in the next column, as in VS Code, and leaves the keyboard in its text.
+  The two scroll together, block by block: the text leads while the
+  pointer is over it, and else the preview. VS Code's
+  `markdown.showPreviewToSide` and `markdown.showPreview` keys work in
+  `keybindings.json`.
 
 ## 0.6.0
 

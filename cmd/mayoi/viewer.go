@@ -508,6 +508,31 @@ func (a *app) togglePreview() {
 	}
 }
 
+// previewToSide shows the preview of the document of the editor shown in
+// the column after it, a new one unless that column has the document
+// already, and leaves the keyboard in the text.
+func (a *app) previewToSide() {
+	col, d := a.column(), a.activeEditor()
+	if d == nil || !canPreview(d.document) {
+		return
+	}
+	a.setPreview(d, false)
+	if at := slices.Index(a.cols, col) + 1; at < len(a.cols) {
+		if next := a.cols[at]; next.showing(d.document) >= 0 {
+			i := next.showing(d.document)
+			a.setPreview(next.tabs[i].ed, true)
+			a.activate(next, i, false)
+			a.activate(col, col.active, true)
+			return
+		}
+	}
+	a.splitRight()
+	if e := a.activeEditor(); e != nil && e != d {
+		a.setPreview(e, true)
+	}
+	a.activate(col, col.active, true)
+}
+
 // textEditor returns the editor shown, showing its text in place of the
 // rendered preview, for commands that work on the text. Nil when the
 // column shows no editor.

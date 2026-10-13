@@ -144,7 +144,7 @@ func (a *app) tabStrip(c *ui.Context, col *column) {
 			})
 		})
 		ui.Row(c).Padding(0, 6, 0, 4).Children(func() {
-			if a.iconButton(c, iconColumns, "Split Right (⌘\\)", false).Clicked() {
+			if a.iconButton(c, iconColumns, a.withKey("Split Right", "view.splitRight"), false).Clicked() {
 				a.post(func() {
 					if at := slices.Index(a.cols, col); at >= 0 {
 						a.col = at
@@ -200,7 +200,7 @@ func (a *app) tabMenu(m *ui.Menu, col *column, t *colTab, closing **colTab) {
 		return
 	}
 	m.Separator()
-	if d := t.ed; d != nil && isSVG(d.document) {
+	if d := t.ed; d != nil && canPreview(d.document) {
 		label := "Show Preview"
 		if d.preview != nil {
 			label = "Show Source"
@@ -220,7 +220,7 @@ func (a *app) tabMenu(m *ui.Menu, col *column, t *colTab, closing **colTab) {
 	if m.Item("Reveal in Explorer").Disabled(path == "" || a.root == "").Chosen() {
 		a.post(func() { a.showExplorer(); a.revealInTree(path) })
 	}
-	if !remotefs.IsRemote(path) && m.Item("Reveal in Finder").Disabled(path == "").Chosen() {
+	if !remotefs.IsRemote(path) && m.Item(revealLabel()).Disabled(path == "").Chosen() {
 		a.host.reveal(path)
 	}
 	if m.Item("Copy Path").Disabled(path == "").Chosen() {

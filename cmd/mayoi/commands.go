@@ -28,7 +28,7 @@ func (a *app) commands() []command {
 			}
 		}
 	}
-	return []command{
+	cmds := []command{
 		{"file.remote", "Connect via SSH…", "", a.chooseRemote},
 		{"file.remoteFolder", "Open Remote Folder…", "", a.chooseRemoteFolder},
 		{"file.localFolder", "Open Local Folder…", "", func() { a.host.openFolder(a.switchFolder) }},
@@ -47,7 +47,7 @@ func (a *app) commands() []command {
 		{"file.keybindings", "Open Keyboard Shortcuts", "", a.openKeybindings},
 		{"file.copyPath", "Copy Path of Active File", "", func() { a.copyActivePath(false) }},
 		{"file.copyRelativePath", "Copy Relative Path of Active File", "", func() { a.copyActivePath(true) }},
-		{"file.reveal", "Reveal Active File in Finder", "", a.revealActive},
+		{"file.reveal", revealActiveLabel(), "", a.revealActive},
 		{"file.close", "Close Tab", "CmdOrCtrl+W", a.closeActive},
 		{"file.reopenClosed", "Reopen Closed Tab", "Shift+CmdOrCtrl+T", a.reopenClosed},
 		{"file.closeFolder", "Close Folder", "", a.closeFolder},
@@ -128,7 +128,7 @@ func (a *app) commands() []command {
 		{"view.wordWrap", "Word Wrap", "", a.toggleWordWrap},
 		{"view.vim", "Vim Mode", "", a.toggleVim},
 		{"view.wordWrapTab", "Toggle Word Wrap in Tab", "Alt+Z", a.toggleTabWrap},
-		{"view.togglePreview", "Toggle SVG Preview", "Shift+CmdOrCtrl+V", a.togglePreview},
+		{"view.togglePreview", "Toggle Preview", "Shift+CmdOrCtrl+V", a.togglePreview},
 		// The text, or the picture shown.
 		{"view.zoomIn", "Zoom In", "CmdOrCtrl+=", func() { a.zoom(1) }},
 		{"view.zoomOut", "Zoom Out", "CmdOrCtrl+-", func() { a.zoom(-1) }},
@@ -140,6 +140,10 @@ func (a *app) commands() []command {
 		{"view.theme.matrix", "The Matrix", "", func() { a.setTheme(themeMatrix) }},
 		{"view.theme.claude", "Claude", "", func() { a.setTheme(themeClaude) }},
 	}
+	for i := range cmds {
+		cmds[i].accel = platformAccel(cmds[i].id, cmds[i].accel)
+	}
+	return cmds
 }
 
 // recentCommand is the prefix of the commands that open a recent
@@ -248,7 +252,7 @@ func (a *app) openSettings() {
 // zoom makes the picture shown bigger or smaller, or fits it for 0, and
 // otherwise the text.
 func (a *app) zoom(by float32) {
-	if v := a.activeViewer(); v != nil {
+	if v := a.activeViewer(); v != nil && v.markdown == nil {
 		v.zoomBy(int(by))
 		return
 	}
@@ -414,17 +418,25 @@ func (a *app) terminalFocused(c *ui.Context) bool {
 func (a *app) shortcuts(c *ui.Context) {
 	// ⌃R, unless a terminal has the keyboard: shells search their history
 	// with it. Vim's normal mode redoes with it.
-	if !a.terminalFocused(c) && !a.vimTakesKeys(c) && !a.keyBound(ui.Ctrl, ui.KeyR) && c.Shortcut(ui.Ctrl, ui.KeyR) {
+	if !a.terminalFocused(c) && !a.vimTakesCtrl(c) && !a.keyBound(ui.Ctrl, ui.KeyR) && c.Shortcut(ui.Ctrl, ui.KeyR) {
 		a.openRecentPicker()
 	}
-	// Cmd+1…9 shows a tab of the column, as in browsers.
-	for i, k := range []ui.Key{ui.Key1, ui.Key2, ui.Key3, ui.Key4, ui.Key5, ui.Key6, ui.Key7, ui.Key8, ui.Key9} {
-		if !a.keyBound(ui.Cmd, k) && c.Shortcut(ui.Cmd, k) {
-			col := a.column()
-			if k == ui.Key9 {
-				i = len(col.tabs) - 1
-			}
-			a.activate(col, i, true)
+	// ⌘1…9, Alt+1…9 on Windows and Linux, shows a tab of the column, as in
+	// browsers.
+	for k := ui.Key1; k <= ui.Key9; k++ {
+		if !a.keyBound(tabMod(), k) && c.Shortcut(tabMod(), k) {
+			a.showTabKey(k)
 		}
 	}
+	a.menuKeys(c)
+}
+
+// showTabKey shows the tab of the column of digit k, 9 the last.
+func (a *app) showTabKey(k ui.Key) {
+	col := a.column()
+	i := int(k - ui.Key1)
+	if k == ui.Key9 {
+		i = len(col.tabs) - 1
+	}
+	a.activate(col, i, true)
 }

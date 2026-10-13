@@ -5,11 +5,21 @@ needs a `## <version>` section here, or its build fails.
 
 ## Unreleased
 
+- Keep Markdown preview images and relative links on the SSH host when previewing a remote document.
+
 - Keep remote file opens, restores and file operations responsive during network delays, with loading and retry states.
 - Limit remote polling to visible folders and open files, avoiding initial reloads and repeated index rebuilds.
 - Open SSH URLs in an already running app, accept mixed local/remote CLI arguments, and refresh Mayoi-owned CLI scripts.
 - Hide unsupported remote Finder actions, let slow remote Git transfers finish, and clean up SSH processes and control directories on exit.
 
+- Better on Windows and Linux: the menus' shortcuts work there, with VS
+  Code's keys where Ctrl for ⌘ would collide or be AltGr (F3 and
+  Shift+F3 find the next and previous match, Ctrl+H replaces, Alt+1 to
+  Alt+9 show a tab), the terminal leaves the shell its Ctrl keys but the
+  workbench's, vim's normal mode leaves ⌃F, ⌃B and ⌃R to Find, the
+  sidebar and Open Recent unless `vimCtrlKeys` is on, tooltips and hints
+  show Ctrl+… rather than ⌘, and the menus name File Explorer and the
+  Recycle Bin.
 - Keyboard shortcuts of your own: **File → Open Keyboard Shortcuts** opens
   `keybindings.json`, in VS Code's format, so those of VS Code or Cursor
   can be pasted in. It takes chords, as `ctrl+. g c`, the names of VS
@@ -29,6 +39,13 @@ needs a `## <version>` section here, or its build fails.
   as the other buttons do.
 - Add Remote SSH connections, remote folder browsing, remote editing and saving, Git, and SSH terminals.
 - Search and replace remote project contents through the SSH file connection; Finder file copying remains local-only.
+- **⇧⌘V**, or the button at the end of the breadcrumbs, previews a
+  Markdown file as well as an SVG: headings, lists and task lists, quotes,
+  code highlighted as in the editor, tables, cached local bitmap and SVG
+  images, inline badges and links, with comments and front matter hidden, in
+  the editor's fonts and colors. It follows your edits, and with the same
+  file in another column shows its source beside it. An image or link
+  starting with `/` is found from the repository's root, as on GitHub.
 
 ## 0.6.0
 

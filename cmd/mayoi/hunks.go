@@ -275,10 +275,10 @@ func (a *app) hunkPeekView(c *ui.Context, d *editor) {
 			if a.smallButton(c, iconUndo, "Revert Change") {
 				a.queueEdit(d, func(d *editor) { a.revertHunk(d, h) })
 			}
-			if a.smallButton(c, iconArrowUp, "Previous Change (⇧⌥F5)") {
+			if a.smallButton(c, iconArrowUp, a.withKey("Previous Change", "git.prevChange")) {
 				a.queueEdit(d, func(d *editor) { a.stepPeek(d, -1) })
 			}
-			if a.smallButton(c, iconArrowDown, "Next Change (⌥F5)") {
+			if a.smallButton(c, iconArrowDown, a.withKey("Next Change", "git.nextChange")) {
 				a.queueEdit(d, func(d *editor) { a.stepPeek(d, 1) })
 			}
 			if a.smallButton(c, iconX, "Close (Esc)") {

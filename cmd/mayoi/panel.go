@@ -88,10 +88,25 @@ func (a *app) startTerminal(dir string) *session {
 		OnTitle: func(title string) {
 			a.post(func() { s.title = title })
 		},
-		// The shortcuts of keybindings.json, before the shell.
+		// The shortcuts of keybindings.json, before the shell, and on
+		// Windows and Linux those of Mayoi's it leaves to Mayoi.
 		OnKey: func(mods ui.Modifiers, key ui.Key) bool {
 			a.keyTerm = s
-			return a.keyStroke(keymap.Stroke{Mods: mods, Key: key}, placeTerminal)
+			st := keymap.Stroke{Mods: mods, Key: key}
+			if a.keyStroke(st, placeTerminal) {
+				return true
+			}
+			id, ok := a.shellSkip(st)
+			if ok {
+				a.post(func() {
+					if id == "" {
+						a.showTabKey(key)
+					} else {
+						a.run(id)
+					}
+				})
+			}
+			return ok
 		},
 		OnExit: func(int) {
 			a.post(func() { a.removeTerminal(s) })
@@ -321,7 +336,7 @@ func (a *app) panel(c *ui.Context) {
 					}
 				})
 			})
-			if a.iconButton(c, iconPlus, "New Terminal (⌃⇧`)", false).Clicked() {
+			if a.iconButton(c, iconPlus, a.withKey("New Terminal", "view.newTerminal"), false).Clicked() {
 				a.newTerminal()
 			}
 			if s := a.panelTerm; s != nil {

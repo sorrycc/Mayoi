@@ -379,7 +379,7 @@ func (a *app) findView(c *ui.Context, d *editor) {
 				col = p.danger
 			}
 			ui.Text(c, count).FontSize(11.5).TextColor(col).Width(findCountW).SingleLine().TextAlign(ui.Center)
-			if a.iconButton(c, iconArrowUp, "Previous Match (⇧⏎)", false).Disabled(len(f.matches) == 0).Clicked() {
+			if a.iconButton(c, iconArrowUp, "Previous Match ("+keyText("Shift+Enter")+")", false).Disabled(len(f.matches) == 0).Clicked() {
 				a.step(d, -1)
 			}
 			if a.iconButton(c, iconArrowDown, "Next Match (⏎)", false).Disabled(len(f.matches) == 0).Clicked() {

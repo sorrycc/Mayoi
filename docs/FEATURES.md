@@ -66,7 +66,8 @@ mode, where the caret is a block.
 
 Esc, ⌃[ or ⌃C leaves insert mode. A change and the text typed after it undo as one step. Yanking, deleting and pasting
 use the system clipboard, and a yank of whole lines pastes as lines. In normal mode, ⌃R redoes rather than opening
-recent folders. ⌘ shortcuts work as usual in every mode. Punctuation keys are read as a US keyboard types them.
+recent folders. ⌘ shortcuts work as usual in every mode. Punctuation keys are read as a US keyboard types them. On
+Windows and Linux, ⌃F, ⌃B and ⌃R stay Find, Toggle Sidebar and Open Recent in normal mode, unless `vimCtrlKeys` is on.
 
 ### Undo
 
@@ -207,6 +208,8 @@ PNG, JPEG, GIF, WebP and BMP files open in a viewer, fitted to the view on a che
 
 An SVG opens as text. ⇧⌘V, or the button at the end of the breadcrumbs, shows it as an image that updates as you type.
 
+Markdown (`.md` and `.markdown`) opens as text too. ⇧⌘V or the same button shows a read-only, scrollable preview with headings, formatted text, links, nested lists, task lists, quotes, highlighted code, tables and local images. Split with ⌘\ to keep source in one column and a live preview in the other. Preview state is restored with the session. Remote images show their alt text without network requests. A path starting with `/` is taken from the root of the file's Git repository, or else of the workspace, as GitHub takes it. HTML comments and front matter are hidden, `<br>` breaks the line, and other HTML is displayed as text.
+
 ## Columns
 
 The editor splits into columns side by side, each with its own tabs, and you resize them by dragging the handle between
@@ -226,6 +229,10 @@ search match opens with the match selected.
 Ghostty's emulator (libghostty-vt), in the bottom panel or in a column tab. You can run several terminals, move one
 between the panel and a column by dragging it or from its menu, and maximize the panel. Terminal colors follow the theme.
 Files dropped on a terminal type their paths, quoted for the shell.
+
+On Windows and Linux the shell has the keys with Ctrl, which edit its line, except the workbench's: Quick Open, the
+Command Palette, the terminal and the sidebar toggles, Next and Previous Tab, Alt+1 to Alt+9 and zoom, and every
+Ctrl+Shift shortcut but Ctrl+Shift+C and Ctrl+Shift+V, the terminal's copy and paste, and those of the function keys.
 
 ## Quick open
 
@@ -313,8 +320,8 @@ again with its tabs, columns and Explorer as they were. Closing the last window 
 ## Settings
 
 **File → Open Settings** (⌘,) opens `settings.json` in a tab. Saving it applies its preferences in every window at once:
-the fonts, `theme`, `appearance`, `autoSave`, `wordWrap`, `diffLayout`, `scmTree`, `scmAllBranches`, `blame`, `vim` and
-`sidebarRight`. A file that does not parse is left alone until it does. Mayoi keeps the windows, tabs, recent folders
+the fonts, `theme`, `appearance`, `autoSave`, `wordWrap`, `diffLayout`, `scmTree`, `scmAllBranches`, `blame`, `vim`,
+`vimCtrlKeys` and `sidebarRight`. A file that does not parse is left alone until it does. Mayoi keeps the windows, tabs, recent folders
 and layout itself, in `state.json` beside it.
 
 The font keys:
@@ -375,9 +382,25 @@ Explorer, diffs, pictures, and the text fields of find, search, quick open and t
 ```
 
 Some commands are only in the command palette: **Copy Path of Active File**, **Copy Relative Path of Active File**,
-**Reveal Active File in Finder**, **Indent Using Tabs** and **Indent Using 2, 4 or 8 Spaces**. **Selection → Sort Lines
+**Reveal Active File in Finder** (File Explorer on Windows), **Indent Using Tabs** and **Indent Using 2, 4 or 8 Spaces**. **Selection → Sort Lines
 Ascending**, **Sort Lines Descending** and **Transform to Camel Case** work on the lines selected, or every line, and on
 the words selected, or the caret's.
+
+### Windows and Linux
+
+The shortcuts are macOS's with Ctrl for ⌘, and the hints show them so, but for those VS Code has others for:
+
+| Command                                  | macOS     | Windows and Linux |
+| ---------------------------------------- | --------- | ----------------- |
+| Find Next, Find Previous                 | ⌘G, ⇧⌘G   | F3, Shift+F3      |
+| Replace                                  | ⌥⌘F       | Ctrl+H            |
+| Show the tab 1 to 8, the last            | ⌘1 to ⌘9  | Alt+1 to Alt+9    |
+| Save All, Open Folder in New Window      | ⌥⌘S, ⌥⌘O  | none              |
+| Focus Next Column, Focus Previous Column | ⌥⌘→, ⌥⌘←  | none              |
+
+Ctrl with Alt is AltGr there, which types text, so no shortcut takes it: bind those commands in `keybindings.json`,
+as `{ "key": "ctrl+k s", "command": "workbench.action.files.saveAll" }`. A file can tell the systems apart with
+`isWindows`, `isLinux` and `isMac`.
 
 ## Updates
 

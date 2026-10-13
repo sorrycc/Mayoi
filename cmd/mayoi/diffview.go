@@ -1430,7 +1430,7 @@ func (a *app) diffButtons(c *ui.Context, t *colTab) {
 	if button(iconUnfold, "Show Full Files", v.full).Clicked() {
 		a.post(func() { a.setDiffFull(v, !v.full) })
 	}
-	if button(iconWrap, "Toggle Word Wrap (⌥Z)", a.wrapsDiff(v)).Clicked() {
+	if button(iconWrap, a.withKey("Toggle Word Wrap", "view.wordWrapTab"), a.wrapsDiff(v)).Clicked() {
 		a.post(func() { a.toggleDiffWrap(v) })
 	}
 	icon := iconRows

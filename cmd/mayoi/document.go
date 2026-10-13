@@ -127,7 +127,7 @@ type editor struct {
 	// then, which the frame after puts back.
 	pinFrame int
 	pinY     float32
-	// preview shows an SVG document as a picture in the editor's place,
+	// preview shows a rendered document in the editor's place,
 	// nil while it shows the text.
 	preview *viewer
 	// gutterW is how wide the line numbers were in the last frame; peek

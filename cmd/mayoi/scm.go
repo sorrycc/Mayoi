@@ -279,9 +279,10 @@ func (a *app) scmView(c *ui.Context) {
 			})
 		}
 		branch := a.branch()
-		hint := "Message (⌘⏎ to commit)"
+		enter := keyText("CmdOrCtrl+Enter")
+		hint := "Message (" + enter + " to commit)"
 		if branch != "" {
-			hint = fmt.Sprintf("Message (⌘⏎ to commit on %s)", branch)
+			hint = fmt.Sprintf("Message (%s to commit on %s)", enter, branch)
 		}
 		box := a.textKeys(ui.TextArea(c.Key("commit-message"), &g.message)).Placeholder(hint).FontSize(12.5).
 			MinHeight(60).MaxHeight(160).Label("Commit Message")
@@ -420,13 +421,14 @@ func (a *app) commitButton(c *ui.Context) {
 	case staged == 0 && others > 0:
 		label = "Commit All"
 	}
-	tip := "Commit the staged changes (⌘⏎)"
+	tip := "Commit the staged changes"
 	switch {
 	case g.amend:
-		tip = "Amend the last commit with the staged changes (⌘⏎)"
+		tip = "Amend the last commit with the staged changes"
 	case staged == 0 && others > 0:
-		tip = "Stage every change and commit it (⌘⏎)"
+		tip = "Stage every change and commit it"
 	}
+	tip += " (" + keyText("CmdOrCtrl+Enter") + ")"
 	committing := g.busy == "Committing…"
 	idle := g.busy == "" && (g.amend || staged+others > 0)
 	// In the accent color while it commits, or can; gray while there is
@@ -1325,17 +1327,17 @@ func (a *app) discard(es ...git.Entry) {
 	if len(es) == 1 {
 		title = fmt.Sprintf("Discard the changes of %s?", filepath.Base(es[0].Path))
 		if es[0].Untracked() {
-			title = fmt.Sprintf("Move %s to the Trash?", filepath.Base(es[0].Path))
+			title = fmt.Sprintf("Move %s to %s?", filepath.Base(es[0].Path), trashName())
 		}
 	}
 	msg := "The changes cannot be undone."
 	if len(untracked) > 0 {
-		msg = "The changes cannot be undone. Files Git does not track go to the Trash."
+		msg = "The changes cannot be undone. Files Git does not track go to " + trashName() + "."
 	}
 	a.confirm = &confirm{title: title, message: msg, ok: "Discard", danger: true, run: func() {
 		for _, p := range untracked {
 			if err := a.host.trash(p); err != nil {
-				a.fail("Could not move %s to the Trash: %v", filepath.Base(p), err)
+				a.fail("Could not move %s to %s: %v", filepath.Base(p), trashName(), err)
 			}
 		}
 		if a.tree != nil && len(untracked) > 0 {

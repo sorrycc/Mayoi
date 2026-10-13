@@ -1,7 +1,6 @@
 package main
 
 import (
-	"runtime"
 	"slices"
 	"strings"
 
@@ -49,17 +48,7 @@ func (a *app) paletteEntries() []paletteEntry {
 			group = "Theme"
 		}
 		title := group + ": " + cmd.label
-		accel := a.menuAccel(cmd)
-		if accel == "" && cmd.accel == "" {
-			accel = viewKeys[cmd.id]
-		}
-		caps := accelCaps(accel, runtime.GOOS == "darwin")
-		// The keys keybindings.json gives it, as a chord's strokes.
-		if keys := a.keys.Last(commandNames(cmd.id)...); len(keys) == 1 {
-			caps = accelCaps(keys[0].Accel(), runtime.GOOS == "darwin")
-		} else if keys != nil {
-			caps = chordCaps(keys)
-		}
+		caps := a.commandCaps(cmd)
 		a.palette = append(a.palette, paletteEntry{id: cmd.id, title: title, group: len(group) + 2, caps: caps})
 	}
 	slices.SortStableFunc(a.palette, func(x, y paletteEntry) int { return strings.Compare(x.title, y.title) })
@@ -147,7 +136,7 @@ func accelCaps(accel string, mac bool) []string {
 		for _, m := range []struct {
 			on   bool
 			name string
-		}{{ctrl, "Ctrl"}, {alt, "Alt"}, {shift, "Shift"}, {cmd, "Super"}} {
+		}{{ctrl, "Ctrl"}, {alt, "Alt"}, {shift, "Shift"}, {cmd, superName()}} {
 			if m.on {
 				caps = append(caps, m.name)
 			}

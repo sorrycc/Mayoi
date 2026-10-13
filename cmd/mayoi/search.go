@@ -824,7 +824,7 @@ func (a *app) searchView(c *ui.Context) {
 				arrow = iconChevronDown
 			}
 			b := ui.ButtonBase(c.Key("toggle-replace")).Width(18).Radius(4).Justify(ui.Center).AlignItems(ui.Center).
-				Label("Toggle Replace").Tooltip("Toggle Replace (⇧⌘H)")
+				Label("Toggle Replace").Tooltip(a.withKey("Toggle Replace", "edit.replaceInFiles"))
 			if b.Hovered() {
 				b.Background(p.hover)
 			}
@@ -1023,7 +1023,7 @@ func (a *app) searchHint(c *ui.Context) {
 	p := a.pal
 	ui.Column(c).Padding(10, 14, 0, 26).Gap(6).Children(func() {
 		ui.Text(c, "Find text in the folder's files.").FontSize(12).TextColor(p.muted)
-		for _, k := range [][2]string{{"↓", "Go to the results"}, {"⏎", "Open the match"}, {"⇧⌘H", "Replace"}} {
+		for _, k := range [][2]string{{"↓", "Go to the results"}, {"⏎", "Open the match"}, {a.keyHint("edit.replaceInFiles"), "Replace"}} {
 			ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
 				ui.Text(c, k[0]).FontSize(11).TextColor(p.muted).Padding(0, 5).Radius(4).Background(p.hover).MinWidth(22).
 					TextAlign(ui.Center)

@@ -20,7 +20,7 @@ type closedTab struct {
 	// share of their width, to make it again once it is gone.
 	colAt   int
 	weight  float32
-	preview bool // an SVG showed as an image
+	preview bool // a document showed as a rendered preview
 	// diff is set for the tab of the changes, laid out as layout; full is
 	// set for every unchanged line shown.
 	diff, full bool

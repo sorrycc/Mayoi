@@ -297,8 +297,10 @@ func (c vimCmd) changes() bool {
 }
 
 // vimRune is the key of an event as vim names it: the character it types,
-// a control character with Ctrl, and the motion of an arrow.
-func vimRune(ev ui.InputEvent) (rune, bool) {
+// a control character with Ctrl, and the motion of an arrow. Without
+// allCtrl, ⌃F, ⌃B and ⌃R are left to the shortcuts of Find, Toggle Sidebar
+// and Open Recent.
+func vimRune(ev ui.InputEvent, allCtrl bool) (rune, bool) {
 	m, k := ev.Mods, ev.Key
 	if m&(ui.Alt|ui.Super) != 0 {
 		return 0, false
@@ -307,7 +309,12 @@ func vimRune(ev ui.InputEvent) (rune, bool) {
 		// Only the keys of vim's commands: the others stay the
 		// platform's, where Control is the key of shortcuts.
 		switch k {
-		case ui.KeyD, ui.KeyU, ui.KeyF, ui.KeyB, ui.KeyE, ui.KeyY, ui.KeyR:
+		case ui.KeyF, ui.KeyB, ui.KeyR:
+			if !allCtrl {
+				return 0, false
+			}
+			return rune(k-ui.KeyA) + 1, true
+		case ui.KeyD, ui.KeyU, ui.KeyE, ui.KeyY:
 			return rune(k-ui.KeyA) + 1, true
 		case ui.KeyBracketLeft:
 			return '\x1b', true
@@ -403,7 +410,7 @@ func (a *app) vimKey(d *editor, ev ui.InputEvent) bool {
 		a.queueEdit(d, a.vimEndInsert)
 		return true
 	}
-	r, ok := vimRune(ev)
+	r, ok := vimRune(ev, a.vimCtrl())
 	if !ok {
 		return false
 	}

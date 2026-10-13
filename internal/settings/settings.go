@@ -109,6 +109,9 @@ type Prefs struct {
 	Blame bool `json:"blame"`
 	// Vim edits with vim's keys: the editors start in normal mode.
 	Vim bool `json:"vim,omitempty"`
+	// VimCtrlKeys has vim's normal mode take ⌃F, ⌃B and ⌃R on Windows and
+	// Linux, rather than Find, Toggle Sidebar and Open Recent.
+	VimCtrlKeys bool `json:"vimCtrlKeys,omitempty"`
 	// Appearance is "light", "dark", or "" to follow the system.
 	Appearance string `json:"appearance,omitempty"`
 	// Theme is "matrix" for The Matrix, which is always dark, "claude" for

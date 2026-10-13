@@ -243,7 +243,7 @@ func (a *app) titleBar(c *ui.Context) {
 			if right {
 				icon = iconSidebarRight
 			}
-			if a.iconButton(c, icon, "Toggle Sidebar (⌘B)", a.settings.SidebarOpen).Clicked() {
+			if a.iconButton(c, icon, a.withKey("Toggle Sidebar", "view.sidebar"), a.settings.SidebarOpen).Clicked() {
 				a.toggleSidebar()
 			}
 		}
@@ -256,7 +256,7 @@ func (a *app) titleBar(c *ui.Context) {
 			a.commandCenter(c)
 		})
 		ui.Row(c).Width(120).Justify(ui.End).Gap(2).Children(func() {
-			if a.iconButton(c, iconPanel, "Toggle Terminal (⌃`)", a.window.PanelOpen).Clicked() {
+			if a.iconButton(c, iconPanel, a.withKey("Toggle Terminal", "view.terminal"), a.window.PanelOpen).Clicked() {
 				a.togglePanel()
 			}
 			if right {
@@ -271,7 +271,7 @@ func (a *app) titleBar(c *ui.Context) {
 func (a *app) commandCenter(c *ui.Context) {
 	p := a.pal
 	b := ui.ButtonBase(c.Key("command-center")).Height(24).Width(420).MaxWidthPercent(100).Shrink(1).Padding(0, 10).Gap(8).
-		Radius(6).Justify(ui.Center).AlignItems(ui.Center).Border(1, p.border).Label("Quick Open").Tooltip("Quick Open (⌘P)")
+		Radius(6).Justify(ui.Center).AlignItems(ui.Center).Border(1, p.border).Label("Quick Open").Tooltip(a.withKey("Quick Open", "go.quickOpen"))
 	b.Background(p.hover)
 	hovered := b.Hovered()
 	if hovered {
@@ -431,7 +431,7 @@ func (a *app) columnView(c *ui.Context, col *column) {
 						})
 					}
 				case t == shown && t.ed.preview != nil:
-					// The text keeps its place, out of sight, under the picture.
+					// The text keeps its place, out of sight, under the preview.
 					ui.Box(c).Absolute().Top(0).Left(0).Right(0).Bottom(0).Invisible().Children(func() {
 						a.hiddenEditor(c, t.ed)
 					})
@@ -652,7 +652,7 @@ func (a *app) breadcrumbs(c *ui.Context, t *colTab) {
 				ui.Icon(c, iconChevronRight).FontSize(11).TextColor(p.faint)
 			}
 		}
-		if d != nil && isSVG(d.document) {
+		if d != nil && canPreview(d.document) {
 			ui.Spacer(c)
 			a.previewButton(c, t, d)
 		}
@@ -663,12 +663,12 @@ func (a *app) breadcrumbs(c *ui.Context, t *colTab) {
 	})
 }
 
-// previewButton shows an SVG as a picture, or as text again.
+// previewButton switches between a document's preview and source.
 func (a *app) previewButton(c *ui.Context, t *colTab, d *editor) {
 	p := a.pal
-	label, icon := "Show Preview (⇧⌘V)", iconImage
+	label, icon := a.withKey("Show Preview", "view.togglePreview"), iconImage
 	if d.preview != nil {
-		label, icon = "Show Source (⇧⌘V)", iconFileCode
+		label, icon = a.withKey("Show Source", "view.togglePreview"), iconFileCode
 	}
 	b := ui.ButtonBase(c.Key("preview")).Height(crumbsH-4).Padding(0, 6).Radius(4).Shrink(0).
 		AlignItems(ui.Center).Label(label).Tooltip(label)
@@ -764,7 +764,7 @@ func (a *app) statusBar(c *ui.Context) {
 				}
 				item("folder", label, remotefs.Display(a.root), iconTerminal, a.reconnectRemote)
 			} else {
-				item("folder", a.workspaceName(), "Reveal "+shortenHome(a.root)+" in Finder", iconFolder, func() { a.host.reveal(a.root) })
+				item("folder", a.workspaceName(), revealFolderLabel(shortenHome(a.root)), iconFolder, func() { a.host.reveal(a.root) })
 			}
 		}
 		ui.Spacer(c)
@@ -813,7 +813,7 @@ func (a *app) statusBar(c *ui.Context) {
 		if a.settings.Vim {
 			item("vim", d.vim.label(), "", nil, nil)
 		}
-		item("pos", pos, "Go to Line (⌃G)", nil, func() { a.openQuick(":") })
+		item("pos", pos, a.withKey("Go to Line", "go.line"), nil, func() { a.openQuick(":") })
 		item("lines", plural(snap.LineCount(), "line"), "", nil, nil)
 		menuItem("indent", d.indent.String(), "Indentation", func(m *ui.Menu) {
 			if m.Item("Indent Using Tabs").Checked(d.indent.tabs).Chosen() {
@@ -935,19 +935,19 @@ func (a *app) welcome(c *ui.Context) {
 				})
 				a.welcomeSection(c, "Start", func() {
 					if a.root == "" {
-						a.welcomeAction(c, iconFolderOpen, "Open Folder…", "⌘O", a.chooseFolder)
+						a.welcomeAction(c, iconFolderOpen, "Open Folder…", a.keyHint("file.openFolder"), a.chooseFolder)
 						a.welcomeAction(c, iconTerminal, "Connect via SSH…", "", a.chooseRemote)
 					} else {
 						if remotefs.IsRemote(a.root) {
-							a.welcomeAction(c, iconFolderOpen, "Open Remote Folder…", "⌘O", a.chooseRemoteFolder)
+							a.welcomeAction(c, iconFolderOpen, "Open Remote Folder…", a.keyHint("file.openFolder"), a.chooseRemoteFolder)
 						}
-						a.welcomeAction(c, iconSearch, "Quick Open…", "⌘P", func() { a.openQuick("") })
-						a.welcomeAction(c, iconSearch, "Find in Files", "⇧⌘F", func() { a.showSearch(false) })
+						a.welcomeAction(c, iconSearch, "Quick Open…", a.keyHint("go.quickOpen"), func() { a.openQuick("") })
+						a.welcomeAction(c, iconSearch, "Find in Files", a.keyHint("edit.findInFiles"), func() { a.showSearch(false) })
 					}
-					a.welcomeAction(c, iconChevronRight, "Command Palette…", "⇧⌘P", func() { a.openQuick(">") })
-					a.welcomeAction(c, iconFilePlus, "New File", "⌘N", a.newFile)
-					a.welcomeAction(c, iconTerminal, "Toggle Terminal", "⌃`", a.togglePanel)
-					a.welcomeAction(c, iconSidebar, "Toggle Sidebar", "⌘B", a.toggleSidebar)
+					a.welcomeAction(c, iconChevronRight, "Command Palette…", a.keyHint("go.commands"), func() { a.openQuick(">") })
+					a.welcomeAction(c, iconFilePlus, "New File", a.keyHint("file.new"), a.newFile)
+					a.welcomeAction(c, iconTerminal, "Toggle Terminal", a.keyHint("view.terminal"), a.togglePanel)
+					a.welcomeAction(c, iconSidebar, "Toggle Sidebar", a.keyHint("view.sidebar"), a.toggleSidebar)
 				})
 				var recent []string
 				if a.root == "" {

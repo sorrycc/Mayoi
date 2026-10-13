@@ -121,7 +121,7 @@ func (a *app) activeTab() *colTab { return a.column().tab() }
 
 // activeEditor returns the editor shown in the column that has the
 // keyboard, nil when it shows a terminal, an image or nothing. It may
-// show the preview of an SVG rather than its text.
+// show a rendered preview rather than its text.
 func (a *app) activeEditor() *editor {
 	if t := a.activeTab(); t != nil {
 		if t.ed != nil && (t.ed.remoteLoading || t.ed.remoteLoadError != "") {
@@ -133,7 +133,7 @@ func (a *app) activeEditor() *editor {
 }
 
 // activeViewer returns the viewer shown in the column that has the
-// keyboard: an image's, or an SVG's preview. Nil when it shows none.
+// keyboard: an image or a document's preview. Nil when it shows none.
 func (a *app) activeViewer() *viewer {
 	switch t := a.activeTab(); {
 	case t == nil:
@@ -760,7 +760,7 @@ func (a *app) restoreTab(t *colTab, ts settings.Tab) {
 		t.ed.remoteRestores = append(t.ed.remoteRestores, func() {
 			if _, i := a.locate(t); i >= 0 {
 				a.restoreTab(t, ts)
-				if ts.Preview && isSVG(t.ed.document) {
+				if ts.Preview && canPreview(t.ed.document) {
 					a.setPreview(t.ed, true)
 				}
 			}
@@ -840,7 +840,7 @@ func (a *app) restoreTabs() {
 					a.opening = ts.Transient
 					a.openFile(ts.File, false)
 					a.opening = false
-					if t := col.tab(); ts.Preview && len(col.tabs) > n && t.ed != nil && isSVG(t.ed.document) {
+					if t := col.tab(); ts.Preview && len(col.tabs) > n && t.ed != nil && canPreview(t.ed.document) {
 						a.setPreview(t.ed, true)
 					}
 				}

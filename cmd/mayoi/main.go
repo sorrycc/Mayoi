@@ -503,7 +503,7 @@ func (m *mayoi) reloadKeys(km *keymap.Map, err error) {
 	if err == nil {
 		m.keys = km
 		for _, w := range m.wins {
-			w.a.keys, w.a.chord, w.a.palette = km, nil, nil
+			w.a.keys, w.a.chord, w.a.palette, w.a.hints = km, nil, nil, nil
 			w.a.invalidate()
 		}
 		m.refreshMenu()

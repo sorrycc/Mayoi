@@ -114,7 +114,7 @@ func (a *app) recentPickerView(c *ui.Context) {
 					ui.Text(c, msg).FontSize(13).TextColor(p.muted).Padding(12, 16)
 				}
 				r.moved = false
-				a.quickFooter(c, false, "open", "⌘⏎ in a new window", false)
+				a.quickFooter(c, false, "open", keyText("CmdOrCtrl+Enter")+" in a new window", false)
 			})
 			if box.PressedOutside() || back.OverlayShortcut(0, ui.KeyEscape) {
 				a.closeRecentPicker()

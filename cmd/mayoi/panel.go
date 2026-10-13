@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"mayoi/internal/keymap"
+	"mayoi/internal/remotefs"
 	"mayoi/internal/settings"
 	"os"
 	"path/filepath"
@@ -69,8 +70,17 @@ func (a *app) startTerminal(dir string) *session {
 	a.nextTerm++
 	s := &session{id: a.nextTerm, dir: dir, title: shellName()}
 	light, dark := a.termThemes()
+	localDir := dir
+	var command []string
+	if program, args := remotefs.Terminal(dir); program != "" {
+		localDir = ""
+		command = append([]string{program}, args...)
+		target, _, _ := remotefs.Split(dir)
+		s.title = "SSH: " + target.Host
+	}
 	term, err := terminal.New(terminal.Options{
-		Dir:       dir,
+		Command:   command,
+		Dir:       localDir,
 		Font:      termFont(a.settings),
 		Theme:     light,
 		DarkTheme: dark,

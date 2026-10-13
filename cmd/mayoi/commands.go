@@ -1,6 +1,7 @@
 package main
 
 import (
+	"mayoi/internal/remotefs"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -28,6 +29,10 @@ func (a *app) commands() []command {
 		}
 	}
 	return []command{
+		{"file.remote", "Connect via SSH…", "", a.chooseRemote},
+		{"file.remoteFolder", "Open Remote Folder…", "", a.chooseRemoteFolder},
+		{"file.localFolder", "Open Local Folder…", "", func() { a.host.openFolder(a.switchFolder) }},
+		{"file.reconnect", "Reconnect SSH", "", a.reconnectRemote},
 		{"file.new", "New File", "CmdOrCtrl+N", a.newFile},
 		{"file.openFolder", "Open Folder…", "CmdOrCtrl+O", a.chooseFolder},
 		{"file.openFolderWindow", "Open Folder in New Window…", "Alt+CmdOrCtrl+O", a.chooseFolderWindow},
@@ -157,11 +162,19 @@ func (a *app) run(id string) {
 // chooseFolder asks for a folder to open in the window, or shows the
 // window that has it open.
 func (a *app) chooseFolder() {
+	if remotefs.IsRemote(a.folder()) {
+		a.chooseRemoteFolder()
+		return
+	}
 	a.host.openFolder(a.switchFolder)
 }
 
 // chooseFolderWindow asks for a folder to open in a window of its own.
 func (a *app) chooseFolderWindow() {
+	if remotefs.IsRemote(a.folder()) {
+		a.browseRemote(a.folder(), false, true)
+		return
+	}
 	a.host.openFolder(func(dir string) { a.host.newWindow(dir) })
 }
 
@@ -301,6 +314,7 @@ func (a *app) menu(cli bool, run func(id string, win *mygo.Window)) *mygo.Menu {
 	recent = append(recent, more, mygo.Separator(), forget)
 	file := []*mygo.MenuItem{
 		item("file.new"), item("file.openFolder"), item("file.openFolderWindow"),
+		item("file.remote"), item("file.remoteFolder"), item("file.localFolder"), item("file.reconnect"),
 		{Label: "Open Recent", Submenu: recent}, mygo.Separator(),
 		item("file.save"), item("file.saveAs"), item("file.saveAll"), checkbox("file.autoSave", a.settings.AutoSave), item("file.settings"), item("file.keybindings"), mygo.Separator(),
 		item("file.close"), item("file.reopenClosed"), item("file.closeFolder"),

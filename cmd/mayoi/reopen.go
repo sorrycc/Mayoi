@@ -1,7 +1,7 @@
 package main
 
 import (
-	"os"
+	"mayoi/internal/remotefs"
 	"slices"
 
 	"mayoi/internal/git"
@@ -106,7 +106,7 @@ func (a *app) reopenClosed() {
 			a.dropColumn(col, made)
 			continue
 		}
-		if _, err := os.Stat(c.path); err != nil {
+		if _, err := remotefs.Stat(c.path); err != nil {
 			a.dropColumn(col, made)
 			continue
 		}

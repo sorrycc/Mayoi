@@ -2,7 +2,7 @@ package main
 
 import (
 	"bytes"
-	"os"
+	"mayoi/internal/remotefs"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -242,11 +242,11 @@ func (a *app) discardHunks(f *diffFile, hs []linediff.Hunk) {
 				if len(picked) == 0 {
 					return nil
 				}
-				info, err := os.Stat(path)
+				info, err := remotefs.Stat(path)
 				if err != nil {
 					return err
 				}
-				return os.WriteFile(path, []byte(joinLines(linediff.Apply(lines, index, inverted(picked)), crlf)), info.Mode().Perm())
+				return remotefs.WriteFile(path, []byte(joinLines(linediff.Apply(lines, index, inverted(picked)), crlf)), info.Mode().Perm())
 			}, nil)
 		}}
 }
@@ -285,7 +285,7 @@ func (a *app) workText(f *diffFile) (text string, crlf, ok bool) {
 // readWork reads a file of the work tree, with its line endings as \n,
 // and reports whether they were \r\n.
 func readWork(path string) (string, bool, error) {
-	data, err := os.ReadFile(path)
+	data, err := remotefs.ReadFile(path)
 	if err != nil {
 		return "", false, err
 	}

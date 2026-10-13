@@ -7,7 +7,7 @@ import (
 	"image"
 	"image/color"
 	"math"
-	"os"
+	"mayoi/internal/remotefs"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -115,14 +115,14 @@ func (a *app) loadImage(v *viewer) {
 // decodeImage reads an image file into a bitmap, at most maxBitmapSide
 // on a side, and returns its own size.
 func decodeImage(path string) (bm *ui.Bitmap, w, h int, size int64, err error) {
-	info, err := os.Stat(path)
+	info, err := remotefs.Stat(path)
 	if err != nil {
 		return nil, 0, 0, 0, err
 	}
 	if info.Size() > maxOpenBytes {
 		return nil, 0, 0, 0, errors.New("the image is too large to show")
 	}
-	data, err := os.ReadFile(path)
+	data, err := remotefs.ReadFile(path)
 	if err != nil {
 		return nil, 0, 0, 0, err
 	}

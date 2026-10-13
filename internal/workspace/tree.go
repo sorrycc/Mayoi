@@ -5,6 +5,8 @@ package workspace
 
 import (
 	"cmp"
+	"fmt"
+	"mayoi/internal/remotefs"
 	"os"
 	"path/filepath"
 	"slices"
@@ -52,12 +54,16 @@ type Tree struct {
 	// on disk, and those removed.
 	OnChange func(changed, removed []string)
 
-	mu      sync.Mutex
-	pending map[string]bool // directories to read again
-	files   map[string]bool // files written
-	gone    map[string]bool // paths removed
-	timer   *time.Timer
-	closed  bool
+	mu         sync.Mutex
+	pending    map[string]bool // directories to read again
+	files      map[string]bool // files written
+	gone       map[string]bool // paths removed
+	timer      *time.Timer
+	closed     bool
+	stop       chan struct{}
+	pollFiles  map[string]bool
+	polling    bool
+	pollStamps map[string]string
 }
 
 // NewTree opens the tree of root. post runs a function on the main thread.
@@ -66,6 +72,13 @@ func NewTree(root string, post func(func())) *Tree {
 		Root: root, post: post,
 		children: map[string][]string{}, dirs: map[string]bool{root: true}, loading: map[string]bool{},
 		watched: map[string]bool{},
+	}
+	if remotefs.IsRemote(root) {
+		t.stop = make(chan struct{})
+		t.pollFiles = map[string]bool{}
+		t.pollStamps = map[string]string{}
+		go t.poll()
+		return t
 	}
 	if w, err := fsnotify.NewWatcher(); err == nil {
 		t.watcher = w
@@ -77,7 +90,14 @@ func NewTree(root string, post func(func())) *Tree {
 // Close stops watching the tree.
 func (t *Tree) Close() {
 	t.mu.Lock()
+	if t.closed {
+		t.mu.Unlock()
+		return
+	}
 	t.closed = true
+	if t.stop != nil {
+		close(t.stop)
+	}
 	if t.timer != nil {
 		t.timer.Stop()
 	}
@@ -125,9 +145,18 @@ func (t *Tree) Load(dir string) {
 func (t *Tree) reload(dir string) {
 	t.loading[dir] = true
 	go func() {
-		kids, dirs := readDir(dir)
+		kids, dirs, err := readDir(dir)
 		t.post(func() {
+			t.mu.Lock()
+			closed := t.closed
+			t.mu.Unlock()
+			if closed {
+				return
+			}
 			delete(t.loading, dir)
+			if err != nil {
+				return
+			} // Preserve the previous tree across a disconnect.
 			if !t.dirs[dir] {
 				return // removed meanwhile
 			}
@@ -138,7 +167,7 @@ func (t *Tree) reload(dir string) {
 
 // set records a directory's entries.
 func (t *Tree) set(dir string, kids []string, dirs map[string]bool) {
-	old := t.children[dir]
+	old, loaded := t.children[dir]
 	for _, k := range old {
 		if t.dirs[k] && !dirs[k] {
 			t.forget(k)
@@ -148,6 +177,9 @@ func (t *Tree) set(dir string, kids []string, dirs map[string]bool) {
 		t.dirs[k] = true
 	}
 	t.children[dir] = kids
+	if t.stop != nil && loaded && !slices.Equal(old, kids) && t.OnChange != nil {
+		t.OnChange(nil, nil)
+	}
 	t.gen++
 	if t.watcher != nil && !t.watched[dir] {
 		if t.watcher.Add(dir) == nil {
@@ -182,10 +214,10 @@ func (t *Tree) Refresh() {
 
 // readDir reads a directory's entries: directories first, then files,
 // each by name, as the file managers sort them.
-func readDir(dir string) ([]string, map[string]bool) {
-	entries, err := os.ReadDir(dir)
+func readDir(dir string) ([]string, map[string]bool, error) {
+	entries, err := remotefs.ReadDir(dir)
 	if err != nil {
-		return []string{}, nil
+		return []string{}, nil, err
 	}
 	kids := make([]string, 0, len(entries))
 	dirs := map[string]bool{}
@@ -196,7 +228,7 @@ func readDir(dir string) ([]string, map[string]bool) {
 		p := filepath.Join(dir, e.Name())
 		isDir := e.IsDir()
 		if e.Type()&os.ModeSymlink != 0 {
-			if info, err := os.Stat(p); err == nil && info.IsDir() {
+			if info, err := remotefs.Stat(p); err == nil && info.IsDir() {
 				isDir = true
 			}
 		}
@@ -214,7 +246,7 @@ func readDir(dir string) ([]string, map[string]bool) {
 		}
 		return compareNames(filepath.Base(a), filepath.Base(b))
 	})
-	return kids, dirs
+	return kids, dirs, nil
 }
 
 // compareNames orders names case-insensitively, then by case.
@@ -291,6 +323,10 @@ func (t *Tree) flush() {
 // outside the directories the tree read.
 func (t *Tree) Watch(path string) {
 	dir := filepath.Dir(path)
+	if t.stop != nil {
+		t.pollFiles[path] = true
+		return
+	}
 	if t.watcher == nil || t.watched[dir] {
 		return
 	}
@@ -306,4 +342,59 @@ func (t *Tree) Rel(path string) string {
 		return path
 	}
 	return filepath.ToSlash(rel)
+}
+
+// SFTP has no filesystem notifications. Poll only expanded directories and
+// open files; all IO runs in the background and stops with the tree.
+func (t *Tree) poll() {
+	ticker := time.NewTicker(3 * time.Second)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-t.stop:
+			return
+		case <-ticker.C:
+			t.post(func() {
+				t.mu.Lock()
+				closed := t.closed
+				t.mu.Unlock()
+				if closed {
+					return
+				}
+				t.Refresh()
+				if t.polling {
+					return
+				}
+				t.polling = true
+				paths := make([]string, 0, len(t.pollFiles))
+				for p := range t.pollFiles {
+					paths = append(paths, p)
+				}
+				go func() {
+					var changed, removed []string
+					for _, p := range paths {
+						if info, e := remotefs.Stat(p); e == nil {
+							stamp := fmt.Sprintf("%d:%d", info.ModTime().UnixNano(), info.Size())
+							if t.pollStamps[p] != stamp {
+								changed = append(changed, p)
+								t.pollStamps[p] = stamp
+							}
+						} else if os.IsNotExist(e) && t.pollStamps[p] != "gone" {
+							removed = append(removed, p)
+							t.pollStamps[p] = "gone"
+						}
+					}
+					t.post(func() {
+						t.polling = false
+						t.mu.Lock()
+						closed := t.closed
+						t.mu.Unlock()
+						if !closed && t.OnChange != nil {
+							t.OnChange(changed, removed)
+						}
+					})
+				}()
+			})
+		}
+	}
 }

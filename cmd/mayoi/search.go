@@ -19,6 +19,7 @@ import (
 
 	"github.com/egoist/mygo/ui"
 
+	"mayoi/internal/remotefs"
 	"mayoi/internal/workspace"
 )
 
@@ -305,6 +306,13 @@ func searchFileText(root, rel string, texts map[string]string, re *regexp.Regexp
 // asks the open file for its size, which costs half the system calls of
 // a stat by path then a read: most of a search's time.
 func readSearchText(path string) (string, bool) {
+	if remotefs.IsRemote(path) {
+		data, err := remotefs.ReadFileLimit(path, maxSearchBytes)
+		if err != nil || isBinary(data) {
+			return "", false
+		}
+		return string(bytes.ReplaceAll(data, []byte("\r\n"), []byte("\n"))), true
+	}
 	// Not to wait on a FIFO, which the index may list through a link.
 	f, err := os.OpenFile(path, os.O_RDONLY|syscall.O_NONBLOCK, 0)
 	if err != nil {
@@ -636,11 +644,11 @@ func replaceText(text string, rs []replacement) string {
 // keeping its line endings and its mode, and returns how many it made.
 // It may run on any goroutine.
 func replaceInFile(path string, re *regexp.Regexp, tmpl string, only *searchMatch) (int, error) {
-	info, err := os.Stat(path)
+	info, err := remotefs.Stat(path)
 	if err != nil {
 		return 0, err
 	}
-	data, err := os.ReadFile(path)
+	data, err := remotefs.ReadFile(path)
 	if err != nil || isBinary(data) {
 		return 0, err
 	}
@@ -657,7 +665,7 @@ func replaceInFile(path string, re *regexp.Regexp, tmpl string, only *searchMatc
 	if crlf {
 		text = strings.ReplaceAll(text, "\n", "\r\n")
 	}
-	return len(rs), os.WriteFile(path, []byte(text), info.Mode().Perm())
+	return len(rs), remotefs.WriteFile(path, []byte(text), info.Mode().Perm())
 }
 
 // replaceInDoc makes the replacements of re in an open document, as one

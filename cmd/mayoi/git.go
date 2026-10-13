@@ -1,7 +1,9 @@
 package main
 
 import (
+	"errors"
 	"fmt"
+	"mayoi/internal/remotefs"
 	"os"
 	"path/filepath"
 	"slices"
@@ -112,7 +114,7 @@ func (a *app) refreshGit() {
 	if g.repo == nil {
 		return
 	}
-	if time.Since(g.checked) >= 1500*time.Millisecond {
+	if !remotefs.IsRemote(a.root) && time.Since(g.checked) >= 1500*time.Millisecond {
 		g.checked = time.Now()
 		t, refs := gitMeta(g.repo)
 		if !t.Equal(g.meta) {
@@ -221,23 +223,40 @@ func gitMeta(r *git.Repo) (head, refs time.Time) {
 		filepath.Join(r.Dir, "index"), filepath.Join(r.Dir, "HEAD"), filepath.Join(r.Dir, "logs", "HEAD"),
 		filepath.Join(r.Common, "FETCH_HEAD"),
 	} {
-		if info, err := os.Stat(p); err == nil && info.ModTime().After(head) {
+		if info, err := remotefs.Stat(p); err == nil && info.ModTime().After(head) {
 			head = info.ModTime()
 		}
 	}
 	later := func(p string) {
-		if info, err := os.Stat(p); err == nil && info.ModTime().After(refs) {
+		if info, err := remotefs.Stat(p); err == nil && info.ModTime().After(refs) {
 			refs = info.ModTime()
 		}
 	}
 	later(filepath.Join(r.Common, "packed-refs"))
 	// A ref written goes in by a rename, which changes its folder's time.
-	filepath.WalkDir(filepath.Join(r.Common, "refs"), func(p string, d os.DirEntry, err error) error {
-		if err == nil && d.IsDir() {
-			later(p)
+	if remotefs.IsRemote(r.Root) {
+		var visit func(string)
+		visit = func(dir string) {
+			later(dir)
+			entries, err := remotefs.ReadDir(dir)
+			if err != nil {
+				return
+			}
+			for _, entry := range entries {
+				if entry.IsDir() {
+					visit(filepath.Join(dir, entry.Name()))
+				}
+			}
 		}
-		return nil
-	})
+		visit(filepath.Join(r.Common, "refs"))
+	} else {
+		filepath.WalkDir(filepath.Join(r.Common, "refs"), func(p string, d os.DirEntry, err error) error {
+			if err == nil && d.IsDir() {
+				later(p)
+			}
+			return nil
+		})
+	}
 	return head, refs
 }
 
@@ -328,6 +347,9 @@ func (a *app) gitDo(busy string, fn func(r *git.Repo) error, then func()) {
 	go func() {
 		err := fn(r)
 		a.post(func() {
+			if a.git.repo != r {
+				return
+			}
 			g.pending--
 			if busy != "" {
 				g.busy = ""
@@ -346,6 +368,11 @@ func (a *app) gitDo(busy string, fn func(r *git.Repo) error, then func()) {
 
 // gitFailed says why a git command failed.
 func (a *app) gitFailed(err error) {
+	var occupied *git.WorktreeInUse
+	if errors.As(err, &occupied) {
+		a.askOpenWorktree(occupied.Branch, occupied.Path)
+		return
+	}
 	msg := err.Error()
 	if len(msg) > 400 {
 		msg = msg[:400] + "…"
@@ -406,6 +433,25 @@ func (a *app) push() {
 // once the documents are saved: Git keeps the changes of the work tree
 // when they do not clash with the branch's.
 func (a *app) switchBranch(branch string, create bool) {
+	if create {
+		a.checkoutBranch(branch, true)
+		return
+	}
+	var worktree string
+	a.gitDo("Checking worktrees…", func(r *git.Repo) error {
+		var err error
+		worktree, err = r.WorktreeForBranch(branch)
+		return err
+	}, func() {
+		if worktree != "" && branch != a.branch() {
+			a.askOpenWorktree(branch, worktree)
+			return
+		}
+		a.checkoutBranch(branch, false)
+	})
+}
+
+func (a *app) checkoutBranch(branch string, create bool) {
 	if !a.docsSaved("switching branches") {
 		return
 	}

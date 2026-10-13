@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"image"
 	"image/png"
+	"mayoi/internal/remotefs"
 	"os"
 	"path/filepath"
 	"slices"
@@ -128,6 +129,7 @@ func (a *app) view(c *ui.Context) {
 	a.quickOpenView(c)
 	a.branchPickerView(c)
 	a.recentPickerView(c)
+	a.remotePickerView(c)
 	a.promptView(c)
 	a.confirmView(c)
 	if !a.dialogBuilt {
@@ -289,7 +291,7 @@ func (a *app) commandCenter(c *ui.Context) {
 			}
 		}
 		if a.root != "" {
-			folder = filepath.Base(a.root)
+			folder = a.workspaceName()
 		}
 		switch {
 		case name != "" && folder != "":
@@ -742,7 +744,15 @@ func (a *app) statusBar(c *ui.Context) {
 			item("chord", "("+strings.Join(chordCaps(a.chord), " ")+") was pressed. Waiting for the next key…", "", iconKeyboard, nil)
 		}
 		if a.root != "" {
-			item("folder", filepath.Base(a.root), "Reveal "+shortenHome(a.root)+" in Finder", iconFolder, func() { a.host.reveal(a.root) })
+			if t, _, ok := remotefs.Split(a.root); ok {
+				label := "SSH: " + t.Host
+				if !remotefs.Connected(a.root) {
+					label += " · Disconnected"
+				}
+				item("folder", label, remotefs.Display(a.root), iconTerminal, a.reconnectRemote)
+			} else {
+				item("folder", a.workspaceName(), "Reveal "+shortenHome(a.root)+" in Finder", iconFolder, func() { a.host.reveal(a.root) })
+			}
 		}
 		ui.Spacer(c)
 		if v := a.activeViewer(); v != nil {
@@ -913,7 +923,11 @@ func (a *app) welcome(c *ui.Context) {
 				a.welcomeSection(c, "Start", func() {
 					if a.root == "" {
 						a.welcomeAction(c, iconFolderOpen, "Open Folder…", "⌘O", a.chooseFolder)
+						a.welcomeAction(c, iconTerminal, "Connect via SSH…", "", a.chooseRemote)
 					} else {
+						if remotefs.IsRemote(a.root) {
+							a.welcomeAction(c, iconFolderOpen, "Open Remote Folder…", "⌘O", a.chooseRemoteFolder)
+						}
 						a.welcomeAction(c, iconSearch, "Quick Open…", "⌘P", func() { a.openQuick("") })
 						a.welcomeAction(c, iconSearch, "Find in Files", "⇧⌘F", func() { a.showSearch(false) })
 					}
@@ -1050,6 +1064,9 @@ func (a *app) togglePanel() {
 }
 
 func shortenHome(p string) string {
+	if remotefs.IsRemote(p) {
+		return remotefs.Display(p)
+	}
 	if home, err := os.UserHomeDir(); err == nil && strings.HasPrefix(p, home) {
 		return "~" + p[len(home):]
 	}

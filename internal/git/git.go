@@ -7,8 +7,8 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"mayoi/internal/remotefs"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"slices"
 	"strconv"
@@ -36,7 +36,7 @@ func Open(dir string) (*Repo, error) {
 	if len(lines) < 3 {
 		return nil, errors.New("not a work tree")
 	}
-	r := &Repo{Root: filepath.Clean(filepath.Join(dir, lines[0])), Dir: lines[1], Common: lines[2]}
+	r := &Repo{Root: filepath.Clean(filepath.Join(dir, lines[0])), Dir: remotefs.MapAbsolute(dir, lines[1]), Common: remotefs.MapAbsolute(dir, lines[2])}
 	if !filepath.IsAbs(r.Common) {
 		r.Common = filepath.Join(dir, r.Common)
 	}
@@ -62,8 +62,8 @@ func (e *Error) Unwrap() error { return e.Err }
 // run runs git in dir, with stdin, and returns what it wrote. It never
 // asks for a password: there is no terminal to ask in.
 func run(dir string, stdin []byte, args ...string) ([]byte, error) {
-	cmd := exec.Command("git", args...)
-	cmd.Dir = dir
+	cmd, cancel := remotefs.GitCommand(dir, args...)
+	defer cancel()
 	cmd.Env = append(os.Environ(), "GIT_TERMINAL_PROMPT=0", "GIT_OPTIONAL_LOCKS=0", "LC_ALL=C")
 	if os.Getenv("GIT_SSH_COMMAND") == "" {
 		cmd.Env = append(cmd.Env, "GIT_SSH_COMMAND=ssh -oBatchMode=yes")
@@ -292,7 +292,7 @@ func subproject(hash string, dirty bool) string {
 // it. ok is false when it is not checked out.
 func (r *Repo) WorkSubproject(path string, dirty bool) (text string, ok bool, err error) {
 	// Without its own .git, git in the folder would find this repository.
-	if _, err := os.Lstat(filepath.Join(path, ".git")); err != nil {
+	if _, err := remotefs.Lstat(filepath.Join(path, ".git")); err != nil {
 		return "", false, nil
 	}
 	out, err := run(path, nil, "rev-parse", "--verify", "-q", "HEAD")
@@ -526,6 +526,11 @@ func (r *Repo) Switch(branch string, create bool) error {
 		args = []string{"switch", "-c", branch}
 	}
 	_, err := r.run(nil, args...)
+	if err != nil && !create {
+		if path, lookupErr := r.WorktreeForBranch(branch); lookupErr == nil && path != "" {
+			return &WorktreeInUse{Branch: branch, Path: path}
+		}
+	}
 	return err
 }
 

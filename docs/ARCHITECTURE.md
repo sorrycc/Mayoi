@@ -178,3 +178,19 @@ dark, and the other themes that the `theme` setting names: The Matrix, which mak
 worked out from the time alone, a step every 70 ms. `clawd.go` paints Claude's character from cells, its pose also
 worked out from the time, asking for a frame only when the pose next changes. It also styles what floats over
 the window, dialogs and the boxes over an editor, and fades them in as they show.
+
+## Remote workspaces
+
+`internal/remotefs` routes workspace IO to local OS calls or an SFTP client over
+an OpenSSH subprocess. Remote files use a reversible virtual absolute namespace,
+so documents, tabs, settings and relative Git paths cannot confuse two hosts or
+a local path. The namespace is never a local filesystem mirror. OpenSSH retains
+ownership of credentials, proxy configuration and host-key verification.
+
+`cmd/mayoi/remote.go` owns connection prompts, background connection, reconnect,
+remote Save As and asynchronous snapshot saves. Only the snapshot successfully
+uploaded is marked saved. `internal/workspace` polls expanded remote directories
+and watched file metadata; read failures preserve the last tree. Git uses quoted
+commands over SSH with a deadline; terminals start an interactive SSH process
+in the corresponding remote directory. Connections are shared per SSH target
+and terminated on application exit.

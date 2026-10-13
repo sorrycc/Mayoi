@@ -8,6 +8,7 @@ import (
 	"log"
 	"mayoi/internal/cli"
 	"mayoi/internal/keymap"
+	"mayoi/internal/remotefs"
 	"mayoi/internal/settings"
 	"os"
 	"path/filepath"
@@ -81,8 +82,19 @@ func (h *desktop) confirmClose(name string, done func(int)) {
 	}()
 }
 
-func (h *desktop) trash(path string) error { return mygo.Shell.TrashItem(path) }
-func (h *desktop) reveal(path string)      { mygo.Shell.ShowItemInFolder(path) }
+func (h *desktop) trash(path string) error {
+	if remotefs.IsRemote(path) {
+		return errors.New("Remote Trash is unavailable. Use the SSH terminal to remove remote files")
+	}
+	return mygo.Shell.TrashItem(path)
+}
+func (h *desktop) reveal(path string) {
+	if remotefs.IsRemote(path) {
+		h.a.tell(note{message: remotefs.Display(path)})
+		return
+	}
+	mygo.Shell.ShowItemInFolder(path)
+}
 func (h *desktop) copyFiles(paths []string) error {
 	return mygo.Clipboard.WriteFiles(paths...)
 }
@@ -232,7 +244,7 @@ func main() {
 			mygo.App.Quit()
 		})
 	})
-	mygo.App.OnQuit(func() { m.s.Flush() })
+	mygo.App.OnQuit(func() { remotefs.CloseAll(); m.s.Flush() })
 	mygo.App.WhenReady(func() {
 		m.s = settings.Load(settingsPath())
 		mygo.Theme.SetSource(themeSource(m.s.Theme, m.s.Appearance))
@@ -283,6 +295,14 @@ func argPaths(args []string, wd string) []string {
 	var paths []string
 	for _, arg := range args {
 		if arg == "" || strings.HasPrefix(arg, "-") {
+			continue
+		}
+		if strings.HasPrefix(arg, "ssh://") {
+			if p, err := remotefs.Parse(arg); err == nil {
+				paths = append(paths, p)
+			} else {
+				log.Print(err)
+			}
 			continue
 		}
 		if !filepath.IsAbs(arg) {
@@ -343,6 +363,10 @@ func (m *mayoi) open(paths []string) {
 // that are neither.
 func splitPaths(paths []string) (folders, files []string) {
 	for _, p := range paths {
+		if remotefs.IsRemote(p) {
+			folders = append(folders, p)
+			continue
+		}
 		info, err := os.Stat(p)
 		switch p = filepath.Clean(p); {
 		case err != nil:
@@ -621,6 +645,11 @@ func (m *mayoi) openWindow(st *settings.Window) *desktop {
 	// their folders' sessions.
 	win.OnClosed(func() {
 		a.keepSession()
+		a.remoteGeneration++
+		a.remotePicker = nil
+		if a.tree != nil {
+			a.tree.Close()
+		}
 		a.closeTerminals()
 		m.wins = slices.DeleteFunc(m.wins, func(w *desktop) bool { return w == h })
 		if !m.quitting && len(m.wins) > 0 {

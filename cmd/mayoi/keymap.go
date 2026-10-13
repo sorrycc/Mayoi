@@ -14,6 +14,7 @@ import (
 	"github.com/egoist/mygo/ui"
 
 	"mayoi/internal/keymap"
+	"mayoi/internal/remotefs"
 )
 
 // keyPlace is where the keyboard is as the shortcuts of keybindings.json
@@ -489,7 +490,7 @@ func (a *app) copyActivePath(rel bool) {
 	if rel && a.tree != nil {
 		path = a.tree.Rel(path)
 	}
-	a.services.WriteClipboard(path)
+	a.services.WriteClipboard(remotefs.Display(path))
 }
 
 // revealActive shows the file of the tab shown in the Finder.

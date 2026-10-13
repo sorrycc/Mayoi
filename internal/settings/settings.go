@@ -6,6 +6,7 @@ package settings
 import (
 	"bytes"
 	"encoding/json"
+	"mayoi/internal/remotefs"
 	"os"
 	"path/filepath"
 	"slices"
@@ -424,6 +425,10 @@ func (s *Settings) RecentExcept(dir string) []string {
 	var out []string
 	for _, d := range s.Recent {
 		if d == dir {
+			continue
+		}
+		if remotefs.IsRemote(d) {
+			out = append(out, d)
 			continue
 		}
 		if info, err := os.Stat(d); err == nil && info.IsDir() {

@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"errors"
+	"mayoi/internal/remotefs"
 	"os"
 	"path/filepath"
 	"slices"
@@ -22,11 +23,13 @@ var errBinary = errors.New("binary file")
 // document is a file open in the editor: its text, and what follows from
 // the text alone. Each tab that shows it has an editor of its own.
 type document struct {
-	id    int
-	path  string // absolute; "" for an untitled document
-	title string // an untitled document's name
-	buf   *ui.TextBuffer
-	saved uint64 // the buffer's version on disk
+	remoteSaving, remoteSaveAgain bool
+	remoteAfterSave               []func()
+	id                            int
+	path                          string // absolute; "" for an untitled document
+	title                         string // an untitled document's name
+	buf                           *ui.TextBuffer
+	saved                         uint64 // the buffer's version on disk
 	// savedSnap is the text on disk, which undoing back to makes the
 	// document clean again.
 	savedSnap ui.TextSnapshot
@@ -172,14 +175,14 @@ func (d *document) dirty() bool { return d.buf.Version() != d.saved || d.crlf !=
 
 // readDocument reads a file into a document.
 func readDocument(id int, path string, notify func()) (*document, error) {
-	info, err := os.Stat(path)
+	info, err := remotefs.Stat(path)
 	if err != nil {
 		return nil, err
 	}
 	if info.Size() > maxOpenBytes {
 		return nil, errors.New("file is too large to open")
 	}
-	data, err := os.ReadFile(path)
+	data, err := remotefs.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
@@ -238,13 +241,21 @@ func (d *document) save() error {
 		data = bytes.ReplaceAll(data, []byte("\n"), []byte("\r\n"))
 	}
 	mode := os.FileMode(0o644)
-	if info, err := os.Stat(d.path); err == nil {
+	if info, err := remotefs.Stat(d.path); err == nil {
 		mode = info.Mode().Perm()
+	}
+	if remotefs.IsRemote(d.path) {
+		if err := remotefs.WriteFile(d.path, data, mode); err != nil {
+			return err
+		}
+		d.savedSnap, d.saved = snap, snap.Version()
+		d.diskCRLF = d.crlf
+		return nil
 	}
 	// Write beside the file and rename, so that a failure keeps the old one.
 	tmp, err := os.CreateTemp(filepath.Dir(d.path), "."+filepath.Base(d.path)+".mayoi-*")
 	if err != nil {
-		return os.WriteFile(d.path, data, mode)
+		return remotefs.WriteFile(d.path, data, mode)
 	}
 	if _, err := tmp.Write(data); err != nil {
 		tmp.Close()
@@ -256,7 +267,7 @@ func (d *document) save() error {
 		return err
 	}
 	os.Chmod(tmp.Name(), mode)
-	if err := os.Rename(tmp.Name(), d.path); err != nil {
+	if err := remotefs.Rename(tmp.Name(), d.path); err != nil {
 		os.Remove(tmp.Name())
 		return err
 	}

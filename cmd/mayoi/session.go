@@ -3,6 +3,7 @@ package main
 import (
 	"path/filepath"
 
+	"mayoi/internal/remotefs"
 	"mayoi/internal/settings"
 )
 
@@ -25,6 +26,10 @@ func (a *app) stash(ses settings.Session) {
 // openSession opens dir in the window, with the tabs it had when a
 // window last closed it.
 func (a *app) openSession(dir string) {
+	if remotefs.IsRemote(dir) && !remotefs.Connected(dir) {
+		a.connectRemote(dir, false)
+		return
+	}
 	a.openFolder(dir)
 	ses := a.settings.TakeSession(dir)
 	if ses == nil {

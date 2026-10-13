@@ -26,6 +26,7 @@
 - **Git:** a source control view to stage, commit, amend, undo, pull and push, every change in one diff, folded
   around the changes, inline or side by side, a graph of the commits with their branches and tags, each with its own
   diff, gutter marks that revert or stage a change, branches and blame
+- **Remote SSH:** open remote folders over SFTP, edit and atomically save files, run Git on the remote host, and open SSH terminals using your existing OpenSSH configuration
 - **Terminal:** Ghostty's emulator (libghostty-vt), in the bottom panel or in a tab
 - **Image viewer:** PNG, JPEG, GIF, WebP and BMP, plus a live SVG preview
 - **Auto save,** light, dark, The Matrix and Claude themes, one window per folder, and a `mayoi` shell command
@@ -49,6 +50,53 @@ go tool mygo build                   # build build/darwin-arm64/Mayoi.app and a 
 ```
 
 To open folders from a shell, choose **File → Install 'mayoi' Command**, then run `mayoi .` or `mayoi <file>`.
+
+## Remote SSH
+
+Choose **File → Connect via SSH…** (also on the welcome screen). Enter just an
+SSH host alias, `user@hostname:port`, or a complete SSH URL:
+
+```text
+my-ssh-alias
+user@hostname:2222
+ssh://my-ssh-alias/home/me/projects
+```
+
+After connecting, **Open Remote Folder** lists remote directories. A host without
+a path starts in the remote home directory. Click folders to browse, use **Up**
+or **Home**, or enter an absolute path and press **Go**. Then choose **Open Folder**
+to make the current directory your project, or **New Window** to keep the existing
+project open.
+
+Inside an SSH workspace, **⌘O / File → Open Folder…**, the sidebar's always-visible
+**Open Remote Folder…** button, and **File → Open Remote Folder…** reopen this browser
+on the same host. You can also right-click an Explorer folder and choose **Open as
+Project**. Switching projects follows the regular unsaved-changes flow and closes
+the previous project's terminals. **File → Open Local Folder…** still opens the
+native local folder chooser.
+
+The host can be an alias from `~/.ssh/config`. OpenSSH handles keys, SSH Agent
+(including 1Password via `IdentityAgent`), ProxyJump and host verification.
+First connect with `ssh my-ssh-alias` in a terminal to verify the host key and
+confirm key/agent authentication works. File access uses batch authentication;
+password-only connections are not supported by the file browser.
+
+The remote machine needs an SFTP subsystem; Git features additionally need
+`git` and a POSIX shell. No Mayoi server, filesystem mount or project download
+is required. Files, Git commands and terminals all operate on the remote host.
+Saves use a temporary sibling file and atomic rename; a failed upload keeps the
+buffer dirty and preserves the original file. Existing-file replacement requires
+the OpenSSH POSIX rename extension. Remote directories and open-file metadata
+refresh every three seconds; dirty buffers are not replaced by external changes.
+
+Remote workspaces appear in **Open Recent** and restore on launch. After a
+connection failure, use **File → Reconnect SSH** or click the SSH status label.
+**Save As** asks for a path on the same remote host. Remote Trash/Finder actions
+are unavailable; use the SSH terminal for file deletion. This first version
+supports POSIX remote hosts and may wait for the network when opening a file.
+
+After installing the shell command, `mayoi ssh://my-ssh-alias/home/me/project`
+opens a remote folder. The app binary accepts the same URL as an argument.
 
 ## Development
 

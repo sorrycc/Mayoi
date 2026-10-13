@@ -3,7 +3,7 @@ package main
 import (
 	"bytes"
 	"fmt"
-	"os"
+	"mayoi/internal/remotefs"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -79,10 +79,13 @@ type app struct {
 	queue       []func()
 	hasServices bool
 
-	root    string
-	tree    *workspace.Tree
-	files   ui.OutlineState[string]
-	fileRow int
+	remotePicker     *remotePicker
+	remoteGeneration int
+	remoteBusy       bool
+	root             string
+	tree             *workspace.Tree
+	files            ui.OutlineState[string]
+	fileRow          int
 	// treeSynced is the document the tree last followed, selectInTree the
 	// file it should choose once its row shows.
 	treeSynced, selectInTree string
@@ -253,8 +256,12 @@ func (a *app) tell(n note) { a.notes = append(a.notes, n) }
 // had open.
 func (a *app) start() {
 	w := a.window
+	if remotefs.IsRemote(w.Folder) {
+		a.connectRemote(w.Folder, true)
+		return
+	}
 	if w.Folder != "" {
-		if info, err := os.Stat(w.Folder); err == nil && info.IsDir() {
+		if info, err := remotefs.Stat(w.Folder); err == nil && info.IsDir() {
 			a.openFolder(w.Folder)
 		}
 	}
@@ -267,6 +274,12 @@ func (a *app) start() {
 // openFolder makes dir the workspace.
 func (a *app) openFolder(dir string) {
 	dir = filepath.Clean(dir)
+	if remotefs.IsRemote(dir) && !remotefs.Connected(dir) {
+		a.connectRemote(dir, false)
+		return
+	}
+	a.remoteGeneration++
+	a.remoteBusy = false
 	if a.tree != nil {
 		a.tree.Close()
 	}
@@ -326,6 +339,9 @@ func (a *app) closeFolder() {
 	a.closeAll(func() {
 		a.stash(ses)
 		a.window.Expanded = nil
+		a.remoteGeneration++
+		a.remoteBusy = false
+		a.closeTerminals()
 		if a.tree != nil {
 			a.tree.Close()
 		}
@@ -340,11 +356,14 @@ func (a *app) closeFolder() {
 // saveDoc saves a document, asking where an untitled one goes.
 func (a *app) saveDoc(d *document, then func()) {
 	if d.path == "" {
-		a.host.saveAs(d.name(), func(path string) {
+		a.chooseSavePath(d.name(), func(path string) {
 			if path == "" {
 				return
 			}
 			d.path = path
+			if remotefs.IsRemote(path) {
+				d.saved = ^uint64(0)
+			}
 			d.hl.Close()
 			d.hl = highlight.New(highlight.Lexer(path), a.invalidate)
 			a.saveDoc(d, then)
@@ -352,6 +371,10 @@ func (a *app) saveDoc(d *document, then func()) {
 				a.tree.Watch(path)
 			}
 		})
+		return
+	}
+	if remotefs.IsRemote(d.path) {
+		a.saveRemoteDoc(d, then)
 		return
 	}
 	if err := d.save(); err != nil {
@@ -378,11 +401,18 @@ func (a *app) saveActiveAs() {
 		return
 	}
 	d := ed.document
-	a.host.saveAs(d.name(), func(path string) {
+	if d.remoteSaving {
+		a.fail("Wait for the remote save to finish before Save As")
+		return
+	}
+	a.chooseSavePath(d.name(), func(path string) {
 		if path == "" {
 			return
 		}
 		d.path = path
+		if remotefs.IsRemote(path) {
+			d.saved = ^uint64(0)
+		}
 		d.hl.Close()
 		d.hl = highlight.New(highlight.Lexer(path), a.invalidate)
 		a.saveDoc(d, nil)
@@ -410,7 +440,7 @@ func (a *app) diskChanged(changed, removed []string) {
 			v.diskGone = false
 			a.loadImage(v)
 		case slices.Contains(removed, v.path):
-			if _, err := os.Stat(v.path); err != nil {
+			if _, err := remotefs.Stat(v.path); err != nil {
 				v.diskGone = true
 			}
 		}
@@ -422,14 +452,14 @@ func (a *app) diskChanged(changed, removed []string) {
 		}
 		d := a.docs[i]
 		d.diskGone = false
-		if d.dirty() {
+		if d.dirty() || d.remoteSaving {
 			continue
 		}
 		a.reloadDoc(d)
 	}
 	for _, p := range removed {
 		if i := a.docIndex(p); i >= 0 {
-			if _, err := os.Stat(p); err != nil {
+			if _, err := remotefs.Stat(p); err != nil {
 				a.docs[i].diskGone = true
 			}
 		}
@@ -440,7 +470,7 @@ func (a *app) diskChanged(changed, removed []string) {
 // reloadDoc makes a document's text the file's on disk, as a step of
 // undo, as in other editors.
 func (a *app) reloadDoc(d *document) {
-	data, err := os.ReadFile(d.path)
+	data, err := remotefs.ReadFile(d.path)
 	if err != nil || isBinary(data) {
 		return
 	}
@@ -522,6 +552,16 @@ func (a *app) isIgnored(path string) bool {
 // windowTitle is the title the window shows.
 func (a *app) windowTitle() string {
 	parts := []string{}
+	if a.remoteBusy {
+		parts = append(parts, "Connecting SSH…")
+	}
+	if t, _, ok := remotefs.Split(a.folder()); ok {
+		label := "SSH: " + t.Host
+		if !remotefs.Connected(a.folder()) && !a.remoteBusy {
+			label += " (disconnected)"
+		}
+		parts = append(parts, label)
+	}
 	if t := a.activeTab(); t != nil {
 		name := t.name()
 		if t.ed != nil && t.ed.dirty() {
@@ -530,7 +570,7 @@ func (a *app) windowTitle() string {
 		parts = append(parts, name)
 	}
 	if a.root != "" {
-		parts = append(parts, filepath.Base(a.root))
+		parts = append(parts, a.workspaceName())
 	}
 	if len(parts) == 0 {
 		return "Mayoi"

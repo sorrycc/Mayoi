@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"mayoi/internal/remotefs"
 	"os"
 	"path/filepath"
 	"slices"
@@ -1296,7 +1297,7 @@ func (a *app) pageDiff(v *diffView, dy float32) {
 // openPath shows a file, or opens a folder, as a submodule is, as
 // `mayoi <dir>` opens it.
 func (a *app) openPath(path string, focus bool) {
-	if info, err := os.Stat(path); err == nil && info.IsDir() {
+	if info, err := remotefs.Stat(path); err == nil && info.IsDir() {
 		a.host.openFolders([]string{path})
 		return
 	}

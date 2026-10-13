@@ -82,6 +82,8 @@ type confirm struct {
 	title, message, ok string
 	danger             bool
 	run                func()
+	alternate          string
+	runAlternate       func()
 }
 
 func (a *app) confirmView(c *ui.Context) {
@@ -100,9 +102,17 @@ func (a *app) confirmView(c *ui.Context) {
 				if cf.message != "" {
 					ui.Text(c, cf.message).FontSize(12.5).TextColor(p.muted)
 				}
-				ui.Row(c).Gap(8).Justify(ui.End).Children(func() {
+				buttons := ui.Row(c).Gap(8).Justify(ui.End)
+				if cf.alternate != "" {
+					buttons = ui.Column(c).Gap(8)
+				}
+				buttons.Children(func() {
 					if ui.Button(c, "Cancel").Clicked() {
 						a.confirm = nil
+					}
+					if cf.alternate != "" && ui.Button(c, cf.alternate).Clicked() {
+						a.confirm = nil
+						cf.runAlternate()
 					}
 					ok := ui.PrimaryButton(c, cf.ok).AutoFocus()
 					if cf.danger {

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"mayoi/internal/remotefs"
 	"slices"
 	"time"
 )
@@ -67,6 +68,12 @@ func (a *app) autoSaveTick() {
 // if it cannot.
 func (a *app) autoSaveDoc(d *document) {
 	if !a.autoSaves(d) || !d.dirty() || !slices.Contains(a.docs, d) {
+		return
+	}
+	if remotefs.IsRemote(d.path) {
+		if !d.autoSave.failed {
+			a.saveRemoteDoc(d, nil)
+		}
 		return
 	}
 	if err := d.save(); err != nil {

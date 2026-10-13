@@ -3,7 +3,7 @@ package main
 import (
 	"errors"
 	"fmt"
-	"os"
+	"mayoi/internal/remotefs"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -310,7 +310,7 @@ func (a *app) openImage(col *column, at int, path string, focus bool) {
 		a.activate(col, at, focus)
 		return
 	}
-	if _, err := os.Stat(path); err != nil {
+	if _, err := remotefs.Stat(path); err != nil {
 		a.fail("Could not open %s: %v", filepath.Base(path), err)
 		return
 	}
@@ -729,7 +729,7 @@ func (a *app) restoreExpanded(rels []string) {
 	}
 	for _, rel := range rels {
 		dir := filepath.Join(a.root, filepath.FromSlash(rel))
-		if info, err := os.Stat(dir); err == nil && info.IsDir() {
+		if info, err := remotefs.Stat(dir); err == nil && info.IsDir() {
 			a.files.Open.Add(dir)
 			a.tree.Load(dir)
 		}
@@ -807,7 +807,7 @@ func (a *app) restoreTabs() {
 					a.activate(col, len(col.tabs)-1, false)
 				}
 			case ts.File != "":
-				if _, err := os.Stat(ts.File); err == nil {
+				if _, err := remotefs.Stat(ts.File); err == nil {
 					a.opening = ts.Transient
 					a.openFile(ts.File, false)
 					a.opening = false

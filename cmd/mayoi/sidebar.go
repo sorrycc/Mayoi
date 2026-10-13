@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"os"
+	"mayoi/internal/remotefs"
 	"path/filepath"
 	"strings"
 
@@ -58,6 +58,15 @@ func (a *app) sidebar(c *ui.Context) {
 				return
 			}
 		})
+		if remotefs.IsRemote(a.folder()) {
+			ui.Column(c).Padding(4, 10, 10, 10).Gap(6).Children(func() {
+				target, _, _ := remotefs.Split(a.folder())
+				ui.Text(c, "SSH · "+target.Host).FontSize(11).TextColor(p.muted).SingleLine()
+				if ui.Button(c, "Open Remote Folder…").FillWidth().Clicked() {
+					a.chooseRemoteFolder()
+				}
+			})
+		}
 		if a.root == "" {
 			a.noFolder(c)
 			return
@@ -74,7 +83,7 @@ func (a *app) sidebar(c *ui.Context) {
 		// is over the sidebar or the tree has the keyboard: on the title's
 		// row, they would leave the title no room.
 		ui.Row(c).Height(24).Padding(0, 6, 0, 16).Gap(2).AlignItems(ui.Center).Children(func() {
-			ui.Text(c, strings.ToUpper(filepath.Base(a.root))).FontSize(11).FontWeight(700).LetterSpacing(0.4).
+			ui.Text(c, strings.ToUpper(a.workspaceName())).FontSize(11).FontWeight(700).LetterSpacing(0.4).
 				TextColor(p.text).SingleLine().Grow(1)
 			if !hovered && !a.files.List.FocusWithin(c) {
 				return
@@ -237,6 +246,14 @@ func (a *app) fileTree(c *ui.Context) {
 				action = func() { a.askNewEntry(dir, true) }
 			}
 			m.Separator()
+			if isDir && remotefs.IsRemote(path) {
+				if m.Item("Open as Project").Chosen() {
+					action = func() { a.openRemoteProject(path, false) }
+				}
+				if m.Item("Open Project in New Window").Chosen() {
+					action = func() { a.openRemoteProject(path, true) }
+				}
+			}
 			if m.Item("Reveal in Finder").Chosen() {
 				action = func() { a.host.reveal(path) }
 			}
@@ -427,18 +444,18 @@ func (a *app) askNewEntry(dir string, folder bool) {
 			return "Enter a name."
 		}
 		path := filepath.Join(dir, filepath.FromSlash(name))
-		if _, err := os.Lstat(path); err == nil {
+		if _, err := remotefs.Lstat(path); err == nil {
 			return "A file or folder with that name exists."
 		}
 		if folder {
-			if err := os.MkdirAll(path, 0o755); err != nil {
+			if err := remotefs.MkdirAll(path, 0o755); err != nil {
 				return err.Error()
 			}
 		} else {
-			if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			if err := remotefs.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 				return err.Error()
 			}
-			if err := os.WriteFile(path, nil, 0o644); err != nil {
+			if err := remotefs.WriteFile(path, nil, 0o644); err != nil {
 				return err.Error()
 			}
 		}
@@ -462,10 +479,10 @@ func (a *app) askRename(path string) {
 		if to == path {
 			return ""
 		}
-		if _, err := os.Lstat(to); err == nil {
+		if _, err := remotefs.Lstat(to); err == nil {
 			return "A file or folder with that name exists."
 		}
-		if err := os.Rename(path, to); err != nil {
+		if err := remotefs.Rename(path, to); err != nil {
 			return err.Error()
 		}
 		// Open documents follow the files renamed.
@@ -494,7 +511,7 @@ func (a *app) trash(path string) {
 func (a *app) relOrPath(path string) string {
 	if a.root != "" {
 		if path == a.root {
-			return filepath.Base(a.root)
+			return a.workspaceName()
 		}
 		if strings.HasPrefix(path, a.root+string(filepath.Separator)) {
 			return filepath.ToSlash(path[len(a.root)+1:])

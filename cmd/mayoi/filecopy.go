@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"mayoi/internal/remotefs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -36,6 +37,12 @@ func (a *app) explorerInput(ev ui.InputEvent) bool {
 }
 
 func (a *app) copyFiles(paths ...string) {
+	for _, path := range paths {
+		if remotefs.IsRemote(path) {
+			a.fail("Use the SSH terminal to copy remote files.")
+			return
+		}
+	}
 	if err := a.host.copyFiles(paths); err != nil {
 		a.fail("Could not copy: %v", err)
 	}
@@ -44,6 +51,10 @@ func (a *app) copyFiles(paths ...string) {
 // pasteFiles copies the files of the clipboard into dir, and chooses the
 // first of them in the tree.
 func (a *app) pasteFiles(dir string) {
+	if remotefs.IsRemote(dir) {
+		a.fail("Use the SSH terminal to copy remote files.")
+		return
+	}
 	var first string
 	for _, p := range a.host.clipboardFiles() {
 		to, err := copyInto(p, dir)

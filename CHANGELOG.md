@@ -22,6 +22,9 @@ needs a `## <version>` section here, or its build fails.
 - A button that loses something, as **Discard**, is a deeper red that its
   white label reads on in a dark window, and shades under the pointer
   as the other buttons do.
+- Add Remote SSH connections, remote folder browsing, remote editing and saving, Git, and SSH terminals.
+- Offer current-window and new-window choices when a branch already belongs to another worktree, including over SSH.
+- Search and replace remote project contents through the SSH file connection; Finder file copying remains local-only.
 
 ## 0.6.0
 

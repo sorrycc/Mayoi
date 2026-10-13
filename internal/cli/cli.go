@@ -26,12 +26,17 @@ const scriptMark = "# Installed by Mayoi: File > Install 'mayoi' Command."
 // running Mayoi opens them, or one starts.
 func script(app string) string {
 	fallback := ""
+	remoteFallback := ""
 	if app != "" {
+		remoteFallback = " 2>/dev/null || open -a " + shellQuote(app) + ` --args "$@"`
 		fallback = " 2>/dev/null || open -a " + shellQuote(app) + ` "$@"`
 	}
 	return `#!/bin/sh
 # mayoi [folder or file]... opens them in Mayoi.
 ` + scriptMark + `
+case "$1" in
+ssh://*) open -b ` + bundleID + ` --args "$@"` + remoteFallback + `; exit $? ;;
+esac
 for p in "$@"; do
 	case $p in
 	/*) ;;

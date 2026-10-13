@@ -3,7 +3,7 @@ package workspace
 import (
 	"bytes"
 	"io/fs"
-	"os/exec"
+	"mayoi/internal/remotefs"
 	"path/filepath"
 	"runtime"
 	"slices"
@@ -25,6 +25,9 @@ func Index(root string) []string {
 	if files, ok := gitFiles(root); ok {
 		return files
 	}
+	if remotefs.IsRemote(root) {
+		return remoteWalk(root)
+	}
 	return walk(root)
 }
 
@@ -33,7 +36,8 @@ func Index(root string) []string {
 // Git is missing.
 func gitFiles(root string) ([]string, bool) {
 	list := func(args ...string) ([]byte, bool) {
-		cmd := exec.Command("git", append([]string{"-C", root, "ls-files", "-z"}, args...)...)
+		cmd, cancel := remotefs.GitCommand(root, append([]string{"ls-files", "-z"}, args...)...)
+		defer cancel()
 		out, err := cmd.Output()
 		return out, err == nil
 	}
@@ -279,7 +283,8 @@ func isBoundary(s string, i int) bool {
 // outside a work tree. It runs in the caller's goroutine; call it from
 // another.
 func Ignored(root string) map[string]bool {
-	cmd := exec.Command("git", "-C", root, "ls-files", "-z", "--others", "--ignored", "--exclude-standard", "--directory", "--no-empty-directory")
+	cmd, cancel := remotefs.GitCommand(root, "ls-files", "-z", "--others", "--ignored", "--exclude-standard", "--directory", "--no-empty-directory")
+	defer cancel()
 	out, err := cmd.Output()
 	if err != nil {
 		return nil
@@ -291,4 +296,35 @@ func Ignored(root string) map[string]bool {
 		}
 	}
 	return ignored
+}
+
+// remoteWalk skips the same generated folders as the local index.
+func remoteWalk(root string) []string {
+	var files []string
+	var visit func(string)
+	visit = func(dir string) {
+		entries, err := remotefs.ReadDir(dir)
+		if err != nil {
+			return
+		}
+		for _, e := range entries {
+			if len(files) >= MaxIndexed {
+				return
+			}
+			p := filepath.Join(dir, e.Name())
+			if e.IsDir() {
+				if !Skipped(e.Name()) {
+					visit(p)
+				}
+				continue
+			}
+			if Hidden(e.Name()) || e.Type()&fs.ModeSymlink != 0 {
+				continue
+			}
+			rel, _ := filepath.Rel(root, p)
+			files = append(files, filepath.ToSlash(rel))
+		}
+	}
+	visit(root)
+	return files
 }

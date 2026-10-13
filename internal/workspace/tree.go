@@ -6,6 +6,7 @@ package workspace
 import (
 	"cmp"
 	"fmt"
+	"maps"
 	"mayoi/internal/remotefs"
 	"os"
 	"path/filepath"
@@ -54,16 +55,18 @@ type Tree struct {
 	// on disk, and those removed.
 	OnChange func(changed, removed []string)
 
-	mu         sync.Mutex
-	pending    map[string]bool // directories to read again
-	files      map[string]bool // files written
-	gone       map[string]bool // paths removed
-	timer      *time.Timer
-	closed     bool
-	stop       chan struct{}
-	pollFiles  map[string]bool
-	polling    bool
-	pollStamps map[string]string
+	mu             sync.Mutex
+	pending        map[string]bool // directories to read again
+	files          map[string]bool // files written
+	gone           map[string]bool // paths removed
+	timer          *time.Timer
+	closed         bool
+	stop           chan struct{}
+	pollFiles      map[string]bool
+	pollDirs       map[string]bool
+	pollGeneration uint64
+	polling        bool
+	pollStamps     map[string]string
 }
 
 // NewTree opens the tree of root. post runs a function on the main thread.
@@ -76,6 +79,7 @@ func NewTree(root string, post func(func())) *Tree {
 	if remotefs.IsRemote(root) {
 		t.stop = make(chan struct{})
 		t.pollFiles = map[string]bool{}
+		t.pollDirs = map[string]bool{root: true}
 		t.pollStamps = map[string]string{}
 		go t.poll()
 		return t
@@ -133,6 +137,9 @@ func (t *Tree) Children(path string) []string {
 
 // Load reads a directory's entries in the background, unless they were.
 func (t *Tree) Load(dir string) {
+	if t.stop != nil {
+		t.dirs[dir] = true
+	}
 	if !t.dirs[dir] || t.loading[dir] {
 		return
 	}
@@ -205,7 +212,16 @@ func (t *Tree) forget(dir string) {
 
 // Refresh reads every directory read so far again.
 func (t *Tree) Refresh() {
-	for dir := range t.children {
+	dirs := t.children
+	if t.stop != nil {
+		for dir := range t.pollDirs {
+			if !t.loading[dir] {
+				t.reload(dir)
+			}
+		}
+		return
+	}
+	for dir := range dirs {
 		if !t.loading[dir] {
 			t.reload(dir)
 		}
@@ -324,8 +340,7 @@ func (t *Tree) flush() {
 func (t *Tree) Watch(path string) {
 	dir := filepath.Dir(path)
 	if t.stop != nil {
-		t.pollFiles[path] = true
-		return
+		return // SetPollTargets tracks live tabs, including removals.
 	}
 	if t.watcher == nil || t.watched[dir] {
 		return
@@ -344,8 +359,38 @@ func (t *Tree) Rel(path string) string {
 	return filepath.ToSlash(rel)
 }
 
-// SFTP has no filesystem notifications. Poll only expanded directories and
-// open files; all IO runs in the background and stops with the tree.
+// SetPollTargets is called on the frame thread with the current view's watch set.
+func (t *Tree) SetPollTargets(dirs, files []string) {
+	if t.stop == nil {
+		return
+	}
+	next := map[string]bool{}
+	for _, p := range files {
+		next[p] = true
+	}
+	if !maps.Equal(next, t.pollFiles) {
+		t.pollGeneration++
+		for p := range t.pollStamps {
+			if !next[p] {
+				delete(t.pollStamps, p)
+			}
+		}
+		t.pollFiles = next
+	}
+	t.pollDirs = map[string]bool{}
+	for _, dir := range dirs {
+		t.pollDirs[dir] = true
+	}
+}
+
+// First observations establish a baseline, including missing files.
+func observeStamp(stamps map[string]string, path, stamp string) bool {
+	old, seen := stamps[path]
+	stamps[path] = stamp
+	return seen && old != stamp
+}
+
+// All maps are owned by the frame thread. IO workers return immutable results.
 func (t *Tree) poll() {
 	ticker := time.NewTicker(3 * time.Second)
 	defer ticker.Stop()
@@ -366,22 +411,20 @@ func (t *Tree) poll() {
 					return
 				}
 				t.polling = true
-				paths := make([]string, 0, len(t.pollFiles))
-				for p := range t.pollFiles {
-					paths = append(paths, p)
-				}
+				generation := t.pollGeneration
+				paths := slices.Collect(maps.Keys(t.pollFiles))
 				go func() {
-					var changed, removed []string
+					stamps := map[string]string{}
 					for _, p := range paths {
-						if info, e := remotefs.Stat(p); e == nil {
-							stamp := fmt.Sprintf("%d:%d", info.ModTime().UnixNano(), info.Size())
-							if t.pollStamps[p] != stamp {
-								changed = append(changed, p)
-								t.pollStamps[p] = stamp
-							}
-						} else if os.IsNotExist(e) && t.pollStamps[p] != "gone" {
-							removed = append(removed, p)
-							t.pollStamps[p] = "gone"
+						select {
+						case <-t.stop:
+							return
+						default:
+						}
+						if info, err := remotefs.Stat(p); err == nil {
+							stamps[p] = fmt.Sprintf("%d:%d", info.ModTime().UnixNano(), info.Size())
+						} else if os.IsNotExist(err) {
+							stamps[p] = "gone"
 						}
 					}
 					t.post(func() {
@@ -389,7 +432,20 @@ func (t *Tree) poll() {
 						t.mu.Lock()
 						closed := t.closed
 						t.mu.Unlock()
-						if !closed && t.OnChange != nil {
+						if closed || generation != t.pollGeneration {
+							return
+						}
+						var changed, removed []string
+						for p, stamp := range stamps {
+							if observeStamp(t.pollStamps, p, stamp) {
+								if stamp == "gone" {
+									removed = append(removed, p)
+								} else {
+									changed = append(changed, p)
+								}
+							}
+						}
+						if t.OnChange != nil && len(changed)+len(removed) > 0 {
 							t.OnChange(changed, removed)
 						}
 					})

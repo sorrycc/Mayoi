@@ -31,7 +31,9 @@ func (a *app) chooseRemote() {
 // A later open/close invalidates the result, so an old connection cannot switch
 // the window back to a workspace the user has left.
 func (a *app) connectRemote(dir string, restore bool) {
-	a.remoteGeneration++
+	if a.root != dir || restore {
+		a.remoteGeneration++
+	}
 	gen := a.remoteGeneration
 	a.remoteBusy = true
 	go func() {
@@ -40,7 +42,7 @@ func (a *app) connectRemote(dir string, restore bool) {
 			info, e := remotefs.Stat(dir)
 			err = e
 			if e == nil && !info.IsDir() {
-				err = fmt.Errorf("Remote path is not a directory")
+				err = fmt.Errorf("remote path is not a directory")
 			}
 		}
 		a.post(func() {
@@ -60,7 +62,23 @@ func (a *app) connectRemote(dir string, restore bool) {
 				}
 			}
 			if !restore {
-				a.openSession(dir)
+				if a.root == dir {
+					// Reconnecting the same workspace keeps its live tabs and pending reads.
+					if a.tree != nil {
+						a.tree.Refresh()
+					}
+					for _, d := range a.docs {
+						if d.remoteLoading || d.remoteLoadError != "" {
+							a.loadRemoteDocument(d, true)
+						}
+					}
+					for _, v := range a.imageViewers() {
+						a.loadImage(v)
+					}
+					a.git.stale, a.indexStale, a.ignoredStale = true, true, true
+				} else {
+					a.openSession(dir)
+				}
 			}
 			a.tell(note{message: "Connected to " + remotefs.Display(dir)})
 		})
@@ -92,13 +110,27 @@ func (a *app) chooseSavePath(name string, done func(string)) {
 			return "Enter an absolute path on the remote host."
 		}
 		path := target.Virtual(value)
-		a.post(func() {
-			if _, err := remotefs.Stat(path); err == nil {
-				a.confirm = &confirm{title: "Replace Remote File?", message: remotefs.Display(path), ok: "Replace", run: func() { done(path) }}
-			} else {
-				done(path)
-			}
-		})
+		generation := a.remoteGeneration
+		go func() {
+			_, err := remotefs.Stat(path)
+			a.post(func() {
+				if generation != a.remoteGeneration {
+					return
+				}
+				if err == nil {
+					a.confirm = &confirm{title: "Replace Remote File?", message: remotefs.Display(path), ok: "Replace", run: func() {
+						if generation == a.remoteGeneration {
+							done(path)
+						}
+					}}
+				} else if os.IsNotExist(err) {
+					done(path)
+				} else {
+					a.fail("Could not check remote path: %v", err)
+				}
+			})
+		}()
+
 		return ""
 	}}
 }
@@ -107,6 +139,15 @@ func (a *app) chooseSavePath(name string, done func(string)) {
 // as saved; edits made during the upload remain dirty and a requested close
 // waits for those edits to be saved too.
 func (a *app) saveRemoteDoc(d *document, then func()) {
+	if a.remoteMutations > 0 {
+		if then != nil {
+			a.fail("Wait for the remote file operation to finish before closing")
+		}
+		return
+	}
+	if d.remoteLoading || d.remoteLoadError != "" {
+		return
+	}
 	if then != nil {
 		d.remoteAfterSave = append(d.remoteAfterSave, then)
 	}
@@ -116,6 +157,8 @@ func (a *app) saveRemoteDoc(d *document, then func()) {
 	}
 	d.remoteSaving = true
 	snap, crlf, path := d.buf.Snapshot(), d.crlf, d.path
+	generation := a.remoteGeneration
+	d.remoteRead++
 	go func() {
 		var b bytes.Buffer
 		_, err := snap.WriteTo(&b)
@@ -135,6 +178,9 @@ func (a *app) saveRemoteDoc(d *document, then func()) {
 			}
 		}
 		a.post(func() {
+			if generation != a.remoteGeneration {
+				return
+			}
 			d.remoteSaving = false
 			again := d.remoteSaveAgain
 			d.remoteSaveAgain = false

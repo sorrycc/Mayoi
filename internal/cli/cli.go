@@ -26,19 +26,15 @@ const scriptMark = "# Installed by Mayoi: File > Install 'mayoi' Command."
 // running Mayoi opens them, or one starts.
 func script(app string) string {
 	fallback := ""
-	remoteFallback := ""
 	if app != "" {
-		remoteFallback = " 2>/dev/null || open -a " + shellQuote(app) + ` --args "$@"`
 		fallback = " 2>/dev/null || open -a " + shellQuote(app) + ` "$@"`
 	}
 	return `#!/bin/sh
 # mayoi [folder or file]... opens them in Mayoi.
 ` + scriptMark + `
-case "$1" in
-ssh://*) open -b ` + bundleID + ` --args "$@"` + remoteFallback + `; exit $? ;;
-esac
 for p in "$@"; do
 	case $p in
+	ssh://*) p="mayoi-$p" ;;
 	/*) ;;
 	*) p=$PWD/$p ;;
 	esac
@@ -174,4 +170,20 @@ func ShellPath() []string {
 		path[i] = filepath.Clean(p)
 	}
 	return path
+}
+
+// RefreshInstalled upgrades only scripts written by Mayoi. It never invokes
+// an administrator prompt; a protected installation can be reinstalled via File.
+func RefreshInstalled(dirs []string, app string) error {
+	for _, dir := range dirs {
+		p := filepath.Join(dir, "mayoi")
+		data, err := os.ReadFile(p)
+		if err != nil || !strings.Contains(string(data), scriptMark) || string(data) == script(app) {
+			continue
+		}
+		if err := write(dir, app); err != nil {
+			return err
+		}
+	}
+	return nil
 }

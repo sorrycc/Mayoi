@@ -526,11 +526,6 @@ func (r *Repo) Switch(branch string, create bool) error {
 		args = []string{"switch", "-c", branch}
 	}
 	_, err := r.run(nil, args...)
-	if err != nil && !create {
-		if path, lookupErr := r.WorktreeForBranch(branch); lookupErr == nil && path != "" {
-			return &WorktreeInUse{Branch: branch, Path: path}
-		}
-	}
 	return err
 }
 

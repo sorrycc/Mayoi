@@ -450,6 +450,9 @@ func (a *app) diffDoc(f *diffFile) *document {
 		return nil
 	}
 	if i := a.docIndex(f.path); i >= 0 {
+		if a.docs[i].remoteLoading || a.docs[i].remoteLoadError != "" {
+			return nil
+		}
 		return a.docs[i]
 	}
 	return nil
@@ -1297,22 +1300,68 @@ func (a *app) pageDiff(v *diffView, dy float32) {
 // openPath shows a file, or opens a folder, as a submodule is, as
 // `mayoi <dir>` opens it.
 func (a *app) openPath(path string, focus bool) {
+	a.openPathThen(path, focus, nil)
+}
+func (a *app) openPathThen(path string, focus bool, done func()) {
+	if remotefs.IsRemote(path) {
+		generation, col := a.remoteGeneration, a.column()
+		a.tell(note{message: "Opening " + filepath.Base(path) + "…"})
+		go func() {
+			info, err := remotefs.Stat(path)
+			a.post(func() {
+				if generation != a.remoteGeneration || !slices.Contains(a.cols, col) {
+					return
+				}
+				if err != nil {
+					a.fail("Could not open %s: %v", filepath.Base(path), err)
+					return
+				}
+				if info.IsDir() {
+					a.host.openFolders([]string{path})
+					return
+				}
+				a.openFileIn(col, col.active+1, path, focus)
+				if done != nil {
+					done()
+				}
+			})
+		}()
+		return
+	}
 	if info, err := remotefs.Stat(path); err == nil && info.IsDir() {
 		a.host.openFolders([]string{path})
 		return
 	}
 	a.openFile(path, focus)
+	if done != nil {
+		done()
+	}
 }
 
-// openFileAt shows a file with the caret at the start of a line.
+// A search or diff jump waits for the requested file, without moving another tab.
 func (a *app) openFileAt(path string, line int, focus bool) {
-	a.openPath(path, focus)
-	if d := a.activeEditor(); d != nil && d.path == path {
-		snap := d.buf.Snapshot()
-		line = min(max(line, 0), snap.LineCount()-1)
-		s, _ := snap.LineRange(line)
-		d.selectRange(s, s, true)
-	}
+	a.openPathThen(path, focus, func() {
+		i := a.docIndex(path)
+		if i < 0 {
+			return
+		}
+		d := a.docs[i]
+		jump := func() {
+			ed := d.main()
+			if ed == nil {
+				return
+			}
+			snap := d.buf.Snapshot()
+			target := min(max(line, 0), snap.LineCount()-1)
+			offset, _ := snap.LineRange(target)
+			ed.selectRange(offset, offset, true)
+		}
+		if d.remoteLoading {
+			d.remoteRestores = append(d.remoteRestores, jump)
+		} else {
+			jump()
+		}
+	})
 }
 
 // diffStatus is what the status bar says of a diff: how many lines it

@@ -34,30 +34,30 @@ type Target struct{ Host, Port string }
 func Parse(value string) (string, error) {
 	value = strings.TrimSpace(value)
 	if !strings.HasPrefix(value, "ssh://") {
-		return "", errors.New("Use ssh://[user@]host[:port]/absolute/path")
+		return "", errors.New("use ssh://[user@]host[:port]/absolute/path")
 	}
 	u, err := url.Parse(value)
 	if err != nil {
 		return "", err
 	}
 	if u.Scheme != "ssh" || u.Hostname() == "" || u.RawQuery != "" || u.Fragment != "" {
-		return "", errors.New("Invalid SSH URL")
+		return "", errors.New("invalid SSH URL")
 	}
 	host := u.Hostname()
 	if u.User != nil {
 		if _, password := u.User.Password(); password {
-			return "", errors.New("Use SSH Agent or ~/.ssh/config; do not put passwords in the URL")
+			return "", errors.New("use SSH Agent or ~/.ssh/config; do not put passwords in the URL")
 		}
 		host = u.User.Username() + "@" + host
 	}
 	if strings.HasPrefix(host, "-") || strings.ContainsAny(host, "\x00\r\n\t /\\") {
-		return "", errors.New("Invalid SSH host")
+		return "", errors.New("invalid SSH host")
 	}
 	port := u.Port()
 	if port != "" {
 		n, e := strconv.Atoi(port)
 		if e != nil || n < 1 || n > 65535 {
-			return "", errors.New("Invalid SSH port")
+			return "", errors.New("invalid SSH port")
 		}
 	}
 	p := u.Path
@@ -65,7 +65,7 @@ func Parse(value string) (string, error) {
 		p = "/"
 	}
 	if !strings.HasPrefix(p, "/") || strings.ContainsRune(p, 0) {
-		return "", errors.New("An absolute remote path is required")
+		return "", errors.New("an absolute remote path is required")
 	}
 	t := Target{host, port}
 	return t.Virtual(p), nil
@@ -162,35 +162,45 @@ func Terminal(p string) (string, []string) {
 type connection struct {
 	client *sftp.Client
 	cmd    *exec.Cmd
+	done   chan struct{}
 }
 
 var connections = struct {
 	sync.Mutex
-	clients map[Target]*connection
+	clients  map[Target]*connection
+	closing  bool
+	starting sync.WaitGroup
+	pending  map[*exec.Cmd]bool
 }{clients: map[Target]*connection{}}
 
 func clientFor(p string) (*sftp.Client, string, error) {
 	t, r, ok := Split(p)
 	if !ok {
-		return nil, "", errors.New("Invalid remote path")
+		return nil, "", errors.New("invalid remote path")
 	}
 	connections.Lock()
 	defer connections.Unlock()
 	if c := connections.clients[t]; c != nil {
 		return c.client, r, nil
 	}
-	return nil, r, fmt.Errorf("SSH is disconnected. Use File → Reconnect SSH (%s)", t.Host)
+	return nil, r, fmt.Errorf("ssh is disconnected. Use File → Reconnect SSH (%s)", t.Host)
 }
 
 // Connect is called off the UI thread. Existing connections are shared by windows.
 func Connect(p string) error {
 	t, _, ok := Split(p)
 	if !ok {
-		return errors.New("Invalid remote path")
+		return errors.New("invalid remote path")
 	}
 	connections.Lock()
+	if connections.closing {
+		connections.Unlock()
+		return errors.New("ssh connections are closing")
+	}
 	existing := connections.clients[t]
+	connections.starting.Add(1)
 	connections.Unlock()
+	defer connections.starting.Done()
 	if existing != nil {
 		return nil
 	}
@@ -208,21 +218,38 @@ func Connect(p string) error {
 	if err = cmd.Start(); err != nil {
 		return err
 	}
+	connections.Lock()
+	if connections.closing {
+		connections.Unlock()
+		_ = cmd.Process.Kill()
+		_ = cmd.Wait()
+		return errors.New("ssh connections are closing")
+	}
+	if connections.pending == nil {
+		connections.pending = map[*exec.Cmd]bool{}
+	}
+	connections.pending[cmd] = true
+	connections.Unlock()
+	defer func() { connections.Lock(); delete(connections.pending, cmd); connections.Unlock() }()
 	timer := time.AfterFunc(20*time.Second, func() { _ = cmd.Process.Kill() })
 	c, err := sftp.NewClientPipe(stdout, stdin)
 	timer.Stop()
 	if err != nil {
 		_ = cmd.Process.Kill()
 		_ = cmd.Wait()
-		return fmt.Errorf("SSH: %s (%w). Verify this host with ssh in a terminal first; SFTP must be enabled", strings.TrimSpace(stderr.String()), err)
+		return fmt.Errorf("ssh: %s (%w). Verify this host with ssh in a terminal first; SFTP must be enabled", strings.TrimSpace(stderr.String()), err)
 	}
-	conn := &connection{c, cmd}
+	conn := &connection{client: c, cmd: cmd, done: make(chan struct{})}
 	connections.Lock()
-	if connections.clients[t] != nil {
+	closing := connections.closing
+	if connections.clients[t] != nil || closing {
 		connections.Unlock()
 		_ = c.Close()
 		_ = cmd.Process.Kill()
 		_ = cmd.Wait()
+		if closing {
+			return errors.New("ssh connections are closing")
+		}
 		return nil
 	}
 	connections.clients[t] = conn
@@ -236,17 +263,42 @@ func Connect(p string) error {
 			delete(connections.clients, t)
 		}
 		connections.Unlock()
+		close(conn.done)
 	}()
 	return nil
 }
 func CloseAll() {
 	connections.Lock()
-	defer connections.Unlock()
-	for t, c := range connections.clients {
+	connections.closing = true
+	clients := make([]*connection, 0, len(connections.clients))
+	for _, c := range connections.clients {
+		clients = append(clients, c)
+	}
+	pending := make([]*exec.Cmd, 0, len(connections.pending))
+	for cmd := range connections.pending {
+		pending = append(pending, cmd)
+	}
+	connections.Unlock()
+	for _, c := range clients {
 		_ = c.cmd.Process.Kill()
-		delete(connections.clients, t)
+	}
+	for _, cmd := range pending {
+		_ = cmd.Process.Kill()
+	}
+	// Connect owns handshakes; each live connection has exactly one Wait owner.
+	connections.starting.Wait()
+	for _, c := range clients {
+		if c.done != nil {
+			<-c.done
+		}
+	}
+	// Run after all handshakes and owned processes have finished.
+	controlOnce.Do(func() {})
+	if controlDir != "" {
+		_ = os.RemoveAll(controlDir)
 	}
 }
+
 func Connected(p string) bool {
 	t, _, ok := Split(p)
 	if !ok {
@@ -326,7 +378,7 @@ func Rename(from, to string) error {
 	t, r, ok := Split(to)
 	src, _, _ := Split(from)
 	if !ok || src != t {
-		return errors.New("Cannot move files between SSH hosts or local storage")
+		return errors.New("cannot move files between SSH hosts or local storage")
 	}
 	c, f, e := clientFor(from)
 	if e != nil {
@@ -371,7 +423,7 @@ func WriteFile(p string, data []byte, mode os.FileMode) error {
 		return c.PosixRename(tmp, r)
 	}
 	if _, e = c.Lstat(r); !errors.Is(e, os.ErrNotExist) {
-		return errors.New("SFTP server does not support atomic overwrite; original file was preserved")
+		return errors.New("sftp server does not support atomic overwrite; original file was preserved")
 	}
 	return c.Rename(tmp, r)
 }
@@ -391,6 +443,10 @@ func GitCommand(dir string, args ...string) (*exec.Cmd, func()) {
 	}
 	script := "cd " + Quote(r) + " && env GIT_TERMINAL_PROMPT=0 GIT_OPTIONAL_LOCKS=0 LC_ALL=C GIT_SSH_COMMAND=" + Quote("ssh -oBatchMode=yes") + " git " + strings.Join(quoted, " ")
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	if len(args) > 0 && (args[0] == "push" || args[0] == "fetch" || args[0] == "pull") {
+		cancel()
+		ctx, cancel = context.WithCancel(context.Background())
+	}
 	cmd := exec.CommandContext(ctx, "ssh", append(t.args(), "-T", "--", t.Host, script)...)
 	return cmd, cancel
 }
@@ -429,7 +485,7 @@ func ReadFileLimit(p string, limit int64) ([]byte, error) {
 		return nil, err
 	}
 	if !info.Mode().IsRegular() || info.Size() > limit {
-		return nil, fmt.Errorf("File exceeds search limits")
+		return nil, fmt.Errorf("file exceeds search limits")
 	}
 	f, err := c.Open(path)
 	if err != nil {
@@ -441,11 +497,24 @@ func ReadFileLimit(p string, limit int64) ([]byte, error) {
 		return nil, err
 	}
 	if !info.Mode().IsRegular() || info.Size() > limit {
-		return nil, fmt.Errorf("File exceeds search limits")
+		return nil, fmt.Errorf("file exceeds search limits")
 	}
 	data, err := io.ReadAll(io.LimitReader(f, limit+1))
 	if int64(len(data)) > limit {
-		return nil, fmt.Errorf("File exceeds search limits")
+		return nil, fmt.Errorf("file exceeds search limits")
 	}
 	return data, err
+}
+
+// CreateFile never replaces a file that appeared after a name check.
+func CreateFile(p string) error {
+	c, r, err := clientFor(p)
+	if err != nil {
+		return err
+	}
+	f, err := c.OpenFile(r, os.O_WRONLY|os.O_CREATE|os.O_EXCL)
+	if err != nil {
+		return err
+	}
+	return f.Close()
 }

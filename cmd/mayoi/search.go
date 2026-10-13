@@ -185,7 +185,7 @@ func (a *app) startSearch() {
 	s.seen = map[string]uint64{}
 	texts := map[string]string{}
 	for _, d := range a.docs {
-		if d.path == "" {
+		if d.path == "" || d.remoteLoading || d.remoteLoadError != "" {
 			continue
 		}
 		s.seen[d.path] = d.buf.Version()
@@ -518,7 +518,9 @@ func (a *app) searchAgain(paths []string) {
 			continue // a file search does not look in
 		}
 		if i := a.docIndex(p); i >= 0 {
-			texts[rel] = a.docs[i].buf.String()
+			if d := a.docs[i]; !d.remoteLoading && d.remoteLoadError == "" {
+				texts[rel] = d.buf.String()
+			}
 		}
 		rels = append(rels, rel)
 	}
@@ -539,7 +541,7 @@ func (a *app) searchTick() {
 	}
 	var edited []string
 	for _, d := range a.docs {
-		if d.path == "" {
+		if d.path == "" || d.remoteLoading || d.remoteLoadError != "" {
 			continue
 		}
 		v := d.buf.Version()
@@ -584,6 +586,11 @@ func (a *app) openMatch(f *searchFile, m searchMatch, keep bool) {
 		a.openFile(f.path, true)
 	} else {
 		a.previewFile(f.path)
+	}
+	if i := a.docIndex(f.path); i >= 0 && a.docs[i].remoteLoading {
+		d := a.docs[i]
+		d.remoteRestores = append(d.remoteRestores, func() { a.selectMatch(f.path, m) })
+		return
 	}
 	a.selectMatch(f.path, m)
 }
@@ -705,6 +712,12 @@ func (a *app) replaceMatches(files []*searchFile, only *searchMatch) {
 	re, err := compileQuery(s.query, s.matchCase, s.word, s.regex)
 	if err != nil || s.query == "" {
 		return
+	}
+	for _, f := range files {
+		if i := a.docIndex(f.path); i >= 0 && (a.docs[i].remoteLoading || a.docs[i].remoteLoadError != "") {
+			a.fail("Load %s before replacing its text", filepath.Base(f.path))
+			return
+		}
 	}
 	tmpl := replaceTemplate(s.with, s.regex)
 	n, changed := 0, 0

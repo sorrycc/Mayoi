@@ -1,6 +1,7 @@
 package main
 
 import (
+	"mayoi/internal/remotefs"
 	"slices"
 
 	"github.com/egoist/mygo/ui"
@@ -219,10 +220,10 @@ func (a *app) tabMenu(m *ui.Menu, col *column, t *colTab, closing **colTab) {
 	if m.Item("Reveal in Explorer").Disabled(path == "" || a.root == "").Chosen() {
 		a.post(func() { a.showExplorer(); a.revealInTree(path) })
 	}
-	if m.Item("Reveal in Finder").Disabled(path == "").Chosen() {
+	if !remotefs.IsRemote(path) && m.Item("Reveal in Finder").Disabled(path == "").Chosen() {
 		a.host.reveal(path)
 	}
 	if m.Item("Copy Path").Disabled(path == "").Chosen() {
-		a.services.WriteClipboard(path)
+		a.services.WriteClipboard(remotefs.Display(path))
 	}
 }

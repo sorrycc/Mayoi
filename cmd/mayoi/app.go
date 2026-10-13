@@ -79,6 +79,8 @@ type app struct {
 	queue       []func()
 	hasServices bool
 
+	remoteEvents     *remoteEvents
+	remoteMutations  int
 	remotePicker     *remotePicker
 	remoteGeneration int
 	remoteBusy       bool
@@ -280,6 +282,8 @@ func (a *app) openFolder(dir string) {
 	}
 	a.remoteGeneration++
 	a.remoteBusy = false
+	a.remoteMutations = 0
+	a.remoteEvents = nil
 	if a.tree != nil {
 		a.tree.Close()
 	}
@@ -289,6 +293,9 @@ func (a *app) openFolder(dir string) {
 	a.root = dir
 	a.tree = workspace.NewTree(dir, a.post)
 	a.tree.OnChange = a.diskChanged
+	if remotefs.IsRemote(dir) {
+		a.tree.OnChange = a.queueRemoteChange
+	}
 	a.tree.Load(dir)
 	a.files = ui.OutlineState[string]{}
 	a.fileRow = -1
@@ -341,6 +348,8 @@ func (a *app) closeFolder() {
 		a.window.Expanded = nil
 		a.remoteGeneration++
 		a.remoteBusy = false
+		a.remoteMutations = 0
+		a.remoteEvents = nil
 		a.closeTerminals()
 		if a.tree != nil {
 			a.tree.Close()
@@ -355,6 +364,10 @@ func (a *app) closeFolder() {
 
 // saveDoc saves a document, asking where an untitled one goes.
 func (a *app) saveDoc(d *document, then func()) {
+	if d.remoteLoading || d.remoteLoadError != "" {
+		a.fail("Wait for the file to load before saving")
+		return
+	}
 	if d.path == "" {
 		a.chooseSavePath(d.name(), func(path string) {
 			if path == "" {
@@ -430,7 +443,14 @@ func (a *app) saveAll() {
 // diskChanged follows files changed on disk: an open document without
 // changes of its own shows the file's new text.
 func (a *app) diskChanged(changed, removed []string) {
-	a.indexStale, a.ignoredStale = true, true
+	if !remotefs.IsRemote(a.root) || len(changed) == 0 && len(removed) == 0 || len(removed) > 0 {
+		a.indexStale, a.ignoredStale = true, true
+	}
+	for _, path := range changed {
+		if filepath.Base(path) == ".gitignore" {
+			a.indexStale, a.ignoredStale = true, true
+		}
+	}
 	a.diffsOnDisk(append(changed, removed...))
 	a.searchAgain(append(changed, removed...))
 	// An image shows the file's new picture, or that it is gone.
@@ -440,7 +460,9 @@ func (a *app) diskChanged(changed, removed []string) {
 			v.diskGone = false
 			a.loadImage(v)
 		case slices.Contains(removed, v.path):
-			if _, err := remotefs.Stat(v.path); err != nil {
+			if remotefs.IsRemote(v.path) {
+				v.diskGone = true
+			} else if _, err := remotefs.Stat(v.path); err != nil {
 				v.diskGone = true
 			}
 		}
@@ -459,7 +481,9 @@ func (a *app) diskChanged(changed, removed []string) {
 	}
 	for _, p := range removed {
 		if i := a.docIndex(p); i >= 0 {
-			if _, err := remotefs.Stat(p); err != nil {
+			if remotefs.IsRemote(p) {
+				a.docs[i].diskGone = true
+			} else if _, err := remotefs.Stat(p); err != nil {
 				a.docs[i].diskGone = true
 			}
 		}
@@ -470,6 +494,12 @@ func (a *app) diskChanged(changed, removed []string) {
 // reloadDoc makes a document's text the file's on disk, as a step of
 // undo, as in other editors.
 func (a *app) reloadDoc(d *document) {
+	if remotefs.IsRemote(d.path) {
+		if !d.remoteLoading && d.remoteLoadError == "" {
+			a.loadRemoteDocument(d, false)
+		}
+		return
+	}
 	data, err := remotefs.ReadFile(d.path)
 	if err != nil || isBinary(data) {
 		return
@@ -580,6 +610,7 @@ func (a *app) windowTitle() string {
 
 // tick runs once a frame, after the posted functions.
 func (a *app) tick() {
+	a.syncRemoteWatch()
 	a.refreshIgnored()
 	a.refreshGit()
 	a.searchTick()

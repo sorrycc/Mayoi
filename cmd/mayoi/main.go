@@ -232,6 +232,18 @@ func main() {
 		}
 		m.open([]string{path})
 	})
+	mygo.App.OnOpenURL(func(raw string) {
+		if !strings.HasPrefix(raw, "mayoi-ssh://") {
+			return
+		}
+		paths := argPaths([]string{strings.TrimPrefix(raw, "mayoi-")}, "")
+		if !m.ready {
+			m.pending = append(m.pending, paths...)
+			return
+		}
+		m.open(paths)
+	})
+
 	mygo.App.OnBeforeQuit(func(e *mygo.QuitEvent) {
 		if m.quitting || !m.anyDirty() {
 			m.quitting = true
@@ -266,6 +278,14 @@ func main() {
 		}
 		first := m.wins[0]
 		first.a.keysFailed(keys, keysErr)
+		if os.Getenv("MAYOI_DATA_DIR") == "" {
+			go func() {
+				home, _ := os.UserHomeDir()
+				if err := cli.RefreshInstalled(cli.Dirs(home, cli.ShellPath()), appBundle()); err != nil {
+					first.a.post(func() { first.a.tell(note{message: "Reinstall the mayoi command from File to enable SSH URLs"}) })
+				}
+			}()
+		}
 		m.setMenu(first.a)
 		if out := os.Getenv("MAYOI_SNAPSHOT"); out != "" {
 			// For checking the real window: capture it once it settles, and

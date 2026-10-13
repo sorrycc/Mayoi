@@ -1,7 +1,6 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"mayoi/internal/remotefs"
 	"os"
@@ -368,11 +367,6 @@ func (a *app) gitDo(busy string, fn func(r *git.Repo) error, then func()) {
 
 // gitFailed says why a git command failed.
 func (a *app) gitFailed(err error) {
-	var occupied *git.WorktreeInUse
-	if errors.As(err, &occupied) {
-		a.askOpenWorktree(occupied.Branch, occupied.Path)
-		return
-	}
 	msg := err.Error()
 	if len(msg) > 400 {
 		msg = msg[:400] + "…"
@@ -433,25 +427,6 @@ func (a *app) push() {
 // once the documents are saved: Git keeps the changes of the work tree
 // when they do not clash with the branch's.
 func (a *app) switchBranch(branch string, create bool) {
-	if create {
-		a.checkoutBranch(branch, true)
-		return
-	}
-	var worktree string
-	a.gitDo("Checking worktrees…", func(r *git.Repo) error {
-		var err error
-		worktree, err = r.WorktreeForBranch(branch)
-		return err
-	}, func() {
-		if worktree != "" && branch != a.branch() {
-			a.askOpenWorktree(branch, worktree)
-			return
-		}
-		a.checkoutBranch(branch, false)
-	})
-}
-
-func (a *app) checkoutBranch(branch string, create bool) {
 	if !a.docsSaved("switching branches") {
 		return
 	}

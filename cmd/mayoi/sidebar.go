@@ -254,7 +254,7 @@ func (a *app) fileTree(c *ui.Context) {
 					action = func() { a.openRemoteProject(path, true) }
 				}
 			}
-			if m.Item("Reveal in Finder").Chosen() {
+			if !remotefs.IsRemote(path) && m.Item("Reveal in Finder").Chosen() {
 				action = func() { a.host.reveal(path) }
 			}
 			if !isDir && m.Item("Open in Terminal").Chosen() {
@@ -270,15 +270,15 @@ func (a *app) fileTree(c *ui.Context) {
 				}
 				m.Separator()
 			}
-			if m.Item("Copy").Chosen() {
+			if !remotefs.IsRemote(path) && m.Item("Copy").Chosen() {
 				action = func() { a.copyFiles(path) }
 			}
-			if m.Item("Paste").Disabled(len(a.host.clipboardFiles()) == 0).Chosen() {
+			if !remotefs.IsRemote(path) && m.Item("Paste").Disabled(len(a.host.clipboardFiles()) == 0).Chosen() {
 				action = func() { a.pasteFiles(dir) }
 			}
 			m.Separator()
 			if m.Item("Copy Path").Chosen() {
-				action = func() { a.services.WriteClipboard(path) }
+				action = func() { a.services.WriteClipboard(remotefs.Display(path)) }
 			}
 			if m.Item("Copy Relative Path").Chosen() {
 				action = func() { a.services.WriteClipboard(t.Rel(path)) }
@@ -287,7 +287,7 @@ func (a *app) fileTree(c *ui.Context) {
 			if m.Item("Rename…").Chosen() {
 				action = func() { a.askRename(path) }
 			}
-			if m.Item("Move to Trash").Chosen() {
+			if !remotefs.IsRemote(path) && m.Item("Move to Trash").Chosen() {
 				action = func() { a.trash(path) }
 			}
 		})
@@ -361,14 +361,14 @@ func (a *app) fileTree(c *ui.Context) {
 			action = func() { a.askNewEntry(a.root, true) }
 		}
 		m.Separator()
-		if m.Item("Reveal in Finder").Chosen() {
+		if !remotefs.IsRemote(a.root) && m.Item("Reveal in Finder").Chosen() {
 			action = func() { a.host.reveal(a.root) }
 		}
 		if m.Item("Open in Terminal").Chosen() {
 			action = func() { a.newTerminalIn(a.root) }
 		}
 		m.Separator()
-		if m.Item("Paste").Disabled(len(a.host.clipboardFiles()) == 0).Chosen() {
+		if !remotefs.IsRemote(a.root) && m.Item("Paste").Disabled(len(a.host.clipboardFiles()) == 0).Chosen() {
 			action = func() { a.pasteFiles(a.root) }
 		}
 	})
@@ -434,6 +434,10 @@ func (a *app) revealInTree(path string) {
 }
 
 func (a *app) askNewEntry(dir string, folder bool) {
+	if remotefs.IsRemote(dir) {
+		a.askRemoteEntry(dir, folder)
+		return
+	}
 	title := "New File"
 	if folder {
 		title = "New Folder"
@@ -470,6 +474,10 @@ func (a *app) askNewEntry(dir string, folder bool) {
 }
 
 func (a *app) askRename(path string) {
+	if remotefs.IsRemote(a.root) {
+		a.askRemoteRename(path)
+		return
+	}
 	a.prompt = &prompt{title: "Rename", hint: a.relOrPath(path), value: filepath.Base(path), done: func(name string) string {
 		name = strings.TrimSpace(name)
 		if name == "" || strings.ContainsRune(name, filepath.Separator) {

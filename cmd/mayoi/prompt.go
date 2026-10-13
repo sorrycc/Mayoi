@@ -15,6 +15,7 @@ type prompt struct {
 	err         string
 	done        func(value string) string
 	selected    bool
+	busy        bool
 }
 
 func (a *app) promptView(c *ui.Context) {
@@ -24,11 +25,16 @@ func (a *app) promptView(c *ui.Context) {
 	}
 	p := a.pal
 	submit := func() {
+		if pr.busy {
+			return
+		}
 		if msg := pr.done(pr.value); msg != "" {
 			pr.err = msg
 			return
 		}
-		a.prompt = nil
+		if !pr.busy {
+			a.prompt = nil
+		}
 	}
 	ui.Overlay(c, func() {
 		back := a.dialogBack(c, "prompt:"+pr.title)
@@ -50,6 +56,9 @@ func (a *app) promptView(c *ui.Context) {
 					}
 					in.SetTextSelection(0, n)
 				}
+				if pr.busy {
+					ui.Text(c, "Working…").FontSize(12).TextColor(p.muted)
+				}
 				if pr.err != "" {
 					in.Error(pr.err)
 					ui.Text(c, pr.err).FontSize(12).TextColor(p.danger)
@@ -64,7 +73,7 @@ func (a *app) promptView(c *ui.Context) {
 					if ui.Button(c, "Cancel").Clicked() {
 						a.prompt = nil
 					}
-					if ui.PrimaryButton(c, strings.TrimSuffix(pr.title, "…")).Disabled(strings.TrimSpace(pr.value) == "").Clicked() {
+					if ui.PrimaryButton(c, strings.TrimSuffix(pr.title, "…")).Disabled(pr.busy || strings.TrimSpace(pr.value) == "").Clicked() {
 						submit()
 					}
 				})
@@ -82,8 +91,6 @@ type confirm struct {
 	title, message, ok string
 	danger             bool
 	run                func()
-	alternate          string
-	runAlternate       func()
 }
 
 func (a *app) confirmView(c *ui.Context) {
@@ -102,17 +109,9 @@ func (a *app) confirmView(c *ui.Context) {
 				if cf.message != "" {
 					ui.Text(c, cf.message).FontSize(12.5).TextColor(p.muted)
 				}
-				buttons := ui.Row(c).Gap(8).Justify(ui.End)
-				if cf.alternate != "" {
-					buttons = ui.Column(c).Gap(8)
-				}
-				buttons.Children(func() {
+				ui.Row(c).Gap(8).Justify(ui.End).Children(func() {
 					if ui.Button(c, "Cancel").Clicked() {
 						a.confirm = nil
-					}
-					if cf.alternate != "" && ui.Button(c, cf.alternate).Clicked() {
-						a.confirm = nil
-						cf.runAlternate()
 					}
 					ok := ui.PrimaryButton(c, cf.ok).AutoFocus()
 					if cf.danger {

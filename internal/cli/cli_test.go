@@ -41,6 +41,12 @@ func TestScript(t *testing.T) {
 	if !slices.Equal(got, want) {
 		t.Errorf("got %v, want %v", got, want)
 	}
+	got = run("", "ssh://demo/home/project", "a b.go", "ssh://other/home/a%20b")
+	want = []string{"-b", bundleID, "mayoi-ssh://demo/home/project", dir + "/a b.go", "mayoi-ssh://other/home/a%20b"}
+	if !slices.Equal(got, want) {
+		t.Errorf("mixed URLs: got %v, want %v", got, want)
+	}
+
 	// Where the system knows no app by the identifier, the one it was
 	// installed from.
 	got = run("NO_ID=1", "x")
@@ -87,5 +93,27 @@ func TestDirs(t *testing.T) {
 	}
 	if got := Dirs("/home/u", []string{"/usr/bin"}); !slices.Equal(got, []string{"/usr/local/bin"}) {
 		t.Errorf("off the path: %v", got)
+	}
+}
+
+func TestRefreshInstalled(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "mayoi")
+	old := "#!/bin/sh\n" + scriptMark + "\nopen --args \"$@\"\n"
+	if err := os.WriteFile(path, []byte(old), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := RefreshInstalled([]string{dir}, "/Apps/Mayoi.app"); err != nil {
+		t.Fatal(err)
+	}
+	got, _ := os.ReadFile(path)
+	if string(got) != script("/Apps/Mayoi.app") {
+		t.Fatal("owned script not upgraded")
+	}
+	os.WriteFile(path, []byte("#!/bin/sh\necho custom\n"), 0o755)
+	RefreshInstalled([]string{dir}, "")
+	got, _ = os.ReadFile(path)
+	if strings.Contains(string(got), scriptMark) {
+		t.Fatal("foreign script overwritten")
 	}
 }

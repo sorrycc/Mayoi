@@ -36,11 +36,12 @@ type column struct {
 // colTab is a tab of a column: an editor of a document, a viewer of an
 // image, the changes of a file, or a terminal.
 type colTab struct {
-	id   int
-	ed   *editor
-	view *viewer
-	diff *diffView
-	term *session
+	pendingRestore *settings.Tab
+	id             int
+	ed             *editor
+	view           *viewer
+	diff           *diffView
+	term           *session
 	// transient marks the preview tab of its column, as a file is chosen
 	// in the Explorer or in search's results, or a commit in source
 	// control: the next one chosen replaces it, until it is edited or
@@ -123,6 +124,9 @@ func (a *app) activeTab() *colTab { return a.column().tab() }
 // show the preview of an SVG rather than its text.
 func (a *app) activeEditor() *editor {
 	if t := a.activeTab(); t != nil {
+		if t.ed != nil && (t.ed.remoteLoading || t.ed.remoteLoadError != "") {
+			return nil
+		}
 		return t.ed
 	}
 	return nil
@@ -220,6 +224,9 @@ func (a *app) openFileIn(col *column, at int, path string, focus bool) {
 		}
 		doc = d
 		a.docs = append(a.docs, doc)
+		if doc.remoteLoading {
+			a.loadRemoteDocument(doc, true)
+		}
 		if a.tree != nil {
 			a.tree.Watch(path)
 		}
@@ -310,9 +317,11 @@ func (a *app) openImage(col *column, at int, path string, focus bool) {
 		a.activate(col, at, focus)
 		return
 	}
-	if _, err := remotefs.Stat(path); err != nil {
-		a.fail("Could not open %s: %v", filepath.Base(path), err)
-		return
+	if !remotefs.IsRemote(path) {
+		if _, err := remotefs.Stat(path); err != nil {
+			a.fail("Could not open %s: %v", filepath.Base(path), err)
+			return
+		}
 	}
 	v := newImageViewer(path)
 	a.loadImage(v)
@@ -689,6 +698,10 @@ func (a *app) rememberTabs() {
 				}
 				ts.Wrap = a.ownWrap(ed.wrap, ed.wrapGen)
 			}
+			if t.pendingRestore != nil {
+				ts = *t.pendingRestore
+				ts.File = t.path()
+			}
 			cs.Tabs = append(cs.Tabs, ts)
 			if i == col.active {
 				cs.Active = len(cs.Tabs) - 1
@@ -729,7 +742,10 @@ func (a *app) restoreExpanded(rels []string) {
 	}
 	for _, rel := range rels {
 		dir := filepath.Join(a.root, filepath.FromSlash(rel))
-		if info, err := remotefs.Stat(dir); err == nil && info.IsDir() {
+		if remotefs.IsRemote(dir) {
+			a.files.Open.Add(dir)
+			a.tree.Load(dir)
+		} else if info, err := remotefs.Stat(dir); err == nil && info.IsDir() {
 			a.files.Open.Add(dir)
 			a.tree.Load(dir)
 		}
@@ -739,6 +755,19 @@ func (a *app) restoreExpanded(rels []string) {
 // restoreTab puts back where a tab restored was scrolled, its caret and
 // its own choice to wrap.
 func (a *app) restoreTab(t *colTab, ts settings.Tab) {
+	if t.ed != nil && t.ed.remoteLoading {
+		t.pendingRestore = &ts
+		t.ed.remoteRestores = append(t.ed.remoteRestores, func() {
+			if _, i := a.locate(t); i >= 0 {
+				a.restoreTab(t, ts)
+				if ts.Preview && isSVG(t.ed.document) {
+					a.setPreview(t.ed, true)
+				}
+			}
+		})
+		return
+	}
+	t.pendingRestore = nil
 	if v := t.diff; v != nil {
 		v.full, v.scroll.Y = ts.Full, ts.ScrollY
 		if ts.Wrap != nil {
@@ -807,7 +836,7 @@ func (a *app) restoreTabs() {
 					a.activate(col, len(col.tabs)-1, false)
 				}
 			case ts.File != "":
-				if _, err := remotefs.Stat(ts.File); err == nil {
+				if _, err := localStatForRestore(ts.File); err == nil {
 					a.opening = ts.Transient
 					a.openFile(ts.File, false)
 					a.opening = false

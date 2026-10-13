@@ -23,6 +23,11 @@ var errBinary = errors.New("binary file")
 // document is a file open in the editor: its text, and what follows from
 // the text alone. Each tab that shows it has an editor of its own.
 type document struct {
+	remoteLoading   bool
+	remoteLoadError string
+	remoteRead      uint64
+	remoteRestores  []func()
+
 	remoteSaving, remoteSaveAgain bool
 	remoteAfterSave               []func()
 	id                            int
@@ -175,6 +180,11 @@ func (d *document) dirty() bool { return d.buf.Version() != d.saved || d.crlf !=
 
 // readDocument reads a file into a document.
 func readDocument(id int, path string, notify func()) (*document, error) {
+	if remotefs.IsRemote(path) {
+		d := newDocument(id, path, "", highlight.New(highlight.Lexer(path), notify))
+		d.remoteLoading = true
+		return d, nil
+	}
 	info, err := remotefs.Stat(path)
 	if err != nil {
 		return nil, err

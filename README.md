@@ -86,17 +86,31 @@ The remote machine needs an SFTP subsystem; Git features additionally need
 is required. Files, Git commands and terminals all operate on the remote host.
 Saves use a temporary sibling file and atomic rename; a failed upload keeps the
 buffer dirty and preserves the original file. Existing-file replacement requires
-the OpenSSH POSIX rename extension. Remote directories and open-file metadata
-refresh every three seconds; dirty buffers are not replaced by external changes.
+the OpenSSH POSIX rename extension. Only expanded, visible directories and files with open tabs are polled every
+three seconds. The first observation records a baseline without downloading files
+again; directory changes are coalesced before refreshing the index. Dirty buffers
+are not replaced by external changes. File opening, session restoration and file
+operations run in the background with loading or error states.
+
+Atomic replacement preserves permission bits but creates a new inode: ownership,
+group, ACLs, extended attributes and hard-link relationships are not preserved.
+Mayoi does not silently fall back to an in-place write, which could leave a partial
+file after a disconnect. Use the terminal when these metadata must be preserved.
 
 Remote workspaces appear in **Open Recent** and restore on launch. After a
 connection failure, use **File → Reconnect SSH** or click the SSH status label.
 **Save As** asks for a path on the same remote host. Remote Trash/Finder actions
 are unavailable; use the SSH terminal for file deletion. This first version
-supports POSIX remote hosts and may wait for the network when opening a file.
+supports POSIX remote hosts. Fetch, pull and push have no fixed 60-second deadline;
+SSH still detects lost connections using server-alive probes.
 
 After installing the shell command, `mayoi ssh://my-ssh-alias/home/me/project`
-opens a remote folder. The app binary accepts the same URL as an argument.
+opens a remote folder even when Mayoi is already running. Mixed arguments such as
+`mayoi ssh://my-ssh-alias/home/me/project ./local-project` are supported. The shell
+command sends remote addresses through the app's `mayoi-ssh://` URL handler;
+local paths keep the existing open-file channel. Mayoi refreshes its own installed
+scripts on launch when writable. If macOS protects the script location, choose
+**File → Install 'mayoi' Command** again. The app binary also accepts SSH URLs.
 
 ## Development
 

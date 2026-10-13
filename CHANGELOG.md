@@ -5,6 +5,11 @@ needs a `## <version>` section here, or its build fails.
 
 ## Unreleased
 
+- Keep remote file opens, restores and file operations responsive during network delays, with loading and retry states.
+- Limit remote polling to visible folders and open files, avoiding initial reloads and repeated index rebuilds.
+- Open SSH URLs in an already running app, accept mixed local/remote CLI arguments, and refresh Mayoi-owned CLI scripts.
+- Hide unsupported remote Finder actions, let slow remote Git transfers finish, and clean up SSH processes and control directories on exit.
+
 - Keyboard shortcuts of your own: **File → Open Keyboard Shortcuts** opens
   `keybindings.json`, in VS Code's format, so those of VS Code or Cursor
   can be pasted in. It takes chords, as `ctrl+. g c`, the names of VS
@@ -23,7 +28,6 @@ needs a `## <version>` section here, or its build fails.
   white label reads on in a dark window, and shades under the pointer
   as the other buttons do.
 - Add Remote SSH connections, remote folder browsing, remote editing and saving, Git, and SSH terminals.
-- Offer current-window and new-window choices when a branch already belongs to another worktree, including over SSH.
 - Search and replace remote project contents through the SSH file connection; Finder file copying remains local-only.
 
 ## 0.6.0

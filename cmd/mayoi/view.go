@@ -417,6 +417,19 @@ func (a *app) columnView(c *ui.Context, col *column) {
 					if t == shown {
 						a.diffViewUI(c, t.diff)
 					}
+				case t.ed != nil && (t.ed.remoteLoading || t.ed.remoteLoadError != ""):
+					if t == shown {
+						ui.Column(c).Padding(24).Gap(12).Children(func() {
+							if t.ed.remoteLoading {
+								ui.Text(c, "Loading remote file…").TextColor(a.pal.muted)
+							} else {
+								ui.Text(c, t.ed.remoteLoadError).TextColor(a.pal.danger)
+								if ui.Button(c, "Retry").Clicked() {
+									a.loadRemoteDocument(t.ed.document, true)
+								}
+							}
+						})
+					}
 				case t == shown && t.ed.preview != nil:
 					// The text keeps its place, out of sight, under the picture.
 					ui.Box(c).Absolute().Top(0).Left(0).Right(0).Bottom(0).Invisible().Children(func() {

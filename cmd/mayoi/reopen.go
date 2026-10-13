@@ -1,7 +1,7 @@
 package main
 
 import (
-	"mayoi/internal/remotefs"
+	"mayoi/internal/settings"
 	"slices"
 
 	"mayoi/internal/git"
@@ -106,7 +106,7 @@ func (a *app) reopenClosed() {
 			a.dropColumn(col, made)
 			continue
 		}
-		if _, err := remotefs.Stat(c.path); err != nil {
+		if _, err := localStatForRestore(c.path); err != nil {
 			a.dropColumn(col, made)
 			continue
 		}
@@ -118,12 +118,11 @@ func (a *app) reopenClosed() {
 			return
 		}
 		if ed := col.tab().ed; ed != nil {
-			ed.sel, ed.caret = c.sel, c.caret
-			ed.vscroll.Y, ed.hscroll.X = c.y, c.x
-			ed.wrap, ed.wrapGen = c.wrap, c.wrapGen
-			if c.preview {
+			a.restoreTab(col.tab(), settings.Tab{Sel: c.sel, ScrollY: c.y, ScrollX: c.x, Wrap: c.wrap, Preview: c.preview})
+			if c.preview && !ed.remoteLoading {
 				a.setPreview(ed, true)
 			}
+
 			a.focusTab(col.tab())
 		}
 		return

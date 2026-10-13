@@ -191,6 +191,14 @@ ownership of credentials, proxy configuration and host-key verification.
 remote Save As and asynchronous snapshot saves. Only the snapshot successfully
 uploaded is marked saved. `internal/workspace` polls expanded remote directories
 and watched file metadata; read failures preserve the last tree. Git uses quoted
-commands over SSH with a deadline; terminals start an interactive SSH process
+commands over SSH (local queries have a deadline; fetch, pull and push do not); terminals start an interactive SSH process
 in the corresponding remote directory. Connections are shared per SSH target
 and terminated on application exit.
+
+Remote file tabs are inserted immediately with a loading state. Background reads
+return bytes; the frame thread applies them only if the workspace generation,
+document identity, path and buffer version still match. Session scroll/selection
+restoration waits for that first read. Poll targets are supplied from live tabs
+and visible expanded directories; first observations only establish baselines.
+The CLI uses a dedicated `mayoi-ssh` URL scheme so running macOS instances receive
+remote addresses via `OnOpenURL`, alongside the existing local open-file events.

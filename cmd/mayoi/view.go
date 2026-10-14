@@ -278,7 +278,7 @@ func (a *app) commandCenter(c *ui.Context) {
 	case hovered:
 		b.Background(p.surfaceHover).Border(1, mix(p.border, p.muted, 0.3))
 	}
-	windowW, _ := c.Size()
+	room := b.Bounds().W - 2*10 - 12 - 2*8 // its padding, the icon and the gaps
 	b.Children(func() {
 		col := p.faint
 		if hovered {
@@ -292,12 +292,23 @@ func (a *app) commandCenter(c *ui.Context) {
 				name = "● " + name
 			}
 		}
-		if a.root != "" && windowW >= 760 {
+		if a.root != "" {
 			folder = filepath.Base(a.root)
 		}
+		if name != "" && folder != "" && room > 0 {
+			// The folder goes before the name is cut short.
+			nameW, _ := c.MeasureText(0, ui.Span{Text: name, Size: 12, Weight: 550})
+			folderW, _ := c.MeasureText(0, ui.Span{Text: folder, Size: 12})
+			if nameW+8+folderW > room {
+				folder = ""
+			}
+		}
 		switch {
-		case name != "" && folder != "":
+		case name != "" && a.root != "":
 			ui.Text(c, name).FontSize(12).FontWeight(550).TextColor(p.text).SingleLine().Shrink(1).MinWidth(32)
+			if folder == "" {
+				break
+			}
 			ui.Text(c, folder).FontSize(12).TextColor(p.faint).SingleLine().Shrink(1).MinWidth(24)
 		case name != "" || folder != "":
 			ui.Text(c, name+folder).FontSize(12).FontWeight(500).TextColor(p.muted).SingleLine().Shrink(1)
@@ -640,6 +651,8 @@ func (a *app) previewButton(c *ui.Context, t *colTab, d *editor) {
 	}
 }
 
+// statusVisibility is which of the parts of the status bar that can go
+// show.
 type statusVisibility struct {
 	branchLabel bool
 	folder      bool
@@ -651,23 +664,99 @@ type statusVisibility struct {
 	language    bool
 }
 
-func statusVisibilityFor(width float32) statusVisibility {
-	return statusVisibility{
-		branchLabel: width >= 560,
-		folder:      width >= 900,
-		terminal:    width >= 720,
-		lines:       width >= 760,
-		indent:      width >= 680,
-		encoding:    width >= 900,
-		eol:         width >= 720,
-		language:    width >= 620,
+// statusFit returns which parts of the status bar show in width: as the
+// window narrows, the least needed go first, each only once the bar
+// would not hold it. The position is measured at its widest, so that the
+// parts stay as the caret moves.
+func (a *app) statusFit(c *ui.Context, width float32) statusVisibility {
+	measure := func(s string, icon bool) float32 {
+		w, _ := c.MeasureText(0, ui.Span{Text: s, Size: 11.5})
+		w += 2*6 + 2 // the item's padding, and the gap after it
+		if icon {
+			w += 12 + 5
+		}
+		return w
 	}
+	var v statusVisibility
+	used := float32(2 * 6)
+	type part struct {
+		on *bool
+		w  float32
+	}
+	// In the order they go.
+	var parts []part
+	add := func(on *bool, w float32) { parts = append(parts, part{on, w}) }
+	if m := a.themeMascot(); m != nil {
+		w, _ := m.size(1)
+		used += w + 12 + 2
+	}
+	if busy := a.git.busy; busy != "" {
+		used += measure(busy, true)
+	}
+	if len(a.chord) > 0 {
+		used += measure("("+strings.Join(chordCaps(a.chord), " ")+") was pressed. Waiting for the next key…", true)
+	}
+	folder := func() {
+		if a.root != "" {
+			add(&v.folder, measure(filepath.Base(a.root), true))
+		}
+	}
+	t := a.activeTab()
+	switch d := a.activeEditor(); {
+	case a.activeViewer() != nil, t != nil && t.diff != nil, d == nil:
+		folder()
+	case t != nil && t.term != nil:
+		folder()
+		dir, size := t.term.term.Dir(), ""
+		if cols, rows := t.term.term.Size(); cols > 0 {
+			size = fmt.Sprintf("%d × %d", cols, rows)
+		}
+		if dir != "" || size != "" {
+			add(&v.terminal, measure(shortenHome(dir), true)+measure(size, false))
+		}
+	default:
+		snap := d.buf.Snapshot()
+		n := snap.LineCount()
+		used += measure(fmt.Sprintf("Ln %d, Col 999", n), false)
+		if a.settings.Vim {
+			used += measure(d.vim.label(), false)
+		}
+		if d.diskGone {
+			used += measure("Deleted on disk", true)
+		}
+		eol := "LF"
+		if d.crlf {
+			eol = "CRLF"
+		}
+		add(&v.encoding, measure("UTF-8", false))
+		folder()
+		add(&v.lines, measure(plural(n, "line"), false))
+		add(&v.eol, measure(eol, false))
+		add(&v.indent, measure(d.indent.String(), false))
+		add(&v.language, measure(highlight.DisplayName(d.hl.Lexer()), false))
+	}
+	if a.branch() != "" {
+		used += 2*6 + 12 + 2 // its icon, which stays
+		add(&v.branchLabel, measure(a.branchLabel(), false)-2*6-2+5)
+	}
+	for _, p := range parts {
+		*p.on = true
+		used += p.w
+	}
+	for _, p := range parts {
+		if used <= width {
+			break
+		}
+		*p.on = false
+		used -= p.w
+	}
+	return v
 }
 
 func (a *app) statusBar(c *ui.Context) {
 	p := a.pal
 	width, _ := c.Size()
-	visible := statusVisibilityFor(width)
+	visible := a.statusFit(c, width)
 	ui.Row(c).Height(statusBarH).Padding(0, 6).Gap(2).AlignItems(ui.Center).Background(p.status).
 		BorderWidth(1, 0, 0, 0).BorderColor(p.border).Children(func() {
 		text := func(s string) ui.Element {

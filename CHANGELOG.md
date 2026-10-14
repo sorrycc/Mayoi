@@ -5,9 +5,12 @@ needs a `## <version>` section here, or its build fails.
 
 ## Unreleased
 
-- The title bar and status bar now adapt to narrow windows, the command
-  center has a clearer control surface, active tabs are easier to identify,
-  and Explorer rows have more comfortable spacing.
+- The title bar and status bar now adapt to narrow windows: the status
+  bar leaves out its least needed parts, the encoding first, only once
+  they would not fit, and the command center leaves out the folder before
+  it cuts the file's name short. The command center has a clearer control
+  surface, active tabs are easier to identify, and Explorer rows have more
+  comfortable spacing.
 - Inactive editor tabs no longer lay out their text every frame, keeping
   rendering responsive as more files are opened while preserving each tab's
   selection and scroll position.

@@ -116,6 +116,9 @@ type editor struct {
 	hiddenY float32
 	// focusNext repeats a focus request after a hidden editor is built again.
 	focusNext bool
+	// shownFrame is the frame the editor came back in sight, which covers
+	// it as its new text area scrolls to its selection.
+	shownFrame int
 	// pinFrame is the frame that gave the text area a selection the view
 	// is not to follow, 0 for none, and pinY where the editor was scrolled
 	// then, which the frame after puts back.

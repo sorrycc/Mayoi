@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"image"
 	"mayoi/internal/settings"
 	"os"
 	"path/filepath"
@@ -130,6 +131,43 @@ func TestHiddenTabStaysWhereItIsScrolled(t *testing.T) {
 	if left.vscroll.Y != 6000 {
 		t.Fatalf("back at %v", left.vscroll.Y)
 	}
+}
+
+// TestHiddenTabComesBackInPlace: a tab shown again builds a new text area,
+// which scrolls to its caret before the editor puts it back: no frame
+// shows the text anywhere else.
+func TestHiddenTabComesBackInPlace(t *testing.T) {
+	hs := newHarness(t, true)
+	a, tt := hs.a, hs.tt
+	a.openFile(hs.longFile("long.go", 400), true)
+	hs.settle()
+	d := a.activeEditor()
+	d.vscroll.Y = 6000
+	hs.settle()
+	a.openFile(hs.path("README.md"), true)
+	hs.settle()
+	a.activate(a.column(), 0, true)
+	for range 3 {
+		tt.Frame()
+		if d.vscroll.Y == 6000 {
+			return
+		}
+		box, ok := tt.Find("Editor long.go")
+		if !ok {
+			t.Fatal("no editor")
+		}
+		img := tt.Image()
+		r := image.Rect(int(box.X), int(box.Y), int(box.X+box.W), int(box.Y+box.H)).Intersect(img.Bounds())
+		first := img.At(r.Min.X, r.Min.Y)
+		for y := r.Min.Y; y < r.Max.Y; y += 3 {
+			for x := r.Min.X; x < r.Max.X; x += 3 {
+				if img.At(x, y) != first {
+					t.Fatalf("a frame shows the tab scrolled to %v", d.vscroll.Y)
+				}
+			}
+		}
+	}
+	t.Fatalf("back at %v", d.vscroll.Y)
 }
 
 func TestClosingAsksForTheLastTabOfADocument(t *testing.T) {

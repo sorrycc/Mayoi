@@ -123,7 +123,7 @@ func (a *app) editorView(c *ui.Context, d *editor) {
 	switch {
 	case d.hidden:
 		// Back in sight, where it was.
-		d.hidden, d.pinFrame, d.resync = false, 0, true
+		d.hidden, d.pinFrame, d.resync, d.shownFrame = false, 0, true, a.frame
 		d.vscroll.Y = d.hiddenY
 	case d.pinFrame != 0 && a.frame > d.pinFrame:
 		d.pinFrame = 0
@@ -532,6 +532,11 @@ func (a *app) editorView(c *ui.Context, d *editor) {
 			}
 		})
 	})
+	if d.shownFrame == a.frame {
+		// Built again, the text area scrolls to the selection it is given:
+		// it is covered for that frame, until the pin puts it back.
+		ui.Box(c).Absolute().Top(0).Left(0).Right(0).Bottom(0).Background(p.editor)
+	}
 }
 
 // linesInView returns the first and last lines that show, a little of

@@ -98,7 +98,10 @@ func (a *app) sidebar(c *ui.Context) {
 }
 
 // titleSpacing is the letter spacing of the sidebar's title.
-const titleSpacing = 0.6
+const (
+	titleSpacing = 0.6
+	explorerRowH = 21
+)
 
 // fitTitle returns the sidebar's title, or its short form when the title
 // would not fit in room, as the sidebar is narrow or the buttons beside it
@@ -208,7 +211,7 @@ func (a *app) fileTree(c *ui.Context) {
 	out := ui.Outline(c.Key("files"), &a.files, t.Children(a.root), children, func(path string) {
 		isDir := t.IsDir(path)
 		name := filepath.Base(path)
-		row := ui.Row(c).Grow(1).Gap(6).AlignItems(ui.Center).Height(17)
+		row := ui.Row(c).Grow(1).Gap(6).AlignItems(ui.Center).Height(explorerRowH)
 		if n := a.files.Rows(); n > 0 && a.files.Item(n-1) == path {
 			if r := row.Bounds(); r.H > 0 {
 				end = r.Y + r.H

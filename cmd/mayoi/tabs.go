@@ -91,9 +91,9 @@ func (a *app) tabStrip(c *ui.Context, col *column) {
 							ui.Box(c).Absolute().Top(0).Bottom(0).Left(0).Width(2).Background(p.accent)
 						case active && focused:
 							// The accent line along the top of the tab shown.
-							ui.Box(c).Absolute().Top(0).Left(0).Right(0).Height(1.5).Background(p.accent)
+							ui.Box(c).Absolute().Top(0).Left(0).Right(0).Height(2).Background(p.accent)
 						case active:
-							ui.Box(c).Absolute().Top(0).Left(0).Right(0).Height(1.5).Background(p.faint)
+							ui.Box(c).Absolute().Top(0).Left(0).Right(0).Height(2).Background(p.faint)
 						}
 						icon, tint := iconTerminal, p.muted
 						switch {
@@ -114,7 +114,7 @@ func (a *app) tabStrip(c *ui.Context, col *column) {
 						case t.ed != nil && t.ed.diskGone, t.view != nil && t.view.diskGone:
 							name.TextColor(p.danger).Strikethrough()
 						case active:
-							name.TextColor(p.text)
+							name.FontWeight(550).TextColor(p.text)
 						default:
 							name.TextColor(p.muted)
 						}

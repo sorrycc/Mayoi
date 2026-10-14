@@ -5,6 +5,12 @@ needs a `## <version>` section here, or its build fails.
 
 ## Unreleased
 
+- The title bar and status bar now adapt to narrow windows, the command
+  center has a clearer control surface, active tabs are easier to identify,
+  and Explorer rows have more comfortable spacing.
+- Inactive editor tabs no longer lay out their text every frame, keeping
+  rendering responsive as more files are opened while preserving each tab's
+  selection and scroll position.
 - The commits' context menu does what Sourcetree's does: **Merge into**
   the branch, **Rebase** it onto the commit, **Reset** it to the commit
   (Soft, Mixed or Hard), **Revert Commit** and **Cherry-Pick Commit**.

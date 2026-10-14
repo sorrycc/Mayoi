@@ -371,6 +371,12 @@ func (a *app) addRecent(p string) {
 // focusTab gives the keyboard to a tab's editor, its viewer, or its
 // terminal.
 func (a *app) focusTab(t *colTab) {
+	for _, doc := range a.docs {
+		for _, ed := range doc.views {
+			ed.focusNext = false
+			ed.vscroll.CancelFocus()
+		}
+	}
 	switch {
 	case t.term != nil:
 		t.term.view.Focus()
@@ -381,6 +387,7 @@ func (a *app) focusTab(t *colTab) {
 	case t.ed.preview != nil:
 		t.ed.preview.pane.Focus()
 	default:
+		t.ed.focusNext = true
 		t.ed.vscroll.Focus()
 	}
 	a.focus = paneEditor

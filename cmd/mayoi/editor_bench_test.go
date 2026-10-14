@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"testing"
 )
@@ -28,6 +29,26 @@ func BenchmarkIdleFrame(b *testing.B) {
 	b.ResetTimer()
 	for range b.N {
 		hs.tt.Frame()
+	}
+}
+
+func BenchmarkIdleFrameTabs(b *testing.B) {
+	for _, tabs := range []int{1, 10, 30} {
+		b.Run(fmt.Sprint(tabs), func(b *testing.B) {
+			hs := newHarness(b, true)
+			src, _ := os.ReadFile("editor.go")
+			for i := range tabs {
+				name := fmt.Sprintf("bench-%02d.go", i)
+				os.WriteFile(hs.path(name), src, 0o644)
+				hs.a.openFile(hs.path(name), true)
+			}
+			hs.settle()
+			b.ReportAllocs()
+			b.ResetTimer()
+			for range b.N {
+				hs.tt.Frame()
+			}
+		})
 	}
 }
 

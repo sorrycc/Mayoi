@@ -123,7 +123,7 @@ func (a *app) editorView(c *ui.Context, d *editor) {
 	switch {
 	case d.hidden:
 		// Back in sight, where it was.
-		d.hidden, d.pinFrame = false, 0
+		d.hidden, d.pinFrame, d.resync = false, 0, true
 		d.vscroll.Y = d.hiddenY
 	case d.pinFrame != 0 && a.frame > d.pinFrame:
 		d.pinFrame = 0
@@ -269,6 +269,10 @@ func (a *app) editorView(c *ui.Context, d *editor) {
 			// The area is as wide as its widest line: keep its scroll bar
 			// at the right of the view, wherever it scrolls sideways.
 			ScrollbarInsets(2, max(0, d.hscroll.MaxX-d.hscroll.X)+2, 2, 0)
+		if d.focusNext {
+			d.focusNext = false
+			d.vscroll.Focus(c)
+		}
 
 		if d.hl != nil && d.hl.Lexer() != nil {
 			d.hl.Request(snap, first, last)

@@ -140,6 +140,44 @@ func (hs *harness) shot(name string) {
 
 func (hs *harness) path(rel string) string { return filepath.Join(hs.root, filepath.FromSlash(rel)) }
 
+func TestStatusVisibilityPrioritizesNarrowWindows(t *testing.T) {
+	for _, test := range []struct {
+		width float32
+		want  statusVisibility
+	}{
+		{500, statusVisibility{}},
+		{640, statusVisibility{branchLabel: true, language: true}},
+		{700, statusVisibility{branchLabel: true, indent: true, language: true}},
+		{800, statusVisibility{branchLabel: true, terminal: true, lines: true, indent: true, eol: true, language: true}},
+		{1000, statusVisibility{branchLabel: true, folder: true, terminal: true, lines: true, indent: true, encoding: true, eol: true, language: true}},
+	} {
+		if got := statusVisibilityFor(test.width); got != test.want {
+			t.Errorf("at %.0f: got %+v, want %+v", test.width, got, test.want)
+		}
+	}
+}
+
+func TestChromeAdaptsToNarrowWindow(t *testing.T) {
+	hs := newHarness(t, true)
+	hs.a.openFile(hs.path("main.go"), true)
+	hs.tt.SetSize(640, 760)
+	hs.settle()
+	if !hs.tt.HasText("Ln 1, Col 1") {
+		t.Fatalf("position is missing from narrow status bar: %q", hs.tt.Texts())
+	}
+	if hs.tt.HasText("UTF-8") {
+		t.Error("encoding crowds the narrow status bar")
+	}
+	if box, ok := hs.tt.Find("Quick Open"); !ok || box.X < 0 || box.X+box.W > 640 {
+		t.Errorf("command center does not fit the narrow title bar: %v, found %v", box, ok)
+	}
+	hs.tt.SetSize(1200, 760)
+	hs.settle()
+	if !hs.tt.HasText("UTF-8") {
+		t.Error("wide status bar does not show encoding")
+	}
+}
+
 func TestOpenFolderShowsTreeAndOpensFiles(t *testing.T) {
 	hs := newHarness(t, true)
 	a, tt := hs.a, hs.tt

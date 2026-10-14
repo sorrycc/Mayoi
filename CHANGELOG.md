@@ -16,6 +16,10 @@ needs a `## <version>` section here, or its build fails.
   bracketed paste, which Claude Code takes as its cue to read the image
   itself. Mayoi builds on a fork of MyGo with this fix until it is
   released upstream.
+- A new file in a folder whose name starts with a dot, like
+  `.changeset`, shows its lines in Changes instead of a git error, and
+  its hunks can be staged. A file's error in Changes no longer runs
+  over its header.
 
 ## 0.8.1
 

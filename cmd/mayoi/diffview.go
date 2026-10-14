@@ -692,7 +692,7 @@ func (a *app) refreshDiffFile(v *diffView, f *diffFile) bool {
 		a.post(func() {
 			f.running = false
 			if err != nil {
-				f.err = err.Error()
+				f.err = errorLine(err)
 			} else {
 				f.err = ""
 			}
@@ -1527,4 +1527,11 @@ func expandTabs(s string) (string, func(b int) int) {
 	}
 	at[len(s)] = out.Len()
 	return out.String(), func(b int) int { return at[min(max(b, 0), len(s))] }
+}
+
+// errorLine is the first line of what err says, without git's "fatal: ":
+// a file's note in the diff is one row tall.
+func errorLine(err error) string {
+	s, _, _ := strings.Cut(strings.TrimSpace(err.Error()), "\n")
+	return strings.TrimPrefix(s, "fatal: ")
 }

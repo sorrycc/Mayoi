@@ -113,6 +113,24 @@ func TestSubmodule(t *testing.T) {
 	}
 }
 
+func TestShowNotInIndex(t *testing.T) {
+	r, _ := repo(t)
+	write(t, r.Root, ".changeset/new.md", "hi\n")
+	for _, rel := range []string{".changeset/new.md", "gone.txt"} {
+		for _, rev := range []string{"", "HEAD"} {
+			if text, ok, err := r.Show(rev, r.Abs(rel)); ok || err != nil {
+				t.Errorf("show %q %s: %q %v %v", rev, rel, text, ok, err)
+			}
+		}
+	}
+	if err := r.Stage(r.Abs(".changeset/new.md")); err != nil {
+		t.Fatal(err)
+	}
+	if text, ok, err := r.Show("", r.Abs(".changeset/new.md")); !ok || err != nil || text != "hi\n" {
+		t.Errorf("staged: %q %v %v", text, ok, err)
+	}
+}
+
 func TestStageUnstageDiscardCommit(t *testing.T) {
 	r, _ := repo(t)
 	a := filepath.Join(r.Root, "a.txt")

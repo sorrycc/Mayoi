@@ -243,7 +243,14 @@ func parseStatus(r *Repo, out []byte) *Status {
 // is false when it has no such file. A submodule's text is its commit, as
 // git diff says it.
 func (r *Repo) Show(rev, path string) (text string, ok bool, err error) {
-	out, err := r.run(nil, "show", rev+":"+r.Rel(path))
+	// ":0:" names the index: after a bare ":", a path that starts with
+	// "." reads as relative to the current folder, and git then fails on
+	// a file not in the index with "ambiguous argument".
+	spec := rev + ":" + r.Rel(path)
+	if rev == "" {
+		spec = ":0:" + r.Rel(path)
+	}
+	out, err := r.run(nil, "show", spec)
 	if err != nil {
 		// The commit of a submodule is in its own repository, not here.
 		if hash := r.gitlink(rev, path); hash != "" {
@@ -251,7 +258,7 @@ func (r *Repo) Show(rev, path string) (text string, ok bool, err error) {
 		}
 		var ge *Error
 		if errors.As(err, &ge) {
-			for _, s := range []string{"exists on disk, but not in", "does not exist in", "invalid object name", "bad revision"} {
+			for _, s := range []string{"exists on disk, but not in", "does not exist in", "neither on disk nor in the index", "invalid object name", "bad revision"} {
 				if strings.Contains(ge.Stderr, s) {
 					return "", false, nil
 				}

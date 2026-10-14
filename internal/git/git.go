@@ -243,7 +243,7 @@ func parseStatus(r *Repo, out []byte) *Status {
 // is false when it has no such file. A submodule's text is its commit, as
 // git diff says it.
 func (r *Repo) Show(rev, path string) (text string, ok bool, err error) {
-	out, err := r.run(nil, "show", rev+":"+r.Rel(path))
+	out, err := r.run(nil, "cat-file", "blob", rev+":"+r.Rel(path))
 	if err != nil {
 		// The commit of a submodule is in its own repository, not here.
 		if hash := r.gitlink(rev, path); hash != "" {

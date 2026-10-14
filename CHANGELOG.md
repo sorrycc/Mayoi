@@ -5,6 +5,10 @@ needs a `## <version>` section here, or its build fails.
 
 ## Unreleased
 
+- New files under dot-prefixed folders such as `.changeset/` display their
+  additions in Changes before staging.
+- Multiline errors in Changes no longer overlap the file header.
+
 - The commits' context menu does what Sourcetree's does: **Merge into**
   the branch, **Rebase** it onto the commit, **Reset** it to the commit
   (Soft, Mixed or Hard), **Revert Commit** and **Cherry-Pick Commit**.

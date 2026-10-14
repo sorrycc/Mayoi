@@ -867,7 +867,9 @@ func (a *app) layoutRows(v *diffView, l diffGeometry) {
 			note = "No changes in the text."
 		}
 		if note != "" {
-			plain(rowNote, i, note)
+			for _, line := range strings.Split(note, "\n") {
+				plain(rowNote, i, line)
+			}
 			continue
 		}
 		all := f.unified

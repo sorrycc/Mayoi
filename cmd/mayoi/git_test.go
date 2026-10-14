@@ -743,6 +743,86 @@ func TestDiffFolds(t *testing.T) {
 	v.layout = layoutAuto
 }
 
+func TestDiffUntrackedMarkdown(t *testing.T) {
+	hs := newHarness(t, true)
+	git := hs.gitRepo()
+	path := hs.path(".changeset/khaki-cars-brake.md")
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	const body = "---\n\"@myflicker/amux\": patch\n---\n\n- 新增中文说明\n"
+	if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	hs.settleGit()
+	hs.a.run("git.openAllChanges")
+	hs.settleGit()
+	check := func() {
+		t.Helper()
+		hs.until("Markdown additions", func() bool {
+			v := hs.a.activeTab().diff
+			for file, f := range v.files {
+				if f.path == path && f.err == "" && f.new.text == body {
+					for _, row := range v.rows {
+						if row.file == file && row.kind == rowLine && row.new >= 0 && f.new.lines[row.new] == "- 新增中文说明" {
+							return true
+						}
+					}
+				}
+			}
+			return false
+		})
+	}
+	check()
+	hs.shot("git-diff-untracked-markdown")
+	git("add", "--", ".changeset/khaki-cars-brake.md")
+	hs.settleGit()
+	check()
+}
+
+func TestDiffMultilineErrorDoesNotOverlapHeader(t *testing.T) {
+	hs := newHarness(t, true)
+	a := hs.a
+	const first = "fatal: cannot read the file"
+	render := func(note string) *ui.Tester {
+		v := newDiffView(layoutInline)
+		v.files = []*diffFile{{path: hs.path("notes.md"), loaded: true, err: note}}
+		tt := ui.NewTester(func(c *ui.Context) { a.diffViewUI(c, v) }, 900, 400)
+		tt.Frame()
+		return tt
+	}
+	hs.tt = render(first)
+	hs.shot("diff-error-single")
+	baseline := hs.tt.Image()
+	hs.tt = render(first + "\nCheck the repository state.\nTry again after fixing it.")
+	hs.shot("diff-error-multiline")
+	got := hs.tt.Image()
+	// A three-line error must leave the section and file header as they
+	// appeared with a one-line error, rather than painting over them.
+	bottom := int(editorPadY + 2*a.font.lineH)
+	for y := range bottom {
+		for x := range baseline.Bounds().Dx() {
+			if got.RGBAAt(x, y) != baseline.RGBAAt(x, y) {
+				t.Fatalf("multiline error paints over the header at (%d, %d)", x, y)
+			}
+		}
+	}
+	// Each line must still be drawn below the header.
+	background := got.RGBAAt(850, 399)
+	for line := range 3 {
+		top := int(editorPadY + float32(2+line)*a.font.lineH)
+		ink := false
+		for y := top; y < top+int(a.font.lineH); y++ {
+			for x := 90; x < 850; x++ {
+				ink = ink || got.RGBAAt(x, y) != background
+			}
+		}
+		if !ink {
+			t.Fatalf("error line %d is not visible below the header", line+1)
+		}
+	}
+}
+
 func TestDiffOfEveryFile(t *testing.T) {
 	hs := newHarness(t, true)
 	git := hs.gitRepo()

@@ -76,6 +76,16 @@ func TestStatus(t *testing.T) {
 	}
 }
 
+func TestShowUntrackedMarkdown(t *testing.T) {
+	r, _ := repo(t)
+	const name = ".changeset/khaki-cars-brake.md"
+	write(t, r.Root, name, "---\n\"@myflicker/amux\": patch\n---\n\n- 新增中文说明\n")
+	text, ok, err := r.Show("", filepath.Join(r.Root, filepath.FromSlash(name)))
+	if err != nil || ok || text != "" {
+		t.Fatalf("untracked file's index version: text %q, ok %v, err %v", text, ok, err)
+	}
+}
+
 func TestSubmodule(t *testing.T) {
 	r, git := repo(t)
 	inner, _ := repo(t)

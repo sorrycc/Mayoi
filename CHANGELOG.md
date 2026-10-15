@@ -25,6 +25,10 @@ needs a `## <version>` section here, or its build fails.
   sets it off from the pane.
 - The editor does less work on every frame it paints: idle and scrolling
   frames of a large file allocate about a quarter of what they did.
+- Windows: the programs Mayoi runs in the background, git above all, no
+  longer open a console window of their own, which reached the desktop as
+  a terminal window that flashed open and closed around every command the
+  editor ran.
 
 ## 0.9.1
 

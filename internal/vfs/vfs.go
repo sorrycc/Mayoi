@@ -344,6 +344,7 @@ exec env "$@"`
 	}
 	cmd := exec.Command(name, args...)
 	cmd.Dir = dir
+	hideWindow(cmd)
 	if len(env) > 0 {
 		cmd.Env = append(os.Environ(), env...)
 	}

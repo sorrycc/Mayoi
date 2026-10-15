@@ -586,6 +586,19 @@ func TestLoadProjectLogo(t *testing.T) {
 	}
 }
 
+// A large logo is kept no larger than the rail needs, its shape kept.
+func TestLoadProjectLogoScalesDown(t *testing.T) {
+	dir := t.TempDir()
+	writePNG(t, filepath.Join(dir, "logo.png"), 1024, 512)
+	bm, ok := loadProjectLogo(dir).(*ui.Bitmap)
+	if !ok {
+		t.Fatal("no bitmap from logo.png")
+	}
+	if w, h := bm.Size(); w != logoSide || h != logoSide/2 {
+		t.Errorf("logo is %dx%d, want %dx%d", w, h, logoSide, logoSide/2)
+	}
+}
+
 // A favicon.ico decodes: its PNG entry, or its 32-bit BMP one.
 func TestLoadProjectLogoICO(t *testing.T) {
 	dir := t.TempDir()

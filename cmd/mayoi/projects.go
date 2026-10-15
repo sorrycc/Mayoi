@@ -20,6 +20,7 @@ import (
 
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
+	xdraw "golang.org/x/image/draw"
 
 	"mayoi/internal/remote"
 	"mayoi/internal/settings"
@@ -537,7 +538,9 @@ func (f *frame) railTab(c *ui.Context, a *app, h *desktop, i int) {
 			ink = col.Mix(p.muted, 0.25)
 		}
 		if src := h.projectLogo(); src != nil && !dragged {
-			logo := ui.Rect{X: sq.X + (sq.W-24)/2, Y: sq.Y + (sq.H-24)/2, W: 24, H: 24}
+			// Shrinking with the square as it is pressed.
+			ls := sq.W - 8
+			logo := ui.Rect{X: sq.X + (sq.W-ls)/2, Y: sq.Y + (sq.H-ls)/2, W: ls, H: ls}
 			pt.Clip(logo, 6, func() { pt.Image(src, logo, ui.Contain) })
 		} else {
 			paintInitials(pt, sq, projectWords(name), 12, ink.Alpha(alpha))
@@ -933,13 +936,39 @@ func decodeProjectLogo(path string) ui.ImageSource {
 		if err != nil {
 			return nil
 		}
-		return ui.NewBitmap(img)
+		return logoBitmap(img)
 	}
-	bm, _, _, _, err := decodeImage(path)
+	data, err := readImage(path)
 	if err != nil {
 		return nil
 	}
-	return bm
+	if cfg, _, err := image.DecodeConfig(bytes.NewReader(data)); err != nil ||
+		cfg.Width <= 0 || cfg.Height <= 0 || int64(cfg.Width) > maxIconPixels/int64(cfg.Height) {
+		return nil
+	}
+	img, _, err := image.Decode(bytes.NewReader(data))
+	if err != nil {
+		return nil
+	}
+	return logoBitmap(img)
+}
+
+// logoSide is the most pixels on a side a logo keeps once decoded: the
+// rail shows it at 24 DIPs, and each project holds its own for as long as
+// it is open.
+const logoSide = 96
+
+// logoBitmap is img for the rail, scaled down to logoSide when larger.
+func logoBitmap(img image.Image) *ui.Bitmap {
+	b := img.Bounds()
+	w, h := b.Dx(), b.Dy()
+	if side := max(w, h); side > logoSide {
+		s := float64(logoSide) / float64(side)
+		dst := image.NewRGBA(image.Rect(0, 0, max(1, int(float64(w)*s)), max(1, int(float64(h)*s))))
+		xdraw.CatmullRom.Scale(dst, dst.Bounds(), img, b, xdraw.Src, nil)
+		img = dst
+	}
+	return ui.NewBitmap(img)
 }
 
 // maxIconPixels is the largest an icon entry decodes at: favicons are

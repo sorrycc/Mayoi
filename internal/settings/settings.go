@@ -131,6 +131,9 @@ type Prefs struct {
 	// ProjectTabs keeps the folders open in one window, a rail on its left
 	// choosing which shows, rather than a window for each.
 	ProjectTabs bool `json:"projectTabs,omitempty"`
+	// ProjectIcons shows each project's favicon or logo on the rail,
+	// rather than its initials.
+	ProjectIcons bool `json:"projectIcons,omitempty"`
 }
 
 // Window is a window as the settings keep it: its folder, and its

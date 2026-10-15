@@ -1,7 +1,12 @@
 package main
 
 import (
+	"bytes"
+	"encoding/binary"
 	"fmt"
+	"image"
+	"image/color"
+	"image/png"
 	"os"
 	"path/filepath"
 	"slices"
@@ -379,5 +384,511 @@ func TestRailMarksAttention(t *testing.T) {
 	tt.Frame()
 	if hs[1].a.alert != "" {
 		t.Error("the mark stays as the project shows")
+	}
+}
+
+// findProjectLogo takes the first favicon or logo file, the root before
+// public/, and app/ before src/, but no icon alone that does not decode.
+func TestFindProjectLogo(t *testing.T) {
+	write := func(dir, rel string) {
+		p := filepath.Join(dir, filepath.FromSlash(rel))
+		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(p, []byte("x"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	empty := t.TempDir()
+	if got := findProjectLogo(empty); got != "" {
+		t.Errorf("empty folder: %q", got)
+	}
+	dir := t.TempDir()
+	write(dir, "public/logo.png")
+	write(dir, "src/assets/logo.svg")
+	if got, want := findProjectLogo(dir), filepath.Join(dir, "public", "logo.png"); got != want {
+		t.Errorf("got %q, want %q", got, want)
+	}
+	write(dir, "favicon.svg")
+	if got, want := findProjectLogo(dir), filepath.Join(dir, "favicon.svg"); got != want {
+		t.Errorf("root first: got %q, want %q", got, want)
+	}
+}
+
+// extractIconHref takes the icon a source declares: link tags in any
+// attribute order, or icon metadata, skipping data URIs and remote URLs.
+func TestExtractIconHref(t *testing.T) {
+	for source, want := range map[string]string{
+		`<link rel="icon" href="/brand/mark.svg">`:                             "brand/mark.svg",
+		`<link href="icons/a.png?v=2" rel="shortcut icon">`:                    "icons/a.png",
+		`<link REL='APPLE-TOUCH-ICON' HREF='/apple.png'>`:                      "apple.png",
+		`<link rel="stylesheet" href="app.css"><link rel="icon" href="f.svg">`: "f.svg",
+		`{ rel: "icon", href: "/icons/root.png" }`:                             "icons/root.png",
+		`{ rel: "icon", url: "/images/icons/favicon-v2.ico" }`:                 "images/icons/favicon-v2.ico",
+		`icons: { icon: "/icon.png", apple: "/apple.png" }`:                    "icon.png",
+		`export const m = { apple: "/ap.png" }`:                                "ap.png",
+		`<link data-href="/wrong.png" href="/r.png" rel="icon">`:               "r.png",
+		`<link rel="mask-icon" href="m.svg">`:                                  "",
+		`<link rel="icon" href="../up.png">`:                                   "",
+		`<link rel="icon" href="//host/x.png">`:                                "",
+		`<link rel="icon" href="data:image/svg+xml,xxx">`:                      "",
+		`<link rel="icon" href="https://example.com/f.png">`:                   "",
+		`<link rel="stylesheet" href="app.css">`:                               "",
+		`no links here`:                                                        "",
+	} {
+		if got := extractIconHref(source); got != want {
+			t.Errorf("%q: got %q, want %q", source, got, want)
+		}
+	}
+}
+
+// resolveIconHref looks in public/ first, as a leading slash names the
+// static folder.
+func TestResolveIconHref(t *testing.T) {
+	if got, want := resolveIconHref("/brand/mark.svg"), []string{"public/brand/mark.svg", "brand/mark.svg"}; !slices.Equal(got, want) {
+		t.Errorf("got %q, want %q", got, want)
+	}
+	if resolveIconHref("data:image/png,xxx") != nil {
+		t.Error("a data URI resolves")
+	}
+}
+
+// An icon no candidate names is found through the sources declaring it.
+func TestLoadProjectLogoFromSource(t *testing.T) {
+	dir := t.TempDir()
+	p := filepath.Join(dir, "index.html")
+	if err := os.WriteFile(p, []byte(`<link rel="icon" href="/brand/mark.svg">`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if findProjectLogo(dir) != "" {
+		t.Fatal("a declared icon is a candidate")
+	}
+	if loadProjectLogo(dir) != nil {
+		t.Fatal("a logo without its file")
+	}
+	mark := filepath.Join(dir, "public", "brand", "mark.svg")
+	if err := os.MkdirAll(filepath.Dir(mark), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(mark, []byte(testSVG), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if loadProjectLogo(dir) == nil {
+		t.Error("no logo from the declared icon")
+	}
+}
+
+// An icon in a non-standard folder is found through Next.js metadata in
+// app/layout.tsx.
+func TestLoadProjectLogoFromLayout(t *testing.T) {
+	dir := t.TempDir()
+	layout := filepath.Join(dir, "app", "layout.tsx")
+	if err := os.MkdirAll(filepath.Dir(layout), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(layout, []byte("export const metadata = {\n  icons: {\n    icon: [\n      {\n        rel: \"icon\",\n        type: \"image/x-icon\",\n        url: \"/images/icons/favicon-v2.ico\",\n      },\n    ],\n    apple: \"/images/icons/apple-touch-icon-v2.webp\",\n  },\n};\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if loadProjectLogo(dir) != nil {
+		t.Fatal("a logo without its file")
+	}
+	icons := filepath.Join(dir, "public", "images", "icons", "favicon-v2.ico")
+	if err := os.MkdirAll(filepath.Dir(icons), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeICO(t, icons, pngBytes(t, 16, 16))
+	if loadProjectLogo(dir) == nil {
+		t.Error("no logo from the metadata-declared icon")
+	}
+}
+
+// An apple-only declaration resolves through its own key.
+func TestLoadProjectLogoFromApple(t *testing.T) {
+	dir := t.TempDir()
+	layout := filepath.Join(dir, "app", "layout.tsx")
+	if err := os.MkdirAll(filepath.Dir(layout), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(layout, []byte("export const metadata = {\n  icons: {\n    apple: \"/icons/ap.png\",\n  },\n};\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	icon := filepath.Join(dir, "public", "icons", "ap.png")
+	if err := os.MkdirAll(filepath.Dir(icon), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writePNG(t, icon, 16, 16)
+	if loadProjectLogo(dir) == nil {
+		t.Error("no logo from the apple declaration")
+	}
+}
+
+// The Next.js file convention under src/app/ resolves: icon.ico,
+// apple-icon.png.
+func TestFindProjectLogoSrcApp(t *testing.T) {
+	dir := t.TempDir()
+	icon := filepath.Join(dir, "src", "app", "icon.ico")
+	if err := os.MkdirAll(filepath.Dir(icon), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeICO(t, icon, pngBytes(t, 16, 16))
+	if got := findProjectLogo(dir); got != icon {
+		t.Errorf("got %q, want %q", got, icon)
+	}
+	if loadProjectLogo(dir) == nil {
+		t.Error("no logo from src/app/icon.ico")
+	}
+	apple := filepath.Join(dir, "src", "app", "apple-icon.png")
+	if err := os.MkdirAll(filepath.Dir(apple), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writePNG(t, apple, 16, 16)
+	if err := os.Remove(icon); err != nil {
+		t.Fatal(err)
+	}
+	if got := findProjectLogo(dir); got != apple {
+		t.Errorf("got %q, want %q", got, apple)
+	}
+}
+
+// loadProjectLogo decodes a project's png or svg logo, and takes nothing
+// for a broken file.
+func TestLoadProjectLogo(t *testing.T) {
+	dir := t.TempDir()
+	logo := filepath.Join(dir, "public", "logo.png")
+	if err := os.MkdirAll(filepath.Dir(logo), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writePNG(t, logo, 32, 32)
+	if loadProjectLogo(dir) == nil {
+		t.Error("no logo from public/logo.png")
+	}
+	svg := t.TempDir()
+	p := filepath.Join(svg, "public", "favicon.svg")
+	if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(p, []byte(testSVG), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if loadProjectLogo(svg) == nil {
+		t.Error("no logo from public/favicon.svg")
+	}
+	broken := t.TempDir()
+	bp := filepath.Join(broken, "public", "logo.png")
+	if err := os.MkdirAll(filepath.Dir(bp), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(bp, []byte("not a png"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if loadProjectLogo(broken) != nil {
+		t.Error("a logo from a broken png")
+	}
+}
+
+// A favicon.ico decodes: its PNG entry, or its 32-bit BMP one.
+func TestLoadProjectLogoICO(t *testing.T) {
+	dir := t.TempDir()
+	ico := filepath.Join(dir, "favicon.ico")
+	writeICO(t, ico, pngBytes(t, 16, 16))
+	if loadProjectLogo(dir) == nil {
+		t.Error("no logo from favicon.ico with a PNG entry")
+	}
+	bmp := t.TempDir()
+	writeICOBMP(t, filepath.Join(bmp, "favicon.ico"))
+	if loadProjectLogo(bmp) == nil {
+		t.Error("no logo from favicon.ico with a BMP entry")
+	}
+	if err := os.WriteFile(filepath.Join(bmp, "favicon.ico"), []byte("not an ico"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if loadProjectLogo(bmp) != nil {
+		t.Error("a logo from a broken ico")
+	}
+}
+
+// Project icons are off by default, leaving the initials; on, a decoded
+// logo is what the rail shows.
+func TestProjectIcons(t *testing.T) {
+	if settings.Default().ProjectIcons {
+		t.Error("project icons are on by default")
+	}
+	root := t.TempDir()
+	f, hs, _ := railFixture(t, root)
+	h := hs[0]
+	if h.projectLogo() != nil {
+		t.Error("no logo scanned, yet one shows")
+	}
+	h.logoSrc = loadProjectLogo(t.TempDir())
+	if h.projectLogo() != nil {
+		t.Error("project icons off, yet a logo shows")
+	}
+	f.m.s.ProjectIcons = true
+	logo := filepath.Join(root, "public", "logo.png")
+	if err := os.MkdirAll(filepath.Dir(logo), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writePNG(t, logo, 32, 32)
+	h.logoSrc = loadProjectLogo(root)
+	if h.projectLogo() == nil {
+		t.Error("project icons on with a logo, yet the initials show")
+	}
+}
+
+// A rail with a project's logo builds, as one without does.
+func TestRailShowsProjectLogo(t *testing.T) {
+	root, other := t.TempDir(), t.TempDir()
+	logo := filepath.Join(root, "public", "logo.png")
+	if err := os.MkdirAll(filepath.Dir(logo), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writePNG(t, logo, 32, 32)
+	f, hs, tt := railFixture(t, root, other)
+	f.m.s.ProjectIcons = true
+	hs[0].logoDone, hs[0].logoDir = true, root
+	hs[0].logoSrc = loadProjectLogo(root)
+	tt.Frame()
+	if _, ok := tt.Find(filepath.Base(root)); !ok {
+		t.Fatalf("no square for %s on the rail: %v", root, tt.Texts())
+	}
+}
+
+// decodeDIB keeps the channels and the rows the right way up, top-down or
+// bottom-up, and a broken larger entry falls back to a good one.
+func TestDecodeICO(t *testing.T) {
+	// Top-left red, top-right green, bottom-left blue, bottom-right white.
+	want := []color.NRGBA{
+		{0xff, 0, 0, 0xff}, {0, 0xff, 0, 0xff},
+		{0, 0, 0xff, 0xff}, {0xff, 0xff, 0xff, 0xff},
+	}
+	dir := t.TempDir()
+	bottom := filepath.Join(dir, "bottom.ico")
+	writeICOBMP(t, bottom)
+	if got := icoPixels(t, bottom); !slices.Equal(got, want) {
+		t.Errorf("bottom-up: %v", got)
+	}
+	for _, doubled := range []bool{false, true} {
+		top := filepath.Join(dir, "top.ico")
+		writeICOTopDown(t, top, doubled)
+		if got := icoPixels(t, top); !slices.Equal(got, want) {
+			t.Errorf("top-down doubled=%v: %v", doubled, got)
+		}
+		os.Remove(top)
+	}
+	fallback := filepath.Join(dir, "fallback.ico")
+	writeICOFallback(t, fallback, pngBytes(t, 16, 16))
+	data, err := os.ReadFile(fallback)
+	if err != nil {
+		t.Fatal(err)
+	}
+	img, err := decodeICO(data)
+	if err != nil {
+		t.Fatalf("no fallback: %v", err)
+	}
+	if b := img.Bounds(); b.Dx() != 16 || b.Dy() != 16 {
+		t.Errorf("fallback size %v, want 16×16", b)
+	}
+}
+
+// A lying DIB header errors instead of panicking or allocating.
+func TestDecodeDIBLyingHeader(t *testing.T) {
+	var b bytes.Buffer
+	binary.Write(&b, binary.LittleEndian, uint32(40))
+	binary.Write(&b, binary.LittleEndian, int32(0x7fffffff))
+	binary.Write(&b, binary.LittleEndian, int32(-2147483648))
+	binary.Write(&b, binary.LittleEndian, uint16(1))
+	binary.Write(&b, binary.LittleEndian, uint16(32))
+	binary.Write(&b, binary.LittleEndian, uint32(0))
+	if _, err := decodeDIB(b.Bytes()); err == nil {
+		t.Error("no error for a lying header")
+	}
+	// A PNG entry lying about 8000×8000 is skipped, not decoded.
+	var ico bytes.Buffer
+	binary.Write(&ico, binary.LittleEndian, uint16(0))
+	binary.Write(&ico, binary.LittleEndian, uint16(1))
+	binary.Write(&ico, binary.LittleEndian, uint16(1))
+	ico.Write([]byte{32, 32, 0, 0})
+	binary.Write(&ico, binary.LittleEndian, uint16(1))
+	binary.Write(&ico, binary.LittleEndian, uint16(32))
+	ihdr := append([]byte("\x89PNG\r\n\x1a\n"), make([]byte, 25)...)
+	binary.BigEndian.PutUint32(ihdr[16:20], 8000)
+	binary.BigEndian.PutUint32(ihdr[20:24], 8000)
+	binary.Write(&ico, binary.LittleEndian, uint32(len(ihdr)))
+	binary.Write(&ico, binary.LittleEndian, uint32(6+16))
+	ico.Write(ihdr)
+	if _, err := decodeICO(ico.Bytes()); err == nil {
+		t.Error("a bomb PNG entry decoded")
+	}
+}
+
+// pngBytes encodes a w×h red png.
+func pngBytes(t *testing.T, w, h int) []byte {
+	t.Helper()
+	img := image.NewRGBA(image.Rect(0, 0, w, h))
+	for y := 0; y < h; y++ {
+		for x := 0; x < w; x++ {
+			img.Set(x, y, color.RGBA{0xff, 0, 0, 0xff})
+		}
+	}
+	var b bytes.Buffer
+	if err := png.Encode(&b, img); err != nil {
+		t.Fatal(err)
+	}
+	return b.Bytes()
+}
+
+// writeICO writes an ico of one entry holding data.
+func writeICO(t *testing.T, path string, data []byte) {
+	t.Helper()
+	var b bytes.Buffer
+	binary.Write(&b, binary.LittleEndian, uint16(0))
+	binary.Write(&b, binary.LittleEndian, uint16(1))
+	binary.Write(&b, binary.LittleEndian, uint16(1))
+	b.Write([]byte{32, 32, 0, 0})
+	binary.Write(&b, binary.LittleEndian, uint16(1))
+	binary.Write(&b, binary.LittleEndian, uint16(32))
+	binary.Write(&b, binary.LittleEndian, uint32(len(data)))
+	binary.Write(&b, binary.LittleEndian, uint32(6+16))
+	b.Write(data)
+	if err := os.WriteFile(path, b.Bytes(), 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// writeICOBMP writes an ico of one 2×2 32-bit BMP entry.
+func writeICOBMP(t *testing.T, path string) {
+	t.Helper()
+	var dib bytes.Buffer
+	binary.Write(&dib, binary.LittleEndian, uint32(40))
+	binary.Write(&dib, binary.LittleEndian, int32(2))
+	binary.Write(&dib, binary.LittleEndian, int32(4))
+	binary.Write(&dib, binary.LittleEndian, uint16(1))
+	binary.Write(&dib, binary.LittleEndian, uint16(32))
+	binary.Write(&dib, binary.LittleEndian, uint32(0))
+	dib.Write(make([]byte, 20))
+	// Bottom row first: blue, white / red, green.
+	dib.Write([]byte{0xff, 0, 0, 0xff, 0xff, 0xff, 0xff, 0xff})
+	dib.Write([]byte{0, 0, 0xff, 0xff, 0, 0xff, 0, 0xff})
+	writeICO(t, path, dib.Bytes())
+}
+
+// writeICOTopDown writes an ico of one 2×2 top-down BMP entry, the height
+// doubled or not.
+func writeICOTopDown(t *testing.T, path string, doubled bool) {
+	t.Helper()
+	var dib bytes.Buffer
+	binary.Write(&dib, binary.LittleEndian, uint32(40))
+	binary.Write(&dib, binary.LittleEndian, int32(2))
+	if doubled {
+		binary.Write(&dib, binary.LittleEndian, int32(-4))
+	} else {
+		binary.Write(&dib, binary.LittleEndian, int32(-2))
+	}
+	binary.Write(&dib, binary.LittleEndian, uint16(1))
+	binary.Write(&dib, binary.LittleEndian, uint16(32))
+	binary.Write(&dib, binary.LittleEndian, uint32(0))
+	dib.Write(make([]byte, 20))
+	// Top row first: red, green / blue, white.
+	dib.Write([]byte{0, 0, 0xff, 0xff, 0, 0xff, 0, 0xff})
+	dib.Write([]byte{0xff, 0, 0, 0xff, 0xff, 0xff, 0xff, 0xff})
+	writeICO(t, path, dib.Bytes())
+}
+
+// writeICOFallback writes an ico whose larger entry is truncated PNG and
+// whose smaller one decodes.
+func writeICOFallback(t *testing.T, path string, good []byte) {
+	t.Helper()
+	var b bytes.Buffer
+	binary.Write(&b, binary.LittleEndian, uint16(0))
+	binary.Write(&b, binary.LittleEndian, uint16(1))
+	binary.Write(&b, binary.LittleEndian, uint16(2))
+	bad := append([]byte("\x89PNG\r\n\x1a\n"), make([]byte, 2048)...)
+	b.Write([]byte{32, 32, 0, 0})
+	binary.Write(&b, binary.LittleEndian, uint16(1))
+	binary.Write(&b, binary.LittleEndian, uint16(32))
+	binary.Write(&b, binary.LittleEndian, uint32(len(bad)))
+	binary.Write(&b, binary.LittleEndian, uint32(6+32))
+	b.Write([]byte{16, 16, 0, 0})
+	binary.Write(&b, binary.LittleEndian, uint16(1))
+	binary.Write(&b, binary.LittleEndian, uint16(32))
+	binary.Write(&b, binary.LittleEndian, uint32(len(good)))
+	binary.Write(&b, binary.LittleEndian, uint32(6+32+len(bad)))
+	b.Write(bad)
+	b.Write(good)
+	if err := os.WriteFile(path, b.Bytes(), 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// icoPixels decodes path and returns its pixels row by row.
+func icoPixels(t *testing.T, path string) []color.NRGBA {
+	t.Helper()
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	img, err := decodeICO(data)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var out []color.NRGBA
+	for y := 0; y < 2; y++ {
+		for x := 0; x < 2; x++ {
+			r, g, b, a := img.At(x, y).RGBA()
+			out = append(out, color.NRGBA{uint8(r >> 8), uint8(g >> 8), uint8(b >> 8), uint8(a >> 8)})
+		}
+	}
+	return out
+}
+
+// A logo that does not decode leaves the next candidate to try.
+func TestLoadProjectLogoSkipsBroken(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "favicon.svg"), []byte("not an svg"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if loadProjectLogo(dir) != nil {
+		t.Fatal("a logo from a broken svg")
+	}
+	writePNG(t, filepath.Join(dir, "favicon.png"), 16, 16)
+	if loadProjectLogo(dir) == nil {
+		t.Error("the png after a broken svg is not tried")
+	}
+}
+
+// A scan for another folder drops the logo of the folder before.
+func TestScanProjectLogoDropsOldLogo(t *testing.T) {
+	root := t.TempDir()
+	f, hs, _ := railFixture(t, root)
+	h := hs[0]
+	writePNG(t, filepath.Join(root, "logo.png"), 16, 16)
+	h.logoSrc = loadProjectLogo(root)
+	if h.logoSrc == nil {
+		t.Fatal("no logo to drop")
+	}
+	f.scanProjectLogo(h.a, h, t.TempDir())
+	if h.logoSrc != nil {
+		t.Error("the old folder's logo shows while the new folder is scanned")
+	}
+}
+
+// The rail looks for the logo of every project, one not yet shown too.
+func TestRailScansProjectsNotShown(t *testing.T) {
+	root, other := t.TempDir(), t.TempDir()
+	writePNG(t, filepath.Join(other, "logo.png"), 16, 16)
+	f, hs, tt := railFixture(t, root, other)
+	if hs[1].a.started {
+		t.Fatal("the second project started")
+	}
+	f.m.s.ProjectIcons = true
+	tt.Frame()
+	if !hs[1].logoDone || hs[1].logoDir != other {
+		t.Fatal("no scan for a project not shown")
+	}
+	for end := time.Now().Add(5 * time.Second); hs[1].logoSrc == nil; time.Sleep(10 * time.Millisecond) {
+		if time.Now().After(end) {
+			t.Fatal("the logo of a project not shown never came")
+		}
+		tt.Frame()
 	}
 }

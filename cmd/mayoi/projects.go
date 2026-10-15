@@ -1,11 +1,21 @@
 package main
 
 import (
+	"bytes"
+	"encoding/binary"
+	"errors"
 	"fmt"
+	"image"
+	"image/color"
+	"image/png"
+	"io"
 	"os"
+	"path"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/egoist/mygo"
@@ -13,6 +23,7 @@ import (
 
 	"mayoi/internal/remote"
 	"mayoi/internal/settings"
+	"mayoi/internal/vfs"
 )
 
 // railW is the width of the rail of project tabs.
@@ -476,6 +487,9 @@ func (f *frame) railTab(c *ui.Context, a *app, h *desktop, i int) {
 	}
 	alert := h.a.alert
 	col := avatarColor(p, dir)
+	if f.m.s.ProjectIcons && dir != "" && h.needsLogoScan(dir) {
+		f.scanProjectLogo(a, h, dir)
+	}
 	b := ui.ButtonBase(c.Key(fmt.Sprintf("project-%d", h.a.window.ID))).Width(railW).Height(railSquare + 4).Shrink(0).
 		Label(name).Description(where).Drag(railDrag{h})
 	f.railTip(c, a, b, name, where, keys, dirty, alert)
@@ -522,7 +536,12 @@ func (f *frame) railTab(c *ui.Context, a *app, h *desktop, i int) {
 		if !on && !hovered {
 			ink = col.Mix(p.muted, 0.25)
 		}
-		paintInitials(pt, sq, projectWords(name), 12, ink.Alpha(alpha))
+		if src := h.projectLogo(); src != nil && !dragged {
+			logo := ui.Rect{X: sq.X + (sq.W-24)/2, Y: sq.Y + (sq.H-24)/2, W: 24, H: 24}
+			pt.Clip(logo, 6, func() { pt.Image(src, logo, ui.Contain) })
+		} else {
+			paintInitials(pt, sq, projectWords(name), 12, ink.Alpha(alpha))
+		}
 		if alert != "" {
 			// Below the dot of unsaved changes, in the accent.
 			d := ui.Rect{X: sq.X + sq.W - 7, Y: sq.Y + sq.H - 7, W: 10, H: 10}
@@ -647,6 +666,433 @@ func projectWords(name string) string {
 		prev = r
 	}
 	return b.String()
+}
+
+// logoCandidates are a project's favicon or logo files, in order: the
+// root and public/ first, then app/, src/ and the asset folders. A gif
+// would animate on the rail, and an icns has no decoder here.
+var logoCandidates = []string{
+	"favicon.svg", "favicon.ico", "favicon.png", "favicon.webp",
+	"logo.svg", "logo.png", "logo.webp",
+	"icon.svg", "icon.png", "icon.webp",
+	"public/favicon.svg", "public/favicon.ico", "public/favicon.png", "public/favicon.webp",
+	"public/logo.svg", "public/logo.png", "public/logo.webp",
+	"public/icon.svg", "public/icon.png", "public/icon.webp",
+	"public/apple-touch-icon.png",
+	"app/favicon.ico", "app/favicon.png", "app/favicon.webp",
+	"app/icon.svg", "app/icon.png", "app/icon.webp", "app/icon.ico",
+	"app/apple-icon.png",
+	"src/favicon.ico", "src/favicon.svg",
+	"src/app/favicon.ico", "src/app/icon.svg", "src/app/icon.png", "src/app/icon.ico",
+	"src/app/apple-icon.png",
+	"src/assets/logo.svg", "src/assets/logo.png",
+	"assets/icon.svg", "assets/icon.png",
+	"assets/logo.svg", "assets/logo.png",
+	"static/logo.svg", "static/logo.png",
+}
+
+// iconSourceFiles may declare the icon with a <link rel="icon"> or icon
+// metadata, for names no candidate has.
+var iconSourceFiles = []string{
+	"index.html",
+	"public/index.html",
+	"src/index.html",
+	"app/layout.tsx",
+	"src/app/layout.tsx",
+	"app/routes/__root.tsx",
+	"src/routes/__root.tsx",
+	"app/root.tsx",
+	"src/root.tsx",
+}
+
+var (
+	linkTagRe  = regexp.MustCompile(`(?i)<link\b[^>]*>`)
+	relAttrRe  = regexp.MustCompile(`(?i)\srel\s*=\s*["']([^"']+)["']`)
+	hrefAttrRe = regexp.MustCompile(`(?i)\shref\s*=\s*["']([^"']+)["']`)
+	iconRelRe  = regexp.MustCompile(`(?:[{,\s])rel\s*:\s*["']([^"']+)["']`)
+	iconHrefRe = regexp.MustCompile(`(?:[{,\s])href\s*:\s*["']([^"'?#]+)`)
+	iconURLRe  = regexp.MustCompile(`(?:[{,\s])url\s*:\s*["']([^"'?#]+)`)
+	iconStrRe  = regexp.MustCompile(`(?:[{,\s])icon\s*:\s*["']([^"'?#]+)["']`)
+	iconAppRe  = regexp.MustCompile(`(?:[{,\s])apple\s*:\s*["']([^"'?#]+)["']`)
+)
+
+// extractIconHref is the icon an HTML or TSX source declares, or "".
+func extractIconHref(source string) string {
+	for _, tag := range linkTagRe.FindAllString(source, -1) {
+		rel := relAttrRe.FindStringSubmatch(tag)
+		if rel == nil || !hasIconRel(rel[1]) {
+			continue
+		}
+		href := hrefAttrRe.FindStringSubmatch(tag)
+		if href == nil {
+			continue
+		}
+		if clean := cleanIconHref(href[1]); clean != "" {
+			return clean
+		}
+	}
+	// Icon metadata counts when rel and href share a brace-free run.
+	// Next.js metadata also names icons with url:, or a bare icon: or apple: path.
+	for _, run := range strings.Split(source, "}") {
+		if rel := iconRelRe.FindStringSubmatch(run); rel != nil && hasIconRel(rel[1]) {
+			if href := iconHrefRe.FindStringSubmatch(run); href != nil {
+				if clean := cleanIconHref(href[1]); clean != "" {
+					return clean
+				}
+			}
+			if url := iconURLRe.FindStringSubmatch(run); url != nil {
+				if clean := cleanIconHref(url[1]); clean != "" {
+					return clean
+				}
+			}
+			continue
+		}
+		for _, re := range []*regexp.Regexp{iconStrRe, iconAppRe} {
+			if m := re.FindStringSubmatch(run); m != nil {
+				if clean := cleanIconHref(m[1]); clean != "" {
+					return clean
+				}
+			}
+		}
+	}
+	return ""
+}
+
+// hasIconRel reports whether a rel names an icon.
+func hasIconRel(rel string) bool {
+	for _, f := range strings.Fields(strings.ToLower(rel)) {
+		if f == "icon" || f == "apple-touch-icon" {
+			return true
+		}
+	}
+	return false
+}
+
+// cleanIconHref takes the path of an icon href, or "" for a data URI, a
+// remote URL, nothing, or a path outside the project.
+func cleanIconHref(href string) string {
+	href = strings.TrimSpace(href)
+	if i := strings.IndexAny(href, "?#"); i >= 0 {
+		href = href[:i]
+	}
+	if href == "" || strings.HasPrefix(href, "data:") || strings.Contains(href, "://") ||
+		strings.HasPrefix(href, "//") {
+		return ""
+	}
+	href = strings.TrimPrefix(strings.TrimPrefix(href, "./"), "/")
+	if href == "" || strings.HasSuffix(href, "/") {
+		return ""
+	}
+	// Outside the project is not an icon of it.
+	for _, seg := range strings.FieldsFunc(href, func(r rune) bool { return r == '/' || r == '\\' }) {
+		if seg == ".." {
+			return ""
+		}
+	}
+	return href
+}
+
+// resolveIconHref maps an icon href to the files it may be: public/ first,
+// as a leading slash names the static folder.
+func resolveIconHref(href string) []string {
+	clean := cleanIconHref(href)
+	if clean == "" {
+		return nil
+	}
+	return []string{"public/" + clean, clean}
+}
+
+// inDir is the path of rel, a slash path, in dir: a folder of this
+// machine or of a host.
+func inDir(dir, rel string) string {
+	if remote.Is(dir) {
+		return path.Join(dir, rel)
+	}
+	return filepath.Join(dir, filepath.FromSlash(rel))
+}
+
+// regularFiles are those of paths that are regular files, in order, at
+// one round trip for the files of a host. A host that cannot be asked
+// has none.
+func regularFiles(paths []string) []string {
+	infos, _ := vfs.StatMany(paths)
+	var files []string
+	for _, p := range paths {
+		if info, ok := infos[p]; ok && info.Mode().IsRegular() {
+			files = append(files, p)
+		}
+	}
+	return files
+}
+
+// logoFiles are the favicon or logo files in dir, in order of preference.
+func logoFiles(dir string) []string {
+	paths := make([]string, len(logoCandidates))
+	for i, rel := range logoCandidates {
+		paths[i] = inDir(dir, rel)
+	}
+	return regularFiles(paths)
+}
+
+// findProjectLogo is the first favicon or logo file in dir, or "" when it
+// has none.
+func findProjectLogo(dir string) string {
+	if files := logoFiles(dir); len(files) > 0 {
+		return files[0]
+	}
+	return ""
+}
+
+// iconSourceHead is how much of a source file the icon declaration is
+// read from: the head holds it, and a minified bundle must not cost
+// megabytes of regex.
+const iconSourceHead = 64 << 10
+
+// readIconSource reads the head of a source file that may declare the
+// icon. A file of this machine opens without blocking, as readImage does:
+// a FIFO must neither stall the scan nor leak its goroutine.
+func readIconSource(path string) ([]byte, error) {
+	if remote.Is(path) {
+		return vfs.ReadFileLimit(path, iconSourceHead)
+	}
+	f, err := os.OpenFile(path, os.O_RDONLY|syscall.O_NONBLOCK, 0)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	if info, err := f.Stat(); err != nil {
+		return nil, err
+	} else if !info.Mode().IsRegular() {
+		return nil, errors.New("the file is not a regular file")
+	}
+	return io.ReadAll(io.LimitReader(f, iconSourceHead))
+}
+
+// findIconFromSource is the icon the project's sources declare, or "".
+func findIconFromSource(dir string) string {
+	paths := make([]string, len(iconSourceFiles))
+	for i, rel := range iconSourceFiles {
+		paths[i] = inDir(dir, rel)
+	}
+	for _, path := range regularFiles(paths) {
+		data, err := readIconSource(path)
+		if err != nil {
+			continue
+		}
+		href := extractIconHref(string(data))
+		if href == "" {
+			continue
+		}
+		var cands []string
+		for _, cand := range resolveIconHref(href) {
+			cands = append(cands, inDir(dir, cand))
+		}
+		if files := regularFiles(cands); len(files) > 0 {
+			return files[0]
+		}
+	}
+	return ""
+}
+
+// loadProjectLogo decodes the project's favicon or logo, or nil when it
+// has none or what it has does not decode.
+func loadProjectLogo(dir string) ui.ImageSource {
+	for _, path := range logoFiles(dir) {
+		if src := decodeProjectLogo(path); src != nil {
+			return src
+		}
+	}
+	if path := findIconFromSource(dir); path != "" {
+		return decodeProjectLogo(path)
+	}
+	return nil
+}
+
+// decodeProjectLogo decodes one icon file, or nil.
+func decodeProjectLogo(path string) ui.ImageSource {
+	switch strings.ToLower(filepath.Ext(path)) {
+	case ".svg":
+		data, err := readImage(path)
+		if err != nil {
+			return nil
+		}
+		s, err := ui.ParseSVG(data)
+		if err != nil {
+			return nil
+		}
+		if w, h := s.Size(); w <= 0 || h <= 0 {
+			return nil
+		}
+		return s
+	case ".ico":
+		data, err := readImage(path)
+		if err != nil {
+			return nil
+		}
+		img, err := decodeICO(data)
+		if err != nil {
+			return nil
+		}
+		return ui.NewBitmap(img)
+	}
+	bm, _, _, _, err := decodeImage(path)
+	if err != nil {
+		return nil
+	}
+	return bm
+}
+
+// maxIconPixels is the largest an icon entry decodes at: favicons are
+// small, and a lying header must not allocate without bound.
+const maxIconPixels = 4096 * 4096
+
+// decodeICO decodes a favicon.ico: its entries largest first, taking the
+// first that decodes, PNG or 32-bit BMP.
+func decodeICO(data []byte) (image.Image, error) {
+	if len(data) < 6 || data[0] != 0 || data[1] != 0 || data[2] != 1 || data[3] != 0 {
+		return nil, errors.New("not an icon file")
+	}
+	n := int(data[4]) | int(data[5])<<8
+	type entry struct {
+		at, size int
+		png      bool
+	}
+	var entries []entry
+	for i := 0; i < n; i++ {
+		off := 6 + i*16
+		if off+16 > len(data) {
+			break
+		}
+		size := int(binary.LittleEndian.Uint32(data[off+8:]))
+		at := int(binary.LittleEndian.Uint32(data[off+12:]))
+		if size <= 0 || at < 0 || at+size > len(data) {
+			continue
+		}
+		entries = append(entries, entry{at, size, isPNG(data[at:])})
+	}
+	slices.SortStableFunc(entries, func(a, b entry) int {
+		if a.size != b.size {
+			return b.size - a.size
+		}
+		if a.png != b.png {
+			if a.png {
+				return -1
+			}
+			return 1
+		}
+		return 0
+	})
+	for _, e := range entries {
+		entry := data[e.at : e.at+e.size]
+		if e.png {
+			// The entry's own dimensions, not the directory's: a lying
+			// header must not allocate without bound.
+			if cfg, err := png.DecodeConfig(bytes.NewReader(entry)); err != nil ||
+				int64(cfg.Width) <= 0 || int64(cfg.Height) <= 0 ||
+				int64(cfg.Width) > maxIconPixels/int64(cfg.Height) {
+				continue
+			}
+			if img, err := png.Decode(bytes.NewReader(entry)); err == nil {
+				return img, nil
+			}
+			continue
+		}
+		if img, err := decodeDIB(entry); err == nil {
+			return img, nil
+		}
+	}
+	return nil, errors.New("the icon has no picture")
+}
+
+// isPNG reports whether data starts with a PNG's magic.
+func isPNG(data []byte) bool {
+	return len(data) >= 8 && string(data[:8]) == "\x89PNG\r\n\x1a\n"
+}
+
+// decodeDIB decodes the 32-bit BMP of an icon entry.
+func decodeDIB(data []byte) (image.Image, error) {
+	if len(data) < 40 || binary.LittleEndian.Uint32(data) != 40 {
+		return nil, errors.New("not a 32-bit icon picture")
+	}
+	// int64 throughout: a lying header must neither overflow nor
+	// allocate without bound.
+	w := int64(int32(binary.LittleEndian.Uint32(data[4:])))
+	hh := int64(int32(binary.LittleEndian.Uint32(data[8:])))
+	if w <= 0 || w > maxIconPixels {
+		return nil, errors.New("not a 32-bit icon picture")
+	}
+	h, topDown := hh/2, false
+	if hh < 0 {
+		// Top-down: the height is negative, doubled or not, so what the
+		// bytes hold decides.
+		h, topDown = -hh, true
+		if h%2 == 0 {
+			if half := h / 2; half > 0 && int64(len(data)) < 40+w*h*4 && int64(len(data)) >= 40+w*half*4 {
+				h = half
+			}
+		}
+	}
+	if h <= 0 || h > maxIconPixels/w || binary.LittleEndian.Uint16(data[12:]) != 1 ||
+		binary.LittleEndian.Uint16(data[14:]) != 32 || binary.LittleEndian.Uint32(data[16:]) != 0 {
+		return nil, errors.New("not a 32-bit icon picture")
+	}
+	if int64(len(data)) < 40+w*h*4 {
+		return nil, errors.New("the icon picture is cut short")
+	}
+	img := image.NewNRGBA(image.Rect(0, 0, int(w), int(h)))
+	for y := int64(0); y < h; y++ {
+		sy := h - 1 - y
+		if topDown {
+			sy = y
+		}
+		for x := int64(0); x < w; x++ {
+			at := 40 + (sy*w+x)*4
+			img.SetNRGBA(int(x), int(y), color.NRGBA{R: data[at+2], G: data[at+1], B: data[at], A: data[at+3]})
+		}
+	}
+	return img, nil
+}
+
+// projectLogo is the project's favicon or logo for the rail, or nil for
+// its initials: when project icons are off, or none was found.
+func (h *desktop) projectLogo() ui.ImageSource {
+	if h.m.s.ProjectIcons {
+		return h.logoSrc
+	}
+	return nil
+}
+
+// needsLogoScan reports whether the logo of dir is yet to be looked for:
+// it was not, it was for another folder, or none was found a minute ago.
+// A folder of a host that is not connected waits for it.
+func (h *desktop) needsLogoScan(dir string) bool {
+	if remote.Is(dir) && !remote.IsConnected(dir) {
+		return false
+	}
+	return !h.logoDone || h.logoDir != dir ||
+		h.logoSrc == nil && time.Since(h.logoScannedAt) > time.Minute
+}
+
+// scanProjectLogo finds the project's favicon or logo in the background,
+// showing it on the rail once decoded. a is the project shown, whose
+// frame takes the result: it is the one building, so its services are
+// set, which a hidden project's may not be.
+func (f *frame) scanProjectLogo(a *app, h *desktop, dir string) {
+	h.logoDone = true
+	h.logoDir = dir
+	h.logoSrc = nil // not the logo of the folder it was for
+	h.logoScannedAt = time.Now()
+	h.logoGen++
+	gen := h.logoGen
+	go func() {
+		src := loadProjectLogo(dir)
+		a.post(func() {
+			if h.logoGen != gen {
+				return
+			}
+			h.logoSrc = src
+		})
+	}()
 }
 
 // unit is 1 for true and 0 for false, as an animation's target.

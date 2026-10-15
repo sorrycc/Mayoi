@@ -52,6 +52,10 @@ needs a `## <version>` section here, or its build fails.
   back; who each host signs in as is remembered until `~/.ssh/config`
   changes, and a remote file opens at one round trip to the host, not
   two.
+- **View → Project Icons** (or `"projectIcons": true` in `settings.json`)
+  shows each project's favicon or logo on the rail, from its well-known
+  icon files, `favicon.ico` included, or the icon its sources declare,
+  rather than its initials. A project without one keeps its initials.
 
 ## 0.9.0
 

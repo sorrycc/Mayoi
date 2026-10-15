@@ -51,6 +51,7 @@ takes its default.
 | `appearance`           | `""`          | `""` (follow the system), `"light"`, `"dark"`               | **View → Theme**                               |
 | `sidebarRight`         | `false`       | `true`, `false`                                             | **View → Sidebar on Right**                    |
 | `projectTabs`          | `false`       | `true`, `false`                                             | **View → Project Tabs**                        |
+| `projectIcons`         | `false`       | `true`, `false`                                             | **View → Project Icons**                       |
 | `autoSave`             | `true`        | `true`, `false`                                             | **File → Auto Save**                           |
 | `wordWrap`             | `false`       | `true`, `false`                                             | **View → Word Wrap**                           |
 | `vim`                  | `false`       | `true`, `false`                                             | **View → Vim Mode**                            |
@@ -80,6 +81,8 @@ differ in width lines them up only roughly.
   window for each. Changing it gathers the windows into one, or parts them, at once.
 - **`terminalCopyOnSelect`** copies what you select in a terminal to the clipboard as you let go of the pointer,
   and what Select All selects. Changing it applies to the terminals already open.
+- **`projectIcons`** shows each project's favicon or logo on the rail, from its well-known icon files, `favicon.ico`
+  included, or the icon its sources declare, rather than its initials. A project without one keeps its initials.
 - **`autoSave`** saves a changed file a moment after you stop typing, and when you leave it.
 - **`wordWrap`** wraps long lines at the edge of the editor. **⌥Z** wraps or unwraps one tab only, until this
   setting changes.

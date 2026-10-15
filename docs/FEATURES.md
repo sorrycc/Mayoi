@@ -301,6 +301,9 @@ Each folder gets its own window.
 - A rail on the far left has a square for each project, with its folder's initials, the one shown marked with a pill
   along the rail's edge, and a dot on any with unsaved changes. Its tip gives the project's name, its folder and the
   keys that show it. The rail shows once the window has two.
+- **View → Project Icons** shows each project's favicon or logo in its square instead of the initials, from its
+  well-known icon files, `favicon.ico` included, or the icon its sources declare, also on a connected host over SSH.
+  A project without one keeps its initials.
 - Drag a square along the rail to reorder the projects, and drop a folder from the Finder on the rail to add it.
 - Clicking a square shows that project, with its tabs, columns, terminals, Explorer and source control as it left
   them, each editor with its caret and scroll position. Each project keeps its own layout: what its sidebar shows,

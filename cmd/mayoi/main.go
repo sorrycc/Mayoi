@@ -18,6 +18,7 @@ import (
 
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/plugins/updater/native"
+	"github.com/egoist/mygo/ui"
 )
 
 // desktop is a project of the app, a folder and what shows of it, in a
@@ -27,6 +28,14 @@ type desktop struct {
 	m *mayoi
 	a *app
 	f *frame // the window it is in
+	// logoDir is the folder the logo scan is for, logoSrc its favicon or
+	// logo once decoded, logoDone whether it was scanned, logoScannedAt
+	// when, and logoGen drops the scans a newer one superseded.
+	logoDir       string
+	logoSrc       ui.ImageSource
+	logoDone      bool
+	logoScannedAt time.Time
+	logoGen       int
 }
 
 // mayoi is the app's projects, the focused one last first, and its

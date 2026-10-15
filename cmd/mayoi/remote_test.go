@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strings"
 	"testing"
@@ -297,5 +298,69 @@ func TestRemoteFolder(t *testing.T) {
 	})
 	if got := a2.activeEditor().sel; got != [2]int{3, 5} {
 		t.Errorf("the tab restored has %v selected", got)
+	}
+}
+
+// A project of a host shows its logo as one of this machine does, found
+// through the same files, with an ssh that runs the commands here.
+func TestRemoteProjectLogo(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("the fake ssh is a shell script")
+	}
+	bin := t.TempDir()
+	fake := "#!/bin/sh\nsock= master= last=\nfor a; do\n  case $a in\n    ControlPath=*) sock=${a#ControlPath=} ;;\n    -N) master=1 ;;\n  esac\n  last=$a\ndone\n" +
+		"if [ -n \"$master\" ]; then\n  trap 'rm -f \"$sock\"; exit 0' INT TERM\n  : > \"$sock\"\n  while :; do sleep 0.05; done\nfi\nexec sh -c \"$last\"\n"
+	if err := os.WriteFile(filepath.Join(bin, "ssh"), []byte(fake), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
+	c := remote.For("fake.invalid")
+	defer remote.Shutdown()
+	c.Connect()
+	for end := time.Now().Add(30 * time.Second); !c.Connected(); time.Sleep(20 * time.Millisecond) {
+		if s, err := c.State(); s == remote.Offline || time.Now().After(end) {
+			t.Fatalf("could not connect: %v", err)
+		}
+	}
+
+	root := t.TempDir()
+	dir := remote.Path("fake.invalid", root)
+	if loadProjectLogo(dir) != nil {
+		t.Fatal("a logo in an empty folder")
+	}
+	if err := os.MkdirAll(filepath.Join(root, "public"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writePNG(t, filepath.Join(root, "public", "logo.png"), 16, 16)
+	if loadProjectLogo(dir) == nil {
+		t.Error("no logo from public/logo.png on a host")
+	}
+	// A declared icon is read from the host's source, then its file.
+	declared := t.TempDir()
+	if err := os.WriteFile(filepath.Join(declared, "index.html"), []byte(`<link rel="icon" href="/brand/mark.svg">`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	remoteDeclared := remote.Path("fake.invalid", declared)
+	if loadProjectLogo(remoteDeclared) != nil {
+		t.Fatal("a logo without its file")
+	}
+	mark := filepath.Join(declared, "public", "brand", "mark.svg")
+	if err := os.MkdirAll(filepath.Dir(mark), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(mark, []byte(testSVG), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if loadProjectLogo(remoteDeclared) == nil {
+		t.Error("no logo from the icon a host's source declares")
+	}
+	// A host not connected has none, and is not scanned.
+	off := remote.Path("offline.invalid", "/srv/app")
+	if loadProjectLogo(off) != nil {
+		t.Error("a logo from a host that is not connected")
+	}
+	h := &desktop{}
+	if h.needsLogoScan(off) {
+		t.Error("a host that is not connected is scanned")
 	}
 }

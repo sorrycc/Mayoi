@@ -25,6 +25,7 @@ type column struct {
 	// weight is the column's share of the width of the editor area, among
 	// the weights of the others.
 	weight float32
+	locked bool // automatic file opens avoid it; it stays when empty
 	// revealed is the tab the strip last scrolled into view.
 	revealed int
 	// body is where the tab shown is, which a tab dragged is dropped on.
@@ -110,10 +111,15 @@ func (a *app) newColumn() *column {
 	return &column{id: a.nextCol, active: -1, weight: 1}
 }
 
-// column returns the column that has the keyboard, or had it last.
+// column returns the column that has the keyboard, or had it last, and
+// remembers an unlocked one as the target for subsequent file opens.
 func (a *app) column() *column {
 	a.col = min(max(a.col, 0), len(a.cols)-1)
-	return a.cols[a.col]
+	col := a.cols[a.col]
+	if !col.locked {
+		a.fileCol = col
+	}
+	return col
 }
 
 // activeTab returns the tab shown in the column that has the keyboard.
@@ -185,11 +191,11 @@ func (a *app) docIndex(path string) int {
 	return slices.IndexFunc(a.docs, func(d *document) bool { return d.path == path })
 }
 
-// openFile shows a file in a tab of the column that has the keyboard,
+// openFile shows a file in a tab of the file column,
 // opening one unless the column has one. A file open in another column
 // shows in both, which share its text.
 func (a *app) openFile(path string, focus bool) {
-	col := a.column()
+	col := a.fileColumn()
 	a.openFileIn(col, col.active+1, path, focus)
 }
 
@@ -247,11 +253,11 @@ func (col *column) showingFile(path string) int {
 	})
 }
 
-// previewFile shows a file in the preview tab of the column that has the
-// keyboard, without giving it the keyboard: in the tab that shows it
+// previewFile shows a file in the file column's preview tab, without
+// giving it the keyboard: in the tab that shows it
 // already, else in place of the preview tab, else in a new one.
 func (a *app) previewFile(path string) {
-	col := a.column()
+	col := a.fileColumn()
 	if i := col.showingFile(path); i >= 0 {
 		a.activate(col, i, false)
 		return
@@ -342,7 +348,7 @@ func (a *app) newFile() {
 	doc := newDocument(a.nextID, "", "", highlight.New(nil, nil))
 	doc.title = fmt.Sprintf("Untitled-%d", a.untitled)
 	a.docs = append(a.docs, doc)
-	col := a.column()
+	col := a.fileColumn()
 	a.addTab(col, len(col.tabs), &colTab{ed: newEditor(doc)})
 	a.activate(col, len(col.tabs)-1, true)
 }
@@ -356,6 +362,9 @@ func (a *app) activate(col *column, i int, focus bool) {
 	col.active = i
 	if at := slices.Index(a.cols, col); at >= 0 {
 		a.col = at
+	}
+	if !col.locked {
+		a.fileCol = col
 	}
 	t := col.tabs[i]
 	if !t.transient {
@@ -542,14 +551,29 @@ func (a *app) dropTab(t *colTab) {
 	}
 }
 
-// removeColumn takes a column away, unless it is the only one: the others
-// share its room.
+// removeColumn takes a column away, keeping locked columns and the last
+// file column. Unlocked columns share its room so locked widths stay put.
 func (a *app) removeColumn(col *column) {
 	i := slices.Index(a.cols, col)
-	if i < 0 || len(a.cols) < 2 {
+	if i < 0 || len(a.cols) < 2 || col.locked {
 		return
 	}
+	if slices.ContainsFunc(a.cols, func(c *column) bool { return c.locked }) {
+		var other *column
+		for _, c := range a.cols {
+			if c != col && !c.locked && (other == nil || c == a.fileCol) {
+				other = c
+			}
+		}
+		if other == nil {
+			return
+		}
+		other.weight += col.weight
+	}
 	a.cols = slices.Delete(a.cols, i, i+1)
+	if a.fileCol == col {
+		a.fileCol = nil
+	}
 	if a.col > i || a.col == len(a.cols) {
 		a.col--
 	}
@@ -684,7 +708,7 @@ func (a *app) moveTabBy(step int) {
 func (a *app) rememberTabs() {
 	cols := make([]settings.Column, 0, len(a.cols))
 	for _, col := range a.cols {
-		cs := settings.Column{Tabs: []settings.Tab{}, Active: -1, Weight: col.weight}
+		cs := settings.Column{Tabs: []settings.Tab{}, Active: -1, Weight: col.weight, Locked: col.locked}
 		for i, t := range col.tabs {
 			var ts settings.Tab
 			switch {
@@ -718,6 +742,10 @@ func (a *app) rememberTabs() {
 		cols = append(cols, cs)
 	}
 	a.window.Columns, a.window.Column = cols, a.col
+	a.window.FileColumn = 0
+	if i := slices.Index(a.cols, a.fileCol); i >= 0 {
+		a.window.FileColumn = i
+	}
 	if a.tree != nil {
 		var open []string
 		for dir := range a.files.Open.All() {
@@ -803,19 +831,26 @@ func (a *app) restoreEditor(ed *editor, ts settings.Tab) {
 // they were scrolled, starts a terminal where one was, and opens the
 // explorer's folders that were open.
 func (a *app) restoreTabs() {
-	saved, focused := a.window.Columns, a.window.Column
+	saved, focused, fileFocused := a.window.Columns, a.window.Column, a.window.FileColumn
 	a.restoreExpanded(a.window.Expanded)
-	at := -1 // the column to give the keyboard
+	// Allocate each saved column before opening tabs. Empty locked columns
+	// and the file workspace beside them are part of the saved layout too.
+	restored := make([]*column, len(saved))
 	for i, cs := range saved {
 		col := a.cols[len(a.cols)-1]
-		if len(col.tabs) > 0 {
+		if i > 0 || len(col.tabs) > 0 {
 			col = a.newColumn()
 			a.cols = append(a.cols, col)
 		}
-		a.col = len(a.cols) - 1
+		col.locked = cs.Locked
 		if cs.Weight > 0 {
 			col.weight = cs.Weight
 		}
+		restored[i] = col
+	}
+	for i, cs := range saved {
+		col := restored[i]
+		a.col = slices.Index(a.cols, col)
 		// Opening each makes it the tab shown: keep the one to show.
 		var shown *colTab
 		for k, ts := range cs.Tabs {
@@ -847,7 +882,7 @@ func (a *app) restoreTabs() {
 				// A remote file that is gone closes its tab once read.
 				if _, err := os.Stat(ts.File); err == nil || remote.Is(ts.File) {
 					a.opening = ts.Transient
-					a.openFile(ts.File, false)
+					a.openFileIn(col, len(col.tabs), ts.File, false)
 					a.opening = false
 					if t := col.tab(); ts.Preview && len(col.tabs) > n && t.ed != nil && canPreview(t.ed.document) {
 						a.setPreview(t.ed, true)
@@ -864,17 +899,28 @@ func (a *app) restoreTabs() {
 		if _, k := a.locate(shown); k >= 0 {
 			a.activate(col, k, false)
 		}
-		if i == focused && len(col.tabs) > 0 {
-			at = len(a.cols) - 1
+	}
+	// Missing files may leave an ordinary column empty, but a locked
+	// column and its last file workspace must survive restoration.
+	for _, col := range slices.Clone(a.cols) {
+		if len(col.tabs) == 0 {
+			a.removeColumn(col)
 		}
 	}
-	// A column whose files are gone goes too.
-	if last := a.cols[len(a.cols)-1]; len(last.tabs) == 0 {
-		a.removeColumn(last)
+	// The saved index refers to restored, before empty columns were removed.
+	// Resolve it only after cleanup, falling back to fileColumn if it went.
+	a.fileCol = nil
+	if fileFocused >= 0 && fileFocused < len(restored) {
+		col := restored[fileFocused]
+		if !col.locked && slices.Contains(a.cols, col) {
+			a.fileCol = col
+		}
 	}
-	if at >= 0 && at < len(a.cols) {
-		a.col = at
+	if focused >= 0 && focused < len(restored) {
+		if at := slices.Index(a.cols, restored[focused]); at >= 0 {
+			a.col = at
+		}
 	}
-	a.column()
+	a.fileColumn()
 	a.rememberTabs()
 }

@@ -126,6 +126,8 @@ func (a *app) commands() []command {
 		{"view.newTerminal", "New Terminal", "Ctrl+Shift+`", a.newTerminal},
 		{"view.terminalTab", "New Terminal in Editor Area", "", func() { a.newTerminalTab(a.column(), a.workDir(), true) }},
 		{"view.terminalMove", "Move Terminal to Editor Area or Panel", "", a.moveTerminal},
+		{"view.terminalLockRight", "Move Terminal to Locked Right Column", "", a.moveTerminalToLockedRight},
+		{"view.lockColumn", "Toggle Column Lock", "", func() { a.toggleColumnLock(a.column()) }},
 		{"view.splitRight", "Split Right", "CmdOrCtrl+\\", a.splitRight},
 		{"view.nextColumn", "Focus Next Column", "Alt+CmdOrCtrl+Right", func() { a.focusColumnBy(1) }},
 		{"view.prevColumn", "Focus Previous Column", "Alt+CmdOrCtrl+Left", func() { a.focusColumnBy(-1) }},
@@ -224,11 +226,18 @@ func (a *app) toggleProjectIcons() {
 	a.invalidate()
 }
 
-// closeActive closes the tab shown in the column that has the keyboard,
-// or the window when there is none.
+// closeActive closes the tab shown, or its empty column when removable.
+// Locked columns and their last file workspace stay; a lone empty ordinary
+// column closes the window.
 func (a *app) closeActive() {
 	t := a.activeTab()
 	if t == nil {
+		if len(a.cols) > 1 {
+			a.removeColumn(a.column())
+			a.focusColumn()
+			a.rememberTabs()
+			return
+		}
 		a.host.closeWindow()
 		return
 	}

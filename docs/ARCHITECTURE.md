@@ -47,6 +47,14 @@ show during a drag.
 document as one tab shows it, with its own selection, scroll position and paint caches. A column holds tabs, each of
 which is an editor or a terminal.
 
+**`columnlock.go`.** A locked column stays when empty and does not take implicit
+file opens. `fileColumn` selects the current unlocked column or the last one used,
+creating a workspace on the left if all columns are locked. Explicit drops and
+session restoration name their target column directly. Removing an empty file
+column keeps the last unlocked workspace and transfers width only to other
+unlocked columns, so locked columns do not expand as files close. Sessions keep
+each column's lock and the last file column along with the existing width weights.
+
 A column has at most one preview tab, marked `transient`. The Explorer and search open files with `previewFile`,
 which shows a file in the tab that has it, else in the preview tab's place, dropping the document it showed unless
 another tab does, else in a new one. Opening a file the usual way, an edit, a double click on the tab and a drag to

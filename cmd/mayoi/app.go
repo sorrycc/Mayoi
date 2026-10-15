@@ -142,9 +142,13 @@ type app struct {
 	// docs are the documents open, each in a tab or several; cols the
 	// columns of the editor area, and col the one that has the keyboard,
 	// or had it last, which commands are for.
-	docs     []*document
-	cols     []*column
-	col      int
+	docs []*document
+	cols []*column
+	col  int
+	// fileCol caches the last unlocked column used for files. Removal clears
+	// it; column and activate refresh it. Use fileColumn to resolve a live,
+	// unlocked target before opening files, including during restoration.
+	fileCol  *column
 	nextID   int
 	nextTab  int
 	nextCol  int

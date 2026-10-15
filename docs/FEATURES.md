@@ -219,9 +219,24 @@ two columns. A file can show in several columns at once. Those columns share its
 its own caret and scroll position. Drag a tab along its strip, into another column, or to the edge of a column to give it
 a new column.
 
+Choose **Lock Column** in a tab's menu to reserve a column, or **Move to Locked
+Right Column** in a terminal tab's or panel terminal's menu to move the running
+terminal there in one step. A lock in the tab strip unlocks the column. Files,
+images and diffs opened from the Explorer, Search, Quick Open or Source Control
+use the current unlocked column, or the last unlocked column used when a locked
+column has focus. Explicitly dragging a tab or file into a locked column is
+still allowed. Closing files keeps at least one unlocked workspace beside
+locked columns, without expanding their width. Locked columns stay even after
+their last terminal exits and offer **New Terminal**. Column locks, widths and
+the last file column are restored with each project's session. The command
+palette also offers **Toggle Column Lock** and **Move Terminal to Locked Right
+Column**, which can be assigned keyboard shortcuts.
+⌘W closes a redundant empty column; a locked column and the last file
+workspace beside it stay open.
+
 Files dragged from the Finder open where you drop them: in a column after the tab shown, on its tab strip where the
 marker shows, or on the edge of a column in a new column there. Dropped elsewhere, as on the explorer, they open in the
-column that has the keyboard. A dropped folder opens as `mayoi <dir>` opens it.
+file workspace, avoiding locked columns. A dropped folder opens as `mayoi <dir>` opens it.
 
 Files dragged from the explorer, from source control's changes or from the search results open in the same places. A
 search match opens with the match selected.

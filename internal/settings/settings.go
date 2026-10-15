@@ -152,6 +152,7 @@ type Session struct {
 	Layout
 	Columns      []Column `json:"columns,omitempty"`
 	Column       int      `json:"column,omitempty"`
+	FileColumn   int      `json:"fileColumn,omitempty"`
 	PanelOpen    bool     `json:"panelOpen,omitempty"`
 	TerminalOpen bool     `json:"terminalOpen,omitempty"`
 	// Expanded are the explorer's folders showing their files, relative to
@@ -188,6 +189,7 @@ type Column struct {
 	Tabs   []Tab   `json:"tabs"`
 	Active int     `json:"active"`
 	Weight float32 `json:"weight"`
+	Locked bool    `json:"locked,omitempty"`
 }
 
 // Tab is a tab: the file it shows, or a terminal, which the next

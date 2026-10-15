@@ -334,10 +334,13 @@ const (
 // diff shows it folded.
 const foldedLines = 2000
 
-// changesTab returns the tab of the changes and its column, nil when no
-// column has one.
+// changesTab returns the tab of the changes in an unlocked column, nil
+// when none has one. Automatic opens leave locked columns alone.
 func (a *app) changesTab() (*column, int) {
 	for _, col := range a.cols {
+		if col.locked {
+			continue
+		}
 		for i, t := range col.tabs {
 			if t.diff != nil && t.diff.commit == nil {
 				return col, i
@@ -355,7 +358,7 @@ func (a *app) openChangesTab(focus bool) *diffView {
 		a.activate(col, i, focus)
 		return col.tabs[i].diff
 	}
-	col := a.column()
+	col := a.fileColumn()
 	at := min(col.active+1, len(col.tabs))
 	v := newDiffView(parseDiffLayout(a.settings.DiffLayout))
 	a.addTab(col, at, &colTab{diff: v})
@@ -399,10 +402,13 @@ func (col *column) showingDiff(v *diffView) int {
 	return slices.IndexFunc(col.tabs, func(t *colTab) bool { return t.diff != nil && t.diff.same(v) })
 }
 
-// commitTab returns the tab of a commit's changes and its column, nil
-// when no column has one.
+// commitTab returns a commit's changes in an unlocked column, nil when
+// none has one.
 func (a *app) commitTab(hash string) (*column, int) {
 	for _, col := range a.cols {
+		if col.locked {
+			continue
+		}
 		for i, t := range col.tabs {
 			if t.diff != nil && t.diff.commit != nil && t.diff.commit.hash == hash {
 				return col, i
@@ -420,7 +426,7 @@ func (a *app) showCommit(c git.Commit, focus bool) {
 		a.activate(col, i, focus)
 		return
 	}
-	col := a.column()
+	col := a.fileColumn()
 	at := min(col.active+1, len(col.tabs))
 	a.addTab(col, at, &colTab{diff: newCommitView(parseDiffLayout(a.settings.DiffLayout), c.Hash, c)})
 	a.activate(col, at, focus)
@@ -435,7 +441,7 @@ func (a *app) previewCommit(c git.Commit) {
 		a.activate(col, i, false)
 		return
 	}
-	col := a.column()
+	col := a.fileColumn()
 	a.previewIn(col, func(at int) {
 		a.addTab(col, at, &colTab{diff: newCommitView(parseDiffLayout(a.settings.DiffLayout), c.Hash, c), transient: true})
 		a.activate(col, at, false)

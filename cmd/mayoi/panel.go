@@ -360,6 +360,9 @@ func (a *app) panel(c *ui.Context) {
 							a.focusTerminal()
 						}
 						chip.ContextMenu(func(m *ui.Menu) {
+							if m.Item("Move to Locked Right Column").Chosen() {
+								a.post(func() { a.terminalToLockedRight(s) })
+							}
 							if m.Item("Move to Editor Area").Chosen() {
 								a.post(func() { a.terminalToColumn(s, a.column(), a.column().active+1) })
 							}

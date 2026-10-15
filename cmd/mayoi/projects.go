@@ -119,7 +119,7 @@ func (m *mayoi) newFrame(h *desktop) *frame {
 		}
 	})
 	// Files dropped where nothing takes them, as on the explorer, open in
-	// the column that has the keyboard.
+	// the file column, avoiding a locked terminal column.
 	win.OnFileDrop(func(e *mygo.FileDropEvent) {
 		h := f.active
 		if h == nil {
@@ -127,7 +127,7 @@ func (m *mayoi) newFrame(h *desktop) *frame {
 		}
 		paths, a := e.Paths, h.a
 		a.post(func() {
-			col := a.column()
+			col := a.fileColumn()
 			a.dropFiles(paths, col, col.active+1)
 		})
 	})

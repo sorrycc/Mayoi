@@ -399,10 +399,24 @@ func (a *app) columns(c *ui.Context) {
 // or the terminal of the tab shown, or the welcome page.
 func (a *app) columnView(c *ui.Context, col *column) {
 	if len(col.tabs) == 0 {
+		if col.locked {
+			a.tabStrip(c, col)
+		}
 		body := ui.Column(c).Bind(&col.body).Grow(1).MinHeight(0)
 		over := a.takeFiles(body, col)
 		body.Children(func() {
-			a.welcome(c)
+			if col.locked {
+				ui.Column(c).Fill().Center().Gap(12).Background(a.pal.editor).Children(func() {
+					ui.Text(c, "Locked Column").FontSize(14).TextColor(a.pal.muted)
+					ui.Column(c).Width(180).MaxWidthPercent(100).Children(func() {
+						a.welcomeAction(c, iconPlus, "New Terminal", "", func() {
+							a.newTerminalTab(col, a.workDir(), true)
+						})
+					})
+				})
+			} else {
+				a.welcome(c)
+			}
 			a.dropZones(c, col, over)
 		})
 		return

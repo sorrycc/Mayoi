@@ -38,7 +38,8 @@ func (a *app) tabStrip(c *ui.Context, col *column) {
 			})
 		}
 	}
-	ui.Row(c).Height(tabStripH).Background(p.chrome).AlignItems(ui.Center).Children(func() {
+	ui.Row(c).Height(tabStripH).Background(p.chrome).AlignItems(ui.Center).
+		ContextMenu(func(m *ui.Menu) { a.columnLockMenu(m, col) }).Children(func() {
 		// The strip's edge along the bottom, which the tab shown breaks to
 		// join the text below it.
 		ui.Box(c).Absolute().Left(0).Right(0).Bottom(0).Height(1).Background(p.border)
@@ -145,6 +146,11 @@ func (a *app) tabStrip(c *ui.Context, col *column) {
 			})
 		})
 		ui.Row(c).Padding(0, 6, 0, 4).Children(func() {
+			if col.locked {
+				if a.iconButton(c, iconLock, "Unlock Column", true).Clicked() {
+					a.post(func() { a.toggleColumnLock(col) })
+				}
+			}
 			if a.iconButton(c, iconColumns, a.withKey("Split Right", "view.splitRight"), false).Clicked() {
 				a.post(func() {
 					if at := slices.Index(a.cols, col); at >= 0 {
@@ -183,6 +189,7 @@ func (a *app) tabMenu(m *ui.Menu, col *column, t *colTab, closing **colTab) {
 		a.post(func() { a.closeTabs(slices.Clone(col.tabs), nil) })
 	}
 	m.Separator()
+	a.columnLockMenu(m, col)
 	if m.Item("Split Right").Chosen() {
 		show(a.splitRight)
 	}
@@ -195,6 +202,9 @@ func (a *app) tabMenu(m *ui.Menu, col *column, t *colTab, closing **colTab) {
 		show(func() { a.moveTabBy(-1) })
 	}
 	if t.term != nil {
+		if m.Item("Move to Locked Right Column").Chosen() {
+			a.post(func() { a.terminalToLockedRight(t.term) })
+		}
 		if m.Item("Move to Panel").Chosen() {
 			a.post(func() { a.terminalToPanel(t.term) })
 		}
@@ -226,5 +236,15 @@ func (a *app) tabMenu(m *ui.Menu, col *column, t *colTab, closing **colTab) {
 	}
 	if m.Item("Copy Path").Disabled(path == "").Chosen() {
 		a.services.WriteClipboard(hostPath(path))
+	}
+}
+
+func (a *app) columnLockMenu(m *ui.Menu, col *column) {
+	label := "Lock Column"
+	if col.locked {
+		label = "Unlock Column"
+	}
+	if m.Item(label).Chosen() {
+		a.post(func() { a.toggleColumnLock(col) })
 	}
 }

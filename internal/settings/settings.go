@@ -132,6 +132,10 @@ type Prefs struct {
 	Theme string `json:"theme,omitempty"`
 	// SidebarRight puts the sidebar right of the editors, rather than left.
 	SidebarRight bool `json:"sidebarRight,omitempty"`
+	// PanelPosition is where the terminal panel is: "" or "bottom"
+	// below the editors, "left" or "right" at the window's side, past
+	// the sidebar.
+	PanelPosition string `json:"panelPosition,omitempty"`
 	// ProjectTabs keeps the folders open in one window, a rail on its left
 	// choosing which shows, rather than a window for each.
 	ProjectTabs bool `json:"projectTabs,omitempty"`
@@ -186,7 +190,8 @@ type ReviewNote struct {
 }
 
 // Layout is how a window lays its folder out: what its sidebar shows,
-// whether it is closed and how wide it is, and how tall its panel is.
+// whether it is closed and how wide it is, and how tall its panel is at
+// the bottom, or how wide it is at a side.
 type Layout struct {
 	// SidebarView is what the sidebar shows: "" the explorer, "search"
 	// the search in the files, "git" the changes for source control.
@@ -194,10 +199,11 @@ type Layout struct {
 	SidebarClosed bool    `json:"sidebarClosed,omitempty"`
 	SidebarWidth  float32 `json:"sidebarWidth,omitempty"`
 	PanelHeight   float32 `json:"panelHeight,omitempty"`
+	PanelWidth    float32 `json:"panelWidth,omitempty"`
 }
 
 // DefaultLayout is the layout of a first launch.
-var DefaultLayout = Layout{SidebarWidth: 248, PanelHeight: 260}
+var DefaultLayout = Layout{SidebarWidth: 248, PanelHeight: 260, PanelWidth: 400}
 
 // Normalize keeps the layout in its bounds, as base has it where it has
 // none, as a session an older version kept.
@@ -205,7 +211,11 @@ func (l *Layout) Normalize(base Layout) {
 	if l.SidebarWidth == 0 {
 		*l = base
 	}
+	if l.PanelWidth == 0 {
+		l.PanelWidth = base.PanelWidth
+	}
 	l.SidebarWidth = clamp(l.SidebarWidth, 160, 600)
+	l.PanelWidth = clamp(l.PanelWidth, 160, 2000)
 	l.PanelHeight = clamp(l.PanelHeight, 100, 2000)
 }
 
@@ -335,6 +345,10 @@ func (s *Settings) normalize() {
 	s.FontFeatures = slices.DeleteFunc(s.FontFeatures, func(f string) bool { return strings.TrimSpace(f) == "" })
 	if s.TerminalFontSize != 0 {
 		s.TerminalFontSize = clamp(s.TerminalFontSize, 9, 28)
+	}
+	// "" and "bottom" are the same panel position.
+	if s.PanelPosition != "left" && s.PanelPosition != "right" {
+		s.PanelPosition = ""
 	}
 	// The themes were appearances once.
 	if s.Appearance == "matrix" || s.Appearance == "claude" {

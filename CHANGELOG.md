@@ -5,6 +5,16 @@ needs a `## <version>` section here, or its build fails.
 
 ## Unreleased
 
+- The terminal panel can sit at the bottom, left or right of the window:
+  **View → Panel Position**, the command palette's **Move Panel to Left**,
+  **Right** and **Bottom**, the `panelPosition` setting and
+  `keybindings.json`'s `workbench.action.positionPanelLeft` and its
+  neighbours choose where, and a panel still starts at the bottom. At a side
+  it sits past the sidebar, so with both on a side the panel is the outer
+  one, and dragging its inner edge sizes it. The title bar's panel button is
+  a terminal now, and it follows the panel's side: at the left of the bar
+  when the panel is there, past the sidebar's button when the sidebar is
+  there too, at the right otherwise.
 - The Explorer and the Source Control tree indent each folder level less,
   as VS Code does, so deeply nested files keep room for their names.
 - Linux: Mayoi no longer sometimes crashes as it starts on machines that

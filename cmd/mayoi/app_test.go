@@ -590,6 +590,90 @@ func TestSidebarOnTheRight(t *testing.T) {
 	}
 }
 
+// The terminal panel moves to either side of the window, past the
+// sidebar, so that with both on a side the panel is the outer one, and
+// its splitter, along the edge facing the editors, resizes it.
+func TestTerminalPanelAtASide(t *testing.T) {
+	if testing.Short() {
+		t.Skip("starts a shell")
+	}
+	hs := newHarness(t, true)
+	a, tt := hs.a, hs.tt
+	at := func(name string) ui.Rect {
+		box, ok := tt.Find(name)
+		if !ok {
+			t.Fatalf("%s is not shown", name)
+		}
+		return box
+	}
+	// The title bar's buttons: the terminal's follows the panel's side,
+	// past the sidebar's button when the sidebar is on that side too.
+	termBtn, sideBtn := a.withKey("Toggle Terminal", "view.terminal"), a.withKey("Toggle Sidebar", "view.sidebar")
+	buttons := func() (term, side ui.Rect) { return at(termBtn), at(sideBtn) }
+	width := float32(1200)
+	a.openFile(hs.path("main.go"), true)
+	a.run("view.terminal")
+	hs.settle()
+	// At the bottom, the panel is under the editors, right of the sidebar,
+	// and its button is at the right of the bar, the sidebar's at the left.
+	if panel, explorer := at("TERMINAL"), at("EXPLORER"); panel.Y < explorer.Y || panel.X < explorer.X {
+		t.Errorf("the panel at the bottom: %v, the sidebar %v", panel, explorer)
+	}
+	if term, side := buttons(); term.X < width/2 || side.X > width/2 {
+		t.Errorf("the buttons at the bottom: the terminal's %v, the sidebar's %v", term, side)
+	}
+	// On the left, past the sidebar, at the window's own edge, its button
+	// left of the sidebar's.
+	a.run("view.panelPosition.left")
+	hs.settle()
+	if panel, explorer := at("TERMINAL"), at("EXPLORER"); panel.X > explorer.X || panel.X > 40 {
+		t.Errorf("the panel on the left: %v, the sidebar %v", panel, explorer)
+	}
+	if term, side := buttons(); term.X > side.X {
+		t.Errorf("the buttons with the panel on the left: the terminal's %v, the sidebar's %v", term, side)
+	}
+	// Its splitter is on its right, and dragging it right widens it.
+	size := a.window.PanelWidth
+	edge := size - 2
+	tt.Press(edge, 300)
+	tt.Move(edge+40, 300)
+	tt.Move(edge+60, 300)
+	tt.Release(edge+60, 300)
+	hs.settle()
+	if got := a.window.PanelWidth; got < size+50 || got > size+70 {
+		t.Errorf("the panel %v after dragging 60 from %v", got, size)
+	}
+	// With the sidebar on the right, the panel on the left keeps the left
+	// of the bar, and its button with it.
+	a.run("view.sidebarRight")
+	hs.settle()
+	if term, side := buttons(); term.X > width/2 || side.X < width/2 {
+		t.Errorf("the buttons with the panel left, the sidebar right: the terminal's %v, the sidebar's %v", term, side)
+	}
+	// The panel on the right, with the sidebar there too, is still the
+	// outer one, at the window's own edge, and its button is at the right.
+	a.run("view.panelPosition.right")
+	hs.settle()
+	panel, explorer := at("TERMINAL"), at("EXPLORER")
+	if panel.X < explorer.X || panel.X < width-a.window.PanelWidth || panel.X > width-a.window.PanelWidth+40 {
+		t.Errorf("the panel on the right: %v, the sidebar %v, width %v", panel, explorer, a.window.PanelWidth)
+	}
+	if term, _ := buttons(); term.X < width/2 {
+		t.Errorf("the terminal's button with the panel on the right: %v", term)
+	}
+	// Hidden, moving it shows it again.
+	a.hidePanel()
+	hs.settle()
+	if a.window.PanelOpen {
+		t.Fatal("the panel stays open after hiding it")
+	}
+	a.run("view.panelPosition.left")
+	hs.settle()
+	if !a.window.PanelOpen || a.settings.PanelPosition != "left" {
+		t.Fatalf("a hidden panel moved: open %v, position %q", a.window.PanelOpen, a.settings.PanelPosition)
+	}
+}
+
 func TestRestoresTheActiveTab(t *testing.T) {
 	root := workspaceFixture(t)
 	// The tabs as a version without columns kept them.

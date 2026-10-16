@@ -23,7 +23,7 @@ https://github.com/user-attachments/assets/673e7907-2b2c-4ed6-9093-1ba9633cd61c
 - **Git:** a source control view to stage, commit, amend, undo, pull and push, every change in one diff, folded
   around the changes, inline or side by side, a graph of the commits with their branches and tags, each with its own
   diff, gutter marks that revert or stage a change, branches and blame
-- **Terminal:** Ghostty's emulator (libghostty-vt), in the bottom panel or in a tab
+- **Terminal:** Ghostty's emulator (libghostty-vt), in the bottom panel, at a side of the window, or in a tab
 - **Remote SSH:** open a folder on another machine with the system's `ssh`, nothing installed there: the Explorer,
   search, Git and terminals run on the host, and its ports forward to this machine
 - **Image viewer:** PNG, JPEG, GIF, WebP and BMP

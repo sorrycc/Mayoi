@@ -42,7 +42,9 @@ func TestMigrateTheLayout(t *testing.T) {
 		"windows": [{"id": 0, "folder": "/tmp/x"}],
 		"sessions": {"/tmp/y": {"expanded": ["src"]}}}`), 0o644)
 	s := Load(path)
-	want := Layout{SidebarView: "git", SidebarClosed: true, SidebarWidth: 320, PanelHeight: 400}
+	// The panel's own width is new here, so it takes the default.
+	want := DefaultLayout
+	want.SidebarView, want.SidebarClosed, want.SidebarWidth, want.PanelHeight = "git", true, 320, 400
 	if len(s.Windows) != 1 || s.Windows[0].Layout != want || s.Sessions["/tmp/y"] == nil || s.Sessions["/tmp/y"].Layout != want {
 		t.Fatalf("windows %+v, sessions %+v", s.Windows, s.Sessions)
 	}

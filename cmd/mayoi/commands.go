@@ -134,6 +134,9 @@ func (a *app) commands() []command {
 		{"view.terminalTab", "New Terminal in Editor Area", "", func() { a.newTerminalTab(a.column(), a.workDir(), true) }},
 		{"view.terminalMove", "Move Terminal to Editor Area or Panel", "", a.moveTerminal},
 		{"view.terminalLockRight", "Move Terminal to Locked Right Column", "", a.moveTerminalToLockedRight},
+		{"view.panelPosition.bottom", "Move Panel to Bottom", "", func() { a.setPanelPosition("") }},
+		{"view.panelPosition.left", "Move Panel to Left", "", func() { a.setPanelPosition("left") }},
+		{"view.panelPosition.right", "Move Panel to Right", "", func() { a.setPanelPosition("right") }},
 		{"view.lockColumn", "Toggle Column Lock", "", func() { a.toggleColumnLock(a.column()) }},
 		{"view.splitRight", "Split Right", "CmdOrCtrl+\\", a.splitRight},
 		{"view.nextColumn", "Focus Next Column", "Alt+CmdOrCtrl+Right", func() { a.focusColumnBy(1) }},
@@ -422,7 +425,12 @@ func (a *app) menu(cli bool, run func(id string, win *mygo.Window)) *mygo.Menu {
 			checkbox("view.vim", a.settings.Vim), checkbox("view.projectTabs", a.settings.ProjectTabs), checkbox("view.projectIcons", a.settings.ProjectIcons), mygo.Separator(),
 			item("view.splitRight"), item("view.nextColumn"), item("view.prevColumn"),
 			item("view.moveTabNext"), item("view.moveTabPrev"), mygo.Separator(),
-			item("view.terminal"), item("view.newTerminal"), item("view.terminalTab"), item("view.terminalMove"), mygo.Separator(),
+			item("view.terminal"), item("view.newTerminal"), item("view.terminalTab"), item("view.terminalMove"),
+			{Label: "Panel Position", Submenu: []*mygo.MenuItem{
+				radio("view.panelPosition.bottom", a.panelSide() == "bottom"),
+				radio("view.panelPosition.left", a.panelSide() == "left"),
+				radio("view.panelPosition.right", a.panelSide() == "right"),
+			}}, mygo.Separator(),
 			item("view.zoomIn"), item("view.zoomOut"), item("view.zoomReset"), mygo.Separator(),
 			{Label: "Theme", Submenu: []*mygo.MenuItem{
 				appearance("view.appearance.system", ""), appearance("view.appearance.light", "light"), appearance("view.appearance.dark", "dark"),

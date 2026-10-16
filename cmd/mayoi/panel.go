@@ -328,13 +328,19 @@ func (a *app) panel(c *ui.Context) {
 		}
 	}
 	over, _ := ui.DragOver[dragItem](box)
+	// A panel at a side, dragged narrow, leaves out its title so that
+	// its terminals and its tools keep their room.
+	width := box.Bounds().W
+	titled := a.panelSide() == "bottom" || width == 0 || width >= panelTitleW
 	box.Children(func() {
 		ui.Row(c).Height(panelHeadH).Padding(0, 8, 0, 14).Gap(4).AlignItems(ui.Center).Children(func() {
-			ui.Column(c).Height(panelHeadH).Justify(ui.Center).Children(func() {
-				ui.Text(c, "TERMINAL").FontSize(11).FontWeight(600).LetterSpacing(0.7).TextColor(p.text)
-				ui.Box(c).Absolute().Bottom(0).Left(0).Right(0).Height(1.5).Background(p.accent)
-			})
-			ui.Box(c).Width(10)
+			if titled {
+				ui.Column(c).Height(panelHeadH).Justify(ui.Center).Children(func() {
+					ui.Text(c, "TERMINAL").FontSize(11).FontWeight(600).LetterSpacing(0.7).TextColor(p.text)
+					ui.Box(c).Absolute().Bottom(0).Left(0).Right(0).Height(1.5).Background(p.accent)
+				})
+				ui.Box(c).Width(10)
+			}
 			// The terminals, as chips: a click shows one, and dragging one
 			// to a column makes a tab of it.
 			ui.ScrollHorizontal(c.Key("terms")).Grow(1).Children(func() {

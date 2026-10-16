@@ -75,6 +75,9 @@ func (a *app) commandOn(id string) bool {
 	case "view.theme.mayoi":
 		return s.Theme == ""
 	}
+	if pos, ok := strings.CutPrefix(id, "view.panelPosition."); ok {
+		return a.panelSide() == pos
+	}
 	if ap, ok := strings.CutPrefix(id, "view.appearance."); ok {
 		return s.Appearance == ap
 	}

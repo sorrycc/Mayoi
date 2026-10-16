@@ -54,7 +54,6 @@ var (
 	iconChevronRight = lucide(`<path d="m9 18 6-6-6-6"/>`)
 	iconSidebar      = lucide(`<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/>`)
 	iconSidebarRight = lucide(`<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M15 3v18"/>`)
-	iconPanel        = lucide(`<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 15h18"/>`)
 	iconFunction     = lucide(`<rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><path d="M9 17c2 0 2.8-1 2.8-2.8V10c0-2 1-3.3 3.2-3"/><path d="M9 11.2h5.7"/>`)
 	iconBox          = lucide(`<path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/>`)
 	iconBraces       = lucide(`<path d="M8 3H7a2 2 0 0 0-2 2v5a2 2 0 0 1-2 2 2 2 0 0 1 2 2v5c0 1.1.9 2 2 2h1"/><path d="M16 21h1a2 2 0 0 0 2-2v-5c0-1.1.9-2 2-2a2 2 0 0 1-2-2V5a2 2 0 0 0-2-2h-1"/>`)

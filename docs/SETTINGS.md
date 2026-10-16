@@ -50,6 +50,7 @@ takes its default.
 | `theme`                | `""`          | `""` (Mayoi), `"matrix"`, `"claude"`, `"qoder"`             | **View → Theme**                               |
 | `appearance`           | `""`          | `""` (follow the system), `"light"`, `"dark"`               | **View → Theme**                               |
 | `sidebarRight`         | `false`       | `true`, `false`                                             | **View → Sidebar on Right**                    |
+| `panelPosition`        | `""`          | `""` (bottom), `"left"`, `"right"`                          | **View → Panel Position**                      |
 | `projectTabs`          | `false`       | `true`, `false`                                             | **View → Project Tabs**                        |
 | `projectIcons`         | `false`       | `true`, `false`                                             | **View → Project Icons**                       |
 | `autoSave`             | `true`        | `true`, `false`                                             | **File → Auto Save**                           |
@@ -77,6 +78,9 @@ differ in width lines them up only roughly.
 ### The rest
 
 - **`theme`** is Mayoi's own theme, The Matrix, Claude or Qoder. The Matrix is always dark, so it ignores `appearance`.
+- **`panelPosition`** is where the terminal panel is: `""` or `"bottom"` below the editors, `"left"` or `"right"` at a
+  side of the window. At a side it sits past the sidebar, so with the sidebar on the same side the panel is the outer
+  of the two.
 - **`projectTabs`** keeps every folder open in one window, as project tabs on a rail on its left, rather than a
   window for each. Changing it gathers the windows into one, or parts them, at once.
 - **`terminalCopyOnSelect`** copies what you select in a terminal to the clipboard as you let go of the pointer,
@@ -129,8 +133,7 @@ so it overwrites any change you make to one while it's open. To start fresh, qui
 - **`state.json`** holds the open windows with their folders, columns and tabs, each tab with its caret, selection,
   scroll position and own word wrap. It also holds the folders open in the Explorer, the recent folders and the sessions
   Mayoi restores when one opens again, and each window's layout: its sidebar's view, whether it is open and its width,
-  and its panel's height. Deleting it forgets all of
-  that.
+  and its panel's height and, at a side, its width. Deleting it forgets all of that.
 - **`window-state.json`** holds each window's position and size.
 - **`updater.json`** holds your choices in the update window. See [Updates](FEATURES.md#updates).
 

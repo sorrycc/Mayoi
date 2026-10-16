@@ -294,8 +294,13 @@ search match opens with the match selected.
 
 ## Terminal
 
-Ghostty's emulator (libghostty-vt), in the bottom panel or in a column tab. You can run several terminals, move one
-between the panel and a column by dragging it or from its menu, and maximize the panel. Terminal colors follow the theme.
+Ghostty's emulator (libghostty-vt), in the panel or in a column tab. The panel is below the editors; **View → Panel
+Position**, the command palette's **Move Panel to Left**, **Right** and **Bottom**, and `keybindings.json`'s
+`workbench.action.positionPanelLeft` and its neighbours put it at a side of the window. There it sits past the sidebar,
+so with the sidebar on the same side the panel is the outer one, and dragging its inner edge sizes it. The title bar's
+terminal button is on the panel's side too: left of the sidebar's button when both are on the left, at the right of the
+bar otherwise. You can run several terminals, move one between the panel and a column by dragging it or from its menu,
+and maximize the panel. Terminal colors follow the theme.
 Files dropped on a terminal type their paths, quoted for the shell. ⌘V with only an image on the clipboard sends an empty
 bracketed paste, as VS Code's terminal does, so that Claude Code pastes the screenshot. Selecting text copies it, as
 in Ghostty and iTerm2: a drag, a double click for a word, a triple click for a line, Shift with a drag in a program
@@ -480,9 +485,10 @@ the welcome page and sits at the start of the status bar: it blinks now and then
 runs, and holds still as the rain does. Qoder is Qoder's Forest theme: white or green-tinged greys with forest green,
 in a light and a dark kind, and its code in Forest's greens, blues, teals and ambers. Qoduck, Qoder's duck, takes the
 logo's place and the status bar's start as Clawd does, and blinks, bobs and hops as it does. **View → Sidebar on Right**
-moves the sidebar to the right of the editors. It remembers the sidebar's side, the sidebar and panel sizes, and every
-window with its folder, frame, columns and tabs, each tab with its caret, selection, scroll position and own word wrap,
-and the folders open in the Explorer. Started without a folder, Mayoi reopens the windows that were open when it quit.
+moves the sidebar to the right of the editors. It remembers the sidebar's and the panel's sides, the sidebar and panel
+sizes, and every window with its folder, frame, columns and tabs, each tab with its caret, selection, scroll position
+and own word wrap, and the folders open in the Explorer. Started without a folder, Mayoi reopens the windows that were
+open when it quit.
 A recent folder closed, by closing its window, **File → Close Folder** or opening another folder in its window, opens
 again with its tabs, columns and Explorer as they were. Closing the last window quits the app.
 

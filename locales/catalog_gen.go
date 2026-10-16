@@ -1817,6 +1817,16 @@ func (msgs Messages) CmdSelSortDesc() string {
 	return Catalog.Format(msgs.locale, "cmdSelSortDesc", nil)
 }
 
+// CmdViewAlwaysShowProjectTabs says "Always Show Project Tabs"
+// in the language the app shows.
+func CmdViewAlwaysShowProjectTabs() string { return In(i18n.Locale()).CmdViewAlwaysShowProjectTabs() }
+
+// CmdViewAlwaysShowProjectTabs says "Always Show Project Tabs"
+// in the language of msgs.
+func (msgs Messages) CmdViewAlwaysShowProjectTabs() string {
+	return Catalog.Format(msgs.locale, "cmdViewAlwaysShowProjectTabs", nil)
+}
+
 // CmdViewAppearanceDark says "Dark"
 // in the language the app shows.
 func CmdViewAppearanceDark() string { return In(i18n.Locale()).CmdViewAppearanceDark() }

@@ -178,6 +178,7 @@
   "cmdSelOutdent": "行のインデント解除",
   "cmdSelSortAsc": "行を昇順に並べ替え",
   "cmdSelSortDesc": "行を降順に並べ替え",
+  "cmdViewAlwaysShowProjectTabs": "プロジェクト タブを常に表示",
   "cmdViewAppearanceDark": "ダーク",
   "cmdViewAppearanceLight": "ライト",
   "cmdViewAppearanceSystem": "システム",

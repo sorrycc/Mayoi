@@ -178,6 +178,7 @@
   "cmdSelOutdent": "Outdent Lines",
   "cmdSelSortAsc": "Sort Lines Ascending",
   "cmdSelSortDesc": "Sort Lines Descending",
+  "cmdViewAlwaysShowProjectTabs": "Always Show Project Tabs",
   "cmdViewAppearanceDark": "Dark",
   "cmdViewAppearanceLight": "Light",
   "cmdViewAppearanceSystem": "System",

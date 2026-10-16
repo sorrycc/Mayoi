@@ -159,6 +159,7 @@ func (a *app) commandsIn(t locales.Messages) []command {
 		{"view.vim", t.CmdViewVim(), "", a.toggleVim},
 		{"view.projectTabs", t.CmdViewProjectTabs(), "", a.toggleProjectTabs},
 		{"view.projectIcons", t.CmdViewProjectIcons(), "", a.toggleProjectIcons},
+		{"view.alwaysShowProjectTabs", t.CmdViewAlwaysShowProjectTabs(), "", a.toggleAlwaysShowProjectTabs},
 		{"view.wordWrapTab", t.CmdViewWordWrapTab(), "Alt+Z", a.toggleTabWrap},
 		{"view.togglePreview", t.CmdViewTogglePreview(), "Shift+CmdOrCtrl+V", a.togglePreview},
 		// The text, or the picture shown.
@@ -249,6 +250,16 @@ func (a *app) toggleProjectTabs() {
 // watcher, as with the other view toggles.
 func (a *app) toggleProjectIcons() {
 	a.settings.ProjectIcons = !a.settings.ProjectIcons
+	a.settings.Changed()
+	a.invalidate()
+}
+
+// toggleAlwaysShowProjectTabs keeps a window's project tabs shown while
+// it has one project, or hides them again until it has two. The other
+// windows follow through the settings watcher, as with the other view
+// toggles.
+func (a *app) toggleAlwaysShowProjectTabs() {
+	a.settings.AlwaysShowProjectTabs = !a.settings.AlwaysShowProjectTabs
 	a.settings.Changed()
 	a.invalidate()
 }
@@ -470,6 +481,9 @@ func (a *app) menu(cli bool, run func(id string, win *mygo.Window)) *mygo.Menu {
 		it.Disabled = len(a.review.notes) == 0
 		return it
 	}
+	// It keeps the rail of Project Tabs, so it is off without them.
+	alwaysTabs := checkbox("view.alwaysShowProjectTabs", a.settings.AlwaysShowProjectTabs)
+	alwaysTabs.Disabled = !a.settings.ProjectTabs
 	menus := []*mygo.MenuItem{
 		appMenu,
 		{Label: locales.MenuFile(), Submenu: file},
@@ -489,7 +503,7 @@ func (a *app) menu(cli bool, run func(id string, win *mygo.Window)) *mygo.Menu {
 		{Label: locales.MenuView(), Submenu: []*mygo.MenuItem{
 			item("view.sidebar"), checkbox("view.sidebarRight", a.settings.SidebarRight), item("view.explorer"), item("view.search"), item("view.scm"), mygo.Separator(),
 			checkbox("view.wordWrap", a.settings.WordWrap), item("view.wordWrapTab"), item("view.togglePreview"),
-			checkbox("view.vim", a.settings.Vim), checkbox("view.projectTabs", a.settings.ProjectTabs), checkbox("view.projectIcons", a.settings.ProjectIcons), mygo.Separator(),
+			checkbox("view.vim", a.settings.Vim), checkbox("view.projectTabs", a.settings.ProjectTabs), alwaysTabs, checkbox("view.projectIcons", a.settings.ProjectIcons), mygo.Separator(),
 			item("view.splitRight"), item("view.nextColumn"), item("view.prevColumn"),
 			item("view.moveTabNext"), item("view.moveTabPrev"), mygo.Separator(),
 			item("view.terminal"), item("view.newTerminal"), item("view.terminalTab"), item("view.terminalMove"),

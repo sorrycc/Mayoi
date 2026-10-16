@@ -178,6 +178,7 @@
   "cmdSelOutdent": "减少行缩进",
   "cmdSelSortAsc": "按升序排列行",
   "cmdSelSortDesc": "按降序排列行",
+  "cmdViewAlwaysShowProjectTabs": "始终显示项目标签页",
   "cmdViewAppearanceDark": "深色",
   "cmdViewAppearanceLight": "浅色",
   "cmdViewAppearanceSystem": "跟随系统",

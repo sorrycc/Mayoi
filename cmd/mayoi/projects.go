@@ -382,12 +382,13 @@ func (m *mayoi) projectTabsChanged() {
 
 // railView is the rail of project tabs, left of the sidebar: a square of
 // each project's initials, the one shown marked, and after them a button
-// that opens another folder. A window of one project has none. a is the
-// project it is built in, which the frame goes on building as a click
-// shows another. A square is dragged along the rail to reorder it, and a
-// folder dropped on the rail opens as a project.
+// that opens another folder. A window of one project has none, unless
+// AlwaysShowProjectTabs keeps it. a is the project it is built in, which
+// the frame goes on building as a click shows another. A square is
+// dragged along the rail to reorder it, and a folder dropped on the rail
+// opens as a project.
 func (f *frame) railView(c *ui.Context, a *app) {
-	if !f.m.s.ProjectTabs || len(f.tabs) < 2 {
+	if !f.m.s.ProjectTabs || (len(f.tabs) < 2 && !f.m.s.AlwaysShowProjectTabs) {
 		return
 	}
 	p := a.pal

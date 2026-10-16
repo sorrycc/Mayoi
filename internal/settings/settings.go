@@ -146,6 +146,10 @@ type Prefs struct {
 	// ProjectIcons shows each project's favicon or logo on the rail,
 	// rather than its initials.
 	ProjectIcons bool `json:"projectIcons,omitempty"`
+	// AlwaysShowProjectTabs keeps a window's project tabs, the rail of
+	// them, shown while it has one project, rather than only once it has
+	// two. It does nothing without ProjectTabs.
+	AlwaysShowProjectTabs bool `json:"alwaysShowProjectTabs,omitempty"`
 	// Locale is the language Mayoi shows, as "en", "zh-Hans" or "ja", or ""
 	// for the one the system's languages prefer.
 	Locale string `json:"locale,omitempty"`

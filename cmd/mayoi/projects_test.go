@@ -18,6 +18,7 @@ import (
 	"github.com/egoist/mygo/ui"
 
 	"mayoi/internal/settings"
+	"mayoi/locales"
 )
 
 // railFixture is a window of project tabs with a project for each folder,
@@ -70,6 +71,32 @@ func TestRailShowsTheProjects(t *testing.T) {
 	step(tt)
 	if _, ok := tt.Find(filepath.Base(other)); ok {
 		t.Error("a window of one project has a rail")
+	}
+}
+
+// The rail keeps its square for the project shown, and its button that
+// opens another folder, while the window has one project, with Always
+// Show Project Tabs, and goes without it.
+func TestAlwaysShowProjectTabs(t *testing.T) {
+	root, other := workspaceFixture(t), workspaceFixture(t)
+	f, _, tt := railFixture(t, root, other)
+	f.tabs = f.tabs[:1]
+	step(tt)
+	if _, ok := tt.Find(locales.CmdFileOpenFolder()); ok {
+		t.Fatal("a window of one project has a rail")
+	}
+	f.m.s.AlwaysShowProjectTabs = true
+	step(tt)
+	if _, ok := tt.Find(filepath.Base(root)); !ok {
+		t.Errorf("no square for %s on the rail: %v", root, tt.Texts())
+	}
+	if _, ok := tt.Find(locales.CmdFileOpenFolder()); !ok {
+		t.Errorf("no button that opens another folder on the rail: %v", tt.Texts())
+	}
+	f.m.s.AlwaysShowProjectTabs = false
+	step(tt)
+	if _, ok := tt.Find(locales.CmdFileOpenFolder()); ok {
+		t.Error("the rail is still there with Always Show Project Tabs off")
 	}
 }
 

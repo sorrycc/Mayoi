@@ -192,6 +192,9 @@ type app struct {
 	frameAt time.Time
 	// dragging is set while a tab is dragged, as the frame before found.
 	dragging, dragNow bool
+	// middle is the tab a middle press is on, until it is let go of: the
+	// press closes it rather than shows it.
+	middle *colTab
 
 	quick      quickOpen
 	palette    []paletteEntry    // the commands of the command palette, made as it first opens

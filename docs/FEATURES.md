@@ -26,6 +26,9 @@ same preview tab.
 the one before. Files and terminals both come back, a terminal as a new shell in the folder it started in. Opening or
 closing a folder forgets the tabs closed.
 
+The middle mouse button closes the tab under the pointer, wherever in the tab it is pressed, without showing it first:
+clearing tabs leaves the file you are reading where it is.
+
 ### Word wrap
 
 Long lines scroll sideways by default. **View → Word Wrap** wraps them at the edge of the editor. ⌥Z toggles wrapping

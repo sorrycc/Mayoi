@@ -59,6 +59,8 @@ func (a *app) tabStrip(c *ui.Context, col *column) {
 					tab := ui.ButtonBase(c.Key(t.id)).Padding(0, 6, 0, 12).Gap(7).AlignItems(ui.Center).
 						BorderWidth(0, 1, 0, 0).BorderColor(p.border).Label(t.name()).Tooltip(tip).
 						Drag(dragItem{tab: t})
+					// The middle button closes the tab, as in a browser.
+					tab = tab.HandleInput(func(ev ui.InputEvent) bool { return a.tabMiddle(t, ev) })
 					if tab.Dragging() {
 						a.dragNow = true
 					}
@@ -72,7 +74,7 @@ func (a *app) tabStrip(c *ui.Context, col *column) {
 					case hovered:
 						tab.Background(mix(p.chrome, p.editor, 0.5))
 					}
-					if tab.Pressed() && (!active || !focused) {
+					if tab.Pressed() && a.middle != t && (!active || !focused) {
 						a.activate(col, i, true)
 					}
 					if tab.DoubleClicked() {
@@ -166,6 +168,33 @@ func (a *app) tabStrip(c *ui.Context, col *column) {
 		// may go with its last tab.
 		a.post(func() { a.closeTab(closing, nil) })
 	}
+}
+
+// middleButton is the middle mouse button, as InputEvent.Button names it:
+// 0 the primary button and 1 the secondary.
+const middleButton = 2
+
+// tabMiddle takes the input of the middle button on a tab, which closes
+// the tab rather than shows it, as a browser's tabs do. The press is
+// taken, so that the release comes back here wherever in the tab it is,
+// and the tab it is on is remembered while it is held, so that the frames
+// between do not show it.
+func (a *app) tabMiddle(t *colTab, ev ui.InputEvent) bool {
+	if ev.Button != middleButton {
+		return false
+	}
+	switch ev.Kind {
+	case ui.InputPointerDown:
+		a.middle = t
+		return true
+	case ui.InputPointerUp:
+		if a.middle == t {
+			a.middle = nil
+			a.post(func() { a.closeTab(t, nil) })
+		}
+		return true
+	}
+	return false
 }
 
 // tabMenu is the menu of a tab.

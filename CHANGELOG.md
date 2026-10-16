@@ -102,6 +102,9 @@ needs a `## <version>` section here, or its build fails.
 - macOS: files and folders dropped on the Dock icon open, as `mayoi
   <path>` opens them, and Mayoi is in the Finder's **Open With** menu
   for any file (#28).
+- The middle mouse button closes the tab under the pointer, without
+  showing it first, as a browser's tabs do: the file you are reading
+  stays where it is. Let go of it off the tab, and the tab stays open.
 
 ## 0.9.1
 

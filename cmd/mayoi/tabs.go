@@ -60,7 +60,8 @@ func (a *app) tabStrip(c *ui.Context, col *column) {
 						BorderWidth(0, 1, 0, 0).BorderColor(p.border).Label(t.name()).Tooltip(tip).
 						Drag(dragItem{tab: t})
 					// The middle button closes the tab, as in a browser.
-					tab = tab.HandleInput(func(ev ui.InputEvent) bool { return a.tabMiddle(t, ev) })
+					box := tab.LayoutBounds()
+					tab = tab.HandleInput(func(ev ui.InputEvent) bool { return a.tabMiddle(t, ev, box) })
 					if tab.Dragging() {
 						a.dragNow = true
 					}
@@ -178,9 +179,15 @@ const middleButton = 2
 // the tab rather than shows it, as a browser's tabs do. The press is
 // taken, so that the release comes back here wherever in the tab it is,
 // and the tab it is on is remembered while it is held, so that the frames
-// between do not show it.
-func (a *app) tabMiddle(t *colTab, ev ui.InputEvent) bool {
+// between do not show it. Let go of off the tab, box as the last frame
+// laid it out, it closes nothing, as in a browser.
+func (a *app) tabMiddle(t *colTab, ev ui.InputEvent, box ui.Rect) bool {
 	if ev.Button != middleButton {
+		// A press of another button ends one of the middle whose release
+		// never came, which would keep the tab from showing.
+		if ev.Kind == ui.InputPointerDown {
+			a.middle = nil
+		}
 		return false
 	}
 	switch ev.Kind {
@@ -188,10 +195,11 @@ func (a *app) tabMiddle(t *colTab, ev ui.InputEvent) bool {
 		a.middle = t
 		return true
 	case ui.InputPointerUp:
-		if a.middle == t {
-			a.middle = nil
+		on := box.W == 0 || ev.X >= 0 && ev.Y >= 0 && ev.X < box.W && ev.Y < box.H
+		if a.middle == t && on {
 			a.post(func() { a.closeTab(t, nil) })
 		}
+		a.middle = nil
 		return true
 	}
 	return false

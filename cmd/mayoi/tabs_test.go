@@ -6,6 +6,9 @@ import (
 	"github.com/egoist/mygo/ui"
 )
 
+// tabBox is a tab as the last frame laid it out, at its own origin.
+var tabBox = ui.Rect{W: 120, H: tabStripH}
+
 // The middle button closes the tab it is on: the press does not show it,
 // and its release closes it, wherever in the tab it is.
 func TestMiddleButtonClosesATab(t *testing.T) {
@@ -24,7 +27,7 @@ func TestMiddleButtonClosesATab(t *testing.T) {
 		other = col.tabs[1]
 	}
 	was := col.active
-	if !a.tabMiddle(other, ui.InputEvent{Kind: ui.InputPointerDown, Button: middleButton}) {
+	if !a.tabMiddle(other, ui.InputEvent{Kind: ui.InputPointerDown, Button: middleButton, X: 10, Y: 10}, tabBox) {
 		t.Fatal("the press was not taken")
 	}
 	hs.settle()
@@ -34,7 +37,7 @@ func TestMiddleButtonClosesATab(t *testing.T) {
 	if at, _ := a.locate(other); at == nil {
 		t.Fatal("the tab closed as it was pressed, not as it was let go of")
 	}
-	if !a.tabMiddle(other, ui.InputEvent{Kind: ui.InputPointerUp, Button: middleButton}) {
+	if !a.tabMiddle(other, ui.InputEvent{Kind: ui.InputPointerUp, Button: middleButton, X: 10, Y: 10}, tabBox) {
 		t.Fatal("the release was not taken")
 	}
 	hs.settle()
@@ -64,7 +67,7 @@ func TestTabMiddleLeavesOtherInputAlone(t *testing.T) {
 		{Kind: ui.InputPointerMove, Button: 0},
 		{Kind: ui.InputKeyDown, Key: ui.KeyS},
 	} {
-		if a.tabMiddle(tab, ev) {
+		if a.tabMiddle(tab, ev, tabBox) {
 			t.Errorf("input %v of button %d was taken", ev.Kind, ev.Button)
 		}
 	}
@@ -73,5 +76,30 @@ func TestTabMiddleLeavesOtherInputAlone(t *testing.T) {
 	}
 	if a.middle != nil {
 		t.Error("a press of another button is remembered")
+	}
+}
+
+// Let go of off the tab, the middle button closes nothing, as in a
+// browser; and a press whose release never came does not keep a click
+// from showing the tab.
+func TestTabMiddleReleasedOffTheTab(t *testing.T) {
+	hs := newHarness(t, true)
+	a := hs.a
+	a.openFile(hs.path("main.go"), true)
+	hs.settle()
+	tab := a.activeTab()
+	a.tabMiddle(tab, ui.InputEvent{Kind: ui.InputPointerDown, Button: middleButton, X: 10, Y: 10}, tabBox)
+	a.tabMiddle(tab, ui.InputEvent{Kind: ui.InputPointerUp, Button: middleButton, X: 10, Y: 200}, tabBox)
+	hs.settle()
+	if col, _ := a.locate(tab); col == nil {
+		t.Error("released below the strip, the tab closed")
+	}
+	if a.middle != nil {
+		t.Error("the press is still remembered")
+	}
+	a.tabMiddle(tab, ui.InputEvent{Kind: ui.InputPointerDown, Button: middleButton}, tabBox)
+	a.tabMiddle(tab, ui.InputEvent{Kind: ui.InputPointerDown, Button: 0}, tabBox)
+	if a.middle != nil {
+		t.Error("a primary press left the middle one remembered")
 	}
 }

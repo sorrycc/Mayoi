@@ -237,7 +237,17 @@ func (a *app) sidePanel(c *ui.Context, right bool) {
 	} else {
 		box.BorderWidth(0, 1, 0, 0)
 	}
-	size := clamp(w.PanelWidth, minPanelW, max(width-320, minPanelW))
+	// It leaves the editors 320 points beside the sidebar and the rail,
+	// as the sidebar leaves them, however narrow the window.
+	room := width - 320
+	if !w.SidebarClosed {
+		room -= w.SidebarWidth
+	}
+	if a.rail != nil {
+		room -= railW
+	}
+	room = max(room, minPanelW)
+	size := clamp(w.PanelWidth, minPanelW, room)
 	if a.panelMax {
 		box.Grow(1)
 	} else {
@@ -247,7 +257,7 @@ func (a *app) sidePanel(c *ui.Context, right bool) {
 		a.panel(c)
 		if !a.panelMax {
 			a.splitter(c, at, func(d float32) {
-				w.PanelWidth = clamp(size+dir*d, minPanelW, max(width-320, minPanelW))
+				w.PanelWidth = clamp(size+dir*d, minPanelW, room)
 			})
 		}
 	})

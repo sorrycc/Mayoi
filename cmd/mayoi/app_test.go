@@ -661,6 +661,20 @@ func TestTerminalPanelAtASide(t *testing.T) {
 	if term, _ := buttons(); term.X < width/2 {
 		t.Errorf("the terminal's button with the panel on the right: %v", term)
 	}
+	// In a narrow window it gives way, so the editors keep 320 points
+	// beside the sidebar, and takes its width back as the window widens.
+	a.run("view.sidebarRight")
+	a.run("view.panelPosition.left")
+	hs.tt.SetSize(760, 800)
+	hs.settle()
+	if hide := at("Hide Panel"); hide.X+hide.W > 760-320-a.window.SidebarWidth {
+		t.Errorf("the panel in a narrow window reaches %v, past %v", hide.X+hide.W, 760-320-a.window.SidebarWidth)
+	}
+	hs.tt.SetSize(int(width), 800)
+	hs.settle()
+	if hide := at("Hide Panel"); hide.X+hide.W < a.window.PanelWidth-40 {
+		t.Errorf("the panel widened back to %v, not %v", hide.X+hide.W, a.window.PanelWidth)
+	}
 	// Hidden, moving it shows it again.
 	a.hidePanel()
 	hs.settle()

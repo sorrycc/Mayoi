@@ -96,6 +96,9 @@ needs a `## <version>` section here, or its build fails.
 - A commit's menu saves or copies its patch, binary changes included,
   compares it with HEAD or with a commit chosen before, and opens it on
   GitHub, GitLab or Bitbucket.
+- **File → New Window** (⇧⌘N) opens a window that shows nothing, which
+  the welcome page fills, and on macOS the Dock icon's menu has it above
+  the recent folders.
 
 ## 0.9.1
 

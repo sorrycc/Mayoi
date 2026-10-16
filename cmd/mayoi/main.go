@@ -391,7 +391,7 @@ func (m *mayoi) launch(paths []string) {
 		}
 	}
 	if len(m.wins) == 0 {
-		m.openWindow(m.s.NewWindow())
+		m.openBlankWindow()
 	}
 	for _, p := range files {
 		m.openFile(p)
@@ -552,7 +552,7 @@ func (m *mayoi) refreshMenu() {
 }
 
 // setMenu sets the app's menu as a's window has it, and the Dock's menu of
-// the recent folders.
+// a new window and the recent folders.
 func (m *mayoi) setMenu(a *app) {
 	// Setting a menu bar on Linux makes it anew, which closes a menu that
 	// is open, as when the window has the focus again from a submenu's
@@ -565,10 +565,21 @@ func (m *mayoi) setMenu(a *app) {
 	if runtime.GOOS != "darwin" {
 		return
 	}
-	var items []*mygo.MenuItem
-	for _, dir := range m.s.RecentExcept("") {
+	mygo.App.Dock.SetMenu(m.dockMenu())
+}
+
+// dockMenu is the menu of the Dock icon: a window that shows nothing, and
+// the recent folders, each in the window in front, which comes forward.
+func (m *mayoi) dockMenu() *mygo.Menu {
+	items := []*mygo.MenuItem{{Label: "New Window", Click: func(_ *mygo.MenuItem, _ *mygo.Window) {
+		m.openBlankWindow()
+	}}}
+	recent := m.s.RecentExcept("")
+	if len(recent) > 0 {
+		items = append(items, mygo.Separator())
+	}
+	for _, dir := range recent {
 		id := recentCommand + dir
-		// In the window in front, which comes forward.
 		items = append(items, &mygo.MenuItem{Label: shortenHome(dir), Click: func(_ *mygo.MenuItem, _ *mygo.Window) {
 			if len(m.wins) > 0 {
 				m.wins[0].show()
@@ -576,11 +587,7 @@ func (m *mayoi) setMenu(a *app) {
 			m.run(id, nil)
 		}})
 	}
-	var dock *mygo.Menu
-	if len(items) > 0 {
-		dock = mygo.NewMenu(items)
-	}
-	mygo.App.Dock.SetMenu(dock)
+	return mygo.NewMenu(items)
 }
 
 // menuKey writes out what items show of themselves, their submenus'
@@ -667,6 +674,12 @@ func (m *mayoi) openWindow(st *settings.Window) *desktop {
 	m.s.Focused(st)
 	return h
 }
+
+// openBlankWindow opens a window that shows nothing, which the welcome
+// page fills with the recent folders and the hosts. It is the window the
+// app starts with when it was given nothing to open, and the one the Dock
+// icon's New Window opens.
+func (m *mayoi) openBlankWindow() { m.openWindow(m.s.NewWindow()) }
 
 func (a *app) anyDirty() bool {
 	for _, d := range a.docs {

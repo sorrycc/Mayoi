@@ -351,10 +351,10 @@ with what replaces it beside it. With regular expressions, `$1` refers to a grou
 Each folder gets its own window.
 
 - **Open Folder…** (⌘O) opens a folder in the current window.
+- **New Window** (⇧⌘N) opens a window showing nothing, which the welcome page fills.
 - **Open Folder in New Window…** (⌥⌘O), or ⌘-clicking a recent folder (or pressing ⌘↵ on it), opens it in a new window.
 - **File → Open Recent** lists the last ten folders, except the window's own and any no longer on disk, and has
-  **Clear Recently Opened**. On macOS the Dock icon's menu lists them too, under a **New Window** that opens a
-  window showing nothing, which the welcome page fills.
+  **Clear Recently Opened**. On macOS the Dock icon's menu lists them too, under **New Window**.
 - ⌃R (or **Open Recent → More…**) finds a recent folder by name: ↵ opens it in the current window, ⌘↵ in a new window.
   When a terminal has the keyboard, ⌃R goes to the shell instead.
 - Opening a folder that another window already has brings that window to the front instead.

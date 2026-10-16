@@ -30,6 +30,8 @@ type fakeHost struct {
 	// asked to open in a window of their own.
 	others  []string
 	windows []string
+	// blankWindows counts the windows asked for that show nothing.
+	blankWindows int
 	// folders are those asked to open as `mayoi <dir>` opens them.
 	folders []string
 	// recentChanges counts the changes of the recent folders.
@@ -74,6 +76,7 @@ func (h *fakeHost) showFolder(dir string) bool {
 	return slices.Contains(h.others, dir)
 }
 func (h *fakeHost) newWindow(dir string)      { h.windows = append(h.windows, dir) }
+func (h *fakeHost) newBlankWindow()           { h.blankWindows++ }
 func (h *fakeHost) openFolders(dirs []string) { h.folders = append(h.folders, dirs...) }
 func (h *fakeHost) recentChanged()            { h.recentChanges++ }
 func (h *fakeHost) fontChanged()              {}

@@ -181,6 +181,7 @@ func (a *app) whenContext(where keyPlace) func(string) bool {
 // has them.
 var vscodeCommands = map[string]string{
 	"workbench.action.files.newUntitledFile":              "file.new",
+	"workbench.action.newWindow":                          "file.newWindow",
 	"workbench.action.files.openFolder":                   "file.openFolder",
 	"workbench.action.openRecent":                         "file.openRecent",
 	"workbench.action.files.save":                         "file.save",

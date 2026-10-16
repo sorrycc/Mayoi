@@ -156,6 +156,8 @@ func (h *desktop) newWindow(dir string) {
 	h.m.openFolder(filepath.Clean(dir), false)
 }
 
+func (h *desktop) newBlankWindow() { h.m.openBlankWindow() }
+
 func (h *desktop) openFolders(dirs []string) {
 	for _, dir := range dirs {
 		h.m.openFolder(dir, true)
@@ -678,7 +680,7 @@ func (m *mayoi) openWindow(st *settings.Window) *desktop {
 // openBlankWindow opens a window that shows nothing, which the welcome
 // page fills with the recent folders and the hosts. It is the window the
 // app starts with when it was given nothing to open, and the one the Dock
-// icon's New Window opens.
+// icon's and the File menu's New Window open.
 func (m *mayoi) openBlankWindow() { m.openWindow(m.s.NewWindow()) }
 
 func (a *app) anyDirty() bool {

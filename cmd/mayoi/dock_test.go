@@ -24,6 +24,15 @@ func TestDockMenu(t *testing.T) {
 	}
 }
 
+// File → New Window, ⇧⌘N, asks for a window that shows nothing.
+func TestNewWindowCommand(t *testing.T) {
+	hs := newHarness(t, true)
+	hs.a.run("file.newWindow")
+	if h := hs.h; h.blankWindows != 1 || len(h.windows) != 0 {
+		t.Errorf("New Window opened %d blank windows and %q", h.blankWindows, h.windows)
+	}
+}
+
 // A Dock menu with no recent folder opens a window all the same, and says
 // only that: the menu is the app's, not the list's.
 func TestDockMenuWithoutRecentFolders(t *testing.T) {

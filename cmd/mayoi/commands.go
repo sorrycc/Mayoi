@@ -30,6 +30,7 @@ func (a *app) commands() []command {
 	}
 	cmds := []command{
 		{"file.new", "New File", "CmdOrCtrl+N", a.newFile},
+		{"file.newWindow", "New Window", "Shift+CmdOrCtrl+N", func() { a.host.newBlankWindow() }},
 		{"file.openFolder", "Open Folder…", "CmdOrCtrl+O", a.chooseFolder},
 		{"file.openFolderWindow", "Open Folder in New Window…", "Alt+CmdOrCtrl+O", a.chooseFolderWindow},
 		// ⌃R, which the view takes itself, so that a terminal keeps it.
@@ -359,7 +360,7 @@ func (a *app) menu(cli bool, run func(id string, win *mygo.Window)) *mygo.Menu {
 	forget.Disabled = len(a.settings.Recent) == 0
 	recent = append(recent, more, mygo.Separator(), forget)
 	file := []*mygo.MenuItem{
-		item("file.new"), item("file.openFolder"), item("file.openFolderWindow"),
+		item("file.new"), item("file.newWindow"), item("file.openFolder"), item("file.openFolderWindow"),
 		{Label: "Open Recent", Submenu: recent},
 	}
 	if remoteSupported {

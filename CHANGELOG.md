@@ -105,6 +105,8 @@ needs a `## <version>` section here, or its build fails.
 - The middle mouse button closes the tab under the pointer, without
   showing it first, as a browser's tabs do: the file you are reading
   stays where it is. Let go of it off the tab, and the tab stays open.
+- A diff no longer crashes Mayoi when files leave it, as when changes
+  are committed or discarded, while it is scrolled down to them.
 
 ## 0.9.1
 

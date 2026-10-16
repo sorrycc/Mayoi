@@ -588,7 +588,8 @@ func (a *app) refreshDiff(v *diffView) {
 			reading++
 		}
 	}
-	lo, hi := max(v.near[0], 0), min(v.near[1], len(v.files))
+	lo := min(max(v.near[0], 0), len(v.files))
+	hi := min(max(v.near[1], lo), len(v.files))
 	order := make([]*diffFile, 0, hi-lo+1)
 	if t := v.reveal; t != nil {
 		for _, f := range v.files {
@@ -1010,7 +1011,13 @@ type diffAnchor struct {
 }
 
 func (v *diffView) anchorOf(i int) diffAnchor {
+	if i < 0 || i >= len(v.rows) {
+		return diffAnchor{}
+	}
 	r := v.rows[i]
+	if r.file < 0 || r.file >= len(v.files) {
+		return diffAnchor{}
+	}
 	line := r.new
 	switch {
 	case r.kind == rowGap:

@@ -157,6 +157,7 @@ func (a *app) view(c *ui.Context) {
 	})
 	a.quickOpenView(c)
 	a.branchPickerView(c)
+	a.repositoryPickerView(c)
 	a.recentPickerView(c)
 	a.remotePickerView(c)
 	a.promptView(c)
@@ -816,7 +817,7 @@ func (a *app) statusFit(c *ui.Context, width float32) statusVisibility {
 		w, _ := m.size(1)
 		used += w + 12 + 2
 	}
-	if busy := a.git.busy; busy != "" {
+	if busy := a.repository().git.busy; busy != "" {
 		used += measure(busy, true)
 	}
 	if a.conn != nil {
@@ -836,7 +837,11 @@ func (a *app) statusFit(c *ui.Context, width float32) statusVisibility {
 	}
 	folder := func() {
 		if a.root != "" {
-			add(&v.folder, measure(filepath.Base(a.root), true))
+			label := filepath.Base(a.root)
+			if len(a.repositories.contexts) > 1 {
+				label = a.repositoryLabel()
+			}
+			add(&v.folder, measure(label, true))
 		}
 	}
 	t := a.activeTab()
@@ -966,7 +971,7 @@ func (a *app) statusBar(c *ui.Context) {
 			bb.Menu(a.branchMenu)
 		}
 		a.transferStatus(c, text)
-		if busy := a.git.busy; busy != "" {
+		if busy := a.repository().git.busy; busy != "" {
 			ui.Row(c.Key("status:busy")).Height(statusBarH).Padding(0, 6).Gap(5).AlignItems(ui.Center).Children(func() {
 				// In a theme with a character, it hops for it instead.
 				if a.themeMascot() == nil {
@@ -979,7 +984,9 @@ func (a *app) statusBar(c *ui.Context) {
 			item("chord", locales.ChordWaiting(strings.Join(chordCaps(a.chord), " ")), "", iconKeyboard, nil)
 		}
 		if a.root != "" && visible.folder {
-			if a.conn != nil {
+			if len(a.repositories.contexts) > 1 {
+				a.repositoryButton(c, true)
+			} else if a.conn != nil {
 				item("folder", filepath.Base(hostPath(a.root)), "", iconFolder, nil)
 			} else {
 				item("folder", filepath.Base(a.root), revealFolderLabel(shortenHome(a.root)), iconFolder, func() { a.host.reveal(a.root) })

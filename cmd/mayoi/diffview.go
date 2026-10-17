@@ -78,11 +78,12 @@ type diffSide struct {
 // as the source control view lists it in group, and the changes between
 // them, read and compared in the background.
 type diffFile struct {
-	path   string
-	base   diffBase
-	group  scmGroup
-	entry  git.Entry
-	letter byte // its letter in the source control view
+	repoRoot string
+	path     string
+	base     diffBase
+	group    scmGroup
+	entry    git.Entry
+	letter   byte // its letter in the source control view
 
 	old, new diffSide
 	binary   bool
@@ -144,11 +145,12 @@ func (f *diffFile) counts() (add, del int) {
 // lines removed and added interleaved, or side by side, and those
 // unchanged away from them folded.
 type diffView struct {
-	layout  diffLayout
-	split   bool // as the layout and the width chose last
-	full    bool // every unchanged line shows
-	wrap    *bool
-	wrapGen int
+	repoRoot string // work tree that owns this view, fixed when opened
+	layout   diffLayout
+	split    bool // as the layout and the width chose last
+	full     bool // every unchanged line shows
+	wrap     *bool
+	wrapGen  int
 
 	files []*diffFile
 	// status is the status of the repository the files were listed from.
@@ -300,6 +302,9 @@ func (v *diffView) name() string {
 // same reports whether two diffs show the same changes: both those of
 // the work tree, or of one commit.
 func (v *diffView) same(o *diffView) bool {
+	if v.repoRoot != o.repoRoot {
+		return false
+	}
 	if v.commit == nil || o.commit == nil {
 		return v.commit == nil && o.commit == nil
 	}
@@ -372,13 +377,14 @@ const foldedLines = 2000
 
 // changesTab returns the tab of the changes in an unlocked column, nil
 // when none has one. Automatic opens leave locked columns alone.
-func (a *app) changesTab() (*column, int) {
+func (a *app) changesTab(roots ...string) (*column, int) {
+	root := a.diffRoot(roots)
 	for _, col := range a.cols {
 		if col.locked {
 			continue
 		}
 		for i, t := range col.tabs {
-			if t.diff != nil && t.diff.commit == nil {
+			if t.diff != nil && t.diff.commit == nil && a.diffBelongs(t.diff, root) {
 				return col, i
 			}
 		}
@@ -389,14 +395,16 @@ func (a *app) changesTab() (*column, int) {
 // openChangesTab shows the tab of the changes, made after the tab shown
 // of the column that has the keyboard when there is none, and returns its
 // diff.
-func (a *app) openChangesTab(focus bool) *diffView {
-	if col, i := a.changesTab(); col != nil {
+func (a *app) openChangesTab(focus bool, roots ...string) *diffView {
+	root := a.diffRoot(roots)
+	if col, i := a.changesTab(root); col != nil {
 		a.activate(col, i, focus)
 		return col.tabs[i].diff
 	}
 	col := a.fileColumn()
 	at := min(col.active+1, len(col.tabs))
 	v := newDiffView(parseDiffLayout(a.settings.DiffLayout))
+	v.repoRoot = root
 	a.addTab(col, at, &colTab{diff: v})
 	a.activate(col, at, focus)
 	return v
@@ -404,8 +412,14 @@ func (a *app) openChangesTab(focus bool) *diffView {
 
 // showChanges shows the tab of the changes scrolled to a file, or with no
 // path, to the section of a base, once the file is listed.
-func (a *app) showChanges(target diffTarget, focus bool) {
-	v := a.openChangesTab(focus)
+func (a *app) showChanges(target diffTarget, focus bool, roots ...string) {
+	root := a.diffRoot(roots)
+	if len(roots) == 0 && target.path != "" {
+		if r := a.repositoryForPath(target.path).git.repo; r != nil {
+			root = r.Root
+		}
+	}
+	v := a.openChangesTab(focus, root)
 	v.reveal = &target
 	v.changed()
 }
@@ -420,7 +434,10 @@ func (a *app) openChanges() {
 		a.openDiffFile(t.diff)
 	case t.path() == "":
 	default:
-		a.showChanges(diffTarget{path: t.path(), any: true}, true)
+		ctx := a.repositoryForPath(t.path())
+		if ctx.git.repo != nil {
+			ctx.showChanges(diffTarget{path: t.path(), any: true}, true)
+		}
 	}
 }
 
@@ -440,13 +457,14 @@ func (col *column) showingDiff(v *diffView) int {
 
 // commitTab returns a commit's changes, or a comparison's by its
 // "from..to", in an unlocked column, nil when none has one.
-func (a *app) commitTab(hash string) (*column, int) {
+func (a *app) commitTab(hash string, roots ...string) (*column, int) {
+	root := a.diffRoot(roots)
 	for _, col := range a.cols {
 		if col.locked {
 			continue
 		}
 		for i, t := range col.tabs {
-			if t.diff != nil && t.diff.commit != nil && t.diff.commit.key() == hash {
+			if t.diff != nil && t.diff.commit != nil && t.diff.commit.key() == hash && a.diffBelongs(t.diff, root) {
 				return col, i
 			}
 		}
@@ -456,15 +474,18 @@ func (a *app) commitTab(hash string) (*column, int) {
 
 // showCommit shows the changes of a commit in a tab of its own, made after
 // the tab shown of the column that has the keyboard when there is none.
-func (a *app) showCommit(c git.Commit, focus bool) {
-	if col, i := a.commitTab(c.Hash); col != nil {
+func (a *app) showCommit(c git.Commit, focus bool, roots ...string) {
+	root := a.diffRoot(roots)
+	if col, i := a.commitTab(c.Hash, root); col != nil {
 		a.keepTab(col.tabs[i])
 		a.activate(col, i, focus)
 		return
 	}
 	col := a.fileColumn()
 	at := min(col.active+1, len(col.tabs))
-	a.addTab(col, at, &colTab{diff: newCommitView(parseDiffLayout(a.settings.DiffLayout), c.Hash, c)})
+	v := newCommitView(parseDiffLayout(a.settings.DiffLayout), c.Hash, c)
+	v.repoRoot = root
+	a.addTab(col, at, &colTab{diff: v})
 	a.activate(col, at, focus)
 	a.rememberTabs()
 }
@@ -472,14 +493,17 @@ func (a *app) showCommit(c git.Commit, focus bool) {
 // previewCommit shows the changes of a commit in the preview tab of the
 // column that has the keyboard, without giving it the keyboard, unless a
 // tab shows them already.
-func (a *app) previewCommit(c git.Commit) {
-	if col, i := a.commitTab(c.Hash); col != nil {
+func (a *app) previewCommit(c git.Commit, roots ...string) {
+	root := a.diffRoot(roots)
+	if col, i := a.commitTab(c.Hash, root); col != nil {
 		a.activate(col, i, false)
 		return
 	}
 	col := a.fileColumn()
 	a.previewIn(col, func(at int) {
-		a.addTab(col, at, &colTab{diff: newCommitView(parseDiffLayout(a.settings.DiffLayout), c.Hash, c), transient: true})
+		v := newCommitView(parseDiffLayout(a.settings.DiffLayout), c.Hash, c)
+		v.repoRoot = root
+		a.addTab(col, at, &colTab{diff: v, transient: true})
 		a.activate(col, at, false)
 	})
 }
@@ -504,12 +528,13 @@ func (a *app) listDiffFiles(v *diffView) {
 		a.listCommitFiles(v)
 		return
 	}
-	st := a.git.status
+	ctx := a.diffContext(v)
+	st := ctx.git.status
 	if st == v.status {
 		return
 	}
 	v.status = st
-	groups := a.groupEntries()
+	groups := ctx.groupEntries()
 	type listed struct {
 		e     git.Entry
 		group scmGroup
@@ -544,7 +569,9 @@ func (a *app) listDiffFiles(v *diffView) {
 		k := fileKey{l.e.Path, l.group == groupStaged}
 		f, ok := old[k]
 		if !ok {
-			v.files = append(v.files, newDiffFile(l.e, l.group))
+			f := newDiffFile(l.e, l.group)
+			f.repoRoot = v.repoRoot
+			v.files = append(v.files, f)
 			continue
 		}
 		delete(old, k)
@@ -562,7 +589,7 @@ func (a *app) listDiffFiles(v *diffView) {
 // files it changed, once, in the background.
 func (a *app) listCommitFiles(v *diffView) {
 	cm := v.commit
-	r := a.git.repo
+	r := a.diffContext(v).git.repo
 	if cm.loaded || cm.loading || r == nil {
 		return
 	}
@@ -588,6 +615,7 @@ func (a *app) listCommitFiles(v *diffView) {
 			v.files = make([]*diffFile, 0, len(files))
 			for _, cf := range files {
 				f := &diffFile{path: cf.Path, base: diffCommit, group: groupCommits, letter: cf.Status, gitStale: true}
+				f.repoRoot = v.repoRoot
 				f.entry = git.Entry{Path: cf.Path, Orig: cf.Orig, X: cf.Status, Y: '.'}
 				v.files = append(v.files, f)
 			}
@@ -637,7 +665,7 @@ func (a *app) refreshDiff(v *diffView) {
 // refreshDiffFile compares the sides of a file of a diff again in the
 // background when one may have changed, and reports whether it started.
 func (a *app) refreshDiffFile(v *diffView, f *diffFile) bool {
-	r := a.git.repo
+	r := a.diffContext(v).git.repo
 	if f.running || f.waiting || r == nil {
 		return false
 	}
@@ -1603,10 +1631,10 @@ func (a *app) keepTopRow(v *diffView, change func()) {
 }
 
 // diffsChanged has the diffs read the sides Git keeps again.
-func (a *app) diffsChanged() {
+func (a *app) diffsChanged(roots ...string) {
 	for _, col := range a.cols {
 		for _, t := range col.tabs {
-			if t.diff != nil && t.diff.commit == nil {
+			if t.diff != nil && t.diff.commit == nil && (len(roots) == 0 || a.diffBelongs(t.diff, roots[0])) {
 				for _, f := range t.diff.files {
 					f.gitStale = true
 				}

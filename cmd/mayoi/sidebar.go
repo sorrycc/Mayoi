@@ -317,9 +317,9 @@ func (a *app) fileTree(c *ui.Context) {
 				action = func() { a.newTerminalIn(path) }
 			}
 			m.Separator()
-			if _, changed := a.git.entries[path]; changed && !isDir {
+			if _, changed := a.repositoryForPath(path).git.entries[path]; changed && !isDir {
 				if m.Item(locales.CmdGitOpenChanges()).Chosen() {
-					action = func() { a.showChanges(diffTarget{path: path, any: true}, true) }
+					action = func() { a.repositoryForPath(path).showChanges(diffTarget{path: path, any: true}, true) }
 				}
 				m.Separator()
 			}
@@ -371,8 +371,12 @@ func (a *app) fileTree(c *ui.Context) {
 			// that has changes.
 			var letter byte
 			if isDir {
-				letter = a.git.dirs[path]
-			} else if e, ok := a.git.entries[path]; ok {
+				for _, ctx := range a.rootRepositoryList() {
+					if next := ctx.git.dirs[path]; letterRank(next) > letterRank(letter) {
+						letter = next
+					}
+				}
+			} else if e, ok := a.repositoryForPath(path).git.entries[path]; ok {
 				letter = e.Letter()
 			}
 			switch i := a.docIndex(path); {

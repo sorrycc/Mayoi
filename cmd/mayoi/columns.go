@@ -625,6 +625,7 @@ func (a *app) splitRight() {
 		if cm := t.diff.commit; cm != nil {
 			v = newCommitView(t.diff.layout, cm.key(), cm.info)
 		}
+		v.repoRoot = t.diff.repoRoot
 		// The offsets only: the scroll's handle binds one view's control,
 		// and MyGo panics on a handle bound in two columns.
 		v.scroll.X, v.scroll.Y = t.diff.scroll.X, t.diff.scroll.Y
@@ -727,6 +728,14 @@ func (a *app) rememberTabs() {
 				continue
 			}
 			if v := t.diff; v != nil {
+				ts.RepoRoot = v.repoRoot
+				if a.git.repo != nil && ts.RepoRoot == a.git.repo.Root {
+					ts.RepoRoot = ""
+				} else if ts.RepoRoot != "" {
+					if rel, err := filepath.Rel(a.root, ts.RepoRoot); err == nil {
+						ts.RepoRoot = filepath.ToSlash(rel)
+					}
+				}
 				ts.Full, ts.ScrollY = v.full, v.scroll.Y
 				ts.Wrap = a.ownWrap(v.wrap, v.wrapGen)
 			}
@@ -859,6 +868,11 @@ func (a *app) restoreTabs() {
 		// Opening each makes it the tab shown: keep the one to show.
 		var shown *colTab
 		for k, ts := range cs.Tabs {
+			// Relative roots move with the workspace; absolute roots from older
+			// settings remain readable.
+			if ts.RepoRoot != "" && !filepath.IsAbs(ts.RepoRoot) {
+				ts.RepoRoot = filepath.Join(a.root, filepath.FromSlash(ts.RepoRoot))
+			}
 			n := len(col.tabs)
 			switch {
 			case ts.Terminal:
@@ -867,20 +881,23 @@ func (a *app) restoreTabs() {
 				}
 			case strings.HasPrefix(ts.Diff, "commit:"):
 				hash := strings.TrimPrefix(ts.Diff, "commit:")
-				if c, _ := a.commitTab(hash); c == nil && hash != "" {
+				if c, _ := a.commitTab(hash, ts.RepoRoot); c == nil && hash != "" {
 					v := newCommitView(parseDiffLayout(ts.Layout), hash, git.Commit{})
+					v.repoRoot = ts.RepoRoot
 					a.addTab(col, len(col.tabs), &colTab{diff: v, transient: ts.Transient})
 					a.activate(col, len(col.tabs)-1, false)
 				}
 			case ts.Diff != "":
 				// The tabs of the changes of a file an older version kept are
 				// the one tab of them all.
-				if c, _ := a.changesTab(); c == nil {
+				if c, _ := a.changesTab(ts.RepoRoot); c == nil {
 					layout := parseDiffLayout(ts.Layout)
 					if ts.Split && ts.Layout == "" {
 						layout = layoutSplit
 					}
-					a.addTab(col, len(col.tabs), &colTab{diff: newDiffView(layout)})
+					v := newDiffView(layout)
+					v.repoRoot = ts.RepoRoot
+					a.addTab(col, len(col.tabs), &colTab{diff: v})
 					a.activate(col, len(col.tabs)-1, false)
 				}
 			case ts.File != "":

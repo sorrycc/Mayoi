@@ -316,9 +316,10 @@ type Tab struct {
 	// the changes of every file, against that. Layout is the diff's, as
 	// the settings' DiffLayout; Split is what an older version kept for
 	// "split". "commit:" and a hash is the changes of that commit.
-	Diff   string `json:"diff,omitempty"`
-	Layout string `json:"layout,omitempty"`
-	Split  bool   `json:"split,omitempty"`
+	Diff     string `json:"diff,omitempty"`
+	RepoRoot string `json:"repoRoot,omitempty"` // relative to the workspace; empty is its root repository
+	Layout   string `json:"layout,omitempty"`
+	Split    bool   `json:"split,omitempty"`
 	// Full is set for a diff showing every unchanged line.
 	Full bool `json:"full,omitempty"`
 	// Sel is the selection of a file's editor, its caret at Sel[1], and

@@ -131,6 +131,30 @@ tree, with a count of them. Files are grouped as merge changes, staged changes, 
 - A clean work tree says so, and offers to push or pull when the branch is ahead of its upstream or behind it.
 - A folder outside a repository gets an **Initialize Repository** button.
 
+### Submodules and repository selection
+
+Initialized submodules, including nested submodules, appear as separate,
+collapsible sections in Source Control. Each section shows its branch or detached
+HEAD, staged changes and working changes. Clean repositories use only a header
+row; repositories with changes show their own commit message and button.
+Staging, unstaging, discarding and committing apply to that section's repository. A submodule commit
+updates the parent's submodule entry; stage and commit that reference separately.
+Uninitialized submodules remain entries in the parent until initialized externally.
+
+With multiple repositories, the lower part of Source Control shows the selected
+repository's commit graph. The repository button in its header and in the status
+bar opens a searchable picker with repository names and paths. **Auto** follows
+the active file or diff; choosing a repository keeps its history selected as you
+open other files. Each repository keeps its history selection, scrolling and
+loaded page count. Diff tabs stay bound to the repository they were opened for.
+The status bar picker replaces its folder item, so the root is not listed twice.
+Destructive confirmation dialogs name their target repository, including in Auto
+mode. Saved diff repository paths are relative to the workspace.
+Discovery skips repositories without `.gitmodules` and refreshes on Git metadata
+or `.gitmodules` changes, rather than enumerating indexes on a timer.
+Opening a worktree containing submodules uses the same behavior; other worktrees
+are opened separately as before.
+
 ### Commits
 
 Under the changes, **COMMITS** lists the last 50 commits of the branch, newest first, on a graph of their branches: a

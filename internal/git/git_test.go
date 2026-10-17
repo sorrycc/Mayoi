@@ -609,3 +609,43 @@ func TestRevertReset(t *testing.T) {
 		t.Errorf("soft: %v", st.Entries)
 	}
 }
+
+func TestSubmodulesOpenOnlyInitializedGitlinks(t *testing.T) {
+	parent, git := repo(t)
+	inner, _ := repo(t)
+	git("-c", "protocol.file.allow=always", "submodule", "add", "-q", inner.Root, "modules/with space")
+	git("commit", "-q", "-m", "module")
+	modules, err := parent.Submodules()
+	if err != nil || len(modules) != 1 {
+		t.Fatalf("modules %v: %v", modules, err)
+	}
+	sub := modules[0]
+	if sub.Root != parent.Abs("modules/with space") || sub.Dir == parent.Dir {
+		t.Fatalf("wrong module: %+v", sub)
+	}
+	write(t, sub.Root, "a.txt", "staged\n")
+	cmd := exec.Command("git", "-C", sub.Root, "add", "a.txt")
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("add: %v %s", err, out)
+	}
+	write(t, sub.Root, "a.txt", "unstaged\n")
+	st, err := sub.Status()
+	if err != nil || len(st.Entries) != 1 || !st.Entries[0].Staged() || !st.Entries[0].Unstaged() {
+		t.Fatalf("module status: %+v %v", st, err)
+	}
+	git("submodule", "deinit", "-f", "--", "modules/with space")
+	modules, err = parent.Submodules()
+	if err != nil || len(modules) != 0 {
+		t.Fatalf("uninitialized module became parent: %v %v", modules, err)
+	}
+}
+
+func TestSubmodulesSkipIndexWithoutGitmodules(t *testing.T) {
+	// There is deliberately no Git repository here. Without .gitmodules the
+	// discovery fast path must return before invoking any Git command.
+	r := &Repo{Root: t.TempDir()}
+	modules, err := r.Submodules()
+	if err != nil || len(modules) != 0 {
+		t.Fatalf("discovery without .gitmodules: %v %v", modules, err)
+	}
+}

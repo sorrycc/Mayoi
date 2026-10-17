@@ -182,13 +182,14 @@ func replaceHunk(d *editor, h linediff.Hunk, lines []string) {
 // lines at HEAD, which the index may have changed: it is found again
 // among the index's.
 func (a *app) stageHunk(d *editor, h linediff.Hunk) {
-	if a.git.repo == nil || d.path == "" {
+	ctx := a.repositoryForPath(d.path)
+	if ctx.git.repo == nil || d.path == "" {
 		return
 	}
 	path, crlf := d.path, d.crlf
 	work := strings.Split(d.buf.Snapshot().String(), "\n")
 	d.peek = -1
-	a.gitDo("", func(r *git.Repo) error {
+	ctx.gitDo("", func(r *git.Repo) error {
 		text, _, err := r.Show("", path)
 		if err != nil {
 			return err
@@ -269,7 +270,7 @@ func (a *app) hunkPeekView(c *ui.Context, d *editor) {
 			}
 			ui.Text(c, locales.HunkPeekTitle(what, k+1, len(editorHunks(d)))).FontSize(11.5).
 				TextColor(p.muted).Grow(1).SingleLine()
-			if a.git.repo != nil && a.smallButton(c, iconPlus, locales.CmdGitStageChange()) {
+			if a.repositoryForPath(d.path).git.repo != nil && a.smallButton(c, iconPlus, locales.CmdGitStageChange()) {
 				a.post(func() { a.stageHunk(d, h) })
 			}
 			if a.smallButton(c, iconUndo, locales.CmdGitRevertChange()) {

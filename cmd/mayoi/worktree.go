@@ -10,7 +10,7 @@ import (
 )
 
 // Opening an existing checkout never changes the branch in either worktree.
-func (a *app) askOpenWorktree(branch, path string) {
+func (a *gitContext) askOpenWorktree(branch, path string) {
 	r := a.git.repo
 	if _, err := os.Stat(path); errors.Is(err, os.ErrNotExist) && !remote.Is(path) {
 		a.askPruneWorktree(branch, path)
@@ -31,13 +31,13 @@ func (a *app) askOpenWorktree(branch, path string) {
 			return nil
 		}, func() {
 			if newWindow {
-				a.host.newWindow(path)
+				a.app.host.newWindow(path)
 			} else {
-				a.switchFolder(path)
+				a.app.switchFolder(path)
 			}
 		})
 	}
-	a.confirm = &confirm{
+	a.app.confirm = &confirm{
 		title:          locales.WorktreeOpenTitle(),
 		message:        locales.WorktreeOpenDetail(branch, shortenHome(path)),
 		ok:             locales.WorktreeOpenCurrent(),
@@ -51,9 +51,9 @@ func (a *app) askOpenWorktree(branch, path string) {
 
 // askPruneWorktree offers to forget a worktree whose folder was deleted
 // without git knowing, which still holds the branch, and to switch to it.
-func (a *app) askPruneWorktree(branch, path string) {
+func (a *gitContext) askPruneWorktree(branch, path string) {
 	r := a.git.repo
-	a.confirm = &confirm{
+	a.app.confirm = &confirm{
 		title:   locales.WorktreeMissingTitle(),
 		message: locales.WorktreeMissingDetail(branch, shortenHome(path)),
 		ok:      locales.WorktreePruneSwitch(),

@@ -13,10 +13,14 @@ import (
 )
 
 func settleScmPanels(t *testing.T, hs *harness) {
+	settleRepositoryPanels(t, hs, hs.a.rootRepository())
+}
+
+func settleRepositoryPanels(t *testing.T, hs *harness, ctx *gitContext) {
 	t.Helper()
 	for range 40 {
 		hs.settle()
-		p := &hs.a.scm.panels
+		p := &ctx.scm.panels
 		ready := p.loaded && !p.loading
 		for _, l := range p.logs {
 			if l.loading {
@@ -207,49 +211,86 @@ func TestScmPanelTabsPreserveViewState(t *testing.T) {
 	check("remotes")
 }
 
+func findRepositoryPanelRow(t *testing.T, ctx *gitContext, key string) scmRow {
+	t.Helper()
+	for _, row := range ctx.scmRows() {
+		if row.key == key {
+			return row
+		}
+	}
+	t.Fatalf("missing panel row %q", key)
+	return scmRow{}
+}
+
 func TestScmPanelHistoryRetryAndPagination(t *testing.T) {
-	hs := newHarness(t, true)
-	run := hs.gitRepo()
-	a := hs.a
-	run("commit", "--allow-empty", "-qm", "second")
-	run("commit", "--allow-empty", "-qm", "third")
-	run("branch", "topic")
-	a.settings.ScmRepositoryOpen = true
-	a.run("view.scm")
-	hs.settleGit()
-	settleScmPanels(t, hs)
-	branch := findPanelRow(t, hs, "panel:branch:refs/heads/topic")
-	a.activateScmPanelRow(branch)
-	settleScmPanels(t, hs)
-	key := branch.key + ":history"
-	l := a.scm.panels.logs[key]
-	l.n = 1
-	l.loaded = false
-	a.scm.panels.gen++
-	settleScmPanels(t, hs)
-	more := findPanelRow(t, hs, key+":more")
-	a.activateScmPanelRow(more)
-	a.panelLog(key, "", "refs/heads/topic")
-	a.activateScmPanelRow(more)
-	settleScmPanels(t, hs)
-	if len(l.commits) != 3 {
-		t.Fatalf("pagination returned %d commits", len(l.commits))
-	}
-	// Remove the real ref after metadata was read: the read must expose an
-	// actionable error, then recover when that same ref is restored.
-	run("branch", "-D", "topic")
-	l.loaded = false
-	a.scm.panels.gen++
-	settleScmPanels(t, hs)
-	retry := findPanelRow(t, hs, key+":error")
-	if retry.panel.detail == "" {
-		t.Fatal("missing Git error context")
-	}
-	run("branch", "topic")
-	a.activateScmPanelRow(retry)
-	settleScmPanels(t, hs)
-	if l.err != "" || len(l.commits) != 3 {
-		t.Fatalf("retry did not recover: %+v", l)
+	for _, module := range []bool{false, true} {
+		name := "single"
+		if module {
+			name = "submodule"
+		}
+		t.Run(name, func(t *testing.T) {
+			var hs *harness
+			var ctx *gitContext
+			var run func(...string) string
+			if module {
+				hs, ctx, _ = submoduleHarness(t)
+				run = func(args ...string) string { return gitIn(t, ctx.git.repo.Root, args...) }
+				hs.a.selectRepository(ctx.git.repo.Root)
+			} else {
+				hs = newHarness(t, true)
+				run = hs.gitRepo()
+				ctx = hs.a.rootRepository()
+			}
+			a := hs.a
+
+			run("commit", "--allow-empty", "-qm", "second")
+			run("commit", "--allow-empty", "-qm", "third")
+			run("branch", "topic")
+			a.settings.ScmRepositoryOpen = true
+			a.run("view.scm")
+			hs.a.gitChanged()
+			settleRepositories(t, hs, len(hs.a.repositories.contexts))
+			ctx.refreshScmPanels()
+			settleRepositoryPanels(t, hs, ctx)
+			branch := findRepositoryPanelRow(t, ctx, "panel:branch:refs/heads/topic")
+			ctx.activateScmPanelRow(branch)
+			settleRepositoryPanels(t, hs, ctx)
+			key := branch.key + ":history"
+			l := ctx.scm.panels.logs[key]
+			l.n = 1
+			l.loaded = false
+			ctx.scm.panels.gen++
+			settleRepositoryPanels(t, hs, ctx)
+			more := findRepositoryPanelRow(t, ctx, key+":more")
+			ctx.activateScmPanelRow(more)
+			ctx.panelLog(key, "", "refs/heads/topic")
+			ctx.activateScmPanelRow(more)
+			settleRepositoryPanels(t, hs, ctx)
+			if len(l.commits) != 3 {
+				t.Fatalf("pagination returned %d commits", len(l.commits))
+			}
+			// Remove the real ref after metadata was read: the read must expose an
+			// actionable error, then recover when that same ref is restored.
+			// Keep the ref snapshot stale deliberately while exercising a failed read.
+			// Otherwise a wall-clock metadata poll can remove the deleted branch
+			// before its error row is observed, especially on slower CI hosts.
+			ctx.git.checked = time.Now().Add(time.Hour)
+			defer func() { ctx.git.checked = time.Time{} }()
+			run("branch", "-D", "topic")
+			l.loaded = false
+			ctx.scm.panels.gen++
+			settleRepositoryPanels(t, hs, ctx)
+			retry := findRepositoryPanelRow(t, ctx, key+":error")
+			if retry.panel.detail == "" {
+				t.Fatal("missing Git error context")
+			}
+			run("branch", "topic")
+			ctx.activateScmPanelRow(retry)
+			settleRepositoryPanels(t, hs, ctx)
+			if l.err != "" || len(l.commits) != 3 {
+				t.Fatalf("retry did not recover: %+v", l)
+			}
+		})
 	}
 }
 

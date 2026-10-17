@@ -34,11 +34,12 @@ const blamePause = 350 * time.Millisecond
 // changed it last, when, and in what commit, "" for nothing. It blames
 // the line in the background once the caret rests there.
 func (a *app) blameLine(d *editor, line int, version uint64, focused bool) string {
-	r := a.git.repo
+	ctx := a.repositoryForPath(d.path)
+	r := ctx.git.repo
 	if !a.settings.Blame || !focused || r == nil || d.path == "" || !r.Contains(d.path) {
 		return ""
 	}
-	if e, ok := a.git.entries[d.path]; ok && e.Untracked() {
+	if e, ok := ctx.git.entries[d.path]; ok && e.Untracked() {
 		return ""
 	}
 	b := &d.blame

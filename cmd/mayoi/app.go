@@ -151,6 +151,7 @@ type app struct {
 	// file it should choose once its row shows.
 	treeSynced, selectInTree string
 	git                      gitState
+	repositories             repositoryState
 	commitTools              commitTools
 	scm                      scmState
 
@@ -407,6 +408,7 @@ func (a *app) openFolder(dir string) {
 	a.files.List.Selected = &a.fileRow
 	a.index, a.indexStale = nil, true
 	a.ignored, a.ignoredStale = nil, true
+	a.resetRepositories()
 	a.git = gitState{}
 	a.resetSearch()
 	a.window.Folder = dir
@@ -455,6 +457,7 @@ func (a *app) closeFolder() {
 			a.tree.Close()
 		}
 		a.detachRemote()
+		a.resetRepositories()
 		a.root, a.tree, a.index, a.git = "", nil, nil, gitState{}
 		a.resetSearch()
 		a.closed = nil
@@ -482,7 +485,7 @@ func (a *app) saveDoc(d *document, then func()) {
 	}
 	saved := func() {
 		d.diskGone, d.autoSave.failed = false, false
-		a.git.stale = true
+		a.repositoryForPath(d.path).git.stale = true
 		a.rememberTabs()
 		if then != nil {
 			then()
@@ -535,6 +538,11 @@ func (a *app) saveAll() {
 // diskChanged follows files changed on disk: an open document without
 // changes of its own shows the file's new text.
 func (a *app) diskChanged(changed, removed []string) {
+	for _, path := range append(slices.Clone(changed), removed...) {
+		if filepath.Base(path) == ".gitmodules" {
+			a.repositories.dirty = true
+		}
+	}
 	a.indexStale, a.ignoredStale = true, true
 	a.diffsOnDisk(append(changed, removed...))
 	a.searchAgain(append(changed, removed...))

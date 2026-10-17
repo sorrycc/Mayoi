@@ -54,23 +54,26 @@ type aiWriting struct {
 // writeMessage has Mon's AI write the commit message from the changes
 // that will be committed, into the box as it comes, or stops it writing.
 // The box's text, if any, goes to it as the author's notes.
-func (a *app) writeMessage() {
-	g := &a.git
+func (a *gitContext) writeMessage() {
+	if !a.live() {
+		return
+	}
+	g := a.git
 	if w := g.writing; w != nil {
 		w.cancel()
 		g.writing = nil
 		return
 	}
-	client := a.host.ai()
+	client := a.app.host.ai()
 	if client == nil {
-		a.host.signIn()
+		a.app.host.signIn()
 		return
 	}
 	if g.repo == nil {
 		return
 	}
 	r, amend, notes, branch := g.repo, g.amend, strings.TrimSpace(g.message), a.branch()
-	model := cmp.Or(strings.TrimSpace(a.settings.AIModel), aiModel)
+	model := cmp.Or(strings.TrimSpace(a.app.settings.AIModel), aiModel)
 	ctx, cancel := context.WithTimeout(context.Background(), aiTimeout)
 	w := &aiWriting{cancel: cancel}
 	g.writing = w
@@ -78,10 +81,10 @@ func (a *app) writeMessage() {
 		defer cancel()
 		diff, staged, err := r.MessageDiff(amend, aiDiffMax)
 		if err == nil && diff == "" {
-			a.post(func() {
+			a.app.post(func() {
 				if g.writing == w {
 					g.writing = nil
-					a.fail("%s", locales.NoChangesToCommit())
+					a.app.fail("%s", locales.NoChangesToCommit())
 				}
 			})
 			return
@@ -96,7 +99,7 @@ func (a *app) writeMessage() {
 				Model: model, MaxTokens: aiMaxTokens, System: aiSystem,
 				Messages: []mon.Message{{Role: "user", Content: messagePrompt(diff, staged, amend, branch, notes, recent)}},
 			}, func(s string) {
-				a.post(func() {
+				a.app.post(func() {
 					if g.writing != w {
 						return
 					}
@@ -107,7 +110,7 @@ func (a *app) writeMessage() {
 				})
 			})
 		}
-		a.post(func() {
+		a.app.post(func() {
 			if g.writing != w {
 				return
 			}
@@ -116,7 +119,7 @@ func (a *app) writeMessage() {
 				g.message = cleanMessage(g.message)
 			}
 			if err != nil {
-				a.aiFailed(err)
+				a.app.aiFailed(err)
 			}
 		})
 	}()
@@ -190,12 +193,12 @@ func (a *app) aiFailed(err error) {
 
 // writeButton is the button at the commit box's corner that has the AI
 // write the message, or stop writing it, shown while signed in.
-func (a *app) writeButton(c *ui.Context) {
-	g := &a.git
-	if a.host.ai() == nil && g.writing == nil {
+func (a *gitContext) writeButton(c *ui.Context) {
+	g := a.git
+	if a.app.host.ai() == nil && g.writing == nil {
 		return
 	}
-	p := a.pal
+	p := a.app.pal
 	label := locales.ScmWriteMessage()
 	if g.writing != nil {
 		label = locales.ScmStopWriting()

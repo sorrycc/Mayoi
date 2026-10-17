@@ -857,7 +857,11 @@ func (a *app) goToNote(n *reviewNote) {
 		return
 	}
 	if n.commit != "" {
-		a.showCommit(git.Commit{Hash: n.commit}, true)
+		root := a.diffRoot(nil)
+		if r := a.repositoryForPath(n.path).git.repo; r != nil {
+			root = r.Root
+		}
+		a.showCommit(git.Commit{Hash: n.commit}, true, root)
 	} else {
 		base := diffIndex
 		if n.staged {

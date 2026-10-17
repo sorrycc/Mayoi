@@ -12,6 +12,10 @@ needs a `## <version>` section here, or its build fails.
   and can be undone in one step.
 - Splitting a diff to the right no longer closes the window (#20, #39).
 
+- **Submodules in Source Control:** each initialized submodule, nested ones
+  and those of linked worktrees too, lists its own changes to stage and
+  commit. A picker in the commits header and the status bar shows another
+  repository's history, or, on Auto, the one of the active file.
 - **AI commit messages:** signed in to your mon.sorrycc.dev account, the ✨
   button at the corner of Source Control's message box writes the commit
   message from the staged changes, or from every change when nothing is

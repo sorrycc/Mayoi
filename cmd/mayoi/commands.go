@@ -124,8 +124,16 @@ func (a *app) commandsIn(t locales.Messages) []command {
 		{"git.showChange", t.CmdGitShowChange(), "", a.editActive(func(d *editor) { d.peekHunk(caretLine(d)) })},
 		{"git.revertChange", t.CmdGitRevertChange(), "", a.editActive(func(d *editor) { a.onCaretHunk(d, a.revertHunk) })},
 		{"git.stageChange", t.CmdGitStageChange(), "", a.editActive(func(d *editor) { a.onCaretHunk(d, a.stageHunk) })},
-		{"git.stageFile", t.CmdGitStageFile(), "", func() { a.stage(a.activePaths()...) }},
-		{"git.unstageFile", t.CmdGitUnstageFile(), "", func() { a.unstage(a.activePaths()...) }},
+		{"git.stageFile", t.CmdGitStageFile(), "", func() {
+			if paths := a.activePaths(); len(paths) > 0 {
+				a.repositoryForPath(paths[0]).stage(paths...)
+			}
+		}},
+		{"git.unstageFile", t.CmdGitUnstageFile(), "", func() {
+			if paths := a.activePaths(); len(paths) > 0 {
+				a.repositoryForPath(paths[0]).unstage(paths...)
+			}
+		}},
 		{"git.stageAll", t.CmdGitStageAll(), "", a.stageAll},
 		{"git.undoCommit", t.CmdGitUndoCommit(), "", a.undoCommit},
 		{"git.continue", t.CmdGitContinue(), "", a.continueOp},

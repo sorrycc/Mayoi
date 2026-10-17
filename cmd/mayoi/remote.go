@@ -188,7 +188,10 @@ func (a *app) reconnected() {
 	if a.git.repo == nil {
 		a.git.looked = false
 	}
-	a.git.meta, a.git.refsMeta = time.Time{}, time.Time{}
+	for _, ctx := range a.rootRepositoryList() {
+		ctx.git.meta, ctx.git.refsMeta = time.Time{}, time.Time{}
+	}
+	a.repositories.dirty = true
 	a.indexStale, a.ignoredStale = true, true
 	a.gitChanged()
 	a.restartTerminals()

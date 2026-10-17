@@ -92,9 +92,9 @@ func (a *app) diffViewUI(c *ui.Context, v *diffView) {
 	}
 	if len(v.files) == 0 {
 		switch {
-		case a.git.looked && a.git.repo == nil:
+		case a.diffContext(v).git.looked && a.diffContext(v).git.repo == nil:
 			message(locales.DiffNotRepo())
-		case a.git.status != nil:
+		case a.diffContext(v).git.status != nil:
 			clean()
 		default:
 			ui.Box(c).Fill().Background(p.editor)
@@ -770,7 +770,7 @@ func (a *app) layOutCommitCard(c *ui.Context, v *diffView, w float32) *commitCar
 	}
 	subject := info.Subject
 	if cm.from != "" {
-		subject = locales.ChangesFromTo(a.revisionLabel(cm.from), a.revisionLabel(cm.hash))
+		subject = locales.ChangesFromTo(a.diffContext(v).revisionLabel(cm.from), a.diffContext(v).revisionLabel(cm.hash))
 	}
 	k.subject = ui.Span{Text: subject, Size: 15, Weight: 600, Color: p.text}
 	_, k.subjectH = c.MeasureText(w, k.subject)
@@ -907,7 +907,7 @@ func (a *app) finishCommitCard(c *ui.Context, v *diffView, k *commitCard, w floa
 
 // revisionLabel is how a comparison's card names a commit: HEAD while it
 // is the one checked out, else its short hash.
-func (a *app) revisionLabel(hash string) string {
+func (a *gitContext) revisionLabel(hash string) string {
 	if st := a.git.status; st != nil && st.Head == hash {
 		return "HEAD"
 	}
@@ -1177,6 +1177,7 @@ func (a *app) paintDiffLine(pt *ui.Painter, file *diffFile, newSide bool, n, pee
 // and top at y in the diff's content: opening the file, staging or
 // unstaging it, and discarding its changes. It returns where they are.
 func (a *app) fileButtons(c *ui.Context, v *diffView, f *diffFile, right, y float32) ui.Rect {
+	ctx := a.diffContext(v)
 	e := f.entry
 	type button struct {
 		icon  *ui.SVG
@@ -1190,12 +1191,12 @@ func (a *app) fileButtons(c *ui.Context, v *diffView, f *diffFile, right, y floa
 	switch {
 	case f.base == diffCommit:
 	case f.base == diffStaged:
-		bs = append(bs, button{iconMinus, locales.UnstageChanges(), func() { a.unstage(entryPaths(e, true)...) }})
+		bs = append(bs, button{iconMinus, locales.UnstageChanges(), func() { ctx.unstage(entryPaths(e, true)...) }})
 	default:
 		if !e.Submodule() {
-			bs = append(bs, button{iconUndo, locales.DiscardChangesEllipsis(), func() { a.discard(e) }})
+			bs = append(bs, button{iconUndo, locales.DiscardChangesEllipsis(), func() { ctx.discard(e) }})
 		}
-		bs = append(bs, button{iconPlus, locales.StageChanges(), func() { a.stage(e.Path) }})
+		bs = append(bs, button{iconPlus, locales.StageChanges(), func() { ctx.stage(e.Path) }})
 	}
 	if len(bs) == 0 {
 		return ui.Rect{}

@@ -72,12 +72,14 @@ func (r *scmRow) file() bool {
 // scmState is the source control view's: its list, the row chosen, and
 // the groups closed.
 type scmState struct {
-	list      ui.ListState
-	row       int
-	selection ui.Selection[string]
-	anchor    string // the file Shift extends the choice from
-	collapsed [groupCount]bool
-	rows      []scmRow // as the last frame built them
+	section     scmSection
+	rowsSection scmSection
+	list        ui.ListState
+	row         int
+	selection   ui.Selection[string]
+	anchor      string // the file Shift extends the choice from
+	collapsed   [groupCount]bool
+	rows        []scmRow // as the last frame built them
 	// closedDirs are the folders of the tree closed, by their rows' keys;
 	// dirsGen counts their changes.
 	closedDirs map[string]bool
@@ -95,8 +97,8 @@ type scmState struct {
 
 // groupEntries returns the files of each group, by path. They are worked
 // out once for each status read, as the view asks for them every frame.
-func (a *app) groupEntries() [groupCount][]git.Entry {
-	g := &a.git
+func (a *gitContext) groupEntries() [groupCount][]git.Entry {
+	g := a.git
 	if g.groupsOf != g.status || g.status == nil {
 		g.groups, g.groupsOf = groupStatus(g.status), g.status
 	}
@@ -135,17 +137,20 @@ func groupStatus(st *git.Status) [groupCount][]git.Entry {
 // scmRows returns the rows of the view: the groups that have files, and
 // the files of those open, then the last commits and repository panel. They are made again
 // only when the status, the groups closed or the history change.
-func (a *app) scmRows() []scmRow {
-	s := &a.scm
-	g := &a.git
-	tree := a.settings.ScmTree
+func (a *gitContext) scmRows() []scmRow {
+	s := a.scm
+	g := a.git
+	tree := a.app.settings.ScmTree
 	if s.rows != nil && s.rowsOf == g.status && s.rowsCollapsed == s.collapsed && s.rowsHistory == g.historyGen &&
-		s.rowsDirs == s.dirsGen && s.rowsTree == tree && s.rowsPanels == s.panels.gen {
+		s.rowsDirs == s.dirsGen && s.rowsTree == tree && s.rowsPanels == s.panels.gen && s.rowsSection == s.section {
 		return s.rows
 	}
 	var rows []scmRow
 	groups := a.groupEntries()
 	for g, es := range groups {
+		if s.section == scmHistory {
+			continue
+		}
 		if len(es) == 0 {
 			continue
 		}
@@ -161,7 +166,7 @@ func (a *app) scmRows() []scmRow {
 			rows = append(rows, scmRow{group: scmGroup(g), e: e, key: fmt.Sprintf("%d:%s", g, e.Path)})
 		}
 	}
-	if h := g.history; len(h) > 0 {
+	if h := g.history; (len(h) > 0 || s.section == scmHistory) && s.section != scmChanges {
 		rows = append(rows, scmRow{group: groupCommits, header: true, count: len(h), key: "group:commits"})
 		if !s.collapsed[groupCommits] {
 			for i := range h {
@@ -172,7 +177,10 @@ func (a *app) scmRows() []scmRow {
 			}
 		}
 	}
-	rows = a.scmPanelRows(rows)
+	if s.section != scmChanges {
+		rows = a.scmPanelRows(rows)
+	}
+	s.rowsSection = s.section
 	s.rowsPanels = s.panels.gen
 	s.rows, s.rowsOf, s.rowsCollapsed, s.rowsHistory = rows, g.status, s.collapsed, g.historyGen
 	s.rowsDirs, s.rowsTree = s.dirsGen, tree
@@ -253,8 +261,8 @@ func treeRows(rows []scmRow, g scmGroup, es []git.Entry, root string, closed map
 }
 
 // toggleDir opens a folder of the tree, or closes it.
-func (a *app) toggleDir(r scmRow) {
-	s := &a.scm
+func (a *gitContext) toggleDir(r scmRow) {
+	s := a.scm
 	if s.closedDirs == nil {
 		s.closedDirs = map[string]bool{}
 	}
@@ -268,7 +276,7 @@ func (a *app) toggleDir(r scmRow) {
 
 // dirEntries returns the files of a group in a folder, or in the folders
 // in it.
-func (a *app) dirEntries(g scmGroup, dir string) []git.Entry {
+func (a *gitContext) dirEntries(g scmGroup, dir string) []git.Entry {
 	var out []git.Entry
 	for _, e := range a.groupEntries()[g] {
 		if strings.HasPrefix(e.Path, dir+string(filepath.Separator)) {
@@ -279,7 +287,7 @@ func (a *app) dirEntries(g scmGroup, dir string) []git.Entry {
 }
 
 // changeCount is how many files differ from HEAD, or Git does not track.
-func (a *app) changeCount() int {
+func (a *gitContext) changeCount() int {
 	if a.git.status == nil {
 		return 0
 	}
@@ -288,13 +296,13 @@ func (a *app) changeCount() int {
 
 // scmView is the sidebar's source control view: the branch, the commit
 // message, and the files changed, staged and not.
-func (a *app) scmView(c *ui.Context) {
-	p := a.pal
-	g := &a.git
+func (a *gitContext) scmView(c *ui.Context) {
+	p := a.app.pal
+	g := a.git
 	a.scmActivity(c)
 	if g.repo == nil {
 		if g.looked {
-			a.scmNoRepo(c)
+			a.app.scmNoRepo(c)
 		}
 		return
 	}
@@ -327,9 +335,9 @@ func (a *app) scmView(c *ui.Context) {
 			hint = locales.ScmWritingHint()
 		}
 		ui.Box(c.Key("commit-box")).Children(func() {
-			box := a.textKeys(ui.TextArea(c.Key("commit-message"), &g.message)).Placeholder(hint).FontSize(12.5).
+			box := a.app.textKeys(ui.TextArea(c.Key("commit-message"), &g.message)).Placeholder(hint).FontSize(12.5).
 				Lines(1, 8).MinHeight(28).MaxHeight(160).Padding(5, 8).Label(locales.ScmCommitMessage())
-			button := a.host.ai() != nil || g.writing != nil
+			button := a.app.host.ai() != nil || g.writing != nil
 			if button {
 				box.PaddingEnd(28) // clear of the button at its corner
 			}
@@ -338,7 +346,7 @@ func (a *app) scmView(c *ui.Context) {
 				// wraps, sets the height too, so a long branch name shows whole.
 				width := box.Bounds().W
 				if width <= 0 {
-					width = a.window.SidebarWidth - 24
+					width = a.app.window.SidebarWidth - 24
 				}
 				inset := float32(8 + 8 + 2) // the padding and the border
 				if button {
@@ -358,11 +366,22 @@ func (a *app) scmView(c *ui.Context) {
 		a.subjectLength(c)
 		a.commitButton(c)
 	})
-	a.refreshScmPanels()
+	a.scmList(c)
+}
+
+func (a *gitContext) scmList(c *ui.Context) {
+	p, g := a.app.pal, a.git
+	if a.scm.section != scmChanges {
+		a.refreshScmPanels()
+	}
 	rows := a.scmRows()
-	s := &a.scm
-	if g.status != nil && len(g.status.Entries) == 0 {
-		a.scmClean(c)
+	s := a.scm
+	if a.scm.section != scmHistory && g.status != nil && len(g.status.Entries) == 0 {
+		if a.scm.section == scmChanges {
+			ui.Text(c, locales.DiffNoChanges()).FontSize(12).TextColor(p.muted).Padding(6, 14, 12, 14)
+		} else {
+			a.scmClean(c)
+		}
 	}
 	if len(rows) == 0 {
 		return
@@ -398,22 +417,33 @@ func (a *app) scmView(c *ui.Context) {
 	}
 	c.SetTheme(&quiet)
 	var action func()
-	out := ui.List(c.Key("scm"), &s.list, len(rows), func(i int) {
-		switch r := rows[i]; {
-		case r.panel != nil:
-			a.scmPanelRowView(c, r, &action)
-		case r.header:
-			a.scmHeader(c, r, &action)
-		case r.commit != nil:
-			a.scmCommit(c, i, r, &action)
-		case r.more:
-			a.scmMore(c, &action)
-		case r.dir != "":
-			a.scmFolder(c, r, &action)
-		default:
-			a.scmFile(c, r, &action)
+	var out ui.Element
+	buildList := func() {
+		out = ui.List(c.Key("scm"), &s.list, len(rows), func(i int) {
+			switch r := rows[i]; {
+			case r.panel != nil:
+				a.scmPanelRowView(c, r, &action)
+			case r.header:
+				a.scmHeader(c, r, &action)
+			case r.commit != nil:
+				a.scmCommit(c, i, r, &action)
+			case r.more:
+				a.scmMore(c, &action)
+			case r.dir != "":
+				a.scmFolder(c, r, &action)
+			default:
+				a.scmFile(c, r, &action)
+			}
+		}).Grow(1).Padding(0, 6, 8, 6)
+		if s.section == scmChanges {
+			out.Fill()
 		}
-	}).Grow(1).Padding(0, 6, 8, 6)
+	}
+	if s.section == scmChanges {
+		ui.Box(c.Key("change-list")).FillWidth().Height(min(float32(len(rows))*22+8, 360)).Shrink(0).Children(buildList)
+	} else {
+		buildList()
+	}
 	c.SetTheme(base)
 	if action != nil {
 		action()
@@ -490,9 +520,9 @@ func (a *app) scmView(c *ui.Context) {
 
 // scmOpBanner says which command stopped for conflicts, and how many
 // are left, with the buttons that go on with it and undo it.
-func (a *app) scmOpBanner(c *ui.Context, op git.Op) {
-	p := a.pal
-	g := &a.git
+func (a *gitContext) scmOpBanner(c *ui.Context, op git.Op) {
+	p := a.app.pal
+	g := a.git
 	conflicts := len(a.groupEntries()[groupMerge])
 	label := locales.ScmOpInProgress(opTitle(op))
 	if conflicts > 0 {
@@ -514,18 +544,18 @@ func (a *app) scmOpBanner(c *ui.Context, op git.Op) {
 			return b.Clicked()
 		}
 		if button("op-abort", locales.ButtonAbort(), locales.ScmAbortOp(opTitle(op))) {
-			a.post(a.abortOp)
+			a.app.post(a.abortOp)
 		}
 		if button("op-continue", locales.ScmContinue(), locales.ScmContinueOp(opTitle(op))) {
-			a.post(a.continueOp)
+			a.app.post(a.continueOp)
 		}
 	})
 }
 
 // scmActivity is a thin bar under the view's title, which moves while a
 // Git command runs in the background, and is empty room while none does.
-func (a *app) scmActivity(c *ui.Context) {
-	g := &a.git
+func (a *gitContext) scmActivity(c *ui.Context) {
+	g := a.git
 	if g.busy == "" && g.pending == 0 {
 		ui.Box(c.Key("scm-activity")).Height(2)
 		return
@@ -543,8 +573,8 @@ const (
 // subjectLength says how long the first line of the message is once it
 // grows past what a summary should be, in a warning's color past what
 // Git's tools show.
-func (a *app) subjectLength(c *ui.Context) {
-	p := a.pal
+func (a *gitContext) subjectLength(c *ui.Context) {
+	p := a.app.pal
 	subject, _, _ := strings.Cut(a.git.message, "\n")
 	n := utf8.RuneCountInString(strings.TrimRight(subject, " \t\r"))
 	if n <= subjectHint {
@@ -556,14 +586,14 @@ func (a *app) subjectLength(c *ui.Context) {
 	}
 	ui.Row(c).Margin(-4, 2, 0, 2).Children(func() {
 		ui.Text(c, note).FontSize(11).TextColor(col).Grow(1).SingleLine()
-		ui.Text(c, fmt.Sprintf("%d/%d", n, subjectLimit)).FontSize(11).Font(a.font.family).TextColor(col)
+		ui.Text(c, fmt.Sprintf("%d/%d", n, subjectLimit)).FontSize(11).Font(a.app.font.family).TextColor(col)
 	})
 }
 
 // commitButton is the button that commits, which says what it commits,
 // joined to one with a menu of the other ways to commit.
-func (a *app) commitButton(c *ui.Context) {
-	g := &a.git
+func (a *gitContext) commitButton(c *ui.Context) {
+	g := a.git
 	t := c.Theme()
 	groups := a.groupEntries()
 	staged := len(groups[groupStaged])
@@ -589,7 +619,7 @@ func (a *app) commitButton(c *ui.Context) {
 	// nothing to commit or another command runs, its menu still there.
 	bg, hover, pressed, fg := t.Accent, t.AccentHover, t.AccentPressed, t.AccentText
 	if !idle && !committing {
-		p := a.pal
+		p := a.app.pal
 		bg, fg = p.text.Alpha(0.06).Over(p.chrome), p.faint
 		hover, pressed = p.text.Alpha(0.1).Over(p.chrome), p.text.Alpha(0.13).Over(p.chrome)
 	}
@@ -630,20 +660,20 @@ func (a *app) commitButton(c *ui.Context) {
 }
 
 // commitMenu is the menu of the ways to commit.
-func (a *app) commitMenu(m *ui.Menu) {
-	g := &a.git
+func (a *gitContext) commitMenu(m *ui.Menu) {
+	g := a.git
 	st := g.status
 	busy := g.busy != ""
 	none := st == nil || len(st.Entries) == 0 && !g.amend
 	if m.Item(locales.CmdGitCommit()).Shortcut(ui.Cmd, ui.KeyEnter).Disabled(busy || none).Chosen() {
-		a.post(func() { a.commit(false) })
+		a.app.post(func() { a.commit(false) })
 	}
 	if m.Item(locales.CmdGitCommitPush()).Disabled(busy || none).Chosen() {
-		a.post(func() { a.commit(true) })
+		a.app.post(func() { a.commit(true) })
 	}
 	m.Separator()
 	if m.Item(locales.CmdGitAmend()).Checked(g.amend).Disabled(busy || st == nil || st.Head == "").Chosen() {
-		a.post(func() {
+		a.app.post(func() {
 			if g.amend {
 				g.amend, g.message = false, ""
 				return
@@ -652,7 +682,7 @@ func (a *app) commitMenu(m *ui.Menu) {
 		})
 	}
 	if m.Item(locales.CmdGitUndoCommit()).Disabled(busy || st == nil || st.Head == "").Chosen() {
-		a.post(a.undoCommit)
+		a.app.post(a.undoCommit)
 	}
 }
 
@@ -677,9 +707,9 @@ func (a *app) scmNoRepo(c *ui.Context) {
 // scmClean is the view of a work tree with no changes: that it is clean,
 // and how its branch stands with its upstream, with buttons to bring them
 // level.
-func (a *app) scmClean(c *ui.Context) {
-	p := a.pal
-	g := &a.git
+func (a *gitContext) scmClean(c *ui.Context) {
+	p := a.app.pal
+	g := a.git
 	st := g.status
 	ui.Column(c).Padding(24, 20, 16, 20).Gap(6).AlignItems(ui.Center).Children(func() {
 		ui.Box(c).Size(44, 44).Radius(22).Background(p.added.Alpha(0.13)).Justify(ui.Center).AlignItems(ui.Center).Children(func() {
@@ -737,8 +767,8 @@ func (a *app) scmClean(c *ui.Context) {
 }
 
 // scmHeader is the row heading a group: a click opens or closes it.
-func (a *app) scmHeader(c *ui.Context, r scmRow, action *func()) {
-	p := a.pal
+func (a *gitContext) scmHeader(c *ui.Context, r scmRow, action *func()) {
+	p := a.app.pal
 	row := ui.Row(c).Grow(1).Gap(4).AlignItems(ui.Center).Height(22).Background(p.chrome)
 	hovered := row.Hovered()
 	clicked := row.Clicked()
@@ -751,34 +781,39 @@ func (a *app) scmHeader(c *ui.Context, r scmRow, action *func()) {
 		ui.Text(c, strings.ToUpper(groupName(r.group))).FontSize(11).FontWeight(600).LetterSpacing(0.4).
 			TextColor(p.muted).SingleLine().Shrink(1)
 		ui.Spacer(c)
+		if r.group == groupCommits && len(a.app.repositories.contexts) > 1 {
+			if a.app.repositoryButton(c, false) {
+				*action = func() {}
+			}
+		}
 		if hovered {
 			paths := a.groupPaths(r.group)
 			switch r.group {
 			case groupStaged:
-				if a.smallButton(c, iconFiles, locales.ScmOpenStaged()) {
+				if a.app.smallButton(c, iconFiles, locales.ScmOpenStaged()) {
 					*action = func() { a.showChanges(diffTarget{base: diffStaged}, true) }
 				}
-				if a.smallButton(c, iconMinus, locales.ScmUnstageAll()) {
+				if a.app.smallButton(c, iconMinus, locales.ScmUnstageAll()) {
 					*action = func() { a.unstage(paths...) }
 				}
 			case groupChanges, groupUntracked:
-				if a.smallButton(c, iconFiles, locales.CmdGitOpenChanges()) {
+				if a.app.smallButton(c, iconFiles, locales.CmdGitOpenChanges()) {
 					*action = func() { a.showChanges(diffTarget{base: diffIndex}, true) }
 				}
-				if a.smallButton(c, iconUndo, locales.ScmDiscardAll()) {
+				if a.app.smallButton(c, iconUndo, locales.ScmDiscardAll()) {
 					*action = func() { a.discard(a.groupEntries()[r.group]...) }
 				}
-				if a.smallButton(c, iconPlus, locales.CmdGitStageAll()) {
+				if a.app.smallButton(c, iconPlus, locales.CmdGitStageAll()) {
 					*action = func() { a.stage(paths...) }
 				}
 			case groupMerge:
-				if a.smallButton(c, iconPlus, locales.ScmStageAllMerge()) {
+				if a.app.smallButton(c, iconPlus, locales.ScmStageAllMerge()) {
 					*action = func() { a.stage(paths...) }
 				}
 			}
 		}
 		// The toggle of every branch stays, in the accent, while it is on.
-		if all := a.settings.ScmAllBranches; r.group == groupCommits && (hovered || all) {
+		if all := a.app.settings.ScmAllBranches; r.group == groupCommits && (hovered || all) {
 			tip := locales.ScmShowAllBranches()
 			if all {
 				tip = locales.ScmShowCurrentBranch()
@@ -806,17 +841,17 @@ func (a *app) scmHeader(c *ui.Context, r scmRow, action *func()) {
 }
 
 // scmFile is the row of a changed file: a click shows its changes.
-func (a *app) scmFile(c *ui.Context, r scmRow, action *func()) {
-	p := a.pal
+func (a *gitContext) scmFile(c *ui.Context, r scmRow, action *func()) {
+	p := a.app.pal
 	e := r.e
 	indent := float32(14)
-	tree := a.settings.ScmTree
+	tree := a.app.settings.ScmTree
 	if tree {
 		indent = treeIndent(r.depth) + 16
 	}
 	row := ui.Row(c).Grow(1).Gap(6).AlignItems(ui.Center).Height(22).Padding(0, 0, 0, indent)
 	if tree {
-		a.scmGuides(row, r.depth)
+		a.app.scmGuides(row, r.depth)
 	}
 	if a.scm.selection.Has(r.key) {
 		row.Background(p.active)
@@ -829,7 +864,7 @@ func (a *app) scmFile(c *ui.Context, r scmRow, action *func()) {
 		letter = e.X
 	}
 	if letter != 'D' && !e.Submodule() {
-		a.dragFile(row, &fileDrag{path: e.Path})
+		a.app.dragFile(row, &fileDrag{path: e.Path})
 	}
 	row.Children(func() {
 		name := filepath.Base(e.Path)
@@ -844,24 +879,24 @@ func (a *app) scmFile(c *ui.Context, r scmRow, action *func()) {
 		}
 		ui.Spacer(c)
 		if hovered {
-			if letter != 'D' && a.smallButton(c, iconOpenFile, openLabel(e)) {
-				*action = func() { a.openPath(e.Path, true) }
+			if letter != 'D' && a.app.smallButton(c, iconOpenFile, openLabel(e)) {
+				*action = func() { a.app.openPath(e.Path, true) }
 			}
 			switch r.group {
 			case groupStaged:
-				if a.smallButton(c, iconMinus, locales.UnstageChanges()) {
+				if a.app.smallButton(c, iconMinus, locales.UnstageChanges()) {
 					*action = func() { a.toggleStaged(r) }
 				}
 			default:
-				if r.group != groupMerge && !e.Submodule() && a.smallButton(c, iconUndo, locales.DiscardChangesEllipsis()) {
+				if r.group != groupMerge && !e.Submodule() && a.app.smallButton(c, iconUndo, locales.DiscardChangesEllipsis()) {
 					*action = func() { a.discardChosen(r) }
 				}
-				if a.smallButton(c, iconPlus, locales.StageChanges()) {
+				if a.app.smallButton(c, iconPlus, locales.StageChanges()) {
 					*action = func() { a.toggleStaged(r) }
 				}
 			}
 		}
-		ui.Text(c, string(letter)).FontSize(11).FontWeight(600).Font(a.font.family).Padding(0, 4, 0, 2).
+		ui.Text(c, string(letter)).FontSize(11).FontWeight(600).Font(a.app.font.family).Padding(0, 4, 0, 2).
 			TextColor(gitColor(p, letter)).Shrink(0)
 	})
 	if clicked && *action == nil {
@@ -883,8 +918,8 @@ func (a *app) scmFile(c *ui.Context, r scmRow, action *func()) {
 // selectScmRow keeps a file's range anchor independent of the diff preview
 // and the list's keyboard cursor. File rows also handle dragging, so their
 // pointer clicks do not reach the list's built-in selection handler.
-func (a *app) selectScmRow(i int, mods ui.Modifiers) {
-	s := &a.scm
+func (a *gitContext) selectScmRow(i int, mods ui.Modifiers) {
+	s := a.scm
 	rows := a.scmRows()
 	if i < 0 || i >= len(rows) || !rows[i].file() {
 		return
@@ -924,10 +959,10 @@ func (a *app) selectScmRow(i int, mods ui.Modifiers) {
 // graph, who made it, its branches and tags, its subject, and how long
 // ago it was made. A click chooses row i and shows the commit's changes
 // in the preview tab, which Enter or a double click keeps.
-func (a *app) scmCommit(c *ui.Context, i int, r scmRow, action *func()) {
-	p := a.pal
+func (a *gitContext) scmCommit(c *ui.Context, i int, r scmRow, action *func()) {
+	p := a.app.pal
 	cm := r.commit
-	g := &a.git
+	g := a.git
 	unpushed := g.unpushed[cm.Hash]
 	head := g.status != nil && g.status.Head == cm.Hash
 	badges := refBadges(cm.Refs)
@@ -962,7 +997,7 @@ func (a *app) scmCommit(c *ui.Context, i int, r scmRow, action *func()) {
 		if r.at >= 0 {
 			ui.Box(c).Size(graphLaneW*float32(lanes-1)+12, 22).Shrink(0).Draw(func(pt *ui.Painter, b ui.Rect) {
 				if gr != nil {
-					a.paintGraphRow(pt, b, gr, cm, head)
+					a.app.paintGraphRow(pt, b, gr, cm, head)
 				}
 			})
 		}
@@ -981,14 +1016,14 @@ func (a *app) scmCommit(c *ui.Context, i int, r scmRow, action *func()) {
 		if r.at >= 0 {
 			lead += graphLaneW*float32(lanes-1) + 12 + 6
 		}
-		shown, badgeW := a.badgeRoom(len(badges), indent-6, lead)
+		shown, badgeW := a.app.badgeRoom(len(badges), indent-6, lead)
 		for i, bd := range badges {
 			if i == shown && len(badges) > shown {
 				ui.Text(c, fmt.Sprintf("+%d", len(badges)-i)).FontSize(10.5).TextColor(p.muted).Padding(0, 4).
 					Height(16).Radius(4).Background(p.hover).Shrink(0)
 				break
 			}
-			a.refBadge(c, bd, lane, badgeW)
+			a.app.refBadge(c, bd, lane, badgeW)
 		}
 		col := p.text
 		switch {
@@ -1049,8 +1084,8 @@ func (a *app) badgesShown(indented float32) int {
 
 // historyGraph returns the lanes of the history, laid out once for each
 // read of it.
-func (a *app) historyGraph() []graphRow {
-	g := &a.git
+func (a *gitContext) historyGraph() []graphRow {
+	g := a.git
 	if g.graph == nil || g.graphOf != g.historyGen {
 		g.graph, g.graphOf = layoutGraph(g.history), g.historyGen
 	}
@@ -1204,8 +1239,8 @@ func (a *app) refBadge(c *ui.Context, b refBadge, lane ui.Color, maxW float32) {
 // Sourcetree's: checking it out and bringing it into the branch, refs at
 // it, moving the branch by it, going on with a command stopped for
 // conflicts, then copying.
-func (a *app) scmCommitMenu(m *ui.Menu, cm *git.Commit, head bool, action *func()) {
-	g := &a.git
+func (a *gitContext) scmCommitMenu(m *ui.Menu, cm *git.Commit, head bool, action *func()) {
+	g := a.git
 	busy := g.busy != ""
 	var op git.Op
 	if g.status != nil {
@@ -1256,14 +1291,14 @@ func (a *app) scmCommitMenu(m *ui.Menu, cm *git.Commit, head bool, action *func(
 	}
 	m.Separator()
 	if m.Item(locales.CopyCommitHash()).Chosen() {
-		a.services.WriteClipboard(cm.Hash)
+		a.app.services.WriteClipboard(cm.Hash)
 	}
 	if m.Item(locales.ScmCopyCommitMessage()).Chosen() {
 		msg := cm.Subject
 		if cm.Body != "" {
 			msg += "\n\n" + cm.Body
 		}
-		a.services.WriteClipboard(msg)
+		a.app.services.WriteClipboard(msg)
 	}
 	for _, r := range cm.Refs {
 		if r.Kind == git.RefHead {
@@ -1271,7 +1306,7 @@ func (a *app) scmCommitMenu(m *ui.Menu, cm *git.Commit, head bool, action *func(
 		}
 		name := r.Name
 		if m.Item(locales.ScmCopyQuoted(name)).Chosen() {
-			a.services.WriteClipboard(name)
+			a.app.services.WriteClipboard(name)
 		}
 	}
 	if head {
@@ -1285,14 +1320,14 @@ func (a *app) scmCommitMenu(m *ui.Menu, cm *git.Commit, head bool, action *func(
 
 // toggleAllBranches has the commits show every branch and tag, or only
 // the branch checked out.
-func (a *app) toggleAllBranches() {
-	a.settings.ScmAllBranches = !a.settings.ScmAllBranches
-	a.settings.Changed()
+func (a *gitContext) toggleAllBranches() {
+	a.app.settings.ScmAllBranches = !a.app.settings.ScmAllBranches
+	a.app.settings.Changed()
 }
 
 // scmMore is the row after the commits of the history, which reads more.
-func (a *app) scmMore(c *ui.Context, action *func()) {
-	p := a.pal
+func (a *gitContext) scmMore(c *ui.Context, action *func()) {
+	p := a.app.pal
 	row := ui.Row(c).Grow(1).Height(22).Padding(0, 0, 0, 24).AlignItems(ui.Center)
 	hovered, clicked := row.Hovered(), row.Clicked()
 	row.Children(func() {
@@ -1347,11 +1382,11 @@ func (a *app) scmGuides(row ui.Element, depth int) {
 
 // scmFolder is the row of a folder of the tree: a click opens or closes
 // it, and its buttons stage, unstage or discard every file in it.
-func (a *app) scmFolder(c *ui.Context, r scmRow, action *func()) {
-	p := a.pal
+func (a *gitContext) scmFolder(c *ui.Context, r scmRow, action *func()) {
+	p := a.app.pal
 	closed := a.scm.closedDirs[r.key]
 	row := ui.Row(c).Grow(1).Gap(4).AlignItems(ui.Center).Height(22).Padding(0, 0, 0, treeIndent(r.depth))
-	a.scmGuides(row, r.depth)
+	a.app.scmGuides(row, r.depth)
 	hovered, clicked := row.Hovered(), row.Clicked()
 	row.Children(func() {
 		chevron, folder := iconChevronDown, iconFolderOpen
@@ -1372,18 +1407,18 @@ func (a *app) scmFolder(c *ui.Context, r scmRow, action *func()) {
 		}
 		switch r.group {
 		case groupStaged:
-			if a.smallButton(c, iconMinus, locales.ScmUnstageFolder()) {
+			if a.app.smallButton(c, iconMinus, locales.ScmUnstageFolder()) {
 				*action = func() { a.unstage(paths...) }
 			}
 		case groupChanges, groupUntracked:
-			if a.smallButton(c, iconUndo, locales.ScmDiscardFolder()) {
+			if a.app.smallButton(c, iconUndo, locales.ScmDiscardFolder()) {
 				*action = func() { a.discard(es...) }
 			}
-			if a.smallButton(c, iconPlus, locales.ScmStageFolder()) {
+			if a.app.smallButton(c, iconPlus, locales.ScmStageFolder()) {
 				*action = func() { a.stage(paths...) }
 			}
 		case groupMerge:
-			if a.smallButton(c, iconPlus, locales.ScmStageFolder()) {
+			if a.app.smallButton(c, iconPlus, locales.ScmStageFolder()) {
 				*action = func() { a.stage(paths...) }
 			}
 		}
@@ -1394,13 +1429,13 @@ func (a *app) scmFolder(c *ui.Context, r scmRow, action *func()) {
 }
 
 // scmFileMenu is the menu of a changed file's row.
-func (a *app) scmFileMenu(m *ui.Menu, r scmRow, action *func()) {
+func (a *gitContext) scmFileMenu(m *ui.Menu, r scmRow, action *func()) {
 	e := r.e
 	if m.Item(locales.CmdGitOpenChanges()).Chosen() {
 		*action = func() { a.openChange(r, true) }
 	}
 	if m.Item(openLabel(e)).Disabled(e.Letter() == 'D' && r.group != groupStaged).Chosen() {
-		*action = func() { a.openPath(e.Path, true) }
+		*action = func() { a.app.openPath(e.Path, true) }
 	}
 	m.Separator()
 	if r.group == groupStaged {
@@ -1417,76 +1452,76 @@ func (a *app) scmFileMenu(m *ui.Menu, r scmRow, action *func()) {
 	}
 	m.Separator()
 	if m.Item(locales.ScmRevealInExplorer()).Chosen() {
-		*action = func() { a.showExplorer(); a.revealInTree(e.Path) }
+		*action = func() { a.app.showExplorer(); a.app.revealInTree(e.Path) }
 	}
 	if m.Item(locales.CopyPath()).Chosen() {
-		a.services.WriteClipboard(e.Path)
+		a.app.services.WriteClipboard(e.Path)
 	}
 }
 
 // scmTitleActions is the button beside the view's title: the menu of the
 // view's actions, Refresh among them. A button of its own for Refresh
 // would leave the title no room.
-func (a *app) scmTitleActions(c *ui.Context) {
+func (a *gitContext) scmTitleActions(c *ui.Context) {
 	if a.git.repo == nil {
 		return
 	}
-	a.iconButton(c.Key("scm:more"), iconMore, locales.ScmMoreActions(), false).Menu(a.scmMenu)
+	a.app.iconButton(c.Key("scm:more"), iconMore, locales.ScmMoreActions(), false).Menu(a.scmMenu)
 }
 
 // scmMenu is the menu of the view's actions.
-func (a *app) scmMenu(m *ui.Menu) {
-	g := &a.git
+func (a *gitContext) scmMenu(m *ui.Menu) {
+	g := a.git
 	st := g.status
 	if m.Item(locales.CmdGitCommit()).Disabled(g.busy != "").Chosen() {
-		a.post(func() { a.commit(false) })
+		a.app.post(func() { a.commit(false) })
 	}
 	if m.Item(locales.CmdGitCommitPush()).Disabled(g.busy != "").Chosen() {
-		a.post(func() { a.commit(true) })
+		a.app.post(func() { a.commit(true) })
 	}
 	if m.Item(locales.CmdGitAmend()).Disabled(st == nil || st.Head == "").Chosen() {
-		a.post(a.startAmend)
+		a.app.post(a.startAmend)
 	}
 	if m.Item(locales.CmdGitUndoCommit()).Disabled(g.busy != "" || st == nil || st.Head == "").Chosen() {
-		a.post(a.undoCommit)
+		a.app.post(a.undoCommit)
 	}
 	m.Separator()
 	groups := a.groupEntries()
 	if m.Item(locales.CmdGitOpenAllChanges()).Disabled(len(groups[groupStaged])+len(groups[groupChanges])+len(groups[groupUntracked]) == 0).Chosen() {
-		a.post(func() { a.openChangesTab(true) })
+		a.app.post(func() { a.openChangesTab(true) })
 	}
 	m.Separator()
 	if m.Item(locales.CmdGitStageAll()).Disabled(len(groups[groupChanges])+len(groups[groupUntracked])+len(groups[groupMerge]) == 0).Chosen() {
-		a.post(a.stageAll)
+		a.app.post(a.stageAll)
 	}
 	if m.Item(locales.ScmUnstageAll()).Disabled(len(groups[groupStaged]) == 0).Chosen() {
-		a.post(func() { a.unstage(a.groupPaths(groupStaged)...) })
+		a.app.post(func() { a.unstage(a.groupPaths(groupStaged)...) })
 	}
 	if m.Item(locales.ScmDiscardAll()).Disabled(len(groups[groupChanges])+len(groups[groupUntracked]) == 0).Chosen() {
-		a.post(func() { a.discard(append(groups[groupChanges], groups[groupUntracked]...)...) })
+		a.app.post(func() { a.discard(append(groups[groupChanges], groups[groupUntracked]...)...) })
 	}
 	m.Separator()
 	if m.Item(locales.CmdGitFetch()).Disabled(g.busy != "").Chosen() {
-		a.post(a.fetch)
+		a.app.post(a.fetch)
 	}
 	if m.Item(locales.CmdGitPull()).Disabled(g.busy != "").Chosen() {
-		a.post(a.pull)
+		a.app.post(a.pull)
 	}
 	if m.Item(locales.CmdGitPush()).Disabled(g.busy != "").Chosen() {
-		a.post(a.push)
+		a.app.post(a.push)
 	}
 	m.Separator()
-	if m.Item(locales.ScmViewAsTree()).Checked(a.settings.ScmTree).Chosen() {
-		a.post(func() {
-			a.settings.ScmTree = !a.settings.ScmTree
-			a.settings.Changed()
+	if m.Item(locales.ScmViewAsTree()).Checked(a.app.settings.ScmTree).Chosen() {
+		a.app.post(func() {
+			a.app.settings.ScmTree = !a.app.settings.ScmTree
+			a.app.settings.Changed()
 		})
 	}
-	if m.Item(locales.ScmShowAllBranches()).Checked(a.settings.ScmAllBranches).Chosen() {
-		a.post(a.toggleAllBranches)
+	if m.Item(locales.ScmShowAllBranches()).Checked(a.app.settings.ScmAllBranches).Chosen() {
+		a.app.post(a.toggleAllBranches)
 	}
 	if m.Item(locales.Refresh()).Chosen() {
-		a.post(func() {
+		a.app.post(func() {
 			a.git.refsGen++
 			a.gitChanged()
 		})
@@ -1509,7 +1544,7 @@ func (a *app) smallButton(c *ui.Context, icon *ui.SVG, label string) bool {
 
 // groupPaths returns the paths of the files of a group: of a file
 // renamed and staged, where it was too, which unstaging puts back.
-func (a *app) groupPaths(g scmGroup) []string {
+func (a *gitContext) groupPaths(g scmGroup) []string {
 	var out []string
 	for _, e := range a.groupEntries()[g] {
 		out = append(out, entryPaths(e, g == groupStaged)...)
@@ -1528,7 +1563,7 @@ func entryPaths(e git.Entry, staged bool) []string {
 
 // chooseScmFile chooses the row of a file of a diff in the view, as the
 // diff scrolls to it.
-func (a *app) chooseScmFile(f *diffFile) {
+func (a *gitContext) chooseScmFile(f *diffFile) {
 	for i, r := range a.scm.rows {
 		if !r.header && r.e.Path == f.path && (r.group == groupStaged) == (f.base == diffStaged) {
 			a.scm.row = i
@@ -1539,10 +1574,10 @@ func (a *app) chooseScmFile(f *diffFile) {
 
 // openChange shows the changes of a file of the view: those staged, or
 // those not, or the file itself while it is in conflict.
-func (a *app) openChange(r scmRow, focus bool) {
+func (a *gitContext) openChange(r scmRow, focus bool) {
 	switch r.group {
 	case groupMerge:
-		a.openPath(r.e.Path, focus)
+		a.app.openPath(r.e.Path, focus)
 	case groupStaged:
 		a.showChanges(diffTarget{path: r.e.Path, base: diffStaged}, focus)
 	default:
@@ -1569,7 +1604,7 @@ func entryIcon(p *palette, e git.Entry, name string) (*ui.SVG, ui.Color) {
 
 // scmActionEntries returns the chosen files on the same side of the index
 // as r. An action on an unselected row still acts on that file alone.
-func (a *app) scmActionEntries(r scmRow) []git.Entry {
+func (a *gitContext) scmActionEntries(r scmRow) []git.Entry {
 	if !a.scm.selection.Has(r.key) {
 		return []git.Entry{r.e}
 	}
@@ -1584,7 +1619,7 @@ func (a *app) scmActionEntries(r scmRow) []git.Entry {
 
 // discardChosen discards the changes of the chosen files not staged, or
 // of r alone when it is not chosen. Conflicts are left to be resolved.
-func (a *app) discardChosen(r scmRow) {
+func (a *gitContext) discardChosen(r scmRow) {
 	if !a.scm.selection.Has(r.key) {
 		a.discard(r.e)
 		return
@@ -1599,7 +1634,7 @@ func (a *app) discardChosen(r scmRow) {
 }
 
 // toggleStaged stages the chosen files, or unstages those already staged.
-func (a *app) toggleStaged(r scmRow) {
+func (a *gitContext) toggleStaged(r scmRow) {
 	var paths []string
 	seen := map[string]bool{}
 	for _, e := range a.scmActionEntries(r) {
@@ -1617,14 +1652,14 @@ func (a *app) toggleStaged(r scmRow) {
 	}
 }
 
-func (a *app) stage(paths ...string) {
+func (a *gitContext) stage(paths ...string) {
 	if len(paths) == 0 {
 		return
 	}
 	a.gitDo("", func(r *git.Repo) error { return r.Stage(paths...) }, nil)
 }
 
-func (a *app) unstage(paths ...string) {
+func (a *gitContext) unstage(paths ...string) {
 	if len(paths) == 0 {
 		return
 	}
@@ -1632,7 +1667,7 @@ func (a *app) unstage(paths ...string) {
 }
 
 // stageAll stages every change, and the files Git does not track.
-func (a *app) stageAll() {
+func (a *gitContext) stageAll() {
 	groups := a.groupEntries()
 	var paths []string
 	for _, g := range []scmGroup{groupMerge, groupChanges, groupUntracked} {
@@ -1647,7 +1682,10 @@ func (a *app) stageAll() {
 // that the index does not have: a tracked file is as the index has it
 // again, and one Git does not track goes to the Trash. Submodules are
 // left as they are, as git restore leaves them.
-func (a *app) discard(es ...git.Entry) {
+func (a *gitContext) discard(es ...git.Entry) {
+	if !a.live() {
+		return
+	}
 	es = slices.DeleteFunc(slices.Clone(es), git.Entry.Submodule)
 	if len(es) == 0 {
 		return
@@ -1670,12 +1708,15 @@ func (a *app) discard(es ...git.Entry) {
 	msg := locales.CannotBeUndone()
 	if len(untracked) > 0 {
 		msg = locales.UntrackedGoTo(trashName())
-		if a.conn != nil {
+		if a.app.conn != nil {
 			msg = locales.UntrackedDeleted()
 		}
 	}
-	a.confirm = &confirm{title: title, message: msg, ok: locales.ButtonDiscard(), danger: true, run: func() {
-		if a.conn != nil && len(untracked) > 0 {
+	a.app.confirm = &confirm{title: a.repositoryQuestion(title), message: msg, ok: locales.ButtonDiscard(), danger: true, run: func() {
+		if !a.live() {
+			return
+		}
+		if a.app.conn != nil && len(untracked) > 0 {
 			// On the host, in the background.
 			gone := slices.Clone(untracked)
 			a.gitDo("", func(*git.Repo) error {
@@ -1686,27 +1727,27 @@ func (a *app) discard(es ...git.Entry) {
 				}
 				return nil
 			}, func() {
-				a.tree.Refresh()
-				a.indexStale = true
+				a.app.tree.Refresh()
+				a.app.indexStale = true
 			})
 			untracked = nil
 		}
 		for _, p := range untracked {
-			if err := a.host.trash(p); err != nil {
-				a.fail("%s", locales.FailMoveTo(filepath.Base(p), trashName(), err.Error()))
+			if err := a.app.host.trash(p); err != nil {
+				a.app.fail("%s", locales.FailMoveTo(filepath.Base(p), trashName(), err.Error()))
 			}
 		}
-		if a.tree != nil && len(untracked) > 0 {
-			a.tree.Refresh()
-			a.indexStale = true
+		if a.app.tree != nil && len(untracked) > 0 {
+			a.app.tree.Refresh()
+			a.app.indexStale = true
 		}
 		if len(tracked) > 0 {
 			a.gitDo("", func(r *git.Repo) error { return r.Discard(tracked...) }, func() {
 				// Open documents show the files as they are again, unsaved
 				// changes too, as a step of undo.
 				for _, p := range tracked {
-					if i := a.docIndex(p); i >= 0 {
-						a.reloadDoc(a.docs[i])
+					if i := a.app.docIndex(p); i >= 0 {
+						a.app.reloadDoc(a.app.docs[i])
 					}
 				}
 			})
@@ -1718,8 +1759,11 @@ func (a *app) discard(es ...git.Entry) {
 
 // startAmend has the next commit amend the last, its message the last
 // one's unless one is written.
-func (a *app) startAmend() {
-	g := &a.git
+func (a *gitContext) startAmend() {
+	if !a.live() {
+		return
+	}
+	g := a.git
 	g.amend = true
 	if strings.TrimSpace(g.message) != "" || g.repo == nil {
 		return
@@ -1727,8 +1771,8 @@ func (a *app) startAmend() {
 	r := g.repo
 	go func() {
 		msg := r.LastMessage()
-		a.post(func() {
-			if g.amend && strings.TrimSpace(g.message) == "" {
+		a.app.post(func() {
+			if g.repo == r && g.amend && strings.TrimSpace(g.message) == "" {
 				g.message = msg
 			}
 		})
@@ -1737,12 +1781,25 @@ func (a *app) startAmend() {
 
 // undoCommit takes back the last commit, keeping its changes staged and
 // its message in the box, to commit again.
-func (a *app) undoCommit() { a.undoCommitOf("") }
+func (a *gitContext) undoCommit() {
+	if !a.live() {
+		return
+	}
+	if len(a.app.repositories.contexts) < 2 {
+		a.undoCommitOf("")
+		return
+	}
+	a.app.confirm = &confirm{title: a.repositoryQuestion(locales.CmdGitUndoCommit()), ok: locales.ButtonUndo(),
+		run: func() { a.undoCommitOf("") }}
+}
 
 // undoCommitOf takes back the last commit when it is hash, or whatever it
 // is for "": an Undo offered for a commit undoes it, not one made since.
-func (a *app) undoCommitOf(hash string) {
-	g := &a.git
+func (a *gitContext) undoCommitOf(hash string) {
+	if !a.live() {
+		return
+	}
+	g := a.git
 	if g.repo == nil || g.status == nil || g.status.Head == "" {
 		return
 	}
@@ -1764,19 +1821,22 @@ func (a *app) undoCommitOf(hash string) {
 // commit commits what is staged with the message written, then pushes
 // when push is set. With nothing staged it offers to stage every change
 // first. Changed files are saved before.
-func (a *app) commit(push bool) {
-	g := &a.git
+func (a *gitContext) commit(push bool) {
+	if !a.live() {
+		return
+	}
+	g := a.git
 	if g.repo == nil || g.busy != "" || g.writing != nil {
 		return
 	}
 	msg := strings.TrimSpace(g.message)
 	if msg == "" {
-		a.fail("%s", locales.WriteMessageFirst())
+		a.app.fail("%s", locales.WriteMessageFirst())
 		return
 	}
-	for _, d := range a.docs {
-		if d.path != "" && d.dirty() && g.repo.Contains(d.path) {
-			a.saveDoc(d, nil)
+	for _, d := range a.app.docs {
+		if d.path != "" && d.dirty() && a.owns(d.path) {
+			a.app.saveDoc(d, nil)
 		}
 	}
 	amend := g.amend
@@ -1799,14 +1859,14 @@ func (a *app) commit(push bool) {
 			case push:
 				a.push()
 			case amend:
-				a.tell(note{message: locales.AmendedLastCommit()})
+				a.app.tell(note{message: locales.AmendedLastCommit()})
 			default:
 				subject, _, _ := strings.Cut(msg, "\n")
 				said := locales.Committed(ellipsize(subject, 48))
 				if b := a.branch(); b != "" {
 					said = locales.CommittedTo(ellipsize(subject, 48), b)
 				}
-				a.tell(note{message: said, label: locales.ButtonUndo(),
+				a.app.tell(note{message: said, label: locales.ButtonUndo(),
 					action: func() { a.undoCommitOf(made) }})
 			}
 		})
@@ -1816,15 +1876,15 @@ func (a *app) commit(push bool) {
 	case amend || len(groups[groupStaged]) > 0:
 		run(false)
 	case len(groups[groupMerge]) > 0:
-		a.fail("%s", locales.ResolveMergeFirst())
+		a.app.fail("%s", locales.ResolveMergeFirst())
 	case g.status != nil && (g.status.Op == git.OpMerge || g.status.Op == git.OpRevert || g.status.Op == git.OpCherryPick) &&
 		len(groups[groupChanges])+len(groups[groupUntracked]) == 0:
 		run(false) // ends the merge, though its changes are all HEAD's
 	case len(groups[groupChanges])+len(groups[groupUntracked]) > 0:
-		a.confirm = &confirm{title: locales.StageAllQuestion(), ok: locales.StageAllCommit(),
+		a.app.confirm = &confirm{title: locales.StageAllQuestion(), ok: locales.StageAllCommit(),
 			message: locales.NoStagedChanges(), run: func() { run(true) }}
 	default:
-		a.fail("%s", locales.NoChangesToCommit())
+		a.app.fail("%s", locales.NoChangesToCommit())
 	}
 }
 
@@ -1883,8 +1943,8 @@ func (a *app) activePaths() []string {
 // scmBranchRow is the row at the top of the source control view: the
 // branch, which a click switches, and the buttons of its remote, which
 // say how far it is ahead and behind.
-func (a *app) scmBranchRow(c *ui.Context) {
-	p := a.pal
+func (a *gitContext) scmBranchRow(c *ui.Context) {
+	p := a.app.pal
 	ui.Row(c).Height(30).Padding(0, 8, 0, 8).Gap(2).AlignItems(ui.Center).Children(func() {
 		branch := a.branch()
 		if branch == "" {
@@ -1912,18 +1972,18 @@ func (a *app) scmBranchRow(c *ui.Context) {
 // scmActions are the buttons of the branch's remote: fetching, and
 // pulling and pushing, which say how many commits they would bring, or
 // publishing a branch that has no upstream yet.
-func (a *app) scmActions(c *ui.Context) {
-	g := &a.git
+func (a *gitContext) scmActions(c *ui.Context) {
+	g := a.git
 	st := g.status
 	busy := g.busy != ""
 	if len(g.remotes) == 0 {
 		return
 	}
-	if a.syncButton(c, "fetch", iconFetch, locales.CmdGitFetch(), 0).Disabled(busy).Clicked() {
+	if a.app.syncButton(c, "fetch", iconFetch, locales.CmdGitFetch(), 0).Disabled(busy).Clicked() {
 		a.fetch()
 	}
 	if st != nil && st.Branch != "" && st.Upstream == "" {
-		if a.syncButton(c, "publish", iconPush, locales.ScmPublishBranch(), 0).Disabled(busy).Clicked() {
+		if a.app.syncButton(c, "publish", iconPush, locales.ScmPublishBranch(), 0).Disabled(busy).Clicked() {
 			a.push()
 		}
 		return
@@ -1939,10 +1999,10 @@ func (a *app) scmActions(c *ui.Context) {
 	if ahead > 0 {
 		push = locales.ScmPushCount(ahead)
 	}
-	if a.syncButton(c, "pull", iconPull, pull, behind).Disabled(busy).Clicked() {
+	if a.app.syncButton(c, "pull", iconPull, pull, behind).Disabled(busy).Clicked() {
 		a.pull()
 	}
-	if a.syncButton(c, "push", iconPush, push, ahead).Disabled(busy).Clicked() {
+	if a.app.syncButton(c, "push", iconPush, push, ahead).Disabled(busy).Clicked() {
 		a.push()
 	}
 }

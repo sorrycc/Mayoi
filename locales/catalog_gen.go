@@ -6233,6 +6233,36 @@ func (msgs Messages) RenameTitle() string {
 	return Catalog.Format(msgs.locale, "renameTitle", nil)
 }
 
+// RepositoryAutomatic says "Auto"
+// in the language the app shows.
+func RepositoryAutomatic() string { return In(i18n.Locale()).RepositoryAutomatic() }
+
+// RepositoryAutomatic says "Auto"
+// in the language of msgs.
+func (msgs Messages) RepositoryAutomatic() string {
+	return Catalog.Format(msgs.locale, "repositoryAutomatic", nil)
+}
+
+// RepositoryFollowEditor says "Follow the active editor’s repository"
+// in the language the app shows.
+func RepositoryFollowEditor() string { return In(i18n.Locale()).RepositoryFollowEditor() }
+
+// RepositoryFollowEditor says "Follow the active editor’s repository"
+// in the language of msgs.
+func (msgs Messages) RepositoryFollowEditor() string {
+	return Catalog.Format(msgs.locale, "repositoryFollowEditor", nil)
+}
+
+// RepositorySelect says "Select repository…"
+// in the language the app shows.
+func RepositorySelect() string { return In(i18n.Locale()).RepositorySelect() }
+
+// RepositorySelect says "Select repository…"
+// in the language of msgs.
+func (msgs Messages) RepositorySelect() string {
+	return Catalog.Format(msgs.locale, "repositorySelect", nil)
+}
+
 // ResetButton says "Reset"
 // in the language the app shows.
 func ResetButton() string { return In(i18n.Locale()).ResetButton() }

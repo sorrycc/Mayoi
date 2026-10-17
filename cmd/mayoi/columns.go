@@ -625,7 +625,10 @@ func (a *app) splitRight() {
 		if cm := t.diff.commit; cm != nil {
 			v = newCommitView(t.diff.layout, cm.key(), cm.info)
 		}
-		v.scroll, v.full, v.wrap, v.wrapGen = t.diff.scroll, t.diff.full, t.diff.wrap, t.diff.wrapGen
+		// The offsets only: the scroll's handle binds one view's control,
+		// and MyGo panics on a handle bound in two columns.
+		v.scroll.X, v.scroll.Y = t.diff.scroll.X, t.diff.scroll.Y
+		v.full, v.wrap, v.wrapGen = t.diff.full, t.diff.wrap, t.diff.wrapGen
 		a.addTab(nc, 0, &colTab{diff: v})
 		a.activate(nc, 0, true)
 		return

@@ -614,3 +614,30 @@ func TestCloseLastTabOfColumn(t *testing.T) {
 		}
 	}
 }
+
+// Splitting a diff to the right, twice, gives each column a scroll state
+// of its own, not the one handle bound in both, which MyGo panics on (#20).
+func TestSplitDiffRight(t *testing.T) {
+	hs := newHarness(t, true)
+	hs.gitRepo()
+	a := hs.a
+	os.WriteFile(hs.path("main.go"), []byte("package main\n\n// changed\nfunc main() {}\n"), 0o644)
+	hs.settleGit()
+	a.openFile(hs.path("main.go"), true)
+	a.openChanges()
+	hs.settleGit()
+	if tab := a.activeTab(); tab == nil || tab.diff == nil {
+		t.Fatalf("tab %+v", tab)
+	}
+	a.splitRight()
+	hs.settle()
+	a.splitRight()
+	hs.settle()
+	if len(a.cols) != 3 {
+		t.Fatalf("%d columns", len(a.cols))
+	}
+	first, last := a.cols[0].tab().diff, a.column().tab().diff
+	if first == nil || last == nil || first == last || first.scroll.Handle == last.scroll.Handle {
+		t.Errorf("diffs share their scroll: %p %p", first, last)
+	}
+}

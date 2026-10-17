@@ -216,14 +216,16 @@ func (a *app) scmView(c *ui.Context) {
 								icon = iconChevronRight
 							}
 							ui.Icon(c, icon).FontSize(12).TextColor(p.muted)
+							// The name goes last as the row narrows, then the branch;
+							// the folder it is in, as a file's row shows it, goes first.
 							ui.Text(c, repo.label()).FontSize(12).FontWeight(600).TextColor(p.text).SingleLine().Shrink(1)
-							if rel := repo.relativeRoot(); rel != "" {
-								ui.Text(c, rel).FontSize(10.5).TextColor(p.faint).SingleLine().Shrink(3)
+							if dir := filepath.Dir(repo.relativeRoot()); dir != "." {
+								ui.Text(c, filepath.ToSlash(dir)).FontSize(10.5).TextColor(p.faint).SingleLine().Shrink(100)
 							}
 							if branch := repo.branch(); branch != "" {
 								ui.Spacer(c)
 								ui.Icon(c, iconBranch).FontSize(11).TextColor(p.muted)
-								ui.Text(c, branch).FontSize(11).TextColor(p.muted).SingleLine().Shrink(1)
+								ui.Text(c, branch).FontSize(11).TextColor(p.muted).SingleLine().Shrink(3)
 							}
 						})
 						if head.Clicked() {

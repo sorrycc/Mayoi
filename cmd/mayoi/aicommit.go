@@ -200,7 +200,7 @@ func (a *app) writeButton(c *ui.Context) {
 	if g.writing != nil {
 		label = locales.ScmStopWriting()
 	}
-	b := ui.ButtonBase(c.Key("write-message")).Absolute().Right(4).Bottom(4).Size(22, 22).Radius(5).
+	b := ui.ButtonBase(c.Key("write-message")).Absolute().Right(4).Top(3).Size(22, 22).Radius(5).
 		Justify(ui.Center).AlignItems(ui.Center).Label(label).Tooltip(label).Disabled(g.writing == nil && g.busy != "")
 	if b.Hovered() {
 		b.Background(p.hover)

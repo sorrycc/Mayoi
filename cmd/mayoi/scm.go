@@ -328,7 +328,21 @@ func (a *app) scmView(c *ui.Context) {
 		}
 		ui.Box(c.Key("commit-box")).Children(func() {
 			box := a.textKeys(ui.TextArea(c.Key("commit-message"), &g.message)).Placeholder(hint).FontSize(12.5).
-				MinHeight(60).MaxHeight(160).Label(locales.ScmCommitMessage())
+				Lines(1, 8).MinHeight(28).MaxHeight(160).Padding(5, 8).Label(locales.ScmCommitMessage())
+			if g.message == "" {
+				// Lines measures the editable text, not its placeholder. Reserve the
+				// wrapped hint's height too, so long branch names stay legible.
+				width := box.Bounds().W
+				if width <= 0 {
+					width = a.window.SidebarWidth - 24
+				}
+				padding := float32(18)
+				if a.host.ai() != nil || g.writing != nil {
+					padding += 20
+				}
+				_, height := c.MeasureText(max(width-padding, 1), ui.Span{Text: hint, Size: 12.5})
+				box.MinHeight(max(28, height+12))
+			}
 			if g.writing != nil {
 				box.ReadOnly(true)
 			}

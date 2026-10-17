@@ -5,6 +5,9 @@ needs a `## <version>` section here, or its build fails.
 
 ## Unreleased
 
+- **Compact commit messages:** start with one line and grow with the message,
+  up to eight lines. Wrapped hints remain fully visible in narrow sidebars.
+
 - Cut with no selection cuts the caret's entire line,
   and can be undone in one step.
 - Splitting a diff to the right no longer closes the window (#20, #39).

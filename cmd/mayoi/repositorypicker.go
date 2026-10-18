@@ -180,6 +180,10 @@ func (a *gitContext) hasCommitControls() bool {
 
 func (a *app) scmView(c *ui.Context) {
 	contexts := a.rootRepositoryList()
+	if contexts[0].git.repo == nil && len(contexts) > 1 {
+		// The folder is not a work tree; those under it are (#17).
+		contexts = contexts[1:]
+	}
 	if len(contexts) == 1 {
 		contexts[0].scm.section = scmFull
 		contexts[0].scmView(c)

@@ -44,6 +44,20 @@ func (a *app) rootRepository() *gitContext {
 }
 
 func (a *app) repository() *gitContext {
+	ctx := a.chosenRepository()
+	if ctx.git.repo == nil {
+		// A folder that is not a work tree goes on with the first under it.
+		for _, sub := range a.repositories.contexts {
+			if sub.git.repo != nil {
+				return sub
+			}
+		}
+	}
+	return ctx
+}
+
+// chosenRepository is the one the picker chose, else the active tab's.
+func (a *app) chosenRepository() *gitContext {
 	root := a.rootRepository()
 	if selected := a.repositories.selected; selected != "" {
 		for _, ctx := range a.repositories.contexts {
@@ -109,7 +123,8 @@ func (a *app) resetRepositories() {
 func (a *app) refreshGit() {
 	a.lookUpRepo()
 	a.rootRepository()
-	if a.git.repo == nil || !a.online() {
+	// A folder that is not a work tree may hold some (#17).
+	if !a.git.looked || !a.online() {
 		return
 	}
 	a.discoverRepositories()
@@ -126,21 +141,42 @@ func (a *app) discoverRepositories() {
 	if state.scanning || !state.dirty {
 		return
 	}
-	root := a.git.repo
+	root, folder := a.git.repo, a.root
 	token := new(int)
 	state.token, state.scanning, state.dirty = token, true, false
 	go func() {
+		// An incomplete scan must not drop live contexts and their messages.
+		failed := func() {
+			a.post(func() {
+				if state.token == token {
+					state.scanning = false
+				}
+			})
+		}
+		// repos[0] is the folder's own work tree, nil when it is none: then
+		// the work trees in the folders under it come after.
 		repos := []*git.Repo{root}
-		seen := map[string]bool{root.Root: true}
-		for i := 0; i < len(repos); i++ {
-			subs, err := repos[i].Submodules()
-			// An incomplete scan must not drop live contexts and their messages.
+		seen := map[string]bool{}
+		if root != nil {
+			seen[root.Root] = true
+		} else {
+			nested, err := git.Nested(folder, git.NestedDepth)
 			if err != nil {
-				a.post(func() {
-					if state.token == token {
-						state.scanning = false
-					}
-				})
+				failed()
+				return
+			}
+			for _, r := range nested {
+				seen[r.Root] = true
+				repos = append(repos, r)
+			}
+		}
+		for i := 0; i < len(repos); i++ {
+			if repos[i] == nil {
+				continue
+			}
+			subs, err := repos[i].Submodules()
+			if err != nil {
+				failed()
 				return
 			}
 			for _, sub := range subs {
@@ -151,7 +187,7 @@ func (a *app) discoverRepositories() {
 			}
 		}
 		a.post(func() {
-			if a.git.repo != root || state.token != token {
+			if a.git.repo != root || a.root != folder || state.token != token {
 				return
 			}
 			old := state.contexts

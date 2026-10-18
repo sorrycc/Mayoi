@@ -569,7 +569,8 @@ func (a *app) saveAll() {
 // changes of its own shows the file's new text.
 func (a *app) diskChanged(changed, removed []string) {
 	for _, path := range append(slices.Clone(changed), removed...) {
-		if filepath.Base(path) == ".gitmodules" {
+		// A .git made under a folder that is not a work tree adds one.
+		if base := filepath.Base(path); base == ".gitmodules" || base == ".git" && a.git.repo == nil {
 			a.repositories.dirty = true
 		}
 	}

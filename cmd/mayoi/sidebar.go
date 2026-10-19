@@ -38,7 +38,7 @@ func (a *app) sidebar(c *ui.Context) {
 			switch {
 			case scm:
 				title, short = locales.SidebarTitleScm(), locales.SidebarTitleScmShort()
-				if a.git.repo != nil {
+				if a.repository().git.repo != nil {
 					actions = 1
 				}
 			case search:

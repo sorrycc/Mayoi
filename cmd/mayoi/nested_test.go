@@ -81,12 +81,28 @@ func TestNestedRepositories(t *testing.T) {
 	if got := strings.TrimSpace(gitIn(t, roots[0], "log", "-1", "--format=%s")); got != "first" {
 		t.Fatalf("project-a log: %q", got)
 	}
-	// A project made later is found.
+	// Saving a file in a project does not look for work trees again.
+	a.diskChanged([]string{file}, nil)
+	if a.repositories.dirty {
+		t.Fatal("a file saved in a project rescans")
+	}
+	// A project cloned later is found: the watcher reports its folder,
+	// whose .git it does not watch yet.
 	c := hs.path("project-c")
 	os.MkdirAll(c, 0o755)
 	gitIn(t, c, "init", "-q")
-	a.diskChanged([]string{filepath.Join(c, ".git")}, nil)
+	a.diskChanged([]string{c}, nil)
+	if !a.repositories.dirty {
+		t.Fatal("a project cloned does not rescan")
+	}
 	settleNested(t, hs, 3)
+	// One removed is dropped.
+	os.RemoveAll(c)
+	a.diskChanged(nil, []string{c})
+	if !a.repositories.dirty {
+		t.Fatal("a project removed does not rescan")
+	}
+	settleNested(t, hs, 2)
 }
 
 // A folder with no work tree in or under it still offers to make one.

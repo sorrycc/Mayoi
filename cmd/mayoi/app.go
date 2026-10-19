@@ -13,6 +13,7 @@ import (
 	"github.com/egoist/mygo/plugins/terminal"
 	"github.com/egoist/mygo/ui"
 
+	"mayoi/internal/git"
 	"mayoi/internal/highlight"
 	"mayoi/internal/keymap"
 	"mayoi/internal/mon"
@@ -569,8 +570,7 @@ func (a *app) saveAll() {
 // changes of its own shows the file's new text.
 func (a *app) diskChanged(changed, removed []string) {
 	for _, path := range append(slices.Clone(changed), removed...) {
-		// A .git made under a folder that is not a work tree adds one.
-		if base := filepath.Base(path); base == ".gitmodules" || base == ".git" && a.git.repo == nil {
+		if filepath.Base(path) == ".gitmodules" || a.git.repo == nil && a.mayHoldWorkTree(path) {
 			a.repositories.dirty = true
 		}
 	}
@@ -610,6 +610,21 @@ func (a *app) diskChanged(changed, removed []string) {
 		}
 	}
 	a.gitChanged()
+}
+
+// mayHoldWorkTree reports whether a path made or gone under a folder that
+// is not a work tree may add or drop one under it: a .git, or a folder
+// where one may be, cloned or removed, outside the work trees found.
+func (a *app) mayHoldWorkTree(path string) bool {
+	if filepath.Base(path) == ".git" {
+		return true
+	}
+	rel, err := filepath.Rel(a.root, path)
+	if err != nil || rel == "." || strings.HasPrefix(rel, "..") || strings.Count(filepath.ToSlash(rel), "/") >= git.NestedDepth {
+		return false
+	}
+	ctx := a.repositoryForPath(path)
+	return ctx.git.repo == nil || ctx.git.repo.Root == path
 }
 
 // reloadDoc makes a document's text the file's on disk, as a step of

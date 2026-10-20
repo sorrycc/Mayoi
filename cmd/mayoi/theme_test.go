@@ -295,6 +295,10 @@ func TestThemeMenu(t *testing.T) {
 	}
 	a.setTheme(themeClaude)
 	a.setAppearance("light")
+	hs.settle()
+	if a.pal != claudeLightPal {
+		t.Errorf("palette is %v, want claudeLightPal", a.pal)
+	}
 	if l, c := find("Light"), find("Claude"); l == nil || c == nil || !l.Checked || !c.Checked || l.Disabled {
 		t.Fatalf("Light and Claude are not both checked: %+v %+v", l, c)
 	}

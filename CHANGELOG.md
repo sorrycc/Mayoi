@@ -11,6 +11,8 @@ needs a `## <version>` section here, or its build fails.
 - An integrated titlebar menu button replaces the native menu bar on Linux
   and Windows, with the terminal button moved beside the window controls
   and icon shadows removed on Linux.
+- Choosing Light or Dark appearance now reliably switches the window theme
+  regardless of the desktop environment's appearance.
 
 ## 0.11.5
 

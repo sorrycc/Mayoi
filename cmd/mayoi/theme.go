@@ -725,7 +725,14 @@ func contrast(x, y ui.Color) float64 {
 // and returns that palette.
 func (a *app) applyTheme(c *ui.Context) *palette {
 	t := *c.Theme()
-	p := paletteFor(a.settings.Theme, t.Dark)
+	dark := t.Dark
+	switch a.settings.Appearance {
+	case "light":
+		dark = false
+	case "dark":
+		dark = true
+	}
+	p := paletteFor(a.settings.Theme, dark)
 	t.Dark = p.dark
 	t.Background = p.editor
 	// Every state of the accent, or a hovered button would turn the

@@ -215,6 +215,9 @@ func TestShotBranchPicker(t *testing.T) {
 		hs.a.openBranchPicker()
 		hs.settle()
 		hs.shot("branches" + suffix)
+		hs.tt.Type("feature/new-picker")
+		hs.settle()
+		hs.shot("branches-create" + suffix)
 	}
 }
 

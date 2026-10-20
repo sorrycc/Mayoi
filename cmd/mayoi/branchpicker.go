@@ -34,15 +34,15 @@ type branchPicker struct {
 // branchNames are the names of branches, local and of remotes.
 type branchNames []string
 
-// has reports whether name is a branch's, or a remote's branch's without
+// hasBranch reports whether name is a branch's, or a remote's branch's without
 // the remote, as "feature" of "origin/feature", which switching to by
 // name checks out.
-func (ns branchNames) has(name string) bool {
-	for _, n := range ns {
-		if n == name {
+func (b *branchPicker) hasBranch(name string) bool {
+	for _, br := range b.branches {
+		if br.Name == name {
 			return true
 		}
-		if _, short, ok := strings.Cut(n, "/"); ok && short == name {
+		if _, short, ok := strings.Cut(br.Name, "/"); br.Remote && ok && short == name {
 			return true
 		}
 	}
@@ -52,7 +52,7 @@ func (ns branchNames) has(name string) bool {
 // openBranchPicker shows the box of the branches, reading them in the
 // background.
 func (a *gitContext) openBranchPicker() {
-	if !a.live() {
+	if !a.live() || a.git.busy != "" {
 		return
 	}
 	r := a.git.repo
@@ -64,7 +64,7 @@ func (a *gitContext) openBranchPicker() {
 	go func() {
 		bs, err := r.BranchList()
 		a.app.post(func() {
-			if !b.open || a.git.repo != r {
+			if !b.open || b.repoRoot != r.Root || a.git.repo != r {
 				return
 			}
 			b.loading = false
@@ -107,21 +107,26 @@ func (a *gitContext) closeBranchPicker() {
 // branchChoice is a row of the box: a branch, or the name typed, to
 // create.
 type branchChoice struct {
+	prompt bool   // ask for the name of a new branch
 	create string // the name of the branch to create, "" for a branch
 	at     int    // the result shown, for a branch
 }
 
 // branchChoices returns the rows of the box: the branches the query
-// matches, then creating the branch typed, when the branches are read and
-// it names none of them, local or of a remote.
+// matches, preceded by creating a branch when the query is empty or
+// names no existing branch, local or of a remote.
 func (a *gitContext) branchChoices() []branchChoice {
 	b := &a.app.branches
 	var out []branchChoice
+	if name := strings.TrimSpace(b.query); !b.loading {
+		if name == "" {
+			out = append(out, branchChoice{prompt: true})
+		} else if validBranch(name) && !b.hasBranch(name) {
+			out = append(out, branchChoice{create: name})
+		}
+	}
 	for i := range b.results {
 		out = append(out, branchChoice{at: i})
-	}
-	if name := strings.TrimSpace(b.query); name != "" && !b.loading && validBranch(name) && !b.names.has(name) {
-		out = append(out, branchChoice{create: name})
 	}
 	return out
 }
@@ -129,13 +134,35 @@ func (a *gitContext) branchChoices() []branchChoice {
 // validBranch reports whether a name may be a branch's, as far as the
 // box checks before Git does.
 func validBranch(name string) bool {
-	return name != "" && !strings.ContainsAny(name, " ~^:?*[\\") && !strings.HasPrefix(name, "-")
+	if name == "" || name == "HEAD" || strings.HasPrefix(name, "-") || strings.HasSuffix(name, ".") ||
+		strings.ContainsAny(name, " ~^:?*[\\") || strings.Contains(name, "..") || strings.Contains(name, "@{") {
+		return false
+	}
+	for _, r := range name {
+		if r < 32 || r == 127 {
+			return false
+		}
+	}
+	for _, part := range strings.Split(name, "/") {
+		if part == "" || strings.HasPrefix(part, ".") || strings.HasSuffix(part, ".lock") {
+			return false
+		}
+	}
+	return true
 }
 
 // chooseBranch does what a row of the box does: switches to its branch,
 // or creates the branch typed from the one checked out.
 func (a *gitContext) chooseBranch(ch branchChoice) {
 	b := &a.app.branches
+	if !a.live() || a.git.busy != "" || !b.open || b.repoRoot != a.git.repo.Root {
+		return
+	}
+	if ch.prompt {
+		a.closeBranchPicker()
+		a.askNewBranch()
+		return
+	}
 	if ch.create != "" {
 		a.closeBranchPicker()
 		a.switchBranch(ch.create, true)
@@ -163,7 +190,8 @@ func (a *gitContext) branchPickerView(c *ui.Context) {
 		return
 	}
 	p := a.app.pal
-	if b.stale || b.shown != b.query {
+	changed := b.stale || b.shown != b.query
+	if changed {
 		b.results = workspace.Fuzzy(b.names, strings.TrimSpace(b.query), 200)
 		if strings.TrimSpace(b.query) == "" {
 			// Every branch, the one committed to last first.
@@ -175,6 +203,11 @@ func (a *gitContext) branchPickerView(c *ui.Context) {
 		b.shown, b.stale, b.sel = b.query, false, 0
 	}
 	choices := a.branchChoices()
+	if changed && len(b.results) > 0 && len(choices) > len(b.results) {
+		// Enter keeps switching to the first match; creating is explicit
+		// until the query matches no branch.
+		b.sel = 1
+	}
 	ui.Overlay(c, func() {
 		back := a.app.dialogBack(c, "branches")
 		back.Children(func() {
@@ -183,7 +216,7 @@ func (a *gitContext) branchPickerView(c *ui.Context) {
 			box.Children(func() {
 				ui.Row(c).Padding(10, 14).Gap(10).AlignItems(ui.Center).BorderWidth(0, 0, 1, 0).BorderColor(p.border).Children(func() {
 					ui.Icon(c, iconBranch).FontSize(15).TextColor(p.muted)
-					in := a.app.textKeys(ui.TextInputBase(c.Key("branch-input"), &b.query)).Grow(1).FontSize(14).AutoFocus().
+					in := a.app.textKeys(ui.TextInputBase(c.Key("branch-input"), &b.query)).Grow(1).FontSize(14).AutoFocus().Disabled(a.git.busy != "").
 						Placeholder(locales.BranchPlaceholder()).Label(locales.BranchSwitchLabel())
 					if in.Shortcut(0, ui.KeyDown) {
 						b.sel, b.moved = min(b.sel+1, len(choices)-1), true
@@ -200,6 +233,9 @@ func (a *gitContext) branchPickerView(c *ui.Context) {
 					ui.Scroll(c.Key("branch-results")).MaxHeight(380).Padding(6).Children(func() {
 						for i, ch := range choices {
 							a.branchRow(c, ch, i)
+							if i == 0 && (ch.prompt || ch.create != "") && len(choices) > 1 {
+								ui.Box(c).Height(1).Background(p.border).Margin(4, 6)
+							}
 						}
 					})
 				case b.loading:
@@ -227,12 +263,14 @@ func (a *gitContext) branchRow(c *ui.Context, ch branchChoice, i int) {
 	key, label := "create", locales.BranchCreateLabel(ch.create)
 	var br git.Branch
 	var positions []int
-	if ch.create == "" {
+	if ch.prompt {
+		label = locales.CreateBranchEllipsis()
+	} else if ch.create == "" {
 		m := b.results[ch.at]
 		br, positions = b.branches[m.Index], m.Positions
 		key, label = "branch:"+br.Name, br.Name
 	}
-	row := ui.ButtonBase(c.Key(key)).Padding(5, 10).Gap(10).Radius(6).Justify(ui.Start).AlignItems(ui.Center).Label(label)
+	row := ui.ButtonBase(c.Key(key)).Padding(5, 10).Gap(10).Radius(6).Justify(ui.Start).AlignItems(ui.Center).Label(label).Disabled(a.git.busy != "")
 	if i != b.sel && row.Hovered() {
 		row.Background(p.hover)
 	}
@@ -245,10 +283,14 @@ func (a *gitContext) branchRow(c *ui.Context, ch branchChoice, i int) {
 	row.Transition(hoverFade)
 	row.Children(func() {
 		a.app.pickMark(c, i == b.sel, "branches")
-		if ch.create != "" {
+		if ch.prompt || ch.create != "" {
 			ui.Icon(c, iconPlus).FontSize(14).TextColor(p.accent)
-			ui.RichText(c, ui.Span{Text: locales.BranchCreatePrefix()}, ui.Span{Text: ch.create, Weight: 650}).FontSize(13).
-				TextColor(p.text).SingleLine().Shrink(1)
+			if ch.prompt {
+				ui.Text(c, label).FontSize(13).TextColor(p.text).SingleLine().Shrink(1)
+			} else {
+				ui.RichText(c, ui.Span{Text: locales.BranchCreatePrefix()}, ui.Span{Text: ch.create, Weight: 650}).FontSize(13).
+					TextColor(p.text).SingleLine().Shrink(1)
+			}
 			ui.Spacer(c)
 			if from := a.branch(); from != "" {
 				ui.Text(c, locales.BranchFrom(from)).FontSize(12).TextColor(p.faint).SingleLine().Shrink(0)

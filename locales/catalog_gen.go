@@ -325,6 +325,16 @@ func (msgs Messages) BranchCreatePrefix() string {
 	return Catalog.Format(msgs.locale, "branchCreatePrefix", nil)
 }
 
+// BranchInvalidName says "Enter a valid Git branch name."
+// in the language the app shows.
+func BranchInvalidName() string { return In(i18n.Locale()).BranchInvalidName() }
+
+// BranchInvalidName says "Enter a valid Git branch name."
+// in the language of msgs.
+func (msgs Messages) BranchInvalidName() string {
+	return Catalog.Format(msgs.locale, "branchInvalidName", nil)
+}
+
 // BranchFrom says "from {branch}"
 // in the language the app shows.
 func BranchFrom(branch string) string { return In(i18n.Locale()).BranchFrom(branch) }
@@ -375,11 +385,11 @@ func (msgs Messages) BranchReading() string {
 	return Catalog.Format(msgs.locale, "branchReading", nil)
 }
 
-// BranchStatusTip says "Branch {name}: switch, fetch, pull or push"
+// BranchStatusTip says "Branch {name}: switch or create a branch"
 // in the language the app shows.
 func BranchStatusTip(name string) string { return In(i18n.Locale()).BranchStatusTip(name) }
 
-// BranchStatusTip says "Branch {name}: switch, fetch, pull or push"
+// BranchStatusTip says "Branch {name}: switch or create a branch"
 // in the language of msgs.
 func (msgs Messages) BranchStatusTip(name string) string {
 	return Catalog.Format(msgs.locale, "branchStatusTip", map[string]any{"name": name})

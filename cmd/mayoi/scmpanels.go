@@ -835,7 +835,6 @@ func (a *gitContext) bindPanelDialogs(repo *git.Repo) {
 	}
 }
 func (a *gitContext) askPanelNewBranch() {
-	defer a.bindPanelDialogs(a.git.repo)
 	a.askNewBranch()
 }
 func (a *gitContext) askPrunePanelRemote(name string, fetch bool) {

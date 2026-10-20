@@ -5,6 +5,10 @@ needs a `## <version>` section here, or its build fails.
 
 ## Unreleased
 
+- Clicking the status bar's branch opens the searchable Source Control branch
+  picker, with sync alongside it. A Create Branch entry is always available
+  in the unfiltered picker; typing a new name offers to create and switch to it,
+  with invalid and duplicate names checked before creating from the name prompt.
 - Scrolling with Command held over a terminal no longer shrinks or grows
   its font, as it did when switching back to Mayoi with Command-Tab;
   `Cmd+=` and `Cmd+-` still size all the text.

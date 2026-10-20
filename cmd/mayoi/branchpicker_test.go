@@ -22,6 +22,15 @@ func TestStatusBarBranchPickerCreate(t *testing.T) {
 	if !a.branches.open || !hs.tt.HasText(locales.CreateBranchEllipsis()) {
 		t.Fatal("status bar did not open the shared picker with a create entry")
 	}
+	// The footer names what Enter does on the selected row.
+	if !hs.tt.HasText(locales.QuickSwitchAction()) {
+		t.Fatal("footer does not say Enter switches")
+	}
+	hs.tt.Key(0, ui.KeyUp)
+	hs.settle()
+	if !hs.tt.HasText(locales.QuickCreateAction()) {
+		t.Fatal("footer does not say Enter creates")
+	}
 	if err := hs.tt.Click(locales.CreateBranchEllipsis()); err != nil {
 		t.Fatal(err)
 	}

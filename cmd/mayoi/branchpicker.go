@@ -244,7 +244,11 @@ func (a *gitContext) branchPickerView(c *ui.Context) {
 					ui.Text(c, locales.BranchNoMatches()).FontSize(13).TextColor(p.muted).Padding(12, 16)
 				}
 				b.moved = false
-				a.app.quickFooter(c, false, locales.QuickSwitchAction(), locales.BranchTypeToCreate(), false)
+				action := locales.QuickSwitchAction()
+				if b.sel < len(choices) && (choices[b.sel].prompt || choices[b.sel].create != "") {
+					action = locales.QuickCreateAction()
+				}
+				a.app.quickFooter(c, false, action, locales.BranchTypeToCreate(), false)
 			})
 			if box.PressedOutside() || back.OverlayShortcut(0, ui.KeyEscape) {
 				a.closeBranchPicker()

@@ -58,6 +58,7 @@ func (a *app) view(c *ui.Context) {
 	// The places that take the keys say so as they are built.
 	a.keyFocus = placeNone
 	a.pal = a.applyTheme(c)
+	updateLinuxControlsTheme(a.pal)
 	a.themeTerminals()
 	a.fontTerminals()
 	a.copyTerminals()

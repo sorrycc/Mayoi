@@ -61,6 +61,7 @@ var (
 	iconChevronsRight = lucide(`<path d="m6 17 5-5-5-5"/><path d="m13 17 5-5-5-5"/>`)
 	iconChevronsLeft  = lucide(`<path d="m11 17-5-5 5-5"/><path d="m18 17-5-5 5-5"/>`)
 	iconCommand       = lucide(`<path d="M15 6v12a3 3 0 1 0 3-3H6a3 3 0 1 0 3 3V6a3 3 0 1 0-3 3h12a3 3 0 1 0-3-3"/>`)
+	iconMenu          = lucide(`<line x1="4" x2="20" y1="12" y2="12"/><line x1="4" x2="20" y1="6" y2="6"/><line x1="4" x2="20" y1="18" y2="18"/>`)
 	iconSidebar       = lucide(`<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/>`)
 	iconSidebarRight  = lucide(`<rect width="18" height="18" x="3" y="3" rx="2"/><path d="M15 3v18"/>`)
 	iconFunction      = lucide(`<rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><path d="M9 17c2 0 2.8-1 2.8-2.8V10c0-2 1-3.3 3.2-3"/><path d="M9 11.2h5.7"/>`)

@@ -644,6 +644,9 @@ func (m *mayoi) refreshMenu() {
 // setMenu sets the app's menu as a's window has it, and the Dock's menu of
 // a new window and the recent folders.
 func (m *mayoi) setMenu(a *app) {
+	if runtime.GOOS != "darwin" {
+		return
+	}
 	// Setting a menu bar on Linux makes it anew, which closes a menu that
 	// is open, as when the window has the focus again from a submenu's
 	// grab: one that does not change stays.
@@ -659,9 +662,6 @@ func (m *mayoi) setMenu(a *app) {
 		} else {
 			apply()
 		}
-	}
-	if runtime.GOOS != "darwin" {
-		return
 	}
 	mygo.App.Dock.SetMenu(m.dockMenu())
 }

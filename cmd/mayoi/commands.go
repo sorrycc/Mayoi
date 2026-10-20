@@ -616,3 +616,114 @@ func (a *app) showTabKey(k ui.Key) {
 	}
 	a.activate(col, i, true)
 }
+
+func (a *app) appUIMenu(m *ui.Menu) {
+	menu := a.menu(false, func(id string, _ *mygo.Window) {
+		a.post(func() { a.run(id) })
+	})
+	a.populateUIMenu(m, menu.Items())
+}
+
+func (a *app) populateUIMenu(m *ui.Menu, items []*mygo.MenuItem) {
+	for _, it := range items {
+		if it.Type == mygo.MenuItemSeparator {
+			m.Separator()
+			continue
+		}
+		if it.Hidden {
+			continue
+		}
+		label := it.Label
+		if label == "" {
+			continue
+		}
+		if len(it.Submenu) > 0 {
+			subItems := it.Submenu
+			m.Submenu(label, func(sub *ui.Menu) {
+				a.populateUIMenu(sub, subItems)
+			})
+			continue
+		}
+		item := m.Item(label).Disabled(it.Disabled)
+		if it.Type == mygo.MenuItemCheckbox || it.Type == mygo.MenuItemRadio {
+			item.Checked(it.Checked)
+		}
+		if it.Accelerator != "" {
+			if st, ok := keymap.ParseAccel(it.Accelerator); ok {
+				item.Shortcut(st.Mods, st.Key)
+			}
+		}
+		if item.Chosen() {
+			click := it.Click
+			role := it.Role
+			a.post(func() {
+				if click != nil {
+					click(it, nil)
+				} else {
+					a.handleRole(role)
+				}
+			})
+		}
+	}
+}
+
+func (a *app) handleRole(r mygo.MenuRole) {
+	h, isDesktop := a.host.(*desktop)
+	switch r {
+	case mygo.RoleUndo:
+		a.run("edit.undo")
+	case mygo.RoleRedo:
+		a.run("edit.redo")
+	case mygo.RoleCut:
+		if d := a.textEditor(); d != nil {
+			a.cut(d)
+		}
+	case mygo.RoleCopy:
+		if a.keyFocus == placeExplorer {
+			a.explorerInput(ui.InputEvent{Kind: ui.InputCommand, Text: "copy"})
+			return
+		}
+		if d := a.textEditor(); d != nil {
+			if start, end := min(d.sel[0], d.sel[1]), max(d.sel[0], d.sel[1]); start != end {
+				a.services.WriteClipboard(d.buf.Snapshot().Slice(start, end))
+			}
+		}
+	case mygo.RolePaste:
+		if a.keyFocus == placeExplorer {
+			a.explorerInput(ui.InputEvent{Kind: ui.InputCommand, Text: "paste"})
+			return
+		}
+		if d := a.textEditor(); d != nil {
+			if d.locked() || a.settings.Vim && d.vim.mode != vimInsert {
+				return
+			}
+			text := a.services.ReadClipboard()
+			if text != "" {
+				start, end := min(d.sel[0], d.sel[1]), max(d.sel[0], d.sel[1])
+				d.edit([2]int{start + len(text), start + len(text)}, textEdit{start, end, text})
+			}
+		}
+	case mygo.RoleSelectAll:
+		if d := a.textEditor(); d != nil {
+			d.sel = [2]int{0, d.buf.Snapshot().Len()}
+		}
+	case mygo.RoleMinimize:
+		if isDesktop && h.f != nil && h.f.win != nil {
+			h.f.win.Minimize()
+		}
+	case mygo.RoleClose:
+		if isDesktop && h.f != nil && h.f.win != nil {
+			h.f.win.Close()
+		}
+	case mygo.RoleToggleFullScreen:
+		if isDesktop && h.f != nil && h.f.win != nil {
+			h.f.win.SetFullScreen(!h.f.win.IsFullScreen())
+		}
+	case mygo.RoleToggleDevTools:
+		if isDesktop && h.f != nil && h.f.win != nil {
+			if p := h.f.win.Page(); p != nil {
+				p.ToggleDevTools()
+			}
+		}
+	}
+}

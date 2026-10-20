@@ -4737,6 +4737,16 @@ func (msgs Messages) LockedColumn() string {
 	return Catalog.Format(msgs.locale, "lockedColumn", nil)
 }
 
+// Menu says "Menu"
+// in the language the app shows.
+func Menu() string { return In(i18n.Locale()).Menu() }
+
+// Menu says "Menu"
+// in the language of msgs.
+func (msgs Messages) Menu() string {
+	return Catalog.Format(msgs.locale, "menu", nil)
+}
+
 // MenuAccount says "Account"
 // in the language the app shows.
 func MenuAccount() string { return In(i18n.Locale()).MenuAccount() }

@@ -8,6 +8,9 @@ needs a `## <version>` section here, or its build fails.
 - Scrolling with Command held over a terminal no longer shrinks or grows
   its font, as it did when switching back to Mayoi with Command-Tab;
   `Cmd+=` and `Cmd+-` still size all the text.
+- An integrated titlebar menu button replaces the native menu bar on Linux
+  and Windows, with the terminal button moved beside the window controls
+  and icon shadows removed on Linux.
 
 ## 0.11.5
 

@@ -8,6 +8,7 @@ import (
 	"image/png"
 	"os"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strings"
 	"sync"
@@ -358,6 +359,9 @@ func (a *app) titleBar(c *ui.Context) {
 			}
 		}
 		ui.Row(c).Basis(0).Grow(1).MinWidth(56).Gap(2).Children(func() {
+			if runtime.GOOS != "darwin" {
+				a.iconButton(c, iconMenu, locales.Menu(), false).Menu(a.appUIMenu)
+			}
 			if panelLeft {
 				terminalButton()
 			}

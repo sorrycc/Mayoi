@@ -62,6 +62,10 @@ headerbar.mygo-window-controls .title {
     margin: 0px;
     padding: 0px;
 }
+headerbar.mygo-window-controls button.titlebutton {
+    -gtk-icon-shadow: none;
+    text-shadow: none;
+}
 `
 		cssBytes := append([]byte(css), 0)
 		gtkCssProviderLoadFromData(provider, &cssBytes[0], len(cssBytes)-1, nil)

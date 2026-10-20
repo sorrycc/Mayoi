@@ -73,6 +73,7 @@ func (m *mayoi) newFrame(h *desktop) *frame {
 		Title: "Mayoi", Width: 1280, Height: 820, MinWidth: 640, MinHeight: 420,
 		StateKey:             key,
 		TitleBarStyle:        mygo.TitleBarHidden,
+		TitleBarHeight:       titleBarH,
 		TrafficLightPosition: &mygo.Point{X: 14, Y: 13},
 		BackgroundColor:      "#131317",
 		Content:              ui.View(f.view),

@@ -336,6 +336,7 @@ func main() {
 		remote.Shutdown()
 	})
 	mygo.App.WhenReady(func() {
+		installLinuxControlsCSS()
 		m.s = settings.Load(settingsPath())
 		if p := settingsPath(); p != "" {
 			m.icons = filepath.Join(filepath.Dir(p), "project-icons")

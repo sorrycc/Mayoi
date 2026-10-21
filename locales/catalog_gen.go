@@ -335,6 +335,16 @@ func (msgs Messages) BranchFrom(branch string) string {
 	return Catalog.Format(msgs.locale, "branchFrom", map[string]any{"branch": branch})
 }
 
+// BranchInvalidName says "Enter a valid Git branch name."
+// in the language the app shows.
+func BranchInvalidName() string { return In(i18n.Locale()).BranchInvalidName() }
+
+// BranchInvalidName says "Enter a valid Git branch name."
+// in the language of msgs.
+func (msgs Messages) BranchInvalidName() string {
+	return Catalog.Format(msgs.locale, "branchInvalidName", nil)
+}
+
 // BranchLabel says "Branch {name}"
 // in the language the app shows.
 func BranchLabel(name string) string { return In(i18n.Locale()).BranchLabel(name) }
@@ -375,11 +385,11 @@ func (msgs Messages) BranchReading() string {
 	return Catalog.Format(msgs.locale, "branchReading", nil)
 }
 
-// BranchStatusTip says "Branch {name}: switch, fetch, pull or push"
+// BranchStatusTip says "Branch {name}: switch or create a branch"
 // in the language the app shows.
 func BranchStatusTip(name string) string { return In(i18n.Locale()).BranchStatusTip(name) }
 
-// BranchStatusTip says "Branch {name}: switch, fetch, pull or push"
+// BranchStatusTip says "Branch {name}: switch or create a branch"
 // in the language of msgs.
 func (msgs Messages) BranchStatusTip(name string) string {
 	return Catalog.Format(msgs.locale, "branchStatusTip", map[string]any{"name": name})
@@ -7067,6 +7077,16 @@ func QuickConnectAction() string { return In(i18n.Locale()).QuickConnectAction()
 // in the language of msgs.
 func (msgs Messages) QuickConnectAction() string {
 	return Catalog.Format(msgs.locale, "quickConnectAction", nil)
+}
+
+// QuickCreateAction says "create"
+// in the language the app shows.
+func QuickCreateAction() string { return In(i18n.Locale()).QuickCreateAction() }
+
+// QuickCreateAction says "create"
+// in the language of msgs.
+func (msgs Messages) QuickCreateAction() string {
+	return Catalog.Format(msgs.locale, "quickCreateAction", nil)
 }
 
 // QuickGoToAction says "go to"

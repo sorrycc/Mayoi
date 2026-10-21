@@ -733,6 +733,41 @@ func TestTerminalPanelAtASide(t *testing.T) {
 	}
 }
 
+// Maximized, the panel takes the editors' room wherever it is, past the
+// sidebar: at the bottom too, where it is in the editors' column.
+func TestMaximizedPanelFillsTheWindow(t *testing.T) {
+	if testing.Short() {
+		t.Skip("starts a shell")
+	}
+	hs := newHarness(t, true)
+	a, tt := hs.a, hs.tt
+	t.Cleanup(a.closeTerminals)
+	width := float32(1200)
+	a.openFile(hs.path("main.go"), true)
+	a.run("view.terminal")
+	hs.settle()
+	for _, pos := range []string{"bottom", "left", "right"} {
+		a.run("view.panelPosition." + pos)
+		a.panelMax = true
+		hs.settle()
+		title, ok := tt.Find("TERMINAL")
+		hide, ok2 := tt.Find("Hide Panel")
+		if !ok || !ok2 {
+			t.Fatalf("the panel maximized at the %s is not shown", pos)
+		}
+		// The sidebar is on the left, between a panel there and the
+		// editors' room.
+		left, right := a.window.SidebarWidth, width
+		if pos == "left" {
+			left, right = 0, width-a.window.SidebarWidth
+		}
+		if title.X < left || title.X > left+40 || hide.X+hide.W < right-40 || hide.X+hide.W > right {
+			t.Errorf("the panel maximized at the %s: its title %v, its last button %v", pos, title, hide)
+		}
+		a.panelMax = false
+	}
+}
+
 func TestRestoresTheActiveTab(t *testing.T) {
 	root := workspaceFixture(t)
 	// The tabs as a version without columns kept them.

@@ -315,13 +315,16 @@ Branch rows offer checkout and pull; a remote branch's **Fetch Remote** fetches 
 branch creation, rename, deletion, merge and rebase, and remote creation, URL editing, removal, fetch and prune.
 Deletion refuses unmerged branches. **Refresh** rereads local refs; **Fetch** contacts the remote.
 
-The branch in the status bar shows how far it is ahead of its upstream (↑) and behind it (↓). Click it to switch
-branches, create one, or fetch, pull and push. Switching waits until open files are saved.
+Click the branch in the status bar to open the same branch picker as source control. The sync button alongside it
+shows how far the branch is ahead of its upstream (↑) and behind it (↓), and pulls then pushes in one click; a branch
+without an upstream has a publish button instead. Switching waits until open files are saved.
 
-**Switch Branch…**, from the branch at the top of source control, the status bar's menu or the **Git** menu, opens a box
+**Switch Branch…**, from the branch at the top of source control, the status bar or the **Git** menu, opens a box
 of the branches, local and of the remotes, the one checked out first and then the one committed to last. Each shows the
 subject of its last commit and how long ago it was made. Type to find one by name, or type a new name to create a branch
-from the one checked out. Choosing a remote's branch checks out a local branch that tracks it.
+from the one checked out. **Create Branch…** at the top of the unfiltered list opens a name prompt. With matching
+branches, Enter switches to the first match; with no matches, it creates the typed name. Choosing a remote's branch
+checks out a local branch that tracks it. Fetch, pull and push are also available in source control and the **Git** menu.
 
 Pull only fast-forwards. Push sets the upstream the first time. Git never prompts for a password inside Mayoi: it uses
 your SSH agent and credential helper, and if those fail, the error says to run the command once in the terminal.

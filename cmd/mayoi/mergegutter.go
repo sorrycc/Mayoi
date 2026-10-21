@@ -284,28 +284,32 @@ func (a *app) mergeGutter(c *ui.Context, v *mergeView, left int) {
 			}
 			xL, xR := r.X, r.X+r.W
 			cx := (xL + xR) / 2
-			for i, b := range bands {
-				ll, lh, rl, rh := b.h.A, b.h.A+b.h.ALen, b.h.B, b.h.B+b.h.BLen
-				if side == 2 {
-					ll, lh, rl, rh = rl, rh, ll, lh
+			// A band the scrolling carried partly past the box is cut at
+			// its edge, not drawn on over the merge's header.
+			pt.Clip(r, 0, func() {
+				for i, b := range bands {
+					ll, lh, rl, rh := b.h.A, b.h.A+b.h.ALen, b.h.B, b.h.B+b.h.BLen
+					if side == 2 {
+						ll, lh, rl, rh = rl, rh, ll, lh
+					}
+					lt, lb, rt, rb := r.Y+y(lk, ll), r.Y+y(lk, lh), r.Y+y(rk, rl), r.Y+y(rk, rh)
+					if max(lb, rb) < r.Y || min(lt, rt) > r.Y+r.H {
+						continue
+					}
+					alpha := float32(0.16)
+					if b.region >= 0 && b.region == v.chosen {
+						alpha = 0.26
+					}
+					alpha += 0.2 * glow[i]
+					var band ui.Path
+					band.MoveTo(xL, lt).CubeTo(cx, lt, cx, rt, xR, rt).LineTo(xR, rb).CubeTo(cx, rb, cx, lb, xL, lb).Close()
+					pt.FillPath(&band, b.col.Alpha(alpha))
+					var edges ui.Path
+					edges.MoveTo(xL, lt).CubeTo(cx, lt, cx, rt, xR, rt)
+					edges.MoveTo(xL, lb).CubeTo(cx, lb, cx, rb, xR, rb)
+					pt.StrokePath(&edges, 1, b.col.Alpha(0.45+0.35*glow[i]))
 				}
-				lt, lb, rt, rb := r.Y+y(lk, ll), r.Y+y(lk, lh), r.Y+y(rk, rl), r.Y+y(rk, rh)
-				if max(lb, rb) < r.Y || min(lt, rt) > r.Y+r.H {
-					continue
-				}
-				alpha := float32(0.16)
-				if b.region >= 0 && b.region == v.chosen {
-					alpha = 0.26
-				}
-				alpha += 0.2 * glow[i]
-				var band ui.Path
-				band.MoveTo(xL, lt).CubeTo(cx, lt, cx, rt, xR, rt).LineTo(xR, rb).CubeTo(cx, rb, cx, lb, xL, lb).Close()
-				pt.FillPath(&band, b.col.Alpha(alpha))
-				var edges ui.Path
-				edges.MoveTo(xL, lt).CubeTo(cx, lt, cx, rt, xR, rt)
-				edges.MoveTo(xL, lb).CubeTo(cx, lb, cx, rb, xR, rb)
-				pt.StrokePath(&edges, 1, b.col.Alpha(0.45+0.35*glow[i]))
-			}
+			})
 		})
 	})
 }

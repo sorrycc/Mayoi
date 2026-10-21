@@ -5,6 +5,14 @@ needs a `## <version>` section here, or its build fails.
 
 ## Unreleased
 
+- Clicking the branch in the status bar opens the same searchable branch
+  picker as Source Control, with **Create Branch…** at the top; fetch, pull
+  and push stay in Source Control and the Git menu. Invalid branch names are
+  caught before Git sees them.
+- A merge's three panes scroll together: the result pane no longer snaps
+  back to its caret, pulling the others back to the top with it.
+- The bands joining a merge's sides to its result stay inside the gutter
+  instead of running up over the merge's header.
 - Scrolling with Command held over a terminal no longer shrinks or grows
   its font, as it did when switching back to Mayoi with Command-Tab;
   `Cmd+=` and `Cmd+-` still size all the text.
@@ -13,6 +21,9 @@ needs a `## <version>` section here, or its build fails.
   the terminal button sits beside them.
 - Choosing Light or Dark appearance now holds when the desktop's color
   scheme is the other one.
+- Maximizing the terminal panel at the bottom of the window fills the
+  window again, instead of squeezing the terminal into a column one
+  character wide.
 
 ## 0.11.5
 

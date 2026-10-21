@@ -388,8 +388,11 @@ func (a *app) mergeResultSync(c *ui.Context, area ui.Element, ver uint64) {
 			v.ed.hist.typing = false // the caret moved: typing after starts a step
 		}
 		v.ed.sel = sel
-		v.ed.caretSeen = true
 	}
+	// The area has the selection now, whatever it reads as: a caret that
+	// equals the one kept must not keep the merge re-pushing it, for the
+	// push reveals the caret and the pane would snap back to it forever.
+	v.ed.caretSeen = true
 }
 
 // activeMerge returns the merge view of the tab shown, nil when none is.

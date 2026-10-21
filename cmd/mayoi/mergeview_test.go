@@ -1152,3 +1152,271 @@ func TestMergeFilesKeys(t *testing.T) {
 		t.Error("the list is open still")
 	}
 }
+
+// The texts of TestMergeSyncScrollFollows: two sides of a base that
+// moved and added functions, so the mapping between the sides is not
+// one to one, and theirs ends short of where ours scrolls to.
+const (
+	syncScrollBase = `package calc
+
+import "errors"
+
+// Add returns the sum of a and b, the simplest case.
+func Add(a, b int) int {
+	return a + b
+}
+
+// Subtract returns a minus b.
+func Subtract(a, b int) int {
+	return a - b
+}
+
+// Multiply returns the product of a and b.
+func Multiply(a, b int) int {
+	return a * b
+}
+
+// Divide returns a over b, or an error when b is zero.
+func Divide(a, b int) (int, error) {
+	if b == 0 {
+		return 0, errors.New("division by zero")
+	}
+	return a / b, nil
+}
+
+// Sum adds every number in xs.
+func Sum(xs []int) int {
+	total := 0
+	for i := 0; i < len(xs); i++ {
+		total += xs[i]
+	}
+	return total
+}
+
+// Max returns the larger of a and b.
+func Max(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
+}
+
+// Min returns the smaller of a and b.
+func Min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+// Clamp keeps v within low and high.
+func Clamp(v, low, high int) int {
+	if v < low {
+		return low
+	}
+	if v > high {
+		return high
+	}
+	return v
+}
+`
+	syncScrollOurs = `package calc
+
+import "errors"
+
+// Add sums a and b, as ours wrote it.
+func Add(a, b int) int {
+	return a + b
+}
+
+// Subtract returns a minus b.
+func Subtract(a, b int) int {
+	return a - b
+}
+
+// Multiply returns the product of a and b.
+func Multiply(a, b int) int {
+	return a * b
+}
+
+// Divide returns a over b, or an error when b is zero.
+func Divide(a, b int) (int, error) {
+	if b == 0 {
+		return 0, errors.New("ours: zero divisor")
+	}
+	return a / b, nil
+}
+
+// Clamp keeps v within low and high.
+func Clamp(v, low, high int) int {
+	if v < low {
+		return low
+	}
+	if v > high {
+		return high
+	}
+	return v
+}
+
+// Sum adds every number in xs.
+func Sum(xs []int) int {
+	total := 0
+	for i := 0; i < len(xs); i++ {
+		total += xs[i]
+	}
+	return total
+}
+
+// Max returns the larger of a and b.
+func Max(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
+}
+
+// Min returns the smaller of a and b.
+func Min(a, b int) int {
+	if a < b {
+		return small(a, b)
+	}
+	return b
+}
+
+// Clamp keeps v within low and high.
+func Clamp(v, low, high int) int {
+	if v < low {
+		return low
+	}
+	if v > high {
+		return high
+	}
+	return v
+}
+
+// small is the lesser of a and b, shared by Min.
+func small(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+`
+	syncScrollTheirs = `package calc
+
+import "errors"
+
+// Add sums a and b, as theirs wrote it.
+func Add(a, b int) int {
+	return a + b
+}
+
+// Subtract returns a minus b.
+func Subtract(a, b int) int {
+	return a - b
+}
+
+// Multiply returns the product of a and b.
+func Multiply(a, b int) int {
+	return a * b
+}
+
+// Divide returns a over b, or an error when b is zero.
+func Divide(a, b int) (int, error) {
+	if b == 0 {
+		return 0, errors.New("theirs: zero divisor")
+	}
+	return a / b, nil
+}
+
+// Sum adds every number in xs.
+func Sum(xs []int) int {
+	total := 0
+	for i := 0; i < len(xs); i++ {
+		total += xs[i]
+	}
+	return total
+}
+
+// Max returns the larger of a and b.
+func Max(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
+}
+
+// Min returns the smaller of a and b.
+func Min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+`
+)
+
+// TestMergeSyncScrollFollows: scrolling one pane of a merge moves the
+// others with it, so that the line in the middle of the mover stands
+// across from theirs as the hunks between the texts say — and the result
+// pane follows too, which it did not while its selection sync kept
+// revealing a caret it believed unseen, pinning it to the top and, with
+// the panes together, dragging the sides back there with it.
+func TestMergeSyncScrollFollows(t *testing.T) {
+	base, ours, theirs := syncScrollBase, syncScrollOurs, syncScrollTheirs
+	hs := newHarness(t, true)
+	hs.mergeRepo(base, ours, theirs)
+	v := hs.mergeOf()
+	a := hs.a
+	lineH := a.font.lineH
+	mid := func(k int) int {
+		return int((v.panes[k].scroll.Y + v.panes[k].viewH/2 - editorPadY) / lineH)
+	}
+	// Scroll ours deep, where the texts have diverged and the mapping is
+	// not one to one: the result lands on the line ours maps to, theirs
+	// on the line that maps back to it, and none stands pinned at the
+	// top.
+	v.panes[0].scroll.Y = 45 * lineH
+	hs.settle()
+	if mid(0) < 40 {
+		t.Fatalf("ours stands at line %d, the scroll did not take", mid(0))
+	}
+	if v.panes[1].scroll.Y <= 0 {
+		t.Error("the result pane stands pinned at the top while ours scrolled")
+	}
+	// A follower stands where the mapping puts it, clamped to its own
+	// ends: a side shorter than the position mapped to ends together
+	// with the rest rather than overshooting into blank.
+	clampedMid := func(k int, at float32) int {
+		h := v.panes[k].viewH
+		end := max(0, 2*editorPadY+float32(v.paneLineCount(k))*lineH-h)
+		y := clamp(editorPadY+at*lineH-h/2, 0, end)
+		return int((y + h/2 - editorPadY) / lineH)
+	}
+	res := mapMergeLine(v.pairHunks(0), float32(mid(0)), false)
+	if d := float32(mid(1)) - res; d < -1 || d > 1 {
+		t.Errorf("the result's middle line %d does not stand across ours' %d (want %.0f)", mid(1), mid(0), res)
+	}
+	at2 := mapMergeLine(v.pairHunks(2), res, true)
+	want := clampedMid(2, at2)
+	if d := float32(mid(2) - want); d < -1 || d > 1 {
+		t.Errorf("theirs' middle line %d does not stand across the result's %.0f (want %d, clamped of %.0f)", mid(2), res, want, at2)
+	}
+	// Scrolling the result leads the sides the same way.
+	v.panes[1].scroll.Y = 30 * lineH
+	hs.settle()
+	if v.panes[0].scroll.Y == 45*lineH {
+		t.Error("ours did not follow the result")
+	}
+	at0 := mapMergeLine(v.pairHunks(0), float32(mid(1)), true)
+	want0 := clampedMid(0, at0)
+	if d := float32(mid(0) - want0); d < -1 || d > 1 {
+		t.Errorf("ours' middle line %d does not stand across the result's %d (want %d, clamped of %.0f)", mid(0), mid(1), want0, at0)
+	}
+	at2 = mapMergeLine(v.pairHunks(2), float32(mid(1)), true)
+	want2 := clampedMid(2, at2)
+	if d := float32(mid(2) - want2); d < -1 || d > 1 {
+		t.Errorf("theirs' middle line %d does not stand across the result's %d (want %d, clamped of %.0f)", mid(2), mid(1), want2, at2)
+	}
+}

@@ -11,8 +11,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/egoist/mygo/ui"
-
 	"mayoi/internal/git"
 	"mayoi/internal/remote"
 	"mayoi/locales"
@@ -860,13 +858,17 @@ func (a *gitContext) askRefAt(cm git.Commit, tag bool) {
 
 // askNewBranch asks for the name of a branch to make and check out.
 func (a *gitContext) askNewBranch() {
-	if a.git.repo == nil {
+	if !a.live() || a.git.busy != "" {
 		return
 	}
+	defer a.bindPanelDialogs(a.git.repo)
 	a.app.prompt = &prompt{title: locales.CreateBranchEllipsis(), hint: locales.BranchFrom(a.branch()), done: func(name string) string {
+		if a.git.busy != "" {
+			return a.git.busy
+		}
 		name = strings.TrimSpace(name)
-		if name == "" || strings.ContainsAny(name, " ~^:?*[\\") {
-			return locales.RefNameNoSpaces("false")
+		if !validBranch(name) {
+			return locales.BranchInvalidName()
 		}
 		if slices.Contains(a.git.branches, name) {
 			return locales.RefExists("false")
@@ -874,38 +876,6 @@ func (a *gitContext) askNewBranch() {
 		a.switchBranch(name, true)
 		return ""
 	}}
-}
-
-// branchMenu is the menu of the branch in the status bar: the branches to
-// switch to, and the commands of the remotes.
-func (a *gitContext) branchMenu(m *ui.Menu) {
-	g := a.git
-	cur := a.branch()
-	if m.Item(locales.CmdGitSwitchBranch()).Disabled(g.busy != "").Chosen() {
-		a.app.post(a.openBranchPicker)
-	}
-	m.Separator()
-	for _, b := range g.branches {
-		if m.Item(b).Checked(b == cur).Disabled(g.busy != "").Chosen() && b != cur {
-			a.app.post(func() { a.switchBranch(b, false) })
-		}
-	}
-	if len(g.branches) > 0 {
-		m.Separator()
-	}
-	if m.Item(locales.CreateBranchEllipsis()).Disabled(g.busy != "").Chosen() {
-		a.app.post(a.askNewBranch)
-	}
-	m.Separator()
-	if m.Item(locales.CmdGitFetch()).Disabled(g.busy != "").Chosen() {
-		a.app.post(a.fetch)
-	}
-	if m.Item(locales.CmdGitPull()).Disabled(g.busy != "").Chosen() {
-		a.app.post(a.pull)
-	}
-	if m.Item(locales.CmdGitPush()).Disabled(g.busy != "").Chosen() {
-		a.app.post(a.push)
-	}
 }
 
 // gitSyncVisible keeps publishing and syncing off detached and unborn

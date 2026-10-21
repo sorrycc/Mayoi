@@ -141,9 +141,10 @@ func (a *app) view(c *ui.Context) {
 				sidebar()
 			}
 			main := ui.Column(c.Key("main")).MinWidth(0)
-			if side != "" && a.panelMax {
+			if (side == "left" || side == "right") && a.panelMax {
 				// A panel maximized at a side takes the row, so the
-				// editors give it theirs rather than sharing it.
+				// editors give it theirs rather than sharing it. One at
+				// the bottom is in the editors' column, and takes theirs.
 				main.Grow(0).Width(0)
 			} else {
 				main.Grow(1)
@@ -1133,7 +1134,7 @@ func (a *app) statusBar(c *ui.Context) {
 		a.portsStatus(c, text)
 		if b := repo.branch(); b != "" {
 			bb := ui.ButtonBase(c.Key("status:branch")).Height(statusBarH-6).Padding(0, 6).Gap(5).Radius(4).
-				AlignItems(ui.Center).Label(locales.BranchLabel(b)).Tooltip(locales.BranchStatusTip(b))
+				AlignItems(ui.Center).Label(locales.BranchLabel(b)).Tooltip(locales.BranchStatusTip(b)).Disabled(repo.git.busy != "")
 			if bb.Hovered() {
 				bb.Background(p.hover)
 			}
@@ -1145,7 +1146,9 @@ func (a *app) statusBar(c *ui.Context) {
 					text(b).ContentTransition(ui.ContentTransition{})
 				}
 			})
-			bb.Menu(repo.branchMenu)
+			if bb.Clicked() {
+				repo.openBranchPicker()
+			}
 		}
 		repo.gitSyncStatus(c, visible.gitSyncCounts)
 		a.transferStatus(c, text)

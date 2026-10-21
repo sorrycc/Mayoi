@@ -5,6 +5,9 @@ needs a `## <version>` section here, or its build fails.
 
 ## Unreleased
 
+- Terminal tabs remain clickable across their full height when the tab
+  strip overflows; the horizontal scroll bar has its own space below them
+  only when needed, keeping the panel compact when the tabs fit.
 - As the window narrows, the merge view's bars move their actions into a
   **⋯** menu one by one, the least needed first, instead of cutting them
   off.

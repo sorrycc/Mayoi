@@ -229,6 +229,11 @@ type app struct {
 	terms     []*session
 	panelTerm *session
 	nextTerm  int
+	// panelScroll measures whether the terminal chips need a scroll bar;
+	// panelLayout requests a follow-up frame when their available room or
+	// titles change, so the header can use the freshly measured overflow.
+	panelScroll ui.ScrollState
+	panelLayout panelHeaderLayout
 	// termTheme is the theme of the settings the terminals have the colors
 	// of.
 	termTheme string

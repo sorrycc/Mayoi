@@ -31,6 +31,11 @@ type session struct {
 	lost bool
 }
 
+type panelHeaderLayout struct {
+	windowWidth, panelWidth float32
+	side, titles, font      string
+}
+
 // termTheme is the terminal's colors for a palette: its background the
 // panel's, so that the panel and the editor are of a piece.
 func termTheme(p *palette) *terminal.Theme {
@@ -365,6 +370,13 @@ func (a *app) panelMenu(m *ui.Menu) {
 func (a *app) panel(c *ui.Context) {
 	p := a.pal
 	terms := a.panelTerms()
+	// MyGo's scroll bar takes the thumb's width plus six DIPs for its
+	// track. Keep that whole hit area below overflowing chips; a strip
+	// that fits needs no extra space.
+	scrollbarH := float32(0)
+	if a.panelScroll.MaxX > 0.5 {
+		scrollbarH = c.Theme().ScrollbarWidth + 6
+	}
 	box := ui.Column(c).Fill().Background(p.panel)
 	if it, ok := ui.Drop[dragItem](box); ok {
 		switch s := a.panelTerm; {
@@ -379,13 +391,24 @@ func (a *app) panel(c *ui.Context) {
 	// A panel at a side, dragged narrow, leaves out its title so that
 	// its terminals and its tools keep their room.
 	width := box.Bounds().W
+	var titles strings.Builder
+	for _, s := range terms {
+		titles.WriteString(s.title)
+		titles.WriteByte(0)
+	}
+	windowWidth, _ := c.Size()
+	layout := panelHeaderLayout{windowWidth, width, a.panelSide(), titles.String(), c.Theme().Font}
+	if layout != a.panelLayout {
+		a.panelLayout = layout
+		c.AnimationFrame()
+	}
 	titled := a.panelSide() == "bottom" || width == 0 || width >= panelTitleW
 	box.Children(func() {
-		head := ui.Row(c).Height(panelHeadH).Padding(0, 8, 0, 14).Gap(4).AlignItems(ui.Center)
+		head := ui.Row(c).Height(panelHeadH+scrollbarH).Padding(0, 8, 0, 14).Gap(4).AlignItems(ui.Center)
 		head.ContextMenu(a.panelMenu)
 		head.Children(func() {
 			if titled {
-				ui.Column(c).Height(panelHeadH).Justify(ui.Center).Children(func() {
+				ui.Column(c).Height(panelHeadH).Margin(0, 0, scrollbarH, 0).Justify(ui.Center).Children(func() {
 					ui.Text(c, strings.ToUpper(locales.TabTerminal())).FontSize(11).FontWeight(600).LetterSpacing(0.7).TextColor(p.text)
 					ui.Box(c).Absolute().Bottom(0).Left(0).Right(0).Height(1.5).Background(p.accent)
 				})
@@ -393,7 +416,7 @@ func (a *app) panel(c *ui.Context) {
 			}
 			// The terminals, as chips: a click shows one, and dragging one
 			// to a column makes a tab of it.
-			ui.ScrollHorizontal(c.Key("terms")).Grow(1).Children(func() {
+			ui.ScrollHorizontal(c.Key("terms")).TrackScroll(&a.panelScroll).Grow(1).Height(panelHeadH+scrollbarH).Padding(0, 0, scrollbarH, 0).Children(func() {
 				ui.Row(c).Gap(2).AlignItems(ui.Center).Children(func() {
 					for i, s := range terms {
 						chip := ui.ButtonBase(c.Key(s.id)).Padding(3, 8).Gap(6).Radius(5).AlignItems(ui.Center).Label(s.title).
@@ -433,27 +456,29 @@ func (a *app) panel(c *ui.Context) {
 					}
 				})
 			})
-			if a.iconButton(c, iconPlus, a.withKey(locales.CmdViewNewTerminal(), "view.newTerminal"), false).Clicked() {
-				a.newTerminal()
-			}
-			if s := a.panelTerm; s != nil {
-				if a.iconButton(c, iconToEditor, locales.TermMoveToEditor(), false).Clicked() {
-					a.post(func() { a.terminalToColumn(s, a.column(), a.column().active+1) })
+			ui.Row(c).Gap(4).AlignItems(ui.Center).Margin(0, 0, scrollbarH, 0).Children(func() {
+				if a.iconButton(c, iconPlus, a.withKey(locales.CmdViewNewTerminal(), "view.newTerminal"), false).Clicked() {
+					a.newTerminal()
 				}
-				if a.iconButton(c, iconTrash, locales.TermKill(), false).Clicked() {
-					a.post(func() { a.removeTerminal(s) })
+				if s := a.panelTerm; s != nil {
+					if a.iconButton(c, iconToEditor, locales.TermMoveToEditor(), false).Clicked() {
+						a.post(func() { a.terminalToColumn(s, a.column(), a.column().active+1) })
+					}
+					if a.iconButton(c, iconTrash, locales.TermKill(), false).Clicked() {
+						a.post(func() { a.removeTerminal(s) })
+					}
 				}
-			}
-			icon, label := iconMaximize, locales.PanelMaximize()
-			if a.panelMax {
-				icon, label = iconMinimize, locales.PanelRestore()
-			}
-			if a.iconButton(c, icon, label, false).Clicked() {
-				a.panelMax = !a.panelMax
-			}
-			if a.iconButton(c, iconX, locales.PanelHide(), false).Clicked() {
-				a.hidePanel()
-			}
+				icon, label := iconMaximize, locales.PanelMaximize()
+				if a.panelMax {
+					icon, label = iconMinimize, locales.PanelRestore()
+				}
+				if a.iconButton(c, icon, label, false).Clicked() {
+					a.panelMax = !a.panelMax
+				}
+				if a.iconButton(c, iconX, locales.PanelHide(), false).Clicked() {
+					a.hidePanel()
+				}
+			})
 		})
 		term := ui.Box(c).Grow(1)
 		// Files from another app type their paths into the terminal shown.

@@ -295,8 +295,10 @@ func (r *Repo) CheckoutTracking(remoteBranch, localName string) error {
 	if _, err := r.run(nil, "show-ref", "--verify", ref); err != nil {
 		return err
 	}
-	_, err := r.run(nil, "switch", "--track", "-c", localName, "--", ref)
-	return err
+	return r.switchOrCheckout(
+		[]string{"switch", "--track", "-c", localName, "--", ref},
+		[]string{"checkout", "--track", "-b", localName, ref, "--"},
+	)
 }
 
 // PanelBranches includes tracking counts for the expanded repository panel.

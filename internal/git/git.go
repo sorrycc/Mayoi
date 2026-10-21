@@ -693,14 +693,28 @@ func (r *Repo) Tags() ([]string, error) {
 // Switch checks out a branch, making it first when create is set.
 func (r *Repo) Switch(branch string, create bool) error {
 	args := []string{"switch", branch}
+	checkout := []string{"checkout", branch, "--"}
 	if create {
 		args = []string{"switch", "-c", branch}
+		checkout = []string{"checkout", "-b", branch, "--"}
 	}
-	_, err := r.run(nil, args...)
+	err := r.switchOrCheckout(args, checkout)
 	if err != nil && !create {
 		if path, lookupErr := r.WorktreeForBranch(branch); lookupErr == nil && path != "" && path != r.Root {
 			return &WorktreeInUse{Branch: branch, Path: path}
 		}
+	}
+	return err
+}
+
+// Older hosts may not have switch. Only retry a missing command: a
+// conflict or an occupied branch must keep the original error. The
+// checkout arguments end in -- so a missing branch cannot restore a file.
+func (r *Repo) switchOrCheckout(args, checkout []string) error {
+	_, err := r.run(nil, args...)
+	var gitErr *Error
+	if errors.As(err, &gitErr) && strings.HasPrefix(gitErr.Stderr, "git: 'switch' is not a git command.") {
+		_, err = r.run(nil, checkout...)
 	}
 	return err
 }

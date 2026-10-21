@@ -2,6 +2,4 @@
 
 package main
 
-func installLinuxControlsCSS() {}
-
-func updateLinuxControlsTheme(p *palette) {}
+func updateLinuxControlsTheme(*palette) {}

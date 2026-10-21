@@ -368,7 +368,7 @@ func (a *app) titleBar(c *ui.Context) {
 			}
 		}
 		ui.Row(c).Basis(0).Grow(1).MinWidth(56).Gap(2).Children(func() {
-			if runtime.GOOS != "darwin" {
+			if hostOS != "darwin" {
 				a.iconButton(c, iconMenu, locales.Menu(), false).Menu(a.appUIMenu)
 			}
 			if panelLeft {

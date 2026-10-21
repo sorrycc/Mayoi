@@ -617,6 +617,8 @@ func (a *app) showTabKey(k ui.Key) {
 	a.activate(col, i, true)
 }
 
+// appUIMenu fills the titlebar's menu on Windows and Linux, which have no
+// menu bar, with the menu bar's items.
 func (a *app) appUIMenu(m *ui.Menu) {
 	menu := a.menu(false, func(id string, _ *mygo.Window) {
 		a.post(func() { a.run(id) })
@@ -624,106 +626,69 @@ func (a *app) appUIMenu(m *ui.Menu) {
 	a.populateUIMenu(m, menu.Items())
 }
 
+// uiMenuSkips are the roles the titlebar's menu leaves out, which mygo
+// does for the menu bar but an app cannot yet: the edit roles go to the
+// focused element, so Copy would copy the editor's selection while a
+// terminal has the keyboard, and native UI's inspector has no API. Their
+// shortcuts and the context menus still have the edit roles.
+var uiMenuSkips = map[mygo.MenuRole]bool{
+	mygo.RoleCut: true, mygo.RoleCopy: true, mygo.RolePaste: true, mygo.RoleSelectAll: true,
+	mygo.RoleToggleDevTools: true,
+}
+
+// populateUIMenu adds items to m, with a separator only between two items.
 func (a *app) populateUIMenu(m *ui.Menu, items []*mygo.MenuItem) {
+	added, sep := false, false
 	for _, it := range items {
 		if it.Type == mygo.MenuItemSeparator {
+			sep = added
+			continue
+		}
+		if it.Hidden || it.Label == "" || uiMenuSkips[it.Role] {
+			continue
+		}
+		if sep {
 			m.Separator()
-			continue
 		}
-		if it.Hidden {
-			continue
-		}
-		label := it.Label
-		if label == "" {
-			continue
-		}
+		added, sep = true, false
 		if len(it.Submenu) > 0 {
-			subItems := it.Submenu
-			m.Submenu(label, func(sub *ui.Menu) {
-				a.populateUIMenu(sub, subItems)
+			m.Submenu(it.Label, func(sub *ui.Menu) {
+				a.populateUIMenu(sub, it.Submenu)
 			})
 			continue
 		}
-		item := m.Item(label).Disabled(it.Disabled)
+		item := m.Item(it.Label).Disabled(it.Disabled)
 		if it.Type == mygo.MenuItemCheckbox || it.Type == mygo.MenuItemRadio {
 			item.Checked(it.Checked)
 		}
-		if it.Accelerator != "" {
-			if st, ok := keymap.ParseAccel(it.Accelerator); ok {
-				item.Shortcut(st.Mods, st.Key)
-			}
+		if st, ok := keymap.ParseAccel(it.Accelerator); ok {
+			item.Shortcut(st.Mods, st.Key)
 		}
 		if item.Chosen() {
-			click := it.Click
-			role := it.Role
 			a.post(func() {
-				if click != nil {
-					click(it, nil)
+				if it.Click != nil {
+					it.Click(it, nil)
 				} else {
-					a.handleRole(role)
+					a.handleRole(it.Role)
 				}
 			})
 		}
 	}
 }
 
+// handleRole does a role of the titlebar's menu that has no command.
 func (a *app) handleRole(r mygo.MenuRole) {
-	h, isDesktop := a.host.(*desktop)
+	h, ok := a.host.(*desktop)
+	if !ok || h.f == nil || h.f.win == nil {
+		return
+	}
+	w := h.f.win
 	switch r {
-	case mygo.RoleUndo:
-		a.run("edit.undo")
-	case mygo.RoleRedo:
-		a.run("edit.redo")
-	case mygo.RoleCut:
-		if d := a.textEditor(); d != nil {
-			a.cut(d)
-		}
-	case mygo.RoleCopy:
-		if a.keyFocus == placeExplorer {
-			a.explorerInput(ui.InputEvent{Kind: ui.InputCommand, Text: "copy"})
-			return
-		}
-		if d := a.textEditor(); d != nil {
-			if start, end := min(d.sel[0], d.sel[1]), max(d.sel[0], d.sel[1]); start != end {
-				a.services.WriteClipboard(d.buf.Snapshot().Slice(start, end))
-			}
-		}
-	case mygo.RolePaste:
-		if a.keyFocus == placeExplorer {
-			a.explorerInput(ui.InputEvent{Kind: ui.InputCommand, Text: "paste"})
-			return
-		}
-		if d := a.textEditor(); d != nil {
-			if d.locked() || a.settings.Vim && d.vim.mode != vimInsert {
-				return
-			}
-			text := a.services.ReadClipboard()
-			if text != "" {
-				start, end := min(d.sel[0], d.sel[1]), max(d.sel[0], d.sel[1])
-				d.edit([2]int{start + len(text), start + len(text)}, textEdit{start, end, text})
-			}
-		}
-	case mygo.RoleSelectAll:
-		if d := a.textEditor(); d != nil {
-			d.sel = [2]int{0, d.buf.Snapshot().Len()}
-		}
 	case mygo.RoleMinimize:
-		if isDesktop && h.f != nil && h.f.win != nil {
-			h.f.win.Minimize()
-		}
+		w.Minimize()
 	case mygo.RoleClose:
-		if isDesktop && h.f != nil && h.f.win != nil {
-			h.f.win.Close()
-		}
+		w.Close()
 	case mygo.RoleToggleFullScreen:
-		if isDesktop && h.f != nil && h.f.win != nil {
-			h.f.win.SetFullScreen(!h.f.win.IsFullScreen())
-		}
-	case mygo.RoleToggleDevTools:
-		if isDesktop && h.f != nil && h.f.win != nil {
-			if p := h.f.win.Page(); p != nil {
-				p.ToggleDevTools()
-			}
-		}
+		w.SetFullScreen(!w.IsFullScreen())
 	}
 }

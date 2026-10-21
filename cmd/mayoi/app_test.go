@@ -921,3 +921,30 @@ func TestTerminalPanelHeaderMenu(t *testing.T) {
 		t.Fatalf("the panel is at %s (%q)", a.panelSide(), a.settings.PanelPosition)
 	}
 }
+
+// Off macOS the title bar's menu has the menu bar's menus, without the
+// edit roles it cannot send to the focused element, and runs their items.
+func TestTitleBarMenu(t *testing.T) {
+	onOS(t, "linux")
+	hs := newHarness(t, true)
+	a, tt := hs.a, hs.tt
+	if err := tt.Click("Menu"); err != nil {
+		t.Fatal(err)
+	}
+	if menu := tt.Menu(); !slices.Contains(menu, "File") || !slices.Contains(menu, "View") {
+		t.Fatalf("the title bar's menu: %q", menu)
+	}
+	if err := tt.ChooseMenuItem("Edit", "Copy"); err == nil {
+		t.Error("Copy is in the Edit menu")
+	}
+	if err := tt.Click("Menu"); err != nil {
+		t.Fatal(err)
+	}
+	if err := tt.ChooseMenuItem("View", "Word Wrap"); err != nil {
+		t.Fatal(err)
+	}
+	hs.settle()
+	if !a.settings.WordWrap {
+		t.Error("Word Wrap is not on")
+	}
+}

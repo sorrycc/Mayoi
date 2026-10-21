@@ -8,11 +8,11 @@ needs a `## <version>` section here, or its build fails.
 - Scrolling with Command held over a terminal no longer shrinks or grows
   its font, as it did when switching back to Mayoi with Command-Tab;
   `Cmd+=` and `Cmd+-` still size all the text.
-- An integrated titlebar menu button replaces the native menu bar on Linux
-  and Windows, with the terminal button moved beside the window controls
-  and icon shadows removed on Linux.
-- Choosing Light or Dark appearance now reliably switches the window theme
-  regardless of the desktop environment's appearance.
+- On Linux and Windows, a menu button in the title bar replaces the row the
+  menu bar took. On Linux the window buttons take the theme's colors, and
+  the terminal button sits beside them.
+- Choosing Light or Dark appearance now holds when the desktop's color
+  scheme is the other one.
 
 ## 0.11.5
 

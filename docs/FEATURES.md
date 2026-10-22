@@ -162,12 +162,24 @@ tree, with a count of them. Files are grouped as merge changes, staged changes, 
 ### Submodules and repository selection
 
 Initialized submodules, including nested submodules, appear as separate,
-collapsible sections in Source Control. Each section shows its branch or detached
-HEAD, staged changes and working changes. Clean repositories use only a header
-row; repositories with changes show their own commit message and button.
-Staging, unstaging, discarding and committing apply to that section's repository. A submodule commit
-updates the parent's submodule entry; stage and commit that reference separately.
-Uninitialized submodules remain entries in the parent until initialized externally.
+collapsible sections in one continuously scrolling Source Control list. The
+current repository's header stays at the top while its changes scroll beneath
+it. The current change group (such as Staged Changes or Changes) stays directly
+beneath that header, with its counts and actions, until the next group or
+repository pushes it away. Headers combine the repository name, branch or
+detached HEAD, and repository actions; a narrow sidebar keeps remote actions in each repository's **⋯** menu.
+Repositories with changes start expanded; clean repositories start collapsed and
+can be expanded to show their retained commit draft and a disabled commit button.
+The arrow expands or collapses a section; clicking its name selects its history.
+Each repository keeps its own commit draft, selection and Git operations.
+Staging, unstaging, discarding and committing apply to that section's repository.
+Parent entries distinguish a changed submodule commit reference from uncommitted
+content inside it. Commit the submodule's files first, then stage and commit the
+updated reference in the parent separately. Uninitialized submodules remain
+entries in the parent until initialized externally.
+
+Changes and history scroll independently. Their draggable divider starts halfway
+down the view, and its position is saved with the workspace's layout.
 
 With multiple repositories, the lower part of Source Control shows the selected
 repository's commit graph. The repository button in its header and in the status

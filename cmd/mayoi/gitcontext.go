@@ -13,13 +13,12 @@ import (
 // work tree. Shared editor services are reached explicitly through app;
 // no window Git commands can be promoted onto a repository controller.
 type gitContext struct {
-	app           *app
-	git           *gitState
-	identity      *git.Repo
-	scm           *scmState
-	closed        bool
-	changesUI     *scmState
-	changesHeight float32
+	app       *app
+	git       *gitState
+	identity  *git.Repo
+	scm       *scmState
+	expanded  *bool // nil uses the default: expand repositories with changes
+	changesUI *scmState
 }
 
 type repositoryState struct {
@@ -29,6 +28,9 @@ type repositoryState struct {
 	dirty    bool
 	token    *int
 	picker   repositoryPicker
+	changes  ui.ListState
+	row      int
+	cursor   string // pending row key when a diff chooses a changed file
 }
 
 func (a *app) rootRepository() *gitContext {

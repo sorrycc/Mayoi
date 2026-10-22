@@ -287,7 +287,7 @@ const (
 
 // splitter is the handle along an edge of a pane that resizes it. drag
 // gets how far the pointer moved, across the edge.
-func (a *app) splitter(c *ui.Context, at edge, drag func(d float32)) {
+func (a *app) splitter(c *ui.Context, at edge, drag func(d float32)) ui.Element {
 	h := ui.Box(c).Absolute()
 	switch at {
 	case edgeTop:
@@ -333,6 +333,7 @@ func (a *app) splitter(c *ui.Context, at edge, drag func(d float32)) {
 		}
 		a.settings.Changed()
 	}
+	return h
 }
 
 func (a *app) titleBar(c *ui.Context) {

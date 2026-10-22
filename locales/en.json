@@ -433,6 +433,7 @@
   "cmdViewAppearanceDark": "Dark",
   "cmdViewAppearanceLight": "Light",
   "cmdViewAppearanceSystem": "System",
+  "cmdViewCompactFolders": "Compact Folders",
   "cmdViewExplorer": "Explorer",
   "cmdViewLocaleSystem": "System Language",
   "cmdViewLockColumn": "Toggle Column Lock",

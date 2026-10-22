@@ -167,6 +167,9 @@ type Prefs struct {
 	Theme string `json:"theme,omitempty"`
 	// SidebarRight puts the sidebar right of the editors, rather than left.
 	SidebarRight bool `json:"sidebarRight,omitempty"`
+	// ExplorerCompactFolders shows a chain of single-child folders on one
+	// row in the Explorer, with its names separated by slashes.
+	ExplorerCompactFolders bool `json:"explorerCompactFolders,omitempty"`
 	// PanelPosition is where the terminal panel is: "" or "bottom"
 	// below the editors, "left" or "right" at the window's side, past
 	// the sidebar.

@@ -205,6 +205,7 @@
   "cmdViewAppearanceDark": "ダーク",
   "cmdViewAppearanceLight": "ライト",
   "cmdViewAppearanceSystem": "システム",
+  "cmdViewCompactFolders": "フォルダーをコンパクトに表示",
   "cmdViewExplorer": "エクスプローラー",
   "cmdViewLocaleSystem": "システムの言語",
   "cmdViewLockColumn": "列のロックの切り替え",

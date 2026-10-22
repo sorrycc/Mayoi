@@ -84,7 +84,9 @@ func TestRecentFolderCmdEnter(t *testing.T) {
 	tt := ui.NewTester(a.view, 1200, 760)
 	step(tt)
 	label := "Open " + root
-	for range 12 {
+	// Allow a full pass through the labeled controls as the welcome page
+	// and window toolbar gain actions, rather than assuming a fixed tab count.
+	for range len(tt.Texts()) {
 		if tt.Focused(label) {
 			break
 		}

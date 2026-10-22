@@ -28,7 +28,7 @@ func TestRestoreDeletedFileFromDiff(t *testing.T) {
 	run := a.confirm.run
 	a.confirm = nil
 	run()
-	hs.settle()
+	hs.settleGit()
 	if data, err := os.ReadFile(p); err != nil || string(data) != "kept\n" {
 		t.Fatalf("restored file: %q, %v", data, err)
 	}

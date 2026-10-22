@@ -124,7 +124,8 @@ func (a *app) spawnTerminal(s *session, dir string) (*terminal.Terminal, error) 
 			text, _ := d.Read(mtransfer.Text)
 			return a.terminalPaste(s, string(text))
 		},
-		// A link to a port of the host opens the port forwarded to it.
+		// Local file paths open in the editor; links to a port of a
+		// remote host open the port forwarded to it here.
 		OpenLink: func(link string) bool { return a.terminalLink(s, link) },
 		// The shortcuts of keybindings.json, before the shell, and on
 		// Windows and Linux those of Mayoi's it leaves to Mayoi.

@@ -388,6 +388,11 @@ bracketed paste, as VS Code's terminal does, so that Claude Code pastes the scre
 in Ghostty and iTerm2: a drag, a double click for a word, a triple click for a line, Shift with a drag in a program
 that takes the mouse, or Select All. `terminalCopyOnSelect` turns it off.
 
+Command-click a file path in a local terminal (Control-click on Windows and Linux) to open it in Mayoi, including
+files Git ignores. Holding Command (Control elsewhere) over a path underlines it and shows a hand cursor.
+Bare filenames with an extension, such as `notes.md`, work too. Relative paths use the directory the shell reports, or the terminal's starting directory when
+it reports none. A `:line` or `:line:column` suffix places the caret there; absolute paths and `~/` paths work too.
+
 On Windows and Linux the shell has the keys with Ctrl, which edit its line, except the workbench's: Quick Open, the
 Command Palette, the terminal and the sidebar toggles, Next and Previous Tab, Alt+1 to Alt+9 and zoom, and every
 Ctrl+Shift shortcut but Ctrl+Shift+C and Ctrl+Shift+V, the terminal's copy and paste, and those of the function keys.

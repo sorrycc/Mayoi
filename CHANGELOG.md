@@ -3,6 +3,13 @@
 The update window shows the section of the version it offers. Every release
 needs a `## <version>` section here, or its build fails.
 
+## Unreleased
+
+- Command-clicking a file path in a local terminal opens it in Mayoi,
+  including files Git ignores; relative paths use the shell's directory,
+  and :line or :line:column suffixes move the caret there. Bare filenames
+  such as notes.md work too; holding Command over a path underlines it.
+
 ## 0.11.10
 
 - The diff's toolbar tells its buttons apart: the Whitespace menu shows ¶,

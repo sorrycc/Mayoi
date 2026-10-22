@@ -317,7 +317,7 @@ type Layout struct {
 	CommitFilesClosed bool    `json:"commitFilesClosed,omitempty"`
 	CommitFilesWidth  float32 `json:"commitFilesWidth,omitempty"`
 	// ScmChangesRatio is the share of the multi-repository view for changes.
-	// Zero starts with equal space for changes and history.
+	// Zero fits the changes to their content, up to half the view.
 	ScmChangesRatio float32 `json:"scmChangesRatio,omitempty"`
 }
 

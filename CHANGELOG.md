@@ -5,18 +5,18 @@ needs a `## <version>` section here, or its build fails.
 
 ## Unreleased
 
-- Change-group headers, including Staged Changes and Changes, stay pinned
-  beneath their repository header while scrolling in multi-repository views.
-- Selected repositories use a subtle full-width header highlight and a thin
-  accent marker, instead of highlighting only the repository name button.
-- Source Control lists parent repositories and submodules in one continuous
-  scroll, with sticky repository headers combining branch and remote actions.
-- Drag the divider between multi-repository changes and history to resize
-  them; the workspace remembers the split, starting with equal space.
-- Repository arrows expand or collapse changes independently of selecting
-  history. Clean repositories can be expanded to show their retained draft.
-- Submodule entries distinguish changes to their commit reference from
-  uncommitted content inside the submodule.
+- **Source Control** lists parent repositories and submodules in one continuous
+  scroll, with repository and change-group headers pinned above their files.
+  Headers combine branch and remote actions with a full-width selection marker;
+  arrows expand sections independently of selecting history, and clean
+  repositories can expand to show their retained commit drafts.
+- The divider between **Source Control** changes and history can be dragged,
+  and its position is saved per workspace. Until dragged, changes fit their
+  content up to half the view, leaving clean repositories more room for history.
+  Keyboard selection works from repository headers, and row actions retain
+  their cursor by identity as changes move or disappear.
+- Submodule entries in **Source Control** distinguish changes to their commit
+  reference from uncommitted content inside the submodule.
 
 ## 0.11.9
 

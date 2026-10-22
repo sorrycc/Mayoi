@@ -910,7 +910,7 @@
   "scmStopAmending": "修正を中止",
   "scmStopWriting": "書くのをやめる",
   "scmSubmoduleCommit": "サブモジュールのコミットが変更されています",
-  "scmSubmoduleCommitLabel": "コミット",
+  "scmSubmoduleCommitLabel": "参照コミット",
   "scmSubmoduleContentLabel": "内容",
   "scmSubmoduleDirty": "サブモジュールに未コミットの変更があります",
   "scmSummary": "概要",

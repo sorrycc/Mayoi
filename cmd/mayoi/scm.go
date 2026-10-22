@@ -880,7 +880,7 @@ func (a *gitContext) scmClean(c *ui.Context) {
 // scmHeader is the row heading a group: a click opens or closes it.
 func (a *gitContext) scmHeader(c *ui.Context, r scmRow, action *func()) {
 	p := a.app.pal
-	row := ui.Row(c).Grow(1).Gap(4).AlignItems(ui.Center).Height(22).Background(p.chrome)
+	row := ui.Row(c).Grow(1).Gap(4).AlignItems(ui.Center).Height(scmRowHeight).Background(p.chrome)
 	hovered := row.Hovered()
 	clicked := row.Clicked()
 	row.Children(func() {
@@ -959,7 +959,7 @@ func (a *gitContext) scmFile(c *ui.Context, r scmRow, action *func()) {
 	if tree {
 		indent = treeIndent(r.depth) + 16
 	}
-	row := ui.Row(c).Grow(1).Gap(6).AlignItems(ui.Center).Height(22).Padding(0, 0, 0, indent)
+	row := ui.Row(c).Grow(1).Gap(6).AlignItems(ui.Center).Height(scmRowHeight).Padding(0, 0, 0, indent)
 	if tree {
 		a.app.scmGuides(row, r.depth)
 	}
@@ -1111,7 +1111,7 @@ func (a *gitContext) scmCommit(c *ui.Context, i int, r scmRow, action *func()) {
 	if r.at < 0 {
 		indent = scmPanelContentIndent(r.depth)
 	}
-	row := ui.Row(c).Grow(1).Gap(6).AlignItems(ui.Center).Height(22).Padding(0, 4, 0, indent).Tooltip(tip)
+	row := ui.Row(c).Grow(1).Gap(6).AlignItems(ui.Center).Height(scmRowHeight).Padding(0, 4, 0, indent).Tooltip(tip)
 	clicked := row.Clicked()
 	row.ContextMenu(func(m *ui.Menu) { a.scmCommitMenu(m, cm, head, action) })
 	open := a.scm.openCommits[cm.Hash]
@@ -1467,7 +1467,7 @@ func (a *gitContext) toggleAllBranches() {
 // scmMore is the row after the commits of the history, which reads more.
 func (a *gitContext) scmMore(c *ui.Context, action *func()) {
 	p := a.app.pal
-	row := ui.Row(c).Grow(1).Height(22).Padding(0, 0, 0, 24).AlignItems(ui.Center)
+	row := ui.Row(c).Grow(1).Height(scmRowHeight).Padding(0, 0, 0, 24).AlignItems(ui.Center)
 	hovered, clicked := row.Hovered(), row.Clicked()
 	row.Children(func() {
 		col := p.muted
@@ -1524,7 +1524,7 @@ func (a *app) scmGuides(row ui.Element, depth int) {
 func (a *gitContext) scmFolder(c *ui.Context, r scmRow, action *func()) {
 	p := a.app.pal
 	closed := a.scm.closedDirs[r.key]
-	row := ui.Row(c).Grow(1).Gap(4).AlignItems(ui.Center).Height(22).Padding(0, 0, 0, treeIndent(r.depth))
+	row := ui.Row(c).Grow(1).Gap(4).AlignItems(ui.Center).Height(scmRowHeight).Padding(0, 0, 0, treeIndent(r.depth))
 	a.app.scmGuides(row, r.depth)
 	hovered, clicked := row.Hovered(), row.Clicked()
 	row.Children(func() {

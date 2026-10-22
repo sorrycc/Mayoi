@@ -178,8 +178,10 @@ content inside it. Commit the submodule's files first, then stage and commit the
 updated reference in the parent separately. Uninitialized submodules remain
 entries in the parent until initialized externally.
 
-Changes and history scroll independently. Their draggable divider starts halfway
-down the view, and its position is saved with the workspace's layout.
+Changes and history scroll independently. Until the divider is dragged, changes
+fit their content up to half the view, leaving more room for history when most
+repositories are clean. Dragging the divider saves its position with the
+workspace's layout.
 
 With multiple repositories, the lower part of Source Control shows the selected
 repository's commit graph. The repository button in its header and in the status

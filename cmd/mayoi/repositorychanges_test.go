@@ -149,8 +149,15 @@ func TestRepositoryChangeCursorFollowsDiff(t *testing.T) {
 }
 
 func TestRepositoryChangesResizeAndRemember(t *testing.T) {
-	hs, _, _ := submoduleHarness(t)
+	hs, sub, _ := submoduleHarness(t)
 	a, tt := hs.a, hs.tt
+	for i := range 40 {
+		if err := os.WriteFile(filepath.Join(sub.git.repo.Root, fmt.Sprintf("new-%02d.txt", i)), []byte("new\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	a.gitChanged()
+	settleRepositories(t, hs, 2)
 	tt.SetSize(1200, 1000)
 	hs.settle()
 	history, ok := tt.Find("COMMITS")
@@ -177,6 +184,13 @@ func TestRepositoryChangesResizeAndRemember(t *testing.T) {
 	if a.session().ScmChangesRatio != a.window.ScmChangesRatio {
 		t.Fatal("split position not included in the saved session")
 	}
+	for i := range 40 {
+		if err := os.Remove(filepath.Join(sub.git.repo.Root, fmt.Sprintf("new-%02d.txt", i))); err != nil {
+			t.Fatal(err)
+		}
+	}
+	a.gitChanged()
+	settleRepositories(t, hs, 2)
 	a.showExplorer()
 	hs.settle()
 	a.showSourceControl()
@@ -186,6 +200,145 @@ func TestRepositoryChangesResizeAndRemember(t *testing.T) {
 		t.Fatalf("split position lost when reopening source control: %v -> %v", resized, reopened)
 	}
 	hs.shot("submodules-resized")
+}
+
+func TestRepositoryHeaderUsesActualWidth(t *testing.T) {
+	hs, sub, _ := submoduleHarness(t)
+	hs.a.window.SidebarWidth = 420
+	width := float32(240)
+	tt := ui.NewTester(func(c *ui.Context) {
+		ui.Column(c).Width(width).Children(func() { sub.repositoryHeader(c) })
+	}, 600, 100)
+	for range 3 {
+		step(tt)
+	}
+	if tt.HasText("packages") || tt.HasText(locales.CmdGitFetch()) {
+		t.Fatal("narrow header used the saved sidebar width to show extra controls")
+	}
+	width = 420
+	for range 3 {
+		step(tt)
+	}
+	if !tt.HasText("packages") || !tt.HasText(locales.CmdGitFetch()) {
+		t.Fatal("wide header did not restore its path and remote controls")
+	}
+}
+
+func TestRepositoryChangesFitContent(t *testing.T) {
+	hs, sub, _ := submoduleHarness(t)
+	a, tt := hs.a, hs.tt
+	tt.SetSize(1200, 1000)
+	hs.settle()
+	history, ok := tt.Find("COMMITS")
+	if !ok || history.Y > 200 {
+		t.Fatalf("clean repositories left empty space above history: %v (%v)", history, ok)
+	}
+	if err := tt.Click(locales.ScmToggleRepository(sub.label())); err != nil {
+		t.Fatal(err)
+	}
+	hs.settle()
+	input, ok := tt.Find(locales.ScmCommitMessage())
+	expanded, _ := tt.Find("COMMITS")
+	if !ok || expanded.Y <= input.Y+input.H || expanded.Y >= 450 {
+		t.Fatalf("expanded draft did not size the changes pane: input=%v, history=%v", input, expanded)
+	}
+	for i := range 40 {
+		if err := os.WriteFile(filepath.Join(sub.git.repo.Root, fmt.Sprintf("new-%02d.txt", i)), []byte("new\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	a.gitChanged()
+	settleRepositories(t, hs, 2)
+	full, _ := tt.Find("COMMITS")
+	if full.Y < 450 || full.Y > 600 || a.window.ScmChangesRatio != 0 {
+		t.Fatalf("automatic pane did not stop at half without saving a ratio: %v, ratio %v", full, a.window.ScmChangesRatio)
+	}
+	if err := tt.Click(locales.ScmToggleRepository(sub.label())); err != nil {
+		t.Fatal(err)
+	}
+	hs.settle()
+	collapsed, _ := tt.Find("COMMITS")
+	if collapsed.Y >= full.Y-50 || a.window.ScmChangesRatio != 0 {
+		t.Fatalf("automatic pane did not shrink after collapse: %v -> %v", full, collapsed)
+	}
+}
+
+func TestRepositoryKeysFromHeader(t *testing.T) {
+	hs, sub, _ := submoduleHarness(t)
+	a := hs.a
+	for _, name := range []string{"b.txt", "c.txt"} {
+		if err := os.WriteFile(filepath.Join(sub.git.repo.Root, name), []byte("new\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	a.gitChanged()
+	settleRepositories(t, hs, 2)
+	// Focus the shared list without clicking a file. Its cursor starts on
+	// the module's header, independently of which history is selected.
+	for i, row := range a.repositoryChangeRows(a.rootRepositoryList()) {
+		if row.kind == repositoryHeader && row.repo.git == sub.git {
+			a.repositories.row = i
+			break
+		}
+	}
+	a.repositories.changes.Handle.Focus()
+	hs.settle()
+	hs.key(ui.Shift, ui.KeyDown)
+	if sub.changesUI.selection.Len() != 1 {
+		t.Fatalf("Shift+Down from the module header chose %d files", sub.changesUI.selection.Len())
+	}
+	// Cmd+A must also work directly from a non-file row, and retain a
+	// file cursor for the next keyboard action.
+	for i, row := range a.repositoryChangeRows(a.rootRepositoryList()) {
+		if row.kind == repositoryCommit && row.repo.git == sub.git {
+			a.repositories.row = i
+			break
+		}
+	}
+	hs.settle()
+	hs.key(ui.Cmd, ui.KeyA)
+	hs.key(0, ui.KeySpace)
+	settleRepositories(t, hs, 2)
+	if len(sub.groupEntries()[groupStaged]) != 2 || len(a.rootRepository().groupEntries()[groupStaged]) != 0 {
+		t.Fatal("keyboard actions from a header did not remain in its repository")
+	}
+}
+
+func TestRepositoryStageButtonKeepsCursor(t *testing.T) {
+	hs, sub, _ := submoduleHarness(t)
+	a := hs.a
+	a.window.ScmChangesRatio = 0.8
+	for _, name := range []string{"b.txt", "c.txt"} {
+		if err := os.WriteFile(filepath.Join(sub.git.repo.Root, name), []byte("new\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	a.gitChanged()
+	settleRepositories(t, hs, 2)
+	box, ok := hs.tt.Find("c.txt")
+	if !ok {
+		t.Fatal("missing module file")
+	}
+	hs.tt.Move(box.X+box.W/2, box.Y+box.H/2)
+	hs.settle()
+	if err := hs.tt.Click(locales.StageChanges()); err != nil {
+		t.Fatal(err)
+	}
+	settleRepositories(t, hs, 2)
+	staged := sub.groupEntries()[groupStaged]
+	if len(staged) != 1 || filepath.Base(staged[0].Path) != "c.txt" || len(a.rootRepository().groupEntries()[groupStaged]) != 0 {
+		t.Fatalf("stage button did not stage only c.txt in its repository: %+v", staged)
+	}
+	rows := a.repositoryChangeRows(a.rootRepositoryList())
+	if i := a.repositories.row; i >= 0 && i < len(rows) {
+		r := rows[i]
+		if r.kind != repositoryEntry {
+			t.Fatal("staging c.txt left its old index on a non-file row")
+		}
+		if row := r.repo.scmRows()[r.at]; !row.file() || filepath.Base(row.e.Path) != "c.txt" {
+			t.Fatalf("staging c.txt moved the cursor to %+v", row)
+		}
+	}
 }
 
 func TestRepositoryChangesScrollContinuouslyAndPinHeaders(t *testing.T) {

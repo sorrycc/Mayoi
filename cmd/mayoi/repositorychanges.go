@@ -18,6 +18,11 @@ const (
 	repositoryEntry
 )
 
+const (
+	repositoryHeaderHeight = float32(28)
+	scmRowHeight           = float32(22)
+)
+
 // A shared list owns scrolling; each row retains its repository's selection,
 // draft and command context. Keys include the root, including for equal paths.
 type repositoryChangeRow struct {
@@ -58,6 +63,7 @@ func (a *app) repositoryChangeRows(contexts []*gitContext) []repositoryChangeRow
 func (a *app) scmView(c *ui.Context) {
 	contexts := a.rootRepositoryList()
 	if contexts[0].git.repo == nil && len(contexts) > 1 {
+		// The folder is not a work tree; those under it are (#17).
 		contexts = contexts[1:]
 	}
 	if len(contexts) == 1 {
@@ -75,13 +81,17 @@ func (a *app) scmView(c *ui.Context) {
 			height = max(height-100, 1)
 		}
 		ratio := a.window.ScmChangesRatio
-		if ratio <= 0 {
-			ratio = 0.5
-		}
 		// Keep both panes reachable when a saved layout opens in a smaller window.
 		minimum := min(float32(100), height/3)
-		changesHeight := clamp(height*ratio, minimum, height-minimum)
-		ui.Column(c.Key("repository-changes-pane")).Height(changesHeight).Shrink(0).MinHeight(0).Children(func() {
+		changes := ui.Column(c.Key("repository-changes-pane")).Shrink(0).MinHeight(0)
+		if ratio > 0 {
+			changes.Height(clamp(height*ratio, minimum, height-minimum))
+		} else {
+			// Until dragged, fit the list's content, leaving at least half
+			// the sidebar to history when most repositories are clean.
+			changes.MaxHeight(height / 2)
+		}
+		changes.Children(func() {
 			ui.Text(c, strings.ToUpper(locales.GroupChanges())).FontSize(11).FontWeight(600).
 				LetterSpacing(0.4).TextColor(a.pal.muted).Height(24).Padding(4, 10).Shrink(0)
 			a.repositoryChanges(c, contexts)
@@ -91,7 +101,7 @@ func (a *app) scmView(c *ui.Context) {
 			ctx.scmList(c)
 			// This sits on the history's top edge and does not move with either list.
 			a.splitter(c, edgeTop, func(delta float32) {
-				a.window.ScmChangesRatio = clamp((changesHeight+delta)/height, minimum/height, 1-minimum/height)
+				a.window.ScmChangesRatio = clamp((changes.Bounds().H+delta)/height, minimum/height, 1-minimum/height)
 			}).Label(locales.ScmResizeChanges())
 		})
 	})
@@ -101,6 +111,7 @@ func (a *app) repositoryChanges(c *ui.Context, contexts []*gitContext) {
 	rows := a.repositoryChangeRows(contexts)
 	state := &a.repositories
 	if state.cursor != "" {
+		state.row = -1
 		for i, row := range rows {
 			if row.key == state.cursor {
 				state.row = i
@@ -147,7 +158,7 @@ func (a *app) repositoryChanges(c *ui.Context, contexts []*gitContext) {
 		r := rows[i]
 		switch r.kind {
 		case repositoryHeader:
-			head := ui.Box(c).FillWidth().Height(28).Children(func() { r.repo.repositoryHeader(c) })
+			head := ui.Box(c).FillWidth().Height(repositoryHeaderHeight).Children(func() { r.repo.repositoryHeader(c) })
 			headers[i] = head.Bounds()
 		case repositoryCommit:
 			r.repo.scmActivity(c)
@@ -157,7 +168,7 @@ func (a *app) repositoryChanges(c *ui.Context, contexts []*gitContext) {
 		case repositoryEntry:
 			var rowAction func()
 			row := r.repo.scmRows()[r.at]
-			box := ui.Box(c).FillWidth().Height(22).Padding(0, 6).Children(func() {
+			box := ui.Box(c).FillWidth().Height(scmRowHeight).Padding(0, 6).Children(func() {
 				switch {
 				case row.header:
 					r.repo.scmHeader(c, row, &rowAction)
@@ -173,31 +184,38 @@ func (a *app) repositoryChanges(c *ui.Context, contexts []*gitContext) {
 			}
 			if rowAction != nil {
 				a.post(func() {
-					rowAction()
 					state.row = i
+					state.cursor = r.key
+					rowAction()
 				})
 			}
 		}
 	}).Grow(1).MinHeight(0)
 	c.SetTheme(base)
 	a.repositoryGroupHeader(c, out, rows, headers)
-	if state.row < 0 || state.row >= len(rows) || rows[state.row].kind != repositoryEntry {
+	if state.row < 0 || state.row >= len(rows) {
 		return
 	}
 	r := rows[state.row]
+	if r.kind != repositoryEntry {
+		// Headers and commit controls have no file cursor. Keep list keys
+		// available in their repository, starting a Shift range at its files.
+		r.repo = r.repo.changesContext()
+		r.at = -1
+	}
 	// The shared cursor follows its key when a refresh inserts rows above it.
 	// Keep the repository cursor in sync even when its choice did not change.
 	r.repo.scm.row = r.at
 	reveal := func(i int) {
 		// The list already accounts for the repository header. Leave one
 		// additional row above the choice when the floating group covers it.
-		if box := entries[i]; box.H > 0 && box.Y < out.Bounds().Y+28+22 {
+		if box := entries[i]; box.H > 0 && box.Y < out.Bounds().Y+repositoryHeaderHeight+scmRowHeight {
 			i = max(i-1, 0)
 		}
 		state.changes.ScrollIntoView(i)
 	}
-	if out.Changed() && r.repo.scmRows()[r.at].file() {
-		if box := entries[state.row]; box.H > 0 && box.Y < out.Bounds().Y+28+22 {
+	if out.Changed() && r.at >= 0 && r.repo.scmRows()[r.at].file() {
+		if box := entries[state.row]; box.H > 0 && box.Y < out.Bounds().Y+repositoryHeaderHeight+scmRowHeight {
 			reveal(state.row)
 		}
 	}
@@ -210,6 +228,16 @@ func (a *app) repositoryChanges(c *ui.Context, contexts []*gitContext) {
 			}
 		}
 	})
+	if at := r.repo.scm.row; at != r.at {
+		// Cmd+A can choose the first file without asking to scroll. Mirror
+		// that cursor too, so the next key still addresses the same file.
+		for i, row := range rows {
+			if row.repo.git == r.repo.git && row.kind == repositoryEntry && row.at == at {
+				state.row = i
+				break
+			}
+		}
+	}
 }
 
 // The list pins repositories. A second, clipped layer pins the current change
@@ -229,7 +257,7 @@ func (a *app) repositoryGroupHeader(c *ui.Context, list ui.Element, rows []repos
 			break
 		}
 	}
-	top := viewport.Y + 28
+	top := viewport.Y + repositoryHeaderHeight
 	// A group can reach the pinned repository while the preceding row is
 	// still partially visible behind it. Include headers beneath that row.
 	for i, bounds := range headers {
@@ -246,19 +274,19 @@ func (a *app) repositoryGroupHeader(c *ui.Context, list ui.Element, rows []repos
 	offset := float32(0)
 	for i, bounds := range headers {
 		if i > group && bounds.H > 0 {
-			offset = min(offset, bounds.Y-top-22)
+			offset = min(offset, bounds.Y-top-scmRowHeight)
 		}
 	}
-	if offset <= -22 {
+	if offset <= -scmRowHeight {
 		return
 	}
 	r := rows[group]
 	row := r.repo.scmRows()[r.at]
 	list.Children(func() {
-		ui.Box(c.Key("pinned-group:" + r.key)).Absolute().Top(28).Left(0).Right(0).Height(22).Clip().
+		ui.Box(c.Key("pinned-group:" + r.key)).Absolute().Top(repositoryHeaderHeight).Left(0).Right(0).Height(scmRowHeight).Clip().
 			Role(ui.RoleGroup).Label(r.repo.label() + " · " + groupName(row.group)).Children(func() {
 			var action func()
-			ui.Box(c).Absolute().Top(offset).Left(0).Right(0).Height(22).Padding(0, 6).Children(func() {
+			ui.Box(c).Absolute().Top(offset).Left(0).Right(0).Height(scmRowHeight).Padding(0, 6).Children(func() {
 				r.repo.scmHeader(c, row, &action)
 			})
 			if action != nil {
@@ -275,13 +303,15 @@ func (a *gitContext) repositoryHeader(c *ui.Context) {
 	root := a.git.repo.Root
 	name := a.label()
 	selected := a.app.repositories.selected == root
-	head := ui.Row(c.Key("repository-header")).FillWidth().Height(28).Padding(0, 6).Gap(2).
+	head := ui.Row(c.Key("repository-header")).FillWidth().Height(repositoryHeaderHeight).Padding(0, 6).Gap(2).
 		AlignItems(ui.Center).Background(p.chrome)
 	if selected {
 		head.Background(p.accent.Alpha(0.05).Over(p.chrome))
 	} else if head.Hovered() {
 		head.Background(p.hover)
 	}
+	head.Transition(hoverFade)
+	width := head.Bounds().W
 	head.Children(func() {
 		if selected {
 			ui.Box(c.Key("selected-repository")).Absolute().Left(0).Top(5).Bottom(5).
@@ -297,7 +327,7 @@ func (a *gitContext) repositoryHeader(c *ui.Context) {
 			AlignItems(ui.Center).Justify(ui.Start).Label(locales.ScmSelectRepository(name)).Tooltip(root)
 		selectRepo.Children(func() {
 			ui.Text(c, name).FontSize(12).FontWeight(600).TextColor(p.text).SingleLine().Shrink(1)
-			if dir := filepath.Dir(a.relativeRoot()); dir != "." && a.app.window.SidebarWidth >= 300 {
+			if dir := filepath.Dir(a.relativeRoot()); dir != "." && width >= 300 {
 				ui.Text(c, filepath.ToSlash(dir)).FontSize(10.5).TextColor(p.faint).SingleLine().Shrink(100)
 			}
 		})
@@ -306,7 +336,7 @@ func (a *gitContext) repositoryHeader(c *ui.Context) {
 		}
 		a.scmBranchButton(c, true)
 		// The menu keeps every remote action available in a narrow sidebar.
-		if a.app.window.SidebarWidth >= 360 {
+		if width >= 360 {
 			a.scmActions(c)
 		}
 		ui.ButtonBase(c.Key("more")).Size(20, 24).Label(locales.ScmMoreActions()).

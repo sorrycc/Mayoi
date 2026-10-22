@@ -102,6 +102,8 @@ func (a *app) commandOn(id string) bool {
 		return s.Vim
 	case "view.sidebarRight":
 		return s.SidebarRight
+	case "view.compactFolders":
+		return s.ExplorerCompactFolders
 	case "view.terminalLocation":
 		return s.TerminalLocation == "editor"
 	case "git.blame":

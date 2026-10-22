@@ -2087,6 +2087,16 @@ func (msgs Messages) CmdViewAppearanceSystem() string {
 	return Catalog.Format(msgs.locale, "cmdViewAppearanceSystem", nil)
 }
 
+// CmdViewCompactFolders says "Compact Folders"
+// in the language the app shows.
+func CmdViewCompactFolders() string { return In(i18n.Locale()).CmdViewCompactFolders() }
+
+// CmdViewCompactFolders says "Compact Folders"
+// in the language of msgs.
+func (msgs Messages) CmdViewCompactFolders() string {
+	return Catalog.Format(msgs.locale, "cmdViewCompactFolders", nil)
+}
+
 // CmdViewExplorer says "Explorer"
 // in the language the app shows.
 func CmdViewExplorer() string { return In(i18n.Locale()).CmdViewExplorer() }

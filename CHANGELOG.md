@@ -3,6 +3,13 @@
 The update window shows the section of the version it offers. Every release
 needs a `## <version>` section here, or its build fails.
 
+## Unreleased
+
+- **Compact Folders** in the View menu or the Explorer folder header's
+  context menu, or `"explorerCompactFolders": true` in `settings.json`,
+  shows single-child folder chains on one row, as `src/main/java/com/example`.
+  Turn it off to show each folder on its own row again.
+
 ## 0.11.8
 
 - **View → New Terminals in Editor Area**, or `"terminalLocation": "editor"`

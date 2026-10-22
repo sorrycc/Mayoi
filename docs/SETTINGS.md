@@ -67,6 +67,7 @@ takes its default.
 | `diffContext`           | `3`           | `0` to `100` unchanged lines around each change                | A diff's **Context** menu                  |
 | `diffSyncScroll`        | `true`        | `true`, `false`                                                | A diff's **Synchronized Scrolling** menu   |
 | `diffAlignedRows`       | `true`        | `true`, `false`                                                | A diff's **Layout** menu                   |
+| `explorerCompactFolders` | `false`      | `true`, `false`                                             | **View → Compact Folders**                    |
 | `scmTree`               | `false`       | `true`, `false`                                             | **View as Tree** in Source Control's menu      |
 | `scmAllBranches`        | `false`       | `true`, `false`                                             | **Show All Branches** in Source Control's menu |
 | `syncIgnored`           | none          | Keys, `"settings.json"`, `"keybindings.json"`               | The [settings sync](#settings-sync) panel      |
@@ -129,6 +130,11 @@ differ in width lines them up only roughly.
 - **`vimCtrlKeys`** gives ⌃F, ⌃B, ⌃R, ⌃A and ⌃X to vim's normal mode on Windows and Linux, rather than to Find,
   Toggle Sidebar, Open Recent, Select All and Cut. On macOS, where those commands use ⌘, vim always has them.
 - **`blame`** shows who last changed the caret's line, and when, at the end of the line.
+- **`explorerCompactFolders`** shows each chain of folders that contain only one child folder on one Explorer row,
+  as `src/main/java/com/example`. The row's actions use the last folder in the chain. Turn it off to show the
+  folders separately, including when you want to rename or move an intermediate folder. The Explorer folder
+  header's context menu also has **Compact Folders**. Dependency and build folders such as `node_modules`,
+  `.venv` and `target` stay separate and are read only when expanded.
 - **`scmTree`** lists Source Control's changes in a tree of their folders, rather than by path.
 - **`scmAllBranches`** shows the commits of every branch and tag, not only those of the branch checked out.
 - **`aiModel`** is the model of Mon's AI gateway that writes commit messages, `deepseek-flash` when empty. The models

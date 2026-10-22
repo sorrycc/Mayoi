@@ -205,6 +205,7 @@
   "cmdViewAppearanceDark": "深色",
   "cmdViewAppearanceLight": "浅色",
   "cmdViewAppearanceSystem": "跟随系统",
+  "cmdViewCompactFolders": "压缩文件夹",
   "cmdViewExplorer": "资源管理器",
   "cmdViewLocaleSystem": "跟随系统语言",
   "cmdViewLockColumn": "切换栏锁定",

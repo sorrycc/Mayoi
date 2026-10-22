@@ -67,9 +67,7 @@ func TestTerminalLinkOpensFile(t *testing.T) {
 // Exercise the terminal's actual modifier-click path, including a shell
 // directory different from the one the terminal started in.
 func TestTerminalCommandClickOpensFile(t *testing.T) {
-	for _, rel := range []string{"internal/a/a.go", "notes.md"} {
-		t.Run(rel, func(t *testing.T) { testTerminalCommandClickFile(t, rel) })
-	}
+	testTerminalCommandClickFile(t, "internal/a/a.go")
 }
 
 func testTerminalCommandClickFile(t *testing.T, rel string) {

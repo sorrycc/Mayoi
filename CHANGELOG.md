@@ -7,8 +7,7 @@ needs a `## <version>` section here, or its build fails.
 
 - Command-clicking a file path in a local terminal opens it in Mayoi,
   including files Git ignores; relative paths use the shell's directory,
-  and :line or :line:column suffixes move the caret there. Bare filenames
-  such as notes.md work too; holding Command over a path underlines it.
+  and :line or :line:column suffixes move the caret there.
 
 ## 0.11.10
 

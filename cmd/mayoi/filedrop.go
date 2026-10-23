@@ -1,6 +1,7 @@
 package main
 
 import (
+	"os"
 	"slices"
 	"strings"
 
@@ -63,13 +64,15 @@ func (a *app) dragFile(row ui.Element, f *fileDrag) {
 }
 
 // fileDragData is what a drag out to another app offers: the file as a
-// file list when it is of this machine, so the drop gets a real file, and
-// its path as text otherwise, as a drop on the app's own terminal types
-// it.
+// file list when it is of this machine and still there, so the drop gets
+// a real file, and its path as text otherwise, as a drop on the app's own
+// terminal types it.
 func fileDragData(path string) mtransfer.Data {
 	if remote.HostOf(path) == "" {
-		if data, err := mtransfer.FileData(path); err == nil {
-			return data
+		if _, err := os.Lstat(path); err == nil {
+			if data, ferr := mtransfer.FileData(path); ferr == nil {
+				return data
+			}
 		}
 	}
 	return mtransfer.TextData(remote.Display(path))

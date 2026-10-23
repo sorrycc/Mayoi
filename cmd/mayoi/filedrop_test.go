@@ -2,6 +2,7 @@ package main
 
 import (
 	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
@@ -20,9 +21,11 @@ func tabNames(col *column) string {
 }
 
 func TestFileDragData(t *testing.T) {
-	// A local file goes out as a file list, one file URL per item.
-	local := t.TempDir() + string(os.PathSeparator) + "main.go"
-	data := fileDragData(local)
+	// An existing local file goes out as a file list, one file URL per
+	// item.
+	file := filepath.Join(t.TempDir(), "main.go")
+	os.WriteFile(file, []byte("package main\n"), 0o644)
+	data := fileDragData(file)
 	urls, err := data.URLs()
 	if err != nil || len(urls) != 1 {
 		t.Fatalf("urls %v, err %v", urls, err)
@@ -31,10 +34,21 @@ func TestFileDragData(t *testing.T) {
 		t.Fatalf("url %q", urls[0])
 	}
 
+	// A local path that is gone goes out as its path, not a dangling file.
+	gone := filepath.Join(t.TempDir(), "gone.go")
+	data = fileDragData(gone)
+	text, err := data.Read(mtransfer.Text)
+	if err != nil || string(text) != gone {
+		t.Fatalf("text %q, err %v", text, err)
+	}
+	if _, err := data.Read(mtransfer.FileList); err == nil {
+		t.Fatal("a missing file offered as a local file")
+	}
+
 	// A remote file goes out as its displayed path: text, not a file of
 	// this machine.
 	data = fileDragData(remote.Path("dev", "/srv/app/main.go"))
-	text, err := data.Read(mtransfer.Text)
+	text, err = data.Read(mtransfer.Text)
 	if err != nil || string(text) != "dev:/srv/app/main.go" {
 		t.Fatalf("text %q, err %v", text, err)
 	}

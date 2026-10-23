@@ -497,28 +497,46 @@ func TestVimCursorAndFlash(t *testing.T) {
 // the one it left fading out over it: the white of INSERT broke up the
 // strokes of NORMAL as it went.
 func TestVimBadgeShowsOneMode(t *testing.T) {
-	hs, _ := vimHarness(t, "a.txt", "one two\n")
-	hs.vim("i")
-	hs.settle()
-	hs.tt.Key(0, ui.KeyEscape)
-	// Past the colors' crossing over, 140 ms.
-	for range 9 {
-		step(hs.tt)
-	}
-	box, ok := hs.tt.Find("NORMAL")
-	if !ok {
-		t.Fatal("no NORMAL in the status bar")
-	}
-	img := hs.tt.Image()
-	r := image.Rect(int(box.X), int(box.Y), int(box.X+box.W), int(box.Y+box.H)).Intersect(img.Bounds())
-	// The badge's ground, left of its name; nothing on it is lighter.
-	ground := luma(img.RGBAAt(r.Min.X+3, (r.Min.Y+r.Max.Y)/2))
-	for y := r.Min.Y; y < r.Max.Y; y++ {
-		for x := r.Min.X + 3; x < r.Max.X-3; x++ {
-			if c := img.RGBAAt(x, y); luma(c) > ground+3 {
-				t.Fatalf("the badge shows %v at (%d, %d), lighter than its ground", c, x, y)
+	for _, tc := range []struct {
+		name  string
+		scale float32
+	}{{"native", 1}, {"fractional", 1.15}} {
+		t.Run(tc.name, func(t *testing.T) {
+			hs, _ := vimHarness(t, "a.txt", "one two\n")
+			hs.tt.SetScale(tc.scale)
+			hs.vim("i")
+			hs.settle()
+			hs.tt.Key(0, ui.KeyEscape)
+			// Past the colors' crossing over, 140 ms.
+			for range 9 {
+				step(hs.tt)
 			}
-		}
+			box, ok := hs.tt.Find("NORMAL")
+			if !ok {
+				t.Fatal("no NORMAL in the status bar")
+			}
+			box.X, box.Y = box.X*tc.scale, box.Y*tc.scale
+			box.W, box.H = box.W*tc.scale, box.H*tc.scale
+			img := hs.tt.Image()
+			r := image.Rect(int(box.X), int(box.Y), int(box.X+box.W), int(box.Y+box.H)).Intersect(img.Bounds())
+			// The badge's ground, left of its name; nothing on it is lighter.
+			ground := luma(img.RGBAAt(r.Min.X+3, (r.Min.Y+r.Max.Y)/2))
+			for y := r.Min.Y; y < r.Max.Y; y++ {
+				// Pixel centers must be inside the badge, away from partially
+				// covered edges and its 4-DIP rounded corners.
+				if cy := float32(y) + 0.5; cy < box.Y+tc.scale || cy > box.Y+box.H-tc.scale {
+					continue
+				}
+				for x := r.Min.X + 3; x < r.Max.X-3; x++ {
+					if cx := float32(x) + 0.5; cx < box.X+4*tc.scale || cx > box.X+box.W-4*tc.scale {
+						continue
+					}
+					if c := img.RGBAAt(x, y); luma(c) > ground+3 {
+						t.Fatalf("the badge shows %v at (%d, %d), lighter than its ground", c, x, y)
+					}
+				}
+			}
+		})
 	}
 }
 

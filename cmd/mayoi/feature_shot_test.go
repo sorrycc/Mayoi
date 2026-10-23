@@ -688,9 +688,7 @@ func TestFeatWelcome(t *testing.T) {
 func featRemoteHome(t *testing.T) (home, project string) {
 	useFakeSSH(t)
 	featShell(t)
-	home = "/tmp/home/deploy"
-	os.RemoveAll("/tmp/home")
-	t.Cleanup(func() { os.RemoveAll("/tmp/home") })
+	home = filepath.Join(t.TempDir(), "deploy")
 	os.MkdirAll(filepath.Join(home, ".ssh"), 0o700)
 	os.WriteFile(filepath.Join(home, ".ssh", "config"), []byte(`Host dev-box
   HostName 10.0.0.12

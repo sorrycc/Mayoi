@@ -9,9 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/egoist/mygo/ui"
-
 	mtransfer "github.com/egoist/mygo/transfer"
+	"github.com/egoist/mygo/ui"
 
 	"mayoi/internal/remote"
 	"mayoi/internal/vfs"

@@ -125,6 +125,7 @@ func (h *fakeHost) stepProject(int)         {}
 func (h *fakeHost) showProject(int)         {}
 func (h *fakeHost) closeProject()           {}
 func (h *fakeHost) projectTabsChanged()     {}
+func (h *fakeHost) nativeDrags() bool       { return false }
 
 // workspaceFixture makes a folder of a few files.
 func workspaceFixture(t testing.TB) string {

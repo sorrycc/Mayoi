@@ -1,11 +1,13 @@
 package main
 
 import (
+	"os"
 	"slices"
 	"strings"
 
 	"mayoi/internal/remote"
 
+	mtransfer "github.com/egoist/mygo/transfer"
 	"github.com/egoist/mygo/ui"
 )
 
@@ -49,12 +51,31 @@ func (a *app) showDropped(f *fileDrag) {
 	}
 }
 
-// dragFile makes a row of the sidebar drag its file to the columns.
+// dragFile makes a row of the sidebar drag its file to the columns. The
+// drag also carries the file out to other apps, as a copy.
 func (a *app) dragFile(row ui.Element, f *fileDrag) {
 	row.Drag(dragItem{file: f})
+	if a.host.nativeDrags() {
+		row.DragDataFrom(func() mtransfer.Data { return fileDragData(f.path) })
+	}
 	if row.Dragging() {
 		a.dragNow = true
 	}
+}
+
+// fileDragData is what a drag out to another app offers: the file as a
+// file list when it is of this machine and still there, so the drop gets
+// a real file, and its path as text otherwise, as a drop on the app's own
+// terminal types it.
+func fileDragData(path string) mtransfer.Data {
+	if remote.HostOf(path) == "" {
+		if _, err := os.Lstat(path); err == nil {
+			if data, ferr := mtransfer.FileData(path); ferr == nil {
+				return data
+			}
+		}
+	}
+	return mtransfer.TextData(remote.Display(path))
 }
 
 // dropFiles opens the files dropped on a column at place at, the first

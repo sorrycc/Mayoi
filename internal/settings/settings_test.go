@@ -16,6 +16,7 @@ func TestRoundTrip(t *testing.T) {
 	w := s.NewWindow()
 	w.Folder, w.Columns = "/tmp/x", []Column{{Tabs: []Tab{{File: "/tmp/x/a.go"}}}}
 	w.SidebarWidth = 300
+	w.ScmChangesRatio = 0.65
 	// Laid out as the window focused last, then as it chooses.
 	y := s.NewWindow()
 	y.Folder = "/tmp/y"
@@ -26,7 +27,7 @@ func TestRoundTrip(t *testing.T) {
 		got.Windows[1].Folder != "/tmp/x" || len(got.Windows[1].Columns) != 1 {
 		t.Errorf("loaded %+v", got)
 	}
-	if x, y := got.Windows[1].Layout, got.Windows[0].Layout; x.SidebarWidth != 300 || x.SidebarView != "" ||
+	if x, y := got.Windows[1].Layout, got.Windows[0].Layout; x.SidebarWidth != 300 || x.SidebarView != "" || x.ScmChangesRatio != 0.65 ||
 		y.SidebarWidth != 300 || y.SidebarView != "git" || y.PanelHeight != DefaultLayout.PanelHeight {
 		t.Errorf("layouts %+v and %+v", x, y)
 	}

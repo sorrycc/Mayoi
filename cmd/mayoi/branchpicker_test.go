@@ -3,6 +3,7 @@ package main
 import (
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/egoist/mygo/ui"
 
@@ -97,6 +98,15 @@ func TestSubmoduleBranchPickerCreate(t *testing.T) {
 	hs.settle()
 	if a.branches.repoRoot != root {
 		t.Fatal("status-bar picker belongs to the wrong repository")
+	}
+	// BranchList runs in the background; a fixed number of frames does
+	// not guarantee it has completed when the full suite is busy.
+	deadline := time.Now().Add(8 * time.Second)
+	for a.branches.loading && time.Now().Before(deadline) {
+		hs.settle()
+	}
+	if a.branches.loading {
+		t.Fatal("the branch picker never finished reading branches")
 	}
 	if err := hs.tt.Click(locales.CreateBranchEllipsis()); err != nil {
 		t.Fatal(err)

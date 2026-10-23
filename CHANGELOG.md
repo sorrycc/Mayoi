@@ -3,6 +3,21 @@
 The update window shows the section of the version it offers. Every release
 needs a `## <version>` section here, or its build fails.
 
+## Unreleased
+
+- **Source Control** lists parent repositories and submodules in one continuous
+  scroll, with repository and change-group headers pinned above their files.
+  Headers combine branch and remote actions with a full-width selection marker;
+  arrows expand sections independently of selecting history, and clean
+  repositories can expand to show their retained commit drafts.
+- The divider between **Source Control** changes and history can be dragged,
+  and its position is saved per workspace. Until dragged, changes fit their
+  content up to half the view, leaving clean repositories more room for history.
+  Keyboard selection works from repository headers, and row actions retain
+  their cursor by identity as changes move or disappear.
+- Submodule entries in **Source Control** distinguish changes to their commit
+  reference from uncommitted content inside the submodule.
+
 ## 0.11.11
 
 - The welcome page has a **Star on GitHub** link at its foot, which opens

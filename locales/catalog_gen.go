@@ -9213,6 +9213,16 @@ func (msgs Messages) ScmResetTo(branch string) string {
 	return Catalog.Format(msgs.locale, "scmResetTo", map[string]any{"branch": branch})
 }
 
+// ScmResizeChanges says "Resize Changes and History"
+// in the language the app shows.
+func ScmResizeChanges() string { return In(i18n.Locale()).ScmResizeChanges() }
+
+// ScmResizeChanges says "Resize Changes and History"
+// in the language of msgs.
+func (msgs Messages) ScmResizeChanges() string {
+	return Catalog.Format(msgs.locale, "scmResizeChanges", nil)
+}
+
 // ScmRevealInExplorer says "Reveal in Explorer"
 // in the language the app shows.
 func ScmRevealInExplorer() string { return In(i18n.Locale()).ScmRevealInExplorer() }
@@ -9241,6 +9251,16 @@ func ScmRunningGit() string { return In(i18n.Locale()).ScmRunningGit() }
 // in the language of msgs.
 func (msgs Messages) ScmRunningGit() string {
 	return Catalog.Format(msgs.locale, "scmRunningGit", nil)
+}
+
+// ScmSelectRepository says "Select Repository {name}"
+// in the language the app shows.
+func ScmSelectRepository(name string) string { return In(i18n.Locale()).ScmSelectRepository(name) }
+
+// ScmSelectRepository says "Select Repository {name}"
+// in the language of msgs.
+func (msgs Messages) ScmSelectRepository(name string) string {
+	return Catalog.Format(msgs.locale, "scmSelectRepository", map[string]any{"name": name})
 }
 
 // ScmShowAllBranches says "Show All Branches"
@@ -9313,6 +9333,46 @@ func (msgs Messages) ScmStopWriting() string {
 	return Catalog.Format(msgs.locale, "scmStopWriting", nil)
 }
 
+// ScmSubmoduleCommit says "Submodule commit changed"
+// in the language the app shows.
+func ScmSubmoduleCommit() string { return In(i18n.Locale()).ScmSubmoduleCommit() }
+
+// ScmSubmoduleCommit says "Submodule commit changed"
+// in the language of msgs.
+func (msgs Messages) ScmSubmoduleCommit() string {
+	return Catalog.Format(msgs.locale, "scmSubmoduleCommit", nil)
+}
+
+// ScmSubmoduleCommitLabel says "Reference"
+// in the language the app shows.
+func ScmSubmoduleCommitLabel() string { return In(i18n.Locale()).ScmSubmoduleCommitLabel() }
+
+// ScmSubmoduleCommitLabel says "Reference"
+// in the language of msgs.
+func (msgs Messages) ScmSubmoduleCommitLabel() string {
+	return Catalog.Format(msgs.locale, "scmSubmoduleCommitLabel", nil)
+}
+
+// ScmSubmoduleContentLabel says "Content"
+// in the language the app shows.
+func ScmSubmoduleContentLabel() string { return In(i18n.Locale()).ScmSubmoduleContentLabel() }
+
+// ScmSubmoduleContentLabel says "Content"
+// in the language of msgs.
+func (msgs Messages) ScmSubmoduleContentLabel() string {
+	return Catalog.Format(msgs.locale, "scmSubmoduleContentLabel", nil)
+}
+
+// ScmSubmoduleDirty says "Uncommitted changes in submodule"
+// in the language the app shows.
+func ScmSubmoduleDirty() string { return In(i18n.Locale()).ScmSubmoduleDirty() }
+
+// ScmSubmoduleDirty says "Uncommitted changes in submodule"
+// in the language of msgs.
+func (msgs Messages) ScmSubmoduleDirty() string {
+	return Catalog.Format(msgs.locale, "scmSubmoduleDirty", nil)
+}
+
 // ScmSummary says "Summary"
 // in the language the app shows.
 func ScmSummary() string { return In(i18n.Locale()).ScmSummary() }
@@ -9331,6 +9391,16 @@ func ScmSummaryLong() string { return In(i18n.Locale()).ScmSummaryLong() }
 // in the language of msgs.
 func (msgs Messages) ScmSummaryLong() string {
 	return Catalog.Format(msgs.locale, "scmSummaryLong", nil)
+}
+
+// ScmToggleRepository says "Expand or Collapse {name}"
+// in the language the app shows.
+func ScmToggleRepository(name string) string { return In(i18n.Locale()).ScmToggleRepository(name) }
+
+// ScmToggleRepository says "Expand or Collapse {name}"
+// in the language of msgs.
+func (msgs Messages) ScmToggleRepository(name string) string {
+	return Catalog.Format(msgs.locale, "scmToggleRepository", map[string]any{"name": name})
 }
 
 // ScmTreeClean says "The working tree is clean."

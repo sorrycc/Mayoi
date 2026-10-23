@@ -316,6 +316,9 @@ type Layout struct {
 	// at first, and CommitFilesWidth is how wide it is.
 	CommitFilesOpen  bool    `json:"commitFilesOpen,omitempty"`
 	CommitFilesWidth float32 `json:"commitFilesWidth,omitempty"`
+	// ScmChangesRatio is the share of the multi-repository view for changes.
+	// Zero fits the changes to their content, up to half the view.
+	ScmChangesRatio float32 `json:"scmChangesRatio,omitempty"`
 }
 
 // DefaultLayout is the layout of a first launch.

@@ -18,6 +18,32 @@ needs a `## <version>` section here, or its build fails.
 - Submodule entries in **Source Control** distinguish changes to their commit
   reference from uncommitted content inside the submodule.
 
+## 0.11.11
+
+- The welcome page has a **Star on GitHub** link at its foot, which opens
+  Mayoi's repository in the browser.
+- A click on a tab of another column while the find box is open no longer
+  crashes Mayoi: the box moves to that column, rather than show in both.
+- A tab or a terminal dragged from one window and dropped in another stays
+  in its window, rather than show in both, which crashed Mayoi as the
+  terminal took the keyboard.
+- A crash log of a version from before 0.11.6, which doesn't say its
+  version, is reported as of an unknown version, rather than of the one
+  sending it.
+
+## 0.11.10
+
+- The diff's toolbar tells its buttons apart: the Whitespace menu shows ¶,
+  the Context menu a folded list, the Highlight menu two letters, and the
+  button for a commit's files a tree. The split toggle is gone, as the
+  Layout menu chooses side by side, one column or auto.
+- A commit's tab no longer shows the panel of its files at first: the
+  button in the diff's toolbar, or **Git → Show Files of Commits**, shows
+  it, and it stays shown in every commit's tab until it is hidden.
+- **⌘F** and **⌥⌘F** select the query the find box has, as VS Code does,
+  so typing replaces it: when the box opens again with the last query, and
+  when it has the focus already.
+
 ## 0.11.9
 
 - The Grok Bot theme: **View → Theme → Grok Bot** takes the Grok Bot app's

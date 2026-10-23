@@ -28,6 +28,7 @@ import (
 	"github.com/egoist/mygo/ui"
 	xdraw "golang.org/x/image/draw"
 
+	"mayoi/internal/bg"
 	"mayoi/internal/remote"
 	"mayoi/internal/settings"
 	"mayoi/internal/vfs"
@@ -496,7 +497,7 @@ func (f *frame) setProjectIcon(a *app, dir, path string) {
 	}
 	icons := f.m.icons
 	name, _ := railName(dir)
-	go func() {
+	bg.Go(func() {
 		icon, err := importProjectIcon(icons, path)
 		a.post(func() {
 			if err != nil {
@@ -505,7 +506,7 @@ func (f *frame) setProjectIcon(a *app, dir, path string) {
 			}
 			f.setTabStyle(dir, func(st *settings.TabStyle) { st.Icon, st.Label = icon, "" })
 		})
-	}()
+	})
 }
 
 // move puts h before the project before on the rail, at its end for nil.
@@ -1814,7 +1815,7 @@ func (f *frame) scanProjectLogo(a *app, h *desktop, dir, icon string) {
 	h.logoScannedAt = time.Now()
 	h.logoGen++
 	gen := h.logoGen
-	go func() {
+	bg.Go(func() {
 		defer recoverCrash()
 		var src ui.ImageSource
 		if icon != "" {
@@ -1829,7 +1830,7 @@ func (f *frame) scanProjectLogo(a *app, h *desktop, dir, icon string) {
 			}
 			h.logoSrc = src
 		})
-	}()
+	})
 }
 
 // unit is 1 for true and 0 for false, as an animation's target.

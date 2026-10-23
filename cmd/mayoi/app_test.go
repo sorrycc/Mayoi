@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"image/png"
+	"mayoi/internal/bg"
 	"mayoi/internal/mon"
 	"mayoi/internal/settings"
 	"os"
@@ -154,6 +155,9 @@ type harness struct {
 	h    *fakeHost
 	tt   *ui.Tester
 	root string
+	// held counts the background work a test holds on purpose, which
+	// settle does not wait for.
+	held int64
 }
 
 func newHarness(t testing.TB, dark bool) *harness {
@@ -180,13 +184,51 @@ func step(tt *ui.Tester) {
 }
 
 // settle draws frames until the background work (reading directories,
-// highlighting, indexing) is done.
+// highlighting, indexing, git) is done: half a second of the tester's
+// clock, which the animations, the double clicks and the waits of the app
+// count by, and frames at the same time for as long as some is running or
+// posted, which on a busy machine is longer than on an idle one. While
+// work only runs, no frame is drawn, to leave the machine to it. Idle
+// counts for two frames in a row, as a frame can start work that one
+// finished asks for.
 func (hs *harness) settle() {
 	for range 30 {
 		step(hs.tt)
-		time.Sleep(5 * time.Millisecond)
+	}
+	for idle, deadline := 0, time.Now().Add(10*time.Second); idle < 2 && time.Now().Before(deadline); {
+		running, queued := hs.busy()
+		switch {
+		case queued:
+			idle = 0
+			hs.tt.Frame()
+		case running:
+			idle = 0
+			time.Sleep(time.Millisecond)
+		default:
+			idle++
+			hs.tt.Frame()
+		}
+	}
+	if !hs.idle() {
+		hs.t.Logf("settle: %d background jobs still run after 10s", bg.Running()-hs.held)
 	}
 	step(hs.tt)
+}
+
+// busy reports whether background work runs, and whether some it posted
+// waits for a frame. Whether the view asks for a frame does not count: it
+// always does while something on screen moves.
+func (hs *harness) busy() (running, queued bool) {
+	hs.a.mu.Lock()
+	n := len(hs.a.queue)
+	hs.a.mu.Unlock()
+	return bg.Running() > hs.held, n > 0
+}
+
+// idle reports whether no background work runs and none posted waits.
+func (hs *harness) idle() bool {
+	running, queued := hs.busy()
+	return !running && !queued
 }
 
 func (hs *harness) shot(name string) {

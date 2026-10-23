@@ -9,6 +9,7 @@ import (
 
 	"github.com/egoist/mygo/ui"
 
+	"mayoi/internal/bg"
 	"mayoi/internal/linediff"
 	"mayoi/internal/vfs"
 )
@@ -52,7 +53,7 @@ func (g *Marks) Refresh(path string, snap ui.TextSnapshot, post func(func())) {
 	if (!g.loaded || g.stale) && !g.loading {
 		g.loading, g.stale = true, false
 		dir, name := filepath.Dir(path), filepath.Base(path)
-		go func() {
+		bg.Go(func() {
 			out, err := vfs.Output(dir, "git", "show", "HEAD:./"+name)
 			post(func() {
 				g.loading, g.loaded, g.diffed = false, true, false
@@ -65,19 +66,19 @@ func (g *Marks) Refresh(path string, snap ui.TextSnapshot, post func(func())) {
 					g.Lines, g.Hunks, g.of = nil, nil, nil
 				}
 			})
-		}()
+		})
 	}
 	if !g.loaded || g.base == nil || g.running || g.waiting || g.diffed && g.Version == snap.Version() {
 		return
 	}
 	if wait := diffPause - time.Since(g.started); g.diffed && wait > 0 {
 		g.waiting = true
-		time.AfterFunc(wait, func() { post(func() { g.waiting = false }) })
+		bg.AfterFunc(wait, func() { post(func() { g.waiting = false }) })
 		return
 	}
 	g.running, g.started = true, time.Now()
 	base := g.base
-	go func() {
+	bg.Go(func() {
 		lines := strings.Split(snap.String(), "\n")
 		hunks := linediff.Hunks(base, lines)
 		marks := linediff.Marks(hunks, len(lines))
@@ -87,7 +88,7 @@ func (g *Marks) Refresh(path string, snap ui.TextSnapshot, post func(func())) {
 				g.Lines, g.Hunks, g.of, g.Version, g.diffed = marks, hunks, base, snap.Version(), true
 			}
 		})
-	}()
+	})
 }
 
 // Base returns the lines of the file at HEAD that the hunks are of, nil

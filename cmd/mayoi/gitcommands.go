@@ -49,22 +49,17 @@ func (a *app) chooseScmFile(f *diffFile) {
 	}
 	ctx.changesContext().chooseScmFile(f)
 }
-func (a *app) openChange(r scmRow, focus bool)       { a.repository().openChange(r, focus) }
-func (a *app) scmActionEntries(r scmRow) []git.Entry { return a.repository().scmActionEntries(r) }
-func (a *app) toggleStaged(r scmRow)                 { a.repository().toggleStaged(r) }
-func (a *app) stage(paths ...string)                 { a.repository().stage(paths...) }
-func (a *app) unstage(paths ...string)               { a.repository().unstage(paths...) }
-func (a *app) stageAll()                             { a.repository().stageAll() }
-func (a *app) discard(es ...git.Entry)               { a.repository().discard(es...) }
-func (a *app) startAmend()                           { a.repository().startAmend() }
-func (a *app) undoCommit()                           { a.repository().undoCommit() }
-func (a *app) undoCommitOf(hash string)              { a.repository().undoCommitOf(hash) }
-func (a *app) commit(push bool)                      { a.repository().commit(push) }
-func (a *app) invalidateScmPanels()                  { a.repository().invalidateScmPanels() }
-func (a *app) refreshScmPanels()                     { a.repository().refreshScmPanels() }
-func (a *app) panelLog(key, from, to string) *scmPanelLog {
-	return a.repository().panelLog(key, from, to)
-}
+func (a *app) scmActionEntries(r scmRow) []git.Entry  { return a.repository().scmActionEntries(r) }
+func (a *app) toggleStaged(r scmRow)                  { a.repository().toggleStaged(r) }
+func (a *app) stage(paths ...string)                  { a.repository().stage(paths...) }
+func (a *app) stageAll()                              { a.repository().stageAll() }
+func (a *app) discard(es ...git.Entry)                { a.repository().discard(es...) }
+func (a *app) startAmend()                            { a.repository().startAmend() }
+func (a *app) undoCommit()                            { a.repository().undoCommit() }
+func (a *app) undoCommitOf(hash string)               { a.repository().undoCommitOf(hash) }
+func (a *app) commit(push bool)                       { a.repository().commit(push) }
+func (a *app) invalidateScmPanels()                   { a.repository().invalidateScmPanels() }
+func (a *app) refreshScmPanels()                      { a.repository().refreshScmPanels() }
 func (a *app) activateScmPanelRow(r scmRow)           { a.repository().activateScmPanelRow(r) }
 func (a *app) switchScmPanelTab(tab scmPanelTab)      { a.repository().switchScmPanelTab(tab) }
 func (a *app) askRenamePanelBranch(b git.Branch)      { a.repository().askRenamePanelBranch(b) }
@@ -75,7 +70,6 @@ func (a *app) askPanelRemote(remote *git.Remote, push bool) {
 func (a *app) askPanelNewBranch()                   { a.repository().askPanelNewBranch() }
 func (a *app) writeMessage()                        { a.repository().writeMessage() }
 func (a *app) openBranchPicker()                    { a.repository().openBranchPicker() }
-func (a *app) closeBranchPicker()                   { a.repository().closeBranchPicker() }
 func (a *app) branchChoices() []branchChoice        { return a.repository().branchChoices() }
 func (a *app) commitPatch(cm git.Commit, save bool) { a.repository().commitPatch(cm, save) }
 func (a *app) commitRemote(cm git.Commit)           { a.repository().commitRemote(cm) }

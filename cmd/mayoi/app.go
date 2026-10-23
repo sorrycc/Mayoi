@@ -13,6 +13,7 @@ import (
 	"github.com/egoist/mygo/plugins/terminal"
 	"github.com/egoist/mygo/ui"
 
+	"mayoi/internal/bg"
 	"mayoi/internal/git"
 	"mayoi/internal/highlight"
 	"mayoi/internal/keymap"
@@ -211,6 +212,10 @@ type app struct {
 	docs []*document
 	cols []*column
 	col  int
+	// findCol is the column the find widget shows in, the one with the
+	// keyboard as the frame's columns began: a click on another's tab as
+	// they draw moves col, and the widget's input binds one control.
+	findCol *column
 	// review is the comments on lines of the changes, to send to an agent.
 	review review
 	// fileCol caches the last unlocked column used for files. Removal clears
@@ -700,7 +705,7 @@ func (a *app) refreshIndex() {
 	a.indexed = time.Now()
 	a.indexing, a.indexStale = true, false
 	root := a.root
-	go func() {
+	bg.Go(func() {
 		defer recoverCrash()
 		files := workspace.Index(root)
 		a.post(func() {
@@ -710,7 +715,7 @@ func (a *app) refreshIndex() {
 				a.quick.stale = true
 			}
 		})
-	}()
+	})
 }
 
 // refreshIgnored asks Git again in the background what it ignores, when
@@ -724,7 +729,7 @@ func (a *app) refreshIgnored() {
 	}
 	a.ignoring, a.ignoredStale = true, false
 	root := a.root
-	go func() {
+	bg.Go(func() {
 		defer recoverCrash()
 		ignored := workspace.Ignored(root)
 		a.post(func() {
@@ -733,7 +738,7 @@ func (a *app) refreshIgnored() {
 				a.ignored = ignored
 			}
 		})
-	}()
+	})
 }
 
 // isIgnored reports whether Git ignores path, or a folder above it.

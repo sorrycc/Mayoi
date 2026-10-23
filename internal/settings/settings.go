@@ -312,10 +312,10 @@ type Layout struct {
 	SidebarWidth  float32 `json:"sidebarWidth,omitempty"`
 	PanelHeight   float32 `json:"panelHeight,omitempty"`
 	PanelWidth    float32 `json:"panelWidth,omitempty"`
-	// CommitFilesClosed hides the panel of the files of a commit's tab,
-	// and CommitFilesWidth is how wide it is.
-	CommitFilesClosed bool    `json:"commitFilesClosed,omitempty"`
-	CommitFilesWidth  float32 `json:"commitFilesWidth,omitempty"`
+	// CommitFilesOpen shows the panel of the files of a commit's tab, hidden
+	// at first, and CommitFilesWidth is how wide it is.
+	CommitFilesOpen  bool    `json:"commitFilesOpen,omitempty"`
+	CommitFilesWidth float32 `json:"commitFilesWidth,omitempty"`
 	// ScmChangesRatio is the share of the multi-repository view for changes.
 	// Zero fits the changes to their content, up to half the view.
 	ScmChangesRatio float32 `json:"scmChangesRatio,omitempty"`

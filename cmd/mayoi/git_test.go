@@ -786,8 +786,8 @@ func TestDiffOfEveryFile(t *testing.T) {
 	if !hs.tt.HasText("Changes") {
 		t.Errorf("no name: %q", hs.tt.Texts())
 	}
-	if _, ok := hs.tt.Find("Side by Side"); !ok {
-		t.Errorf("no side-by-side diff toggle")
+	if _, ok := hs.tt.Find("Layout"); !ok {
+		t.Errorf("no diff layout menu")
 	}
 	hs.shot("git-diff-all")
 	v.cursor = -1

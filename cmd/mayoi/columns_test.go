@@ -524,6 +524,33 @@ func TestFindFollowsTheColumn(t *testing.T) {
 	}
 }
 
+// A press on a tab of the column on the right, while find is open on the
+// left, gives that column the keyboard as the columns draw: find moves
+// with it at the next frame, rather than show in both, whose input binds
+// one control.
+func TestFindStaysInOneColumnAsATabIsPressed(t *testing.T) {
+	hs := newHarness(t, true)
+	a, tt := hs.a, hs.tt
+	a.openFile(hs.path("main.go"), true)
+	a.openFile(hs.path("internal/a/a.go"), true)
+	a.run("view.moveTabNext")
+	a.run("view.prevColumn")
+	hs.settle()
+	a.run("edit.find")
+	hs.settle()
+	if a.col != 0 || !a.find.open {
+		t.Fatalf("find open %v in column %d", a.find.open, a.col)
+	}
+	x, y := hs.tabCenter("a.go")
+	tt.Press(x, y)
+	hs.settle()
+	tt.Release(x, y)
+	hs.settle()
+	if a.col != 1 || a.find.doc != a.cols[1].tab().ed.id {
+		t.Fatalf("column %d has the keyboard, find is of document %d", a.col, a.find.doc)
+	}
+}
+
 func TestDraggingTerminals(t *testing.T) {
 	if testing.Short() {
 		t.Skip("starts a shell")
@@ -564,6 +591,37 @@ func TestDraggingTerminals(t *testing.T) {
 		t.Fatalf("a document dropped on the panel: %d tabs", len(a.cols[0].tabs))
 	}
 	a.closeTerminals()
+}
+
+// A tab or a terminal dragged from another window, dropped in this one,
+// stays where it is: showing it in both would bind its view in both.
+func TestDropsFromAnotherWindowStayThere(t *testing.T) {
+	src, dst := newHarness(t, true), newHarness(t, true)
+	src.a.openFile(src.path("main.go"), true)
+	dst.a.openFile(dst.path("README.md"), true)
+	src.settle()
+	dst.settle()
+	b := dst.a
+	tab := src.a.activeTab()
+	term := &session{id: 99, title: "elsewhere"}
+	col := b.column()
+	for _, it := range []dragItem{{tab: tab}, {term: term}} {
+		if b.owns(it) {
+			t.Errorf("%+v is taken as this window's", it)
+		}
+		b.dropInColumn(it, col, 0)
+		b.dropBeside(it, col, true)
+	}
+	dst.settle()
+	if len(b.cols) != 1 || len(col.tabs) != 1 || col.tab().name() != "README.md" || len(b.terms) != 0 {
+		t.Fatalf("%d columns, %d tabs, %d terminals", len(b.cols), len(col.tabs), len(b.terms))
+	}
+	if from, _ := src.a.locate(tab); from == nil || term.tab != nil {
+		t.Error("what was dragged left its window")
+	}
+	if !b.owns(dragItem{tab: col.tab()}) {
+		t.Error("this window's own tab is not its to take")
+	}
 }
 
 // Closing the last tab of a column that another follows takes the column

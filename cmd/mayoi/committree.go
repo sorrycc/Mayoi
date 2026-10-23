@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"path/filepath"
 
+	"mayoi/internal/bg"
 	"mayoi/internal/git"
 	"mayoi/locales"
 
@@ -47,15 +48,15 @@ const (
 )
 
 // showsCommitFiles reports whether a diff shows the panel of its files:
-// a commit's, once it has files, unless the panel is closed.
+// a commit's, once it has files, when the panel is open.
 func (a *app) showsCommitFiles(v *diffView) bool {
-	return v.commit != nil && len(v.files) > 0 && !a.window.CommitFilesClosed
+	return v.commit != nil && len(v.files) > 0 && a.window.CommitFilesOpen
 }
 
 // toggleCommitFiles shows the panel of the files of commits' tabs, or
 // hides it.
 func (a *app) toggleCommitFiles() {
-	a.window.CommitFilesClosed = !a.window.CommitFilesClosed
+	a.window.CommitFilesOpen = !a.window.CommitFilesOpen
 	a.settings.Changed()
 }
 
@@ -357,7 +358,7 @@ func (a *gitContext) readCommitFiles(cm git.Commit) {
 	}
 	read := &commitFilesRead{loading: true}
 	s.commitFiles[cm.Hash] = read
-	go func() {
+	bg.Go(func() {
 		defer recoverCrash()
 		files, err := r.CommitFiles(cm)
 		a.app.post(func() {
@@ -367,7 +368,7 @@ func (a *gitContext) readCommitFiles(cm git.Commit) {
 			}
 			s.commitsGen++
 		})
-	}()
+	})
 }
 
 // commitFileRows adds the rows of the files a commit of the history

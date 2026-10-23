@@ -12,6 +12,7 @@ import (
 
 	"github.com/egoist/mygo/ui"
 
+	"mayoi/internal/bg"
 	"mayoi/internal/git"
 	"mayoi/internal/vfs"
 	"mayoi/locales"
@@ -1916,14 +1917,14 @@ func (a *gitContext) startAmend() {
 		return
 	}
 	r := g.repo
-	go func() {
+	bg.Go(func() {
 		msg := r.LastMessage()
 		a.app.post(func() {
 			if g.repo == r && g.amend && strings.TrimSpace(g.message) == "" {
 				g.message = msg
 			}
 		})
-	}()
+	})
 }
 
 // undoCommit takes back the last commit, keeping its changes staged and
@@ -2049,7 +2050,7 @@ func (a *app) initRepo() {
 		return
 	}
 	root := a.root
-	go func() {
+	bg.Go(func() {
 		err := git.Init(root)
 		a.post(func() {
 			if err != nil {
@@ -2061,7 +2062,7 @@ func (a *app) initRepo() {
 				a.ignoredStale = true
 			}
 		})
-	}()
+	})
 }
 
 // showExplorer shows the files in the sidebar.

@@ -550,7 +550,7 @@ func (a *app) menu(cli bool, run func(id string, win *mygo.Window)) *mygo.Menu {
 		{Label: locales.MenuGit(), Submenu: []*mygo.MenuItem{
 			item("git.commit"), item("git.commitPush"), item("git.amend"), item("git.undoCommit"), mygo.Separator(),
 			item("git.openChanges"), item("git.openAllChanges"), item("git.compareFiles"), item("git.nextChange"), item("git.prevChange"), item("git.nextFile"), item("git.prevFile"),
-			checkbox("git.toggleCommitFiles", !a.window.CommitFilesClosed), mygo.Separator(),
+			checkbox("git.toggleCommitFiles", a.window.CommitFilesOpen), mygo.Separator(),
 			item("git.showChange"), item("git.revertChange"), item("git.appendChange"), item("git.stageChange"), mygo.Separator(),
 			item("git.stageFile"), item("git.unstageFile"), item("git.stageAll"), mygo.Separator(),
 			item("git.switchBranch"), item("git.createBranch"), item("git.fetch"), item("git.pull"), item("git.push"), mygo.Separator(),

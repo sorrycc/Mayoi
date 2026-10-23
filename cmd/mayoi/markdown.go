@@ -17,6 +17,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
+	"mayoi/internal/bg"
 	"mayoi/internal/highlight"
 	"mayoi/internal/remote"
 	"mayoi/internal/vfs"
@@ -416,6 +417,7 @@ func parseMarkdown(source []byte, path, root string, current func() bool, caches
 			case *ast.AutoLink:
 				s.text, s.link = string(x.Label(source)), string(x.URL(source))
 			case *ast.Image:
+				//lint:ignore SA1019 the alt text, which is the text of its children
 				s = picture(s, string(x.Text(source)), string(x.Destination))
 			case *ast.RawHTML:
 				// A tag of HTML styles the text up to its end tag, as
@@ -898,7 +900,7 @@ func (a *app) followMarkdown(v *viewer) {
 		source, path, workspace := []byte(d.buf.String()), d.path, a.folder()
 		// Give the worker its own cache snapshot; publish it on the UI thread.
 		cache := &markdownCache{images: maps.Clone(m.cache.images), code: maps.Clone(m.cache.code), arrived: m.cache.arrived}
-		go func() {
+		bg.Go(func() {
 			defer recoverCrash()
 			root := markdownRoot(path, workspace)
 			blocks := parseMarkdown(source, path, root, func() bool { return m.generation.Load() == generation }, cache)
@@ -929,7 +931,7 @@ func (a *app) followMarkdown(v *viewer) {
 				v.version = ver
 				v.loaded = true
 			})
-		}()
+		})
 	}
 	if first {
 		start()

@@ -300,6 +300,31 @@ func TestReplaceAllUndoes(t *testing.T) {
 	expectText(t, d, "cat cat dog cat\n")
 }
 
+// ⌘F selects the query the find box has, as VS Code does, so typing
+// replaces it: when the box opens again, and when it has the focus already.
+func TestFindSelectsQuery(t *testing.T) {
+	hs, _ := editHarness(t, "a.txt", "token words\n")
+	a := hs.a
+	a.find.query = "token"
+	a.run("edit.find")
+	hs.settle()
+	hs.tt.Type("w")
+	hs.settle()
+	if a.find.query != "w" {
+		t.Fatalf("query after typing on reopen = %q, want w", a.find.query)
+	}
+	hs.tt.Type("ords")
+	hs.settle()
+	hs.key(0, ui.KeyEnd)
+	a.run("edit.find")
+	hs.settle()
+	hs.tt.Type("t")
+	hs.settle()
+	if a.find.query != "t" {
+		t.Fatalf("query after typing on ⌘F in the box = %q, want t", a.find.query)
+	}
+}
+
 func TestSmartHome(t *testing.T) {
 	hs, d := editHarness(t, "a.go", "\t\tx := 1\n")
 	hs.place(d, 6, 6)

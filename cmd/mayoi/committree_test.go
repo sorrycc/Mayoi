@@ -24,9 +24,9 @@ func showTree(rows []treeRow) string {
 	return strings.Join(out, "|")
 }
 
-// The tab of a commit lists its files beside its diff, in a tree of their
-// folders: a click on one scrolls the diff to it, a folder closes, and the
-// panel hides and shows again.
+// The tab of a commit hides the panel of its files at first; shown, it
+// lists them beside the diff, in a tree of their folders: a click on one
+// scrolls the diff to it, a folder closes, and the panel hides again.
 func TestCommitFilesPanel(t *testing.T) {
 	hs := newHarness(t, true)
 	hs.gitRepo()
@@ -40,6 +40,11 @@ func TestCommitFilesPanel(t *testing.T) {
 	if v == nil || len(v.files) == 0 {
 		t.Fatalf("no files in the commit's tab")
 	}
+	if a.window.CommitFilesOpen || tt.HasText("Hide Files") {
+		t.Fatalf("the panel shows at first")
+	}
+	a.run("git.toggleCommitFiles")
+	hs.settle()
 	rows := v.tree.rows
 	var trees []treeRow
 	for _, r := range rows {
@@ -75,12 +80,12 @@ func TestCommitFilesPanel(t *testing.T) {
 	// Hidden, the diff takes the tab; shown, the panel is back.
 	a.run("git.toggleCommitFiles")
 	hs.settle()
-	if !a.window.CommitFilesClosed || tt.HasText("Hide Files") {
+	if a.window.CommitFilesOpen || tt.HasText("Hide Files") {
 		t.Errorf("the panel did not hide")
 	}
 	a.run("git.toggleCommitFiles")
 	hs.settle()
-	if a.window.CommitFilesClosed || !tt.HasText("Files") {
+	if !a.window.CommitFilesOpen || !tt.HasText("Hide Files") {
 		t.Errorf("the panel did not show again")
 	}
 	// As a list, the files go by path.

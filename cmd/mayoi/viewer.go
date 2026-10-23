@@ -19,6 +19,7 @@ import (
 	"github.com/egoist/mygo/ui"
 	xdraw "golang.org/x/image/draw"
 
+	"mayoi/internal/bg"
 	"mayoi/internal/remote"
 	"mayoi/internal/vfs"
 	"mayoi/locales"
@@ -102,7 +103,7 @@ func (v *viewer) name() string { return filepath.Base(v.path) }
 func (a *app) loadImage(v *viewer) {
 	v.loading++
 	n, path := v.loading, v.path
-	go func() {
+	bg.Go(func() {
 		defer recoverCrash()
 		bm, w, h, size, err := decodeImage(path)
 		a.post(func() {
@@ -127,7 +128,7 @@ func (a *app) loadImage(v *viewer) {
 			}
 			v.src, v.w, v.h = bm, float32(w), float32(h)
 		})
-	}()
+	})
 }
 
 // decodeImage reads an image file into a bitmap, at most maxBitmapSide

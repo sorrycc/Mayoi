@@ -390,7 +390,7 @@ func (a *app) panel(c *ui.Context) {
 	box := ui.Column(c).Fill().Background(p.panel)
 	if it, ok := ui.Drop[dragItem](box); ok {
 		switch s := a.panelTerm; {
-		case it.tab != nil && it.tab.term != nil:
+		case it.tab != nil && it.tab.term != nil && a.owns(it):
 			a.post(func() { a.terminalToPanel(it.tab.term) })
 		case it.file != nil && s != nil:
 			// A file of the sidebar types its path, as one from the Finder.

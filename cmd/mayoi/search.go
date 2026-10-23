@@ -587,11 +587,14 @@ func (a *app) searchRows() []searchRow {
 // preview tab, the keyboard staying in the results, or with keep in a tab
 // of its own with the keyboard.
 func (a *app) openMatch(f *searchFile, m searchMatch, keep bool) {
-	if keep {
-		a.openFile(f.path, true)
-	} else {
-		a.previewFile(f.path)
-	}
+	// The match is in the text, whatever markdownPreview says.
+	a.openText(func() {
+		if keep {
+			a.openFile(f.path, true)
+		} else {
+			a.previewFile(f.path)
+		}
+	})
 	a.selectMatch(f.path, m)
 }
 
@@ -600,6 +603,10 @@ func (a *app) selectMatch(path string, m searchMatch) {
 	d := a.activeEditor()
 	if d == nil || d.path != path {
 		return
+	}
+	if d.preview != nil {
+		// The match is in the text.
+		a.setPreview(d, false)
 	}
 	snap := d.buf.Snapshot()
 	if m.line >= snap.LineCount() {

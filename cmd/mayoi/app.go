@@ -205,6 +205,10 @@ type app struct {
 	indexStale bool
 	// opening is set while a file opens as a preview tab.
 	opening bool
+	// openingText is set while a file opens for its text — a search
+	// match, a line to go to, an edit to make — so openFileIn does not
+	// preview it as markdownPreview says.
+	openingText bool
 
 	// docs are the documents open, each in a tab or several; cols the
 	// columns of the editor area, and col the one that has the keyboard,

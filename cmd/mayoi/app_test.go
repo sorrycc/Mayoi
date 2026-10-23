@@ -163,6 +163,9 @@ type harness struct {
 func newHarness(t testing.TB, dark bool) *harness {
 	root := workspaceFixture(t)
 	s := settings.Default()
+	// The tests open Markdown as text, the editor they drive, in case
+	// markdownPreview's default changes.
+	s.MarkdownPreview = false
 	w := s.NewWindow()
 	w.Folder = root
 	h := &fakeHost{folder: root}
@@ -489,32 +492,108 @@ func TestFindAndReplace(t *testing.T) {
 }
 
 func TestNewFileAndRenameFromTheTree(t *testing.T) {
-	hs := newHarness(t, false)
-	a, tt := hs.a, hs.tt
-	a.askNewEntry(hs.root, false)
-	hs.settle()
-	tt.Type("notes/todo.md")
-	tt.Key(0, ui.KeyEnter)
-	hs.settle()
-	if _, err := os.Stat(hs.path("notes/todo.md")); err != nil {
-		t.Fatal(err)
+	for _, preview := range []bool{false, true} {
+		t.Run(fmt.Sprintf("markdownPreview=%v", preview), func(t *testing.T) {
+			hs := newHarness(t, false)
+			a, tt := hs.a, hs.tt
+			a.settings.MarkdownPreview = preview
+			a.askNewEntry(hs.root, false)
+			hs.settle()
+			tt.Type("notes/todo.md")
+			tt.Key(0, ui.KeyEnter)
+			hs.settle()
+			if _, err := os.Stat(hs.path("notes/todo.md")); err != nil {
+				t.Fatal(err)
+			}
+			d := a.activeEditor()
+			if d == nil || d.path != hs.path("notes/todo.md") {
+				t.Fatalf("new file not open: %v", d)
+			}
+			// A file made anew opens as its source, to edit.
+			if d.preview != nil {
+				t.Fatal("a new file opened previewed")
+			}
+			tt.Type("# hello")
+			hs.settle()
+			if got := d.buf.String(); got != "# hello" {
+				t.Fatalf("the new file holds %q", got)
+			}
+			// An ordinary open still follows the preference.
+			a.openFile(hs.path("README.md"), true)
+			if preview {
+				hs.until("README preview", func() bool {
+					return a.activeEditor().preview != nil && a.activeEditor().preview.loaded
+				})
+			} else {
+				hs.settle()
+			}
+			if got := a.activeEditor().preview != nil; got != preview {
+				t.Fatalf("an ordinary open previewed %v, want %v", got, preview)
+			}
+			if i := a.column().showingFile(hs.path("notes/todo.md")); i < 0 {
+				t.Fatal("the new file's tab is gone")
+			} else {
+				a.activate(a.column(), i, true)
+			}
+			a.askRename(hs.path("notes/todo.md"))
+			hs.settle()
+			hs.shot("05-rename")
+			tt.Key(ui.Cmd, ui.KeyA)
+			tt.Type("done.md")
+			tt.Key(0, ui.KeyEnter)
+			hs.settle()
+			if _, err := os.Stat(hs.path("notes/done.md")); err != nil {
+				t.Fatal(err)
+			}
+			if d := a.activeEditor(); d.path != hs.path("notes/done.md") {
+				t.Errorf("open document did not follow the rename: %s", d.path)
+			}
+		})
 	}
-	if d := a.activeEditor(); d == nil || d.path != hs.path("notes/todo.md") {
-		t.Fatalf("new file not open: %v", d)
+}
+
+// openText opens a file for its text only while it runs, restoring the
+// flag it found, nested calls and failed opens included.
+func TestOpenTextRestoresState(t *testing.T) {
+	hs := newHarness(t, true)
+	a := hs.a
+	if a.openingText {
+		t.Fatal("openingText begins set")
 	}
-	a.askRename(hs.path("notes/todo.md"))
+	var seen []bool
+	a.openText(func() {
+		seen = append(seen, a.openingText)
+		a.openText(func() { seen = append(seen, a.openingText) })
+		seen = append(seen, a.openingText)
+	})
+	if a.openingText || !slices.Equal(seen, []bool{true, true, true}) {
+		t.Fatalf("openingText %v after, the calls saw %v", a.openingText, seen)
+	}
+	// A flag set outside stays set: a nested open restores it.
+	a.openingText = true
+	a.openText(func() { a.openFile(hs.path("README.md"), true) })
+	if !a.openingText {
+		t.Fatal("an openText inside a set openingText reset it")
+	}
+	a.openingText = false
+	// A file that does not open restores the flag too.
+	a.openText(func() { a.openFile(hs.path("missing.md"), true) })
+	if a.openingText {
+		t.Fatal("a failed open left openingText set")
+	}
+	// The flag, not the file, decides: source under it, preview after.
+	a.settings.MarkdownPreview = true
+	a.openText(func() { a.openFile(hs.path("README.md"), true) })
 	hs.settle()
-	hs.shot("05-rename")
-	tt.Key(ui.Cmd, ui.KeyA)
-	tt.Type("done.md")
-	tt.Key(0, ui.KeyEnter)
-	hs.settle()
-	if _, err := os.Stat(hs.path("notes/done.md")); err != nil {
-		t.Fatal(err)
+	if d := a.activeEditor(); d == nil || d.preview != nil {
+		t.Fatal("openText did not open the source")
 	}
-	if d := a.activeEditor(); d.path != hs.path("notes/done.md") {
-		t.Errorf("open document did not follow the rename: %s", d.path)
-	}
+	os.WriteFile(hs.path("plain.md"), []byte("# Plain\n"), 0o644)
+	a.openFile(hs.path("plain.md"), true)
+	hs.until("preview", func() bool {
+		d := a.activeEditor()
+		return d != nil && d.path == hs.path("plain.md") && d.preview != nil && d.preview.loaded
+	})
 }
 
 func TestTabsKeepTheirState(t *testing.T) {

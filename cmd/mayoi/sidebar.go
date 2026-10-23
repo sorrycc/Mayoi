@@ -629,7 +629,8 @@ func (a *app) askNewEntry(dir string, folder bool) {
 		a.tree.Refresh()
 		a.indexStale = true
 		if !folder {
-			a.openFile(path, true)
+			// A file made anew opens as its source, to edit.
+			a.openText(func() { a.openFile(path, true) })
 		}
 		return ""
 	}}
@@ -717,7 +718,8 @@ func (a *app) newRemoteEntry(dir, path string, folder bool) {
 			a.tree.Refresh()
 			a.indexStale, a.indexed = true, time.Time{}
 			if !folder {
-				a.openFile(path, true)
+				// A file made anew opens as its source, to edit.
+				a.openText(func() { a.openFile(path, true) })
 			}
 		})
 	}()

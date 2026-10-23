@@ -5,6 +5,10 @@ needs a `## <version>` section here, or its build fails.
 
 ## Unreleased
 
+- **View → Preview Markdown on Open** opens Markdown and `.mdx` in preview mode.
+- `⇧⌘V` shows source; new files, search results and line jumps open as source.
+- Restored and reopened Markdown tabs keep their view and scroll position, including offline remote tabs.
+- MDX previews omit top-level `import`/`export` blocks, preserving code examples and paragraph text.
 - `mayoi run <id>[=<arg>]` runs any command of the window, and `mayoi commands` lists them.
 - `mayoi -g file:line` opens a file at a line, `-d` compares two files, and `-n` opens a new window.
 - `mayoi --remote host:/path` opens a folder on an SSH host.

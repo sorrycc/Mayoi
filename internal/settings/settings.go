@@ -113,6 +113,9 @@ type Prefs struct {
 	// scrolling sideways to them. A tab may choose otherwise, until this
 	// changes: Settings.WrapGen counts its changes.
 	WordWrap bool `json:"wordWrap,omitempty"`
+	// MarkdownPreview opens a Markdown file, .mdx included, rendered
+	// rather than as text; ⇧⌘V still shows the text.
+	MarkdownPreview bool `json:"markdownPreview,omitempty"`
 	// DiffLayout is how diffs show: "split" side by side, "inline" in
 	// one column, or "" side by side when they are wide enough to.
 	DiffLayout string `json:"diffLayout,omitempty"`

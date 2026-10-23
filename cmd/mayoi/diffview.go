@@ -2189,7 +2189,8 @@ func (a *app) openPath(path string, focus bool) {
 
 // openFileAt shows a file with the caret at the start of a line.
 func (a *app) openFileAt(path string, line int, focus bool) {
-	a.openPath(path, focus)
+	// The line is in the text, whatever markdownPreview says.
+	a.openText(func() { a.openPath(path, focus) })
 	if d := a.activeEditor(); d != nil && d.path == path {
 		snap := d.buf.Snapshot()
 		line = min(max(line, 0), snap.LineCount()-1)

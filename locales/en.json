@@ -449,6 +449,7 @@
   "cmdViewExplorer": "Explorer",
   "cmdViewLocaleSystem": "System Language",
   "cmdViewLockColumn": "Toggle Column Lock",
+  "cmdViewMarkdownPreview": "Preview Markdown on Open",
   "cmdViewMoveTabNext": "Move Tab to Next Column",
   "cmdViewMoveTabPrev": "Move Tab to Previous Column",
   "cmdViewNewTerminal": "New Terminal",

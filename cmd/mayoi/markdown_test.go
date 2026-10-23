@@ -170,6 +170,88 @@ func TestMarkdownBlocks(t *testing.T) {
 	}
 }
 
+// markdownMdx drops an .mdx file's top-level ESM blocks, keeping its
+// line count and ends, and leaves code fences and mid-paragraph text
+// alone.
+func TestMarkdownMdx(t *testing.T) {
+	for _, c := range []struct {
+		name string
+		in   string
+		want string
+	}{
+		{"import", "import a from 'a'\n\n# T\n", "\n\n# T\n"},
+		{"multiline import", "import {\n  A,\n  B\n} from 'x'\n\n# T\n", "\n\n\n\n\n# T\n"},
+		{"multiline export object", "export default {\n  a: 1\n}\n\nText.\n", "\n\n\n\nText.\n"},
+		{"blocks split by a blank", "import a\n\nexport b\n\n# T\n", "\n\n\n\n# T\n"},
+		{"runs until a blank", "import a\n# T\n", "\n\n"},
+		{"paragraph continuation", "Text.\nexport const x = 1\nimport y\n\n# T\n", "Text.\nexport const x = 1\nimport y\n\n# T\n"},
+		{"first line blank", "\nimport x\n", "\n\n"},
+		{"a blank separator keeps its blanks", "import a\n   \n# T\n", "\n   \n# T\n"},
+		{"last line without a newline", "import a\nexport b", "\n"},
+		{"only line without a newline", "export x", ""},
+		{"crlf ends", "import a\r\nexport b\r\n\r\n# T\r\n", "\r\n\r\n\r\n# T\r\n"},
+		{"backtick fence", "```\nimport x\n```\n\nimport y\n", "```\nimport x\n```\n\n\n"},
+		{"tilde fence", "~~~\nexport z\n~~~\n\nexport w\n", "~~~\nexport z\n~~~\n\n\n"},
+		{"four hold three", "````\n```\nimport x\n```\n````\n\nimport y\n", "````\n```\nimport x\n```\n````\n\n\n"},
+		{"nested", "````md\n```js\n\nimport x from 'y'\n```\n\nimport z from 'w'\n````\n\nimport end\n", "````md\n```js\n\nimport x from 'y'\n```\n\nimport z from 'w'\n````\n\n\n"},
+		{"info close invalid", "```js\n```oops\n\nimport x\n", "```js\n```oops\n\nimport x\n"},
+		{"wrong char close invalid", "```\n~~~\n\nexport x\n", "```\n~~~\n\nexport x\n"},
+		{"overindented close invalid", "```\n    ```\n\nimport x\n", "```\n    ```\n\nimport x\n"},
+		{"tab-indented close invalid", "```\n\t```\n\nimport x\n", "```\n\t```\n\nimport x\n"},
+		{"info never closes", "```\nimport x\n``` js\nimport y\n", "```\nimport x\n``` js\nimport y\n"},
+		{"the other mark stays open", "```\nx\n~~~\nimport y\n", "```\nx\n~~~\nimport y\n"},
+		{"a longer close closes", "```\nx\n````\n\nimport y\n", "```\nx\n````\n\n\n"},
+		{"indented is code", "    import x\n\texport y\n\n    ```\n    import z\n    ```\n", "    import x\n\texport y\n\n    ```\n    import z\n    ```\n"},
+		{"fences in ESM mean nothing", "import a\n```\ncode\n```\nconst y = 1\n\n# T\n", "\n\n\n\n\n\n# T\n"},
+		{"spaces may indent", "   import x\n", "\n"},
+		{"backtick info holds no backtick", "``` `x`\nimport y\n\n```\n", "``` `x`\nimport y\n\n```\n"},
+		{"tilde info may hold one", "~~~ `x`\nimport y\n~~~\n", "~~~ `x`\nimport y\n~~~\n"},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			got := markdownMdx([]byte(c.in))
+			if string(got) != c.want {
+				t.Errorf("markdownMdx(%q)\n= %q\nwant %q", c.in, got, c.want)
+			}
+			if n, m := strings.Count(string(got), "\n"), strings.Count(c.in, "\n"); n != m {
+				t.Errorf("newlines %d, want the source's %d", n, m)
+			}
+		})
+	}
+}
+
+// An .mdx file's parse drops its ESM blocks but keeps the lines they
+// stood on, a heading keeping its source line; the same text in a .md
+// file parses as it is.
+func TestMarkdownMdxParse(t *testing.T) {
+	src := "import {\n  Chart\n} from './x'\nexport const y = 1\n\n# Title\n\nSome text.\n"
+	path := filepath.Join(t.TempDir(), "page")
+	blocks := parseMarkdown([]byte(src), path+".mdx", "", nil)
+	var title *markdownBlock
+	for i := range blocks {
+		for _, r := range blocks[i].runs {
+			if strings.Contains(r.text, "import") || strings.Contains(r.text, "export") ||
+				strings.Contains(r.text, "Chart") || strings.Contains(r.text, "./x") {
+				t.Fatalf("ESM text shows: %+v", blocks[i])
+			}
+		}
+		if blocks[i].kind == markdownHeading {
+			title = &blocks[i]
+		}
+	}
+	if title == nil || title.line != 5 || markdownRunsText(title.runs) != "Title" {
+		t.Fatalf("the heading after the ESM: %+v", title)
+	}
+	found := false
+	for _, b := range parseMarkdown([]byte(src), path+".md", "", nil) {
+		for _, r := range b.runs {
+			found = found || strings.Contains(r.text, "import")
+		}
+	}
+	if !found {
+		t.Fatal("a .md file lost its import text")
+	}
+}
+
 func TestMarkdownPreview(t *testing.T) {
 	hs := newHarness(t, true)
 	a := hs.a
@@ -209,6 +291,208 @@ func TestMarkdownPreview(t *testing.T) {
 	hs.until("long extension", func() bool { return a.activeEditor().preview.loaded })
 }
 
+func TestMarkdownPreviewOnOpen(t *testing.T) {
+	hs := newHarness(t, true)
+	a := hs.a
+	a.settings.MarkdownPreview = true
+	a.openFile(hs.path("README.md"), true)
+	hs.until("Markdown preview", func() bool {
+		return a.activeEditor().preview != nil && a.activeEditor().preview.loaded
+	})
+	if !hs.tt.HasText("Mayoi") {
+		t.Fatal("heading not shown")
+	}
+	a.run("view.togglePreview")
+	hs.settle()
+	if a.activeEditor().preview != nil {
+		t.Fatal("source toggle failed")
+	}
+	// .mdx previews the same way.
+	path := hs.path("page.mdx")
+	os.WriteFile(path, []byte("import { Chart } from './x'\n\n# Page\n\n<Chart />\n\nText {expr}.\n"), 0o644)
+	a.openFile(path, true)
+	hs.until("MDX preview", func() bool {
+		return a.activeEditor().preview != nil && a.activeEditor().preview.loaded
+	})
+	hs.settle()
+	if !hs.tt.HasText("Page") || !hs.tt.HasText("Text {expr}.") {
+		t.Fatal("MDX did not render")
+	}
+	if hs.tt.HasText("import { Chart }") {
+		t.Fatal("MDX import was rendered")
+	}
+	// The setting off opens the text.
+	a.settings.MarkdownPreview = false
+	path = hs.path("plain.md")
+	os.WriteFile(path, []byte("# Plain\n"), 0o644)
+	a.openFile(path, true)
+	hs.settle()
+	if a.activeEditor().preview != nil {
+		t.Fatal("markdownPreview off still previewed")
+	}
+}
+
+// A Markdown tab left showing its source restores and reopens as its
+// source, the markdownPreview setting saying preview notwithstanding.
+func TestMarkdownPreviewKeepsSource(t *testing.T) {
+	hs := newHarness(t, false)
+	a := hs.a
+	a.settings.MarkdownPreview = true
+	a.openFile(hs.path("README.md"), true)
+	hs.until("preview", func() bool {
+		return a.activeEditor().preview != nil && a.activeEditor().preview.loaded
+	})
+	a.run("view.togglePreview")
+	hs.settle()
+	if a.activeEditor().preview != nil {
+		t.Fatal("toggle to source failed")
+	}
+	a.rememberTabs()
+	if a.window.Columns[0].Tabs[0].Preview {
+		t.Fatal("source tab was saved previewed")
+	}
+
+	b := newApp(&fakeHost{folder: hs.root}, a.settings, a.window)
+	t.Cleanup(b.shutdown)
+	hs = &harness{t: t, a: b, root: hs.root, tt: ui.NewTester(b.view, 1200, 760)}
+	a = b
+	hs.until("the tab restored", func() bool {
+		return len(a.cols) > 0 && a.cols[0].tab() != nil && a.cols[0].tab().ed != nil
+	})
+	if a.cols[0].tab().ed.preview != nil {
+		t.Fatal("restore previewed a tab left as source")
+	}
+	a.run("file.close")
+	a.run("file.reopenClosed")
+	hs.settle()
+	if a.activeEditor() == nil || a.activeEditor().preview != nil {
+		t.Fatal("reopen previewed a tab closed as source")
+	}
+}
+
+func TestMarkdownOpensForText(t *testing.T) {
+	const source = "# Title\n\nTarget needle here.\n\nTail\n"
+	for _, existing := range []bool{false, true} {
+		for _, action := range []string{"line", "search", "transient search", "select match", "go to line"} {
+			if !existing && (action == "select match" || action == "go to line") {
+				continue
+			}
+			t.Run(fmt.Sprintf("existing=%v/%s", existing, action), func(t *testing.T) {
+				hs := newHarness(t, true)
+				a := hs.a
+				a.settings.MarkdownPreview = true
+				path := hs.path("target.md")
+				if err := os.WriteFile(path, []byte(source), 0o644); err != nil {
+					t.Fatal(err)
+				}
+				if existing {
+					a.openFile(path, true)
+					hs.until("preview", func() bool {
+						return a.activeEditor().preview != nil && a.activeEditor().preview.loaded
+					})
+				}
+				m := searchMatch{line: 2, col: 7, text: "needle"}
+				start, end := strings.Index(source, "needle"), strings.Index(source, "needle")+len("needle")
+				switch action {
+				case "line":
+					a.openFileAt(path, 2, true)
+					start, end = strings.Index(source, "Target"), strings.Index(source, "Target")
+				case "search":
+					a.openMatch(&searchFile{path: path}, m, true)
+				case "transient search":
+					a.openMatch(&searchFile{path: path}, m, false)
+				case "select match":
+					a.selectMatch(path, m)
+				case "go to line":
+					a.goToLine(3, 8)
+					end = start
+				}
+				hs.settle()
+				d := a.activeEditor()
+				if d == nil || d.path != path || d.preview != nil {
+					t.Fatal("target did not open as source")
+				}
+				if d.sel != [2]int{start, end} || d.caret != end {
+					t.Fatalf("selection %v caret %d, want [%d %d]", d.sel, d.caret, start, end)
+				}
+				if action == "transient search" && !existing && !a.activeTab().transient {
+					t.Fatal("search preview was kept as a permanent tab")
+				}
+				a.openFile(hs.path("README.md"), true)
+				if a.activeEditor().preview == nil {
+					t.Fatal("positioned open disabled preview for subsequent ordinary opens")
+				}
+			})
+		}
+	}
+}
+
+func TestMarkdownReopenKeepsExistingPreview(t *testing.T) {
+	hs := newHarness(t, true)
+	a := hs.a
+	a.settings.MarkdownPreview = true
+	path := hs.path("README.md")
+	a.openFile(path, true)
+	hs.until("preview", func() bool { return a.activeEditor().preview.loaded })
+	a.run("file.close")
+	a.openFile(path, true)
+	hs.until("preview", func() bool { return a.activeEditor().preview.loaded })
+	d := a.activeEditor()
+	preview := d.preview
+	n := len(a.column().tabs)
+	a.run("file.reopenClosed")
+	hs.settle()
+	if a.activeEditor() != d || d.preview != preview || len(a.column().tabs) != n {
+		t.Fatal("reopening an existing tab changed its preview or duplicated it")
+	}
+}
+
+func TestMarkdownPreviewRestoresPlace(t *testing.T) {
+	for _, previewOnOpen := range []bool{false, true} {
+		for _, reopen := range []bool{false, true} {
+			t.Run(fmt.Sprintf("previewOnOpen=%v/reopen=%v", previewOnOpen, reopen), func(t *testing.T) {
+				hs := newHarness(t, false)
+				a := hs.a
+				a.settings.MarkdownPreview = previewOnOpen
+				path := hs.path("sync.md")
+				if err := os.WriteFile(path, []byte(markdownSyncDoc()), 0o644); err != nil {
+					t.Fatal(err)
+				}
+				a.openFileAt(path, 240, true)
+				hs.settle()
+				d := a.activeEditor()
+				d.vscroll.Y = editorPadY + 240*a.font.lineH
+				hs.settle()
+				a.setPreview(d, true)
+				hs.until("preview", func() bool { return d.preview.loaded })
+				hs.settle()
+				want := d.preview.markdown.sync.top
+				if want < 200 {
+					t.Fatalf("fixture preview starts at line %v, want near 240", want)
+				}
+				if reopen {
+					a.run("file.close")
+					a.run("file.reopenClosed")
+				} else {
+					a.rememberTabs()
+					b := newApp(&fakeHost{folder: hs.root}, a.settings, a.window)
+					t.Cleanup(b.shutdown)
+					hs = &harness{t: t, a: b, root: hs.root, tt: ui.NewTester(b.view, 1200, 760)}
+					a = b
+				}
+				hs.until("restored preview", func() bool {
+					d = a.activeEditor()
+					return d != nil && d.preview != nil && d.preview.loaded
+				})
+				hs.settle()
+				if got := d.preview.markdown.sync.top; math.Abs(float64(got-want)) > 6 {
+					t.Fatalf("preview restored at line %v, want %v", got, want)
+				}
+			})
+		}
+	}
+}
+
 func TestMarkdownPreviewColumn(t *testing.T) {
 	hs := newHarness(t, true)
 	a := hs.a
@@ -219,7 +503,9 @@ func TestMarkdownPreviewColumn(t *testing.T) {
 	}
 	a.openFile(hs.path("README.md"), true)
 	a.run("view.togglePreview")
-	hs.until("preview", func() bool { return a.activeEditor().preview.loaded })
+	hs.until("preview", func() bool {
+		return a.activeEditor().preview != nil && a.activeEditor().preview.loaded
+	})
 	for _, layout := range []struct {
 		name   string
 		width  int

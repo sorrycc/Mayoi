@@ -179,6 +179,7 @@ func (a *app) commandsIn(t locales.Messages) []command {
 		{"view.wordWrapTab", t.CmdViewWordWrapTab(), "Alt+Z", a.toggleTabWrap},
 		{"view.togglePreview", t.CmdViewTogglePreview(), "Shift+CmdOrCtrl+V", a.togglePreview},
 		{"view.previewToSide", t.CmdViewPreviewToSide(), "", a.previewToSide},
+		{"view.markdownPreview", t.CmdViewMarkdownPreview(), "", a.toggleMarkdownPreview},
 		// The text, or the picture shown.
 		{"view.zoomIn", t.CmdViewZoomIn(), "CmdOrCtrl+=", func() { a.zoom(1) }},
 		{"view.zoomOut", t.CmdViewZoomOut(), "CmdOrCtrl+-", func() { a.zoom(-1) }},
@@ -522,6 +523,7 @@ func (a *app) menu(cli bool, run func(id string, win *mygo.Window)) *mygo.Menu {
 		{Label: locales.MenuView(), Submenu: []*mygo.MenuItem{
 			item("view.sidebar"), checkbox("view.sidebarRight", a.settings.SidebarRight), item("view.explorer"), item("view.search"), item("view.scm"), mygo.Separator(),
 			checkbox("view.wordWrap", a.settings.WordWrap), item("view.wordWrapTab"), item("view.togglePreview"), item("view.previewToSide"),
+			checkbox("view.markdownPreview", a.settings.MarkdownPreview), mygo.Separator(),
 			checkbox("view.vim", a.settings.Vim), checkbox("view.projectTabs", a.settings.ProjectTabs), mygo.Separator(),
 			item("view.splitRight"), item("view.nextColumn"), item("view.prevColumn"),
 			item("view.moveTabNext"), item("view.moveTabPrev"), mygo.Separator(),

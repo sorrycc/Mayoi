@@ -209,6 +209,7 @@
   "cmdViewExplorer": "资源管理器",
   "cmdViewLocaleSystem": "跟随系统语言",
   "cmdViewLockColumn": "切换栏锁定",
+  "cmdViewMarkdownPreview": "打开时预览 Markdown",
   "cmdViewMoveTabNext": "将标签页移到下一栏",
   "cmdViewMoveTabPrev": "将标签页移到上一栏",
   "cmdViewNewTerminal": "新建终端",

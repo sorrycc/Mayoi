@@ -2247,6 +2247,16 @@ func (msgs Messages) CmdViewLockColumn() string {
 	return Catalog.Format(msgs.locale, "cmdViewLockColumn", nil)
 }
 
+// CmdViewMarkdownPreview says "Preview Markdown on Open"
+// in the language the app shows.
+func CmdViewMarkdownPreview() string { return In(i18n.Locale()).CmdViewMarkdownPreview() }
+
+// CmdViewMarkdownPreview says "Preview Markdown on Open"
+// in the language of msgs.
+func (msgs Messages) CmdViewMarkdownPreview() string {
+	return Catalog.Format(msgs.locale, "cmdViewMarkdownPreview", nil)
+}
+
 // CmdViewMoveTabNext says "Move Tab to Next Column"
 // in the language the app shows.
 func CmdViewMoveTabNext() string { return In(i18n.Locale()).CmdViewMoveTabNext() }

@@ -58,6 +58,7 @@ takes its default.
 | `locale`                | `""`          | `""` (follow the system), `"en"`, `"zh-Hans"`, `"ja"`       | **View → Language**                            |
 | `autoSave`              | `true`        | `true`, `false`                                             | **File → Auto Save**                           |
 | `wordWrap`              | `false`       | `true`, `false`                                             | **View → Word Wrap**                           |
+| `markdownPreview`       | `false`       | `true`, `false`                                             | **View → Preview Markdown on Open**            |
 | `vim`                   | `false`       | `true`, `false`                                             | **View → Vim Mode**                            |
 | `vimCtrlKeys`           | `false`       | `true`, `false`                                             | Only this file                                 |
 | `blame`                 | `true`        | `true`, `false`                                             | **Git → Inline Blame**                         |
@@ -117,6 +118,8 @@ differ in width lines them up only roughly.
 - **`autoSave`** saves a changed file a moment after you stop typing, and when you leave it.
 - **`wordWrap`** wraps long lines at the edge of the editor. **⌥Z** wraps or unwraps one tab only, until this
   setting changes.
+- **`markdownPreview`** opens Markdown files, .mdx included, rendered rather than as text. **⇧⌘V** still shows
+  the text, and the choice of a tab is remembered for the session.
 - **`diffHighlight`** chooses whether changed lines show word-level, character-level or line-level tinting. The
   highlighting changes how a diff looks; block actions still use whole line hunks.
 - **`diffContext`** keeps that many unchanged lines around each diff hunk visible and folds the rest.

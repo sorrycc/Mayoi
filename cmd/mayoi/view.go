@@ -42,6 +42,10 @@ func (a *app) view(c *ui.Context) {
 	// project moves to another window.
 	a.setServices(c.Services())
 	a.review.ctx = c
+	// Restoring a preview uses font metrics to recover its scroll position.
+	if p := a.settings.Prefs; !a.font.is(p) {
+		a.font = newCodeFont(p)
+	}
 	if !a.started {
 		// Before what was posted meanwhile, as opening the file the app was
 		// started with: it opens in the columns of the last session.
@@ -63,9 +67,6 @@ func (a *app) view(c *ui.Context) {
 	a.fontTerminals()
 	a.copyTerminals()
 	p := a.pal
-	if p := a.settings.Prefs; !a.font.is(p) {
-		a.font = newCodeFont(p)
-	}
 	if now := c.Now(); now != a.frameAt {
 		a.frameAt = now
 		a.frame++

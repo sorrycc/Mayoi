@@ -12,6 +12,7 @@ needs a `## <version>` section here, or its build fails.
 - `mayoi` says what went wrong and exits non-zero when it fails.
 - Mayoi updates a `mayoi` command installed by an older version as it starts.
 - Opened from the Finder or Dock, Mayoi uses your shell's `PATH`, so git hooks find `pnpm` and `node`.
+- Fix a crash on **Go → Go to Symbol…** (⇧⌘O) in a file with a line that starts with `func() {`.
 
 ## 0.11.11
 

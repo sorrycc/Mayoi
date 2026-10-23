@@ -29,6 +29,8 @@ needs a `## <version>` section here, or its build fails.
 - `⇧⌘V` switches back to the source; new files, search results and line jumps always open as source.
 - Restored and reopened Markdown tabs keep their view and scroll position, including offline remote tabs.
 - MDX previews omit top-level `import`/`export` blocks, preserving code examples and paragraph text.
+- Files dragged from **Explorer**, **Source Control** or **Search**, and folders from **Explorer**, drop into other apps.
+- A remote file or folder dragged to another app arrives as its `host:/path` text.
 
 ## 0.12.3
 

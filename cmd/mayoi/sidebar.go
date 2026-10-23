@@ -11,6 +11,8 @@ import (
 
 	"github.com/egoist/mygo/ui"
 
+	mtransfer "github.com/egoist/mygo/transfer"
+
 	"mayoi/internal/remote"
 	"mayoi/internal/vfs"
 	"mayoi/locales"
@@ -306,6 +308,10 @@ func (a *app) fileTree(c *ui.Context) {
 		}
 		if !isDir {
 			a.dragFile(row, &fileDrag{path: path})
+		} else if a.host.nativeDrags() {
+			// A folder drags out to other apps as the folder; within
+			// Mayoi it drags nowhere.
+			row.DragDataFrom(func() mtransfer.Data { return fileDragData(path) })
 		}
 		// Files of the Finder dropped on a row copy into its folder, up to
 		// a host for a remote folder.

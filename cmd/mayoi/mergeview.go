@@ -76,6 +76,12 @@ type mergeView struct {
 	// one gone to last, which the next conflict goes on from.
 	chosen, current int
 
+	// wrap is the tab's own choice to wrap the panes' lines, nil to
+	// follow WordWrap; wrapGen is the settings' generation it was made
+	// at, as an editor's and a diff's are.
+	wrap    *bool
+	wrapGen int
+
 	// ignored are the regions a Ignore took back to the base's lines on
 	// purpose, by their base range: baseSame alone cannot tell a
 	// deliberate ignore from a conflict nobody looked at.
@@ -104,12 +110,19 @@ type mergeView struct {
 }
 
 // paneScroll is what one of the three panes keeps as it shows: its
-// scrolling, and how wide its text was.
+// scrolling, how wide its widest line was, and where it laid its lines
+// out as they wrap.
 type paneScroll struct {
-	scroll, hscroll ui.ScrollState
-	viewH           float32
-	widest          int
-	wideVer         uint64
+	scroll, hscroll     ui.ScrollState
+	viewH               float32
+	widest              int
+	wideVer             uint64
+	lines               ui.TextLines
+	laidVer             uint64  // the version the wrapping lines were laid out at
+	laidW               float32 // the width they were laid out for
+	laidFrom, laidTo    int     // the lines measured so far, sweeping outward
+	sweeping            bool    // until every line stands measured at this width
+	viewFirst, viewLast int     // the lines in view, as the last frame drew them
 }
 
 // oursLabel is what the pane of ours says it is.
@@ -988,13 +1001,13 @@ func (a *app) revealMergeRegion(v *mergeView, i int) {
 	if room <= 0 {
 		return
 	}
-	y := max(0, editorPadY+float32(at[1])*a.font.lineH-room/3)
+	y := max(0, editorPadY+a.mergeGeometry(v, 1).top(at[1])-room/3)
 	if d := y - v.panes[1].scroll.Y; d != 0 && max(d, -d) < 3*v.viewH {
 		v.panes[1].scroll.ScrollTo(v.panes[1].scroll.X, y, ui.Animation{Duration: 220 * time.Millisecond, Ease: ui.EaseOut})
 		return
 	}
 	for k, line := range at {
-		v.panes[k].scroll.Y = max(0, editorPadY+float32(line)*a.font.lineH-room/3)
+		v.panes[k].scroll.Y = max(0, editorPadY+a.mergeGeometry(v, k).top(line)-room/3)
 	}
 	v.lastY = [3]float32{v.panes[0].scroll.Y, v.panes[1].scroll.Y, v.panes[2].scroll.Y}
 }
@@ -1002,7 +1015,7 @@ func (a *app) revealMergeRegion(v *mergeView, i int) {
 // chooseMergeLine takes the region a click in a pane went to, by the
 // lines of that pane.
 func (a *app) chooseMergeLine(v *mergeView, pane int, y float32) {
-	line := int((y + v.panes[pane].scroll.Y - editorPadY) / a.font.lineH)
+	line := a.mergeGeometry(v, pane).at(y + v.panes[pane].scroll.Y - editorPadY)
 	for i, r := range v.regions {
 		lo, hi := v.regionLines(r, pane)
 		if line >= lo && line < max(hi, lo+1) {

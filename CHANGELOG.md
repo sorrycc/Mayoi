@@ -31,6 +31,19 @@ needs a `## <version>` section here, or its build fails.
 
 ## 0.11.9
 
+- A sideways swipe scrolls the result pane of a merge, as the side panes'
+  does; the swipe used to be lost on the result editor's own sideways
+  scroll, which no scroller of the merge tracks.
+- The panes of a merge wrap their lines as the Word Wrap setting says, and
+  ⌥Z wraps or unwraps the merge of the tab alone. The marks of the
+  conflicts, the click that chooses one, the jump that reveals one, the
+  gutter's bands and buttons and the panes' scrolling together follow the
+  rows a line wraps to, and every line of a wrapping pane is laid out for
+  its height, so that revealing a far conflict does not land on an
+  estimated height and show a blank. Each pane wraps at its own width,
+  as the split diff's sides do not: a conflict's marks can start at a
+  different height in every pane, and the gutter's bands slant to join
+  them.
 - The Grok Bot theme: **View → Theme → Grok Bot** takes the Grok Bot app's
   Sand Light and Sand Dark colors, light or dark as the Appearance is:
   white or near-black greys, near-black or near-white buttons, and its blue
@@ -81,6 +94,7 @@ needs a `## <version>` section here, or its build fails.
 - Untitled documents keep their text as Mayoi quits, and open again,
   changed, at the next launch, rather than asking where to save them, so
   restarting or shutting down the Mac no longer stops on them.
+>>>>>>> origin/main
 - Switching, creating and tracking branches, checking out a commit, and
   unstaging or discarding changes also work on hosts with Git older than
   2.23, which has no `git switch` or `git restore`.

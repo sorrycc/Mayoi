@@ -5,6 +5,10 @@ import (
 	"slices"
 	"strings"
 	"testing"
+
+	mtransfer "github.com/egoist/mygo/transfer"
+
+	"mayoi/internal/remote"
 )
 
 func tabNames(col *column) string {
@@ -13,6 +17,30 @@ func tabNames(col *column) string {
 		out = append(out, t.name())
 	}
 	return strings.Join(out, " ")
+}
+
+func TestFileDragData(t *testing.T) {
+	// A local file goes out as a file list, one file URL per item.
+	local := t.TempDir() + string(os.PathSeparator) + "main.go"
+	data := fileDragData(local)
+	urls, err := data.URLs()
+	if err != nil || len(urls) != 1 {
+		t.Fatalf("urls %v, err %v", urls, err)
+	}
+	if !strings.HasPrefix(urls[0], "file://") || !strings.HasSuffix(urls[0], "/main.go") {
+		t.Fatalf("url %q", urls[0])
+	}
+
+	// A remote file goes out as its displayed path: text, not a file of
+	// this machine.
+	data = fileDragData(remote.Path("dev", "/srv/app/main.go"))
+	text, err := data.Read(mtransfer.Text)
+	if err != nil || string(text) != "dev:/srv/app/main.go" {
+		t.Fatalf("text %q, err %v", text, err)
+	}
+	if _, err := data.Read(mtransfer.FileList); err == nil {
+		t.Fatal("a remote file offered as a local file")
+	}
 }
 
 func TestDroppingFiles(t *testing.T) {

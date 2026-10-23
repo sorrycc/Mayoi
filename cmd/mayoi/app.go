@@ -108,6 +108,11 @@ type host interface {
 	showProject(i int)
 	closeProject()
 	projectTabsChanged()
+	// nativeDrags reports whether a drag can leave the app as a system
+	// drag other apps read. The headless test host has no system
+	// pasteboard, and says no, which keeps drags in-process value drags
+	// there.
+	nativeDrags() bool
 }
 
 // app is the state of a window of Mayoi.

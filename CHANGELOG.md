@@ -5,6 +5,7 @@ needs a `## <version>` section here, or its build fails.
 
 ## Unreleased
 
+- A file dragged from the explorer, source control or the search results, or a folder from the explorer, out to another app, such as the desktop, a file dialog or a chat window, goes as the file or folder, or as its `host:/path` when it is remote, and dropping a file on a terminal still types the path.
 - The `mayoi` command runs any command of the window by its identifier,
   as `mayoi run view.terminal git.pull`, some with an argument, as
   `mayoi run file.openFolder=~/src`, and `mayoi commands` lists them. It

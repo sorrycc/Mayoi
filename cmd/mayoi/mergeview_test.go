@@ -450,6 +450,9 @@ func TestMergeViewRestoreConflict(t *testing.T) {
 	hs.mergeRepo("a\nm\nz\n", "a\nours\nz\n", "a\nside\nz\n")
 	v := hs.mergeOf()
 	a := hs.a
+	// The result started over at the base would save itself a second
+	// later, over the markers, when git is slow to settle.
+	a.settings.AutoSave = false
 	path := hs.path("shared.txt")
 	a.takeMergeSide(v, 0, false)
 	a.completeMerge(v)
@@ -937,6 +940,9 @@ func TestMergeViewFilesBar(t *testing.T) {
 		t.Fatal(err)
 	}
 	hs.settle()
+	// The merge of two.txt reads its sides in the background; its head,
+	// with Apply Changes, shows once they are in.
+	hs.awaitMerge()
 	if v2 := a.activeTab().merge; v2 == nil || v2.path != hs.path("two.txt") {
 		t.Fatalf("the merge of the file chosen is not open: %+v", a.activeTab())
 	}

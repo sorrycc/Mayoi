@@ -163,6 +163,9 @@ func TestSearchFilesAndEdits(t *testing.T) {
 func TestReplaceInFiles(t *testing.T) {
 	hs := newHarness(t, true)
 	a := hs.a
+	// The open file's replacement stays to save, which a slow machine's
+	// settling would give the time to save itself.
+	a.settings.AutoSave = false
 	s := &a.inFiles
 	// One file open, the other not; one with CRLF line endings.
 	os.WriteFile(hs.path("web/style.css"), []byte("body {\r\n  color: #333;\r\n}\r\n"), 0o600)

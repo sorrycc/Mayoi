@@ -1,6 +1,7 @@
-# Tests Mayoi on Linux, with the Git, GTK and fonts of Ubuntu 22.04 and
-# 24.04, and on macOS and Windows, as pushes to main and pull requests
-# come.
+# Tests Mayoi on Linux, with the Git, GTK and fonts of Ubuntu 24.04, and
+# of 22.04 too for pushes to main, and on macOS and Windows, as pushes to
+# main and pull requests come. A pull request pushed again stops the run
+# of what it had before.
 name: Test
 
 on:
@@ -11,24 +12,55 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: test-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
+  # The checks that need no system of their own, which fail in a minute.
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      - name: gofmt
+        run: |
+          files="$(gofmt -l .)"
+          test -z "$files" || { echo "::error::not formatted with gofmt:"; echo "$files"; exit 1; }
+      - run: go tool staticcheck ./...
+
   linux:
     name: Linux (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-22.04, ubuntu-24.04]
+        os: ${{ github.event_name == 'push' && fromJSON('["ubuntu-22.04", "ubuntu-24.04"]') || fromJSON('["ubuntu-24.04"]') }}
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
+      - &natives
+        # The libraries MyGo downloads the first time the tests ask for
+        # them, such as the terminal's.
+        name: Cache MyGo's native libraries
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/mygo/natives
+            ~/Library/Caches/mygo/natives
+            ~/AppData/Local/mygo/natives
+          key: mygo-natives-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('go.sum') }}
+          restore-keys: mygo-natives-${{ runner.os }}-${{ runner.arch }}-
       # Pango and cairo lay out and draw the text, by way of GTK.
       - name: Install GTK and fonts
         run: sudo apt-get update && sudo apt-get install -y libgtk-3-0 fonts-dejavu-core
       - run: go vet ./...
-      - run: go test -short -timeout 30m ./...
+      - run: scripts/test.sh
 
   # macOS and Windows draw with their own system's text, with nothing to
   # install.
@@ -49,5 +81,7 @@ jobs:
       - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
+      - *natives
       - run: go vet ./...
-      - run: go test -short -timeout 30m ./...
+      - run: scripts/test.sh
+        shell: bash

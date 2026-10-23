@@ -1309,6 +1309,7 @@
   "vimWrappedBottom": "Search hit TOP, continuing at BOTTOM",
   "vimWrappedTop": "Search hit BOTTOM, continuing at TOP",
   "welcomeRecent": "Recent",
+  "welcomeStar": "Star on GitHub",
   "welcomeStart": "Start",
   "welcomeTagline": "迷い · a small, quick code editor",
   "welcomeUpdate": "Update",

@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"mayoi/internal/bg"
 	"mayoi/internal/git"
 	"mayoi/internal/remote"
 	"mayoi/locales"
@@ -112,7 +113,7 @@ func (a *app) lookUpRepo() {
 	// it found what was there before.
 	tok := new(int)
 	g.lookup = tok
-	go func() {
+	bg.Go(func() {
 		defer recoverCrash()
 		r, err := git.Open(root)
 		a.post(func() {
@@ -124,7 +125,7 @@ func (a *app) lookUpRepo() {
 				g.repo, g.stale, g.remotesStale = r, true, true
 			}
 		})
-	}()
+	})
 }
 
 // refreshGit runs once a frame: it looks up the work tree, notices HEAD
@@ -143,7 +144,7 @@ func (a *gitContext) refreshGit() {
 		if !g.metaRunning && time.Since(g.checked) >= remoteMetaEvery {
 			g.checked, g.metaRunning = time.Now(), true
 			r := g.repo
-			go func() {
+			bg.Go(func() {
 				defer recoverCrash()
 				t, refs, err := remoteGitMeta(r)
 				a.app.post(func() {
@@ -155,7 +156,7 @@ func (a *gitContext) refreshGit() {
 						a.tookGitMeta(t, refs)
 					}
 				})
-			}()
+			})
 		}
 	case time.Since(g.checked) >= 1500*time.Millisecond:
 		g.checked = time.Now()
@@ -171,7 +172,7 @@ func (a *gitContext) refreshGit() {
 	// a command, or as HEAD moves, not every few seconds.
 	readRemotes := g.remotesStale
 	g.remotesStale = false
-	go func() {
+	bg.Go(func() {
 		defer recoverCrash()
 		st, err := r.Status()
 		branches, _ := r.Branches()
@@ -194,7 +195,7 @@ func (a *gitContext) refreshGit() {
 				g.remotes = remotes
 			}
 		})
-	}()
+	})
 }
 
 // historyKey names the state the history is read for: where HEAD and its
@@ -228,7 +229,7 @@ func (a *gitContext) refreshHistory() {
 	g.loadingHistory = true
 	// Without a remote nothing is pushed or not: no commit is marked.
 	r, remotes, all := g.repo, len(g.remotes) > 0, a.app.settings.ScmAllBranches
-	go func() {
+	bg.Go(func() {
 		defer recoverCrash()
 		cs, err := r.Log(n, all)
 		var unpushed map[string]bool
@@ -248,7 +249,7 @@ func (a *gitContext) refreshHistory() {
 			g.history, g.unpushed, g.tags = cs, unpushed, tags
 			g.historyGen++
 		})
-	}()
+	})
 }
 
 // tookGitMeta takes when the files HEAD moving changes last changed, and
@@ -431,7 +432,7 @@ func (a *gitContext) gitDo(busy string, fn func(r *git.Repo) error, then func())
 		g.busy = busy
 	}
 	g.pending++
-	go func() {
+	bg.Go(func() {
 		err := fn(r)
 		a.app.post(func() {
 			if g.repo != r {
@@ -450,7 +451,7 @@ func (a *gitContext) gitDo(busy string, fn func(r *git.Repo) error, then func())
 				then()
 			}
 		})
-	}()
+	})
 }
 
 // gitFailed says why a git command failed.

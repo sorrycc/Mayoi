@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	"mayoi/internal/bg"
 	"mayoi/internal/git"
 	"mayoi/locales"
 
@@ -45,7 +46,7 @@ func (a *app) blameLine(d *editor, line int, version uint64, focused bool) strin
 	b := &d.blame
 	if b.line != line || b.version != version {
 		*b = blameState{line: line, version: version, since: time.Now()}
-		time.AfterFunc(blamePause, a.invalidate)
+		bg.AfterFunc(blamePause, a.invalidate)
 		return ""
 	}
 	if b.done || b.running {
@@ -56,7 +57,7 @@ func (a *app) blameLine(d *editor, line int, version uint64, focused bool) strin
 	}
 	b.running = true
 	path, text := d.path, d.buf.Snapshot().String()
-	go func() {
+	bg.Go(func() {
 		defer recoverCrash()
 		bl, err := r.BlameLine(path, line, text)
 		a.post(func() {
@@ -68,7 +69,7 @@ func (a *app) blameLine(d *editor, line int, version uint64, focused bool) strin
 				d.blame.text = blameText(bl, time.Now())
 			}
 		})
-	}()
+	})
 	return ""
 }
 

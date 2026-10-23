@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"path/filepath"
 
+	"mayoi/internal/bg"
 	"mayoi/internal/git"
 	"mayoi/locales"
 
@@ -357,7 +358,7 @@ func (a *gitContext) readCommitFiles(cm git.Commit) {
 	}
 	read := &commitFilesRead{loading: true}
 	s.commitFiles[cm.Hash] = read
-	go func() {
+	bg.Go(func() {
 		defer recoverCrash()
 		files, err := r.CommitFiles(cm)
 		a.app.post(func() {
@@ -367,7 +368,7 @@ func (a *gitContext) readCommitFiles(cm git.Commit) {
 			}
 			s.commitsGen++
 		})
-	}()
+	})
 }
 
 // commitFileRows adds the rows of the files a commit of the history

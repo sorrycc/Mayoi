@@ -1081,6 +1081,7 @@
   "vimWrappedBottom": "先頭まで検索したので末尾に戻ります",
   "vimWrappedTop": "末尾まで検索したので先頭に戻ります",
   "welcomeRecent": "最近",
+  "welcomeStar": "GitHub でスターを付ける",
   "welcomeStart": "開始",
   "welcomeTagline": "迷い · 小さくて速いコード エディター",
   "welcomeUpdate": "アップデート",

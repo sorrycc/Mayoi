@@ -9,6 +9,19 @@ needs a `## <version>` section here, or its build fails.
   including files Git ignores; relative paths use the shell's directory,
   and :line or :line:column suffixes move the caret there.
 
+## 0.11.11
+
+- The welcome page has a **Star on GitHub** link at its foot, which opens
+  Mayoi's repository in the browser.
+- A click on a tab of another column while the find box is open no longer
+  crashes Mayoi: the box moves to that column, rather than show in both.
+- A tab or a terminal dragged from one window and dropped in another stays
+  in its window, rather than show in both, which crashed Mayoi as the
+  terminal took the keyboard.
+- A crash log of a version from before 0.11.6, which doesn't say its
+  version, is reported as of an unknown version, rather than of the one
+  sending it.
+
 ## 0.11.10
 
 - The diff's toolbar tells its buttons apart: the Whitespace menu shows ¶,

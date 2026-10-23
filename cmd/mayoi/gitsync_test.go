@@ -68,6 +68,7 @@ func TestGitSyncStatusBar(t *testing.T) {
 		}
 	})
 	ctx.gitDo(locales.BusySyncing(), func(*gitpkg.Repo) error { <-release; return nil }, nil)
+	hs.held = 1
 	hs.settle()
 	if !tt.HasText(locales.BusySyncing()) {
 		t.Fatalf("busy feedback missing: %q", tt.Texts())
@@ -81,7 +82,7 @@ func TestGitSyncStatusBar(t *testing.T) {
 		t.Fatalf("busy button started another command: pending=%d busy=%q", a.git.pending, a.git.busy)
 	}
 	close(release)
-	released = true
+	released, hs.held = true, 0
 	hs.settleGit()
 	if err := tt.Click(locales.GitSync()); err != nil {
 		t.Fatal(err)

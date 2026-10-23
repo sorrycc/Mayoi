@@ -7,6 +7,7 @@ import (
 
 	"github.com/egoist/mygo/ui"
 
+	"mayoi/internal/bg"
 	"mayoi/internal/git"
 	"mayoi/internal/workspace"
 	"mayoi/locales"
@@ -61,7 +62,7 @@ func (a *gitContext) openBranchPicker() {
 	}
 	b := &a.app.branches
 	*b = branchPicker{open: true, loading: true, repoRoot: r.Root}
-	go func() {
+	bg.Go(func() {
 		bs, err := r.BranchList()
 		a.app.post(func() {
 			if !b.open || b.repoRoot != r.Root || a.git.repo != r {
@@ -94,7 +95,7 @@ func (a *gitContext) openBranchPicker() {
 			}
 			b.stale = true
 		})
-	}()
+	})
 }
 
 func (a *gitContext) closeBranchPicker() {

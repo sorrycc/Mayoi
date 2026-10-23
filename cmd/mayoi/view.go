@@ -503,6 +503,7 @@ func (a *app) columns(c *ui.Context) {
 	// The columns as the frame began: one an action of the frame takes
 	// away, from its tab strip as it draws, is let be till the next.
 	cols := slices.Clone(a.cols)
+	a.findCol = a.column()
 	ui.Row(c.Key("columns")).Bind(&a.colsView).Grow(1).MinHeight(0).AlignItems(ui.Stretch).Children(func() {
 		for i, col := range cols {
 			if !slices.Contains(a.cols, col) {
@@ -592,7 +593,7 @@ func (a *app) columnView(c *ui.Context, col *column) {
 					a.editorView(c, shown.ed)
 					a.hunkPeekView(c, shown.ed)
 					a.reviewBoxView(c, shown.ed)
-					if col == a.column() {
+					if col == a.findCol {
 						a.findView(c, shown.ed)
 					}
 					a.vimLineView(c, shown.ed)
@@ -617,9 +618,25 @@ type dragItem struct {
 	file *fileDrag
 }
 
+// owns reports whether what was dragged is this window's to take: a tab or
+// a terminal dragged from another window stays there, as its view binds
+// controls of that window, or a file, which opens in any.
+func (a *app) owns(it dragItem) bool {
+	switch {
+	case it.file != nil:
+		return true
+	case it.term != nil:
+		return slices.Contains(a.terms, it.term)
+	case it.tab != nil:
+		col, _ := a.locate(it.tab)
+		return col != nil
+	}
+	return false
+}
+
 // dropInColumn puts what was dragged at place at of a column.
 func (a *app) dropInColumn(it dragItem, col *column, at int) {
-	if slices.Index(a.cols, col) < 0 {
+	if slices.Index(a.cols, col) < 0 || !a.owns(it) {
 		return
 	}
 	switch {
@@ -635,7 +652,7 @@ func (a *app) dropInColumn(it dragItem, col *column, at int) {
 // dropBeside puts what was dragged in a column of its own, before a
 // column or after it.
 func (a *app) dropBeside(it dragItem, col *column, after bool) {
-	if slices.Index(a.cols, col) < 0 {
+	if slices.Index(a.cols, col) < 0 || !a.owns(it) {
 		return
 	}
 	if it.file != nil {
@@ -1020,14 +1037,6 @@ func (a *gitContext) gitSyncStatus(c *ui.Context, showCounts bool) {
 	}
 }
 
-// plural counts n things, as "1 line" or "2 lines".
-func plural(n int, thing string) string {
-	if n == 1 {
-		return "1 " + thing
-	}
-	return fmt.Sprintf("%d %ss", n, thing)
-}
-
 // vimBadge shows vim mode's mode in the status bar, as a badge colored
 // by it: plain in normal mode, the accent in insert mode, and the color
 // of a change in visual mode; then the keys of a command typed so far.
@@ -1404,9 +1413,33 @@ func (a *app) welcome(c *ui.Context) {
 						}
 					})
 				}
+				a.welcomeStar(c)
 			})
 		})
 	})
+}
+
+// repoURL is Mayoi's repository on GitHub.
+const repoURL = "https://github.com/sorrycc/Mayoi"
+
+// welcomeStar is the link at the foot of the welcome page that opens
+// Mayoi's repository, to star it: quieter than the rows above it.
+func (a *app) welcomeStar(c *ui.Context) {
+	p := a.pal
+	r := ui.ButtonBase(c.Key("welcome:star")).AlignSelf(ui.Start).Height(24).Padding(0, 10).Radius(6).Gap(6).
+		AlignItems(ui.Center).Label(locales.WelcomeStar()).Tooltip(repoURL)
+	col := p.faint
+	if r.Hovered() {
+		col = p.accent
+	}
+	col = r.AnimateColor("text", col, ui.Animation{Duration: hoverFade.Duration})
+	riseIn(r, 150*time.Millisecond).Children(func() {
+		ui.Icon(c, iconStar).FontSize(13).TextColor(col)
+		ui.Text(c, locales.WelcomeStar()).FontSize(12).TextColor(col).SingleLine()
+	})
+	if r.Clicked() {
+		a.services.OpenURL(repoURL)
+	}
 }
 
 // welcomeRowH is the height of every row of the welcome page, with keys

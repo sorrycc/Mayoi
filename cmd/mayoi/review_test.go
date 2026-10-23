@@ -626,7 +626,6 @@ func TestShotReviewStates(t *testing.T) {
 		os.WriteFile(hs.path("t.txt"), []byte(strings.Replace(changed, "line two\n", "line 2\n", 1)), 0o644)
 		a.gitChanged()
 		hs.settleGit()
-		v = a.activeTab().diff
 		hs.settle()
 		hs.shot(name + "-outdated")
 	}

@@ -65,6 +65,7 @@ func TestRecoverCrash(t *testing.T) {
 		wg.Go(func() {
 			defer recoverCrash()
 			var m map[string]int
+			//lint:ignore SA5000 the panic is what the test recovers
 			m["x"] = 1
 		})
 		wg.Wait()
@@ -94,6 +95,12 @@ func TestCrashReport(t *testing.T) {
 	c = crashReport(crashLog{kind: crashSystem}, `{"app_name":"Mayoi","app_version":"0.11.3"}`+"\n{}")
 	if c.Version != "0.11.3" || c.OS != runtime.GOOS {
 		t.Errorf("ips = %+v", c)
+	}
+	// A log written before crash logs had the line is of an older version
+	// than this one, not known which.
+	c = crashReport(crashLog{kind: crashFatal}, "panic: boom\n\ngoroutine 1 [running]:")
+	if c.Version != crashUnknownVersion || c.Runtime != "" || c.OS != runtime.GOOS {
+		t.Errorf("headerless = %+v", c)
 	}
 	if c := crashReport(crashLog{kind: crashFatal}, strings.Repeat("é", maxCrashReport)); len(c.Log) > maxCrashReport {
 		t.Errorf("log of %d bytes", len(c.Log))

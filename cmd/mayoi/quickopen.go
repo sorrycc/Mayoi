@@ -149,7 +149,7 @@ func (a *app) quickBody(c *ui.Context, isLine bool, line, col int, choose func(i
 	q := &a.quick
 	p := a.pal
 	if isLine {
-		hint := locales.QuickLineHint()
+		var hint string
 		if d := a.activeEditor(); d == nil {
 			hint = locales.QuickLineNoFile()
 		} else if line > 0 {

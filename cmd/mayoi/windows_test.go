@@ -84,8 +84,8 @@ func TestRecentFolderCmdEnter(t *testing.T) {
 	tt := ui.NewTester(a.view, 1200, 760)
 	step(tt)
 	label := "Open " + root
-	// The title bar, sidebar and welcome actions precede recent folders.
-	for range 16 {
+	// Past every button of the sidebar and of START, however many it has.
+	for range 30 {
 		if tt.Focused(label) {
 			break
 		}

@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"mayoi/internal/bg"
 	"mayoi/locales"
 	"regexp"
 	"sort"
@@ -145,7 +146,7 @@ func (a *app) searchIn(d *editor, async bool) {
 		}
 		f.pending, f.pendingDoc = snap.Version(), d.id
 		re, id := f.re, d.id
-		go func() {
+		bg.Go(func() {
 			defer recoverCrash()
 			matches := scanMatches(re, snap)
 			a.post(func() {
@@ -158,7 +159,7 @@ func (a *app) searchIn(d *editor, async bool) {
 				}
 				a.applyMatches(d, matches, snap.Version(), false)
 			})
-		}()
+		})
 		return
 	}
 	f.key, f.doc, f.stale = key, d.id, false

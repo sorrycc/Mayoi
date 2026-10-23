@@ -12,6 +12,7 @@ import (
 
 	"github.com/egoist/mygo/ui"
 
+	"mayoi/internal/bg"
 	"mayoi/internal/remote"
 	"mayoi/locales"
 )
@@ -230,7 +231,7 @@ func (a *app) download(src, dir string) {
 		return
 	}
 	x := a.startTransfer(transferLabel([]string{src}, dir))
-	go func() {
+	bg.Go(func() {
 		got, err := transferInto([]string{src}, dir, x.progress)
 		a.post(func() {
 			a.endTransfer(x)
@@ -241,5 +242,5 @@ func (a *app) download(src, dir string) {
 			to := got[0]
 			a.tell(note{message: locales.Downloaded(filepath.Base(to)), label: revealLabel(), action: func() { a.host.reveal(to) }})
 		})
-	}()
+	})
 }

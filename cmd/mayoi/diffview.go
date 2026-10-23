@@ -15,6 +15,7 @@ import (
 
 	"github.com/egoist/mygo/ui"
 
+	"mayoi/internal/bg"
 	"mayoi/internal/git"
 	"mayoi/internal/highlight"
 	"mayoi/internal/linediff"
@@ -80,9 +81,6 @@ const (
 	crossAlways                  // cross into the next or previous file at once
 	crossNever                   // stay in the file
 )
-
-// key is how the settings name a crossing.
-func (x diffCross) key() string { return [...]string{"", "always", "never"}[x] }
 
 func parseDiffCross(s string) diffCross {
 	switch s {
@@ -860,7 +858,7 @@ func (a *app) listCommitFiles(v *diffView) {
 	}
 	cm.loading = true
 	hash, info := cm.hash, cm.info
-	go func() {
+	bg.Go(func() {
 		defer recoverCrash()
 		var err error
 		if info.Hash == "" || len(info.Parents) == 0 && info.Subject == "" {
@@ -891,7 +889,7 @@ func (a *app) listCommitFiles(v *diffView) {
 			}
 			v.changed()
 		})
-	}()
+	})
 }
 
 // commitEntries returns the files a commit changed as entries of a
@@ -966,7 +964,7 @@ func (a *app) refreshDiffFile(v *diffView, f *diffFile) bool {
 	}
 	if wait := diffViewPause - time.Since(f.started); f.loaded && !f.gitStale && wait > 0 {
 		f.waiting = true
-		time.AfterFunc(wait, func() { a.post(func() { f.waiting = false }) })
+		bg.AfterFunc(wait, func() { a.post(func() { f.waiting = false }) })
 		return false
 	}
 	f.running, f.started = true, time.Now()
@@ -992,7 +990,7 @@ func (a *app) refreshDiffFile(v *diffView, f *diffFile) bool {
 	if orig == "" {
 		orig = path
 	}
-	go func() {
+	bg.Go(func() {
 		defer recoverCrash()
 		var err error
 		read := func(rev, path string) (string, bool) {
@@ -1089,7 +1087,7 @@ func (a *app) refreshDiffFile(v *diffView, f *diffFile) bool {
 			}
 			v.changed()
 		})
-	}()
+	})
 	return true
 }
 

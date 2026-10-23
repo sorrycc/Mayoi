@@ -10957,6 +10957,16 @@ func (msgs Messages) WelcomeRecent() string {
 	return Catalog.Format(msgs.locale, "welcomeRecent", nil)
 }
 
+// WelcomeStar says "Star on GitHub"
+// in the language the app shows.
+func WelcomeStar() string { return In(i18n.Locale()).WelcomeStar() }
+
+// WelcomeStar says "Star on GitHub"
+// in the language of msgs.
+func (msgs Messages) WelcomeStar() string {
+	return Catalog.Format(msgs.locale, "welcomeStar", nil)
+}
+
 // WelcomeStart says "Start"
 // in the language the app shows.
 func WelcomeStart() string { return In(i18n.Locale()).WelcomeStart() }

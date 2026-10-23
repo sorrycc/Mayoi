@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/egoist/mygo/ui"
+	"mayoi/internal/bg"
 	"mayoi/internal/git"
 )
 
@@ -144,7 +145,7 @@ func (a *app) discoverRepositories() {
 	root, folder := a.git.repo, a.root
 	token := new(int)
 	state.token, state.scanning, state.dirty = token, true, false
-	go func() {
+	bg.Go(func() {
 		defer recoverCrash()
 		// An incomplete scan must not drop live contexts and their messages.
 		failed := func() {
@@ -220,7 +221,7 @@ func (a *app) discoverRepositories() {
 			}
 			state.scanning = false
 		})
-	}()
+	})
 }
 
 func (a *app) changeCount() int {

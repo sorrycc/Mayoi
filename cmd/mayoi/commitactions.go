@@ -1,6 +1,7 @@
 package main
 
 import (
+	"mayoi/internal/bg"
 	"mayoi/internal/git"
 	"mayoi/internal/vfs"
 	"mayoi/locales"
@@ -118,7 +119,7 @@ func (a *gitContext) gitRead(busy string, fn func(*git.Repo) error, then func())
 	}
 	g.busy = busy
 	g.pending++
-	go func() {
+	bg.Go(func() {
 		err := fn(r)
 		a.app.post(func() {
 			if g.repo != r {
@@ -134,5 +135,5 @@ func (a *gitContext) gitRead(busy string, fn func(*git.Repo) error, then func())
 				then()
 			}
 		})
-	}()
+	})
 }

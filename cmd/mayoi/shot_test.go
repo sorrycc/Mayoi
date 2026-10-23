@@ -87,11 +87,10 @@ func TestShotSelection(t *testing.T) {
 	hs := newHarness(t, true)
 	hs.a.openFile(hs.path("main.go"), true)
 	hs.settle()
-	d := hs.a.activeEditor()
 	os.WriteFile(hs.path("s.py"), []byte("def f():\n    if x:\n        y = 1  # a comment\n\treturn\n"), 0o644)
 	hs.a.openFile(hs.path("s.py"), true)
 	hs.settle()
-	d = hs.a.activeEditor()
+	d := hs.a.activeEditor()
 	hs.place(d, 0, d.buf.Len())
 	hs.shot("selection-dark")
 }

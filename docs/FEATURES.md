@@ -450,6 +450,7 @@ Each folder gets its own window.
 
 - **Open Folder…** (⌘O) opens a folder in the current window.
 - **New Window** (⇧⌘N) opens a window showing nothing, which the welcome page fills.
+- **Star on GitHub**, at the foot of the welcome page, opens Mayoi's repository in the browser.
 - **Open Folder in New Window…** (⌥⌘O), or ⌘-clicking a recent folder (or pressing ⌘↵ on it), opens it in a new window.
 - **File → Open Recent** lists the last ten folders, except the window's own and any no longer on disk, and has
   **Clear Recently Opened**. On macOS the Dock icon's menu lists them too, under **New Window**.

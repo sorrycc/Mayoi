@@ -3,6 +3,12 @@
 The update window shows the section of the version it offers. Every release
 needs a `## <version>` section here, or its build fails.
 
+## Unreleased
+
+- Command-clicking a file path in a local terminal opens it in Mayoi,
+  including files Git ignores; relative paths use the shell's directory,
+  and :line or :line:column suffixes move the caret there.
+
 ## 0.11.11
 
 - The welcome page has a **Star on GitHub** link at its foot, which opens

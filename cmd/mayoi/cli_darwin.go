@@ -37,5 +37,5 @@ func refreshCLI() {
 		return
 	}
 	home, _ := os.UserHomeDir()
-	go cli.Refresh([]string{filepath.Join(home, ".local", "bin"), "/usr/local/bin"}, app)
+	go func() { cli.Refresh(cli.InstalledDirs(home, filepath.SplitList(os.Getenv("PATH"))), app) }()
 }

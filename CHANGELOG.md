@@ -5,6 +5,9 @@ needs a `## <version>` section here, or its build fails.
 
 ## Unreleased
 
+- Install and upgrade on macOS with Homebrew using the `sorrycc/mayoi` tap.
+- Homebrew installs the `mayoi` shell command and removes it when uninstalling the app.
+- The Homebrew `mayoi` command reports when Mayoi.app cannot be found.
 - `mayoi run <id>[=<arg>]` runs any command of the window, and `mayoi commands` lists them.
 - `mayoi -g file:line` opens a file at a line, `-d` compares two files, and `-n` opens a new window.
 - `mayoi --remote host:/path` opens a folder on an SSH host.

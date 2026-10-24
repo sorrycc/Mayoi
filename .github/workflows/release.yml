@@ -111,3 +111,25 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh release edit "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --draft=false --latest
+
+  homebrew:
+    needs: publish
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: main
+      - name: Update the Homebrew cask from the published disk images
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: sh scripts/update-homebrew.sh "${GITHUB_REF_NAME#v}"
+      - name: Commit the cask
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Casks/mayoi.rb
+          if ! git diff --cached --quiet; then
+            git commit -m "Update Homebrew cask to ${GITHUB_REF_NAME#v}"
+            git pull --rebase origin main
+            git push origin HEAD:main
+          fi

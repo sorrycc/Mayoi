@@ -44,3 +44,12 @@ The workflow needs these repository secrets:
 | `APPLE_APP_PASSWORD` | an app-specific password of the Apple ID, from account.apple.com |
 
 Local builds stay signed ad hoc; only the workflow signs with the Developer ID. Windows builds are not signed.
+
+The repository also serves as the Homebrew tap. After publishing a release, the workflow downloads both signed
+disk images, updates `Casks/mayoi.rb` with their version and SHA-256 checksums, and commits it to `main`.
+The repository must allow GitHub Actions to push to `main`. To retry an update locally, run
+`sh scripts/update-homebrew.sh <version>` and commit the changed cask.
+
+Pull `main` after a release before running `scripts/bump.sh` again; the workflow commits the updated cask.
+Using the source repository as the tap avoids a second repository and publishing credential, but tapping
+clones the source tree and its history, and `brew update` fetches later source commits too.

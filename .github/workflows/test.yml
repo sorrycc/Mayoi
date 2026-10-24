@@ -31,6 +31,7 @@ jobs:
           files="$(gofmt -l .)"
           test -z "$files" || { echo "::error::not formatted with gofmt:"; echo "$files"; exit 1; }
       - run: go tool staticcheck ./...
+      - run: sh scripts/test-homebrew.sh
 
   linux:
     name: Linux (${{ matrix.os }})

@@ -83,25 +83,53 @@ source and how fast it runs, and [CONTRIBUTING.md](CONTRIBUTING.md) to build, te
   </tr>
 </table>
 
-## Requirements
+## Installation
 
-- macOS 13 or later, or Linux with GTK 3, such as Ubuntu 22.04 or later
-- Go 1.27 or later
+### macOS
 
-Mayoi also builds for Windows.
+Requires macOS 13 or later. Install with [Homebrew](https://brew.sh) on Apple Silicon or Intel:
 
-On Linux, `curl -fsSL https://github.com/sorrycc/Mayoi/releases/latest/download/install.sh | sh` installs the latest
-release for you in `~/.local`, with the `mayoi` command and an entry in the applications menu.
+```sh
+brew tap --custom-remote sorrycc/mayoi https://github.com/sorrycc/Mayoi.git
+brew install --cask mayoi
+```
 
-## Getting started
+Or download the DMG for your Mac from [Releases](https://github.com/sorrycc/Mayoi/releases/latest) and drag
+**Mayoi** to Applications. Both methods install the signed, notarized app.
+
+Open **Mayoi** from Applications, or run `mayoi .` or `mayoi <file>` in a shell.
+Homebrew installs and removes the shell command with the app. For a DMG installation, choose
+**File → Install 'mayoi' Command** in the app instead.
+
+If you already installed the command through Mayoi, choose **File → Uninstall 'mayoi' Command** before
+installing with Homebrew, so only one `mayoi` command is on your `PATH`.
+
+Mayoi checks for updates automatically. To upgrade with Homebrew, run `brew update && brew upgrade --cask mayoi`.
+
+### Linux
+
+Requires GTK 3, such as on Ubuntu 22.04 or later:
+
+```sh
+curl -fsSL https://github.com/sorrycc/Mayoi/releases/latest/download/install.sh | sh
+```
+
+The installer adds Mayoi to `~/.local`, with the `mayoi` command and an entry in the applications menu.
+
+### Windows
+
+Download the installer for your architecture from [Releases](https://github.com/sorrycc/Mayoi/releases/latest).
+
+### Build from source
+
+Requires Go 1.27 or later; Linux also needs GTK 3. From the repository:
 
 ```sh
 go run ./cmd/mayoi ~/some/project    # open a folder or a file
 go tool mygo build                   # build build/darwin-arm64/Mayoi.app and a .dmg
 ```
 
-To open folders from a shell, choose **File → Install 'mayoi' Command** (on Linux the installer adds it), then run
-`mayoi .` or `mayoi <file>`.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development and testing.
 
 ## Keyboard shortcuts
 

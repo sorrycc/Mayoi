@@ -20,7 +20,7 @@ func TestDeclare(t *testing.T) {
 			t.Errorf("%q: %+v %v", tc.line, sym, ok)
 		}
 	}
-	for _, line := range []string{"x := func() {}", "type (", "// func comment()", "	return function() {"} {
+	for _, line := range []string{"x := func() {}", "	func() {", "type (", "// func comment()", "	return function() {"} {
 		if sym, ok := declare(line); ok {
 			t.Errorf("%q declares %+v", line, sym)
 		}

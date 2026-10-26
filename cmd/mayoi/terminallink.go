@@ -41,14 +41,18 @@ func (a *app) terminalFile(s *session, link string) bool {
 			return false
 		}
 		line, err = strconv.Atoi(name[at+1:])
-		if err != nil || line < 1 {
+		if err != nil || line < 0 {
 			return false
 		}
 		name = name[:at]
 		if at = strings.LastIndexByte(name, ':'); at >= 0 {
+			// A column of 0, which some tools print, opens the line.
 			if n, err := strconv.Atoi(name[at+1:]); err == nil && n > 0 {
 				line, col, name = n, line, name[:at]
 			}
+		}
+		if line < 1 {
+			return false
 		}
 		path = resolve(name)
 		info, err = os.Stat(path)

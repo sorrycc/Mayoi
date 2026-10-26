@@ -5,9 +5,8 @@ needs a `## <version>` section here, or its build fails.
 
 ## Unreleased
 
-- Command-clicking a file path in a local terminal opens it in Mayoi,
-  including files Git ignores; relative paths use the shell's directory,
-  and :line or :line:column suffixes move the caret there.
+- Command-clicking a file path in a local terminal opens it in the editor, even if Git ignores it.
+- Terminal paths ending in `:line` or `:line:column` open with the caret at that spot.
 - **Open Preview to the Side** opens the preview in the column beside the file instead of adding one.
 - The Markdown preview shows footnotes like `[^1]` as raised numbers, with the notes listed at the end.
 - Clicking a footnote's number scrolls to its note, and the note's `↩` scrolls back.

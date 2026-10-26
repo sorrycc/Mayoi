@@ -37,6 +37,7 @@ func TestTerminalLinkOpensFile(t *testing.T) {
 		{"absolute", t.TempDir(), hs.path(rel), 1, 1},
 		{"line", hs.root, rel + ":3", 3, 1},
 		{"line and column", hs.root, rel + ":3:2", 3, 2},
+		{"column zero", hs.root, rel + ":3:0", 3, 1},
 		{"clamped position", hs.root, rel + ":999:999", 4, 1},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

@@ -113,6 +113,12 @@ type Prefs struct {
 	// scrolling sideways to them. A tab may choose otherwise, until this
 	// changes: Settings.WrapGen counts its changes.
 	WordWrap bool `json:"wordWrap,omitempty"`
+	// PreviewMermaid draws the blocks of Mermaid of a Markdown preview as
+	// the diagrams they make, rather than their source.
+	PreviewMermaid bool `json:"previewMermaid"`
+	// PreviewMath draws the TeX math of a Markdown preview, between $ and
+	// $, $$ and $$, or in a block of math, as the formulas it makes.
+	PreviewMath bool `json:"previewMath"`
 	// DiffLayout is how diffs show: "split" side by side, "inline" in
 	// one column, or "" side by side when they are wide enough to.
 	DiffLayout string `json:"diffLayout,omitempty"`
@@ -391,7 +397,7 @@ func Default() *Settings {
 	return &Settings{
 		Prefs: Prefs{
 			FontSize: 13, FontFamily: "monospace", FontWeight: 400, LineHeight: 1.55,
-			AutoSave: true, Blame: true, TerminalCopyOnSelect: true,
+			AutoSave: true, Blame: true, TerminalCopyOnSelect: true, PreviewMermaid: true, PreviewMath: true,
 			DiffAlignedRows: true, DiffContext: 3, DiffSyncScroll: true, MergeAutoApply: true,
 		},
 	}

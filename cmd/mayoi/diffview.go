@@ -660,12 +660,18 @@ func (a *app) compareLocalFiles() {
 			a.fail("%s", locales.DiffChooseDifferent())
 			return
 		}
-		col := a.column()
-		at := min(col.active+1, len(col.tabs))
-		v := newLocalCompareView(parseDiffLayout(a.settings.DiffLayout), paths[0], paths[1])
-		a.addTab(col, at, &colTab{diff: v})
-		a.activate(col, at, true)
+		a.compareFiles(paths[0], paths[1])
 	})
+}
+
+// compareFiles shows the differences of two files of this machine in a
+// tab after the one shown.
+func (a *app) compareFiles(left, right string) {
+	col := a.column()
+	at := min(col.active+1, len(col.tabs))
+	v := newLocalCompareView(parseDiffLayout(a.settings.DiffLayout), left, right)
+	a.addTab(col, at, &colTab{diff: v})
+	a.activate(col, at, true)
 }
 
 // openChanges shows the changes of the file of the tab shown, or, from

@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -61,7 +62,16 @@ type markdownPreview struct {
 	pending  bool
 	// refetch is whether a picture of the web arrived since the last
 	// parse, for the text to be parsed again to show it.
-	refetch    bool
+	refetch bool
+	// mermaid is the style the last parse asked for draws diagrams in,
+	// nil for none, and sources the blocks of Mermaid shown as their
+	// source, by their lines.
+	mermaid *mermaidStyle
+	sources map[int]bool
+	// math is whether the last parse drew math, and places where the
+	// formulas within the texts it drew stand, by their texts' runs.
+	math       bool
+	places     map[*markdownInline]mathPlacement
 	running    bool
 	generation atomic.Uint64
 }
@@ -72,6 +82,8 @@ type markdownInline struct {
 	bitmap                          ui.ImageSource
 	w, h                            float32
 	kind                            highlight.Kind
+	// math is the formula the run draws, its text its source.
+	math *mathFormula
 }
 
 type markdownKind uint8
@@ -87,6 +99,9 @@ const (
 	// markdownAlertTitle is the first row of a GitHub alert, its icon and
 	// its kind, as "Note".
 	markdownAlertTitle
+	// markdownMathBlock is a formula in display style, in a block of math
+	// or alone in its paragraph between $$ and $$.
+	markdownMathBlock
 )
 
 // markdownAlert is the kind of a GitHub alert, a quote that opens with
@@ -118,6 +133,15 @@ type markdownImageKey struct {
 type markdownCache struct {
 	images map[markdownImageKey]markdownInline
 	code   map[[2]string][]markdownInline
+	// mermaid is the style its blocks of Mermaid are drawn in as
+	// diagrams, nil to show their source, and diagrams the diagrams of
+	// their source drawn in it.
+	mermaid  *mermaidStyle
+	diagrams map[string]*mermaidDiagram
+	// math is whether its math is drawn, and formulas the formulas of its
+	// TeX drawn, by their TeX and whether in display style.
+	math     bool
+	formulas map[mathKey]*mathFormula
 	// arrived is called once a picture of the web a parse asked for is
 	// fetched, for the preview to parse again; without it, those pictures
 	// are not fetched.
@@ -146,11 +170,20 @@ type markdownBlock struct {
 	// slug is a heading's anchor, as GitHub makes it, which a link to
 	// #slug scrolls to.
 	slug string
+	// anchors are the other places a link to #anchor scrolls to: the
+	// footnote the block starts and the references to footnotes in it.
+	anchors []string
+	// footnote is whether the block is of a footnote, smaller and muted.
+	footnote bool
 	// line is the line of the text the block starts on, from 0, which the
 	// preview scrolls with as the text scrolls.
 	line int
 	// center is whether the block is centered, as in <p align="center">.
 	center bool
+	// diagram is the diagram a block of Mermaid draws, or why it could not.
+	diagram *mermaidDiagram
+	// formula is the formula a block of math draws, or why it could not.
+	formula *mathFormula
 }
 
 func isMarkdown(d *document) bool {
@@ -158,7 +191,7 @@ func isMarkdown(d *document) bool {
 	return strings.EqualFold(ext, ".md") || strings.EqualFold(ext, ".markdown")
 }
 
-func canPreview(d *document) bool { return isSVG(d) || isMarkdown(d) }
+func canPreview(d *document) bool { return isSVG(d) || isMarkdown(d) || isMermaid(d) }
 
 // markdownPath resolves local destinations without fetching remote resources.
 // A leading / means root, as it means the repository's on GitHub, or the
@@ -230,19 +263,136 @@ func markdownFrontMatter(lines []string) bool {
 }
 
 // markdownParser parses GitHub's Markdown: goldmark's parser with the
-// parts of its GFM extension that parse, without its HTML renderer, which
-// the preview has no use for and would make Mayoi larger.
-func markdownParser() parser.Parser {
+// parts of its GFM and footnote extensions that parse, without their HTML
+// renderers, which the preview has no use for and would make Mayoi
+// larger, and with its math when math is set.
+func markdownParser(math bool) parser.Parser {
+	inlines := append(parser.DefaultInlineParsers(),
+		util.Prioritized(extension.NewStrikethroughParser(), 500),
+		util.Prioritized(extension.NewTaskCheckBoxParser(), 0),
+		util.Prioritized(extension.NewLinkifyParser(), 999),
+		util.Prioritized(extension.NewFootnoteParser(), 101))
+	if math {
+		inlines = append(inlines, util.Prioritized(mathParser{}, 150))
+	}
 	return parser.NewParser(
-		parser.WithBlockParsers(parser.DefaultBlockParsers()...),
-		parser.WithInlineParsers(append(parser.DefaultInlineParsers(),
-			util.Prioritized(extension.NewStrikethroughParser(), 500),
-			util.Prioritized(extension.NewTaskCheckBoxParser(), 0),
-			util.Prioritized(extension.NewLinkifyParser(), 999))...),
+		parser.WithBlockParsers(append(parser.DefaultBlockParsers(),
+			util.Prioritized(extension.NewFootnoteBlockParser(), 999))...),
+		parser.WithInlineParsers(inlines...),
 		parser.WithParagraphTransformers(append(parser.DefaultParagraphTransformers(),
 			util.Prioritized(extension.NewTableParagraphTransformer(), 200))...),
-		parser.WithASTTransformers(util.Prioritized(extension.NewTableASTTransformer(), 0)),
+		parser.WithASTTransformers(util.Prioritized(extension.NewTableASTTransformer(), 0),
+			util.Prioritized(urlLinkifier{}, 100), util.Prioritized(extension.NewFootnoteASTTransformer(), 999)),
 	)
+}
+
+// linkURL is goldmark's linkify pattern of a URL with its protocol.
+var linkURL = regexp.MustCompile(`^(?:http|https|ftp)://[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-z]+(?::\d+)?(?:[/#?][-a-zA-Z0-9@:%_+.~#$!?&/=\(\);,'">\^{}\[\]` + "`" + `]*)?`)
+
+// urlLinkifier links the URLs goldmark's linkify leaves as text because
+// they follow neither a space nor a delimiter, as after the ： of
+// "链接：https://…", which GitHub links after anything but a letter.
+type urlLinkifier struct{}
+
+func (urlLinkifier) Transform(doc *ast.Document, reader text.Reader, pc parser.Context) {
+	source := reader.Source()
+	var texts []*ast.Text
+	ast.Walk(doc, func(n ast.Node, entering bool) (ast.WalkStatus, error) {
+		switch n := n.(type) {
+		case *ast.Link, *ast.AutoLink, *ast.Image, *ast.CodeSpan, *ast.RawHTML, *mathNode:
+			return ast.WalkSkipChildren, nil
+		case *ast.Text:
+			if entering && !n.IsRaw() {
+				texts = append(texts, n)
+			}
+		}
+		return ast.WalkContinue, nil
+	})
+	for _, t := range texts {
+		linkifyText(t, source)
+	}
+}
+
+// linkifyText splits t into its text and the links of its URLs, first
+// joining the text after it that a delimiter such as the _ of a URL split
+// from it.
+func linkifyText(t *ast.Text, source []byte) {
+	parent := t.Parent()
+	if parent == nil {
+		return
+	}
+	for !t.SoftLineBreak() && !t.HardLineBreak() {
+		next, ok := t.NextSibling().(*ast.Text)
+		if !ok || next.IsRaw() || next.Segment.Start != t.Segment.Stop {
+			break
+		}
+		t.Segment = t.Segment.WithStop(next.Segment.Stop)
+		t.SetSoftLineBreak(next.SoftLineBreak())
+		t.SetHardLineBreak(next.HardLineBreak())
+		parent.RemoveChild(parent, next)
+	}
+	for {
+		seg := t.Segment
+		b := seg.Value(source)
+		at, end := -1, 0
+		for i := range b {
+			if b[i] != 'h' && b[i] != 'f' {
+				continue
+			}
+			if p := seg.Start + i; p > 0 && (source[p-1] >= 'a' && source[p-1] <= 'z' || source[p-1] >= 'A' && source[p-1] <= 'Z') {
+				continue
+			}
+			if m := linkURL.Find(b[i:]); m != nil {
+				at, end = i, i+linkEnd(m)
+				break
+			}
+		}
+		if at < 0 {
+			if seg.Len() == 0 && !t.SoftLineBreak() && !t.HardLineBreak() {
+				parent.RemoveChild(parent, t)
+			}
+			return
+		}
+		if at > 0 {
+			parent.InsertBefore(parent, t, ast.NewTextSegment(seg.WithStop(seg.Start+at)))
+		}
+		url := ast.NewTextSegment(text.NewSegment(seg.Start+at, seg.Start+end))
+		parent.InsertBefore(parent, t, ast.NewAutoLink(ast.AutoLinkURL, url))
+		t.Segment = seg.WithStart(seg.Start + end)
+	}
+}
+
+// linkEnd is where the URL of m ends without the punctuation that ends
+// its sentence, a ) it did not open, or an entity such as &amp;, as
+// goldmark's linkify ends it.
+func linkEnd(m []byte) int {
+	end := len(m)
+	for end > 0 {
+		switch c := m[end-1]; {
+		case strings.IndexByte("?!.,:*_~", c) >= 0:
+			end--
+			continue
+		case c == ')' && bytes.Count(m[:end], []byte(")")) > bytes.Count(m[:end], []byte("(")):
+			end--
+			continue
+		case c == ';':
+			if i := bytes.LastIndexByte(m[:end-1], '&'); i >= 0 && isAlnum(m[i+1:end-1]) {
+				end = i
+				continue
+			}
+		}
+		return end
+	}
+	return end
+}
+
+func isAlnum(b []byte) bool {
+	for _, c := range b {
+		if !(c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9') {
+			return false
+		}
+	}
+	return len(b) > 0
 }
 
 // parseMarkdown converts the AST once, away from the UI thread.
@@ -261,6 +411,8 @@ func parseMarkdown(source []byte, path, root string, current func() bool, caches
 	cache := c.images
 	used := map[markdownImageKey]bool{}
 	usedCode := map[[2]string]bool{}
+	usedDiagrams := map[string]bool{}
+	usedFormulas := map[mathKey]bool{}
 	defer func() {
 		if current != nil && !current() {
 			return
@@ -275,7 +427,44 @@ func parseMarkdown(source []byte, path, root string, current func() bool, caches
 				delete(c.code, k)
 			}
 		}
+		for k := range c.diagrams {
+			if !usedDiagrams[k] {
+				delete(c.diagrams, k)
+			}
+		}
+		for k := range c.formulas {
+			if !usedFormulas[k] {
+				delete(c.formulas, k)
+			}
+		}
 	}()
+	// formula draws a formula, as the last parse did if it had it.
+	formula := func(tex string, display bool) *mathFormula {
+		key := mathKey{tex, display}
+		usedFormulas[key] = true
+		f, ok := c.formulas[key]
+		if !ok {
+			f = renderMath(tex, display)
+			if c.formulas == nil {
+				c.formulas = map[mathKey]*mathFormula{}
+			}
+			c.formulas[key] = f
+		}
+		return f
+	}
+	// diagram draws a block of Mermaid, as the last parse did if it had it.
+	diagram := func(text string) *mermaidDiagram {
+		usedDiagrams[text] = true
+		d, ok := c.diagrams[text]
+		if !ok {
+			d = renderMermaid(text, *c.mermaid)
+			if c.diagrams == nil {
+				c.diagrams = map[string]*mermaidDiagram{}
+			}
+			c.diagrams[text] = d
+		}
+		return d
+	}
 	// code highlights a block of code, as the last parse did if it had it.
 	code := func(text, language string) []markdownInline {
 		key := [2]string{language, text}
@@ -304,7 +493,7 @@ func parseMarkdown(source []byte, path, root string, current func() bool, caches
 		}
 	}
 
-	tree := markdownParser().Parse(text.NewReader(source))
+	tree := markdownParser(c.math).Parse(text.NewReader(source))
 	// starts are where the lines of source start, for the line of a block.
 	starts := []int{0}
 	for i, ch := range source {
@@ -372,6 +561,8 @@ func parseMarkdown(source []byte, path, root string, current func() bool, caches
 		}
 		return s
 	}
+	// anchors are those of the block being walked, which emit gives it.
+	var anchors []string
 	var inline func(ast.Node, markdownInline) []markdownInline
 	inline = func(n ast.Node, style markdownInline) []markdownInline {
 		var out []markdownInline
@@ -438,6 +629,26 @@ func parseMarkdown(source []byte, path, root string, current func() bool, caches
 					out = append(out, r)
 				}
 				continue
+			case *mathNode:
+				fence := "$"
+				if x.display {
+					fence = "$$"
+				}
+				s.text = fence + x.tex + fence
+				if current == nil || current() {
+					s.math = formula(x.tex, x.display)
+				}
+			case *east.FootnoteLink:
+				// A reference to a footnote is its number raised, as
+				// GitHub's <sup>, linking to it and linked back to.
+				n := strconv.Itoa(x.Index)
+				s.text, s.link = markdownSuperscript(n), "#user-content-fn-"+n
+				anchors = append(anchors, markdownFootnoteRef(x.Index, x.RefIndex))
+			case *east.FootnoteBacklink:
+				s.text, s.link = " ↩", "#"+markdownFootnoteRef(x.Index, x.RefIndex)
+				if x.RefIndex > 0 {
+					s.text += markdownSuperscript(strconv.Itoa(x.RefIndex + 1))
+				}
 			case *east.TaskCheckBox:
 				s.text = "☐ "
 				if x.IsChecked {
@@ -472,6 +683,7 @@ func parseMarkdown(source []byte, path, root string, current func() bool, caches
 	// paragraphs retain native text wrapping, those next to each other on
 	// one, as a row of badges.
 	emit := func(b markdownBlock) {
+		b.anchors, anchors = anchors, nil
 		if b.kind == markdownParagraph || b.kind == markdownHeading {
 			b.runs = markdownMerge(b.runs)
 			if !markdownHasText(b.runs) && !slices.ContainsFunc(b.runs, func(r markdownInline) bool { return r.bitmap != nil }) {
@@ -522,9 +734,11 @@ func parseMarkdown(source []byte, path, root string, current func() bool, caches
 		}
 		blocks = append(blocks, b)
 	}
+	// footnote is whether the blocks being walked are of a footnote.
+	footnote := false
 	var walk func(ast.Node, int, int, string, bool, float32, float32)
 	walk = func(n ast.Node, indent, quote int, marker string, tight bool, offset, markerWidth float32) {
-		b := markdownBlock{indent: indent, quote: quote, marker: marker, tight: tight, offset: offset, markerWidth: markerWidth, alert: alert, alertAt: alertAt, center: markdownCentered(boxes)}
+		b := markdownBlock{indent: indent, quote: quote, marker: marker, tight: tight, offset: offset, markerWidth: markerWidth, alert: alert, alertAt: alertAt, center: markdownCentered(boxes), footnote: footnote}
 		if _, doc := n.(*ast.Document); !doc {
 			b.line = lineOf(n)
 		}
@@ -544,12 +758,28 @@ func parseMarkdown(source []byte, path, root string, current func() bool, caches
 				b.marker = strings.TrimSpace(b.runs[0].text)
 				b.runs = b.runs[1:]
 			}
+			// A formula between $$ and $$ alone in its paragraph is in a
+			// block of its own.
+			if x, ok := n.FirstChild().(*mathNode); ok && x.display && n.ChildCount() == 1 {
+				b.kind, b.formula = markdownMathBlock, b.runs[0].math
+				b.runs = []markdownInline{{text: x.tex, code: true}}
+			}
 
 		case *ast.ThematicBreak:
 			b.kind = markdownRule
 		case *ast.FencedCodeBlock:
 			b.kind, b.language = markdownCodeBlock, string(x.Language(source))
-			b.runs = code(string(x.Lines().Value(source)), b.language)
+			text := string(x.Lines().Value(source))
+			b.runs = code(text, b.language)
+			if c.mermaid != nil && strings.EqualFold(b.language, "mermaid") && (current == nil || current()) {
+				b.diagram = diagram(text)
+			}
+			if c.math && strings.EqualFold(b.language, "math") {
+				b.kind, b.runs = markdownMathBlock, []markdownInline{{text: strings.TrimSpace(text), code: true}}
+				if current == nil || current() {
+					b.formula = formula(strings.TrimSpace(text), true)
+				}
+			}
 		case *ast.CodeBlock:
 			b.kind = markdownCodeBlock
 			b.runs = code(string(x.Lines().Value(source)), "")
@@ -600,6 +830,19 @@ func parseMarkdown(source []byte, path, root string, current func() bool, caches
 				walk(ch, indent+1, quote, m, x.IsTight, offset, width)
 			}
 			return
+		case *east.FootnoteList:
+			footnote = true
+			defer func() { footnote = false }()
+			// The footnotes are a numbered list at the end, below a rule,
+			// as on GitHub.
+			blocks = append(blocks, markdownBlock{kind: markdownRule, indent: indent, quote: quote, line: b.line})
+			width := max(1.5, float32(len(strconv.Itoa(x.Count))+1)*0.65)
+			for ch := n.FirstChild(); ch != nil; ch = ch.NextSibling() {
+				fn := ch.(*east.Footnote)
+				anchors = append(anchors, "user-content-fn-"+strconv.Itoa(fn.Index))
+				walk(ch, indent+1, quote, strconv.Itoa(fn.Index)+".", true, offset, width)
+			}
+			return
 		case *east.Table:
 			first, body := len(blocks), 0
 			for row := n.FirstChild(); row != nil; row = row.NextSibling() {
@@ -617,6 +860,7 @@ func parseMarkdown(source []byte, path, root string, current func() bool, caches
 				for cell := row.FirstChild(); cell != nil; cell = cell.NextSibling() {
 					rb.cells = append(rb.cells, markdownMerge(inline(cell, markdownInline{bold: head})))
 				}
+				rb.anchors, anchors = anchors, nil
 				blocks = append(blocks, rb)
 			}
 			for i := first; i < len(blocks); i++ {
@@ -646,6 +890,21 @@ func parseMarkdown(source []byte, path, root string, current func() bool, caches
 		blocks[i].line = line
 	}
 	return blocks
+}
+
+// markdownSuperscript is the digits of n raised, as ¹².
+func markdownSuperscript(n string) string {
+	return strings.Map(func(r rune) rune { return []rune("⁰¹²³⁴⁵⁶⁷⁸⁹")[r-'0'] }, n)
+}
+
+// markdownFootnoteRef is the anchor of a reference to footnote index,
+// the ref-th to it from 0, as GitHub names it.
+func markdownFootnoteRef(index, ref int) string {
+	a := "user-content-fnref-" + strconv.Itoa(index)
+	if ref > 0 {
+		a += "-" + strconv.Itoa(ref+1)
+	}
+	return a
 }
 
 // markdownStart is the offset in the source where a node starts, the
@@ -741,6 +1000,10 @@ func markdownColumns(rows []markdownBlock, size float32, measure func(r markdown
 					w += min(r.w, size*12)
 					continue
 				}
+				if r.math != nil && r.math.err == "" {
+					w += r.math.w * size
+					continue
+				}
 				w += measure(r, row.kind == markdownTableHeader)
 			}
 			if i >= len(cols) {
@@ -763,7 +1026,7 @@ func markdownMerge(runs []markdownInline) []markdownInline {
 	for _, r := range runs {
 		if n := len(out); n > 0 {
 			l := &out[n-1]
-			if r.bitmap == nil && l.bitmap == nil && r.image == "" && l.image == "" && r.link == l.link && r.kind == l.kind &&
+			if r.bitmap == nil && l.bitmap == nil && r.math == nil && l.math == nil && r.image == "" && l.image == "" && r.link == l.link && r.kind == l.kind &&
 				r.bold == l.bold && r.italic == l.italic && r.strike == l.strike && r.code == l.code && r.raw == l.raw {
 				l.text += r.text
 				continue
@@ -781,7 +1044,7 @@ func markdownWords(blocks []markdownBlock) (words, minutes int) {
 	latin, wide := 0, 0
 	count := func(runs []markdownInline) {
 		for _, r := range runs {
-			if r.code || r.raw {
+			if r.code || r.raw || r.math != nil {
 				continue
 			}
 			in := false
@@ -802,7 +1065,7 @@ func markdownWords(blocks []markdownBlock) (words, minutes int) {
 		}
 	}
 	for _, b := range blocks {
-		if b.kind == markdownCodeBlock {
+		if b.kind == markdownCodeBlock || b.kind == markdownMathBlock {
 			continue
 		}
 		count(b.runs)
@@ -871,9 +1134,17 @@ func markdownCode(code, language string) []markdownInline {
 func (a *app) followMarkdown(v *viewer) {
 	d, m := v.doc, v.markdown
 	ver := d.buf.Version()
+	var want *mermaidStyle
+	if a.settings.PreviewMermaid {
+		st := a.mermaidStyle()
+		want = &st
+	}
+	// The diagrams are drawn anew in another theme, or not drawn.
+	same := want == nil && m.mermaid == nil || want != nil && m.mermaid != nil && *want == *m.mermaid
+	same = same && m.math == a.settings.PreviewMath
 	// Idle keeps the loaded version; debouncing keeps its timer; running keeps one
 	// worker; running+dirty advances the generation and schedules after that worker.
-	if (m.pending || v.loaded && v.version == ver && !m.refetch) && m.observed == ver && m.path == d.path {
+	if (m.pending || v.loaded && v.version == ver && !m.refetch) && m.observed == ver && m.path == d.path && same {
 		return
 	}
 	if m.cache.arrived == nil {
@@ -881,7 +1152,7 @@ func (a *app) followMarkdown(v *viewer) {
 	}
 	first := m.generation.Load() == 0
 	generation := m.generation.Add(1)
-	m.observed, m.path = ver, d.path
+	m.observed, m.path, m.mermaid, m.math = ver, d.path, want, a.settings.PreviewMath
 	m.pending = true
 	if v.wait != nil {
 		v.wait.Stop()
@@ -899,7 +1170,12 @@ func (a *app) followMarkdown(v *viewer) {
 		m.running, m.refetch = true, false
 		source, path, workspace := []byte(d.buf.String()), d.path, a.folder()
 		// Give the worker its own cache snapshot; publish it on the UI thread.
-		cache := &markdownCache{images: maps.Clone(m.cache.images), code: maps.Clone(m.cache.code), arrived: m.cache.arrived}
+		math := m.math
+		cache := &markdownCache{images: maps.Clone(m.cache.images), code: maps.Clone(m.cache.code), arrived: m.cache.arrived, mermaid: want,
+			math: math, formulas: maps.Clone(m.cache.formulas)}
+		if want != nil && m.cache.mermaid != nil && *want == *m.cache.mermaid {
+			cache.diagrams = maps.Clone(m.cache.diagrams)
+		}
 		bg.Go(func() {
 			defer recoverCrash()
 			root := markdownRoot(path, workspace)
@@ -908,6 +1184,9 @@ func (a *app) followMarkdown(v *viewer) {
 			for i, b := range blocks {
 				if b.slug != "" {
 					slugs[b.slug] = i
+				}
+				for _, anchor := range b.anchors {
+					slugs[anchor] = i
 				}
 			}
 			words, minutes := markdownWords(blocks)
@@ -924,6 +1203,7 @@ func (a *app) followMarkdown(v *viewer) {
 				}
 				m.blocks, m.slugs = blocks, slugs
 				clear(m.tables)
+				clear(m.places)
 				m.words, m.minutes = words, minutes
 				m.lines = bytes.Count(source, []byte{'\n'}) + 1
 				// The rows moved: the preview takes the text's place again.
@@ -977,6 +1257,16 @@ func (a *app) markdownSpan(r markdownInline, color ui.Color, size float32, block
 	if r.strike {
 		span.DecorationColor = span.Color
 	}
+	if f := r.math; f != nil {
+		if f.err != "" {
+			// A formula not drawn is its source, as code is.
+			span.Font, span.Weight, span.Features = settings.FontFamily, settings.FontWeight, strings.Join(settings.FontFeatures, ",")
+			span.Color, span.Size = p.dangerFg, size*0.9
+			return span
+		}
+		object := mathSpan(f, size)
+		span.Text, span.ObjectWidth, span.ObjectHeight = object.Text, object.ObjectWidth, object.ObjectHeight
+	}
 	return span
 }
 
@@ -1016,6 +1306,10 @@ func (a *app) markdownTableColumns(m *markdownPreview, first int, font ui.Font) 
 // scales them.
 func (a *app) markdownSize(b markdownBlock) float32 {
 	size := a.settings.FontSize
+	if b.footnote {
+		// Footnotes are a size smaller, as GitHub's.
+		size *= 0.875
+	}
 	if b.kind == markdownHeading {
 		size *= []float32{2, 1.5, 1.25, 1, 0.875, 0.85}[b.level-1]
 	}
@@ -1093,8 +1387,13 @@ func (a *app) markdownText(c *ui.Context, m *markdownPreview, path string, runs 
 		color = p.muted
 	}
 	text := ui.RichText(c).FontSize(size).LineHeight(a.settings.LineHeight).TextColor(color).DecorationColor(color).WidthPercent(100)
+	font := ui.Font{Family: c.Theme().Font, Size: size}
 	if blockCode || p.mono {
 		text.Font(a.settings.FontFamily).FontWeight(a.settings.FontWeight).FontFeatures(a.settings.FontFeatures...)
+		font = ui.Font{Family: a.settings.FontFamily, Size: size, Weight: a.settings.FontWeight, Features: strings.Join(a.settings.FontFeatures, ",")}
+	}
+	if slices.ContainsFunc(runs, func(r markdownInline) bool { return r.math != nil && r.math.err == "" }) {
+		a.markdownMath(m, text, runs, font, color, blockCode)
 	}
 	text.Children(func() {
 		for _, r := range runs {
@@ -1106,6 +1405,74 @@ func (a *app) markdownText(c *ui.Context, m *markdownPreview, path string, runs 
 				}
 			}
 			ui.RichText(c, span)
+		}
+	})
+}
+
+// mathPlacement is where the formulas within a text stand, laid out in
+// font, width wide.
+type mathPlacement struct {
+	font   ui.Font
+	width  float32
+	places []ui.Rect
+}
+
+// markdownMath draws the formulas of runs, which text shows, in the boxes
+// their spans keep for them in it, in color.
+func (a *app) markdownMath(m *markdownPreview, text ui.Element, runs []markdownInline, font ui.Font, color ui.Color, blockCode bool) {
+	var spans []ui.Span
+	var formulas []*mathFormula
+	for _, r := range runs {
+		spans = append(spans, a.markdownSpan(r, color, font.Size, blockCode))
+		if r.math != nil && r.math.err == "" {
+			formulas = append(formulas, r.math)
+		}
+	}
+	lh := font.Size * a.settings.LineHeight
+	text.Draw(func(pt *ui.Painter, r ui.Rect) {
+		var places []ui.Rect
+		if m != nil {
+			if pl, ok := m.places[&runs[0]]; ok && pl.font == font && pl.width == r.W {
+				places = pl.places
+			}
+		}
+		if places == nil {
+			places = mathPlaces(spans, font, r.W, lh)
+			if m != nil {
+				if m.places == nil {
+					m.places = map[*markdownInline]mathPlacement{}
+				}
+				m.places[&runs[0]] = mathPlacement{font, r.W, places}
+			}
+		}
+		for i, at := range places {
+			if i < len(formulas) {
+				f := formulas[i]
+				f.draw(pt, ui.Rect{X: r.X + at.X, Y: r.Y + at.Y, W: at.W, H: at.H + f.depth*font.Size}, color)
+			}
+		}
+	})
+}
+
+// markdownMathBlock is a formula in display style, centered, as large as
+// it is or as wide as the column, its source copied on hover.
+func (a *app) markdownMathBlock(c *ui.Context, b markdownBlock, size, width float32) {
+	p, f := a.pal, b.formula
+	// Display math is a little larger than its text, as on GitHub.
+	size *= 1.1
+	w := min(f.w*size, max(1, width))
+	h := w * (f.ascent + f.depth) / f.w
+	block := ui.Column(c.Key("math")).WidthPercent(100).AlignItems(ui.Center).Padding(size*0.25, 0)
+	over := block.Hovered()
+	block.Children(func() {
+		ui.Box(c).Width(w).Height(h).Label(markdownRunsText(b.runs)).Draw(func(pt *ui.Painter, r ui.Rect) { f.draw(pt, r, p.text) })
+		if over {
+			ui.Row(c).Absolute().Top(0).Right(0).Background(p.editor).Radius(4).Children(func() {
+				if a.smallButton(c, iconCopy, locales.CopyCode()) {
+					a.services.WriteClipboard(markdownRunsText(b.runs))
+					a.tell(note{message: locales.CopiedCode()})
+				}
+			})
 		}
 	})
 }
@@ -1204,6 +1571,40 @@ func (a *app) markdownCodeCard(c *ui.Context, m *markdownPreview, path string, b
 			if !over {
 				ui.Text(c, b.language).FontSize(size*0.8).TextColor(p.faint).SingleLine().Padding(2, 6)
 				return
+			}
+			ui.Row(c).Gap(2).Children(func() {
+				if d := b.diagram; d != nil && d.err == "" && a.smallButton(c, iconImage, locales.ShowDiagram()) {
+					delete(m.sources, b.line)
+				}
+				if a.smallButton(c, iconCopy, locales.CopyCode()) {
+					a.services.WriteClipboard(markdownRunsText(b.runs))
+					a.tell(note{message: locales.CopiedCode()})
+				}
+			})
+		})
+	})
+}
+
+// markdownDiagram is the diagram a block of Mermaid draws, at its size
+// or as wide as the column, with its source and its copy on hover.
+func (a *app) markdownDiagram(c *ui.Context, m *markdownPreview, b markdownBlock, size, width float32) {
+	p, d := a.pal, b.diagram
+	pad := size
+	w := min(d.w, max(1, width-2*pad-2))
+	h := w * d.h / d.w
+	card := ui.Column(c.Key("diagram")).WidthPercent(100).Padding(pad).Background(p.editor).Border(1, p.border).Radius(8).AlignItems(ui.Center)
+	over := card.Hovered()
+	card.Children(func() {
+		ui.Box(c).Width(w).Height(h).Label(b.language).Draw(d.draw)
+		if !over {
+			return
+		}
+		ui.Row(c).Absolute().Top(size * 0.4).Right(size * 0.4).Gap(2).Background(p.editor).Radius(4).Children(func() {
+			if a.smallButton(c, iconFileCode, locales.ShowSource()) {
+				if m.sources == nil {
+					m.sources = map[int]bool{}
+				}
+				m.sources[b.line] = true
 			}
 			if a.smallButton(c, iconCopy, locales.CopyCode()) {
 				a.services.WriteClipboard(markdownRunsText(b.runs))
@@ -1348,7 +1749,11 @@ func (a *app) markdownView(c *ui.Context, v *viewer, name string) {
 					ui.Box(c).Width(3).AlignSelf(ui.Stretch).Background(bar).Margin(0, size*0.25, 0, 0)
 				}
 				if b.marker != "" {
-					a.markdownMarker(c, b, size)
+					ms := size
+					if b.footnote {
+						ms = a.markdownSize(b)
+					}
+					a.markdownMarker(c, b, ms)
 				}
 
 				align := ui.Start
@@ -1373,7 +1778,23 @@ func (a *app) markdownView(c *ui.Context, v *viewer, name string) {
 							}
 						})
 					case markdownCodeBlock:
+						if d := b.diagram; d != nil && d.err == "" && !m.sources[b.line] {
+							a.markdownDiagram(c, m, b, size, max(1, width-(b.offset+b.markerWidth)*size-float32(b.quote)*size))
+							break
+						}
 						a.markdownCodeCard(c, m, path, b, size)
+						if d := b.diagram; d != nil && d.err != "" {
+							ui.Text(c, locales.MermaidCannotDraw(d.err)).FontSize(size*0.85).TextColor(p.dangerFg).Margin(size*0.4, 0, 0, 0)
+						}
+					case markdownMathBlock:
+						if f := b.formula; f != nil && f.err == "" && f.w > 0 {
+							a.markdownMathBlock(c, b, size, max(1, width-(b.offset+b.markerWidth)*size-float32(b.quote)*size))
+							break
+						}
+						a.markdownCodeCard(c, m, path, b, size)
+						if f := b.formula; f != nil {
+							ui.Text(c, locales.MathCannotDraw(f.err)).FontSize(size*0.85).TextColor(p.dangerFg).Margin(size*0.4, 0, 0, 0)
+						}
 					case markdownTable, markdownTableHeader:
 						a.markdownTableRow(c, m, path, b, size, width, font)
 					case markdownAlertTitle:
@@ -1386,7 +1807,7 @@ func (a *app) markdownView(c *ui.Context, v *viewer, name string) {
 					default:
 						// Quotes and the smallest headings are muted, as on
 						// GitHub; the text of an alert is not.
-						muted := b.quote > b.alertAt || b.kind == markdownHeading && b.level == 6
+						muted := b.quote > b.alertAt || b.kind == markdownHeading && b.level == 6 || b.footnote
 						if r := b.runs[0]; b.kind == markdownParagraph && len(b.runs) == 1 && r.image != "" && r.bitmap == nil {
 							a.markdownNoImage(c, m, path, r, size, align)
 							return

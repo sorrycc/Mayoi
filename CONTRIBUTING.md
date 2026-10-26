@@ -22,7 +22,7 @@ macOS, Python with Pillow and `pngquant`. To take one feature's shots, run
 
 ## Releasing
 
-Write the release notes under `## Unreleased` in `CHANGELOG.md` and commit them, then:
+Write the release notes under `## Unreleased` in `CHANGELOG.md`, as [AGENTS.md](AGENTS.md) describes, and commit them, then:
 
 ```sh
 scripts/bump.sh patch    # or minor, major, or a version such as 0.2.0

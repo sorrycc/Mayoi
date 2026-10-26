@@ -271,6 +271,7 @@ type app struct {
 
 	quick      quickOpen
 	palette    []paletteEntry    // the commands of the command palette, made as it first opens
+	waits      []docWait         // the mayoi --wait commands waiting for documents to close
 	hints      map[string]string // the keys of the commands, as tooltips show them
 	branches   branchPicker      // the box that switches branches
 	recents    recentPicker      // the box of the recent folders
@@ -571,15 +572,18 @@ func (a *app) saveActiveAs() {
 		return
 	}
 	d := ed.document
-	a.askSavePath(d.name(), func(path string) {
-		if path == "" {
-			return
-		}
-		d.path = path
-		d.hl.Close()
-		d.hl = highlight.New(highlight.Lexer(path), a.invalidate)
-		a.saveDoc(d, nil)
-	})
+	a.askSavePath(d.name(), func(path string) { a.saveDocAs(d, path) })
+}
+
+// saveDocAs saves a document to path, which it is the file of from then.
+func (a *app) saveDocAs(d *document, path string) {
+	if path == "" {
+		return
+	}
+	d.path = path
+	d.hl.Close()
+	d.hl = highlight.New(highlight.Lexer(path), a.invalidate)
+	a.saveDoc(d, nil)
 }
 
 func (a *app) saveAll() {
@@ -659,7 +663,7 @@ func (a *app) reloadDoc(d *document) {
 		return
 	}
 	data, err := os.ReadFile(d.path)
-	if err != nil || isBinary(data) {
+	if err != nil || isBinary(data) || hasLongLine(data) {
 		return
 	}
 	d.takeText(data)

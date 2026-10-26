@@ -5,18 +5,12 @@ needs a `## <version>` section here, or its build fails.
 
 ## Unreleased
 
-- **Source Control** lists parent repositories and submodules in one continuous
-  scroll, with repository and change-group headers pinned above their files.
-  Headers combine branch and remote actions with a full-width selection marker;
-  arrows expand sections independently of selecting history, and clean
-  repositories can expand to show their retained commit drafts.
-- The divider between **Source Control** changes and history can be dragged,
-  and its position is saved per workspace. Until dragged, changes fit their
-  content up to half the view, leaving clean repositories more room for history.
-  Keyboard selection works from repository headers, and row actions retain
-  their cursor by identity as changes move or disappear.
-- Submodule entries in **Source Control** distinguish changes to their commit
-  reference from uncommitted content inside the submodule.
+- **Source Control** shows a folder's repositories and submodules in one list that scrolls as a whole.
+- Repository and change-group headers in **Source Control** stay pinned at the top while their files scroll.
+- Each repository header in **Source Control** has its own branch, remote and **⋯** actions.
+- A repository's arrow expands or collapses it; clicking its name shows its history.
+- Drag the divider between changes and history in **Source Control** to resize them for the folder.
+- Submodule rows in **Source Control** say whether the commit reference or the content changed.
 - **Open Preview to the Side** opens the preview in the column beside the file instead of adding one.
 - The Markdown preview shows footnotes like `[^1]` as raised numbers, with the notes listed at the end.
 - Clicking a footnote's number scrolls to its note, and the note's `↩` scrolls back.

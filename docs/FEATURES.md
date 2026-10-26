@@ -167,7 +167,8 @@ current repository's header stays at the top while its changes scroll beneath
 it. The current change group (such as Staged Changes or Changes) stays directly
 beneath that header, with its counts and actions, until the next group or
 repository pushes it away. Headers combine the repository name, branch or
-detached HEAD, and repository actions; a narrow sidebar keeps remote actions in each repository's **⋯** menu.
+detached HEAD, and repository actions; a narrow sidebar keeps remote actions in
+each repository's **⋯** menu.
 Repositories with changes start expanded; clean repositories start collapsed and
 can be expanded to show their retained commit draft and a disabled commit button.
 The arrow expands or collapses a section; clicking its name selects its history.

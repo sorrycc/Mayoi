@@ -20,6 +20,7 @@ func diffNavOf(t *testing.T, hs *harness) *diffView {
 	if v == nil {
 		t.Fatal("no tab of the changes")
 	}
+	hs.settleDiff(v)
 	return v
 }
 

@@ -242,6 +242,10 @@ func (a *app) openFileIn(col *column, at int, path string, focus bool) {
 			a.fail("%s", locales.FailBinary(filepath.Base(path)))
 			return
 		}
+		if errors.Is(err, errLongLine) {
+			a.fail("%s", locales.FailLongLine(filepath.Base(path)))
+			return
+		}
 		if err != nil {
 			a.fail("%s", locales.FailOpen(filepath.Base(path), err.Error()))
 			return
@@ -593,6 +597,7 @@ func (a *app) dropTab(t *colTab) {
 		if len(doc.views) == 0 {
 			doc.hl.Close()
 			a.docs = slices.DeleteFunc(a.docs, func(d *document) bool { return d == doc })
+			a.docClosed(doc)
 			if a.tree != nil && doc.path != "" {
 				a.tree.Unwatch(doc.path)
 			}
@@ -710,12 +715,35 @@ func (a *app) splitRight() {
 		}
 		return
 	}
-	ed := newEditor(t.ed.document)
-	ed.sel, ed.caret = t.ed.sel, t.ed.caret
-	ed.vscroll.Y, ed.hscroll.X = t.ed.vscroll.Y, t.ed.hscroll.X
-	ed.wrap, ed.wrapGen = t.ed.wrap, t.ed.wrapGen
-	a.addTab(nc, 0, &colTab{ed: ed})
+	a.addTab(nc, 0, &colTab{ed: cloneEditor(t.ed)})
 	a.activate(nc, 0, true)
+}
+
+// cloneEditor returns another editor of d's document, its caret and
+// scroll where d has them.
+func cloneEditor(d *editor) *editor {
+	ed := newEditor(d.document)
+	ed.sel, ed.caret = d.sel, d.caret
+	ed.vscroll.Y, ed.hscroll.X = d.vscroll.Y, d.hscroll.X
+	ed.wrap, ed.wrapGen = d.wrap, d.wrapGen
+	return ed
+}
+
+// sideColumn returns the unlocked column nearest col on its right, or
+// else on its left, nil when there is none.
+func (a *app) sideColumn(col *column) *column {
+	i := slices.Index(a.cols, col)
+	for j := i + 1; j < len(a.cols); j++ {
+		if !a.cols[j].locked {
+			return a.cols[j]
+		}
+	}
+	for j := i - 1; j >= 0; j-- {
+		if !a.cols[j].locked {
+			return a.cols[j]
+		}
+	}
+	return nil
 }
 
 // moveTab moves a tab to place at of a column, which may be its own, and

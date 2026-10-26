@@ -281,6 +281,9 @@ func main() {
 	if dir := os.Getenv("MAYOI_DATA_DIR"); dir != "" {
 		mygo.App.SetPath(mygo.PathUserData, dir)
 	}
+	// Started as the mayoi command, Mayoi asks the app that runs, and
+	// exits.
+	commandLineClient()
 	// From a terminal on Linux, Mayoi runs on apart from it; before the
 	// lock, which the Mayoi it starts takes.
 	if detach() {
@@ -295,6 +298,13 @@ func main() {
 	// alone.
 	if dir, err := mygo.App.Path(mygo.PathUserData); err == nil {
 		keepCrashes(dir)
+	}
+	// Opened from the Finder or the Dock, Mayoi has the system's PATH
+	// only; git, its hooks and what else Mayoi runs look for commands
+	// where the user's shell does. In the background, as a slow shell
+	// would hold up the window.
+	if runtime.GOOS != "windows" && os.Getenv("MAYOI_SNAPSHOT") == "" {
+		go func() { os.Setenv("PATH", strings.Join(cli.ShellPath(), string(os.PathListSeparator))) }()
 	}
 	// Release builds check for updates every hour (startUpdates) and show
 	// them in the window, whose click opens MyGo's update window; the
@@ -366,6 +376,8 @@ func main() {
 		m.ready = true
 		m.launch(append(m.pending, argPaths(os.Args[1:], wd)...))
 		m.pending = nil
+		m.listenCLI()
+		refreshCLI()
 		m.startCloud()
 		m.startUpdates()
 		if len(m.wins) == 0 {
@@ -534,10 +546,17 @@ func (m *mayoi) openFolder(dir string, reuse bool) {
 
 // openFile opens a file in the window whose folder holds it, else in the
 // window focused last, else in a new window.
-func (m *mayoi) openFile(path string) {
-	var win *desktop
+func (m *mayoi) openFile(path string) { m.openFileIn(nil, path, nil) }
+
+// openFileIn opens a file as openFile does, or in win when it is not nil,
+// then calls then, if not nil, with its tab shown.
+func (m *mayoi) openFileIn(in *desktop, path string, then func(a *app)) {
+	win := in
 	deepest := ""
 	for _, w := range m.wins {
+		if in != nil && w != in {
+			continue
+		}
 		if root := w.a.folder(); root != "" && inFolder(root, path) && len(root) > len(deepest) {
 			win, deepest = w, root
 		}
@@ -555,7 +574,12 @@ func (m *mayoi) openFile(path string) {
 		win = m.openWindow(m.s.NewWindow())
 	}
 	a := win.a
-	win.do(func() { a.openFile(path, true) })
+	win.do(func() {
+		a.openFile(path, true)
+		if then != nil {
+			then(a)
+		}
+	})
 	win.show()
 }
 

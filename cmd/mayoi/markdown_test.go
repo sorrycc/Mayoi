@@ -170,6 +170,106 @@ func TestMarkdownBlocks(t *testing.T) {
 	}
 }
 
+func TestMarkdownLinkifyAfterPunctuation(t *testing.T) {
+	for _, c := range []struct{ source, want string }{
+		{"- 反思：https://x.com/a/status/1", "反思：[https://x.com/a/status/1]"},
+		{"a:https://x.com/b", "a:[https://x.com/b]"},
+		{"见https://x.com/c 。", "见[https://x.com/c] 。"},
+		{"1https://x.com/d", "1[https://x.com/d]"},
+		{"a：https://x.com/a_b_c，后", "a：[https://x.com/a_b_c]，后"},
+		{"a（https://x.com/e）and (https://x.com/(f))", "a（[https://x.com/e]）and ([https://x.com/(f)])"},
+		{"a：https://x.com/g?x=1&amp; done.", "a：[https://x.com/g?x=1]& done."},
+		{"a：https://x.com/h. b：https://x.com/i", "a：[https://x.com/h]. b：[https://x.com/i]"},
+		{"foohttps://x.com/j", "foohttps://x.com/j"},
+		{"a：www.example.com", "a：www.example.com"},
+		{"`a：https://x.com/k`", "a：https://x.com/k"},
+		{"[a：https://x.com/l](https://y.com)", "[a：https://x.com/l](https://y.com)"},
+	} {
+		var got strings.Builder
+		for _, r := range parseMarkdown([]byte(c.source), "", "", nil)[0].runs {
+			if r.link != "" && r.link == r.text {
+				got.WriteString("[" + r.text + "]")
+			} else if r.link != "" {
+				got.WriteString("[" + r.text + "](" + r.link + ")")
+			} else {
+				got.WriteString(r.text)
+			}
+		}
+		if got.String() != c.want {
+			t.Errorf("%q: got %q, want %q", c.source, got.String(), c.want)
+		}
+	}
+}
+
+func TestMarkdownFootnotes(t *testing.T) {
+	source := "## 数据[^11]\n\nA[^1] b[^1] c[^note].\n\n## 参考链接\n\n" +
+		"[^1]: 第 4 次尝试 https://x.com/a/status/1\n[^note]: 锁定：https://x.com/a/status/2\n[^11]: Eleven.\n[^unused]: Never referenced.\n\n" +
+		"After.\n"
+	blocks := parseMarkdown([]byte(source), "", "", nil)
+	text := func(b markdownBlock) string {
+		var s strings.Builder
+		for _, r := range b.runs {
+			if r.link != "" {
+				s.WriteString("[" + r.text + "](" + r.link + ")")
+			} else {
+				s.WriteString(r.text)
+			}
+		}
+		return s.String()
+	}
+	var got []string
+	for _, b := range blocks {
+		got = append(got, fmt.Sprintf("%d %s %v %v %s", b.kind, b.marker, b.footnote, b.anchors, text(b)))
+	}
+	want := []string{
+		"1  false [user-content-fnref-1] 数据[¹](#user-content-fn-1)",
+		"0  false [user-content-fnref-2 user-content-fnref-2-2 user-content-fnref-3] A[²](#user-content-fn-2) b[²](#user-content-fn-2) c[³](#user-content-fn-3).",
+		"1  false [] 参考链接",
+		"0  false [] After.",
+		"2  false [] ",
+		"0 1. true [user-content-fn-1] Eleven.[ ↩](#user-content-fnref-1)",
+		"0 2. true [user-content-fn-2] 第 4 次尝试 [https://x.com/a/status/1](https://x.com/a/status/1)[ ↩](#user-content-fnref-2)[ ↩²](#user-content-fnref-2-2)",
+		"0 3. true [user-content-fn-3] 锁定：[https://x.com/a/status/2](https://x.com/a/status/2)[ ↩](#user-content-fnref-3)",
+	}
+	if strings.Join(got, "\n") != strings.Join(want, "\n") {
+		t.Fatalf("blocks\n%s\nwant\n%s", strings.Join(got, "\n"), strings.Join(want, "\n"))
+	}
+}
+
+func TestMarkdownFootnoteLinks(t *testing.T) {
+	hs := newHarness(t, true)
+	a := hs.a
+	var body strings.Builder
+	body.WriteString("The start[^1].\n\n")
+	for i := range 80 {
+		body.WriteString("Paragraph " + strconv.Itoa(i) + ".\n\n")
+	}
+	body.WriteString("[^1]: The note.\n")
+	os.WriteFile(hs.path("notes.md"), []byte(body.String()), 0o644)
+	a.openFile(hs.path("notes.md"), true)
+	a.run("view.togglePreview")
+	d := a.activeEditor()
+	hs.until("preview", func() bool { return d.preview.loaded })
+	hs.settle()
+	if hs.tt.HasText("The note.") {
+		t.Fatal("the note shows already")
+	}
+	if err := hs.tt.Click("Open link #user-content-fn-1"); err != nil {
+		t.Fatal(err)
+	}
+	hs.settle()
+	if !hs.tt.HasText("The note.") || hs.tt.HasText("Paragraph 0.") {
+		t.Fatal("the reference did not scroll to its note")
+	}
+	if err := hs.tt.Click("Open link #user-content-fnref-1"); err != nil {
+		t.Fatal(err)
+	}
+	hs.settle()
+	if !hs.tt.HasText("Paragraph 0.") {
+		t.Fatal("the back link did not scroll to the reference")
+	}
+}
+
 func TestMarkdownPreview(t *testing.T) {
 	hs := newHarness(t, true)
 	a := hs.a
@@ -896,6 +996,75 @@ func TestMarkdownPreviewToSide(t *testing.T) {
 		t.Fatal("no preview to the side")
 	}
 	hs.until("preview", func() bool { return side.preview.loaded })
+}
+
+func TestMarkdownPreviewToSideColumn(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		// arrange leaves README.md with the keyboard among the columns,
+		// and returns the column its preview should go to.
+		arrange func(hs *harness) *column
+		cols    int
+	}{
+		{"right", func(hs *harness) *column {
+			a := hs.a
+			a.openFile(hs.path("main.go"), true)
+			right := a.splitColumn(a.column(), true)
+			a.activate(a.cols[0], 0, true)
+			a.openFile(hs.path("README.md"), true)
+			return right
+		}, 2},
+		{"left", func(hs *harness) *column {
+			a := hs.a
+			a.openFile(hs.path("main.go"), true)
+			left := a.column()
+			a.splitRight()
+			a.openFile(hs.path("README.md"), true)
+			return left
+		}, 2},
+		{"shown already", func(hs *harness) *column {
+			a := hs.a
+			a.openFile(hs.path("README.md"), true)
+			a.splitRight()
+			a.openFile(hs.path("main.go"), true)
+			a.activate(a.cols[0], 0, true)
+			return a.cols[1]
+		}, 2},
+		{"past a locked column", func(hs *harness) *column {
+			a := hs.a
+			a.openFile(hs.path("main.go"), true)
+			left := a.column()
+			right := a.splitColumn(left, true)
+			a.toggleColumnLock(right)
+			a.splitRight()
+			a.openFile(hs.path("README.md"), true)
+			return left
+		}, 3},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			hs := newHarness(t, true)
+			a := hs.a
+			want := tc.arrange(hs)
+			hs.settle()
+			src := a.activeEditor()
+			tabs := len(want.tabs)
+			if want.showing(src.document) < 0 {
+				tabs++
+			}
+			a.run("view.previewToSide")
+			hs.settle()
+			if len(a.cols) != tc.cols || a.activeEditor() != src || src.preview != nil {
+				t.Fatalf("columns %d, the text has the keyboard %v", len(a.cols), a.activeEditor() == src)
+			}
+			side := want.tab().ed
+			if side == nil || side.document != src.document || side.preview == nil {
+				t.Fatal("no preview in the column beside")
+			}
+			if len(want.tabs) != tabs {
+				t.Fatalf("%d tabs beside, want %d", len(want.tabs), tabs)
+			}
+		})
+	}
 }
 
 func TestMarkdownEmpty(t *testing.T) {

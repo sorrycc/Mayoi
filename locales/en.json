@@ -212,6 +212,12 @@
       }
     }
   },
+  "errMathText": "it uses characters the math font lacks",
+  "errMathTimeout": "the formula took too long to draw",
+  "errMermaidTimeout": "the diagram took too long to draw",
+  "mathCannotDraw": "Cannot draw the math: {err}",
+  "mermaidCannotDraw": "Cannot draw the diagram: {err}",
+  "showDiagram": "Show Diagram",
   "themeAboutClaude": "Ivory and near-black, with Claude's orange",
   "themeAboutGrokBot": "Grok Bot's Sand: monochrome, with its blue",
   "themeAboutMatrix": "Phosphor green, with digital rain",
@@ -636,6 +642,7 @@
   "errWorktreeNotFolder": "worktree is not a folder: {path}",
   "failBinary": "{name} is a binary file",
   "failBinaryNow": "{name} is a binary file now",
+  "failLongLine": "{name} has a line too long to show",
   "failCopy": "Could not copy: {err}",
   "failDelete": "Could not delete {name}: {err}",
   "failDownload": "Could not download {name}",

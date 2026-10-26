@@ -132,6 +132,32 @@ func TestOtherBinaryFilesStillRefuse(t *testing.T) {
 	}
 }
 
+func TestLongLineRefuses(t *testing.T) {
+	line := strings.Repeat("x", maxLineBytes)
+	for _, c := range []struct {
+		data string
+		long bool
+	}{
+		{"", false},
+		{line, false},
+		{line + "\n" + line, false},
+		{line + "x", true},
+		{"a\n" + line + "x\nb", true},
+		{line + "\n" + line + "x", true},
+	} {
+		if got := hasLongLine([]byte(c.data)); got != c.long {
+			t.Errorf("%d bytes: long %v", len(c.data), got)
+		}
+	}
+	hs := newHarness(t, true)
+	a := hs.a
+	os.WriteFile(hs.path("index.js.map"), []byte(line+"x"), 0o644)
+	a.openFile(hs.path("index.js.map"), true)
+	if len(a.errors) != 1 || !strings.Contains(a.errors[0], "too long") || len(a.column().tabs) != 0 {
+		t.Fatalf("errors %q, %d tabs", a.errors, len(a.column().tabs))
+	}
+}
+
 func TestImageFollowsTheDisk(t *testing.T) {
 	hs := newHarness(t, true)
 	a := hs.a

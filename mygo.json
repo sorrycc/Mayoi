@@ -1,7 +1,7 @@
 {
   "name": "Mayoi",
   "identifier": "dev.mayoi.editor",
-  "version": "0.11.11",
+  "version": "0.12.1",
   "main": "./cmd/mayoi",
   "out": "build",
   "i18n": {

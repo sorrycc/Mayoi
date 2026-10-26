@@ -7,9 +7,15 @@ area, so every column showing a file shares its text and history. This page walk
 
 ## Windows and commands
 
-**`main.go`, `cli.go`.** These manage the windows. Folders and files reach the app in two ways. The `mayoi` script hands
-them to `open` with the app's identifier, and a second Mayoi started with paths passes them on and exits. Each folder
-goes to the window that already has it, or to a new one. A file goes to the window whose folder contains it.
+**`main.go`, `ipc.go`, `internal/cli`.** These manage the windows. Folders and files reach the app in three ways. The
+`mayoi` command is the app's own executable, which on macOS the installed script runs with `MAYOI_CLI` set, and which
+on Linux is the command itself: it reads its options (`cli.Parse`), and sends them as JSON over a Unix socket in the
+data folder, which the running app listens on, to `serve` on the main thread. The reply is what to print, or what went
+wrong, and with `--wait` it comes once the files are closed. With no app running, the command starts it, and sends what
+it asked once the app answers; folders and files alone go to the app as it starts, as the Finder's do. The Finder hands
+the app folders and files to open, and a second Mayoi started with paths passes them on and exits. Each folder goes to
+the window that already has it, or to a new one. A file goes to the window whose folder contains it, and a command to
+the project whose folder contains the directory it ran in.
 
 **`projects.go`.** A `frame` is a native window, and a `desktop` a project in it, with its own `app`. A window
 holds one project, or with project tabs every one, which a rail on its left chooses among. Only the project shown is

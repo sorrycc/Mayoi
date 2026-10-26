@@ -4,6 +4,8 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -48,8 +50,12 @@ func TestRemoteReconnectsByItself(t *testing.T) {
 	}
 	hs, c, _ := remoteHarness(t)
 	a := hs.a
-	// The network goes: the master ends, though no one ended it.
-	exec.Command("pkill", "-f", "ControlMaster=yes.*"+c.Host).Run()
+	// The network goes: the master ends, though no one ended it. Other
+	// test processes use the same fake host, so only kill our own child.
+	pattern := "ControlMaster=yes.* " + regexp.QuoteMeta(c.Host) + "$"
+	if out, err := exec.Command("pkill", "-P", strconv.Itoa(os.Getpid()), "-f", pattern).CombinedOutput(); err != nil {
+		t.Fatalf("could not stop the fake ssh master: %v: %s", err, out)
+	}
 	hs.untilLong("the loss", func() bool { return a.connState == remote.Offline && a.retry != nil })
 	if !hs.tt.HasText("Reconnect Now") {
 		t.Errorf("the banner does not offer to reconnect: %q", hs.tt.Texts())

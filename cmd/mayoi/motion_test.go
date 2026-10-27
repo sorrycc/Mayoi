@@ -102,6 +102,7 @@ func TestJumpLightsLine(t *testing.T) {
 
 func TestPanesComeInQuietly(t *testing.T) {
 	hs := newHarness(t, true)
+	t.Cleanup(hs.a.closeTerminals)
 	for range 2 {
 		hs.a.run("view.sidebar")
 		hs.settle()

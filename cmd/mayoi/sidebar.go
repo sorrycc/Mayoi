@@ -824,7 +824,7 @@ func (a *app) relOrPath(path string) string {
 		if path == a.root {
 			return filepath.Base(a.root)
 		}
-		if strings.HasPrefix(path, a.root+string(filepath.Separator)) {
+		if len(path) > len(a.root) && path[len(a.root)] == filepath.Separator && strings.HasPrefix(path, a.root) {
 			return filepath.ToSlash(path[len(a.root)+1:])
 		}
 	}

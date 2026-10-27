@@ -264,10 +264,15 @@ type Source interface {
 // WholeFile is the most lines lexed in one pass from the start: longer
 // documents are lexed around the lines in view, with Context lines above,
 // which multi-line comments and strings mostly start within.
+//
+// Ahead is how many lines past those in view must be lexed already: a
+// view scrolling nearer the end of the lines lexed has them lexed again
+// around it before it gets there, so that no line shows plain on the way.
 const (
 	WholeFile = 6000
 	Context   = 400
 	Below     = 200
+	Ahead     = 60
 )
 
 // Quiet is how long after the last edit the lines lexed again only around
@@ -340,7 +345,7 @@ func (h *Highlighter) Request(src Source, first, last int) {
 	if h.closed {
 		return
 	}
-	if h.version == src.Version() && h.lines != nil && h.first <= max(0, first) && h.first+len(h.lines)-1 >= min(n-1, last) {
+	if h.version == src.Version() && h.lines != nil && h.first <= max(0, first-Ahead) && h.first+len(h.lines)-1 >= min(n-1, last+Ahead) {
 		return
 	}
 	h.want = request{src, from, to, [2]int{first, last}}
@@ -513,6 +518,14 @@ func adjust(l Line, text string) []Token {
 	return out
 }
 
+// requestText returns the text of the lines of request r, without the
+// newline after the last.
+func requestText(r request) string {
+	start, _ := r.src.LineRange(r.first)
+	_, stop := r.src.LineRange(r.last)
+	return r.src.Slice(start, stop)
+}
+
 // lexRange lexes lines first up to end of src.
 func lexRange(l chroma.Lexer, src Source, first, end int) []Line {
 	start, _ := src.LineRange(first)
@@ -570,10 +583,22 @@ func (p patch) inPlace() bool { return !p.same && len(p.lines) == p.to-p.from }
 // relexPatch does relex's work, returning the lines it changes.
 func relexPatch(l chroma.Lexer, r request, prev []Line) patch {
 	n := r.last - r.first + 1
-	text := func(i int) string {
-		s, e := r.src.LineRange(r.first + i)
-		return r.src.Slice(s, e)
+	// The lines are read from the text at once: reading each from it
+	// again finds its place over again.
+	all := requestText(r)
+	at := make([]int, n+1) // where each line starts in all
+	for i, rest := 1, all; i <= n; i++ {
+		nl := strings.IndexByte(rest, '\n')
+		if nl < 0 {
+			for ; i <= n; i++ {
+				at[i] = len(all) + 1
+			}
+			break
+		}
+		at[i] = at[i-1] + nl + 1
+		rest = rest[nl+1:]
 	}
+	text := func(i int) string { return all[min(at[i], len(all)) : at[i+1]-1] }
 	a := 0
 	for a < len(prev) && a < n && prev[a].Text == text(a) {
 		a++
@@ -592,7 +617,7 @@ func relexPatch(l chroma.Lexer, r request, prev []Line) patch {
 		for s > 0 && prev[s-1].open {
 			s--
 		}
-		lo, _ := r.src.LineRange(r.first + s)
+		lo := min(at[s], len(all))
 		var lines []Line
 		var wrong bool
 		stop := -1
@@ -603,10 +628,10 @@ func relexPatch(l chroma.Lexer, r request, prev []Line) patch {
 		// may have been misled by the cut, and goes on with more.
 		for ahead := relexAhead; ; ahead *= 4 {
 			end := min(n-1, n-b+ahead)
-			_, hi := r.src.LineRange(r.first + end)
+			hi := at[end+1] - 1
 			seen, run := 0, 0
 			wrong = false
-			lines, stop = lex(l, r.src.Slice(lo, hi), func(k int, lines []Line) bool {
+			lines, stop = lex(l, all[lo:hi], func(k int, lines []Line) bool {
 				ln := lines[k]
 				switch i := s + k; {
 				case i < a:

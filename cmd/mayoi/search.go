@@ -104,7 +104,10 @@ type searchState struct {
 	watched map[string]bool
 
 	collapsed map[string]bool // the files folded, by rel
-	rows      []searchRow
+	// unfolded is when each file unfolded last did, by rel, whose matches
+	// fade in.
+	unfolded map[string]time.Time
+	rows     []searchRow
 	// version counts the changes of files and collapsed, and rowsOf is the
 	// version rows were made for.
 	version, rowsOf int
@@ -1055,11 +1058,18 @@ func (a *app) searchHeader(c *ui.Context, f *searchFile, action *func()) {
 		ui.Text(c, fmt.Sprint(len(f.matches))).FontSize(10.5).TextColor(p.muted).Padding(0, 5).Radius(8).Background(p.hover)
 	})
 	if clicked && *action == nil {
+		now := c.Now()
 		*action = func() {
 			if s.collapsed == nil {
 				s.collapsed = map[string]bool{}
 			}
 			s.collapsed[f.rel] = !s.collapsed[f.rel]
+			if !s.collapsed[f.rel] {
+				if s.unfolded == nil {
+					s.unfolded = map[string]time.Time{}
+				}
+				s.unfolded[f.rel] = now
+			}
 			s.changed()
 		}
 	}
@@ -1072,6 +1082,15 @@ func (a *app) searchHeader(c *ui.Context, f *searchFile, action *func()) {
 func (a *app) searchMatchRow(c *ui.Context, i int, f *searchFile, m searchMatch, action *func()) {
 	s := &a.inFiles
 	row := ui.Row(c).Grow(1).Gap(6).AlignItems(ui.Center).Height(22).Padding(0, 0, 0, 30)
+	// The matches of a file just unfolded fade in.
+	if at, ok := s.unfolded[f.rel]; ok {
+		if k := ui.EaseOut(min(float32(c.Now().Sub(at))/float32(showFor), 1)); k < 1 {
+			row.Opacity(k)
+			c.AnimationFrame()
+		} else {
+			delete(s.unfolded, f.rel)
+		}
+	}
 	hovered := row.Hovered()
 	// Taking the drag, the row takes the clicks from the list too.
 	a.dragFile(row, &fileDrag{path: f.path, match: &m})

@@ -140,7 +140,7 @@ func (a *app) tabStrip(c *ui.Context, col *column) {
 						}
 						// The dot of unsaved changes turns into the cross under the
 						// pointer.
-						x := ui.ButtonBase(c).Size(18, 18).Radius(4).Justify(ui.Center).AlignItems(ui.Center).Label(locales.CloseName(t.name()))
+						x := ui.ButtonBase(c).Size(18, 18).Radius(4).Justify(ui.Center).AlignItems(ui.Center).Label(t.closeLabel())
 						if x.Hovered() {
 							x.Background(p.hover)
 						}

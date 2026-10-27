@@ -1072,6 +1072,50 @@ func dropIn(e ui.Element, dy float32) ui.Element {
 	return e.Opacity(k).Translate(0, -dy*(1-k))
 }
 
+// appearing follows the rows of a list by their keys, so that a row new
+// to it comes in rather than pops, as those of a group just opened: the
+// rows the list had when last noted, and when each that came since did.
+type appearing struct {
+	had map[string]bool
+	at  map[string]time.Time
+}
+
+// note takes the rows of the list at now, keys giving each one's: one it
+// did not have comes. A first note, one after none, or a fresh one, as
+// for the list showing other rows, takes them as they are.
+func (ap *appearing) note(n int, key func(int) string, now time.Time, fresh bool) {
+	first := len(ap.had) == 0 || fresh
+	if ap.had == nil {
+		ap.had, ap.at = map[string]bool{}, map[string]time.Time{}
+	}
+	for k, at := range ap.at {
+		if first || now.Sub(at) >= showFor {
+			delete(ap.at, k)
+		}
+	}
+	if !first {
+		for i := range n {
+			if k := key(i); !ap.had[k] {
+				ap.at[k] = now
+			}
+		}
+	}
+	clear(ap.had)
+	for i := range n {
+		ap.had[key(i)] = true
+	}
+}
+
+// shown returns how far in the row of key is at now, from 0, as it
+// comes, to 1.
+func (ap *appearing) shown(key string, now time.Time) float32 {
+	at, ok := ap.at[key]
+	if !ok {
+		return 1
+	}
+	return ui.EaseOut(min(float32(now.Sub(at))/float32(showFor), 1))
+}
+
 // chevron is the arrow of what folds: it points to the side while
 // closed, and turns down as it opens.
 func chevron(c *ui.Context, open bool) ui.Element {

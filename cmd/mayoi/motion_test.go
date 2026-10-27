@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"slices"
 	"strings"
 	"testing"
@@ -134,5 +135,112 @@ func TestScopesNearAndFar(t *testing.T) {
 		if got, want := d.scopesOf(snap, line), scopes(snap, line); !slices.Equal(got, want) {
 			t.Errorf("scopes of line %d: %v, want %v", line, got, want)
 		}
+	}
+}
+
+func TestAppearingFades(t *testing.T) {
+	var ap appearing
+	keys := []string{"a", "b"}
+	key := func(i int) string { return keys[i] }
+	now := time.Unix(1000, 0)
+	ap.note(len(keys), key, now, false)
+	if k := ap.shown("a", now); k != 1 {
+		t.Errorf("a row there as the list first shows fades in: %v", k)
+	}
+	keys = []string{"a", "c", "b"}
+	now = now.Add(16 * time.Millisecond)
+	ap.note(len(keys), key, now, false)
+	if k := ap.shown("c", now); k != 0 {
+		t.Errorf("a row just come shows at %v, not 0", k)
+	}
+	if k := ap.shown("b", now); k != 1 {
+		t.Errorf("a row there before fades again: %v", k)
+	}
+	if k := ap.shown("c", now.Add(showFor/2)); k <= 0 || k >= 1 {
+		t.Errorf("halfway, the row shows at %v", k)
+	}
+	if k := ap.shown("c", now.Add(showFor)); k != 1 {
+		t.Errorf("once in, the row shows at %v", k)
+	}
+	// Rows of another list, noted fresh, show at once.
+	keys = []string{"x", "y"}
+	ap.note(len(keys), key, now.Add(time.Second), true)
+	if k := ap.shown("x", now.Add(time.Second)); k != 1 {
+		t.Errorf("a row of a list noted fresh shows at %v", k)
+	}
+}
+
+func TestScmGroupOpensQuietly(t *testing.T) {
+	hs := newHarness(t, true)
+	hs.gitRepo()
+	os.WriteFile(hs.path("new.txt"), []byte("new\n"), 0o644)
+	hs.a.run("view.scm")
+	hs.settleGit()
+	g := hs.a.repository()
+	key := ""
+	for _, r := range g.scmRows() {
+		if r.file() {
+			key = r.key
+		}
+	}
+	if key == "" {
+		t.Fatal("no file's row in source control")
+	}
+	group := 0
+	for _, r := range g.scmRows() {
+		if r.header {
+			group = int(r.group)
+			break
+		}
+	}
+	g.scm.collapsed[group] = true
+	step(hs.tt)
+	g.scm.collapsed[group] = false
+	step(hs.tt)
+	if k := g.scm.appear.shown(key, hs.tt.Now()); k >= 1 {
+		t.Fatalf("the rows of the group opened show at %v", k)
+	}
+	for range 60 {
+		hs.tt.Advance(50 * time.Millisecond)
+		hs.tt.Frame()
+	}
+	if k := g.scm.appear.shown(key, hs.tt.Now()); k != 1 {
+		t.Errorf("once in, the rows show at %v", k)
+	}
+	if !quiet(hs) {
+		t.Error("frames are drawn after the group's rows came in")
+	}
+}
+
+func TestSearchFileUnfoldsQuietly(t *testing.T) {
+	hs := newHarness(t, true)
+	hs.searchFor("main")
+	s := &hs.a.inFiles
+	if len(s.files) != 1 {
+		t.Fatalf("results in %d files", len(s.files))
+	}
+	rel := s.files[0].rel
+	for _, folded := range []bool{true, false} {
+		if err := hs.tt.Click("main.go"); err != nil {
+			t.Fatal(err)
+		}
+		step(hs.tt)
+		if s.collapsed[rel] != folded {
+			t.Fatalf("folded %v, want %v", s.collapsed[rel], folded)
+		}
+	}
+	if _, ok := s.unfolded[rel]; !ok || !hs.tt.FramePending() {
+		t.Fatal("the matches of the file unfolded do not fade in")
+	}
+	// The chevron turns and the row eases back from the press as well.
+	for range 20 {
+		hs.tt.Advance(50 * time.Millisecond)
+		hs.tt.Frame()
+	}
+	if _, ok := s.unfolded[rel]; ok {
+		t.Error("the file stays unfolding once its matches came in")
+	}
+	if !quiet(hs) {
+		t.Error("frames are drawn after the matches came in")
 	}
 }

@@ -108,6 +108,12 @@ type scmState struct {
 	commitFiles map[string]*commitFilesRead
 	commitsGen  int
 	rowsCommits int
+	// rowsGen counts the rows made; appear follows them as they come, as
+	// of appearGen, for the section and the layout of appearScope.
+	rowsGen     int
+	appear      appearing
+	appearGen   int
+	appearScope [2]int
 }
 
 // groupEntries returns the files of each group, by path. They are worked
@@ -203,6 +209,7 @@ func (a *gitContext) scmRows() []scmRow {
 	s.rowsPanels = s.panels.gen
 	s.rows, s.rowsOf, s.rowsCollapsed, s.rowsHistory = rows, g.status, s.collapsed, g.historyGen
 	s.rowsDirs, s.rowsTree, s.rowsCommits = s.dirsGen, tree, s.commitsGen
+	s.rowsGen++
 	// A refresh or a collapsed folder must not leave invisible files chosen.
 	if s.selection.Len() > 0 {
 		visible := make(map[string]bool, len(rows))
@@ -951,6 +958,27 @@ func (a *gitContext) scmHeader(c *ui.Context, r scmRow, action *func()) {
 	}
 }
 
+// scmFade has the row of key fade in as it comes: in a group or a folder
+// just opened, or for a file just changed. The rows shown at first, or
+// once the section or the layout changes, show at once.
+func (a *gitContext) scmFade(c *ui.Context, row ui.Element, key string) {
+	s := a.scm
+	now := c.Now()
+	if s.appearGen != s.rowsGen {
+		scope := [2]int{int(s.rowsSection), 0}
+		if s.rowsTree {
+			scope[1] = 1
+		}
+		rows := s.rows
+		s.appear.note(len(rows), func(i int) string { return rows[i].key }, now, scope != s.appearScope)
+		s.appearGen, s.appearScope = s.rowsGen, scope
+	}
+	if k := s.appear.shown(key, now); k < 1 {
+		row.Opacity(k)
+		c.AnimationFrame()
+	}
+}
+
 // scmFile is the row of a changed file: a click shows its changes.
 func (a *gitContext) scmFile(c *ui.Context, r scmRow, action *func()) {
 	p := a.app.pal
@@ -961,6 +989,7 @@ func (a *gitContext) scmFile(c *ui.Context, r scmRow, action *func()) {
 		indent = treeIndent(r.depth) + 16
 	}
 	row := ui.Row(c).Grow(1).Gap(6).AlignItems(ui.Center).Height(scmRowHeight).Padding(0, 0, 0, indent)
+	a.scmFade(c, row, r.key)
 	if tree {
 		a.app.scmGuides(row, r.depth)
 	}
@@ -1113,6 +1142,7 @@ func (a *gitContext) scmCommit(c *ui.Context, i int, r scmRow, action *func()) {
 		indent = scmPanelContentIndent(r.depth)
 	}
 	row := ui.Row(c).Grow(1).Gap(6).AlignItems(ui.Center).Height(scmRowHeight).Padding(0, 4, 0, indent).Tooltip(tip)
+	a.scmFade(c, row, r.key)
 	clicked := row.Clicked()
 	row.ContextMenu(func(m *ui.Menu) { a.scmCommitMenu(m, cm, head, action) })
 	open := a.scm.openCommits[cm.Hash]
@@ -1526,6 +1556,7 @@ func (a *gitContext) scmFolder(c *ui.Context, r scmRow, action *func()) {
 	p := a.app.pal
 	closed := a.scm.closedDirs[r.key]
 	row := ui.Row(c).Grow(1).Gap(4).AlignItems(ui.Center).Height(scmRowHeight).Padding(0, 0, 0, treeIndent(r.depth))
+	a.scmFade(c, row, r.key)
 	a.app.scmGuides(row, r.depth)
 	hovered, clicked := row.Hovered(), row.Clicked()
 	row.Children(func() {

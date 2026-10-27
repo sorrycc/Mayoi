@@ -440,6 +440,7 @@ func (a *gitContext) scmCommitFile(c *ui.Context, i int, r scmRow, action *func(
 	lanes := min(graphLanes(graph), graphMaxLanes)
 	tree := a.app.settings.ScmTree && r.note == ""
 	row := ui.Row(c).Grow(1).Gap(6).AlignItems(ui.Center).Height(22).Padding(0, 4, 0, 6)
+	a.scmFade(c, row, r.key)
 	clicked := row.Clicked()
 	if r.dir == "" && r.note == "" {
 		row.Tooltip(a.git.repo.Rel(r.e.Path))

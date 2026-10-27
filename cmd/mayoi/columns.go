@@ -7,6 +7,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/egoist/mygo/i18n"
 	"github.com/egoist/mygo/ui"
 
 	"mayoi/internal/git"
@@ -50,6 +51,18 @@ type colTab struct {
 	// control: the next one chosen replaces it, until it is edited or
 	// kept.
 	transient bool
+	// closeText is the label of the tab's close button, for the name and
+	// the language of closeFor: made again only as they change.
+	closeText string
+	closeFor  [2]string
+}
+
+// closeLabel is the label of the tab's close button.
+func (t *colTab) closeLabel() string {
+	if key := [2]string{t.name(), i18n.Locale()}; key != t.closeFor || t.closeText == "" {
+		t.closeText, t.closeFor = locales.CloseName(key[0]), key
+	}
+	return t.closeText
 }
 
 func (t *colTab) name() string {

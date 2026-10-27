@@ -302,3 +302,37 @@ func TestLanguageNames(t *testing.T) {
 		}
 	}
 }
+
+// A large file scrolled has the lines below the view lexed again before
+// they show.
+func TestHighlighterLexesAhead(t *testing.T) {
+	var lines []string
+	for len(lines) <= WholeFile {
+		lines = append(lines, strings.Split(relexSamples["x.go"], "\n")...)
+	}
+	passes := make(chan struct{}, 8)
+	h := New(Lexer("x.go"), func() { passes <- struct{}{} })
+	defer h.Close()
+	pass := func() {
+		select {
+		case <-passes:
+		case <-time.After(5 * time.Second):
+			t.Fatal("no pass")
+		}
+	}
+	src := newSource(lines, 1)
+	h.Request(src, 1000, 1040)
+	pass()
+	h.mu.Lock()
+	end := h.first + len(h.lines) - 1
+	h.mu.Unlock()
+	// The view's last line nearer the end of those lexed than Ahead.
+	last := end - Ahead + 1
+	h.Request(src, last-40, last)
+	pass()
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if got := h.first + len(h.lines) - 1; got < last+Ahead {
+		t.Errorf("lexed up to line %d, not %d past the view's %d", got, Ahead, last)
+	}
+}

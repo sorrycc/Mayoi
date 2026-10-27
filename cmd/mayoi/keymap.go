@@ -488,6 +488,14 @@ func (a *app) activeFile() string {
 	return ""
 }
 
+// copyPath copies path, relative to the workspace when rel is set.
+func (a *app) copyPath(path string, rel bool) {
+	if rel && a.tree != nil {
+		path = a.tree.Rel(path)
+	}
+	a.services.WriteClipboard(hostPath(path))
+}
+
 // copyActivePath puts the path of the file shown on the clipboard,
 // relative to the folder with rel.
 func (a *app) copyActivePath(rel bool) {
@@ -495,10 +503,7 @@ func (a *app) copyActivePath(rel bool) {
 	if path == "" {
 		return
 	}
-	if rel && a.tree != nil {
-		path = a.tree.Rel(path)
-	}
-	a.services.WriteClipboard(hostPath(path))
+	a.copyPath(path, rel)
 }
 
 // revealActive shows the file of the tab shown in the file manager.

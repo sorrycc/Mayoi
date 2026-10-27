@@ -10,6 +10,7 @@ needs a `## <version>` section here, or its build fails.
 - A folder's files fade in as it expands in the Explorer.
 - The breadcrumbs' folder box and the account panel ease in, and project tips fade in.
 - Typing in long files and scrolling diffs do less work each frame.
+- File tabs gain a **Copy Relative Path** option in their context menu.
 
 ## 0.12.3
 

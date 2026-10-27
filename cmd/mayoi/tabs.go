@@ -290,7 +290,10 @@ func (a *app) tabMenu(m *ui.Menu, col *column, t *colTab, closing **colTab) {
 		a.host.reveal(path)
 	}
 	if m.Item(locales.CopyPath()).Disabled(path == "").Chosen() {
-		a.services.WriteClipboard(hostPath(path))
+		a.copyPath(path, false)
+	}
+	if m.Item(locales.CopyRelativePath()).Disabled(path == "").Chosen() {
+		a.copyPath(path, true)
 	}
 }
 

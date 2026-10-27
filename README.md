@@ -123,7 +123,7 @@ To open folders from a shell, choose **File → Install 'mayoi' Command** (on Li
 | ⌥↑ / ⌥↓, ⇧⌥↑ / ⇧⌥↓ | Move line / copy line |
 | ⇧⌘K / ⌘↵ / ⇧⌘↵ | Delete line / insert line below / insert line above |
 | ⌘L / ⇧⌘\\ | Select line / go to bracket |
-| ⌘= / ⌘- / ⌘0 | Zoom text or image in / out / reset |
+| ⌘= / ⌘- / ⌘0 | Zoom the whole window in / out / reset |
 | ⇧⌘V | Toggle SVG preview |
 | ⌥Z | Toggle word wrap for the current tab |
 

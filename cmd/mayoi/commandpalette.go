@@ -39,7 +39,7 @@ func commandGroup(t locales.Messages, id string) string {
 		return t.MenuSelection()
 	case "go":
 		return t.MenuGo()
-	case "view":
+	case "view", "editor", "image":
 		return t.MenuView()
 	case "git":
 		return t.MenuGit()

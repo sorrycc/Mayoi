@@ -12,6 +12,7 @@ import (
 	"github.com/egoist/mygo/ui"
 
 	"mayoi/internal/keymap"
+	"mayoi/internal/settings"
 	"mayoi/locales"
 )
 
@@ -179,10 +180,16 @@ func (a *app) commandsIn(t locales.Messages) []command {
 		{"view.wordWrapTab", t.CmdViewWordWrapTab(), "Alt+Z", a.toggleTabWrap},
 		{"view.togglePreview", t.CmdViewTogglePreview(), "Shift+CmdOrCtrl+V", a.togglePreview},
 		{"view.previewToSide", t.CmdViewPreviewToSide(), "", a.previewToSide},
-		// The text, or the picture shown.
+		// The whole window, independent of the focused pane.
 		{"view.zoomIn", t.CmdViewZoomIn(), "CmdOrCtrl+=", func() { a.zoom(1) }},
 		{"view.zoomOut", t.CmdViewZoomOut(), "CmdOrCtrl+-", func() { a.zoom(-1) }},
 		{"view.zoomReset", t.CmdViewZoomReset(), "CmdOrCtrl+0", func() { a.zoom(0) }},
+		{"editor.fontZoomIn", t.CmdEditorFontZoomIn(), "", func() { a.fontZoom(1) }},
+		{"editor.fontZoomOut", t.CmdEditorFontZoomOut(), "", func() { a.fontZoom(-1) }},
+		{"editor.fontZoomReset", t.CmdEditorFontZoomReset(), "", func() { a.fontZoom(0) }},
+		{"image.zoomIn", t.CmdImageZoomIn(), "", func() { a.imageZoom(1) }},
+		{"image.zoomOut", t.CmdImageZoomOut(), "", func() { a.imageZoom(-1) }},
+		{"image.zoomReset", t.CmdImageZoomReset(), "", func() { a.imageZoom(0) }},
 		{"view.appearance.system", t.CmdViewAppearanceSystem(), "", func() { a.setAppearance("") }},
 		{"view.appearance.light", t.CmdViewAppearanceLight(), "", func() { a.setAppearance("light") }},
 		{"view.appearance.dark", t.CmdViewAppearanceDark(), "", func() { a.setAppearance("dark") }},
@@ -363,13 +370,27 @@ func (a *app) openSettings() {
 	}
 }
 
-// zoom makes the picture shown bigger or smaller, or fits it for 0, and
-// otherwise the text.
+// zoom scales all window content, or restores its default scale for 0.
 func (a *app) zoom(by float32) {
-	if v := a.activeViewer(); v != nil && v.markdown == nil {
-		v.zoomBy(int(by))
-		return
+	s := a.settings
+	if by == 0 {
+		s.ZoomLevel = 0
+	} else {
+		s.ZoomLevel = clamp(s.ZoomLevel+by, settings.MinZoomLevel, settings.MaxZoomLevel)
 	}
+	s.Changed()
+	a.host.redrawWindows()
+}
+
+// imageZoom changes only the picture shown, or fits it for 0.
+func (a *app) imageZoom(by int) {
+	if v := a.activeViewer(); v != nil && v.markdown == nil {
+		v.zoomBy(by)
+	}
+}
+
+// fontZoom changes the base text size without scaling the window's UI.
+func (a *app) fontZoom(by float32) {
 	s := a.settings
 	if by == 0 {
 		s.FontSize = 13
@@ -377,7 +398,7 @@ func (a *app) zoom(by float32) {
 		s.FontSize = clamp(s.FontSize+by, 9, 28)
 	}
 	s.Changed()
-	a.host.fontChanged()
+	a.host.redrawWindows()
 }
 
 // updateItem is "Check for Updates…", or "Update to 0.12.0…" once a

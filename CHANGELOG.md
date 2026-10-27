@@ -7,6 +7,12 @@ needs a `## <version>` section here, or its build fails.
 
 - **Close Other Projects** asks before closing the window's other projects.
 - Typing and scrolling are smoother in files of Chinese, Japanese or other non-ASCII text.
+- Window zoom scales the whole interface, including sidebars and terminals.
+- Use `Cmd` on macOS or `Ctrl` on Windows/Linux with `=`, `-` or `0` to zoom or reset.
+- Set `zoomLevel` in `settings.json` to save a window zoom level, including decimals.
+- The command palette has separate commands for editor font size and image zoom.
+- `⌘=` / `⌘-` / `⌘0` now zoom the whole window; editor font size and image zoom moved to the command palette.
+- `⌘=` and `⌘-` no longer grow the editor font or zoom an image with focus; bind `editor.fontZoomIn` or `image.zoomIn` in `keybindings.json` for the old behaviour.
 - Going to a line, a symbol or a search result briefly lights the line the caret lands on.
 - The sidebar and the terminal panel fade in as they open.
 - A folder's files fade in as it expands in the Explorer.

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"image"
 	"image/png"
+	"math"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -72,6 +73,7 @@ func (a *app) view(c *ui.Context) {
 		a.dragging, a.dragNow = a.dragNow, false
 	}
 	a.shortcuts(c)
+	c.SetZoom(float32(math.Pow(1.2, float64(a.settings.ZoomLevel))))
 	// Which pane has the keyboard focus, as the frame before left it, and
 	// which column: its editor is the one typing is of.
 	for i, col := range a.cols {

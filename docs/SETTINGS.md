@@ -40,8 +40,9 @@ takes its default.
 
 | Key                     | Default       | Values                                                      | Also set by                                    |
 | ----------------------- | ------------- | ----------------------------------------------------------- | ---------------------------------------------- |
+| `zoomLevel`             | `0`           | -5 to 8, including decimals                                 | **View → Zoom In / Zoom Out / Reset Zoom**; [shortcuts](#window-zoom) |
 | `fontFamily`            | `"monospace"` | Font names, separated by commas                             |                                                |
-| `fontSize`              | `13`          | 9 to 28                                                     | ⌘= and ⌘- change it, and ⌘0 resets it to 13    |
+| `fontSize`              | `13`          | 9 to 28                                                     | **Increase / Decrease / Reset Editor Font Size** in the command palette |
 | `fontWeight`            | `400`         | 100 (thin) to 900 (black)                                   |                                                |
 | `fontFeatures`          | none          | A list of OpenType features                                 |                                                |
 | `lineHeight`            | `1.55`        | 1 to 3, as a multiple of `fontSize`                         |                                                |
@@ -83,6 +84,27 @@ takes its default.
   once. The command palette also finds commands by their English names. In Japanese, the parts that MyGo draws itself,
   as the editor's own menu and the native dialogs' buttons, stay in English.
 
+### Window zoom
+
+`zoomLevel` scales all window content, including project tabs, the sidebar, icons, buttons, editors and terminals.
+The scale is `1.2 ^ zoomLevel`: `0` is 100%, `1` is 120%, and `1.5` is about 131.5%.
+Negative levels make the interface smaller. Decimal values such as `0.5` are supported.
+Changes apply to every window as you save `settings.json`, and stay after a restart.
+
+| Action | macOS | Windows / Linux |
+| ------ | ----- | --------------- |
+| Zoom in (level +1) | `⌘=` | `Ctrl+=` |
+| Zoom out (level -1) | `⌘-` | `Ctrl+-` |
+| Reset (level 0) | `⌘0` | `Ctrl+0` |
+
+These shortcuts zoom the window even when an image has focus.
+
+Image zoom has no default shortcut; use `⌘` (macOS) or `Ctrl` (Windows/Linux) with the scroll wheel, or **Zoom In Image / Zoom Out Image / Reset Image Zoom** in the command palette. Editor font size has its own commands there too: **Increase / Decrease / Reset Editor Font Size**.
+
+To get the old behaviour of `⌘=` / `⌘-` / `⌘0`, bind `editor.fontZoomIn`, `editor.fontZoomOut`, `editor.fontZoomReset`, `image.zoomIn`, `image.zoomOut` or `image.zoomReset` in `keybindings.json`.
+
+`zoomLevel` syncs between machines by default. To keep a different level per machine, add `"zoomLevel"` to `syncIgnored`.
+
 ### Fonts
 
 - **`fontFamily`** is the code's font. A list falls back in order, as `"Iosevka, monospace"`.
@@ -90,7 +112,8 @@ takes its default.
 - **`fontFeatures`** turns OpenType features on and off: `["calt=0"]` turns off most coding ligatures, and `["ss01"]`
   turns a stylistic set on.
 - **`terminalFontFamily`** and **`terminalFontSize`** are the terminal's. Left empty, the terminal uses `fontFamily`
-  and half a point under `fontSize`. Zooming leaves a terminal size you set alone. The terminal also takes
+  and half a point under `fontSize`. Changing the editor font size leaves an explicit terminal size alone;
+  window zoom scales both without changing their base sizes. The terminal also takes
   `fontWeight` and `fontFeatures`.
 
 The editor lines up columns, indent guides and the caret in cells as wide as the font's `0`, so a font whose letters

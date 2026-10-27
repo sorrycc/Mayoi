@@ -70,9 +70,8 @@ type host interface {
 	// they change.
 	recentChanged()
 	menuChanged()
-	// fontChanged draws every window anew, in the font the settings
-	// have now.
-	fontChanged()
+	// redrawWindows draws every window with the current font and zoom.
+	redrawWindows()
 	// installCLI and uninstallCLI put the mayoi command on the shell's
 	// path, and take it away, saying how it went.
 	installCLI()

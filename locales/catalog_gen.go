@@ -2610,6 +2610,66 @@ func (msgs Messages) CmdViewZoomReset() string {
 	return Catalog.Format(msgs.locale, "cmdViewZoomReset", nil)
 }
 
+// CmdEditorFontZoomIn says "Increase Editor Font Size"
+// in the language the app shows.
+func CmdEditorFontZoomIn() string { return In(i18n.Locale()).CmdEditorFontZoomIn() }
+
+// CmdEditorFontZoomIn says "Increase Editor Font Size"
+// in the language of msgs.
+func (msgs Messages) CmdEditorFontZoomIn() string {
+	return Catalog.Format(msgs.locale, "cmdEditorFontZoomIn", nil)
+}
+
+// CmdEditorFontZoomOut says "Decrease Editor Font Size"
+// in the language the app shows.
+func CmdEditorFontZoomOut() string { return In(i18n.Locale()).CmdEditorFontZoomOut() }
+
+// CmdEditorFontZoomOut says "Decrease Editor Font Size"
+// in the language of msgs.
+func (msgs Messages) CmdEditorFontZoomOut() string {
+	return Catalog.Format(msgs.locale, "cmdEditorFontZoomOut", nil)
+}
+
+// CmdEditorFontZoomReset says "Reset Editor Font Size"
+// in the language the app shows.
+func CmdEditorFontZoomReset() string { return In(i18n.Locale()).CmdEditorFontZoomReset() }
+
+// CmdEditorFontZoomReset says "Reset Editor Font Size"
+// in the language of msgs.
+func (msgs Messages) CmdEditorFontZoomReset() string {
+	return Catalog.Format(msgs.locale, "cmdEditorFontZoomReset", nil)
+}
+
+// CmdImageZoomIn says "Zoom In Image"
+// in the language the app shows.
+func CmdImageZoomIn() string { return In(i18n.Locale()).CmdImageZoomIn() }
+
+// CmdImageZoomIn says "Zoom In Image"
+// in the language of msgs.
+func (msgs Messages) CmdImageZoomIn() string {
+	return Catalog.Format(msgs.locale, "cmdImageZoomIn", nil)
+}
+
+// CmdImageZoomOut says "Zoom Out Image"
+// in the language the app shows.
+func CmdImageZoomOut() string { return In(i18n.Locale()).CmdImageZoomOut() }
+
+// CmdImageZoomOut says "Zoom Out Image"
+// in the language of msgs.
+func (msgs Messages) CmdImageZoomOut() string {
+	return Catalog.Format(msgs.locale, "cmdImageZoomOut", nil)
+}
+
+// CmdImageZoomReset says "Fit Image to View"
+// in the language the app shows.
+func CmdImageZoomReset() string { return In(i18n.Locale()).CmdImageZoomReset() }
+
+// CmdImageZoomReset says "Fit Image to View"
+// in the language of msgs.
+func (msgs Messages) CmdImageZoomReset() string {
+	return Catalog.Format(msgs.locale, "cmdImageZoomReset", nil)
+}
+
 // CollapseFolders says "Collapse Folders"
 // in the language the app shows.
 func CollapseFolders() string { return In(i18n.Locale()).CollapseFolders() }

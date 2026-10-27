@@ -799,14 +799,19 @@ func TestMarkdownFontAndZoom(t *testing.T) {
 		}
 	}
 	a.zoom(1)
+	if a.settings.ZoomLevel != 1 || a.settings.FontSize != 18 || v.zoom != 0 {
+		t.Fatal("window zoom changed the preview's base font or image zoom")
+	}
+	a.zoom(0)
+	a.fontZoom(1)
 	if a.settings.FontSize != 19 || v.zoom != 0 {
 		t.Fatalf("font %v, viewer zoom %v", a.settings.FontSize, v.zoom)
 	}
-	a.zoom(-1)
+	a.fontZoom(-1)
 	if a.settings.FontSize != 18 || v.zoom != 0 {
 		t.Fatal("zoom out")
 	}
-	a.zoom(0)
+	a.fontZoom(0)
 	if a.settings.FontSize != 13 || v.zoom != 0 {
 		t.Fatal("zoom reset")
 	}

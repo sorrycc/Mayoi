@@ -353,7 +353,9 @@ your SSH agent and credential helper, and if those fail, the error says to run t
 
 PNG, JPEG, GIF, WebP and BMP files open in a viewer, fitted to the view on a checkerboard.
 
-- ⌘= and ⌘- zoom, as does scrolling with ⌘ held. ⌘0 fits the image again.
+- Scroll with `⌘` (macOS) or `Ctrl` (Windows/Linux) held to zoom the image, or use **Zoom In Image / Zoom Out Image** in the command palette.
+- Click the status bar's zoom percentage or run **Fit Image to View** to fit the image again.
+- `⌘=`, `⌘-` and `⌘0` (macOS), or `Ctrl+=`, `Ctrl+-` and `Ctrl+0` (Windows/Linux), zoom or reset the whole window, including the sidebar.
 - Double-click toggles between fitted and actual size.
 - Drag or scroll to pan an image larger than the view.
 - The image reloads when the file changes.

@@ -33,6 +33,41 @@ func TestRoundTrip(t *testing.T) {
 	}
 }
 
+func TestZoomLevel(t *testing.T) {
+	for _, tc := range []struct {
+		json string
+		want float32
+	}{
+		{`{}`, 0},
+		{`{"zoomLevel": 1.5}`, 1.5},
+		{`{"zoomLevel": -0.75}`, -0.75},
+		{`{"zoomLevel": -100}`, MinZoomLevel},
+		{`{"zoomLevel": 100}`, MaxZoomLevel},
+	} {
+		t.Run(tc.json, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "settings.json")
+			if err := os.WriteFile(path, []byte(tc.json), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			s := Load(path)
+			if s.ZoomLevel != tc.want {
+				t.Fatalf("loaded zoom %v, want %v", s.ZoomLevel, tc.want)
+			}
+			s.Flush()
+			if got := Load(path).ZoomLevel; got != tc.want {
+				t.Fatalf("saved zoom %v, want %v", got, tc.want)
+			}
+			if err := os.WriteFile(path, []byte(`{"zoomLevel": 0.25}`), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			p, ok := s.Edited()
+			if !ok || p.ZoomLevel != 0.25 {
+				t.Fatalf("reloaded zoom %v, changed %v", p.ZoomLevel, ok)
+			}
+		})
+	}
+}
+
 // The layout an older version kept for every window becomes each
 // window's, and each session's.
 func TestMigrateTheLayout(t *testing.T) {

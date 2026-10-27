@@ -89,6 +89,8 @@ type legacy struct {
 // Prefs are the settings a person chooses, which an edit of the file
 // applies as Mayoi runs: not the windows and the layout it keeps itself.
 type Prefs struct {
+	// ZoomLevel scales all window content by 1.2 to this power.
+	ZoomLevel  float32 `json:"zoomLevel"`
 	FontSize   float32 `json:"fontSize"`
 	FontFamily string  `json:"fontFamily"`
 	// FontWeight is how heavy the code's text is, from 100 to 900.
@@ -469,9 +471,13 @@ func (s *Settings) layOut(old oldLayout) {
 	}
 }
 
+// Zoom levels keep the content within the UI's supported scale range.
+const MinZoomLevel, MaxZoomLevel = -5, 8
+
 // normalize keeps the preferences in their bounds, the defaults where the
 // file leaves them out or makes no sense.
 func (s *Settings) normalize() {
+	s.ZoomLevel = clamp(s.ZoomLevel, MinZoomLevel, MaxZoomLevel)
 	s.FontSize = clamp(s.FontSize, 9, 28)
 	if strings.TrimSpace(s.FontFamily) == "" {
 		s.FontFamily = "monospace"

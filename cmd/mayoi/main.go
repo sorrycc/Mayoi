@@ -211,7 +211,7 @@ func (h *desktop) openFolders(dirs []string) {
 func (h *desktop) recentChanged() { h.m.refreshMenu() }
 func (h *desktop) menuChanged()   { h.m.refreshMenu() }
 
-func (h *desktop) fontChanged() {
+func (h *desktop) redrawWindows() {
 	for _, w := range h.m.wins {
 		w.a.invalidate()
 	}

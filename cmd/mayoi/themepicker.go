@@ -306,49 +306,54 @@ func (a *app) themeSwatch(c *ui.Context, theme string, chosen bool) {
 	live := chosen && !a.mascotStill(c)
 	ui.Box(c.Key("swatch")).Size(swatchW, swatchH).Shrink(0).Radius(7).Background(q.editor).Border(1, q.border).Clip().
 		Transition(ui.ElementTransition{Colors: true, Duration: paletteFadeFor}).
-		Draw(func(pt *ui.Painter, r ui.Rect) {
-			// The sidebar, floating at the side, and the tab strip.
-			pt.Fill(ui.Rect{X: r.X + 3, Y: r.Y + 3, W: 16, H: r.H - 6}, q.chrome, 4)
-			pt.Fill(ui.Rect{X: r.X + 6, Y: r.Y + 7, W: 10, H: 2.5}, q.muted.Alpha(0.6), 1.25)
-			pt.Fill(ui.Rect{X: r.X + 6, Y: r.Y + 12, W: 8, H: 2.5}, q.accent, 1.25)
-			pt.Fill(ui.Rect{X: r.X + 6, Y: r.Y + 17, W: 9, H: 2.5}, q.muted.Alpha(0.6), 1.25)
-			// Code, a run of words to a line in the colors of the syntax.
-			s := q.syntax
-			lines := [][]struct {
-				w   float32
-				col ui.Color
-			}{
-				{{9, s[highlight.Keyword]}, {14, s[highlight.Function]}},
-				{{6, s[highlight.Keyword]}, {15, s[highlight.String]}},
-				{{8, s[highlight.Variable]}, {10, s[highlight.Type]}, {6, s[highlight.Number]}},
-				{{18, s[highlight.Comment]}},
-			}
-			x0 := r.X + 24
-			for li, words := range lines {
-				x, y := x0, r.Y+10+float32(li)*9.5
-				if li == 1 || li == 2 {
-					x += 4
-				}
-				for _, wd := range words {
-					pt.Fill(ui.Rect{X: x, Y: y, W: wd.w, H: 3}, wd.col, 1.5)
-					x += wd.w + 2.5
-				}
-				if li == 2 {
-					// The caret, after the last word.
-					pt.Fill(ui.Rect{X: x, Y: y - 1.5, W: 1.2, H: 6}, q.accent, 0)
-				}
-			}
-			if m == nil {
-				return
-			}
-			const cell = 1.25
-			mw, mh := m.size(cell)
-			var pose mascotPose
-			if live {
-				var hold time.Duration
-				pose, hold = poseAt(pt.Now(), false)
-				pt.After(hold)
-			}
-			m.draw(q, pt, ui.Rect{X: r.X + r.W - mw - 5, Y: r.Y + r.H - mh - 3, W: mw, H: mh}, cell, q.editor, pose)
-		})
+		Draw(func(pt *ui.Painter, r ui.Rect) { paintSwatch(pt, r, q, m, 1, live) })
+}
+
+// paintSwatch paints a theme's little window in r, of the palette q and
+// the character m, nil for none, at k times the size of the box's: live
+// has the character blink and bob.
+func paintSwatch(pt *ui.Painter, r ui.Rect, q *palette, m *mascot, k float32, live bool) {
+	at := func(x, y, w, h float32) ui.Rect { return ui.Rect{X: r.X + x*k, Y: r.Y + y*k, W: w * k, H: h * k} }
+	// The sidebar, floating at the side, and the tab strip.
+	pt.Fill(ui.Rect{X: r.X + 3*k, Y: r.Y + 3*k, W: 16 * k, H: r.H - 6*k}, q.chrome, 4*k)
+	pt.Fill(at(6, 7, 10, 2.5), q.muted.Alpha(0.6), 1.25*k)
+	pt.Fill(at(6, 12, 8, 2.5), q.accent, 1.25*k)
+	pt.Fill(at(6, 17, 9, 2.5), q.muted.Alpha(0.6), 1.25*k)
+	// Code, a run of words to a line in the colors of the syntax.
+	s := q.syntax
+	lines := [][]struct {
+		w   float32
+		col ui.Color
+	}{
+		{{9, s[highlight.Keyword]}, {14, s[highlight.Function]}},
+		{{6, s[highlight.Keyword]}, {15, s[highlight.String]}},
+		{{8, s[highlight.Variable]}, {10, s[highlight.Type]}, {6, s[highlight.Number]}},
+		{{18, s[highlight.Comment]}},
+	}
+	for li, words := range lines {
+		x, y := float32(24), 10+float32(li)*9.5
+		if li == 1 || li == 2 {
+			x += 4
+		}
+		for _, wd := range words {
+			pt.Fill(at(x, y, wd.w, 3), wd.col, 1.5*k)
+			x += wd.w + 2.5
+		}
+		if li == 2 {
+			// The caret, after the last word.
+			pt.Fill(at(x, y-1.5, 1.2, 6), q.accent, 0)
+		}
+	}
+	if m == nil {
+		return
+	}
+	cell := 1.25 * k
+	mw, mh := m.size(cell)
+	var pose mascotPose
+	if live {
+		var hold time.Duration
+		pose, hold = poseAt(pt.Now(), false)
+		pt.After(hold)
+	}
+	m.draw(q, pt, ui.Rect{X: r.X + r.W - mw - 5*k, Y: r.Y + r.H - mh - 3*k, W: mw, H: mh}, cell, q.editor, pose)
 }

@@ -41,6 +41,18 @@ func TestShotPrefs(t *testing.T) {
 		ph.w.set("vim", json.RawMessage(`true`))
 		ph.frames()
 		ph.shot("prefs-appearance" + suffix)
+		ph.w.section = settings.CatFonts
+		ph.w.set("fontSize", json.RawMessage(`15`))
+		ph.frames()
+		ph.shot("prefs-fonts" + suffix)
+		ph.w.reset("fontSize", nil)
+		ph.frames()
+		ph.shot("prefs-undo" + suffix)
+		ph.pt.Click("Dismiss")
+		ph.frames()
+		ph.w.section = settings.CatDiff
+		ph.frames()
+		ph.shot("prefs-diff" + suffix)
 		ph.w.section = settings.CatEditor
 		ph.frames()
 		ph.shot("prefs-editor" + suffix)

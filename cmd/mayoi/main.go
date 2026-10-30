@@ -626,12 +626,16 @@ func (m *mayoi) of(st *settings.Window) *desktop {
 	return nil
 }
 
+// setThemeSource sets the light or dark appearance of the native windows,
+// as the preferences change: the tests, which have none, leave it.
+var setThemeSource = func(s mygo.ThemeSource) { mygo.Theme.SetSource(s) }
+
 // reload applies the preferences of the settings file, which a person
 // changed as Mayoi runs.
 func (m *mayoi) reload(p settings.Prefs) {
 	old := m.s.SetPrefs(p)
 	if p.Appearance != old.Appearance || p.Theme != old.Theme {
-		mygo.Theme.SetSource(themeSource(p.Theme, p.Appearance))
+		setThemeSource(themeSource(p.Theme, p.Appearance))
 	}
 	if p.ProjectTabs != old.ProjectTabs {
 		m.projectTabsChanged()

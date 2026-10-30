@@ -12624,6 +12624,56 @@ func (msgs Messages) PrefsInherit() string {
 	return Catalog.Format(msgs.locale, "prefsInherit", nil)
 }
 
+// PrefsWasReset says "{name} reset to default"
+// in the language the app shows.
+func PrefsWasReset(name string) string { return In(i18n.Locale()).PrefsWasReset(name) }
+
+// PrefsWasReset says "{name} reset to default"
+// in the language of msgs.
+func (msgs Messages) PrefsWasReset(name string) string {
+	return Catalog.Format(msgs.locale, "prefsWasReset", map[string]any{"name": name})
+}
+
+// PrefsWasInherited says "{name} uses your setting again"
+// in the language the app shows.
+func PrefsWasInherited(name string) string { return In(i18n.Locale()).PrefsWasInherited(name) }
+
+// PrefsWasInherited says "{name} uses your setting again"
+// in the language of msgs.
+func (msgs Messages) PrefsWasInherited(name string) string {
+	return Catalog.Format(msgs.locale, "prefsWasInherited", map[string]any{"name": name})
+}
+
+// PrefsDismiss says "Dismiss"
+// in the language the app shows.
+func PrefsDismiss() string { return In(i18n.Locale()).PrefsDismiss() }
+
+// PrefsDismiss says "Dismiss"
+// in the language of msgs.
+func (msgs Messages) PrefsDismiss() string {
+	return Catalog.Format(msgs.locale, "prefsDismiss", nil)
+}
+
+// KeysWereReset says "Keys of {command} reset to default"
+// in the language the app shows.
+func KeysWereReset(command string) string { return In(i18n.Locale()).KeysWereReset(command) }
+
+// KeysWereReset says "Keys of {command} reset to default"
+// in the language of msgs.
+func (msgs Messages) KeysWereReset(command string) string {
+	return Catalog.Format(msgs.locale, "keysWereReset", map[string]any{"command": command})
+}
+
+// KeysWereRemoved says "Keys of {command} removed"
+// in the language the app shows.
+func KeysWereRemoved(command string) string { return In(i18n.Locale()).KeysWereRemoved(command) }
+
+// KeysWereRemoved says "Keys of {command} removed"
+// in the language of msgs.
+func (msgs Messages) KeysWereRemoved(command string) string {
+	return Catalog.Format(msgs.locale, "keysWereRemoved", map[string]any{"command": command})
+}
+
 // PrefsNoFolder says "Open a folder on this machine to give it settings of its own"
 // in the language the app shows.
 func PrefsNoFolder() string { return In(i18n.Locale()).PrefsNoFolder() }

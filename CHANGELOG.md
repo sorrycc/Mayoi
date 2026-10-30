@@ -20,6 +20,11 @@ needs a `## <version>` section here, or its build fails.
 - The settings sidebar shows how many settings you have changed in each section.
 - **Keyboard Shortcuts** shows each key as its own cap, and tags your own keys and removed ones.
 - The dialog for new keys shows them large, and turns amber when another command has them.
+- **Settings → Appearance** shows every theme as a small preview window; click one to switch to it.
+- Font size, weight, line height and window zoom have sliders that show their value as you drag.
+- **Settings → Fonts** shows sample code in your font, and it updates as you change the font settings.
+- Settings with two or three short choices, such as `appearance`, are a row of buttons instead of a menu.
+- Resetting a setting or a command's keys shows a notice with **Undo** for a few seconds.
 - A folder's own setting changed in the settings window no longer, now and then, snaps back.
 - Headings in the Markdown preview take the color theme's heading color, as the editor does.
 - Command-clicking a terminal path or URL followed by Chinese punctuation no longer takes the text after it.

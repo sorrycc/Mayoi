@@ -472,43 +472,61 @@ func (k *keysPane) setKeys(cmd command, keys []keymap.Stroke) {
 	k.edit(func(e keymap.Entry) bool { return unconditional(e, names) }, add)
 }
 
-// removeKeys takes cmd's keys away.
+// removeKeys takes cmd's keys away, with a toast that undoes it.
 func (k *keysPane) removeKeys(cmd command) {
-	names := commandNames(cmd.id)
 	var add []keymap.Entry
 	if rm, ok := defaultRemoval(cmd); ok {
 		add = append(add, rm)
 	}
-	k.edit(func(e keymap.Entry) bool { return unconditional(e, names) }, add)
+	k.replaceKeys(cmd, add, locales.KeysWereRemoved(cmd.label))
 }
 
-// resetKeys gives cmd its own shortcut back.
+// resetKeys gives cmd its own shortcut back, with a toast that undoes it.
 func (k *keysPane) resetKeys(cmd command) {
+	k.replaceKeys(cmd, nil, locales.KeysWereReset(cmd.label))
+}
+
+// replaceKeys puts add in place of the entries that bind, or take away,
+// cmd's keys without a condition, and shows message with Undo, which puts
+// those entries back.
+func (k *keysPane) replaceKeys(cmd command, add []keymap.Entry, message string) {
 	names := commandNames(cmd.id)
-	k.edit(func(e keymap.Entry) bool { return unconditional(e, names) }, nil)
+	var had []keymap.Entry
+	if !k.edit(func(e keymap.Entry) bool {
+		if unconditional(e, names) {
+			had = append(had, e)
+			return true
+		}
+		return false
+	}, add) {
+		return
+	}
+	k.w.undoable("keys:"+cmd.id, message, func() {
+		k.edit(func(e keymap.Entry) bool { return unconditional(e, names) }, had)
+	})
 }
 
 // edit changes keybindings.json, as keymap.Edit does, and applies it at
-// once.
-func (k *keysPane) edit(drop func(keymap.Entry) bool, add []keymap.Entry) {
+// once. It reports whether it did.
+func (k *keysPane) edit(drop func(keymap.Entry) bool, add []keymap.Entry) bool {
 	m := k.w.m
 	path := keymap.Path(m.s.Path())
 	if path == "" {
-		return
+		return false
 	}
 	data, err := os.ReadFile(path)
 	if err != nil && !os.IsNotExist(err) {
 		k.w.errors = append(k.w.errors, err.Error())
-		return
+		return false
 	}
 	out, err := keymap.Edit(data, drop, add)
 	if err != nil {
 		k.w.errors = append(k.w.errors, locales.KeysCouldNotEdit(err.Error()))
-		return
+		return false
 	}
 	if err := settings.WriteFile(path, out); err != nil {
 		k.w.errors = append(k.w.errors, locales.FailSave(path, err.Error()))
-		return
+		return false
 	}
 	km, err := keymap.Parse(out)
 	if len(m.wins) == 0 {
@@ -519,4 +537,5 @@ func (k *keysPane) edit(drop func(keymap.Entry) bool, add []keymap.Entry) {
 		m.reloadKeys(km, err)
 	}
 	k.w.invalidate()
+	return true
 }

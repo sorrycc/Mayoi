@@ -55,8 +55,13 @@ type prefsWindow struct {
 	texts   map[string]*string
 	numbers map[string]*float64
 	editing map[string]bool
-	errors  []string
-	keys    keysPane
+	// held is the key of the number whose slider is being dragged, which
+	// applies as it is let go.
+	held   string
+	errors []string
+	// notes are the toasts to show next, as a reset's with its Undo.
+	notes []ui.Toast
+	keys  keysPane
 }
 
 // showPrefs opens the settings window, or brings it to the front, at
@@ -240,15 +245,19 @@ func (w *prefsWindow) view(c *ui.Context) {
 	})
 	w.keys.recordView(c)
 	for _, msg := range w.errors {
-		c.Toast(msg)
+		c.AddToast(ui.Toast{ID: msg, Title: msg, Type: "error"})
 	}
-	w.errors = w.errors[:0]
+	for _, t := range w.notes {
+		c.AddToast(t)
+	}
+	w.errors, w.notes = w.errors[:0], w.notes[:0]
+	w.toasts(c)
 }
 
 // sidebar is the window's search and its sections.
 func (w *prefsWindow) sidebar(c *ui.Context) {
 	p := w.pal
-	ui.Column(c.Key("prefs-sidebar")).Width(220).Shrink(0).Padding(14, 10, 10, 10).Gap(10).
+	ui.Column(c.Key("prefs-sidebar")).Width(prefsSidebarW).Shrink(0).Padding(14, 10, 10, 10).Gap(10).
 		Background(p.chrome).BorderWidth(0, 1, 0, 0).BorderColor(p.border).Children(func() {
 		ui.SearchField(c.Key("prefs-search"), &w.query).Label(locales.PrefsSearch()).Placeholder(locales.PrefsSearch()).AutoFocus()
 		// No section is chosen while the search shows what it finds of
@@ -281,6 +290,9 @@ func (w *prefsWindow) sidebar(c *ui.Context) {
 		})
 	})
 }
+
+// prefsSidebarW is how wide the sidebar of the window is.
+const prefsSidebarW = 220
 
 // changedIn is how many of the person's preferences of the category are
 // not as a first launch has them, or the folder chooses while its own
@@ -378,6 +390,9 @@ func (w *prefsWindow) prefsPane(c *ui.Context) {
 			if len(fields) == 0 {
 				w.noneFound(c, locales.PrefsNoneFound())
 				return
+			}
+			if w.query == "" && w.section == settings.CatFonts && scope == nil {
+				w.fontPreview(c)
 			}
 			for len(fields) > 0 {
 				// The search finds them by category, each under its name.
@@ -496,7 +511,7 @@ func (w *prefsWindow) row(c *ui.Context, f settings.Field, scope *prefFolder) {
 			w.jump = ""
 		}
 	}
-	wide := f.Kind == settings.KindList || f.Kind == settings.KindStyles
+	wide := f.Kind == settings.KindList || f.Kind == settings.KindStyles || f.Key == "theme"
 	row.Children(func() {
 		ui.Row(c).Gap(12).AlignItems(ui.Center).Children(func() {
 			ui.Column(c).Gap(3).Grow(1).Shrink(1).MinWidth(0).Children(func() {
@@ -553,13 +568,30 @@ func (w *prefsWindow) resetButton(c *ui.Context, f settings.Field, scope *prefFo
 		ui.Icon(c, iconUndo).FontSize(13).TextColor(col)
 	})
 	if b.Clicked() {
-		if scope != nil {
-			w.setFolder(scope, f.Key, nil)
-		} else {
-			d := settings.Default().Prefs
-			w.set(f.Key, d.Raw(f.Key))
-		}
+		w.reset(f.Key, scope)
 	}
+}
+
+// reset takes the preference of key back to its default, or the folder's
+// choice of it away, with a toast that undoes it.
+func (w *prefsWindow) reset(key string, scope *prefFolder) {
+	name := prefTitle(key)
+	if scope != nil {
+		dir, was := scope.dir, scope.f.Raw(key)
+		w.setFolder(scope, key, nil)
+		w.undoable("reset:"+key, locales.PrefsWasInherited(name), func() {
+			for _, f := range w.prefFolders() {
+				if f.dir == dir {
+					w.setFolder(&f, key, was)
+				}
+			}
+		})
+		return
+	}
+	was := w.m.s.Prefs.Raw(key)
+	d := settings.Default().Prefs
+	w.set(key, d.Raw(key))
+	w.undoable("reset:"+key, locales.PrefsWasReset(name), func() { w.set(key, was) })
 }
 
 // control is the control that changes a preference.
@@ -586,6 +618,10 @@ func (w *prefsWindow) control(c *ui.Context, f settings.Field, raw json.RawMessa
 	case settings.KindEnum:
 		var v string
 		json.Unmarshal(raw, &v)
+		if f.Key == "theme" {
+			w.themeTiles(c, v, apply)
+			return
+		}
 		labels := make([]string, len(f.Options))
 		chosen := ""
 		for i, o := range f.Options {
@@ -599,8 +635,15 @@ func (w *prefsWindow) control(c *ui.Context, f settings.Field, raw json.RawMessa
 			chosen = v
 			labels = append(labels, v)
 		}
+		disabled := f.Key == "appearance" && alwaysDark(w.m.s.Theme)
+		if segmentedFits(labels) {
+			if i, ok := w.segmented(c, "prefs-control-"+f.Key, slices.Index(labels, chosen), labels, prefTitle(f.Key), disabled); ok && i < len(f.Options) {
+				apply(f.Options[i])
+			}
+			return
+		}
 		sel := ui.Select(k, &chosen, labels).Label(prefTitle(f.Key)).MinWidth(180)
-		if f.Key == "appearance" && alwaysDark(w.m.s.Theme) {
+		if disabled {
 			sel.Disabled(true)
 		}
 		if sel.Changed() {
@@ -611,6 +654,10 @@ func (w *prefsWindow) control(c *ui.Context, f settings.Field, raw json.RawMessa
 	case settings.KindNumber:
 		var v float64
 		json.Unmarshal(raw, &v)
+		if prefSliders[f.Key] {
+			w.sliderControl(c, f, v, apply)
+			return
+		}
 		buf := w.numbers[f.Key]
 		if buf == nil {
 			buf = new(float64)

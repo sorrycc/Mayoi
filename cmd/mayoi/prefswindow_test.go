@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
 
 	"mayoi/internal/keymap"
@@ -24,6 +25,9 @@ type prefsHarness struct {
 }
 
 func newPrefsHarness(t *testing.T) *prefsHarness {
+	was := setThemeSource
+	setThemeSource = func(mygo.ThemeSource) {}
+	t.Cleanup(func() { setThemeSource = was })
 	hs := newHarness(t, true)
 	path := filepath.Join(t.TempDir(), "settings.json")
 	s := settings.Load(path)
@@ -369,5 +373,159 @@ func TestPrefsRecordDialog(t *testing.T) {
 		if k.recording != nil || k.shown {
 			t.Fatal("Escape left the dialog")
 		}
+	}
+}
+
+// Resetting a preference shows a toast whose Undo takes the reset back,
+// of the person's preferences and of a folder's.
+func TestPrefsResetUndo(t *testing.T) {
+	ph := newPrefsHarness(t)
+	w := ph.w
+	w.section = settings.CatFonts
+	w.set("fontSize", json.RawMessage(`17`))
+	ph.frames()
+	w.reset("fontSize", nil)
+	if ph.m.s.FontSize != 13 {
+		t.Fatalf("reset to %v", ph.m.s.FontSize)
+	}
+	ph.frames()
+	if !ph.pt.HasText("Font Size reset to default") {
+		t.Fatal("no toast")
+	}
+	if err := ph.pt.Click("Undo"); err != nil {
+		t.Fatal(err)
+	}
+	ph.frames()
+	if ph.m.s.FontSize != 17 {
+		t.Errorf("undid to %v", ph.m.s.FontSize)
+	}
+	if ph.pt.HasText("Font Size reset to default") {
+		t.Error("the toast stayed")
+	}
+	// A folder's choice comes back.
+	w.folder, w.section = ph.root, settings.CatVim
+	scope := w.scope()
+	if scope == nil {
+		t.Fatal("no folder to show")
+	}
+	w.setFolder(scope, "vim", json.RawMessage(`true`))
+	w.reset("vim", scope)
+	if ph.a.folderPrefs.f.Has("vim") {
+		t.Fatal("the folder still chooses vim")
+	}
+	w.notes[len(w.notes)-1].OnAction()
+	if !ph.a.folderPrefs.f.Has("vim") || string(ph.a.folderPrefs.f.Raw("vim")) != "true" {
+		t.Errorf("the folder chooses %s", ph.a.folderPrefs.f.Raw("vim"))
+	}
+	ph.frames()
+}
+
+// Taking a command's keys away, or back to its own, shows a toast whose
+// Undo gives it the keys it had.
+func TestPrefsKeysUndo(t *testing.T) {
+	dir := t.TempDir()
+	m := &mayoi{s: settings.Load(filepath.Join(dir, "settings.json")), keys: &keymap.Map{}}
+	w := &prefsWindow{m: m}
+	w.keys.w = w
+	k := &w.keys
+	path := keymap.Path(m.s.Path())
+	os.WriteFile(path, []byte("[\n  { \"key\": \"f6\", \"command\": \"file.save\" },\n  { \"key\": \"cmd+s\", \"command\": \"-file.save\" }\n]\n"), 0o644)
+	save := command{id: "file.save", label: "Save", accel: "CmdOrCtrl+S"}
+	names := commandNames("file.save")
+	k.resetKeys(save)
+	if m.keys.Last(names...) != nil || len(w.notes) != 1 {
+		t.Fatalf("reset left %v, %d toasts", m.keys.Last(names...), len(w.notes))
+	}
+	w.notes[0].OnAction()
+	if got := keymap.KeysString(m.keys.Last(names...)); got != "f6" {
+		t.Errorf("undid to %q", got)
+	}
+	w.notes = nil
+	k.removeKeys(save)
+	if m.keys.Last(names...) != nil || !m.keys.Removes(names...) {
+		t.Fatal("Save still has keys")
+	}
+	w.notes[0].OnAction()
+	if got := keymap.KeysString(m.keys.Last(names...)); got != "f6" {
+		t.Errorf("undid to %q", got)
+	}
+}
+
+// A slider shows its value, and the code of the fonts, as it is dragged,
+// and applies it once let go.
+func TestPrefsSlider(t *testing.T) {
+	ph := newPrefsHarness(t)
+	w := ph.w
+	w.section = settings.CatFonts
+	ph.frames()
+	value, ok := ph.pt.Find("13 pt")
+	if !ok {
+		t.Fatal("no value of the font size")
+	}
+	// The slider ends 10 to the left of its value, and is 168 wide.
+	y := value.Y + value.H/2
+	right := value.X - 10
+	ph.pt.Press(right-160, y)
+	step(ph.pt)
+	step(ph.pt)
+	// Past the slider's end, still dragging.
+	ph.pt.Move(right+40, y+30)
+	step(ph.pt)
+	if w.held != "fontSize" {
+		t.Fatalf("held %q", w.held)
+	}
+	if ph.m.s.FontSize != 13 {
+		t.Errorf("applied %v while dragging", ph.m.s.FontSize)
+	}
+	live := w.liveNumber("fontSize", 13)
+	if live != 28 || !ph.pt.HasText(prefNumber("fontSize", live)) {
+		t.Errorf("shows %v", live)
+	}
+	ph.pt.Release(right+40, y+30)
+	ph.frames()
+	if w.held != "" || float64(ph.m.s.FontSize) != live {
+		t.Errorf("held %q, applied %v of %v", w.held, ph.m.s.FontSize, live)
+	}
+}
+
+// A tile of the themes and a switch of options choose with a click.
+func TestPrefsThemeTilesAndSwitch(t *testing.T) {
+	ph := newPrefsHarness(t)
+	if err := ph.pt.Click("Claude"); err != nil {
+		t.Fatal(err)
+	}
+	ph.frames()
+	if ph.m.s.Theme != themeClaude {
+		t.Errorf("theme %q", ph.m.s.Theme)
+	}
+	if err := ph.pt.Click("Dark"); err != nil {
+		t.Fatal(err)
+	}
+	ph.frames()
+	if ph.m.s.Appearance != "dark" {
+		t.Errorf("appearance %q", ph.m.s.Appearance)
+	}
+	// The themes that are always dark leave the appearance as it is.
+	ph.w.set("theme", json.RawMessage(`"matrix"`))
+	ph.frames()
+	ph.pt.Click("Light")
+	ph.frames()
+	if ph.m.s.Appearance != "dark" {
+		t.Errorf("appearance %q under The Matrix", ph.m.s.Appearance)
+	}
+}
+
+func TestPrefNumber(t *testing.T) {
+	for _, tc := range []struct {
+		key  string
+		v    float64
+		want string
+	}{{"zoomLevel", 0, "100%"}, {"zoomLevel", 1, "120%"}, {"fontSize", 13, "13 pt"}, {"lineHeight", 1.5, "1.50"}, {"fontWeight", 400, "400"}} {
+		if got := prefNumber(tc.key, tc.v); got != tc.want {
+			t.Errorf("%s %v is %q", tc.key, tc.v, got)
+		}
+	}
+	if !segmentedFits([]string{"System", "Light", "Dark"}) || segmentedFits([]string{"Side by side when wide", "Side by side", "Inline"}) {
+		t.Error("segmentedFits")
 	}
 }

@@ -53,6 +53,9 @@ func (w *prefsWindow) themeTiles(c *ui.Context, chosen string, apply func(any)) 
 			on := i == sel
 			tile := tiles.Segment(i).Column().Width(themeTileW).Gap(7).AlignItems(ui.Center).Label(t.name()).
 				Tooltip(t.about()).FocusRing(false)
+			if on {
+				w.first(tile)
+			}
 			hovered := tile.Hovered()
 			pose := ui.Pose{}
 			switch {
@@ -116,6 +119,9 @@ func (w *prefsWindow) segmented(c *ui.Context, key string, sel int, labels []str
 		for i, text := range labels {
 			on := i == sel
 			s := parts.Segment(i).Padding(3, 12).Radius(5).Label(text).Disabled(disabled)
+			if on {
+				w.first(s)
+			}
 			col := p.muted
 			switch {
 			case on:
@@ -179,7 +185,7 @@ func (w *prefsWindow) sliderControl(c *ui.Context, f settings.Field, v float64, 
 		*buf = v
 	}
 	ui.Row(c.Key("prefs-slider-" + f.Key)).Gap(10).AlignItems(ui.Center).Children(func() {
-		s := ui.Slider(c.Key("slider"), buf, f.Min, f.Max).Step(f.Step).Width(168).Label(prefTitle(f.Key))
+		s := w.first(ui.Slider(c.Key("slider"), buf, f.Min, f.Max).Step(f.Step).Width(168).Label(prefTitle(f.Key)))
 		// Changed first, which takes the input the press is of; Dragged
 		// holds while the pointer leaves the slider, as Pressed does not.
 		changed := s.Changed()
@@ -224,6 +230,154 @@ func prefNumber(key string, v float64) string {
 	return strconv.FormatFloat(v, 'f', -1, 64)
 }
 
+// prefFonts are the text preferences that name a font family, which a
+// picker of the monospaced fonts installed sets.
+var prefFonts = map[string]bool{"fontFamily": true, "terminalFontFamily": true}
+
+// fontFamilies are the monospaced font families installed, which the
+// system lists once, off the UI thread: none until it has.
+func (w *prefsWindow) fontFamilies() []string {
+	if !w.familiesAsked && w.win != nil {
+		w.familiesAsked = true
+		win := w.win
+		go func() {
+			names := monoFamilies(ui.FontFamilies())
+			win.Update(func() { w.families = names })
+		}()
+	}
+	return w.families
+}
+
+// monoFamilies are the names of the monospaced of families, but the
+// system's hidden ones, whose names start with a dot.
+func monoFamilies(families []ui.FontFamily) []string {
+	var out []string
+	for _, f := range families {
+		if f.Monospaced && !strings.HasPrefix(f.Name, ".") {
+			out = append(out, f.Name)
+		}
+	}
+	return out
+}
+
+// fontOptions are the families the picker of the fonts offers for what
+// is typed in it, "" for all: the system's monospaced font first, then
+// those that start with it, then those that have it.
+func fontOptions(families []string, typed string) []string {
+	all := append([]string{"monospace"}, families...)
+	q := strings.ToLower(strings.TrimSpace(typed))
+	if q == "" {
+		return all
+	}
+	var starts, has []string
+	for _, f := range all {
+		switch l := strings.ToLower(f); {
+		case strings.HasPrefix(l, q):
+			starts = append(starts, f)
+		case strings.Contains(l, q):
+			has = append(has, f)
+		}
+	}
+	return append(starts, has...)
+}
+
+// fontPicker sets the font family of a preference: a field of it, in
+// that font, that offers the monospaced fonts installed, each in itself,
+// filtering them as it is typed in. A font chosen applies at once; what
+// is typed, a list that falls back as "Iosevka, monospace" too, as Enter
+// is pressed or the field is left. The code of the fonts shows the font
+// the arrows or the pointer are on.
+func (w *prefsWindow) fontPicker(c *ui.Context, f settings.Field, v string, buf *string, apply func(any)) {
+	p := w.pal
+	t := c.Theme()
+	var cb ui.ComboboxParts
+	// The input is the field, so that the fonts open under all of it, and
+	// the arrow that opens them floats over its end.
+	ui.Box(c.Key("prefs-control-" + f.Key)).Width(240).Children(func() {
+		cb = ui.ComboboxBase(c.Key("font"), buf)
+		focused := cb.Input.Focused()
+		edge := p.border
+		if focused {
+			edge = p.accent
+		}
+		in := w.first(cb.Input.Height(30).Padding(0, 30, 0, 10).Radius(6).Background(t.Surface).Border(1, edge).Transition(fieldFocus).
+			Font(monoFallback(v)).FontSize(12.5).TextColor(p.text).Label(prefTitle(f.Key)))
+		if ph := prefText("prefHint", f.Key); ph != prefKey("prefHint", f.Key) {
+			in.Placeholder(ph)
+		}
+		open := cb.Open()
+		arrow := ui.ButtonBase(c.Key("arrow")).Absolute().Right(4).Top(4).Size(22, 22).Radius(5).AlignItems(ui.Center).
+			Justify(ui.Center).Label(locales.PrefsFontsShow()).KeepFocus()
+		if arrow.Hovered() {
+			arrow.Background(p.hover)
+		}
+		arrow.Transition(hoverFade)
+		turn := float32(0)
+		if open {
+			turn = 180
+		}
+		arrow.Children(func() {
+			ui.Icon(c.Key("chevron"), iconChevronDown).FontSize(12).TextColor(p.muted).AnimatePose(ui.Pose{Rotate: turn}, ui.Snappy)
+		})
+		if arrow.Clicked() {
+			cb.SetOpen(!open)
+			cb.Input.Focus()
+		}
+	})
+	focused := cb.Input.Focused()
+	typed := ""
+	if cb.Filtering() {
+		typed = *buf
+	}
+	peek := ""
+	cb.Popup(func(panel ui.Element) {
+		panel.Padding(4).Radius(8).Background(t.Surface).Border(1, p.border)
+		if p.dark {
+			panel.Shadow(0, 10, 28, 0, ui.RGBA(0, 0, 0, 0.42))
+		} else {
+			panel.Shadow(0, 8, 24, 0, ui.RGBA(20, 20, 40, 0.16))
+		}
+		dropIn(panel, 4)
+		ui.Scroll(c.Key("fonts")).MaxHeight(264).Children(func() {
+			for _, name := range fontOptions(w.fontFamilies(), typed) {
+				item := cb.Item(name).Row().Height(28).Padding(0, 8).Gap(8).Radius(5).AlignItems(ui.Center)
+				if item.Highlighted() {
+					item.Background(p.active)
+					peek = name
+				}
+				item.Transition(hoverFade)
+				item.Children(func() {
+					ui.Text(c, name).Font(monoFallback(name)).FontSize(13).TextColor(p.text).SingleLine().Grow(1).Shrink(1).MinWidth(0)
+					if strings.EqualFold(strings.TrimSpace(v), name) {
+						ui.Icon(c, iconCheck).FontSize(12).TextColor(p.accent).Shrink(0)
+					}
+				})
+			}
+		})
+	})
+	if name, ok := cb.Chosen(); ok {
+		// The font chosen, not what was typed before it.
+		*buf = name
+		w.editing[f.Key], w.drawn[f.Key] = false, true
+		delete(w.drafts, f.Key)
+		if name != v {
+			apply(name)
+		}
+		return
+	}
+	if f.Key == "fontFamily" && peek != w.peek {
+		w.peek = peek
+		w.invalidate()
+	}
+	w.draft(f.Key, v, buf, focused, cb.Input.Submitted(), func(x any) {
+		// The code's font left empty stays as it was, as the terminal's
+		// does not: that is the code's.
+		if f.Key != "fontFamily" || strings.TrimSpace(x.(string)) != "" {
+			apply(x)
+		}
+	})
+}
+
 // previewCode is the code the fonts show in, with the pairs that coding
 // fonts join and the glyphs they tell apart.
 const previewCode = `// The quick brown fox jumps over the lazy dog
@@ -252,7 +406,11 @@ func (w *prefsWindow) fontPreview(c *ui.Context) {
 	size := float32(w.liveNumber("fontSize", float64(s.FontSize)))
 	weight := int(w.liveNumber("fontWeight", float64(s.FontWeight)))
 	lh := float32(w.liveNumber("lineHeight", float64(s.LineHeight)))
-	family, features := monoFallback(s.FontFamily), strings.Join(s.FontFeatures, ",")
+	name := s.FontFamily
+	if w.peek != "" {
+		name = w.peek
+	}
+	family, features := monoFallback(name), strings.Join(s.FontFeatures, ",")
 	lineH := float32(int(size*lh + 0.5))
 	lines := previewLines()
 	// As high as the code in the fonts applied, which a slider dragged
@@ -266,7 +424,7 @@ func (w *prefsWindow) fontPreview(c *ui.Context) {
 			ui.Icon(c, iconFileCode).FontSize(12).TextColor(p.accent).Shrink(0)
 			ui.Text(c, "greet.go").FontSize(11.5).TextColor(p.muted).SingleLine()
 			ui.Spacer(c)
-			ui.Text(c.Key("about"), fmt.Sprintf("%s · %s · %d · %s", strings.TrimSpace(s.FontFamily), prefNumber("fontSize", float64(size)),
+			ui.Text(c.Key("about"), fmt.Sprintf("%s · %s · %d · %s", strings.TrimSpace(name), prefNumber("fontSize", float64(size)),
 				weight, prefNumber("lineHeight", float64(lh)))).Font(family).FontSize(11).FontFeatures("tnum").TextColor(p.faint).
 				SingleLine().Shrink(1).MinWidth(0)
 		})

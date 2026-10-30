@@ -797,7 +797,8 @@ func (m *mayoi) run(id string, win *mygo.Window) {
 	// it was: the menu is set anew as the next one is made.
 	m.menuKey = ""
 	// The settings window takes the shortcut of a menu as a key pressed
-	// while it records keys, and closes as a tab would.
+	// while it records keys, closes as a tab would, and finds in its
+	// search.
 	if w := m.prefs; w != nil && win == w.win {
 		switch {
 		case w.keys.recordAccel(id):
@@ -806,6 +807,9 @@ func (m *mayoi) run(id string, win *mygo.Window) {
 			w.win.Close()
 			return
 		case id == "file.settings":
+			return
+		case id == "edit.find":
+			w.find()
 			return
 		case strings.HasPrefix(id, "edit.") || strings.HasPrefix(id, "sel."):
 			// The editing of the window behind it.

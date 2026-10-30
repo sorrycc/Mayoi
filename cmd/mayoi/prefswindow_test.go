@@ -22,6 +22,8 @@ type prefsHarness struct {
 	m  *mayoi
 	w  *prefsWindow
 	pt *ui.Tester
+	// c is the window's Context, for its handles.
+	c *ui.Context
 }
 
 func newPrefsHarness(t *testing.T) *prefsHarness {
@@ -37,14 +39,16 @@ func newPrefsHarness(t *testing.T) *prefsHarness {
 	hs.a.window.Folder = hs.root
 	m := &mayoi{s: s, keys: &keymap.Map{}}
 	hs.a.keys = m.keys
-	m.wins = []*desktop{{m: m, a: hs.a}}
-	w := &prefsWindow{m: m, section: settings.CatAppearance,
-		texts: map[string]*string{}, numbers: map[string]*float64{}, editing: map[string]bool{}}
-	w.keys.w = w
+	// A frame of no window, which Invalidate leaves be.
+	m.wins = []*desktop{{m: m, a: hs.a, f: &frame{m: m, win: &mygo.Window{}}}}
+	w := newPrefsWindow(m)
 	m.prefs = w
-	pt := ui.NewTester(w.view, 940, 680)
-	pt.SetDark(true)
-	ph := &prefsHarness{harness: hs, m: m, w: w, pt: pt}
+	ph := &prefsHarness{harness: hs, m: m, w: w}
+	ph.pt = ui.NewTester(func(c *ui.Context) {
+		ph.c = c
+		w.view(c)
+	}, 940, 680)
+	ph.pt.SetDark(true)
 	ph.frames()
 	return ph
 }
@@ -527,5 +531,262 @@ func TestPrefNumber(t *testing.T) {
 	}
 	if !segmentedFits([]string{"System", "Light", "Dark"}) || segmentedFits([]string{"Side by side when wide", "Side by side", "Inline"}) {
 		t.Error("segmentedFits")
+	}
+}
+
+// Every command has the group of its menu, and the list heads each
+// group with how many of its commands show.
+func TestPrefsKeyGroups(t *testing.T) {
+	ph := newPrefsHarness(t)
+	rows := ph.w.keys.rows(ph.a)
+	for _, r := range rows {
+		g := keyGroups[keyGroup(r.cmd.id)]
+		if !slices.ContainsFunc(g.prefixes, func(p string) bool { return strings.HasPrefix(r.cmd.id, p) }) {
+			t.Errorf("%s is of no menu", r.cmd.id)
+		}
+	}
+	items := keyItems(rows)
+	if items[0].head != "File" || items[1].row.cmd.id != "file.new" {
+		t.Fatalf("the list starts with %+v, %+v", items[0], items[1])
+	}
+	heads, n := 0, 0
+	for i, it := range items {
+		if it.head == "" {
+			continue
+		}
+		heads++
+		n += it.count
+		j := i + 1
+		for j < len(items) && items[j].head == "" {
+			j++
+		}
+		if j-i-1 != it.count {
+			t.Errorf("%s heads %d commands, says %d", it.head, j-i-1, it.count)
+		}
+	}
+	if heads != len(keyGroups) || n != len(rows) {
+		t.Errorf("%d heads of %d commands, of %d", heads, n, len(rows))
+	}
+}
+
+// Commands of the same keys mark each other, and the filters show those,
+// or those whose keys the person changed.
+func TestPrefsKeyConflicts(t *testing.T) {
+	ph := newPrefsHarness(t)
+	k := &ph.w.keys
+	for _, r := range k.rows(ph.a) {
+		if len(r.others) > 0 {
+			t.Errorf("%s shares its own keys with %q", r.cmd.id, r.others)
+		}
+	}
+	ph.m.keys, _ = keymap.Parse([]byte(`[{"key": "cmd+b", "command": "git.fetch"}, {"key": "f9", "command": "git.pull"}]`))
+	ph.a.keys = ph.m.keys
+	rows := k.rows(ph.a)
+	var conflicting, changed []string
+	for _, r := range rows {
+		if keysConflicting.shows(r) {
+			conflicting = append(conflicting, r.cmd.id)
+		}
+		if keysChanged.shows(r) {
+			changed = append(changed, r.cmd.id)
+		}
+	}
+	if !slices.Equal(conflicting, []string{"view.sidebar", "git.fetch"}) {
+		t.Errorf("conflicting %q", conflicting)
+	}
+	if !slices.Equal(changed, []string{"git.fetch", "git.pull"}) {
+		t.Errorf("changed %q", changed)
+	}
+	ph.w.section = prefsShortcuts
+	ph.frames()
+	if !ph.pt.HasText("Conflicts") || ph.pt.HasText("No two commands share keys") {
+		t.Fatal("no filters")
+	}
+	if err := ph.pt.Click("Conflicts"); err != nil {
+		t.Fatal(err)
+	}
+	ph.frames()
+	if k.filter != keysConflicting || !ph.pt.HasText("Fetch") || ph.pt.HasText("New File") {
+		t.Errorf("the filter %v shows %q", k.filter, ph.pt.Texts())
+	}
+	ph.m.keys, _ = keymap.Parse([]byte(`[]`))
+	ph.a.keys = ph.m.keys
+	ph.frames()
+	if !ph.pt.HasText("No two commands share keys") {
+		t.Error("no word of no conflicts")
+	}
+}
+
+// The keyboard goes from the search to the shortcuts, moves the choice
+// among them, changes or takes away the keys of the one chosen, and back
+// to the sections; Escape takes the search back.
+func TestPrefsKeysKeyboard(t *testing.T) {
+	ph := newPrefsHarness(t)
+	w, k := ph.w, &ph.w.keys
+	w.section = prefsShortcuts
+	ph.frames()
+	w.find()
+	ph.frames()
+	if !ph.pt.Focused("Search commands") {
+		t.Fatal("Find left the search of the shortcuts")
+	}
+	ph.pt.Type("save")
+	ph.frames()
+	ph.pt.Key(0, ui.KeyDown)
+	ph.frames()
+	if !k.listH.Focused(ph.c) {
+		t.Fatal("Down left the list")
+	}
+	ph.pt.Key(0, ui.KeyDown)
+	ph.frames()
+	if k.chosen != "file.save" {
+		t.Fatalf("chose %q", k.chosen)
+	}
+	ph.pt.Key(0, ui.KeyEnter)
+	ph.frames()
+	if k.recording == nil || k.recording.id != "file.save" {
+		t.Fatal("Enter did not record the keys of Save")
+	}
+	ph.pt.Key(0, ui.KeyEscape)
+	ph.frames()
+	if !k.listH.Focused(ph.c) {
+		t.Fatal("the list did not take the keyboard back")
+	}
+	ph.pt.Key(0, ui.KeyBackspace)
+	ph.frames()
+	if !ph.m.keys.Removes(commandNames("file.save")...) {
+		t.Error("Backspace left the keys of Save")
+	}
+	ph.pt.Key(0, ui.KeyEscape)
+	ph.frames()
+	if k.query != "" {
+		t.Errorf("Escape left %q", k.query)
+	}
+	ph.pt.Key(0, ui.KeyLeft)
+	ph.frames()
+	if !w.sectionsH.Focused(ph.c) {
+		t.Fatal("Left left the sections")
+	}
+	ph.pt.Key(0, ui.KeyUp)
+	ph.frames()
+	if w.section != settings.CatGeneral {
+		t.Errorf("Up chose %q", w.section)
+	}
+	// Right goes on to the first control of the section, Find back to the
+	// search.
+	ph.pt.Key(0, ui.KeyRight)
+	ph.frames()
+	if w.sectionsH.Focused(ph.c) {
+		t.Error("Right stayed in the sections")
+	}
+	ph.m.run("edit.find", w.win)
+	ph.frames()
+	if !ph.pt.Focused("Search settings") {
+		t.Error("Find did not go to the search")
+	}
+}
+
+// The fonts installed show in a picker of them, which applies the one
+// chosen at once, and what is typed as Enter is pressed.
+func TestPrefsFontPicker(t *testing.T) {
+	ph := newPrefsHarness(t)
+	w := ph.w
+	w.section = settings.CatFonts
+	w.families = []string{"Courier New", "Menlo", "Monaco"}
+	ph.frames()
+	if err := ph.pt.Click("Show Fonts"); err != nil {
+		t.Fatal(err)
+	}
+	ph.frames()
+	for _, f := range []string{"monospace", "Courier New", "Menlo", "Monaco"} {
+		if !ph.pt.HasText(f) {
+			t.Fatalf("no %s in %q", f, ph.pt.Texts())
+		}
+	}
+	if err := ph.pt.Click("Menlo"); err != nil {
+		t.Fatal(err)
+	}
+	ph.frames()
+	if ph.m.s.FontFamily != "Menlo" {
+		t.Fatalf("chose %q", ph.m.s.FontFamily)
+	}
+	// Typing filters the fonts, and applies as Enter is pressed.
+	w.firstH.SelectAll()
+	ph.frames()
+	ph.pt.Type("Iosevka, mono")
+	ph.frames()
+	if ph.m.s.FontFamily != "Menlo" || ph.pt.HasText("Monaco") {
+		t.Errorf("typing applied %q, or showed every font", ph.m.s.FontFamily)
+	}
+	ph.pt.Key(0, ui.KeyEnter)
+	ph.frames()
+	if ph.m.s.FontFamily != "Iosevka, mono" {
+		t.Errorf("Enter applied %q", ph.m.s.FontFamily)
+	}
+	// A font chosen after some typing is the one that stays, as the page
+	// goes.
+	w.firstH.SelectAll()
+	ph.frames()
+	ph.pt.Type("Mon")
+	ph.frames()
+	if err := ph.pt.Click("Monaco"); err != nil {
+		t.Fatal(err)
+	}
+	ph.frames()
+	w.section = settings.CatVim
+	ph.frames()
+	if ph.m.s.FontFamily != "Monaco" {
+		t.Errorf("left with %q", ph.m.s.FontFamily)
+	}
+	if got := fontOptions([]string{"Menlo", "Hack", "JetBrains Mono"}, "mon"); !slices.Equal(got, []string{"monospace", "JetBrains Mono"}) {
+		t.Errorf("mon finds %q", got)
+	}
+	if got := monoFamilies([]ui.FontFamily{{Name: "Menlo", Monospaced: true}, {Name: "Helvetica"}, {Name: ".SF NS Mono", Monospaced: true}}); !slices.Equal(got, []string{"Menlo"}) {
+		t.Errorf("monoFamilies %q", got)
+	}
+}
+
+// What is typed in a text field applies as the field is left, also with
+// its page.
+func TestPrefsTextDraft(t *testing.T) {
+	ph := newPrefsHarness(t)
+	w := ph.w
+	w.section = settings.CatGit
+	w.query = "aiModel"
+	ph.frames()
+	w.firstH.Focus()
+	ph.frames()
+	ph.pt.Type("qwen")
+	ph.frames()
+	if ph.m.s.AIModel != "" {
+		t.Fatalf("applied %q at a key", ph.m.s.AIModel)
+	}
+	w.query = ""
+	w.section = settings.CatVim
+	ph.frames()
+	if ph.m.s.AIModel != "qwen" || len(w.drafts) != 0 {
+		t.Errorf("left with %q, %d drafts", ph.m.s.AIModel, len(w.drafts))
+	}
+}
+
+// Once its motion settles, the window asks for no more frames, in every
+// section, with less motion too.
+func TestPrefsIdle(t *testing.T) {
+	for _, reduce := range []bool{false, true} {
+		ph := newPrefsHarness(t)
+		ph.pt.SetPreferences(ui.Preferences{ReduceMotion: reduce})
+		for _, sec := range append(slices.Clone(settings.Categories), prefsShortcuts) {
+			ph.w.section = sec
+			step(ph.pt)
+			if !reduce && !ph.pt.FramePending() {
+				t.Errorf("%s rose in without frames", sec)
+			}
+			for range 60 {
+				step(ph.pt)
+			}
+			if ph.pt.FramePending() {
+				t.Errorf("%s keeps drawing (less motion %v)", sec, reduce)
+			}
+		}
 	}
 }

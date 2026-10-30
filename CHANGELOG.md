@@ -7,7 +7,7 @@ needs a `## <version>` section here, or its build fails.
 
 - **Mayoi → Settings…** (⌘,) opens a settings window with every preference by category, and a search.
 - Changes in the settings window apply to every window at once, and each one resets with one click.
-- **File → Keyboard Shortcuts…** lists every command's keys; click one and press its new keys to change them.
+- **File → Keyboard Shortcuts…** lists every command's keys; double-click one and press its new keys to change them.
 - The shortcuts editor warns when other commands use the keys, and keeps the comments of `keybindings.json`.
 - A folder can set preferences such as `vim` or `autoSave` for itself in `.mayoi/settings.json`.
 - Pick a folder at the top of the settings window to change its own settings rather than yours.
@@ -25,6 +25,15 @@ needs a `## <version>` section here, or its build fails.
 - **Settings → Fonts** shows sample code in your font, and it updates as you change the font settings.
 - Settings with two or three short choices, such as `appearance`, are a row of buttons instead of a menu.
 - Resetting a setting or a command's keys shows a notice with **Undo** for a few seconds.
+- **Keyboard Shortcuts** groups commands by menu, and each menu's name stays at the top as you scroll.
+- Filter the shortcuts to **All**, **Changed by Me** or **Conflicts**, each with how many it shows.
+- Keys that two commands share show in amber with a warning sign in the list itself.
+- In the shortcuts list, arrows choose a command, `Enter` changes its keys and `Delete` removes them.
+- `⌘F` in the settings window goes to its search, and `↓` goes on from the search to the list.
+- The arrow keys switch settings sections, and `→` or `Enter` moves into the section shown.
+- **Settings → Fonts** picks the font from your installed monospaced fonts, each shown in itself.
+- The font sample previews the font you point at or arrow to in the list, before you choose it.
+- Text settings, such as the font, apply when you press `Enter` or leave the field, not at each key.
 - A folder's own setting changed in the settings window no longer, now and then, snaps back.
 - Headings in the Markdown preview take the color theme's heading color, as the editor does.
 - Command-clicking a terminal path or URL followed by Chinese punctuation no longer takes the text after it.

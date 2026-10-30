@@ -62,6 +62,37 @@ type prefsWindow struct {
 	// notes are the toasts to show next, as a reset's with its Undo.
 	notes []ui.Toast
 	keys  keysPane
+	// searchH and sectionsH are the search and the sections of the
+	// sidebar, and sectionH each section, of whose place the mark under
+	// the one chosen slides.
+	searchH, sectionsH ui.Handle
+	sectionH           map[string]*ui.Handle
+	// firstH is the first control of the page, which bindFirst binds as
+	// the page builds.
+	firstH    ui.Handle
+	bindFirst bool
+	// finding asks for the keyboard to go to the search.
+	finding bool
+	// families are the monospaced font families installed, which the
+	// fonts offer once listed, as familiesAsked asked.
+	families      []string
+	familiesAsked bool
+	// peek is the font family the picker of the fonts is on, which the
+	// code of the fonts shows, "" for none.
+	peek string
+	// drafts apply what was typed in the text fields of the keys, not yet
+	// applied, and drawn are the keys of those the frame drew.
+	drafts map[string]func()
+	drawn  map[string]bool
+}
+
+// newPrefsWindow is the settings window of m, at its first section, yet
+// to show.
+func newPrefsWindow(m *mayoi) *prefsWindow {
+	w := &prefsWindow{m: m, section: settings.CatAppearance, texts: map[string]*string{}, numbers: map[string]*float64{},
+		editing: map[string]bool{}, drafts: map[string]func(){}, drawn: map[string]bool{}}
+	w.keys.w = w
+	return w
 }
 
 // showPrefs opens the settings window, or brings it to the front, at
@@ -70,9 +101,7 @@ type prefsWindow struct {
 func (m *mayoi) showPrefs(section, key string, from *desktop) {
 	w := m.prefs
 	if w == nil {
-		w = &prefsWindow{m: m, section: settings.CatAppearance,
-			texts: map[string]*string{}, numbers: map[string]*float64{}, editing: map[string]bool{}}
-		w.keys.w = w
+		w = newPrefsWindow(m)
 		w.win = mygo.NewWindow(mygo.WindowOptions{
 			Title: locales.PrefsTitle(), Width: 940, Height: 680, MinWidth: 640, MinHeight: 420,
 			StateKey: "settings", BackgroundColor: "#131317", Content: ui.View(w.view),
@@ -228,11 +257,15 @@ func (w *prefsWindow) view(c *ui.Context) {
 	if title := locales.PrefsTitle(); w.win != nil && w.win.Title() != title {
 		w.win.SetTitle(title)
 	}
-	// As a window of Mayoi's, Close closes it: the menu bar of macOS
-	// takes its shortcut first.
+	// As a window of Mayoi's, Close closes it and Find finds: the menu
+	// bar of macOS takes their shortcuts first.
 	if !macKeys() && c.Shortcut(ui.Cmd, ui.KeyW) {
 		w.m.closePrefs()
 	}
+	if !macKeys() && c.Shortcut(ui.Cmd, ui.KeyF) {
+		w.finding = true
+	}
+	w.focusSearch(c)
 	ui.Row(c).Fill().Background(p.editor).AlignItems(ui.Stretch).Children(func() {
 		w.sidebar(c)
 		ui.Column(c.Key("prefs-main")).Grow(1).MinWidth(0).Children(func() {
@@ -244,6 +277,7 @@ func (w *prefsWindow) view(c *ui.Context) {
 		})
 	})
 	w.keys.recordView(c)
+	w.settleDrafts()
 	for _, msg := range w.errors {
 		c.AddToast(ui.Toast{ID: msg, Title: msg, Type: "error"})
 	}
@@ -254,12 +288,64 @@ func (w *prefsWindow) view(c *ui.Context) {
 	w.toasts(c)
 }
 
-// sidebar is the window's search and its sections.
+// find asks for the keyboard to go to the search of what shows, its text
+// chosen, as the window is drawn next.
+func (w *prefsWindow) find() {
+	w.finding = true
+	w.invalidate()
+}
+
+// focusSearch gives the keyboard to the search, as find asked: the
+// shortcuts' while they show, else the preferences'.
+func (w *prefsWindow) focusSearch(c *ui.Context) {
+	if !w.finding {
+		return
+	}
+	w.finding = false
+	if w.section == prefsShortcuts && w.query == "" {
+		w.keys.byKeys, w.keys.found = false, nil
+		w.keys.searchH.SelectAll(c)
+	} else {
+		w.searchH.SelectAll(c)
+	}
+}
+
+// focusContent gives the keyboard to what the section shows, from the
+// sidebar: the list of the shortcuts, or the first control of the
+// preferences.
+func (w *prefsWindow) focusContent(c *ui.Context) {
+	if w.section == prefsShortcuts && w.query == "" {
+		w.keys.listH.Focus(c)
+	} else {
+		w.firstH.Focus(c)
+	}
+}
+
+// first binds e to the handle of the first control of the page, while
+// the page builds it.
+func (w *prefsWindow) first(e ui.Element) ui.Element {
+	if w.bindFirst {
+		w.bindFirst = false
+		e.Bind(&w.firstH)
+	}
+	return e
+}
+
+// sidebar is the window's search and its sections. Down goes from the
+// search to the sections, whose Right and Enter go on to the section.
 func (w *prefsWindow) sidebar(c *ui.Context) {
 	p := w.pal
 	ui.Column(c.Key("prefs-sidebar")).Width(prefsSidebarW).Shrink(0).Padding(14, 10, 10, 10).Gap(10).
 		Background(p.chrome).BorderWidth(0, 1, 0, 0).BorderColor(p.border).Children(func() {
-		ui.SearchField(c.Key("prefs-search"), &w.query).Label(locales.PrefsSearch()).Placeholder(locales.PrefsSearch()).AutoFocus()
+		ui.SearchField(c.Key("prefs-search"), &w.query).Label(locales.PrefsSearch()).Placeholder(locales.PrefsSearch()).AutoFocus().
+			Bind(&w.searchH)
+		w.searchH.OnShortcut(c, 0, ui.KeyDown, func() {
+			if w.query == "" {
+				w.sectionsH.Focus(c)
+			} else {
+				w.firstH.Focus(c)
+			}
+		})
 		// No section is chosen while the search shows what it finds of
 		// them all.
 		section := w.section
@@ -267,11 +353,22 @@ func (w *prefsWindow) sidebar(c *ui.Context) {
 			section = ""
 		}
 		// The sections sit on the sidebar itself, not on a box of their
-		// own, as the app's sidebar lists sit on its chrome.
+		// own, as the app's sidebar lists sit on its chrome. The one chosen
+		// sits on a mark that slides to the next chosen, and takes the
+		// accent while the sections have the keyboard.
 		scope := w.scope()
-		ui.Sidebar(c.Key("prefs-sections-list"), &section, func() {
+		base := c.Theme()
+		quiet := *base
+		quiet.AccentText = p.accent
+		c.SetTheme(&quiet)
+		focused := w.sectionsH.Focused(c)
+		mark := w.sectionMark(c, section, focused)
+		list := ui.Sidebar(c.Key("prefs-sections-list"), &section, func() {
 			for _, cat := range append(slices.Clone(settings.Categories), prefsShortcuts) {
-				item := ui.SidebarItem(c.Key("prefs-section-"+cat), cat, prefsIcons[cat], prefSection(cat))
+				item := ui.SidebarItem(c.Key("prefs-section-"+cat), cat, prefsIcons[cat], prefSection(cat)).Bind(w.sectionHandle(cat))
+				if cat == section && mark != nil {
+					item.Background(ui.Color{}).TextColor(p.text)
+				}
 				if n := w.changedIn(cat, scope); n > 0 {
 					item.Children(func() {
 						ui.Text(c.Key("count"), fmt.Sprint(n)).FontSize(10.5).FontWeight(600).TextColor(p.muted).
@@ -280,7 +377,13 @@ func (w *prefsWindow) sidebar(c *ui.Context) {
 					})
 				}
 			}
-		}).Background(ui.Color{}).Padding(0).Gap(1).Grow(1).MinHeight(0)
+		}).Background(ui.Color{}).Padding(0).Gap(1).Grow(1).MinHeight(0).Bind(&w.sectionsH)
+		c.SetTheme(base)
+		if mark != nil {
+			list.Draw(mark)
+		}
+		w.sectionsH.OnShortcut(c, 0, ui.KeyRight, func() { w.focusContent(c) })
+		w.sectionsH.OnShortcut(c, 0, ui.KeyEnter, func() { w.focusContent(c) })
 		if section != "" && (section != w.section || w.query != "") {
 			w.section, w.query = section, ""
 		}
@@ -293,6 +396,47 @@ func (w *prefsWindow) sidebar(c *ui.Context) {
 
 // prefsSidebarW is how wide the sidebar of the window is.
 const prefsSidebarW = 220
+
+// sectionHandle is the handle of the item of the section cat.
+func (w *prefsWindow) sectionHandle(cat string) *ui.Handle {
+	if w.sectionH == nil {
+		w.sectionH = map[string]*ui.Handle{}
+	}
+	h := w.sectionH[cat]
+	if h == nil {
+		h = new(ui.Handle)
+		w.sectionH[cat] = h
+	}
+	return h
+}
+
+// sectionMark paints the mark under the section chosen, as the sections
+// were laid out: it slides to the one chosen, as its color fades to the
+// accent's while the sections have the keyboard. It is nil while none is
+// chosen, or before the sections were laid out.
+func (w *prefsWindow) sectionMark(c *ui.Context, section string, focused bool) func(*ui.Painter, ui.Rect) {
+	p := w.pal
+	list, item := w.sectionsH.Bounds(c), w.sectionHandle(section).Bounds(c)
+	if section == "" || list.W == 0 || item.W == 0 {
+		return nil
+	}
+	fill, edge := p.active, ui.Color{}
+	if focused {
+		fill, edge = p.accent.Alpha(0.16), p.accent.Alpha(0.5)
+	}
+	host := ui.Box(c.Key("prefs-section-mark")).Absolute().Size(0, 0)
+	y := host.Animate("y", item.Y-list.Y, 160*time.Millisecond)
+	fill = host.AnimateColor("fill", fill, ui.Animation{Duration: 120 * time.Millisecond})
+	edge = host.AnimateColor("edge", edge, ui.Animation{Duration: 120 * time.Millisecond})
+	x, h := item.X-list.X, item.H
+	return func(pt *ui.Painter, r ui.Rect) {
+		box := ui.Rect{X: r.X + x, Y: r.Y + y, W: item.W, H: h}
+		pt.Fill(box, fill, 6)
+		if edge.A > 0 {
+			pt.Stroke(box, edge, 6, 1)
+		}
+	}
+}
 
 // changedIn is how many of the person's preferences of the category are
 // not as a first launch has them, or the folder chooses while its own
@@ -391,6 +535,8 @@ func (w *prefsWindow) prefsPane(c *ui.Context) {
 				w.noneFound(c, locales.PrefsNoneFound())
 				return
 			}
+			w.bindFirst = true
+			defer func() { w.bindFirst = false }()
 			if w.query == "" && w.section == settings.CatFonts && scope == nil {
 				w.fontPreview(c)
 			}
@@ -612,7 +758,7 @@ func (w *prefsWindow) control(c *ui.Context, f settings.Field, raw json.RawMessa
 	case settings.KindBool:
 		var on bool
 		json.Unmarshal(raw, &on)
-		if ui.Switch(k, &on).Label(prefTitle(f.Key)).Changed() {
+		if w.first(ui.Switch(k, &on).Label(prefTitle(f.Key))).Changed() {
 			apply(on)
 		}
 	case settings.KindEnum:
@@ -642,7 +788,7 @@ func (w *prefsWindow) control(c *ui.Context, f settings.Field, raw json.RawMessa
 			}
 			return
 		}
-		sel := ui.Select(k, &chosen, labels).Label(prefTitle(f.Key)).MinWidth(180)
+		sel := w.first(ui.Select(k, &chosen, labels).Label(prefTitle(f.Key)).MinWidth(180))
 		if disabled {
 			sel.Disabled(true)
 		}
@@ -666,7 +812,7 @@ func (w *prefsWindow) control(c *ui.Context, f settings.Field, raw json.RawMessa
 		if !w.editing[f.Key] {
 			*buf = v
 		}
-		in := ui.NumberInput(k, buf, f.Min, f.Max, f.Step).Label(prefTitle(f.Key)).Width(132)
+		in := w.first(ui.NumberInput(k, buf, f.Min, f.Max, f.Step).Label(prefTitle(f.Key)).Width(132))
 		w.editing[f.Key] = in.Focused()
 		if in.Changed() && *buf != v {
 			apply(*buf)
@@ -674,26 +820,20 @@ func (w *prefsWindow) control(c *ui.Context, f settings.Field, raw json.RawMessa
 	case settings.KindText:
 		var v string
 		json.Unmarshal(raw, &v)
-		buf := w.texts[f.Key]
-		if buf == nil {
-			buf = new(string)
-			w.texts[f.Key] = buf
+		buf := w.textBuffer(f.Key, v)
+		if prefFonts[f.Key] {
+			w.fontPicker(c, f, v, buf, apply)
+			return
 		}
-		if !w.editing[f.Key] {
-			*buf = v
-		}
-		in := ui.TextInput(k, buf).Label(prefTitle(f.Key)).Width(240)
+		in := w.first(ui.TextInput(k, buf).Label(prefTitle(f.Key)).Width(240))
 		if ph := prefText("prefHint", f.Key); ph != prefKey("prefHint", f.Key) {
 			in.Placeholder(ph)
 		}
-		w.editing[f.Key] = in.Focused()
-		if in.Changed() {
-			apply(*buf)
-		}
+		w.draft(f.Key, v, buf, in.Focused(), in.Submitted(), apply)
 	case settings.KindList:
 		var tokens []string
 		json.Unmarshal(raw, &tokens)
-		if ui.TokenField(k, &tokens, w.listSuggestions(f.Key)).Label(prefTitle(f.Key)).Changed() {
+		if w.first(ui.TokenField(k, &tokens, w.listSuggestions(f.Key)).Label(prefTitle(f.Key))).Changed() {
 			if tokens == nil {
 				tokens = []string{}
 			}
@@ -702,6 +842,51 @@ func (w *prefsWindow) control(c *ui.Context, f settings.Field, raw json.RawMessa
 	case settings.KindStyles:
 		w.stylesControl(c, raw)
 	}
+}
+
+// textBuffer is what the field of the text preference of key holds: v,
+// unless the field has the keyboard.
+func (w *prefsWindow) textBuffer(key, v string) *string {
+	buf := w.texts[key]
+	if buf == nil {
+		buf = new(string)
+		w.texts[key] = buf
+	}
+	if !w.editing[key] {
+		*buf = v
+	}
+	return buf
+}
+
+// draft applies what is typed in the field of the text preference of key
+// as Enter is pressed or the field is left, rather than at each key,
+// which would lay every window out anew: a field that goes away with its
+// page applies it as the window is drawn without it.
+func (w *prefsWindow) draft(key, v string, buf *string, focused, submitted bool, apply func(any)) {
+	was := w.editing[key]
+	w.editing[key] = focused
+	w.drawn[key] = true
+	delete(w.drafts, key)
+	switch {
+	case *buf == v:
+	case submitted || was && !focused:
+		apply(*buf)
+	case focused:
+		w.drafts[key] = func() { apply(*buf) }
+	}
+}
+
+// settleDrafts applies what was typed in the fields the window no longer
+// shows.
+func (w *prefsWindow) settleDrafts() {
+	for key, apply := range w.drafts {
+		if !w.drawn[key] {
+			delete(w.drafts, key)
+			w.editing[key] = false
+			apply()
+		}
+	}
+	clear(w.drawn)
 }
 
 // listSuggestions are what a list of a preference offers.

@@ -12654,6 +12654,16 @@ func (msgs Messages) PrefsDismiss() string {
 	return Catalog.Format(msgs.locale, "prefsDismiss", nil)
 }
 
+// PrefsFontsShow says "Show Fonts"
+// in the language the app shows.
+func PrefsFontsShow() string { return In(i18n.Locale()).PrefsFontsShow() }
+
+// PrefsFontsShow says "Show Fonts"
+// in the language of msgs.
+func (msgs Messages) PrefsFontsShow() string {
+	return Catalog.Format(msgs.locale, "prefsFontsShow", nil)
+}
+
 // KeysWereReset says "Keys of {command} reset to default"
 // in the language the app shows.
 func KeysWereReset(command string) string { return In(i18n.Locale()).KeysWereReset(command) }
@@ -12802,6 +12812,56 @@ func KeysNoneFound() string { return In(i18n.Locale()).KeysNoneFound() }
 // in the language of msgs.
 func (msgs Messages) KeysNoneFound() string {
 	return Catalog.Format(msgs.locale, "keysNoneFound", nil)
+}
+
+// KeysFilter says "Show Commands"
+// in the language the app shows.
+func KeysFilter() string { return In(i18n.Locale()).KeysFilter() }
+
+// KeysFilter says "Show Commands"
+// in the language of msgs.
+func (msgs Messages) KeysFilter() string {
+	return Catalog.Format(msgs.locale, "keysFilter", nil)
+}
+
+// KeysFilterAll says "All"
+// in the language the app shows.
+func KeysFilterAll() string { return In(i18n.Locale()).KeysFilterAll() }
+
+// KeysFilterAll says "All"
+// in the language of msgs.
+func (msgs Messages) KeysFilterAll() string {
+	return Catalog.Format(msgs.locale, "keysFilterAll", nil)
+}
+
+// KeysFilterChanged says "Changed by Me"
+// in the language the app shows.
+func KeysFilterChanged() string { return In(i18n.Locale()).KeysFilterChanged() }
+
+// KeysFilterChanged says "Changed by Me"
+// in the language of msgs.
+func (msgs Messages) KeysFilterChanged() string {
+	return Catalog.Format(msgs.locale, "keysFilterChanged", nil)
+}
+
+// KeysFilterConflicts says "Conflicts"
+// in the language the app shows.
+func KeysFilterConflicts() string { return In(i18n.Locale()).KeysFilterConflicts() }
+
+// KeysFilterConflicts says "Conflicts"
+// in the language of msgs.
+func (msgs Messages) KeysFilterConflicts() string {
+	return Catalog.Format(msgs.locale, "keysFilterConflicts", nil)
+}
+
+// KeysNoConflicts says "No two commands share keys"
+// in the language the app shows.
+func KeysNoConflicts() string { return In(i18n.Locale()).KeysNoConflicts() }
+
+// KeysNoConflicts says "No two commands share keys"
+// in the language of msgs.
+func (msgs Messages) KeysNoConflicts() string {
+	return Catalog.Format(msgs.locale, "keysNoConflicts", nil)
 }
 
 // KeysDefault says "Default"

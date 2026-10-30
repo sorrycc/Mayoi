@@ -6,6 +6,9 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
+
+	"github.com/egoist/mygo/ui"
 
 	"mayoi/internal/keymap"
 	"mayoi/internal/settings"
@@ -41,6 +44,14 @@ func TestShotPrefs(t *testing.T) {
 		ph.w.set("vim", json.RawMessage(`true`))
 		ph.frames()
 		ph.shot("prefs-appearance" + suffix)
+		ph.pt.Key(0, ui.KeyDown)
+		ph.frames()
+		ph.pt.Key(0, ui.KeyDown)
+		ph.pt.Advance(60 * time.Millisecond)
+		ph.pt.Frame()
+		ph.shot("prefs-sections-moving" + suffix)
+		ph.frames()
+		ph.shot("prefs-sections" + suffix)
 		ph.w.section = settings.CatFonts
 		ph.w.set("fontSize", json.RawMessage(`15`))
 		ph.frames()
@@ -64,11 +75,32 @@ func TestShotPrefs(t *testing.T) {
 		ph.shot("prefs-none" + suffix)
 		ph.w.query = ""
 		ph.w.section = prefsShortcuts
-		ph.m.keys, _ = keymap.Parse([]byte(`[{"key": "f9", "command": "file.newWindow"}, {"key": "cmd+k cmd+o", "command": "file.openFolder"}, {"key": "cmd+n", "command": "-file.new"}]`))
+		ph.m.keys, _ = keymap.Parse([]byte(`[{"key": "f9", "command": "file.newWindow"}, {"key": "cmd+k cmd+o", "command": "file.openFolder"}, {"key": "cmd+n", "command": "-file.new"}, {"key": "cmd+b", "command": "git.fetch"}]`))
 		ph.a.keys = ph.m.keys
 		ph.frames()
 		ph.shot("prefs-keys" + suffix)
 		k := &ph.w.keys
+		ph.pt.Click("Save")
+		ph.frames()
+		ph.pt.Key(0, ui.KeyDown)
+		ph.frames()
+		ph.shot("prefs-keys-focus" + suffix)
+		ph.pt.Click("Conflicts")
+		ph.frames()
+		ph.shot("prefs-keys-conflicts" + suffix)
+		k.filter = keysAll
+		ph.w.section = settings.CatFonts
+		ph.w.families = []string{"Courier New", "Menlo", "Monaco", "PT Mono"}
+		ph.frames()
+		ph.pt.Click("Show Fonts")
+		ph.frames()
+		ph.pt.Key(0, ui.KeyDown)
+		ph.pt.Key(0, ui.KeyDown)
+		ph.frames()
+		ph.shot("prefs-fonts-picker" + suffix)
+		ph.pt.Key(0, ui.KeyEscape)
+		ph.w.section = prefsShortcuts
+		ph.frames()
 		rows := k.rows(ph.a)
 		k.record(rows[0].cmd)
 		k.strokes = rows[1].keys

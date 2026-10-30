@@ -60,6 +60,9 @@ type fakeHost struct {
 	// update windows opened.
 	newVersion  string
 	updateOpens int
+	// settingsShown are the sections and keys the settings window opened
+	// at, as "section:key".
+	settingsShown []string
 }
 
 func (h *fakeHost) openFolder(done func(string)) { done(h.folder) }
@@ -100,13 +103,16 @@ func (h *fakeHost) newBlankWindow()           { h.blankWindows++ }
 func (h *fakeHost) openFolders(dirs []string) { h.folders = append(h.folders, dirs...) }
 func (h *fakeHost) recentChanged()            { h.recentChanges++ }
 func (h *fakeHost) menuChanged()              {}
-func (h *fakeHost) redrawWindows()            {}
-func (h *fakeHost) installCLI()               {}
-func (h *fakeHost) uninstallCLI()             {}
-func (h *fakeHost) account() string           { return h.signedIn }
-func (h *fakeHost) signIn()                   { h.signIns++ }
-func (h *fakeHost) signOut()                  { h.signOuts++ }
-func (h *fakeHost) syncNow()                  { h.syncs++ }
+func (h *fakeHost) showSettings(section, key string) {
+	h.settingsShown = append(h.settingsShown, section+":"+key)
+}
+func (h *fakeHost) redrawWindows()  {}
+func (h *fakeHost) installCLI()     {}
+func (h *fakeHost) uninstallCLI()   {}
+func (h *fakeHost) account() string { return h.signedIn }
+func (h *fakeHost) signIn()         { h.signIns++ }
+func (h *fakeHost) signOut()        { h.signOuts++ }
+func (h *fakeHost) syncNow()        { h.syncs++ }
 func (h *fakeHost) syncInfo() syncInfo {
 	if h.signedIn == "" {
 		return syncInfo{}

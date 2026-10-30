@@ -164,7 +164,7 @@ func (a *app) spawnTerminal(s *session, dir string) (*terminal.Terminal, error) 
 		DarkTheme: dark,
 		Cursor:    terminal.CursorBar,
 		// Selecting copies, as in Ghostty and iTerm2.
-		CopyOnSelect: copyOnSelect(a.settings.TerminalCopyOnSelect),
+		CopyOnSelect: copyOnSelect(a.prefs().TerminalCopyOnSelect),
 		OnTitle: func(title string) {
 			a.post(func() { s.title = title })
 		},
@@ -629,7 +629,7 @@ func (a *app) fontTerminals() {
 // copyTerminals has the terminals copy what is selected, or not, as the
 // settings say, once they change.
 func (a *app) copyTerminals() {
-	on := a.settings.TerminalCopyOnSelect
+	on := a.prefs().TerminalCopyOnSelect
 	if on == a.termCopy {
 		return
 	}

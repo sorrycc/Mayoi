@@ -305,7 +305,7 @@ func (a *app) openFileIn(col *column, at int, path string, focus bool) {
 	t := &colTab{ed: newEditor(doc), transient: a.opening}
 	a.addTab(col, at, t)
 	a.activate(col, at, focus)
-	if a.settings.MarkdownPreview && !a.openingText && isMarkdown(t.ed.document) {
+	if a.prefs().MarkdownPreview && !a.openingText && isMarkdown(t.ed.document) {
 		a.setPreview(t.ed, true)
 	}
 }
@@ -1013,7 +1013,7 @@ func (a *app) restoreEditor(ed *editor, ts settings.Tab) {
 	ed.caret = ed.sel[1]
 	ed.vscroll.Y, ed.hscroll.X = ts.ScrollY, ts.ScrollX
 	if ed.hidden {
-		ed.hiddenY = ts.ScrollY
+		ed.hiddenY, ed.hiddenPlaced = ts.ScrollY, false
 	}
 	if ts.Wrap != nil {
 		w := *ts.Wrap

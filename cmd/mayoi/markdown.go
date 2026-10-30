@@ -1282,13 +1282,13 @@ func (a *app) followMarkdown(v *viewer) {
 	d, m := v.doc, v.markdown
 	ver := d.buf.Version()
 	var want *mermaidStyle
-	if a.settings.PreviewMermaid {
+	if a.prefs().PreviewMermaid {
 		st := a.mermaidStyle()
 		want = &st
 	}
 	// The diagrams are drawn anew in another theme, or not drawn.
 	same := want == nil && m.mermaid == nil || want != nil && m.mermaid != nil && *want == *m.mermaid
-	same = same && m.math == a.settings.PreviewMath
+	same = same && m.math == a.prefs().PreviewMath
 	// Idle keeps the loaded version; debouncing keeps its timer; running keeps one
 	// worker; running+dirty advances the generation and schedules after that worker.
 	if (m.pending || v.loaded && v.version == ver && !m.refetch) && m.observed == ver && m.path == d.path && same {
@@ -1299,7 +1299,7 @@ func (a *app) followMarkdown(v *viewer) {
 	}
 	first := m.generation.Load() == 0
 	generation := m.generation.Add(1)
-	m.observed, m.path, m.mermaid, m.math = ver, d.path, want, a.settings.PreviewMath
+	m.observed, m.path, m.mermaid, m.math = ver, d.path, want, a.prefs().PreviewMath
 	m.pending = true
 	if v.wait != nil {
 		v.wait.Stop()

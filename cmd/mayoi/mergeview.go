@@ -15,6 +15,7 @@ import (
 	"mayoi/internal/git"
 	"mayoi/internal/highlight"
 	"mayoi/internal/linediff"
+	"mayoi/internal/settings"
 	"mayoi/internal/vfs"
 	"mayoi/locales"
 )
@@ -607,7 +608,7 @@ func (a *app) makeMergeResult(v *mergeView, data []byte, diskErr error) {
 	// A result that starts from the base takes the changes that no
 	// conflict holds at once, when the settings have it: the conflicts
 	// stand, for the hand to decide.
-	if fresh && a.settings.MergeAutoApply {
+	if fresh && a.prefs().MergeAutoApply {
 		a.applyNonConflicts(v, applyAll)
 	}
 	// The first conflict stands chosen, for its actions to be at hand.
@@ -867,11 +868,10 @@ func (a *app) applyNonConflicts(v *mergeView, side applySide) {
 // changes that no conflict holds as it opens, or not, as the settings
 // keep it.
 func (a *app) setMergeAutoApply(on bool) {
-	if a.settings.MergeAutoApply == on {
+	if a.prefs().MergeAutoApply == on {
 		return
 	}
-	a.settings.MergeAutoApply = on
-	a.settings.Changed()
+	a.setPref("mergeAutoApply", func(p *settings.Prefs) { p.MergeAutoApply = on })
 	a.invalidate()
 }
 
@@ -968,7 +968,7 @@ func (a *app) revertMergeConflict(path string) {
 			a.gitDo("", func(r *git.Repo) error { return r.RestoreConflict(path) }, func() {
 				if t := a.mergeTab(path); t != nil {
 					a.resetMerge(t.merge)
-					if a.settings.MergeAutoApply {
+					if a.prefs().MergeAutoApply {
 						a.applyNonConflicts(t.merge, applyAll)
 					}
 				}

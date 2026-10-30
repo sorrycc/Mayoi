@@ -43,6 +43,12 @@ type Settings struct {
 	seq   uint64
 	wmu   sync.Mutex
 	wrote uint64
+	// gen counts the changes of the preferences, as Changed and SetPrefs
+	// tell of them, prefsSeen is the preferences as gen last counted, and
+	// prefsChanged is called with each change Changed tells of.
+	gen          uint64
+	prefsSeen    []byte
+	prefsChanged func()
 }
 
 // State is what Mayoi keeps itself, not what a person chooses: the
@@ -175,8 +181,9 @@ type Prefs struct {
 	VimCtrlKeys bool `json:"vimCtrlKeys,omitempty"`
 	// Appearance is "light", "dark", or "" to follow the system.
 	Appearance string `json:"appearance,omitempty"`
-	// Theme is "matrix" for The Matrix or "purplegold" for Purple Gold,
-	// which are always dark, "claude" for Claude, "qoder" for Qoder,
+	// Theme is "matrix" for The Matrix, "purplegold" for Purple Gold,
+	// "pumpkin" for Jack-o'-Lantern, "witchsbrew" for Witch's Brew or
+	// "bloodmoon" for Blood Moon, which are always dark, "claude" for Claude, "qoder" for Qoder,
 	// "grokbot" for Grok Bot or "cursor" for Cursor, light or dark as
 	// Appearance is, or "" for Mayoi's own.
 	Theme string `json:"theme,omitempty"`
@@ -495,49 +502,51 @@ const MinZoomLevel, MaxZoomLevel = -5, 8
 
 // normalize keeps the preferences in their bounds, the defaults where the
 // file leaves them out or makes no sense.
-func (s *Settings) normalize() {
-	s.ZoomLevel = clamp(s.ZoomLevel, MinZoomLevel, MaxZoomLevel)
-	s.FontSize = clamp(s.FontSize, 9, 28)
-	if strings.TrimSpace(s.FontFamily) == "" {
-		s.FontFamily = "monospace"
+func (s *Settings) normalize() { s.Prefs.normalize() }
+
+func (p *Prefs) normalize() {
+	p.ZoomLevel = clamp(p.ZoomLevel, MinZoomLevel, MaxZoomLevel)
+	p.FontSize = clamp(p.FontSize, 9, 28)
+	if strings.TrimSpace(p.FontFamily) == "" {
+		p.FontFamily = "monospace"
 	}
-	if s.FontWeight == 0 {
-		s.FontWeight = 400
+	if p.FontWeight == 0 {
+		p.FontWeight = 400
 	}
-	s.FontWeight = min(max(s.FontWeight, 100), 900)
-	if s.LineHeight == 0 {
-		s.LineHeight = 1.55
+	p.FontWeight = min(max(p.FontWeight, 100), 900)
+	if p.LineHeight == 0 {
+		p.LineHeight = 1.55
 	}
-	s.LineHeight = clamp(s.LineHeight, 1, 3)
-	s.FontFeatures = slices.DeleteFunc(s.FontFeatures, func(f string) bool { return strings.TrimSpace(f) == "" })
-	if s.TerminalFontSize != 0 {
-		s.TerminalFontSize = clamp(s.TerminalFontSize, 9, 28)
+	p.LineHeight = clamp(p.LineHeight, 1, 3)
+	p.FontFeatures = slices.DeleteFunc(p.FontFeatures, func(f string) bool { return strings.TrimSpace(f) == "" })
+	if p.TerminalFontSize != 0 {
+		p.TerminalFontSize = clamp(p.TerminalFontSize, 9, 28)
 	}
-	switch s.DiffHighlight {
+	switch p.DiffHighlight {
 	case "line", "char":
 	default:
-		s.DiffHighlight = ""
+		p.DiffHighlight = ""
 	}
-	switch s.DiffWhitespace {
+	switch p.DiffWhitespace {
 	case "eol", "all", "blank":
 	default:
-		s.DiffWhitespace = ""
+		p.DiffWhitespace = ""
 	}
-	s.DiffContext = min(max(s.DiffContext, 0), MaxDiffContext)
+	p.DiffContext = min(max(p.DiffContext, 0), MaxDiffContext)
 
 	// "" and "bottom" are the same panel position.
-	if s.PanelPosition != "left" && s.PanelPosition != "right" {
-		s.PanelPosition = ""
+	if p.PanelPosition != "left" && p.PanelPosition != "right" {
+		p.PanelPosition = ""
 	}
-	if s.TerminalLocation != "editor" {
-		s.TerminalLocation = ""
+	if p.TerminalLocation != "editor" {
+		p.TerminalLocation = ""
 	}
-	if s.TerminalBackend != "hc" {
-		s.TerminalBackend = ""
+	if p.TerminalBackend != "hc" {
+		p.TerminalBackend = ""
 	}
 	// The themes were appearances once.
-	if s.Appearance == "matrix" || s.Appearance == "claude" {
-		s.Theme, s.Appearance = s.Appearance, ""
+	if p.Appearance == "matrix" || p.Appearance == "claude" {
+		p.Theme, p.Appearance = p.Appearance, ""
 	}
 }
 
@@ -671,18 +680,42 @@ func clamp(v, lo, hi float32) float32 { return max(lo, min(v, hi)) }
 
 // Changed saves the settings a moment after the last change.
 func (s *Settings) Changed() {
-	if s.path == "" {
-		return
+	prefs, state := s.Encode()
+	s.mu.Lock()
+	var fn func()
+	if !bytes.Equal(prefs, s.prefsSeen) {
+		s.gen++
+		s.prefsSeen = prefs
+		fn = s.prefsChanged
 	}
+	if s.path != "" {
+		if s.timer != nil {
+			s.timer.Stop()
+		}
+		s.seq++
+		seq := s.seq
+		s.timer = time.AfterFunc(400*time.Millisecond, func() { s.write(seq, prefs, state) })
+	}
+	s.mu.Unlock()
+	if fn != nil {
+		fn()
+	}
+}
+
+// Gen counts the changes of the preferences: what is made of them, as
+// the preferences of a folder over them, is made again as it changes.
+func (s *Settings) Gen() uint64 {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if s.timer != nil {
-		s.timer.Stop()
-	}
-	prefs, state := s.Encode()
-	s.seq++
-	seq := s.seq
-	s.timer = time.AfterFunc(400*time.Millisecond, func() { s.write(seq, prefs, state) })
+	return s.gen
+}
+
+// OnPrefsChanged calls fn each time Changed finds the preferences
+// changed, as a menu changes one, on the goroutine of Changed.
+func (s *Settings) OnPrefsChanged(fn func()) {
+	s.mu.Lock()
+	s.prefsChanged = fn
+	s.mu.Unlock()
 }
 
 // Flush saves the settings now, as the app quits.
@@ -813,6 +846,9 @@ func (s *Settings) SetPrefs(p Prefs) (old Prefs) {
 	if p.WordWrap != old.WordWrap {
 		s.WrapGen++
 	}
+	s.mu.Lock()
+	s.gen++
+	s.mu.Unlock()
 	return old
 }
 

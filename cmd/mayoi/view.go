@@ -69,6 +69,7 @@ func (a *app) view(c *ui.Context) {
 	a.fontTerminals()
 	a.copyTerminals()
 	p := a.pal
+	a.builds++
 	if now := c.Now(); now != a.frameAt {
 		a.frameAt = now
 		a.frame++
@@ -610,6 +611,13 @@ func (a *app) columnView(c *ui.Context, col *column) {
 					if a.editorReviewView(c, shown.ed) {
 						break
 					}
+					shown.ed.areaKept = shown.ed.areaShown(a, col)
+					if ed := shown.ed; !ed.areaKept && ed.areaCol != nil && ed.areaCol != col {
+						// Moved to another column, it gets a new text area: it
+						// comes back to its place as a tab shown again does.
+						a.hideEditor(ed)
+					}
+					shown.ed.areaCol, shown.ed.areaBuild, shown.ed.seenBuild = col, a.builds, a.builds
 					a.editorView(c, shown.ed)
 					a.hunkPeekView(c, shown.ed)
 					a.reviewBoxView(c, shown.ed)
@@ -622,12 +630,54 @@ func (a *app) columnView(c *ui.Context, col *column) {
 			})
 		}
 		a.dropZones(c, col, over)
+		a.keepEditors(c, col, shown)
 	})
+}
+
+// keepTabs is how many of a column's tabs out of sight keep their text
+// areas: those shown last. The others come back with a new one.
+const keepTabs = 8
+
+// keepEditors builds the text areas of a column's tabs that showed and are
+// out of sight now, hidden, where they show: they stay as they were, the
+// heights of their rows and their place among them, for when the tab comes
+// back, rather than start anew from estimates and scroll to their caret.
+// Only the keepTabs shown last do, as an area keeps the layout of its text.
+func (a *app) keepEditors(c *ui.Context, col *column, shown *colTab) {
+	kept := a.keptTabs[:0]
+	for _, t := range col.tabs {
+		if d := t.ed; t != shown && d != nil && d.areaShown(a, col) {
+			kept = append(kept, t)
+		}
+	}
+	if len(kept) > keepTabs {
+		slices.SortStableFunc(kept, func(x, y *colTab) int { return y.ed.seenBuild - x.ed.seenBuild })
+		kept = kept[:keepTabs]
+	}
+	for _, t := range kept {
+		d := t.ed
+		d.areaCol, d.areaBuild = col, a.builds
+		ui.Column(c.Key(t.id)).Hidden(true).Children(func() {
+			ui.ScrollHorizontal(c).Children(func() {
+				ui.TextAreaBufferBase(c, d.buf)
+			})
+		})
+	}
+	clear(kept)
+	a.keptTabs = kept[:0]
 }
 
 func (a *app) hideEditor(d *editor) {
 	if !d.hidden {
 		d.hidden, d.hiddenY = true, d.vscroll.Y
+		if d.areaCol == nil {
+			return // never shown: no area laid its lines out
+		}
+		snap := d.buf.Snapshot()
+		g := a.geometry(d, snap.LineCount())
+		top := g.at(d.vscroll.Y - editorPadY)
+		d.hiddenAt, _ = snap.LineRange(top)
+		d.hiddenOff, d.hiddenPlaced = editorPadY+g.top(top)-d.vscroll.Y, true
 	}
 }
 
@@ -986,7 +1036,7 @@ func (a *app) statusFit(c *ui.Context, width float32) statusVisibility {
 		snap := d.buf.Snapshot()
 		n := snap.LineCount()
 		used += measure(locales.StatusPos(n, 999), false)
-		if a.settings.Vim {
+		if a.prefs().Vim {
 			// The mode's badge, and the keys typed after it.
 			used += measure(d.vim.mode.String(), false) + 2*6
 			if k := d.vim.pending(); k != "" {
@@ -1275,7 +1325,7 @@ func (a *app) statusBar(c *ui.Context) {
 		}
 		snap := d.buf.Snapshot()
 		caret := min(d.caret, snap.Len())
-		if a.settings.Vim && d.vim.mode.visual() {
+		if a.prefs().Vim && d.vim.mode.visual() {
 			caret = vimCursor(d, snap)
 		}
 		line := snap.LineAt(caret)
@@ -1284,7 +1334,7 @@ func (a *app) statusBar(c *ui.Context) {
 		if n := abs(d.sel[1] - d.sel[0]); n > 0 {
 			pos += locales.StatusSelected(n)
 		}
-		if a.settings.Vim {
+		if a.prefs().Vim {
 			a.vimBadge(c, &d.vim, text)
 		}
 		item("pos", pos, a.withKey(locales.GoToLineLabel(), "go.line"), nil, func() { a.openQuick(":") })

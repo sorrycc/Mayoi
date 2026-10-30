@@ -158,6 +158,8 @@ func (m *mayoi) newFrame(h *desktop) *frame {
 		}
 		if len(m.wins) == 0 {
 			m.s.Flush()
+			// The settings window goes with the last, which quits the app.
+			m.closePrefs()
 		}
 	})
 	return f

@@ -408,7 +408,7 @@ func deleteLines(d *editor) {
 // cut cuts the selection, or the caret's line when there is none, as in
 // VS Code.
 func (a *app) cut(d *editor) {
-	if d.locked() || a.settings.Vim && d.vim.mode != vimInsert {
+	if d.locked() || a.prefs().Vim && d.vim.mode != vimInsert {
 		return
 	}
 	snap := d.buf.Snapshot()
@@ -533,7 +533,7 @@ func (a *app) editorKey(d *editor, ev ui.InputEvent) bool {
 	if ev.Kind == ui.InputPointerDown && ev.Button == 0 && ev.Clicks == 1 && ev.Mods == ui.Cmd && isMarkdown(d.document) {
 		d.cmds = append(d.cmds, a.followWikiLink)
 	}
-	if ev.Kind == ui.InputPointerDown && a.settings.Vim && d.vim.mode.visual() {
+	if ev.Kind == ui.InputPointerDown && a.prefs().Vim && d.vim.mode.visual() {
 		// A click ends visual mode; a drag selects anew.
 		d.vim.lastVisual = vimVisualArea{d.vim.anchor, d.vim.cursor, d.vim.mode}
 		d.vim.mode, d.vim.keys = vimNormal, d.vim.keys[:0]
@@ -545,7 +545,7 @@ func (a *app) editorKey(d *editor, ev ui.InputEvent) bool {
 		d.peek = -1
 		return true
 	}
-	if a.settings.Vim && a.vimKey(d, ev) {
+	if a.prefs().Vim && a.vimKey(d, ev) {
 		return true
 	}
 	var cmd func(d *editor)

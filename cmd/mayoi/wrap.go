@@ -4,6 +4,8 @@ import (
 	"unicode/utf8"
 
 	"github.com/egoist/mygo/ui"
+
+	"mayoi/internal/settings"
 )
 
 // wraps reports whether an editor wraps its lines: as its tab chose, or
@@ -12,7 +14,7 @@ func (a *app) wraps(d *editor) bool {
 	if d.wrap != nil && d.wrapGen == a.settings.WrapGen {
 		return *d.wrap
 	}
-	return a.settings.WordWrap
+	return a.prefs().WordWrap
 }
 
 // wrapsMerge reports whether a merge wraps the lines of its panes: as its
@@ -21,16 +23,14 @@ func (a *app) wrapsMerge(v *mergeView) bool {
 	if v.wrap != nil && v.wrapGen == a.settings.WrapGen {
 		return *v.wrap
 	}
-	return a.settings.WordWrap
+	return a.prefs().WordWrap
 }
 
 // toggleWordWrap wraps the lines of every editor, or none: the tabs that
 // chose otherwise follow it again.
 func (a *app) toggleWordWrap() {
-	s := a.settings
-	s.WordWrap = !s.WordWrap
-	s.WrapGen++
-	s.Changed()
+	a.setPref("wordWrap", func(p *settings.Prefs) { p.WordWrap = !p.WordWrap })
+	a.settings.WrapGen++
 	a.invalidate()
 }
 
@@ -147,6 +147,18 @@ func (g geometry) row(i, off int) int {
 		k++
 	}
 	return k
+}
+
+// measureDown has the text area lay out the lines from line i down, as many
+// as fill room, for their tops below to be known rather than estimated.
+func (g geometry) measureDown(i int, room float32) {
+	if g.lines == nil {
+		return
+	}
+	for ; i < g.n && room > 0; i++ {
+		g.lines.Rows(i)
+		room -= g.top(i+1) - g.top(i)
+	}
 }
 
 // rowSlack is how many lines beyond those in view the editor finds the

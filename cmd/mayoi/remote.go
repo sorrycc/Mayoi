@@ -635,6 +635,7 @@ func (a *app) shutdown() {
 		a.tree.Close()
 	}
 	a.detachRemote()
+	a.dropFolderPrefs()
 	a.closeRemotePicker()
 }
 

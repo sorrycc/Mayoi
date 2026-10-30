@@ -217,7 +217,7 @@ func (a *app) syncPanel(c *ui.Context, anchor, panel ui.Element, si syncInfo) {
 				ui.Text(c, locales.SyncKeepHint()).FontSize(11).TextColor(col)
 			})
 			if hint.Clicked() {
-				close(a.openSettings)
+				close(func() { a.host.showSettings(settings.CatGeneral, "syncIgnored") })
 			}
 		})
 		divider()

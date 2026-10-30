@@ -10,6 +10,7 @@ import (
 	"github.com/egoist/mygo/ui"
 
 	"mayoi/internal/highlight"
+	"mayoi/internal/settings"
 )
 
 // palette is Mayoi's look: the colors of its chrome, of the code and of
@@ -1015,6 +1016,244 @@ func purpleGoldPalette() *palette {
 	return p
 }
 
+// pumpkinPalette is Jack-o'-Lantern, always dark: candlelight through a
+// carved pumpkin. Soot-black chrome around a warm editor, pumpkin orange
+// for the accent and the buttons, with near-black labels on them, and a
+// status bar that glows as the lantern's face does. Its code is lit in
+// candle yellow, ember and vine green, with witch-purple keywords.
+func pumpkinPalette() *palette {
+	p := &palette{
+		dark:      true,
+		editor:    ui.Hex("#1a1512"),
+		chrome:    ui.Hex("#130f0d"),
+		panel:     ui.Hex("#16120f"),
+		border:    ui.Hex("#2c231d"),
+		hover:     ui.RGBA(255, 230, 200, 0.05),
+		active:    ui.RGBA(255, 138, 31, 0.15),
+		text:      ui.Hex("#efe2cf"),
+		muted:     ui.Hex("#a8927c"),
+		faint:     ui.Hex("#73624f"),
+		accent:    ui.Hex("#ff8a1f"),
+		accentDim: ui.RGBA(255, 138, 31, 0.5),
+		line:      ui.RGBA(255, 200, 140, 0.045),
+		selection: ui.RGBA(255, 138, 31, 0.28),
+		gutter:    ui.Hex("#6b5a4c"),
+		gutterNow: ui.Hex("#ffb066"),
+		status:    ui.Hex("#a04606"),
+		statusFg:  ui.Hex("#fff1e0"),
+		modified:  ui.Hex("#ffc247"),
+		danger:    ui.Hex("#ff5a4a"),
+		match:     ui.RGBA(255, 194, 71, 0.22),
+		matchNow:  ui.RGBA(255, 194, 71, 0.40),
+		matchRing: ui.RGBA(255, 194, 71, 0.85),
+		guide:     ui.RGBA(255, 230, 200, 0.07),
+		guideNow:  ui.RGBA(255, 180, 100, 0.28),
+		bracket:   ui.RGBA(255, 230, 200, 0.32),
+		word:      ui.RGBA(255, 230, 200, 0.08),
+		shadow:    ui.RGBA(0, 0, 0, 0.45),
+		added:     ui.Hex("#8fbf4a"),
+		changed:   ui.Hex("#ffc247"),
+		removed:   ui.Hex("#ff5a4a"),
+		// Near-black on the pumpkin, as the lantern's carving is dark on
+		// its glow.
+		fill:           ui.Hex("#ff8a1f"),
+		fillText:       ui.Hex("#1a0d03"),
+		dangerFill:     ui.Hex("#c8321f"),
+		dangerText:     ui.Hex("#ffffff"),
+		surface:        ui.Hex("#221b17"),
+		surfaceHover:   ui.Hex("#2a221d"),
+		surfacePressed: ui.Hex("#332923"),
+		scrollbar:      ui.RGBA(255, 230, 200, 0.16),
+		inverse:        ui.Hex("#2c211a"),
+		inverseText:    ui.Hex("#fbeedc"),
+		ansi: [16]ui.Color{
+			ui.Hex("#2c231d"), ui.Hex("#ff5a4a"), ui.Hex("#a8cf6a"), ui.Hex("#ffc247"),
+			ui.Hex("#8aa8e8"), ui.Hex("#b88cf0"), ui.Hex("#7cc8b8"), ui.Hex("#efe2cf"),
+			ui.Hex("#6f5f51"), ui.Hex("#ff7a6a"), ui.Hex("#c0e08a"), ui.Hex("#ffd77a"),
+			ui.Hex("#a8c0f5"), ui.Hex("#cfaaf8"), ui.Hex("#9ee0d0"), ui.Hex("#fff8ee"),
+		},
+	}
+	p.fillHover, p.fillPressed = p.fill.Mix(white, 0.12), p.fill.Mix(black, 0.15)
+	s := &p.syntax
+	s[highlight.Plain] = p.text
+	s[highlight.Keyword] = ui.Hex("#b88cf0")
+	s[highlight.Type] = ui.Hex("#ffc247")
+	s[highlight.Function] = ui.Hex("#ff9e4a")
+	s[highlight.String] = ui.Hex("#a8cf6a")
+	s[highlight.Number] = ui.Hex("#ff7a59")
+	s[highlight.Comment] = ui.Hex("#7d6c5d")
+	s[highlight.Operator] = ui.Hex("#c9a98a")
+	s[highlight.Punctuation] = ui.Hex("#9a8470")
+	s[highlight.Constant] = ui.Hex("#ff7a59")
+	s[highlight.Builtin] = ui.Hex("#e8b45a")
+	s[highlight.Tag] = ui.Hex("#ff8a1f")
+	s[highlight.Attribute] = ui.Hex("#ffc247")
+	s[highlight.Variable] = ui.Hex("#f2e6d6")
+	s[highlight.Heading] = ui.Hex("#ff8a1f")
+	s[highlight.Deleted] = p.removed
+	s[highlight.Inserted] = ui.Hex("#a8cf6a")
+	return p
+}
+
+// witchsBrewPalette is Witch's Brew, always dark: a potion bubbling in a
+// plum-dark hut. Plum chrome, a witch-purple status bar, and slime green
+// for the accent and the buttons, with plum labels on them. Its code is in
+// violets, slime greens, potion teals and lilacs, and its selection is
+// purple, so that the green stays the accent's.
+func witchsBrewPalette() *palette {
+	p := &palette{
+		dark:      true,
+		editor:    ui.Hex("#15111c"),
+		chrome:    ui.Hex("#0f0b15"),
+		panel:     ui.Hex("#120e19"),
+		border:    ui.Hex("#2a2238"),
+		hover:     ui.RGBA(200, 170, 255, 0.05),
+		active:    ui.RGBA(142, 240, 79, 0.13),
+		text:      ui.Hex("#e4dcef"),
+		muted:     ui.Hex("#9d90b3"),
+		faint:     ui.Hex("#6c6082"),
+		accent:    ui.Hex("#8ef04f"),
+		accentDim: ui.RGBA(142, 240, 79, 0.5),
+		line:      ui.RGBA(200, 170, 255, 0.045),
+		selection: ui.RGBA(150, 90, 220, 0.42),
+		gutter:    ui.Hex("#5c5070"),
+		gutterNow: ui.Hex("#8ef04f"),
+		status:    ui.Hex("#3a1d63"),
+		statusFg:  ui.Hex("#c8ff9a"),
+		modified:  ui.Hex("#f0c860"),
+		danger:    ui.Hex("#ff5c8a"),
+		match:     ui.RGBA(240, 200, 96, 0.22),
+		matchNow:  ui.RGBA(240, 200, 96, 0.40),
+		matchRing: ui.RGBA(240, 200, 96, 0.85),
+		guide:     ui.RGBA(200, 170, 255, 0.07),
+		guideNow:  ui.RGBA(142, 240, 79, 0.28),
+		bracket:   ui.RGBA(200, 170, 255, 0.35),
+		word:      ui.RGBA(200, 170, 255, 0.1),
+		shadow:    ui.RGBA(0, 0, 0, 0.5),
+		// A greener teal than the accent, so that what is added does
+		// not read as what is chosen.
+		added:          ui.Hex("#5fd08a"),
+		changed:        ui.Hex("#b07ef5"),
+		removed:        ui.Hex("#ff5c8a"),
+		fill:           ui.Hex("#8ef04f"),
+		fillText:       ui.Hex("#0f0b15"),
+		dangerFill:     ui.Hex("#ff5c8a"),
+		dangerText:     ui.Hex("#0f0b15"),
+		surface:        ui.Hex("#1d1726"),
+		surfaceHover:   ui.Hex("#251e30"),
+		surfacePressed: ui.Hex("#2d253a"),
+		scrollbar:      ui.RGBA(200, 170, 255, 0.16),
+		inverse:        ui.Hex("#3a1d63"),
+		inverseText:    ui.Hex("#eadcff"),
+		ansi: [16]ui.Color{
+			ui.Hex("#2a2238"), ui.Hex("#ff5c8a"), ui.Hex("#8ef04f"), ui.Hex("#f0c860"),
+			ui.Hex("#8aa0ff"), ui.Hex("#c18cff"), ui.Hex("#6ef0c8"), ui.Hex("#e4dcef"),
+			ui.Hex("#675b7c"), ui.Hex("#ff85a8"), ui.Hex("#b4ff85"), ui.Hex("#ffdc8a"),
+			ui.Hex("#aab8ff"), ui.Hex("#d8b0ff"), ui.Hex("#9ef8dc"), ui.Hex("#ffffff"),
+		},
+	}
+	p.fillHover, p.fillPressed = p.fill.Mix(white, 0.15), p.fill.Mix(black, 0.15)
+	s := &p.syntax
+	s[highlight.Plain] = p.text
+	s[highlight.Keyword] = ui.Hex("#c18cff")
+	s[highlight.Type] = ui.Hex("#6ef0c8")
+	s[highlight.Function] = ui.Hex("#a8ff6a")
+	s[highlight.String] = ui.Hex("#f0a6d8")
+	s[highlight.Number] = ui.Hex("#f0c860")
+	s[highlight.Comment] = ui.Hex("#716588")
+	s[highlight.Operator] = ui.Hex("#b3a6c8")
+	s[highlight.Punctuation] = ui.Hex("#8b7fa0")
+	s[highlight.Constant] = ui.Hex("#f0c860")
+	s[highlight.Builtin] = ui.Hex("#6ef0c8")
+	s[highlight.Tag] = ui.Hex("#c18cff")
+	s[highlight.Attribute] = ui.Hex("#a8ff6a")
+	s[highlight.Variable] = ui.Hex("#e8e0f2")
+	s[highlight.Heading] = ui.Hex("#8ef04f")
+	s[highlight.Deleted] = p.removed
+	s[highlight.Inserted] = p.added
+	return p
+}
+
+// bloodMoonPalette is Blood Moon, always dark: a vampire's study under a
+// red moon. Near-black with a red undertone, crimson for the accent and
+// the buttons, with white on them, and a dark-blood status bar. Danger is
+// a lighter scarlet with dark labels, so that Discard never looks like the
+// crimson of a button that keeps. Its code bleeds red in its keywords, with
+// old-gold strings and moonlight blue.
+func bloodMoonPalette() *palette {
+	p := &palette{
+		dark:      true,
+		editor:    ui.Hex("#140e10"),
+		chrome:    ui.Hex("#0d090a"),
+		panel:     ui.Hex("#110c0d"),
+		border:    ui.Hex("#2e1a1e"),
+		hover:     ui.RGBA(255, 200, 210, 0.045),
+		active:    ui.RGBA(240, 67, 90, 0.15),
+		text:      ui.Hex("#ecdfe0"),
+		muted:     ui.Hex("#a68d91"),
+		faint:     ui.Hex("#75595e"),
+		accent:    ui.Hex("#f0435a"),
+		accentDim: ui.RGBA(240, 67, 90, 0.5),
+		line:      ui.RGBA(255, 200, 210, 0.04),
+		selection: ui.RGBA(196, 30, 58, 0.38),
+		gutter:    ui.Hex("#6e5559"),
+		gutterNow: ui.Hex("#ff8a9a"),
+		status:    ui.Hex("#5c0f1d"),
+		statusFg:  ui.Hex("#ffd0d6"),
+		modified:  ui.Hex("#e8b04a"),
+		danger:    ui.Hex("#ff7a5c"),
+		match:     ui.RGBA(232, 176, 74, 0.22),
+		matchNow:  ui.RGBA(232, 176, 74, 0.40),
+		matchRing: ui.RGBA(232, 176, 74, 0.85),
+		guide:     ui.RGBA(255, 200, 210, 0.065),
+		guideNow:  ui.RGBA(240, 67, 90, 0.32),
+		bracket:   ui.RGBA(255, 200, 210, 0.32),
+		word:      ui.RGBA(255, 200, 210, 0.08),
+		shadow:    ui.RGBA(0, 0, 0, 0.5),
+		added:     ui.Hex("#7fb88a"),
+		changed:   ui.Hex("#9aa8e8"),
+		removed:   ui.Hex("#ff5470"),
+		// White on the crimson of the accent reads at 3.7:1, so buttons
+		// take a deeper one, with white on it at 5.4:1.
+		fill:           ui.Hex("#c41e3a"),
+		fillText:       ui.Hex("#fff4f4"),
+		dangerFill:     ui.Hex("#ff7a5c"),
+		dangerText:     ui.Hex("#1a0507"),
+		surface:        ui.Hex("#1c1315"),
+		surfaceHover:   ui.Hex("#24191c"),
+		surfacePressed: ui.Hex("#2d1f23"),
+		scrollbar:      ui.RGBA(255, 200, 210, 0.16),
+		inverse:        ui.Hex("#5c0f1d"),
+		inverseText:    ui.Hex("#ffe6ea"),
+		ansi: [16]ui.Color{
+			ui.Hex("#2e1a1e"), ui.Hex("#ff5470"), ui.Hex("#8fc49a"), ui.Hex("#e8b04a"),
+			ui.Hex("#9aa8e8"), ui.Hex("#c4a0f0"), ui.Hex("#8acfc8"), ui.Hex("#ecdfe0"),
+			ui.Hex("#6e5559"), ui.Hex("#ff7a90"), ui.Hex("#aedcb6"), ui.Hex("#f5cc75"),
+			ui.Hex("#b8c3f5"), ui.Hex("#dbbcff"), ui.Hex("#aee6e0"), ui.Hex("#ffffff"),
+		},
+	}
+	p.fillHover, p.fillPressed = p.fill.Mix(white, 0.1), p.fill.Mix(black, 0.15)
+	s := &p.syntax
+	s[highlight.Plain] = p.text
+	s[highlight.Keyword] = ui.Hex("#ff5470")
+	s[highlight.Type] = ui.Hex("#c4a0f0")
+	s[highlight.Function] = ui.Hex("#ffb3a8")
+	s[highlight.String] = ui.Hex("#e8c48a")
+	s[highlight.Number] = ui.Hex("#ff8a7a")
+	s[highlight.Comment] = ui.Hex("#7a5f64")
+	s[highlight.Operator] = ui.Hex("#c0a5a9")
+	s[highlight.Punctuation] = ui.Hex("#94797e")
+	s[highlight.Constant] = ui.Hex("#ff8a7a")
+	s[highlight.Builtin] = ui.Hex("#9aa8e8")
+	s[highlight.Tag] = ui.Hex("#ff5470")
+	s[highlight.Attribute] = ui.Hex("#c4a0f0")
+	s[highlight.Variable] = ui.Hex("#efe3e4")
+	s[highlight.Heading] = ui.Hex("#f0435a")
+	s[highlight.Deleted] = p.removed
+	s[highlight.Inserted] = p.added
+	return p
+}
+
 var (
 	black, white = ui.Hex("#000000"), ui.Hex("#ffffff")
 
@@ -1035,10 +1274,15 @@ var (
 	cursorDarkPal  = cursorDarkPalette().derive()
 
 	purpleGoldPal = purpleGoldPalette().derive()
+
+	pumpkinPal    = pumpkinPalette().derive()
+	witchsBrewPal = witchsBrewPalette().derive()
+	bloodMoonPal  = bloodMoonPalette().derive()
 )
 
-// The Themes of the settings beside Mayoi's own, "": The Matrix and Purple
-// Gold, which are always dark, and Claude, Qoder, Grok Bot and Cursor,
+// The Themes of the settings beside Mayoi's own, "": The Matrix, Purple
+// Gold, and the Halloween themes Jack-o'-Lantern, Witch's Brew and Blood
+// Moon, which are always dark, and Claude, Qoder, Grok Bot and Cursor,
 // light or dark as the Appearance is.
 const (
 	themeMatrix     = "matrix"
@@ -1047,11 +1291,18 @@ const (
 	themeGrokBot    = "grokbot"
 	themeCursor     = "cursor"
 	themePurpleGold = "purplegold"
+	themePumpkin    = "pumpkin"
+	themeWitchsBrew = "witchsbrew"
+	themeBloodMoon  = "bloodmoon"
 )
 
 // alwaysDark is whether a theme is dark whatever the Appearance is.
 func alwaysDark(theme string) bool {
-	return theme == themeMatrix || theme == themePurpleGold
+	switch theme {
+	case themeMatrix, themePurpleGold, themePumpkin, themeWitchsBrew, themeBloodMoon:
+		return true
+	}
+	return false
 }
 
 // paletteFor returns the palette of a theme of the settings, in a window
@@ -1078,6 +1329,12 @@ func paletteFor(theme string, dark bool) *palette {
 		return cursorLightPal
 	case theme == themePurpleGold:
 		return purpleGoldPal
+	case theme == themePumpkin:
+		return pumpkinPal
+	case theme == themeWitchsBrew:
+		return witchsBrewPal
+	case theme == themeBloodMoon:
+		return bloodMoonPal
 	case dark:
 		return darkPal
 	}
@@ -1085,8 +1342,9 @@ func paletteFor(theme string, dark bool) *palette {
 }
 
 // themeSource is the light or dark appearance of the native window for a
-// theme and an appearance of the settings: The Matrix and Purple Gold are
-// dark, and the other themes are as the appearance is, the system's for "".
+// theme and an appearance of the settings: dark for the themes that are
+// always dark, and as the appearance is for the others, the system's for
+// "".
 func themeSource(theme, appearance string) mygo.ThemeSource {
 	if alwaysDark(theme) {
 		return mygo.ThemeDark
@@ -1153,16 +1411,20 @@ func contrast(x, y ui.Color) float64 {
 
 // applyTheme sets the window's theme from the palette of its theme,
 // and returns that palette.
-func (a *app) applyTheme(c *ui.Context) *palette {
+func (a *app) applyTheme(c *ui.Context) *palette { return applyTheme(c, &a.settings.Prefs, &a.fade) }
+
+// applyTheme sets the theme of a window from the palette of the theme of
+// the preferences, on its way there by fade, and returns that palette.
+func applyTheme(c *ui.Context, prefs *settings.Prefs, fade *paletteFade) *palette {
 	t := *c.Theme()
 	dark := t.Dark
-	switch a.settings.Appearance {
+	switch prefs.Appearance {
 	case "light":
 		dark = false
 	case "dark":
 		dark = true
 	}
-	p := a.fade.step(c, paletteFor(a.settings.Theme, dark))
+	p := fade.step(c, paletteFor(prefs.Theme, dark))
 	t.Dark = p.dark
 	t.Background = p.editor
 	// Every state of the accent, or a hovered button would turn the
@@ -1182,7 +1444,7 @@ func (a *app) applyTheme(c *ui.Context) *palette {
 	t.Scrollbar = p.scrollbar
 	t.Inverse, t.InverseText = p.inverse, p.inverseText
 	if p.mono {
-		t.Font = a.settings.FontFamily
+		t.Font = prefs.FontFamily
 	}
 	c.SetTheme(&t)
 	return p

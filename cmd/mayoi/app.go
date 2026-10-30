@@ -71,6 +71,10 @@ type host interface {
 	// they change.
 	recentChanged()
 	menuChanged()
+	// showSettings opens the settings window, or brings it to the front,
+	// at section, a category of the preferences or "shortcuts", and at
+	// the preference of key when it is not "", for the window's folder.
+	showSettings(section, key string)
 	// redrawWindows draws every window with the current font and zoom.
 	redrawWindows()
 	// installCLI and uninstallCLI put the mayoi command on the shell's
@@ -122,6 +126,9 @@ type host interface {
 type app struct {
 	host     host
 	settings *settings.Settings
+	// folderPrefs is what the folder chooses of the preferences, nil
+	// without a folder.
+	folderPrefs *folderPrefs
 	// window is what the settings keep of this window.
 	window *settings.Window
 
@@ -234,6 +241,8 @@ type app struct {
 	// keyboard as the frame's columns began: a click on another's tab as
 	// they draw moves col, and the widget's input binds one control.
 	findCol *column
+	// keptTabs is keepEditors' list of the tabs it keeps, reused.
+	keptTabs []*colTab
 	// findPreview is the Markdown preview find last looked in, which
 	// shows its matches while find is open.
 	findPreview *markdownPreview
@@ -289,6 +298,8 @@ type app struct {
 	// frame may build the view several times.
 	frame   int
 	frameAt time.Time
+	// builds counts the builds of the view.
+	builds int
 	// dragging is set while a tab is dragged, as the frame before found.
 	dragging, dragNow bool
 	// middle is the tab a middle press is on, until it is let go of: the
@@ -408,6 +419,7 @@ func (a *app) park() {
 		for _, t := range col.tabs {
 			if t.ed != nil {
 				a.hideEditor(t.ed)
+				t.ed.areaCol = nil
 			}
 		}
 	}
@@ -487,6 +499,7 @@ func (a *app) openFolder(dir string) {
 	}
 	a.root = dir
 	a.attachRemote(dir)
+	a.loadFolderPrefs(dir)
 	a.tree = workspace.NewTree(dir, a.post)
 	a.tree.OnChange = a.diskChanged
 	a.tree.IsOpen = a.files.Open.Has
@@ -545,6 +558,7 @@ func (a *app) closeFolder() {
 			a.tree.Close()
 		}
 		a.detachRemote()
+		a.dropFolderPrefs()
 		a.resetRepositories()
 		a.root, a.tree, a.index, a.git = "", nil, nil, gitState{}
 		a.resetSearch()

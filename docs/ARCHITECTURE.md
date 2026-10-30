@@ -232,11 +232,11 @@ match, then reads those and matches them here, as it does local files, so that b
 ## Theme
 
 **`theme.go`.** The palettes for the window, the code and the terminal: Mayoi's own light and
-dark, and the other themes that the `theme` setting names: The Matrix and Purple Gold, which make the native window dark whatever the
+dark, and the other themes that the `theme` setting names: The Matrix, Purple Gold and the Halloween themes, which make the native window dark whatever the
 `appearance` setting is, and Claude, Qoder, Grok Bot and Cursor, which have a light and a dark palette and are as the appearance is. `rain.go` paints The Matrix's digital rain behind the welcome page,
 worked out from the time alone, a step every 70 ms. `mascot.go` places a theme's character on the welcome page and in
 the status bar, its pose also worked out from the time, asking for a frame only when the pose next changes: `clawd.go`
-paints Claude's from cells, `qoduck.go` Qoder's duck from vector shapes, and `grokbot.go` Grok Bot's face from them too; Cursor and Purple Gold have none. It also styles what floats over
+paints Claude's from cells, `qoduck.go` Qoder's duck from vector shapes, `grokbot.go` Grok Bot's face from them too, and `halloween.go` the Halloween themes' pumpkin, cauldron and bat from cells; Cursor and Purple Gold have none. It also styles what floats over
 the window, dialogs and the boxes over an editor, and fades them in as they show.
 
 ## Performance

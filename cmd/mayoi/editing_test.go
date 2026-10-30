@@ -615,7 +615,8 @@ func TestEditsKeepTheView(t *testing.T) {
 					break // pasted lines push the caret out of view
 				}
 				hs.key(k.mods, k.key)
-				if line, y := top(); line != line0 || y != y0 {
+				// Within what a float32 holds this far down the text.
+				if line, y := top(); line != line0 || y < y0-0.01 || y > y0+0.01 {
 					t.Fatalf("wrap %v, line %d, %v %v: line %d at %v at the top, was %d at %v", wrap, at, k.mods, k.key, line, y, line0, y0)
 				}
 			}
@@ -689,5 +690,219 @@ func TestCutLineKeepsView(t *testing.T) {
 		if d.vscroll.Y != y {
 			t.Fatalf("cutting line %d scrolled from %v to %v", line, y, d.vscroll.Y)
 		}
+	}
+}
+
+// proseFile writes lines of many lengths, which wrap to many rows, so that
+// the heights the text area estimates are far from the ones it measures.
+func (hs *harness) proseFile(name string) string {
+	var b strings.Builder
+	for i := range 800 {
+		fmt.Fprintf(&b, "line %d %s\n", i, strings.Repeat("word ", 20+(i%7)*40))
+	}
+	p := hs.path(name)
+	if err := os.WriteFile(p, []byte(b.String()), 0o644); err != nil {
+		hs.t.Fatal(err)
+	}
+	return p
+}
+
+// Select All leaves the view where it is in the frames it takes, rather
+// than showing the end of the text for one.
+func TestSelectAllLeavesTheView(t *testing.T) {
+	for _, wrap := range []bool{false, true} {
+		hs := newHarness(t, true)
+		a, tt := hs.a, hs.tt
+		a.settings.WordWrap = wrap
+		a.openFile(hs.proseFile("prose.txt"), true)
+		hs.settle()
+		d := a.activeEditor()
+		s, _ := d.buf.Snapshot().LineRange(100)
+		hs.place(d, s, s)
+		// The line at the top, and how far above the view it starts.
+		top := func() (int, float32) {
+			g := a.geometry(d, d.buf.Snapshot().LineCount())
+			l := g.at(d.vscroll.Y - editorPadY)
+			return l, g.top(l) - d.vscroll.Y
+		}
+		line, off := top()
+		a.run("edit.selectAll")
+		for i := range 3 {
+			step(tt)
+			if l, o := top(); l != line || o != off {
+				t.Errorf("wrap %v: frame %d shows line %d%+v at the top, not %d%+v", wrap, i, l, o, line, off)
+			}
+		}
+		if n := d.buf.Snapshot().Len(); d.sel != [2]int{0, n} {
+			t.Errorf("wrap %v: selection %v of %d", wrap, d.sel, n)
+		}
+		tt.Type("x")
+		hs.settle()
+		expectText(t, d, "x")
+	}
+}
+
+// A line added or moved at an edge of the view scrolls it as little as
+// it takes, rather than a third of the way down.
+func TestEditsAtTheEdgeScrollALine(t *testing.T) {
+	hs := newHarness(t, true)
+	a, tt := hs.a, hs.tt
+	a.openFile(hs.longFile("long.go", 400), true)
+	hs.settle()
+	d := a.activeEditor()
+	box, ok := tt.Find("Editor long.go")
+	if !ok {
+		t.Fatal("no editor")
+	}
+	caretY := func() float32 {
+		r, _ := tt.TextCaret()
+		return r.Y
+	}
+	for caretY()+2*a.font.lineH <= box.Y+box.H {
+		tt.Key(0, ui.KeyDown)
+		hs.settle()
+	}
+	bottom := caretY()
+	for _, key := range []struct {
+		name string
+		mods ui.Modifiers
+		key  ui.Key
+	}{
+		{"Enter", 0, ui.KeyEnter},
+		{"Enter", 0, ui.KeyEnter},
+		{"move line down", ui.Alt, ui.KeyDown},
+		{"copy line down", ui.Alt | ui.Shift, ui.KeyDown},
+	} {
+		y := d.vscroll.Y
+		tt.Key(key.mods, key.key)
+		hs.settle()
+		if got := caretY(); got < bottom-2 || d.vscroll.Y-y > 2*a.font.lineH {
+			t.Errorf("%s at the bottom: caret at y %v, scrolled from %v to %v", key.name, got, y, d.vscroll.Y)
+		}
+	}
+
+	d.vscroll.Y = 2000
+	hs.settle()
+	s, _ := d.buf.Snapshot().LineRange(101)
+	hs.place(d, s, s)
+	for range 4 {
+		y := d.vscroll.Y
+		tt.Key(ui.Alt, ui.KeyUp)
+		hs.settle()
+		if got := caretY(); got > box.Y+3*a.font.lineH || y-d.vscroll.Y > 2*a.font.lineH {
+			t.Errorf("move line up at the top: caret at y %v, scrolled from %v to %v", got, y, d.vscroll.Y)
+		}
+	}
+
+	// An undo from far away still lands well into the view.
+	far, _ := d.buf.Snapshot().LineRange(1500)
+	d.selectRange(far, far, false)
+	hs.settle()
+	if got := caretY(); got < box.Y+box.H/4 || got > box.Y+box.H/2 {
+		t.Errorf("a selection from far away shows at y %v in %+v", got, box)
+	}
+}
+
+// Edits the app makes, which have the text area forget the heights of its
+// rows, leave the lines where they show while the lines wrap.
+func TestWrappedEditsKeepTheCaretOnScreen(t *testing.T) {
+	hs := newHarness(t, true)
+	a, tt := hs.a, hs.tt
+	a.settings.WordWrap = true
+	a.openFile(hs.proseFile("prose.txt"), true)
+	hs.settle()
+	d := a.activeEditor()
+	line := func(i int) int { s, _ := d.buf.Snapshot().LineRange(i); return s }
+	hs.place(d, line(50), line(50))
+	hs.place(d, line(52), line(52))
+	caretY := func() float32 {
+		r, _ := tt.TextCaret()
+		return r.Y
+	}
+	y := caretY()
+	for _, c := range []struct {
+		name string
+		do   func()
+		dy   float32
+	}{
+		{"Enter", func() { tt.Key(0, ui.KeyEnter) }, a.font.lineH},
+		{"Undo", func() { tt.Key(ui.Cmd, ui.KeyZ) }, 0},
+		{"Redo", func() { tt.Key(ui.Cmd|ui.Shift, ui.KeyZ) }, a.font.lineH},
+	} {
+		c.do()
+		hs.settle()
+		if got := caretY(); got != y+c.dy {
+			t.Errorf("%s: caret at y %v, want %v", c.name, got, y+c.dy)
+		}
+	}
+
+	// At the last row of the view, the view makes room for the new line.
+	box, ok := tt.Find("Editor prose.txt")
+	if !ok {
+		t.Fatal("no editor")
+	}
+	for caretY() < box.Y+box.H-3*a.font.lineH {
+		tt.Key(0, ui.KeyDown)
+		hs.settle()
+	}
+	for range 4 {
+		tt.Key(0, ui.KeyEnter)
+		hs.settle()
+		if got := caretY(); got+a.font.lineH > box.Y+box.H {
+			t.Errorf("Enter at the end of the view: caret at y %v in %+v", got, box)
+		}
+		if got := caretY(); got < box.Y+box.H-5*a.font.lineH {
+			t.Errorf("Enter at the end of the view: caret jumped up to y %v in %+v", got, box)
+		}
+	}
+}
+
+// A click near the right edge leaves the text where it shows, for a second
+// click to find the word the first was on; a drag past the edge scrolls.
+func TestClickAtTheRightEdgeLeavesTheText(t *testing.T) {
+	hs, d := editHarness(t, "wide.txt", strings.Repeat("abcdefghi ", 60)+"\nshort\n")
+	tt := hs.tt
+	box, ok := tt.Find("Editor wide.txt")
+	if !ok {
+		t.Fatal("no editor")
+	}
+	x, y := box.X+box.W-10, box.Y+editorPadY+hs.a.font.lineH/2
+	tt.Press(x, y)
+	hs.settle()
+	if d.hscroll.X != 0 {
+		t.Errorf("pressed: scrolled sideways to %v", d.hscroll.X)
+	}
+	tt.Release(x, y)
+	hs.settle()
+	if d.hscroll.X != 0 {
+		t.Errorf("released: scrolled sideways to %v", d.hscroll.X)
+	}
+	tt.Press(x-40, y)
+	hs.settle()
+	tt.Move(x+30, y)
+	for range 10 {
+		step(tt)
+	}
+	if d.hscroll.X == 0 {
+		t.Error("a drag past the right edge did not scroll sideways")
+	}
+	tt.Release(x+30, y)
+	hs.settle()
+}
+
+// TestDeletedLongLineNarrowsTheText: once the longest line is gone, the
+// text scrolls sideways no further than the lines left.
+func TestDeletedLongLineNarrowsTheText(t *testing.T) {
+	hs, d := editHarness(t, "a.txt", "short\n")
+	long := strings.Repeat("x", 600) + "\n"
+	d.cmds = append(d.cmds, func(d *editor) { d.edit([2]int{0, 0}, textEdit{0, 0, long}) })
+	hs.settle()
+	if d.hscroll.MaxX <= 0 {
+		t.Fatalf("a line of 600 scrolls no further than %v", d.hscroll.MaxX)
+	}
+	d.cmds = append(d.cmds, func(d *editor) { d.edit([2]int{0, 0}, textEdit{0, len(long), ""}) })
+	hs.settle()
+	if d.hscroll.MaxX > 0 {
+		t.Errorf("without the long line the text still scrolls %v sideways", d.hscroll.MaxX)
 	}
 }

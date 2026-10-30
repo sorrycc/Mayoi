@@ -41,7 +41,7 @@ func (a *app) mergeViewUI(c *ui.Context, v *mergeView) {
 		v.syncRegions()
 	}
 	if v.ed != nil {
-		if !a.settings.Vim {
+		if !a.prefs().Vim {
 			vimReset(v.ed)
 		}
 		// The typing of the result is the merge editor's while the result
@@ -190,8 +190,8 @@ func (a *app) mergeHead(c *ui.Context, v *mergeView) {
 					if m.Item(locales.MergeApplyRight()).Chosen() {
 						a.post(func() { a.applyNonConflicts(v, applyRight) })
 					}
-					if m.Item(locales.MergeApplyAuto()).Checked(a.settings.MergeAutoApply).Chosen() {
-						a.post(func() { a.setMergeAutoApply(!a.settings.MergeAutoApply) })
+					if m.Item(locales.MergeApplyAuto()).Checked(a.prefs().MergeAutoApply).Chosen() {
+						a.post(func() { a.setMergeAutoApply(!a.prefs().MergeAutoApply) })
 					}
 				})
 				col := p.text
@@ -586,7 +586,7 @@ func (a *app) mergePane(c *ui.Context, v *mergeView, k int, label, tip string) {
 				FillHeight().Padding(editorPadY, textPadR, editorPadY, mergeTextX).
 				Label(label).Tooltip(tip)
 			if k == 1 {
-				vimKeys := a.settings.Vim && v.ed.vim.mode != vimInsert
+				vimKeys := a.prefs().Vim && v.ed.vim.mode != vimInsert
 				area.ReadOnly(vimKeys || a.chording() || v.ed.locked())
 				a.takeKeys(area, placeEditor, func(ev ui.InputEvent) bool {
 					if ev.Kind == ui.InputScroll && max(ev.DX, -ev.DX) > max(ev.DY, -ev.DY) {

@@ -133,3 +133,13 @@ func (s Stroke) keyName() string {
 	}
 	return "?"
 }
+
+// KnownKey reports whether the file can name k, as a key of a shortcut.
+func KnownKey(k ui.Key) bool {
+	for _, n := range keyNames {
+		if n == k {
+			return true
+		}
+	}
+	return false
+}

@@ -32,3 +32,38 @@ func TestFindCountFits(t *testing.T) {
 		}, 400, 100)
 	}
 }
+
+// TestFindRevealsAMatchUnderItsBox: a match in the top rows, behind the
+// find widget, scrolls down into sight, as one out of view does.
+func TestFindRevealsAMatchUnderItsBox(t *testing.T) {
+	for _, wrap := range []bool{false, true} {
+		hs := newHarness(t, true)
+		a, tt := hs.a, hs.tt
+		a.settings.WordWrap = wrap
+		a.openFile(hs.longFile("long.go", 200), true)
+		hs.settle()
+		d := a.activeEditor()
+		snap := d.buf.Snapshot()
+		line := 2 + 50*4 // func f50
+		g := a.geometry(d, snap.LineCount())
+		d.vscroll.Y = g.top(line)
+		hs.settle()
+		y := d.vscroll.Y
+		a.run("edit.find")
+		hs.settle()
+		tt.Type("f50()")
+		hs.settle()
+		if n := len(a.find.matches); n != 1 {
+			t.Fatalf("wrap %v: %d matches", wrap, n)
+		}
+		box, ok := tt.Find(locales.FindLabel())
+		if !ok {
+			t.Fatal("no find box")
+		}
+		view := d.lastView
+		g = a.geometry(d, d.buf.Snapshot().LineCount())
+		if top := view.Y + editorPadY + g.top(line) - d.vscroll.Y; top < box.Y+box.H {
+			t.Errorf("wrap %v: the match at %v is under the find box down to %v, scrolled from %v to %v", wrap, top, box.Y+box.H, y, d.vscroll.Y)
+		}
+	}
+}

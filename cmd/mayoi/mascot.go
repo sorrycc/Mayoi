@@ -6,9 +6,10 @@ import (
 	"github.com/egoist/mygo/ui"
 )
 
-// A theme's character, Clawd in Claude, Qoduck in Qoder and Grok Bot's
-// face in Grok Bot, takes the logo's place on the welcome page and sits at
-// the start of the status bar. It blinks now and then and bobs once in a while, and while Git or
+// A theme's character, Clawd in Claude, Qoduck in Qoder, Grok Bot's face
+// in Grok Bot, and Jack, a cauldron and a bat in the Halloween themes,
+// takes the logo's place on the welcome page and sits at the start of the
+// status bar. It blinks now and then and bobs once in a while, and while Git or
 // search works in the background it hops, in place of the Git spinner.
 // Like the rain, it steps rather than glides, and holds still while the
 // window has not the keyboard or the desktop asks for less motion.
@@ -28,6 +29,10 @@ var (
 	clawd   = &mascot{name: "Claude", size: clawdSize, draw: drawClawd}
 	qoduck  = &mascot{name: "Qoder", size: qoduckSize, draw: drawQoduck}
 	grokBot = &mascot{name: "Grok Bot", size: grokBotSize, draw: drawGrokBot}
+
+	jack     = &mascot{name: "Jack-o'-Lantern", size: jackSize, draw: drawJack}
+	cauldron = &mascot{name: "Witch's Brew", size: cauldronSize, draw: drawCauldron}
+	bat      = &mascot{name: "Blood Moon", size: batSize, draw: drawBat}
 )
 
 // themeMascot returns the character of the window's theme, or nil.
@@ -44,6 +49,12 @@ func themeMascotOf(theme string) *mascot {
 		return qoduck
 	case themeGrokBot:
 		return grokBot
+	case themePumpkin:
+		return jack
+	case themeWitchsBrew:
+		return cauldron
+	case themeBloodMoon:
+		return bat
 	}
 	return nil
 }

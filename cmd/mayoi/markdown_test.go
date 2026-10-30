@@ -819,6 +819,7 @@ func TestShotMarkdown(t *testing.T) {
 	}{
 		{"light", "", false}, {"dark", "", true}, {"matrix", themeMatrix, true}, {"claude", themeClaude, true}, {"qoder", themeQoder, false},
 		{"grokbot", themeGrokBot, true}, {"cursor", themeCursor, false}, {"purplegold", themePurpleGold, true},
+		{"pumpkin", themePumpkin, true}, {"witchsbrew", themeWitchsBrew, true}, {"bloodmoon", themeBloodMoon, true},
 	} {
 		hs := newHarness(t, theme.dark)
 		hs.a.settings.Theme = theme.theme
@@ -1066,7 +1067,7 @@ func TestMarkdownInlineStyles(t *testing.T) {
 	a := hs.a
 	a.settings.FontWeight = 500
 	a.settings.FontFeatures = []string{"calt=0", "ss01"}
-	for _, theme := range []string{"", themeMatrix, themeClaude, themeQoder, themeGrokBot, themeCursor, themePurpleGold} {
+	for _, theme := range []string{"", themeMatrix, themeClaude, themeQoder, themeGrokBot, themeCursor, themePurpleGold, themePumpkin, themeWitchsBrew, themeBloodMoon} {
 		for _, dark := range []bool{false, true} {
 			a.pal = paletteFor(theme, dark)
 			p := a.pal

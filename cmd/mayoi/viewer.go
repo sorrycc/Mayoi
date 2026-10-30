@@ -21,6 +21,7 @@ import (
 
 	"mayoi/internal/bg"
 	"mayoi/internal/remote"
+	"mayoi/internal/settings"
 	"mayoi/internal/vfs"
 	"mayoi/locales"
 )
@@ -615,7 +616,7 @@ func (a *app) setPreview(d *editor, on bool) {
 			// The text opens where the preview was.
 			y := a.textY(d, m.sync.top)
 			if d.hidden {
-				d.hiddenY = y
+				d.hiddenY, d.hiddenPlaced = y, false
 			} else {
 				d.vscroll.Y = y
 			}
@@ -632,8 +633,7 @@ func (a *app) setPreview(d *editor, on bool) {
 // toggleMarkdownPreview switches opening Markdown files, .mdx included,
 // rendered or as text.
 func (a *app) toggleMarkdownPreview() {
-	a.settings.MarkdownPreview = !a.settings.MarkdownPreview
-	a.settings.Changed()
+	a.setPref("markdownPreview", func(p *settings.Prefs) { p.MarkdownPreview = !p.MarkdownPreview })
 }
 
 // togglePreview switches between a document's source and rendered view.

@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"mayoi/internal/remote"
+	"mayoi/internal/settings"
 	"mayoi/locales"
 )
 
@@ -24,7 +25,7 @@ type autoSave struct {
 // autoSaves reports whether a document saves itself: a file still on
 // disk, while the setting is on.
 func (a *app) autoSaves(d *document) bool {
-	return a.settings.AutoSave && d.path != "" && !d.diskGone && !d.locked()
+	return a.prefs().AutoSave && d.path != "" && !d.diskGone && !d.locked()
 }
 
 // autoSaveTick follows the documents each frame: a changed one saves a
@@ -39,7 +40,7 @@ func (a *app) autoSaveTick() {
 		a.autoSaveDoc(prev)
 	}
 	a.shownDoc = shown
-	if !a.settings.AutoSave {
+	if !a.prefs().AutoSave {
 		return
 	}
 	for _, d := range a.docs {
@@ -98,9 +99,8 @@ func (a *app) autoSaveAll() {
 }
 
 func (a *app) toggleAutoSave() {
-	a.settings.AutoSave = !a.settings.AutoSave
-	a.settings.Changed()
-	if a.settings.AutoSave {
+	a.setPref("autoSave", func(p *settings.Prefs) { p.AutoSave = !p.AutoSave })
+	if a.prefs().AutoSave {
 		a.autoSaveAll()
 	}
 }

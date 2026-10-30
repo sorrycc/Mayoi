@@ -64,6 +64,30 @@ func TestPurpleGoldTheme(t *testing.T) {
 	}
 }
 
+// The Halloween themes are always dark, whatever the appearance, without
+// rain, each with its character.
+func TestHalloweenThemes(t *testing.T) {
+	for _, tc := range []struct {
+		theme string
+		pal   *palette
+		m     *mascot
+	}{{themePumpkin, pumpkinPal, jack}, {themeWitchsBrew, witchsBrewPal, cauldron}, {themeBloodMoon, bloodMoonPal, bat}} {
+		if paletteFor(tc.theme, false) != tc.pal || paletteFor(tc.theme, true) != tc.pal {
+			t.Errorf("%s follows the window's light or dark", tc.theme)
+		}
+		if themeSource(tc.theme, "light") != mygo.ThemeDark || themeSource(tc.theme, "") != mygo.ThemeDark {
+			t.Errorf("the native window is not dark under %s", tc.theme)
+		}
+		if themeMascotOf(tc.theme) != tc.m {
+			t.Errorf("%s has not its character", tc.theme)
+		}
+		hs := themeHarness(t, tc.theme, false)
+		if hs.a.pal != tc.pal || hs.a.rain.moving {
+			t.Errorf("a light window is not in %s, without rain", tc.theme)
+		}
+	}
+}
+
 // The rain falls while the window has the keyboard, and holds still
 // without it, asking for no frames.
 func TestMatrixRainStopsWhenBlurred(t *testing.T) {
@@ -231,7 +255,8 @@ func TestMascotMoves(t *testing.T) {
 		theme string
 		m     *mascot
 		name  string
-	}{{themeClaude, clawd, "Claude"}, {themeQoder, qoduck, "Qoder"}, {themeGrokBot, grokBot, "Grok Bot"}} {
+	}{{themeClaude, clawd, "Claude"}, {themeQoder, qoduck, "Qoder"}, {themeGrokBot, grokBot, "Grok Bot"},
+		{themePumpkin, jack, "Jack-o'-Lantern"}, {themeWitchsBrew, cauldron, "Witch's Brew"}, {themeBloodMoon, bat, "Blood Moon"}} {
 		hs := themeHarness(t, tc.theme, true)
 		a := hs.a
 		if a.themeMascot() != tc.m {
@@ -288,6 +313,12 @@ func TestShotPurpleGold(t *testing.T) {
 	shotTheme(t, themePurpleGold)
 }
 
+func TestShotHalloween(t *testing.T) {
+	for _, theme := range []string{themePumpkin, themeWitchsBrew, themeBloodMoon} {
+		shotTheme(t, theme)
+	}
+}
+
 // shotTheme shoots a theme's welcome page and an editor, light and dark.
 func shotTheme(t *testing.T, theme string) {
 	if os.Getenv("SHOTS") == "" {
@@ -315,8 +346,9 @@ func shotTheme(t *testing.T, theme string) {
 	}
 }
 
-// The appearances are greyed out in the menu under The Matrix and Purple
-// Gold, which are always dark, and the themes and appearances are checked apart.
+// The appearances are greyed out in the menu under The Matrix, Purple
+// Gold and Witch's Brew, which are always dark, and the themes and
+// appearances are checked apart.
 func TestThemeMenu(t *testing.T) {
 	hs := newHarness(t, true)
 	a := hs.a
@@ -361,6 +393,11 @@ func TestThemeMenu(t *testing.T) {
 	if a.themeMascot() != nil {
 		t.Error("Purple Gold has a character")
 	}
+	a.setTheme(themeWitchsBrew)
+	if l, w := find("Light"), find("Witch's Brew"); w == nil || !w.Checked || find("Purple Gold").Checked || !l.Disabled ||
+		!a.commandOn("view.theme.witchsbrew") {
+		t.Error("Witch's Brew is not the theme checked, with Light greyed out")
+	}
 	a.setTheme(themeQoder)
 	if q, l := find("Qoder"), find("Light"); q == nil || !q.Checked || find("The Matrix").Checked || l.Disabled {
 		t.Error("Qoder is not the theme checked, with Light to choose")
@@ -387,7 +424,8 @@ func TestThemeMenu(t *testing.T) {
 func TestButtonContrast(t *testing.T) {
 	pals := map[string]*palette{"light": lightPal, "dark": darkPal, "matrix": matrixPal, "claude light": claudeLightPal, "claude dark": claudeDarkPal,
 		"qoder light": qoderLightPal, "qoder dark": qoderDarkPal, "grok bot light": grokBotLightPal, "grok bot dark": grokBotDarkPal,
-		"cursor light": cursorLightPal, "cursor dark": cursorDarkPal, "purple gold": purpleGoldPal}
+		"cursor light": cursorLightPal, "cursor dark": cursorDarkPal, "purple gold": purpleGoldPal,
+		"jack-o'-lantern": pumpkinPal, "witch's brew": witchsBrewPal, "blood moon": bloodMoonPal}
 	for name, p := range pals {
 		for _, pair := range []struct {
 			what     string
@@ -413,7 +451,8 @@ func TestButtonContrast(t *testing.T) {
 func TestStatusTextContrast(t *testing.T) {
 	pals := map[string]*palette{"light": lightPal, "dark": darkPal, "matrix": matrixPal, "claude light": claudeLightPal, "claude dark": claudeDarkPal,
 		"qoder light": qoderLightPal, "qoder dark": qoderDarkPal, "grok bot light": grokBotLightPal, "grok bot dark": grokBotDarkPal,
-		"cursor light": cursorLightPal, "cursor dark": cursorDarkPal, "purple gold": purpleGoldPal}
+		"cursor light": cursorLightPal, "cursor dark": cursorDarkPal, "purple gold": purpleGoldPal,
+		"jack-o'-lantern": pumpkinPal, "witch's brew": witchsBrewPal, "blood moon": bloodMoonPal}
 	for name, p := range pals {
 		for what, fg := range map[string]ui.Color{"modified": p.modifiedFg, "added": p.addedFg, "removed": p.removedFg, "danger": p.dangerFg} {
 			for _, back := range []ui.Color{p.chrome, p.editor, p.panel} {

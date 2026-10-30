@@ -119,7 +119,7 @@ func parseDiffHighlight(s string) diffHighlight {
 
 // diffHighlightOf is how the diffs show what changed within a line, as
 // the settings say.
-func (a *app) diffHighlightOf() diffHighlight { return parseDiffHighlight(a.settings.DiffHighlight) }
+func (a *app) diffHighlightOf() diffHighlight { return parseDiffHighlight(a.prefs().DiffHighlight) }
 
 // diffWhitespace controls which whitespace differences participate in the
 // line comparison. The original lines remain untouched for painting and
@@ -148,7 +148,7 @@ func parseDiffWhitespace(s string) diffWhitespace {
 }
 
 func (a *app) diffWhitespaceOf() diffWhitespace {
-	return parseDiffWhitespace(a.settings.DiffWhitespace)
+	return parseDiffWhitespace(a.prefs().DiffWhitespace)
 }
 
 func normalizeDiffLine(s string, mode diffWhitespace) string {
@@ -219,7 +219,7 @@ func withoutBlankHunks(hs []linediff.Hunk, old, new []string) []linediff.Hunk {
 // diffContextOf is how many unchanged lines the diffs show around a
 // change, as the settings say.
 func (a *app) diffContextOf() int {
-	return min(max(a.settings.DiffContext, 0), settings.MaxDiffContext)
+	return min(max(a.prefs().DiffContext, 0), settings.MaxDiffContext)
 }
 
 // diffSide is a version of the file a diff shows.
@@ -1158,7 +1158,7 @@ func (a *app) wrapsDiff(v *diffView) bool {
 	if v.wrap != nil && v.wrapGen == a.settings.WrapGen {
 		return *v.wrap
 	}
-	return a.settings.WordWrap
+	return a.prefs().WordWrap
 }
 
 // splitWidth is how many columns each side of a diff needs, at least, for
@@ -2427,11 +2427,10 @@ func (a *app) setDiffFull(v *diffView, full bool) {
 // the line at the top of the view where it was.
 func (a *app) setDiffContext(n int) {
 	n = min(max(n, 0), settings.MaxDiffContext)
-	if a.settings.DiffContext == n {
+	if a.prefs().DiffContext == n {
 		return
 	}
-	a.settings.DiffContext = n
-	a.settings.Changed()
+	a.setPref("diffContext", func(p *settings.Prefs) { p.DiffContext = n })
 	a.invalidate()
 }
 
@@ -2443,8 +2442,7 @@ func (a *app) setDiffHighlight(h diffHighlight) {
 	if a.diffHighlightOf() == h {
 		return
 	}
-	a.settings.DiffHighlight = h.key()
-	a.settings.Changed()
+	a.setPref("diffHighlight", func(p *settings.Prefs) { p.DiffHighlight = h.key() })
 	a.invalidate()
 }
 
@@ -2455,8 +2453,7 @@ func (a *app) setDiffWhitespace(w diffWhitespace) {
 	if a.diffWhitespaceOf() == w {
 		return
 	}
-	a.settings.DiffWhitespace = w.key()
-	a.settings.Changed()
+	a.setPref("diffWhitespace", func(p *settings.Prefs) { p.DiffWhitespace = w.key() })
 	for _, col := range a.cols {
 		for _, t := range col.tabs {
 			if t.diff == nil {
@@ -2589,7 +2586,7 @@ func (a *app) diffsOnDisk(changed []string) {
 
 // crossesDiff is how the settings have a diff's change navigation cross
 // into another file at the ends of one.
-func (a *app) crossesDiff() diffCross { return parseDiffCross(a.settings.DiffCrossFiles) }
+func (a *app) crossesDiff() diffCross { return parseDiffCross(a.prefs().DiffCrossFiles) }
 
 // stepChange goes to the next change of the tab shown, or the previous
 // one: a diff's hunk, or the lines of an editor changed since the last

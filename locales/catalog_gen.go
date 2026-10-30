@@ -802,6 +802,36 @@ func (msgs Messages) ThemeAboutPurpleGold() string {
 	return Catalog.Format(msgs.locale, "themeAboutPurpleGold", nil)
 }
 
+// ThemeAboutPumpkin says "Pumpkin orange by candlelight"
+// in the language the app shows.
+func ThemeAboutPumpkin() string { return In(i18n.Locale()).ThemeAboutPumpkin() }
+
+// ThemeAboutPumpkin says "Pumpkin orange by candlelight"
+// in the language of msgs.
+func (msgs Messages) ThemeAboutPumpkin() string {
+	return Catalog.Format(msgs.locale, "themeAboutPumpkin", nil)
+}
+
+// ThemeAboutWitchsBrew says "Plum dark, with slime green"
+// in the language the app shows.
+func ThemeAboutWitchsBrew() string { return In(i18n.Locale()).ThemeAboutWitchsBrew() }
+
+// ThemeAboutWitchsBrew says "Plum dark, with slime green"
+// in the language of msgs.
+func (msgs Messages) ThemeAboutWitchsBrew() string {
+	return Catalog.Format(msgs.locale, "themeAboutWitchsBrew", nil)
+}
+
+// ThemeAboutBloodMoon says "Crimson and old gold under a red moon"
+// in the language the app shows.
+func ThemeAboutBloodMoon() string { return In(i18n.Locale()).ThemeAboutBloodMoon() }
+
+// ThemeAboutBloodMoon says "Crimson and old gold under a red moon"
+// in the language of msgs.
+func (msgs Messages) ThemeAboutBloodMoon() string {
+	return Catalog.Format(msgs.locale, "themeAboutBloodMoon", nil)
+}
+
 // ThemeAboutQoder says "Qoder's Forest greens"
 // in the language the app shows.
 func ThemeAboutQoder() string { return In(i18n.Locale()).ThemeAboutQoder() }
@@ -2146,11 +2176,11 @@ func (msgs Messages) CmdFileInstallCLI() string {
 	return Catalog.Format(msgs.locale, "cmdFileInstallCLI", nil)
 }
 
-// CmdFileKeybindings says "Open Keyboard Shortcuts"
+// CmdFileKeybindings says "Keyboard Shortcuts…"
 // in the language the app shows.
 func CmdFileKeybindings() string { return In(i18n.Locale()).CmdFileKeybindings() }
 
-// CmdFileKeybindings says "Open Keyboard Shortcuts"
+// CmdFileKeybindings says "Keyboard Shortcuts…"
 // in the language of msgs.
 func (msgs Messages) CmdFileKeybindings() string {
 	return Catalog.Format(msgs.locale, "cmdFileKeybindings", nil)
@@ -2246,11 +2276,11 @@ func (msgs Messages) CmdFileSaveAs() string {
 	return Catalog.Format(msgs.locale, "cmdFileSaveAs", nil)
 }
 
-// CmdFileSettings says "Open Settings"
+// CmdFileSettings says "Settings…"
 // in the language the app shows.
 func CmdFileSettings() string { return In(i18n.Locale()).CmdFileSettings() }
 
-// CmdFileSettings says "Open Settings"
+// CmdFileSettings says "Settings…"
 // in the language of msgs.
 func (msgs Messages) CmdFileSettings() string {
 	return Catalog.Format(msgs.locale, "cmdFileSettings", nil)
@@ -3274,6 +3304,36 @@ func CmdViewThemePurpleGold() string { return In(i18n.Locale()).CmdViewThemePurp
 // in the language of msgs.
 func (msgs Messages) CmdViewThemePurpleGold() string {
 	return Catalog.Format(msgs.locale, "cmdViewThemePurpleGold", nil)
+}
+
+// CmdViewThemePumpkin says "Jack-o'-Lantern"
+// in the language the app shows.
+func CmdViewThemePumpkin() string { return In(i18n.Locale()).CmdViewThemePumpkin() }
+
+// CmdViewThemePumpkin says "Jack-o'-Lantern"
+// in the language of msgs.
+func (msgs Messages) CmdViewThemePumpkin() string {
+	return Catalog.Format(msgs.locale, "cmdViewThemePumpkin", nil)
+}
+
+// CmdViewThemeWitchsBrew says "Witch's Brew"
+// in the language the app shows.
+func CmdViewThemeWitchsBrew() string { return In(i18n.Locale()).CmdViewThemeWitchsBrew() }
+
+// CmdViewThemeWitchsBrew says "Witch's Brew"
+// in the language of msgs.
+func (msgs Messages) CmdViewThemeWitchsBrew() string {
+	return Catalog.Format(msgs.locale, "cmdViewThemeWitchsBrew", nil)
+}
+
+// CmdViewThemeBloodMoon says "Blood Moon"
+// in the language the app shows.
+func CmdViewThemeBloodMoon() string { return In(i18n.Locale()).CmdViewThemeBloodMoon() }
+
+// CmdViewThemeBloodMoon says "Blood Moon"
+// in the language of msgs.
+func (msgs Messages) CmdViewThemeBloodMoon() string {
+	return Catalog.Format(msgs.locale, "cmdViewThemeBloodMoon", nil)
 }
 
 // CmdViewTogglePreview says "Toggle Preview"
@@ -12602,4 +12662,1844 @@ func WriteMessageFirst() string { return In(i18n.Locale()).WriteMessageFirst() }
 // in the language of msgs.
 func (msgs Messages) WriteMessageFirst() string {
 	return Catalog.Format(msgs.locale, "writeMessageFirst", nil)
+}
+
+// CmdFileSettingsJSON says "Open Settings (JSON)"
+// in the language the app shows.
+func CmdFileSettingsJSON() string { return In(i18n.Locale()).CmdFileSettingsJSON() }
+
+// CmdFileSettingsJSON says "Open Settings (JSON)"
+// in the language of msgs.
+func (msgs Messages) CmdFileSettingsJSON() string {
+	return Catalog.Format(msgs.locale, "cmdFileSettingsJSON", nil)
+}
+
+// CmdFileKeybindingsJSON says "Open Keyboard Shortcuts (JSON)"
+// in the language the app shows.
+func CmdFileKeybindingsJSON() string { return In(i18n.Locale()).CmdFileKeybindingsJSON() }
+
+// CmdFileKeybindingsJSON says "Open Keyboard Shortcuts (JSON)"
+// in the language of msgs.
+func (msgs Messages) CmdFileKeybindingsJSON() string {
+	return Catalog.Format(msgs.locale, "cmdFileKeybindingsJSON", nil)
+}
+
+// CmdFileFolderSettings says "Open Folder Settings (JSON)"
+// in the language the app shows.
+func CmdFileFolderSettings() string { return In(i18n.Locale()).CmdFileFolderSettings() }
+
+// CmdFileFolderSettings says "Open Folder Settings (JSON)"
+// in the language of msgs.
+func (msgs Messages) CmdFileFolderSettings() string {
+	return Catalog.Format(msgs.locale, "cmdFileFolderSettings", nil)
+}
+
+// PrefsTitle says "Settings"
+// in the language the app shows.
+func PrefsTitle() string { return In(i18n.Locale()).PrefsTitle() }
+
+// PrefsTitle says "Settings"
+// in the language of msgs.
+func (msgs Messages) PrefsTitle() string {
+	return Catalog.Format(msgs.locale, "prefsTitle", nil)
+}
+
+// PrefsSearch says "Search settings"
+// in the language the app shows.
+func PrefsSearch() string { return In(i18n.Locale()).PrefsSearch() }
+
+// PrefsSearch says "Search settings"
+// in the language of msgs.
+func (msgs Messages) PrefsSearch() string {
+	return Catalog.Format(msgs.locale, "prefsSearch", nil)
+}
+
+// PrefsFound says "{count, plural, one {# setting found} other {# settings found}}"
+// in the language the app shows.
+func PrefsFound(count int) string { return In(i18n.Locale()).PrefsFound(count) }
+
+// PrefsFound says "{count, plural, one {# setting found} other {# settings found}}"
+// in the language of msgs.
+func (msgs Messages) PrefsFound(count int) string {
+	return Catalog.Format(msgs.locale, "prefsFound", map[string]any{"count": count})
+}
+
+// PrefsChangedCount says "{count, plural, one {# setting changed} other {# settings changed}}"
+// in the language the app shows.
+func PrefsChangedCount(count int) string { return In(i18n.Locale()).PrefsChangedCount(count) }
+
+// PrefsChangedCount says "{count, plural, one {# setting changed} other {# settings changed}}"
+// in the language of msgs.
+func (msgs Messages) PrefsChangedCount(count int) string {
+	return Catalog.Format(msgs.locale, "prefsChangedCount", map[string]any{"count": count})
+}
+
+// PrefsNoneFound says "No settings match"
+// in the language the app shows.
+func PrefsNoneFound() string { return In(i18n.Locale()).PrefsNoneFound() }
+
+// PrefsNoneFound says "No settings match"
+// in the language of msgs.
+func (msgs Messages) PrefsNoneFound() string {
+	return Catalog.Format(msgs.locale, "prefsNoneFound", nil)
+}
+
+// PrefsUser says "User"
+// in the language the app shows.
+func PrefsUser() string { return In(i18n.Locale()).PrefsUser() }
+
+// PrefsUser says "User"
+// in the language of msgs.
+func (msgs Messages) PrefsUser() string {
+	return Catalog.Format(msgs.locale, "prefsUser", nil)
+}
+
+// PrefsFolder says "Folder: {folder}"
+// in the language the app shows.
+func PrefsFolder(folder string) string { return In(i18n.Locale()).PrefsFolder(folder) }
+
+// PrefsFolder says "Folder: {folder}"
+// in the language of msgs.
+func (msgs Messages) PrefsFolder(folder string) string {
+	return Catalog.Format(msgs.locale, "prefsFolder", map[string]any{"folder": folder})
+}
+
+// PrefsScope says "Whose settings"
+// in the language the app shows.
+func PrefsScope() string { return In(i18n.Locale()).PrefsScope() }
+
+// PrefsScope says "Whose settings"
+// in the language of msgs.
+func (msgs Messages) PrefsScope() string {
+	return Catalog.Format(msgs.locale, "prefsScope", nil)
+}
+
+// PrefsFolderNote says "These apply to this folder only, and are saved in its {file}."
+// in the language the app shows.
+func PrefsFolderNote(file string) string { return In(i18n.Locale()).PrefsFolderNote(file) }
+
+// PrefsFolderNote says "These apply to this folder only, and are saved in its {file}."
+// in the language of msgs.
+func (msgs Messages) PrefsFolderNote(file string) string {
+	return Catalog.Format(msgs.locale, "prefsFolderNote", map[string]any{"file": file})
+}
+
+// PrefsOpenFile says "Open File"
+// in the language the app shows.
+func PrefsOpenFile() string { return In(i18n.Locale()).PrefsOpenFile() }
+
+// PrefsOpenFile says "Open File"
+// in the language of msgs.
+func (msgs Messages) PrefsOpenFile() string {
+	return Catalog.Format(msgs.locale, "prefsOpenFile", nil)
+}
+
+// PrefsInherited says "Not set for this folder: your setting applies"
+// in the language the app shows.
+func PrefsInherited() string { return In(i18n.Locale()).PrefsInherited() }
+
+// PrefsInherited says "Not set for this folder: your setting applies"
+// in the language of msgs.
+func (msgs Messages) PrefsInherited() string {
+	return Catalog.Format(msgs.locale, "prefsInherited", nil)
+}
+
+// PrefsReset says "Reset to Default"
+// in the language the app shows.
+func PrefsReset() string { return In(i18n.Locale()).PrefsReset() }
+
+// PrefsReset says "Reset to Default"
+// in the language of msgs.
+func (msgs Messages) PrefsReset() string {
+	return Catalog.Format(msgs.locale, "prefsReset", nil)
+}
+
+// PrefsInherit says "Use Your Setting"
+// in the language the app shows.
+func PrefsInherit() string { return In(i18n.Locale()).PrefsInherit() }
+
+// PrefsInherit says "Use Your Setting"
+// in the language of msgs.
+func (msgs Messages) PrefsInherit() string {
+	return Catalog.Format(msgs.locale, "prefsInherit", nil)
+}
+
+// PrefsWasReset says "{name} reset to default"
+// in the language the app shows.
+func PrefsWasReset(name string) string { return In(i18n.Locale()).PrefsWasReset(name) }
+
+// PrefsWasReset says "{name} reset to default"
+// in the language of msgs.
+func (msgs Messages) PrefsWasReset(name string) string {
+	return Catalog.Format(msgs.locale, "prefsWasReset", map[string]any{"name": name})
+}
+
+// PrefsWasInherited says "{name} uses your setting again"
+// in the language the app shows.
+func PrefsWasInherited(name string) string { return In(i18n.Locale()).PrefsWasInherited(name) }
+
+// PrefsWasInherited says "{name} uses your setting again"
+// in the language of msgs.
+func (msgs Messages) PrefsWasInherited(name string) string {
+	return Catalog.Format(msgs.locale, "prefsWasInherited", map[string]any{"name": name})
+}
+
+// PrefsDismiss says "Dismiss"
+// in the language the app shows.
+func PrefsDismiss() string { return In(i18n.Locale()).PrefsDismiss() }
+
+// PrefsDismiss says "Dismiss"
+// in the language of msgs.
+func (msgs Messages) PrefsDismiss() string {
+	return Catalog.Format(msgs.locale, "prefsDismiss", nil)
+}
+
+// PrefsFontsShow says "Show Fonts"
+// in the language the app shows.
+func PrefsFontsShow() string { return In(i18n.Locale()).PrefsFontsShow() }
+
+// PrefsFontsShow says "Show Fonts"
+// in the language of msgs.
+func (msgs Messages) PrefsFontsShow() string {
+	return Catalog.Format(msgs.locale, "prefsFontsShow", nil)
+}
+
+// KeysWereReset says "Keys of {command} reset to default"
+// in the language the app shows.
+func KeysWereReset(command string) string { return In(i18n.Locale()).KeysWereReset(command) }
+
+// KeysWereReset says "Keys of {command} reset to default"
+// in the language of msgs.
+func (msgs Messages) KeysWereReset(command string) string {
+	return Catalog.Format(msgs.locale, "keysWereReset", map[string]any{"command": command})
+}
+
+// KeysWereRemoved says "Keys of {command} removed"
+// in the language the app shows.
+func KeysWereRemoved(command string) string { return In(i18n.Locale()).KeysWereRemoved(command) }
+
+// KeysWereRemoved says "Keys of {command} removed"
+// in the language of msgs.
+func (msgs Messages) KeysWereRemoved(command string) string {
+	return Catalog.Format(msgs.locale, "keysWereRemoved", map[string]any{"command": command})
+}
+
+// PrefsNoFolder says "Open a folder on this machine to give it settings of its own"
+// in the language the app shows.
+func PrefsNoFolder() string { return In(i18n.Locale()).PrefsNoFolder() }
+
+// PrefsNoFolder says "Open a folder on this machine to give it settings of its own"
+// in the language of msgs.
+func (msgs Messages) PrefsNoFolder() string {
+	return Catalog.Format(msgs.locale, "prefsNoFolder", nil)
+}
+
+// PrefsNoStyles says "No project has a look of its own yet. Right-click a project on the rail to give it one."
+// in the language the app shows.
+func PrefsNoStyles() string { return In(i18n.Locale()).PrefsNoStyles() }
+
+// PrefsNoStyles says "No project has a look of its own yet. Right-click a project on the rail to give it one."
+// in the language of msgs.
+func (msgs Messages) PrefsNoStyles() string {
+	return Catalog.Format(msgs.locale, "prefsNoStyles", nil)
+}
+
+// PrefsStyleLabel says "Label"
+// in the language the app shows.
+func PrefsStyleLabel() string { return In(i18n.Locale()).PrefsStyleLabel() }
+
+// PrefsStyleLabel says "Label"
+// in the language of msgs.
+func (msgs Messages) PrefsStyleLabel() string {
+	return Catalog.Format(msgs.locale, "prefsStyleLabel", nil)
+}
+
+// PrefsStyleColor says "Color"
+// in the language the app shows.
+func PrefsStyleColor() string { return In(i18n.Locale()).PrefsStyleColor() }
+
+// PrefsStyleColor says "Color"
+// in the language of msgs.
+func (msgs Messages) PrefsStyleColor() string {
+	return Catalog.Format(msgs.locale, "prefsStyleColor", nil)
+}
+
+// PrefsStyleOwnColor says "Its own"
+// in the language the app shows.
+func PrefsStyleOwnColor() string { return In(i18n.Locale()).PrefsStyleOwnColor() }
+
+// PrefsStyleOwnColor says "Its own"
+// in the language of msgs.
+func (msgs Messages) PrefsStyleOwnColor() string {
+	return Catalog.Format(msgs.locale, "prefsStyleOwnColor", nil)
+}
+
+// PrefsStyleRemove says "Remove This Look"
+// in the language the app shows.
+func PrefsStyleRemove() string { return In(i18n.Locale()).PrefsStyleRemove() }
+
+// PrefsStyleRemove says "Remove This Look"
+// in the language of msgs.
+func (msgs Messages) PrefsStyleRemove() string {
+	return Catalog.Format(msgs.locale, "prefsStyleRemove", nil)
+}
+
+// KeysSearch says "Search commands"
+// in the language the app shows.
+func KeysSearch() string { return In(i18n.Locale()).KeysSearch() }
+
+// KeysSearch says "Search commands"
+// in the language of msgs.
+func (msgs Messages) KeysSearch() string {
+	return Catalog.Format(msgs.locale, "keysSearch", nil)
+}
+
+// KeysSearchByKeys says "Search by Keys"
+// in the language the app shows.
+func KeysSearchByKeys() string { return In(i18n.Locale()).KeysSearchByKeys() }
+
+// KeysSearchByKeys says "Search by Keys"
+// in the language of msgs.
+func (msgs Messages) KeysSearchByKeys() string {
+	return Catalog.Format(msgs.locale, "keysSearchByKeys", nil)
+}
+
+// KeysPressToSearch says "Press keys to search"
+// in the language the app shows.
+func KeysPressToSearch() string { return In(i18n.Locale()).KeysPressToSearch() }
+
+// KeysPressToSearch says "Press keys to search"
+// in the language of msgs.
+func (msgs Messages) KeysPressToSearch() string {
+	return Catalog.Format(msgs.locale, "keysPressToSearch", nil)
+}
+
+// KeysCommand says "Command"
+// in the language the app shows.
+func KeysCommand() string { return In(i18n.Locale()).KeysCommand() }
+
+// KeysCommand says "Command"
+// in the language of msgs.
+func (msgs Messages) KeysCommand() string {
+	return Catalog.Format(msgs.locale, "keysCommand", nil)
+}
+
+// KeysKeys says "Keys"
+// in the language the app shows.
+func KeysKeys() string { return In(i18n.Locale()).KeysKeys() }
+
+// KeysKeys says "Keys"
+// in the language of msgs.
+func (msgs Messages) KeysKeys() string {
+	return Catalog.Format(msgs.locale, "keysKeys", nil)
+}
+
+// KeysSource says "Source"
+// in the language the app shows.
+func KeysSource() string { return In(i18n.Locale()).KeysSource() }
+
+// KeysSource says "Source"
+// in the language of msgs.
+func (msgs Messages) KeysSource() string {
+	return Catalog.Format(msgs.locale, "keysSource", nil)
+}
+
+// KeysNoneFound says "No commands match"
+// in the language the app shows.
+func KeysNoneFound() string { return In(i18n.Locale()).KeysNoneFound() }
+
+// KeysNoneFound says "No commands match"
+// in the language of msgs.
+func (msgs Messages) KeysNoneFound() string {
+	return Catalog.Format(msgs.locale, "keysNoneFound", nil)
+}
+
+// KeysFilter says "Show Commands"
+// in the language the app shows.
+func KeysFilter() string { return In(i18n.Locale()).KeysFilter() }
+
+// KeysFilter says "Show Commands"
+// in the language of msgs.
+func (msgs Messages) KeysFilter() string {
+	return Catalog.Format(msgs.locale, "keysFilter", nil)
+}
+
+// KeysFilterAll says "All"
+// in the language the app shows.
+func KeysFilterAll() string { return In(i18n.Locale()).KeysFilterAll() }
+
+// KeysFilterAll says "All"
+// in the language of msgs.
+func (msgs Messages) KeysFilterAll() string {
+	return Catalog.Format(msgs.locale, "keysFilterAll", nil)
+}
+
+// KeysFilterChanged says "Changed by Me"
+// in the language the app shows.
+func KeysFilterChanged() string { return In(i18n.Locale()).KeysFilterChanged() }
+
+// KeysFilterChanged says "Changed by Me"
+// in the language of msgs.
+func (msgs Messages) KeysFilterChanged() string {
+	return Catalog.Format(msgs.locale, "keysFilterChanged", nil)
+}
+
+// KeysFilterConflicts says "Conflicts"
+// in the language the app shows.
+func KeysFilterConflicts() string { return In(i18n.Locale()).KeysFilterConflicts() }
+
+// KeysFilterConflicts says "Conflicts"
+// in the language of msgs.
+func (msgs Messages) KeysFilterConflicts() string {
+	return Catalog.Format(msgs.locale, "keysFilterConflicts", nil)
+}
+
+// KeysNoConflicts says "No two commands share keys"
+// in the language the app shows.
+func KeysNoConflicts() string { return In(i18n.Locale()).KeysNoConflicts() }
+
+// KeysNoConflicts says "No two commands share keys"
+// in the language of msgs.
+func (msgs Messages) KeysNoConflicts() string {
+	return Catalog.Format(msgs.locale, "keysNoConflicts", nil)
+}
+
+// KeysDefault says "Default"
+// in the language the app shows.
+func KeysDefault() string { return In(i18n.Locale()).KeysDefault() }
+
+// KeysDefault says "Default"
+// in the language of msgs.
+func (msgs Messages) KeysDefault() string {
+	return Catalog.Format(msgs.locale, "keysDefault", nil)
+}
+
+// KeysUser says "User"
+// in the language the app shows.
+func KeysUser() string { return In(i18n.Locale()).KeysUser() }
+
+// KeysUser says "User"
+// in the language of msgs.
+func (msgs Messages) KeysUser() string {
+	return Catalog.Format(msgs.locale, "keysUser", nil)
+}
+
+// KeysRemoved says "Removed"
+// in the language the app shows.
+func KeysRemoved() string { return In(i18n.Locale()).KeysRemoved() }
+
+// KeysRemoved says "Removed"
+// in the language of msgs.
+func (msgs Messages) KeysRemoved() string {
+	return Catalog.Format(msgs.locale, "keysRemoved", nil)
+}
+
+// KeysMore says "{count, plural, one {+# more} other {+# more}}"
+// in the language the app shows.
+func KeysMore(count int) string { return In(i18n.Locale()).KeysMore(count) }
+
+// KeysMore says "{count, plural, one {+# more} other {+# more}}"
+// in the language of msgs.
+func (msgs Messages) KeysMore(count int) string {
+	return Catalog.Format(msgs.locale, "keysMore", map[string]any{"count": count})
+}
+
+// KeysMoreTip says "More keys in keybindings.json, with a condition or arguments"
+// in the language the app shows.
+func KeysMoreTip() string { return In(i18n.Locale()).KeysMoreTip() }
+
+// KeysMoreTip says "More keys in keybindings.json, with a condition or arguments"
+// in the language of msgs.
+func (msgs Messages) KeysMoreTip() string {
+	return Catalog.Format(msgs.locale, "keysMoreTip", nil)
+}
+
+// KeysChange says "Change Keys"
+// in the language the app shows.
+func KeysChange() string { return In(i18n.Locale()).KeysChange() }
+
+// KeysChange says "Change Keys"
+// in the language of msgs.
+func (msgs Messages) KeysChange() string {
+	return Catalog.Format(msgs.locale, "keysChange", nil)
+}
+
+// KeysRemove says "Remove Keys"
+// in the language the app shows.
+func KeysRemove() string { return In(i18n.Locale()).KeysRemove() }
+
+// KeysRemove says "Remove Keys"
+// in the language of msgs.
+func (msgs Messages) KeysRemove() string {
+	return Catalog.Format(msgs.locale, "keysRemove", nil)
+}
+
+// KeysReset says "Reset to Default"
+// in the language the app shows.
+func KeysReset() string { return In(i18n.Locale()).KeysReset() }
+
+// KeysReset says "Reset to Default"
+// in the language of msgs.
+func (msgs Messages) KeysReset() string {
+	return Catalog.Format(msgs.locale, "keysReset", nil)
+}
+
+// KeysRecordTitle says "Keys for {name}"
+// in the language the app shows.
+func KeysRecordTitle(name string) string { return In(i18n.Locale()).KeysRecordTitle(name) }
+
+// KeysRecordTitle says "Keys for {name}"
+// in the language of msgs.
+func (msgs Messages) KeysRecordTitle(name string) string {
+	return Catalog.Format(msgs.locale, "keysRecordTitle", map[string]any{"name": name})
+}
+
+// KeysPress says "Press the keys"
+// in the language the app shows.
+func KeysPress() string { return In(i18n.Locale()).KeysPress() }
+
+// KeysPress says "Press the keys"
+// in the language of msgs.
+func (msgs Messages) KeysPress() string {
+	return Catalog.Format(msgs.locale, "keysPress", nil)
+}
+
+// KeysRecordHint says "Press up to two keys for a chord. Enter saves, Escape cancels and Backspace starts over."
+// in the language the app shows.
+func KeysRecordHint() string { return In(i18n.Locale()).KeysRecordHint() }
+
+// KeysRecordHint says "Press up to two keys for a chord. Enter saves, Escape cancels and Backspace starts over."
+// in the language of msgs.
+func (msgs Messages) KeysRecordHint() string {
+	return Catalog.Format(msgs.locale, "keysRecordHint", nil)
+}
+
+// KeysConflict says "Also the keys of {names}"
+// in the language the app shows.
+func KeysConflict(names string) string { return In(i18n.Locale()).KeysConflict(names) }
+
+// KeysConflict says "Also the keys of {names}"
+// in the language of msgs.
+func (msgs Messages) KeysConflict(names string) string {
+	return Catalog.Format(msgs.locale, "keysConflict", map[string]any{"names": names})
+}
+
+// KeysSave says "Save"
+// in the language the app shows.
+func KeysSave() string { return In(i18n.Locale()).KeysSave() }
+
+// KeysSave says "Save"
+// in the language of msgs.
+func (msgs Messages) KeysSave() string {
+	return Catalog.Format(msgs.locale, "keysSave", nil)
+}
+
+// KeysCouldNotEdit says "Could not change keybindings.json: {err}"
+// in the language the app shows.
+func KeysCouldNotEdit(err string) string { return In(i18n.Locale()).KeysCouldNotEdit(err) }
+
+// KeysCouldNotEdit says "Could not change keybindings.json: {err}"
+// in the language of msgs.
+func (msgs Messages) KeysCouldNotEdit(err string) string {
+	return Catalog.Format(msgs.locale, "keysCouldNotEdit", map[string]any{"err": err})
+}
+
+// PrefSectionAppearance says "Appearance"
+// in the language the app shows.
+func PrefSectionAppearance() string { return In(i18n.Locale()).PrefSectionAppearance() }
+
+// PrefSectionAppearance says "Appearance"
+// in the language of msgs.
+func (msgs Messages) PrefSectionAppearance() string {
+	return Catalog.Format(msgs.locale, "prefSectionAppearance", nil)
+}
+
+// PrefSectionFonts says "Fonts"
+// in the language the app shows.
+func PrefSectionFonts() string { return In(i18n.Locale()).PrefSectionFonts() }
+
+// PrefSectionFonts says "Fonts"
+// in the language of msgs.
+func (msgs Messages) PrefSectionFonts() string {
+	return Catalog.Format(msgs.locale, "prefSectionFonts", nil)
+}
+
+// PrefSectionEditor says "Editor"
+// in the language the app shows.
+func PrefSectionEditor() string { return In(i18n.Locale()).PrefSectionEditor() }
+
+// PrefSectionEditor says "Editor"
+// in the language of msgs.
+func (msgs Messages) PrefSectionEditor() string {
+	return Catalog.Format(msgs.locale, "prefSectionEditor", nil)
+}
+
+// PrefSectionMarkdown says "Markdown"
+// in the language the app shows.
+func PrefSectionMarkdown() string { return In(i18n.Locale()).PrefSectionMarkdown() }
+
+// PrefSectionMarkdown says "Markdown"
+// in the language of msgs.
+func (msgs Messages) PrefSectionMarkdown() string {
+	return Catalog.Format(msgs.locale, "prefSectionMarkdown", nil)
+}
+
+// PrefSectionTerminal says "Terminal"
+// in the language the app shows.
+func PrefSectionTerminal() string { return In(i18n.Locale()).PrefSectionTerminal() }
+
+// PrefSectionTerminal says "Terminal"
+// in the language of msgs.
+func (msgs Messages) PrefSectionTerminal() string {
+	return Catalog.Format(msgs.locale, "prefSectionTerminal", nil)
+}
+
+// PrefSectionDiff says "Diffs and Merges"
+// in the language the app shows.
+func PrefSectionDiff() string { return In(i18n.Locale()).PrefSectionDiff() }
+
+// PrefSectionDiff says "Diffs and Merges"
+// in the language of msgs.
+func (msgs Messages) PrefSectionDiff() string {
+	return Catalog.Format(msgs.locale, "prefSectionDiff", nil)
+}
+
+// PrefSectionGit says "Git"
+// in the language the app shows.
+func PrefSectionGit() string { return In(i18n.Locale()).PrefSectionGit() }
+
+// PrefSectionGit says "Git"
+// in the language of msgs.
+func (msgs Messages) PrefSectionGit() string {
+	return Catalog.Format(msgs.locale, "prefSectionGit", nil)
+}
+
+// PrefSectionVim says "Vim"
+// in the language the app shows.
+func PrefSectionVim() string { return In(i18n.Locale()).PrefSectionVim() }
+
+// PrefSectionVim says "Vim"
+// in the language of msgs.
+func (msgs Messages) PrefSectionVim() string {
+	return Catalog.Format(msgs.locale, "prefSectionVim", nil)
+}
+
+// PrefSectionGeneral says "General"
+// in the language the app shows.
+func PrefSectionGeneral() string { return In(i18n.Locale()).PrefSectionGeneral() }
+
+// PrefSectionGeneral says "General"
+// in the language of msgs.
+func (msgs Messages) PrefSectionGeneral() string {
+	return Catalog.Format(msgs.locale, "prefSectionGeneral", nil)
+}
+
+// PrefSectionShortcuts says "Keyboard Shortcuts"
+// in the language the app shows.
+func PrefSectionShortcuts() string { return In(i18n.Locale()).PrefSectionShortcuts() }
+
+// PrefSectionShortcuts says "Keyboard Shortcuts"
+// in the language of msgs.
+func (msgs Messages) PrefSectionShortcuts() string {
+	return Catalog.Format(msgs.locale, "prefSectionShortcuts", nil)
+}
+
+// PrefTitleTheme says "Theme"
+// in the language the app shows.
+func PrefTitleTheme() string { return In(i18n.Locale()).PrefTitleTheme() }
+
+// PrefTitleTheme says "Theme"
+// in the language of msgs.
+func (msgs Messages) PrefTitleTheme() string {
+	return Catalog.Format(msgs.locale, "prefTitleTheme", nil)
+}
+
+// PrefDescTheme says "The colors of every window. The Matrix, Purple Gold and the Halloween themes are always dark."
+// in the language the app shows.
+func PrefDescTheme() string { return In(i18n.Locale()).PrefDescTheme() }
+
+// PrefDescTheme says "The colors of every window. The Matrix, Purple Gold and the Halloween themes are always dark."
+// in the language of msgs.
+func (msgs Messages) PrefDescTheme() string {
+	return Catalog.Format(msgs.locale, "prefDescTheme", nil)
+}
+
+// PrefTitleAppearance says "Appearance"
+// in the language the app shows.
+func PrefTitleAppearance() string { return In(i18n.Locale()).PrefTitleAppearance() }
+
+// PrefTitleAppearance says "Appearance"
+// in the language of msgs.
+func (msgs Messages) PrefTitleAppearance() string {
+	return Catalog.Format(msgs.locale, "prefTitleAppearance", nil)
+}
+
+// PrefDescAppearance says "Light or dark, or as the system is."
+// in the language the app shows.
+func PrefDescAppearance() string { return In(i18n.Locale()).PrefDescAppearance() }
+
+// PrefDescAppearance says "Light or dark, or as the system is."
+// in the language of msgs.
+func (msgs Messages) PrefDescAppearance() string {
+	return Catalog.Format(msgs.locale, "prefDescAppearance", nil)
+}
+
+// PrefTitleZoomLevel says "Window Zoom"
+// in the language the app shows.
+func PrefTitleZoomLevel() string { return In(i18n.Locale()).PrefTitleZoomLevel() }
+
+// PrefTitleZoomLevel says "Window Zoom"
+// in the language of msgs.
+func (msgs Messages) PrefTitleZoomLevel() string {
+	return Catalog.Format(msgs.locale, "prefTitleZoomLevel", nil)
+}
+
+// PrefDescZoomLevel says "Scales all window content by 1.2 to this power: 1 is 120%."
+// in the language the app shows.
+func PrefDescZoomLevel() string { return In(i18n.Locale()).PrefDescZoomLevel() }
+
+// PrefDescZoomLevel says "Scales all window content by 1.2 to this power: 1 is 120%."
+// in the language of msgs.
+func (msgs Messages) PrefDescZoomLevel() string {
+	return Catalog.Format(msgs.locale, "prefDescZoomLevel", nil)
+}
+
+// PrefTitleSidebarRight says "Sidebar on Right"
+// in the language the app shows.
+func PrefTitleSidebarRight() string { return In(i18n.Locale()).PrefTitleSidebarRight() }
+
+// PrefTitleSidebarRight says "Sidebar on Right"
+// in the language of msgs.
+func (msgs Messages) PrefTitleSidebarRight() string {
+	return Catalog.Format(msgs.locale, "prefTitleSidebarRight", nil)
+}
+
+// PrefDescSidebarRight says "Puts the sidebar right of the editors."
+// in the language the app shows.
+func PrefDescSidebarRight() string { return In(i18n.Locale()).PrefDescSidebarRight() }
+
+// PrefDescSidebarRight says "Puts the sidebar right of the editors."
+// in the language of msgs.
+func (msgs Messages) PrefDescSidebarRight() string {
+	return Catalog.Format(msgs.locale, "prefDescSidebarRight", nil)
+}
+
+// PrefTitlePanelPosition says "Panel Position"
+// in the language the app shows.
+func PrefTitlePanelPosition() string { return In(i18n.Locale()).PrefTitlePanelPosition() }
+
+// PrefTitlePanelPosition says "Panel Position"
+// in the language of msgs.
+func (msgs Messages) PrefTitlePanelPosition() string {
+	return Catalog.Format(msgs.locale, "prefTitlePanelPosition", nil)
+}
+
+// PrefDescPanelPosition says "Where the terminal panel is: below the editors or at a side of the window."
+// in the language the app shows.
+func PrefDescPanelPosition() string { return In(i18n.Locale()).PrefDescPanelPosition() }
+
+// PrefDescPanelPosition says "Where the terminal panel is: below the editors or at a side of the window."
+// in the language of msgs.
+func (msgs Messages) PrefDescPanelPosition() string {
+	return Catalog.Format(msgs.locale, "prefDescPanelPosition", nil)
+}
+
+// PrefTitleProjectTabs says "Project Tabs"
+// in the language the app shows.
+func PrefTitleProjectTabs() string { return In(i18n.Locale()).PrefTitleProjectTabs() }
+
+// PrefTitleProjectTabs says "Project Tabs"
+// in the language of msgs.
+func (msgs Messages) PrefTitleProjectTabs() string {
+	return Catalog.Format(msgs.locale, "prefTitleProjectTabs", nil)
+}
+
+// PrefDescProjectTabs says "Keeps every folder in one window, on a rail at its left."
+// in the language the app shows.
+func PrefDescProjectTabs() string { return In(i18n.Locale()).PrefDescProjectTabs() }
+
+// PrefDescProjectTabs says "Keeps every folder in one window, on a rail at its left."
+// in the language of msgs.
+func (msgs Messages) PrefDescProjectTabs() string {
+	return Catalog.Format(msgs.locale, "prefDescProjectTabs", nil)
+}
+
+// PrefTitleProjectTabStyle says "Project Looks"
+// in the language the app shows.
+func PrefTitleProjectTabStyle() string { return In(i18n.Locale()).PrefTitleProjectTabStyle() }
+
+// PrefTitleProjectTabStyle says "Project Looks"
+// in the language of msgs.
+func (msgs Messages) PrefTitleProjectTabStyle() string {
+	return Catalog.Format(msgs.locale, "prefTitleProjectTabStyle", nil)
+}
+
+// PrefDescProjectTabStyle says "A project's own label and color on the rail, by its folder. They stay on this machine."
+// in the language the app shows.
+func PrefDescProjectTabStyle() string { return In(i18n.Locale()).PrefDescProjectTabStyle() }
+
+// PrefDescProjectTabStyle says "A project's own label and color on the rail, by its folder. They stay on this machine."
+// in the language of msgs.
+func (msgs Messages) PrefDescProjectTabStyle() string {
+	return Catalog.Format(msgs.locale, "prefDescProjectTabStyle", nil)
+}
+
+// PrefTitleFontFamily says "Font"
+// in the language the app shows.
+func PrefTitleFontFamily() string { return In(i18n.Locale()).PrefTitleFontFamily() }
+
+// PrefTitleFontFamily says "Font"
+// in the language of msgs.
+func (msgs Messages) PrefTitleFontFamily() string {
+	return Catalog.Format(msgs.locale, "prefTitleFontFamily", nil)
+}
+
+// PrefDescFontFamily says "The code's font. A list falls back in order, as \"Iosevka, monospace\"."
+// in the language the app shows.
+func PrefDescFontFamily() string { return In(i18n.Locale()).PrefDescFontFamily() }
+
+// PrefDescFontFamily says "The code's font. A list falls back in order, as \"Iosevka, monospace\"."
+// in the language of msgs.
+func (msgs Messages) PrefDescFontFamily() string {
+	return Catalog.Format(msgs.locale, "prefDescFontFamily", nil)
+}
+
+// PrefTitleFontSize says "Font Size"
+// in the language the app shows.
+func PrefTitleFontSize() string { return In(i18n.Locale()).PrefTitleFontSize() }
+
+// PrefTitleFontSize says "Font Size"
+// in the language of msgs.
+func (msgs Messages) PrefTitleFontSize() string {
+	return Catalog.Format(msgs.locale, "prefTitleFontSize", nil)
+}
+
+// PrefDescFontSize says "The size of the code, in points."
+// in the language the app shows.
+func PrefDescFontSize() string { return In(i18n.Locale()).PrefDescFontSize() }
+
+// PrefDescFontSize says "The size of the code, in points."
+// in the language of msgs.
+func (msgs Messages) PrefDescFontSize() string {
+	return Catalog.Format(msgs.locale, "prefDescFontSize", nil)
+}
+
+// PrefTitleFontWeight says "Font Weight"
+// in the language the app shows.
+func PrefTitleFontWeight() string { return In(i18n.Locale()).PrefTitleFontWeight() }
+
+// PrefTitleFontWeight says "Font Weight"
+// in the language of msgs.
+func (msgs Messages) PrefTitleFontWeight() string {
+	return Catalog.Format(msgs.locale, "prefTitleFontWeight", nil)
+}
+
+// PrefDescFontWeight says "How heavy the code's text is, from 100 (thin) to 900 (black)."
+// in the language the app shows.
+func PrefDescFontWeight() string { return In(i18n.Locale()).PrefDescFontWeight() }
+
+// PrefDescFontWeight says "How heavy the code's text is, from 100 (thin) to 900 (black)."
+// in the language of msgs.
+func (msgs Messages) PrefDescFontWeight() string {
+	return Catalog.Format(msgs.locale, "prefDescFontWeight", nil)
+}
+
+// PrefTitleLineHeight says "Line Height"
+// in the language the app shows.
+func PrefTitleLineHeight() string { return In(i18n.Locale()).PrefTitleLineHeight() }
+
+// PrefTitleLineHeight says "Line Height"
+// in the language of msgs.
+func (msgs Messages) PrefTitleLineHeight() string {
+	return Catalog.Format(msgs.locale, "prefTitleLineHeight", nil)
+}
+
+// PrefDescLineHeight says "The height of a line of code, as a multiple of the font size."
+// in the language the app shows.
+func PrefDescLineHeight() string { return In(i18n.Locale()).PrefDescLineHeight() }
+
+// PrefDescLineHeight says "The height of a line of code, as a multiple of the font size."
+// in the language of msgs.
+func (msgs Messages) PrefDescLineHeight() string {
+	return Catalog.Format(msgs.locale, "prefDescLineHeight", nil)
+}
+
+// PrefTitleFontFeatures says "Font Features"
+// in the language the app shows.
+func PrefTitleFontFeatures() string { return In(i18n.Locale()).PrefTitleFontFeatures() }
+
+// PrefTitleFontFeatures says "Font Features"
+// in the language of msgs.
+func (msgs Messages) PrefTitleFontFeatures() string {
+	return Catalog.Format(msgs.locale, "prefTitleFontFeatures", nil)
+}
+
+// PrefDescFontFeatures says "OpenType features to turn on or off: calt=0 turns off most coding ligatures."
+// in the language the app shows.
+func PrefDescFontFeatures() string { return In(i18n.Locale()).PrefDescFontFeatures() }
+
+// PrefDescFontFeatures says "OpenType features to turn on or off: calt=0 turns off most coding ligatures."
+// in the language of msgs.
+func (msgs Messages) PrefDescFontFeatures() string {
+	return Catalog.Format(msgs.locale, "prefDescFontFeatures", nil)
+}
+
+// PrefTitleAutoSave says "Auto Save"
+// in the language the app shows.
+func PrefTitleAutoSave() string { return In(i18n.Locale()).PrefTitleAutoSave() }
+
+// PrefTitleAutoSave says "Auto Save"
+// in the language of msgs.
+func (msgs Messages) PrefTitleAutoSave() string {
+	return Catalog.Format(msgs.locale, "prefTitleAutoSave", nil)
+}
+
+// PrefDescAutoSave says "Saves a changed file a moment after you stop typing, and when you leave it."
+// in the language the app shows.
+func PrefDescAutoSave() string { return In(i18n.Locale()).PrefDescAutoSave() }
+
+// PrefDescAutoSave says "Saves a changed file a moment after you stop typing, and when you leave it."
+// in the language of msgs.
+func (msgs Messages) PrefDescAutoSave() string {
+	return Catalog.Format(msgs.locale, "prefDescAutoSave", nil)
+}
+
+// PrefTitleWordWrap says "Word Wrap"
+// in the language the app shows.
+func PrefTitleWordWrap() string { return In(i18n.Locale()).PrefTitleWordWrap() }
+
+// PrefTitleWordWrap says "Word Wrap"
+// in the language of msgs.
+func (msgs Messages) PrefTitleWordWrap() string {
+	return Catalog.Format(msgs.locale, "prefTitleWordWrap", nil)
+}
+
+// PrefDescWordWrap says "Wraps long lines at the edge of the editor. A tab can still choose otherwise."
+// in the language the app shows.
+func PrefDescWordWrap() string { return In(i18n.Locale()).PrefDescWordWrap() }
+
+// PrefDescWordWrap says "Wraps long lines at the edge of the editor. A tab can still choose otherwise."
+// in the language of msgs.
+func (msgs Messages) PrefDescWordWrap() string {
+	return Catalog.Format(msgs.locale, "prefDescWordWrap", nil)
+}
+
+// PrefTitleEditorAgentContext says "Collect Agent Context"
+// in the language the app shows.
+func PrefTitleEditorAgentContext() string { return In(i18n.Locale()).PrefTitleEditorAgentContext() }
+
+// PrefTitleEditorAgentContext says "Collect Agent Context"
+// in the language of msgs.
+func (msgs Messages) PrefTitleEditorAgentContext() string {
+	return Catalog.Format(msgs.locale, "prefTitleEditorAgentContext", nil)
+}
+
+// PrefDescEditorAgentContext says "Show a gutter + to collect code and optional comments in ordinary files."
+// in the language the app shows.
+func PrefDescEditorAgentContext() string { return In(i18n.Locale()).PrefDescEditorAgentContext() }
+
+// PrefDescEditorAgentContext says "Show a gutter + to collect code and optional comments in ordinary files."
+// in the language of msgs.
+func (msgs Messages) PrefDescEditorAgentContext() string {
+	return Catalog.Format(msgs.locale, "prefDescEditorAgentContext", nil)
+}
+
+// PrefTitleMarkdownPreview says "Preview Markdown on Open"
+// in the language the app shows.
+func PrefTitleMarkdownPreview() string { return In(i18n.Locale()).PrefTitleMarkdownPreview() }
+
+// PrefTitleMarkdownPreview says "Preview Markdown on Open"
+// in the language of msgs.
+func (msgs Messages) PrefTitleMarkdownPreview() string {
+	return Catalog.Format(msgs.locale, "prefTitleMarkdownPreview", nil)
+}
+
+// PrefDescMarkdownPreview says "Opens Markdown files rendered, rather than as text."
+// in the language the app shows.
+func PrefDescMarkdownPreview() string { return In(i18n.Locale()).PrefDescMarkdownPreview() }
+
+// PrefDescMarkdownPreview says "Opens Markdown files rendered, rather than as text."
+// in the language of msgs.
+func (msgs Messages) PrefDescMarkdownPreview() string {
+	return Catalog.Format(msgs.locale, "prefDescMarkdownPreview", nil)
+}
+
+// PrefTitlePreviewMermaid says "Mermaid Diagrams"
+// in the language the app shows.
+func PrefTitlePreviewMermaid() string { return In(i18n.Locale()).PrefTitlePreviewMermaid() }
+
+// PrefTitlePreviewMermaid says "Mermaid Diagrams"
+// in the language of msgs.
+func (msgs Messages) PrefTitlePreviewMermaid() string {
+	return Catalog.Format(msgs.locale, "prefTitlePreviewMermaid", nil)
+}
+
+// PrefDescPreviewMermaid says "Draws the mermaid code blocks of a preview as diagrams."
+// in the language the app shows.
+func PrefDescPreviewMermaid() string { return In(i18n.Locale()).PrefDescPreviewMermaid() }
+
+// PrefDescPreviewMermaid says "Draws the mermaid code blocks of a preview as diagrams."
+// in the language of msgs.
+func (msgs Messages) PrefDescPreviewMermaid() string {
+	return Catalog.Format(msgs.locale, "prefDescPreviewMermaid", nil)
+}
+
+// PrefTitlePreviewMath says "Math"
+// in the language the app shows.
+func PrefTitlePreviewMath() string { return In(i18n.Locale()).PrefTitlePreviewMath() }
+
+// PrefTitlePreviewMath says "Math"
+// in the language of msgs.
+func (msgs Messages) PrefTitlePreviewMath() string {
+	return Catalog.Format(msgs.locale, "prefTitlePreviewMath", nil)
+}
+
+// PrefDescPreviewMath says "Draws the LaTeX math of a preview as formulas."
+// in the language the app shows.
+func PrefDescPreviewMath() string { return In(i18n.Locale()).PrefDescPreviewMath() }
+
+// PrefDescPreviewMath says "Draws the LaTeX math of a preview as formulas."
+// in the language of msgs.
+func (msgs Messages) PrefDescPreviewMath() string {
+	return Catalog.Format(msgs.locale, "prefDescPreviewMath", nil)
+}
+
+// PrefTitleTerminalFontFamily says "Terminal Font"
+// in the language the app shows.
+func PrefTitleTerminalFontFamily() string { return In(i18n.Locale()).PrefTitleTerminalFontFamily() }
+
+// PrefTitleTerminalFontFamily says "Terminal Font"
+// in the language of msgs.
+func (msgs Messages) PrefTitleTerminalFontFamily() string {
+	return Catalog.Format(msgs.locale, "prefTitleTerminalFontFamily", nil)
+}
+
+// PrefDescTerminalFontFamily says "The terminal's font. Empty uses the code's."
+// in the language the app shows.
+func PrefDescTerminalFontFamily() string { return In(i18n.Locale()).PrefDescTerminalFontFamily() }
+
+// PrefDescTerminalFontFamily says "The terminal's font. Empty uses the code's."
+// in the language of msgs.
+func (msgs Messages) PrefDescTerminalFontFamily() string {
+	return Catalog.Format(msgs.locale, "prefDescTerminalFontFamily", nil)
+}
+
+// PrefTitleTerminalFontSize says "Terminal Font Size"
+// in the language the app shows.
+func PrefTitleTerminalFontSize() string { return In(i18n.Locale()).PrefTitleTerminalFontSize() }
+
+// PrefTitleTerminalFontSize says "Terminal Font Size"
+// in the language of msgs.
+func (msgs Messages) PrefTitleTerminalFontSize() string {
+	return Catalog.Format(msgs.locale, "prefTitleTerminalFontSize", nil)
+}
+
+// PrefDescTerminalFontSize says "The terminal's size, in points. 0 is half a point under the code's."
+// in the language the app shows.
+func PrefDescTerminalFontSize() string { return In(i18n.Locale()).PrefDescTerminalFontSize() }
+
+// PrefDescTerminalFontSize says "The terminal's size, in points. 0 is half a point under the code's."
+// in the language of msgs.
+func (msgs Messages) PrefDescTerminalFontSize() string {
+	return Catalog.Format(msgs.locale, "prefDescTerminalFontSize", nil)
+}
+
+// PrefTitleTerminalCopyOnSelect says "Copy on Select"
+// in the language the app shows.
+func PrefTitleTerminalCopyOnSelect() string { return In(i18n.Locale()).PrefTitleTerminalCopyOnSelect() }
+
+// PrefTitleTerminalCopyOnSelect says "Copy on Select"
+// in the language of msgs.
+func (msgs Messages) PrefTitleTerminalCopyOnSelect() string {
+	return Catalog.Format(msgs.locale, "prefTitleTerminalCopyOnSelect", nil)
+}
+
+// PrefDescTerminalCopyOnSelect says "Copies what you select in a terminal to the clipboard."
+// in the language the app shows.
+func PrefDescTerminalCopyOnSelect() string { return In(i18n.Locale()).PrefDescTerminalCopyOnSelect() }
+
+// PrefDescTerminalCopyOnSelect says "Copies what you select in a terminal to the clipboard."
+// in the language of msgs.
+func (msgs Messages) PrefDescTerminalCopyOnSelect() string {
+	return Catalog.Format(msgs.locale, "prefDescTerminalCopyOnSelect", nil)
+}
+
+// PrefTitleTerminalLocation says "New Terminals"
+// in the language the app shows.
+func PrefTitleTerminalLocation() string { return In(i18n.Locale()).PrefTitleTerminalLocation() }
+
+// PrefTitleTerminalLocation says "New Terminals"
+// in the language of msgs.
+func (msgs Messages) PrefTitleTerminalLocation() string {
+	return Catalog.Format(msgs.locale, "prefTitleTerminalLocation", nil)
+}
+
+// PrefDescTerminalLocation says "Where New Terminal opens one: in the panel, or in a tab of the editor area."
+// in the language the app shows.
+func PrefDescTerminalLocation() string { return In(i18n.Locale()).PrefDescTerminalLocation() }
+
+// PrefDescTerminalLocation says "Where New Terminal opens one: in the panel, or in a tab of the editor area."
+// in the language of msgs.
+func (msgs Messages) PrefDescTerminalLocation() string {
+	return Catalog.Format(msgs.locale, "prefDescTerminalLocation", nil)
+}
+
+// PrefTitleTerminalBackend says "Terminal Backend"
+// in the language the app shows.
+func PrefTitleTerminalBackend() string { return In(i18n.Locale()).PrefTitleTerminalBackend() }
+
+// PrefTitleTerminalBackend says "Terminal Backend"
+// in the language of msgs.
+func (msgs Messages) PrefTitleTerminalBackend() string {
+	return Catalog.Format(msgs.locale, "prefTitleTerminalBackend", nil)
+}
+
+// PrefDescTerminalBackend says "What runs a terminal's shell: Mayoi, or herdr-core, whose shells outlive the window."
+// in the language the app shows.
+func PrefDescTerminalBackend() string { return In(i18n.Locale()).PrefDescTerminalBackend() }
+
+// PrefDescTerminalBackend says "What runs a terminal's shell: Mayoi, or herdr-core, whose shells outlive the window."
+// in the language of msgs.
+func (msgs Messages) PrefDescTerminalBackend() string {
+	return Catalog.Format(msgs.locale, "prefDescTerminalBackend", nil)
+}
+
+// PrefTitleDiffLayout says "Diff Layout"
+// in the language the app shows.
+func PrefTitleDiffLayout() string { return In(i18n.Locale()).PrefTitleDiffLayout() }
+
+// PrefTitleDiffLayout says "Diff Layout"
+// in the language of msgs.
+func (msgs Messages) PrefTitleDiffLayout() string {
+	return Catalog.Format(msgs.locale, "prefTitleDiffLayout", nil)
+}
+
+// PrefDescDiffLayout says "Side by side, in one column, or side by side when wide enough."
+// in the language the app shows.
+func PrefDescDiffLayout() string { return In(i18n.Locale()).PrefDescDiffLayout() }
+
+// PrefDescDiffLayout says "Side by side, in one column, or side by side when wide enough."
+// in the language of msgs.
+func (msgs Messages) PrefDescDiffLayout() string {
+	return Catalog.Format(msgs.locale, "prefDescDiffLayout", nil)
+}
+
+// PrefTitleDiffHighlight says "Diff Highlight"
+// in the language the app shows.
+func PrefTitleDiffHighlight() string { return In(i18n.Locale()).PrefTitleDiffHighlight() }
+
+// PrefTitleDiffHighlight says "Diff Highlight"
+// in the language of msgs.
+func (msgs Messages) PrefTitleDiffHighlight() string {
+	return Catalog.Format(msgs.locale, "prefTitleDiffHighlight", nil)
+}
+
+// PrefDescDiffHighlight says "What a changed line shows: the words, the characters, or only the line."
+// in the language the app shows.
+func PrefDescDiffHighlight() string { return In(i18n.Locale()).PrefDescDiffHighlight() }
+
+// PrefDescDiffHighlight says "What a changed line shows: the words, the characters, or only the line."
+// in the language of msgs.
+func (msgs Messages) PrefDescDiffHighlight() string {
+	return Catalog.Format(msgs.locale, "prefDescDiffHighlight", nil)
+}
+
+// PrefTitleDiffWhitespace says "Diff Whitespace"
+// in the language the app shows.
+func PrefTitleDiffWhitespace() string { return In(i18n.Locale()).PrefTitleDiffWhitespace() }
+
+// PrefTitleDiffWhitespace says "Diff Whitespace"
+// in the language of msgs.
+func (msgs Messages) PrefTitleDiffWhitespace() string {
+	return Catalog.Format(msgs.locale, "prefTitleDiffWhitespace", nil)
+}
+
+// PrefDescDiffWhitespace says "Which whitespace the comparison ignores."
+// in the language the app shows.
+func PrefDescDiffWhitespace() string { return In(i18n.Locale()).PrefDescDiffWhitespace() }
+
+// PrefDescDiffWhitespace says "Which whitespace the comparison ignores."
+// in the language of msgs.
+func (msgs Messages) PrefDescDiffWhitespace() string {
+	return Catalog.Format(msgs.locale, "prefDescDiffWhitespace", nil)
+}
+
+// PrefTitleDiffContext says "Diff Context"
+// in the language the app shows.
+func PrefTitleDiffContext() string { return In(i18n.Locale()).PrefTitleDiffContext() }
+
+// PrefTitleDiffContext says "Diff Context"
+// in the language of msgs.
+func (msgs Messages) PrefTitleDiffContext() string {
+	return Catalog.Format(msgs.locale, "prefTitleDiffContext", nil)
+}
+
+// PrefDescDiffContext says "How many unchanged lines show around each change. The rest fold away."
+// in the language the app shows.
+func PrefDescDiffContext() string { return In(i18n.Locale()).PrefDescDiffContext() }
+
+// PrefDescDiffContext says "How many unchanged lines show around each change. The rest fold away."
+// in the language of msgs.
+func (msgs Messages) PrefDescDiffContext() string {
+	return Catalog.Format(msgs.locale, "prefDescDiffContext", nil)
+}
+
+// PrefTitleDiffCrossFiles says "Next Change Across Files"
+// in the language the app shows.
+func PrefTitleDiffCrossFiles() string { return In(i18n.Locale()).PrefTitleDiffCrossFiles() }
+
+// PrefTitleDiffCrossFiles says "Next Change Across Files"
+// in the language of msgs.
+func (msgs Messages) PrefTitleDiffCrossFiles() string {
+	return Catalog.Format(msgs.locale, "prefTitleDiffCrossFiles", nil)
+}
+
+// PrefDescDiffCrossFiles says "Whether the next change crosses into the next file at the last change of one."
+// in the language the app shows.
+func PrefDescDiffCrossFiles() string { return In(i18n.Locale()).PrefDescDiffCrossFiles() }
+
+// PrefDescDiffCrossFiles says "Whether the next change crosses into the next file at the last change of one."
+// in the language of msgs.
+func (msgs Messages) PrefDescDiffCrossFiles() string {
+	return Catalog.Format(msgs.locale, "prefDescDiffCrossFiles", nil)
+}
+
+// PrefTitleDiffSyncScroll says "Synchronized Scrolling"
+// in the language the app shows.
+func PrefTitleDiffSyncScroll() string { return In(i18n.Locale()).PrefTitleDiffSyncScroll() }
+
+// PrefTitleDiffSyncScroll says "Synchronized Scrolling"
+// in the language of msgs.
+func (msgs Messages) PrefTitleDiffSyncScroll() string {
+	return Catalog.Format(msgs.locale, "prefTitleDiffSyncScroll", nil)
+}
+
+// PrefDescDiffSyncScroll says "Scrolls the two sides of a side-by-side diff together."
+// in the language the app shows.
+func PrefDescDiffSyncScroll() string { return In(i18n.Locale()).PrefDescDiffSyncScroll() }
+
+// PrefDescDiffSyncScroll says "Scrolls the two sides of a side-by-side diff together."
+// in the language of msgs.
+func (msgs Messages) PrefDescDiffSyncScroll() string {
+	return Catalog.Format(msgs.locale, "prefDescDiffSyncScroll", nil)
+}
+
+// PrefTitleDiffAlignedRows says "Aligned Rows"
+// in the language the app shows.
+func PrefTitleDiffAlignedRows() string { return In(i18n.Locale()).PrefTitleDiffAlignedRows() }
+
+// PrefTitleDiffAlignedRows says "Aligned Rows"
+// in the language of msgs.
+func (msgs Messages) PrefTitleDiffAlignedRows() string {
+	return Catalog.Format(msgs.locale, "prefTitleDiffAlignedRows", nil)
+}
+
+// PrefDescDiffAlignedRows says "Keeps the rows of a side-by-side diff's sides aligned."
+// in the language the app shows.
+func PrefDescDiffAlignedRows() string { return In(i18n.Locale()).PrefDescDiffAlignedRows() }
+
+// PrefDescDiffAlignedRows says "Keeps the rows of a side-by-side diff's sides aligned."
+// in the language of msgs.
+func (msgs Messages) PrefDescDiffAlignedRows() string {
+	return Catalog.Format(msgs.locale, "prefDescDiffAlignedRows", nil)
+}
+
+// PrefTitleMergeAutoApply says "Apply Non-Conflicting Changes"
+// in the language the app shows.
+func PrefTitleMergeAutoApply() string { return In(i18n.Locale()).PrefTitleMergeAutoApply() }
+
+// PrefTitleMergeAutoApply says "Apply Non-Conflicting Changes"
+// in the language of msgs.
+func (msgs Messages) PrefTitleMergeAutoApply() string {
+	return Catalog.Format(msgs.locale, "prefTitleMergeAutoApply", nil)
+}
+
+// PrefDescMergeAutoApply says "Puts the changes no conflict holds in a merge's result as it opens."
+// in the language the app shows.
+func PrefDescMergeAutoApply() string { return In(i18n.Locale()).PrefDescMergeAutoApply() }
+
+// PrefDescMergeAutoApply says "Puts the changes no conflict holds in a merge's result as it opens."
+// in the language of msgs.
+func (msgs Messages) PrefDescMergeAutoApply() string {
+	return Catalog.Format(msgs.locale, "prefDescMergeAutoApply", nil)
+}
+
+// PrefTitleBlame says "Inline Blame"
+// in the language the app shows.
+func PrefTitleBlame() string { return In(i18n.Locale()).PrefTitleBlame() }
+
+// PrefTitleBlame says "Inline Blame"
+// in the language of msgs.
+func (msgs Messages) PrefTitleBlame() string {
+	return Catalog.Format(msgs.locale, "prefTitleBlame", nil)
+}
+
+// PrefDescBlame says "Shows who last changed the caret's line, and when."
+// in the language the app shows.
+func PrefDescBlame() string { return In(i18n.Locale()).PrefDescBlame() }
+
+// PrefDescBlame says "Shows who last changed the caret's line, and when."
+// in the language of msgs.
+func (msgs Messages) PrefDescBlame() string {
+	return Catalog.Format(msgs.locale, "prefDescBlame", nil)
+}
+
+// PrefTitleScmTree says "Changes as Tree"
+// in the language the app shows.
+func PrefTitleScmTree() string { return In(i18n.Locale()).PrefTitleScmTree() }
+
+// PrefTitleScmTree says "Changes as Tree"
+// in the language of msgs.
+func (msgs Messages) PrefTitleScmTree() string {
+	return Catalog.Format(msgs.locale, "prefTitleScmTree", nil)
+}
+
+// PrefDescScmTree says "Lists Source Control's changes in a tree of their folders."
+// in the language the app shows.
+func PrefDescScmTree() string { return In(i18n.Locale()).PrefDescScmTree() }
+
+// PrefDescScmTree says "Lists Source Control's changes in a tree of their folders."
+// in the language of msgs.
+func (msgs Messages) PrefDescScmTree() string {
+	return Catalog.Format(msgs.locale, "prefDescScmTree", nil)
+}
+
+// PrefTitleScmAllBranches says "All Branches"
+// in the language the app shows.
+func PrefTitleScmAllBranches() string { return In(i18n.Locale()).PrefTitleScmAllBranches() }
+
+// PrefTitleScmAllBranches says "All Branches"
+// in the language of msgs.
+func (msgs Messages) PrefTitleScmAllBranches() string {
+	return Catalog.Format(msgs.locale, "prefTitleScmAllBranches", nil)
+}
+
+// PrefDescScmAllBranches says "Shows the commits of every branch and tag, not only the branch checked out."
+// in the language the app shows.
+func PrefDescScmAllBranches() string { return In(i18n.Locale()).PrefDescScmAllBranches() }
+
+// PrefDescScmAllBranches says "Shows the commits of every branch and tag, not only the branch checked out."
+// in the language of msgs.
+func (msgs Messages) PrefDescScmAllBranches() string {
+	return Catalog.Format(msgs.locale, "prefDescScmAllBranches", nil)
+}
+
+// PrefTitleAiModel says "AI Model"
+// in the language the app shows.
+func PrefTitleAiModel() string { return In(i18n.Locale()).PrefTitleAiModel() }
+
+// PrefTitleAiModel says "AI Model"
+// in the language of msgs.
+func (msgs Messages) PrefTitleAiModel() string {
+	return Catalog.Format(msgs.locale, "prefTitleAiModel", nil)
+}
+
+// PrefDescAiModel says "The model of Mon's AI gateway that writes commit messages."
+// in the language the app shows.
+func PrefDescAiModel() string { return In(i18n.Locale()).PrefDescAiModel() }
+
+// PrefDescAiModel says "The model of Mon's AI gateway that writes commit messages."
+// in the language of msgs.
+func (msgs Messages) PrefDescAiModel() string {
+	return Catalog.Format(msgs.locale, "prefDescAiModel", nil)
+}
+
+// PrefTitleVim says "Vim Mode"
+// in the language the app shows.
+func PrefTitleVim() string { return In(i18n.Locale()).PrefTitleVim() }
+
+// PrefTitleVim says "Vim Mode"
+// in the language of msgs.
+func (msgs Messages) PrefTitleVim() string {
+	return Catalog.Format(msgs.locale, "prefTitleVim", nil)
+}
+
+// PrefDescVim says "Edits with vim's keys: the editors start in normal mode."
+// in the language the app shows.
+func PrefDescVim() string { return In(i18n.Locale()).PrefDescVim() }
+
+// PrefDescVim says "Edits with vim's keys: the editors start in normal mode."
+// in the language of msgs.
+func (msgs Messages) PrefDescVim() string {
+	return Catalog.Format(msgs.locale, "prefDescVim", nil)
+}
+
+// PrefTitleVimCtrlKeys says "Vim Control Keys"
+// in the language the app shows.
+func PrefTitleVimCtrlKeys() string { return In(i18n.Locale()).PrefTitleVimCtrlKeys() }
+
+// PrefTitleVimCtrlKeys says "Vim Control Keys"
+// in the language of msgs.
+func (msgs Messages) PrefTitleVimCtrlKeys() string {
+	return Catalog.Format(msgs.locale, "prefTitleVimCtrlKeys", nil)
+}
+
+// PrefDescVimCtrlKeys says "Gives Ctrl+F, B, R, A and X to normal mode on Windows and Linux."
+// in the language the app shows.
+func PrefDescVimCtrlKeys() string { return In(i18n.Locale()).PrefDescVimCtrlKeys() }
+
+// PrefDescVimCtrlKeys says "Gives Ctrl+F, B, R, A and X to normal mode on Windows and Linux."
+// in the language of msgs.
+func (msgs Messages) PrefDescVimCtrlKeys() string {
+	return Catalog.Format(msgs.locale, "prefDescVimCtrlKeys", nil)
+}
+
+// PrefTitleLocale says "Language"
+// in the language the app shows.
+func PrefTitleLocale() string { return In(i18n.Locale()).PrefTitleLocale() }
+
+// PrefTitleLocale says "Language"
+// in the language of msgs.
+func (msgs Messages) PrefTitleLocale() string {
+	return Catalog.Format(msgs.locale, "prefTitleLocale", nil)
+}
+
+// PrefDescLocale says "The language Mayoi shows."
+// in the language the app shows.
+func PrefDescLocale() string { return In(i18n.Locale()).PrefDescLocale() }
+
+// PrefDescLocale says "The language Mayoi shows."
+// in the language of msgs.
+func (msgs Messages) PrefDescLocale() string {
+	return Catalog.Format(msgs.locale, "prefDescLocale", nil)
+}
+
+// PrefTitleCrashReports says "Crash Reports"
+// in the language the app shows.
+func PrefTitleCrashReports() string { return In(i18n.Locale()).PrefTitleCrashReports() }
+
+// PrefTitleCrashReports says "Crash Reports"
+// in the language of msgs.
+func (msgs Messages) PrefTitleCrashReports() string {
+	return Catalog.Format(msgs.locale, "prefTitleCrashReports", nil)
+}
+
+// PrefDescCrashReports says "What Mayoi does with the report of a crash at the next launch."
+// in the language the app shows.
+func PrefDescCrashReports() string { return In(i18n.Locale()).PrefDescCrashReports() }
+
+// PrefDescCrashReports says "What Mayoi does with the report of a crash at the next launch."
+// in the language of msgs.
+func (msgs Messages) PrefDescCrashReports() string {
+	return Catalog.Format(msgs.locale, "prefDescCrashReports", nil)
+}
+
+// PrefTitleSyncIgnored says "Keep on This Machine"
+// in the language the app shows.
+func PrefTitleSyncIgnored() string { return In(i18n.Locale()).PrefTitleSyncIgnored() }
+
+// PrefTitleSyncIgnored says "Keep on This Machine"
+// in the language of msgs.
+func (msgs Messages) PrefTitleSyncIgnored() string {
+	return Catalog.Format(msgs.locale, "prefTitleSyncIgnored", nil)
+}
+
+// PrefDescSyncIgnored says "What settings sync leaves on this machine: keys, settings.json or keybindings.json."
+// in the language the app shows.
+func PrefDescSyncIgnored() string { return In(i18n.Locale()).PrefDescSyncIgnored() }
+
+// PrefDescSyncIgnored says "What settings sync leaves on this machine: keys, settings.json or keybindings.json."
+// in the language of msgs.
+func (msgs Messages) PrefDescSyncIgnored() string {
+	return Catalog.Format(msgs.locale, "prefDescSyncIgnored", nil)
+}
+
+// PrefDefaultTheme says "Mayoi"
+// in the language the app shows.
+func PrefDefaultTheme() string { return In(i18n.Locale()).PrefDefaultTheme() }
+
+// PrefDefaultTheme says "Mayoi"
+// in the language of msgs.
+func (msgs Messages) PrefDefaultTheme() string {
+	return Catalog.Format(msgs.locale, "prefDefaultTheme", nil)
+}
+
+// PrefDefaultAppearance says "System"
+// in the language the app shows.
+func PrefDefaultAppearance() string { return In(i18n.Locale()).PrefDefaultAppearance() }
+
+// PrefDefaultAppearance says "System"
+// in the language of msgs.
+func (msgs Messages) PrefDefaultAppearance() string {
+	return Catalog.Format(msgs.locale, "prefDefaultAppearance", nil)
+}
+
+// PrefDefaultPanelPosition says "Bottom"
+// in the language the app shows.
+func PrefDefaultPanelPosition() string { return In(i18n.Locale()).PrefDefaultPanelPosition() }
+
+// PrefDefaultPanelPosition says "Bottom"
+// in the language of msgs.
+func (msgs Messages) PrefDefaultPanelPosition() string {
+	return Catalog.Format(msgs.locale, "prefDefaultPanelPosition", nil)
+}
+
+// PrefDefaultTerminalLocation says "Panel"
+// in the language the app shows.
+func PrefDefaultTerminalLocation() string { return In(i18n.Locale()).PrefDefaultTerminalLocation() }
+
+// PrefDefaultTerminalLocation says "Panel"
+// in the language of msgs.
+func (msgs Messages) PrefDefaultTerminalLocation() string {
+	return Catalog.Format(msgs.locale, "prefDefaultTerminalLocation", nil)
+}
+
+// PrefDefaultTerminalBackend says "Mayoi"
+// in the language the app shows.
+func PrefDefaultTerminalBackend() string { return In(i18n.Locale()).PrefDefaultTerminalBackend() }
+
+// PrefDefaultTerminalBackend says "Mayoi"
+// in the language of msgs.
+func (msgs Messages) PrefDefaultTerminalBackend() string {
+	return Catalog.Format(msgs.locale, "prefDefaultTerminalBackend", nil)
+}
+
+// PrefDefaultDiffLayout says "Side by side when wide"
+// in the language the app shows.
+func PrefDefaultDiffLayout() string { return In(i18n.Locale()).PrefDefaultDiffLayout() }
+
+// PrefDefaultDiffLayout says "Side by side when wide"
+// in the language of msgs.
+func (msgs Messages) PrefDefaultDiffLayout() string {
+	return Catalog.Format(msgs.locale, "prefDefaultDiffLayout", nil)
+}
+
+// PrefDefaultDiffHighlight says "Words"
+// in the language the app shows.
+func PrefDefaultDiffHighlight() string { return In(i18n.Locale()).PrefDefaultDiffHighlight() }
+
+// PrefDefaultDiffHighlight says "Words"
+// in the language of msgs.
+func (msgs Messages) PrefDefaultDiffHighlight() string {
+	return Catalog.Format(msgs.locale, "prefDefaultDiffHighlight", nil)
+}
+
+// PrefDefaultDiffWhitespace says "Exact"
+// in the language the app shows.
+func PrefDefaultDiffWhitespace() string { return In(i18n.Locale()).PrefDefaultDiffWhitespace() }
+
+// PrefDefaultDiffWhitespace says "Exact"
+// in the language of msgs.
+func (msgs Messages) PrefDefaultDiffWhitespace() string {
+	return Catalog.Format(msgs.locale, "prefDefaultDiffWhitespace", nil)
+}
+
+// PrefDefaultDiffCrossFiles says "Say so, then cross"
+// in the language the app shows.
+func PrefDefaultDiffCrossFiles() string { return In(i18n.Locale()).PrefDefaultDiffCrossFiles() }
+
+// PrefDefaultDiffCrossFiles says "Say so, then cross"
+// in the language of msgs.
+func (msgs Messages) PrefDefaultDiffCrossFiles() string {
+	return Catalog.Format(msgs.locale, "prefDefaultDiffCrossFiles", nil)
+}
+
+// PrefDefaultLocale says "System"
+// in the language the app shows.
+func PrefDefaultLocale() string { return In(i18n.Locale()).PrefDefaultLocale() }
+
+// PrefDefaultLocale says "System"
+// in the language of msgs.
+func (msgs Messages) PrefDefaultLocale() string {
+	return Catalog.Format(msgs.locale, "prefDefaultLocale", nil)
+}
+
+// PrefDefaultCrashReports says "Ask"
+// in the language the app shows.
+func PrefDefaultCrashReports() string { return In(i18n.Locale()).PrefDefaultCrashReports() }
+
+// PrefDefaultCrashReports says "Ask"
+// in the language of msgs.
+func (msgs Messages) PrefDefaultCrashReports() string {
+	return Catalog.Format(msgs.locale, "prefDefaultCrashReports", nil)
+}
+
+// PrefOptThemeMatrix says "The Matrix"
+// in the language the app shows.
+func PrefOptThemeMatrix() string { return In(i18n.Locale()).PrefOptThemeMatrix() }
+
+// PrefOptThemeMatrix says "The Matrix"
+// in the language of msgs.
+func (msgs Messages) PrefOptThemeMatrix() string {
+	return Catalog.Format(msgs.locale, "prefOptThemeMatrix", nil)
+}
+
+// PrefOptThemeClaude says "Claude"
+// in the language the app shows.
+func PrefOptThemeClaude() string { return In(i18n.Locale()).PrefOptThemeClaude() }
+
+// PrefOptThemeClaude says "Claude"
+// in the language of msgs.
+func (msgs Messages) PrefOptThemeClaude() string {
+	return Catalog.Format(msgs.locale, "prefOptThemeClaude", nil)
+}
+
+// PrefOptThemeQoder says "Qoder"
+// in the language the app shows.
+func PrefOptThemeQoder() string { return In(i18n.Locale()).PrefOptThemeQoder() }
+
+// PrefOptThemeQoder says "Qoder"
+// in the language of msgs.
+func (msgs Messages) PrefOptThemeQoder() string {
+	return Catalog.Format(msgs.locale, "prefOptThemeQoder", nil)
+}
+
+// PrefOptThemeGrokbot says "Grok Bot"
+// in the language the app shows.
+func PrefOptThemeGrokbot() string { return In(i18n.Locale()).PrefOptThemeGrokbot() }
+
+// PrefOptThemeGrokbot says "Grok Bot"
+// in the language of msgs.
+func (msgs Messages) PrefOptThemeGrokbot() string {
+	return Catalog.Format(msgs.locale, "prefOptThemeGrokbot", nil)
+}
+
+// PrefOptThemeCursor says "Cursor"
+// in the language the app shows.
+func PrefOptThemeCursor() string { return In(i18n.Locale()).PrefOptThemeCursor() }
+
+// PrefOptThemeCursor says "Cursor"
+// in the language of msgs.
+func (msgs Messages) PrefOptThemeCursor() string {
+	return Catalog.Format(msgs.locale, "prefOptThemeCursor", nil)
+}
+
+// PrefOptThemePurplegold says "Purple Gold"
+// in the language the app shows.
+func PrefOptThemePurplegold() string { return In(i18n.Locale()).PrefOptThemePurplegold() }
+
+// PrefOptThemePurplegold says "Purple Gold"
+// in the language of msgs.
+func (msgs Messages) PrefOptThemePurplegold() string {
+	return Catalog.Format(msgs.locale, "prefOptThemePurplegold", nil)
+}
+
+// PrefOptThemePumpkin says "Jack-o'-Lantern"
+// in the language the app shows.
+func PrefOptThemePumpkin() string { return In(i18n.Locale()).PrefOptThemePumpkin() }
+
+// PrefOptThemePumpkin says "Jack-o'-Lantern"
+// in the language of msgs.
+func (msgs Messages) PrefOptThemePumpkin() string {
+	return Catalog.Format(msgs.locale, "prefOptThemePumpkin", nil)
+}
+
+// PrefOptThemeWitchsbrew says "Witch's Brew"
+// in the language the app shows.
+func PrefOptThemeWitchsbrew() string { return In(i18n.Locale()).PrefOptThemeWitchsbrew() }
+
+// PrefOptThemeWitchsbrew says "Witch's Brew"
+// in the language of msgs.
+func (msgs Messages) PrefOptThemeWitchsbrew() string {
+	return Catalog.Format(msgs.locale, "prefOptThemeWitchsbrew", nil)
+}
+
+// PrefOptThemeBloodmoon says "Blood Moon"
+// in the language the app shows.
+func PrefOptThemeBloodmoon() string { return In(i18n.Locale()).PrefOptThemeBloodmoon() }
+
+// PrefOptThemeBloodmoon says "Blood Moon"
+// in the language of msgs.
+func (msgs Messages) PrefOptThemeBloodmoon() string {
+	return Catalog.Format(msgs.locale, "prefOptThemeBloodmoon", nil)
+}
+
+// PrefOptAppearanceLight says "Light"
+// in the language the app shows.
+func PrefOptAppearanceLight() string { return In(i18n.Locale()).PrefOptAppearanceLight() }
+
+// PrefOptAppearanceLight says "Light"
+// in the language of msgs.
+func (msgs Messages) PrefOptAppearanceLight() string {
+	return Catalog.Format(msgs.locale, "prefOptAppearanceLight", nil)
+}
+
+// PrefOptAppearanceDark says "Dark"
+// in the language the app shows.
+func PrefOptAppearanceDark() string { return In(i18n.Locale()).PrefOptAppearanceDark() }
+
+// PrefOptAppearanceDark says "Dark"
+// in the language of msgs.
+func (msgs Messages) PrefOptAppearanceDark() string {
+	return Catalog.Format(msgs.locale, "prefOptAppearanceDark", nil)
+}
+
+// PrefOptPanelPositionLeft says "Left"
+// in the language the app shows.
+func PrefOptPanelPositionLeft() string { return In(i18n.Locale()).PrefOptPanelPositionLeft() }
+
+// PrefOptPanelPositionLeft says "Left"
+// in the language of msgs.
+func (msgs Messages) PrefOptPanelPositionLeft() string {
+	return Catalog.Format(msgs.locale, "prefOptPanelPositionLeft", nil)
+}
+
+// PrefOptPanelPositionRight says "Right"
+// in the language the app shows.
+func PrefOptPanelPositionRight() string { return In(i18n.Locale()).PrefOptPanelPositionRight() }
+
+// PrefOptPanelPositionRight says "Right"
+// in the language of msgs.
+func (msgs Messages) PrefOptPanelPositionRight() string {
+	return Catalog.Format(msgs.locale, "prefOptPanelPositionRight", nil)
+}
+
+// PrefOptTerminalLocationEditor says "Editor area"
+// in the language the app shows.
+func PrefOptTerminalLocationEditor() string { return In(i18n.Locale()).PrefOptTerminalLocationEditor() }
+
+// PrefOptTerminalLocationEditor says "Editor area"
+// in the language of msgs.
+func (msgs Messages) PrefOptTerminalLocationEditor() string {
+	return Catalog.Format(msgs.locale, "prefOptTerminalLocationEditor", nil)
+}
+
+// PrefOptTerminalBackendHc says "herdr-core (hc)"
+// in the language the app shows.
+func PrefOptTerminalBackendHc() string { return In(i18n.Locale()).PrefOptTerminalBackendHc() }
+
+// PrefOptTerminalBackendHc says "herdr-core (hc)"
+// in the language of msgs.
+func (msgs Messages) PrefOptTerminalBackendHc() string {
+	return Catalog.Format(msgs.locale, "prefOptTerminalBackendHc", nil)
+}
+
+// PrefOptDiffLayoutSplit says "Side by side"
+// in the language the app shows.
+func PrefOptDiffLayoutSplit() string { return In(i18n.Locale()).PrefOptDiffLayoutSplit() }
+
+// PrefOptDiffLayoutSplit says "Side by side"
+// in the language of msgs.
+func (msgs Messages) PrefOptDiffLayoutSplit() string {
+	return Catalog.Format(msgs.locale, "prefOptDiffLayoutSplit", nil)
+}
+
+// PrefOptDiffLayoutInline says "Inline"
+// in the language the app shows.
+func PrefOptDiffLayoutInline() string { return In(i18n.Locale()).PrefOptDiffLayoutInline() }
+
+// PrefOptDiffLayoutInline says "Inline"
+// in the language of msgs.
+func (msgs Messages) PrefOptDiffLayoutInline() string {
+	return Catalog.Format(msgs.locale, "prefOptDiffLayoutInline", nil)
+}
+
+// PrefOptDiffHighlightLine says "Lines"
+// in the language the app shows.
+func PrefOptDiffHighlightLine() string { return In(i18n.Locale()).PrefOptDiffHighlightLine() }
+
+// PrefOptDiffHighlightLine says "Lines"
+// in the language of msgs.
+func (msgs Messages) PrefOptDiffHighlightLine() string {
+	return Catalog.Format(msgs.locale, "prefOptDiffHighlightLine", nil)
+}
+
+// PrefOptDiffHighlightChar says "Characters"
+// in the language the app shows.
+func PrefOptDiffHighlightChar() string { return In(i18n.Locale()).PrefOptDiffHighlightChar() }
+
+// PrefOptDiffHighlightChar says "Characters"
+// in the language of msgs.
+func (msgs Messages) PrefOptDiffHighlightChar() string {
+	return Catalog.Format(msgs.locale, "prefOptDiffHighlightChar", nil)
+}
+
+// PrefOptDiffWhitespaceEol says "Ignore at line ends"
+// in the language the app shows.
+func PrefOptDiffWhitespaceEol() string { return In(i18n.Locale()).PrefOptDiffWhitespaceEol() }
+
+// PrefOptDiffWhitespaceEol says "Ignore at line ends"
+// in the language of msgs.
+func (msgs Messages) PrefOptDiffWhitespaceEol() string {
+	return Catalog.Format(msgs.locale, "prefOptDiffWhitespaceEol", nil)
+}
+
+// PrefOptDiffWhitespaceAll says "Ignore all"
+// in the language the app shows.
+func PrefOptDiffWhitespaceAll() string { return In(i18n.Locale()).PrefOptDiffWhitespaceAll() }
+
+// PrefOptDiffWhitespaceAll says "Ignore all"
+// in the language of msgs.
+func (msgs Messages) PrefOptDiffWhitespaceAll() string {
+	return Catalog.Format(msgs.locale, "prefOptDiffWhitespaceAll", nil)
+}
+
+// PrefOptDiffWhitespaceBlank says "Ignore all, blank lines too"
+// in the language the app shows.
+func PrefOptDiffWhitespaceBlank() string { return In(i18n.Locale()).PrefOptDiffWhitespaceBlank() }
+
+// PrefOptDiffWhitespaceBlank says "Ignore all, blank lines too"
+// in the language of msgs.
+func (msgs Messages) PrefOptDiffWhitespaceBlank() string {
+	return Catalog.Format(msgs.locale, "prefOptDiffWhitespaceBlank", nil)
+}
+
+// PrefOptDiffCrossFilesAlways says "Always"
+// in the language the app shows.
+func PrefOptDiffCrossFilesAlways() string { return In(i18n.Locale()).PrefOptDiffCrossFilesAlways() }
+
+// PrefOptDiffCrossFilesAlways says "Always"
+// in the language of msgs.
+func (msgs Messages) PrefOptDiffCrossFilesAlways() string {
+	return Catalog.Format(msgs.locale, "prefOptDiffCrossFilesAlways", nil)
+}
+
+// PrefOptDiffCrossFilesNever says "Never"
+// in the language the app shows.
+func PrefOptDiffCrossFilesNever() string { return In(i18n.Locale()).PrefOptDiffCrossFilesNever() }
+
+// PrefOptDiffCrossFilesNever says "Never"
+// in the language of msgs.
+func (msgs Messages) PrefOptDiffCrossFilesNever() string {
+	return Catalog.Format(msgs.locale, "prefOptDiffCrossFilesNever", nil)
+}
+
+// PrefOptCrashReportsAlways says "Send"
+// in the language the app shows.
+func PrefOptCrashReportsAlways() string { return In(i18n.Locale()).PrefOptCrashReportsAlways() }
+
+// PrefOptCrashReportsAlways says "Send"
+// in the language of msgs.
+func (msgs Messages) PrefOptCrashReportsAlways() string {
+	return Catalog.Format(msgs.locale, "prefOptCrashReportsAlways", nil)
+}
+
+// PrefOptCrashReportsNever says "Don't send"
+// in the language the app shows.
+func PrefOptCrashReportsNever() string { return In(i18n.Locale()).PrefOptCrashReportsNever() }
+
+// PrefOptCrashReportsNever says "Don't send"
+// in the language of msgs.
+func (msgs Messages) PrefOptCrashReportsNever() string {
+	return Catalog.Format(msgs.locale, "prefOptCrashReportsNever", nil)
+}
+
+// PrefHintFontFamily says "monospace"
+// in the language the app shows.
+func PrefHintFontFamily() string { return In(i18n.Locale()).PrefHintFontFamily() }
+
+// PrefHintFontFamily says "monospace"
+// in the language of msgs.
+func (msgs Messages) PrefHintFontFamily() string {
+	return Catalog.Format(msgs.locale, "prefHintFontFamily", nil)
+}
+
+// PrefHintTerminalFontFamily says "The code's font"
+// in the language the app shows.
+func PrefHintTerminalFontFamily() string { return In(i18n.Locale()).PrefHintTerminalFontFamily() }
+
+// PrefHintTerminalFontFamily says "The code's font"
+// in the language of msgs.
+func (msgs Messages) PrefHintTerminalFontFamily() string {
+	return Catalog.Format(msgs.locale, "prefHintTerminalFontFamily", nil)
+}
+
+// PrefHintAiModel says "deepseek-flash"
+// in the language the app shows.
+func PrefHintAiModel() string { return In(i18n.Locale()).PrefHintAiModel() }
+
+// PrefHintAiModel says "deepseek-flash"
+// in the language of msgs.
+func (msgs Messages) PrefHintAiModel() string {
+	return Catalog.Format(msgs.locale, "prefHintAiModel", nil)
 }

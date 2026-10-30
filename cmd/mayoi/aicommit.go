@@ -73,7 +73,7 @@ func (a *gitContext) writeMessage() {
 		return
 	}
 	r, amend, notes, branch := g.repo, g.amend, strings.TrimSpace(g.message), a.branch()
-	model := cmp.Or(strings.TrimSpace(a.app.settings.AIModel), aiModel)
+	model := cmp.Or(strings.TrimSpace(a.app.prefs().AIModel), aiModel)
 	ctx, cancel := context.WithTimeout(context.Background(), aiTimeout)
 	w := &aiWriting{cancel: cancel}
 	g.writing = w

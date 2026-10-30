@@ -41,6 +41,9 @@ type findState struct {
 	pendingDoc int
 
 	input ui.Handle
+	// box is the find widget, whose bounds tell how far down the editor
+	// it covers.
+	box ui.Handle
 	// shook is when Return found no match, which shakes the box.
 	shook  time.Time
 	reveal bool // select the current match
@@ -405,7 +408,7 @@ func (a *app) findBoxView(c *ui.Context, b findBox) {
 			f.stale = true
 		}
 	}
-	box := a.floating(c, ui.Column(c).Absolute().Top(4).Right(22).Width(430).Padding(5, 6).Gap(4).Radius(8), false).Transition(popIn)
+	box := a.floating(c, ui.Column(c).Absolute().Top(4).Right(22).Width(430).Padding(5, 6).Gap(4).Radius(8), false).Transition(popIn).Bind(&f.box)
 	shake(c, box, f.shook)
 	box.Role(ui.RoleToolbar).Label(locales.FindLabel())
 	box.Children(func() {

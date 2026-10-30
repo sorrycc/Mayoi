@@ -569,7 +569,7 @@ func (a *app) runDiffEdits(v *diffView, focused bool) {
 		if e.doc.hl == nil {
 			continue
 		}
-		if !a.settings.Vim {
+		if !a.prefs().Vim {
 			vimReset(e.ed)
 		}
 		// The edit that has the keyboard types, as an editor's does.

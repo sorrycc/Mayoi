@@ -174,6 +174,9 @@ func movedBy(x, start, end, n int) int {
 func (d *editor) follow(moved func(x int) int) {
 	n := d.buf.Len()
 	for _, o := range d.views {
+		if o.hidden {
+			o.hiddenAt = min(moved(o.hiddenAt), n)
+		}
 		if o == d {
 			continue
 		}

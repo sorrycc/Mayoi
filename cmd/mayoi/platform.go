@@ -208,7 +208,7 @@ func revealActiveLabel(t locales.Messages) string {
 // vimCtrl reports whether vim's normal mode takes ⌃F, ⌃B and ⌃R: on
 // macOS, where shortcuts are Command's, and elsewhere with vimCtrlKeys,
 // rather than Find, Toggle Sidebar and Open Recent.
-func (a *app) vimCtrl() bool { return macKeys() || a.settings.VimCtrlKeys }
+func (a *app) vimCtrl() bool { return macKeys() || a.prefs().VimCtrlKeys }
 
 // vimTakesCtrl reports whether the editor with the keyboard takes vim's
 // keys with Control, as ⌃R.

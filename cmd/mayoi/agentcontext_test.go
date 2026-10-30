@@ -208,7 +208,7 @@ func TestAgentContextUnnamedAndNoSelection(t *testing.T) {
 	d.buf.Replace(0, 0, "hello")
 	hs.place(d, 0, 5)
 	collectContext(a, d)
-	if len(a.review.notes) != 0 || a.notes[len(a.notes)-1].message != locales.ReviewSaveFirst() {
+	if len(a.review.notes) != 0 || a.notes[len(a.notes)-1].message != locales.ReviewSaveFirstItems() {
 		t.Fatal("an unnamed file was collected without a path")
 	}
 	a.openFile(hs.path("main.go"), true)
@@ -299,10 +299,14 @@ func TestAgentContextToTerminal(t *testing.T) {
 	hs.settle()
 	s := a.panelTerm
 	hs.until("the prompt", func() bool { return strings.Contains(s.term.Text(), "❯") })
+	// The toolbar includes text still being drafted, even with a hidden terminal.
+	a.commentEditor(d)
+	hs.settle()
+	a.review.text = "include this unsaved comment"
 	// The toolbar uses the shared send path even when the terminal is hidden.
 	a.focusColumn()
 	hs.settle()
-	if err := hs.tt.Click(locales.ReviewSendTip(1)); err != nil {
+	if err := hs.tt.Click(locales.ReviewSendTipItems(1)); err != nil {
 		t.Fatal(err)
 	}
 	hs.settle()
@@ -310,7 +314,7 @@ func TestAgentContextToTerminal(t *testing.T) {
 	if len(a.review.notes) != 0 || len(a.window.Review) != 0 || a.focus != paneTerminal {
 		t.Fatal("successful paste did not clear the batch and focus the terminal")
 	}
-	if text := s.term.Text(); !strings.Contains(text, "first()") || strings.Count(text, "❯") != 1 {
+	if text := s.term.Text(); !strings.Contains(text, "first()") || !strings.Contains(text, "include this unsaved comment") || strings.Count(text, "❯") != 1 {
 		t.Fatalf("context missing or submitted automatically: %q", text)
 	}
 }
@@ -402,6 +406,18 @@ func TestAgentContextHorizontalScroll(t *testing.T) {
 			if !ok {
 				t.Fatal("no review card")
 			}
+			gutter := func() string {
+				img := tt.Image()
+				var pixels []byte
+				for py := int(area.Y); py < int(area.Y+editorPadY+a.font.lineH); py++ {
+					for px := int(area.X); px < int(area.X+d.gutterW); px++ {
+						p := img.RGBAAt(px, py)
+						pixels = append(pixels, p.R, p.G, p.B)
+					}
+				}
+				return string(pixels)
+			}
+			beforeGutter := gutter()
 			tt.Scroll(x, y, 120, 0)
 			hs.settle()
 			if wrap {
@@ -410,6 +426,9 @@ func TestAgentContextHorizontalScroll(t *testing.T) {
 				}
 			} else if v.scroll.MaxX <= 0 || v.scroll.X <= initialX {
 				t.Fatalf("draft source cannot scroll sideways: %+v", v.scroll)
+			}
+			if gutter() != beforeGutter {
+				t.Fatal("horizontal scrolling moved the gutter")
 			}
 			after, ok := tt.Find(locales.ReviewCommentLabel())
 			if !ok || after.X != card.X || after.W != card.W {
@@ -420,5 +439,303 @@ func TestAgentContextHorizontalScroll(t *testing.T) {
 				t.Fatalf("returning to source lost its horizontal offset: %v -> %v", initialX, d.hscroll.X)
 			}
 		})
+	}
+}
+
+// Releasing an editor is shared by tabs, columns, diff editors and merge editors.
+func TestAgentContextReleaseDraft(t *testing.T) {
+	for _, mode := range []string{"tab", "column", "release", "empty legacy"} {
+		t.Run(mode, func(t *testing.T) {
+			hs, d := editHarness(t, "context.go", "first()\nsecond()\n")
+			a := hs.a
+			a.settings.EditorAgentContext = mode != "empty legacy"
+			if mode == "column" {
+				a.splitRight()
+				hs.settle()
+				d = a.activeEditor()
+				if len(d.document.views) != 2 {
+					t.Fatal("no shared document")
+				}
+			}
+			hs.place(d, 0, 7)
+			a.commentEditor(d)
+			hs.settle()
+			if mode != "empty legacy" {
+				hs.tt.Type("keep my draft")
+				hs.settle()
+			}
+			n := a.review.draft
+			switch mode {
+			case "release", "empty legacy":
+				d.release()
+			default:
+				a.closeActive()
+			}
+			hs.settle()
+			if a.review.draft != nil || a.review.ed != nil || d.releaseReview != nil || d.reviewSource != nil {
+				t.Fatal("released editor retained its draft")
+			}
+			if mode == "empty legacy" {
+				if len(a.review.notes) != 0 {
+					t.Fatal("saved an empty ordinary comment")
+				}
+				return
+			}
+			if len(a.review.notes) != 1 || a.review.notes[0] != n || n.text != "keep my draft" || a.window.Review[0].Text != n.text {
+				t.Fatal("draft was not kept in the persistent queue")
+			}
+			if mode == "column" && len(a.cols) != 1 {
+				t.Fatal("column was not closed")
+			}
+			if mode == "release" {
+				a.closeActive()
+				hs.settle()
+			}
+			a.openFile(hs.path("README.md"), true)
+			hs.settle()
+			hs.place(a.activeEditor(), 0, 7)
+			if _, ok := hs.tt.Find(locales.AgentContextComment()); !ok {
+				t.Fatal("draft hid another file's action")
+			}
+			a.goToNote(n)
+			hs.settle()
+			a.editNote(n, a.activeEditor())
+			hs.settle()
+			if a.review.text != "keep my draft" || a.review.ed == d || a.review.ed.path != d.path {
+				t.Fatal("could not recover the draft in another editor")
+			}
+		})
+	}
+}
+
+func TestAgentContextDraftAcrossTabs(t *testing.T) {
+	hs, d := editHarness(t, "context.go", "first()\nsecond()\n")
+	a := hs.a
+	a.settings.EditorAgentContext = true
+	a.commentEditor(d)
+	hs.settle()
+	hs.tt.Type("keep the first")
+	hs.settle()
+	n := a.review.draft
+	original := a.activeTab()
+	a.openFile(hs.path("README.md"), true)
+	hs.settle()
+	other := a.activeTab()
+	a.closeTab(other, nil)
+	hs.settle()
+	if a.review.draft != n || a.review.ed != d || a.review.text != "keep the first" {
+		t.Fatal("closing another tab changed the draft")
+	}
+	a.openFile(hs.path("README.md"), true)
+	hs.settle()
+	hs.place(a.activeEditor(), 0, 7)
+	if err := hs.tt.Click(locales.AgentContextComment()); err != nil {
+		t.Fatal(err)
+	}
+	hs.settle()
+	if len(a.review.notes) != 1 || n.text != "keep the first" || a.review.ed == d {
+		t.Fatal("switching drafts lost the previous comment")
+	}
+	hs.tt.Type("keep the second")
+	hs.settle()
+	a.closeTab(original, nil)
+	hs.settle()
+	if a.review.text != "keep the second" {
+		t.Fatal("old editor's release ended the new draft")
+	}
+}
+
+func TestAgentContextDraftSourceFocus(t *testing.T) {
+	for _, key := range []ui.Key{ui.KeyEscape, ui.KeyEnter} {
+		t.Run(fmt.Sprint(key), func(t *testing.T) {
+			hs, d := editHarness(t, "context.go", "first()\nsecond()\n")
+			a, tt := hs.a, hs.tt
+			a.settings.EditorAgentContext = true
+			area, _ := tt.Find(locales.EditorLabel(d.name()))
+			a.commentEditor(d)
+			hs.settle()
+			tt.Type("before")
+			hs.settle()
+			tt.ClickAt(area.X+d.gutterW+40, area.Y+editorPadY+a.font.lineH/2)
+			hs.settle()
+			tt.Type(" after")
+			hs.settle()
+			if a.review.text != "before after" || d.buf.String() != "first()\nsecond()\n" {
+				t.Fatal("source click lost comment typing focus")
+			}
+			mods := ui.Modifiers(0)
+			if key == ui.KeyEnter {
+				mods = ui.Cmd
+			}
+			hs.key(mods, key)
+			if a.review.draft != nil || d.reviewSource != nil {
+				t.Fatal("source click broke the draft shortcut")
+			}
+			if key == ui.KeyEnter && (len(a.review.notes) != 1 || a.review.notes[0].text != "before after") {
+				t.Fatal("save shortcut lost text")
+			}
+		})
+	}
+}
+
+func TestAgentContextGrowingCard(t *testing.T) {
+	hs, d := editHarness(t, "context.go", strings.Repeat("next()\n", 100))
+	a, tt := hs.a, hs.tt
+	a.settings.EditorAgentContext = true
+	tt.SetSize(1000, 760)
+	hs.settle()
+	area, _ := tt.Find(locales.EditorLabel(d.name()))
+	line := int((area.H - 150) / a.font.lineH)
+	at, _ := d.buf.Snapshot().LineRange(line)
+	hs.place(d, at, at)
+	a.commentEditor(d)
+	hs.settle()
+	tt.Type(strings.Repeat("more detail\n", 14))
+	hs.settle()
+	check := func(bottom float32) {
+		t.Helper()
+		for _, label := range []string{locales.ButtonCancel(), locales.ReviewComment()} {
+			r, ok := tt.Find(label)
+			if !ok || r.Y < area.Y || r.Y+r.H > bottom {
+				t.Fatalf("%s out of view: %+v; bottom %v", label, r, bottom)
+			}
+		}
+	}
+	check(area.Y + area.H)
+	tt.SetSize(1000, 500)
+	hs.settle()
+	check(500 - statusBarH)
+	if d.reviewSource.width > maxNoteBoxW {
+		t.Fatal("card exceeded its maximum width")
+	}
+	hs.shot("agent-context-growing-card")
+}
+
+func TestAgentContextJumpKeepsDraft(t *testing.T) {
+	hs, d := editHarness(t, "context.go", strings.Repeat("line()\n", 100))
+	a := hs.a
+	a.settings.EditorAgentContext = true
+	a.commentEditor(d)
+	hs.settle()
+	hs.tt.Type("keep before jumping")
+	hs.settle()
+	a.openFileAt(d.path, 70, true)
+	hs.settle()
+	if a.review.draft != nil || caretLine(d) != 70 || len(a.review.notes) != 1 || a.review.notes[0].text != "keep before jumping" {
+		t.Fatal("jump was delayed or lost the draft")
+	}
+}
+
+func TestAgentContextSendSavesDraft(t *testing.T) {
+	for _, existing := range []bool{false, true} {
+		t.Run(fmt.Sprint(existing), func(t *testing.T) {
+			hs, d := editHarness(t, "context.go", "first()\nsecond()\n")
+			a := hs.a
+			a.settings.EditorAgentContext = true
+			if existing {
+				hs.place(d, 0, 7)
+				collectContext(a, d)
+			}
+			hs.place(d, 8, 16)
+			a.commentEditor(d)
+			hs.settle()
+			hs.tt.Type("unsaved comment")
+			hs.settle()
+			a.run("review.send")
+			hs.settle()
+			if a.review.draft != nil || !strings.Contains(hs.tt.Clipboard(), "unsaved comment") || !strings.Contains(a.reviewText(), "unsaved comment") {
+				t.Fatal("command send lost its draft or fallback queue")
+			}
+		})
+	}
+}
+
+func TestAgentContextUnwrappedResize(t *testing.T) {
+	hs, d := editHarness(t, "context.go", strings.Repeat("line()\n", 100000))
+	a := hs.a
+	a.settings.EditorAgentContext, a.settings.WordWrap = true, false
+	a.commentEditor(d)
+	hs.settle()
+	v := d.reviewSource
+	tops := &v.tops[0]
+	if v.file.new.lines[90000] != "" {
+		t.Fatal("opening a card copied offscreen source")
+	}
+	hs.tt.SetSize(900, 600)
+	hs.settle()
+	if tops != &v.tops[0] {
+		t.Fatal("unwrapped resize rebuilt all line positions")
+	}
+}
+
+func TestAgentContextDisabledReviewUI(t *testing.T) {
+	hs, d := editHarness(t, "context.go", "first()\nsecond()\n")
+	a, tt := hs.a, hs.tt
+	a.commentEditor(d)
+	hs.settle()
+	tt.Type("ordinary review")
+	hs.key(ui.Cmd, ui.KeyEnter)
+	n := a.review.notes[0]
+	for _, cmd := range a.commands() {
+		if cmd.id == "review.send" || cmd.id == "review.copy" || cmd.id == "review.clear" {
+			if !strings.Contains(cmd.label, "Comments") {
+				t.Fatalf("default-off command changed: %s", cmd.label)
+			}
+		}
+	}
+	a.openFile(hs.path("README.md"), true)
+	hs.settle()
+	if err := tt.Click(locales.ReviewStatusTip(1)); err != nil {
+		t.Fatal(err)
+	}
+	if err := tt.ChooseMenuItem(n.where() + " — " + noteHint(n)); err != nil {
+		t.Fatal(err)
+	}
+	hs.settle()
+	if a.activeEditor() != d {
+		t.Fatal("default-off review note requires a submenu")
+	}
+	a.settings.EditorAgentContext = true
+	a.editNote(n, d)
+	hs.settle()
+	a.review.text = "keep while disabling"
+	a.settings.EditorAgentContext = false
+	hs.settle()
+	if a.review.text != "keep while disabling" || d.reviewSource != nil {
+		t.Fatal("disabling lost the draft")
+	}
+	if err := tt.Click(locales.ReviewCommentLabel()); err != nil {
+		t.Fatal(err)
+	}
+	tt.Type(" and save")
+	hs.key(ui.Cmd, ui.KeyEnter)
+	if n.text != "keep while disabling and save" || a.review.draft != nil {
+		t.Fatalf("disabled draft was inaccessible: %q", n.text)
+	}
+}
+
+func TestAgentContextSharedEditorDraft(t *testing.T) {
+	hs, left, right := splitHarness(t, func(hs *harness) string { return hs.path("main.go") })
+	a := hs.a
+	a.settings.EditorAgentContext = true
+	hs.place(right, 0, 7)
+	a.commentEditor(right)
+	hs.settle()
+	hs.tt.Type("keep across editors")
+	hs.settle()
+	n := a.review.draft
+	a.col = 0
+	a.focusColumn()
+	hs.place(left, 0, 7)
+	a.commentEditor(left)
+	hs.settle()
+	if a.review.draft != n || a.review.ed != left || a.review.text != "keep across editors" || len(a.review.notes) != 1 {
+		t.Fatal("same-document draft was duplicated or lost")
+	}
+	hidden := a.cols[1].tab()
+	a.closeTab(hidden, nil)
+	hs.settle()
+	if a.review.draft != n || a.review.ed != left {
+		t.Fatal("closing the previous editor cleared the current draft")
 	}
 }

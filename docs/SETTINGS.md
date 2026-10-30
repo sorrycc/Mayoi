@@ -158,7 +158,9 @@ differ in width lines them up only roughly.
 - **`editorAgentContext`** shows a **+** beside the line under the pointer in ordinary files. Click it
   to comment on that line or the selected lines in an inline review card; an empty comment collects the
   code alone. Collect snippets across files and send them together from the editor toolbar. It is off
-  by default; changes apply immediately and do not discard pending items.
+  by default; changes apply immediately and do not discard pending items. Closing the draft’s tab,
+  starting another comment, or jumping to code keeps its text in the Review queue. **Send** saves the
+  current draft before sending the batch.
 - **`previewMermaid`** draws the `mermaid` code blocks of a Markdown preview as diagrams. Turn it off to show
   them as code. A `.mmd` or `.mermaid` file's own preview draws its diagram either way.
 - **`previewMath`** draws the LaTeX math of a Markdown preview, between `$` and `$`, `$$` and `$$`, or in a

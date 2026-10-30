@@ -5,9 +5,15 @@ needs a `## <version>` section here, or its build fails.
 
 ## Unreleased
 
-- Use the gutter **+** in ordinary files to open a review card beneath the selected lines.
-- Scroll long code lines horizontally while writing an inline review comment in ordinary files.
-- Enable `editorAgentContext` to collect selected code in ordinary files, with optional comments.
+- Enable `editorAgentContext` to collect selected code with the gutter **+** and optional comments.
+- With `editorAgentContext`, scroll code sideways while the comment card and gutter stay fixed.
+- The gutter **+** leaves line numbers and Git change marks clear and clickable.
+- Closing a tab or column, starting another comment, or jumping to code keeps the draft in Review.
+- **Send** includes the comment being drafted; **Clear** lets Undo recover it.
+- Clicking source while drafting keeps typing, `Esc`, and `Cmd/Ctrl+Enter` in the comment card.
+- Inline comment cards keep their buttons visible as they grow or the window shrinks.
+- With `editorAgentContext` off, Review keeps its comment labels and one-click note navigation.
+- Code snippets without comments show a useful edit tooltip.
 - Collect snippets across files and send them together with review comments to the last terminal.
 - Collected snippets survive restarts; the list lets you locate, edit, or remove each item.
 - Headings in the Markdown preview take the color theme's heading color, as the editor does.

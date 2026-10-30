@@ -176,7 +176,7 @@ func (a *app) editorView(c *ui.Context, d *editor) {
 	edited := snap.Version() != d.version
 	d.version = snap.Version()
 	lines := snap.LineCount()
-	gutterW := f.gutterWidth(lines)
+	gutterW := a.editorGutterWidth(lines)
 	d.gutterW = gutterW
 	view := d.hscroll.Bounds(c)
 	if view.H > 0 {

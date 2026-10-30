@@ -2736,14 +2736,24 @@ func (msgs Messages) CmdRemoteReconnect() string {
 	return Catalog.Format(msgs.locale, "cmdRemoteReconnect", nil)
 }
 
-// CmdReviewClear says "Clear Review Items"
+// CmdReviewClear says "Clear Review Comments"
 // in the language the app shows.
 func CmdReviewClear() string { return In(i18n.Locale()).CmdReviewClear() }
 
-// CmdReviewClear says "Clear Review Items"
+// CmdReviewClear says "Clear Review Comments"
 // in the language of msgs.
 func (msgs Messages) CmdReviewClear() string {
 	return Catalog.Format(msgs.locale, "cmdReviewClear", nil)
+}
+
+// CmdReviewClearItems says "Clear Review Items"
+// in the language the app shows.
+func CmdReviewClearItems() string { return In(i18n.Locale()).CmdReviewClearItems() }
+
+// CmdReviewClearItems says "Clear Review Items"
+// in the language of msgs.
+func (msgs Messages) CmdReviewClearItems() string {
+	return Catalog.Format(msgs.locale, "cmdReviewClearItems", nil)
 }
 
 // CmdReviewComment says "Add Review Comment"
@@ -2756,14 +2766,24 @@ func (msgs Messages) CmdReviewComment() string {
 	return Catalog.Format(msgs.locale, "cmdReviewComment", nil)
 }
 
-// CmdReviewCopy says "Copy Review Items"
+// CmdReviewCopy says "Copy Review Comments"
 // in the language the app shows.
 func CmdReviewCopy() string { return In(i18n.Locale()).CmdReviewCopy() }
 
-// CmdReviewCopy says "Copy Review Items"
+// CmdReviewCopy says "Copy Review Comments"
 // in the language of msgs.
 func (msgs Messages) CmdReviewCopy() string {
 	return Catalog.Format(msgs.locale, "cmdReviewCopy", nil)
+}
+
+// CmdReviewCopyItems says "Copy Review Items"
+// in the language the app shows.
+func CmdReviewCopyItems() string { return In(i18n.Locale()).CmdReviewCopyItems() }
+
+// CmdReviewCopyItems says "Copy Review Items"
+// in the language of msgs.
+func (msgs Messages) CmdReviewCopyItems() string {
+	return Catalog.Format(msgs.locale, "cmdReviewCopyItems", nil)
 }
 
 // CmdReviewNext says "Go to Next Review Comment"
@@ -2786,14 +2806,24 @@ func (msgs Messages) CmdReviewPrevious() string {
 	return Catalog.Format(msgs.locale, "cmdReviewPrevious", nil)
 }
 
-// CmdReviewSend says "Send Review Items to Terminal"
+// CmdReviewSend says "Send Review Comments to Terminal"
 // in the language the app shows.
 func CmdReviewSend() string { return In(i18n.Locale()).CmdReviewSend() }
 
-// CmdReviewSend says "Send Review Items to Terminal"
+// CmdReviewSend says "Send Review Comments to Terminal"
 // in the language of msgs.
 func (msgs Messages) CmdReviewSend() string {
 	return Catalog.Format(msgs.locale, "cmdReviewSend", nil)
+}
+
+// CmdReviewSendItems says "Send Review Items to Terminal"
+// in the language the app shows.
+func CmdReviewSendItems() string { return In(i18n.Locale()).CmdReviewSendItems() }
+
+// CmdReviewSendItems says "Send Review Items to Terminal"
+// in the language of msgs.
+func (msgs Messages) CmdReviewSendItems() string {
+	return Catalog.Format(msgs.locale, "cmdReviewSendItems", nil)
 }
 
 // CmdSelCamelCase says "Transform to Camel Case"
@@ -9524,14 +9554,24 @@ func (msgs Messages) ReviewChooseLines() string {
 	return Catalog.Format(msgs.locale, "reviewChooseLines", nil)
 }
 
-// ReviewCleared says "{count, plural, one {Cleared # review item} other {Cleared # review items}}"
+// ReviewCleared says "{count, plural, one {Cleared # review comment} other {Cleared # review comments}}"
 // in the language the app shows.
 func ReviewCleared(count int) string { return In(i18n.Locale()).ReviewCleared(count) }
 
-// ReviewCleared says "{count, plural, one {Cleared # review item} other {Cleared # review items}}"
+// ReviewCleared says "{count, plural, one {Cleared # review comment} other {Cleared # review comments}}"
 // in the language of msgs.
 func (msgs Messages) ReviewCleared(count int) string {
 	return Catalog.Format(msgs.locale, "reviewCleared", map[string]any{"count": count})
+}
+
+// ReviewClearedItems says "{count, plural, one {Cleared # review item} other {Cleared # review items}}"
+// in the language the app shows.
+func ReviewClearedItems(count int) string { return In(i18n.Locale()).ReviewClearedItems(count) }
+
+// ReviewClearedItems says "{count, plural, one {Cleared # review item} other {Cleared # review items}}"
+// in the language of msgs.
+func (msgs Messages) ReviewClearedItems(count int) string {
+	return Catalog.Format(msgs.locale, "reviewClearedItems", map[string]any{"count": count})
 }
 
 // ReviewComment says "Comment"
@@ -9554,14 +9594,24 @@ func (msgs Messages) ReviewCommentLabel() string {
 	return Catalog.Format(msgs.locale, "reviewCommentLabel", nil)
 }
 
-// ReviewCopied says "{count, plural, one {Copied # review item} other {Copied # review items}}"
+// ReviewCopied says "{count, plural, one {Copied # review comment} other {Copied # review comments}}"
 // in the language the app shows.
 func ReviewCopied(count int) string { return In(i18n.Locale()).ReviewCopied(count) }
 
-// ReviewCopied says "{count, plural, one {Copied # review item} other {Copied # review items}}"
+// ReviewCopied says "{count, plural, one {Copied # review comment} other {Copied # review comments}}"
 // in the language of msgs.
 func (msgs Messages) ReviewCopied(count int) string {
 	return Catalog.Format(msgs.locale, "reviewCopied", map[string]any{"count": count})
+}
+
+// ReviewCopiedItems says "{count, plural, one {Copied # review item} other {Copied # review items}}"
+// in the language the app shows.
+func ReviewCopiedItems(count int) string { return In(i18n.Locale()).ReviewCopiedItems(count) }
+
+// ReviewCopiedItems says "{count, plural, one {Copied # review item} other {Copied # review items}}"
+// in the language of msgs.
+func (msgs Messages) ReviewCopiedItems(count int) string {
+	return Catalog.Format(msgs.locale, "reviewCopiedItems", map[string]any{"count": count})
 }
 
 // ReviewDeleteComment says "Delete Comment"
@@ -9634,44 +9684,84 @@ func (msgs Messages) ReviewNewComment() string {
 	return Catalog.Format(msgs.locale, "reviewNewComment", nil)
 }
 
-// ReviewNoTerminal says "{count, plural, one {No terminal is open: copied # review item instead} other {No terminal is open: copied # review i…"
+// ReviewNoTerminal says "{count, plural, one {No terminal is open: copied # review comment instead} other {No terminal is open: copied # revie…"
 // in the language the app shows.
 func ReviewNoTerminal(count int) string { return In(i18n.Locale()).ReviewNoTerminal(count) }
 
-// ReviewNoTerminal says "{count, plural, one {No terminal is open: copied # review item instead} other {No terminal is open: copied # review i…"
+// ReviewNoTerminal says "{count, plural, one {No terminal is open: copied # review comment instead} other {No terminal is open: copied # revie…"
 // in the language of msgs.
 func (msgs Messages) ReviewNoTerminal(count int) string {
 	return Catalog.Format(msgs.locale, "reviewNoTerminal", map[string]any{"count": count})
 }
 
-// ReviewNone says "No review items."
+// ReviewNoTerminalItems says "{count, plural, one {No terminal is open: copied # review item instead} other {No terminal is open: copied # review i…"
+// in the language the app shows.
+func ReviewNoTerminalItems(count int) string { return In(i18n.Locale()).ReviewNoTerminalItems(count) }
+
+// ReviewNoTerminalItems says "{count, plural, one {No terminal is open: copied # review item instead} other {No terminal is open: copied # review i…"
+// in the language of msgs.
+func (msgs Messages) ReviewNoTerminalItems(count int) string {
+	return Catalog.Format(msgs.locale, "reviewNoTerminalItems", map[string]any{"count": count})
+}
+
+// ReviewNone says "No review comments."
 // in the language the app shows.
 func ReviewNone() string { return In(i18n.Locale()).ReviewNone() }
 
-// ReviewNone says "No review items."
+// ReviewNone says "No review comments."
 // in the language of msgs.
 func (msgs Messages) ReviewNone() string {
 	return Catalog.Format(msgs.locale, "reviewNone", nil)
 }
 
-// ReviewNoneToCopy says "No review items to copy."
+// ReviewNoneItems says "No review items."
+// in the language the app shows.
+func ReviewNoneItems() string { return In(i18n.Locale()).ReviewNoneItems() }
+
+// ReviewNoneItems says "No review items."
+// in the language of msgs.
+func (msgs Messages) ReviewNoneItems() string {
+	return Catalog.Format(msgs.locale, "reviewNoneItems", nil)
+}
+
+// ReviewNoneToCopy says "No review comments to copy."
 // in the language the app shows.
 func ReviewNoneToCopy() string { return In(i18n.Locale()).ReviewNoneToCopy() }
 
-// ReviewNoneToCopy says "No review items to copy."
+// ReviewNoneToCopy says "No review comments to copy."
 // in the language of msgs.
 func (msgs Messages) ReviewNoneToCopy() string {
 	return Catalog.Format(msgs.locale, "reviewNoneToCopy", nil)
 }
 
-// ReviewNoneToSend says "No review items to send."
+// ReviewNoneToCopyItems says "No review items to copy."
+// in the language the app shows.
+func ReviewNoneToCopyItems() string { return In(i18n.Locale()).ReviewNoneToCopyItems() }
+
+// ReviewNoneToCopyItems says "No review items to copy."
+// in the language of msgs.
+func (msgs Messages) ReviewNoneToCopyItems() string {
+	return Catalog.Format(msgs.locale, "reviewNoneToCopyItems", nil)
+}
+
+// ReviewNoneToSend says "No review comments to send."
 // in the language the app shows.
 func ReviewNoneToSend() string { return In(i18n.Locale()).ReviewNoneToSend() }
 
-// ReviewNoneToSend says "No review items to send."
+// ReviewNoneToSend says "No review comments to send."
 // in the language of msgs.
 func (msgs Messages) ReviewNoneToSend() string {
 	return Catalog.Format(msgs.locale, "reviewNoneToSend", nil)
+}
+
+// ReviewNoneToSendItems says "No review items to send."
+// in the language the app shows.
+func ReviewNoneToSendItems() string { return In(i18n.Locale()).ReviewNoneToSendItems() }
+
+// ReviewNoneToSendItems says "No review items to send."
+// in the language of msgs.
+func (msgs Messages) ReviewNoneToSendItems() string {
+	return Catalog.Format(msgs.locale, "reviewNoneToSendItems", nil)
 }
 
 // ReviewOutdated says "Outdated"
@@ -9724,14 +9814,24 @@ func (msgs Messages) ReviewRemoved(where string) string {
 	return Catalog.Format(msgs.locale, "reviewRemoved", map[string]any{"where": where})
 }
 
-// ReviewSaveFirst says "Save the file before collecting code or adding a comment."
+// ReviewSaveFirst says "Save the file to comment on it."
 // in the language the app shows.
 func ReviewSaveFirst() string { return In(i18n.Locale()).ReviewSaveFirst() }
 
-// ReviewSaveFirst says "Save the file before collecting code or adding a comment."
+// ReviewSaveFirst says "Save the file to comment on it."
 // in the language of msgs.
 func (msgs Messages) ReviewSaveFirst() string {
 	return Catalog.Format(msgs.locale, "reviewSaveFirst", nil)
+}
+
+// ReviewSaveFirstItems says "Save the file before collecting code or adding a comment."
+// in the language the app shows.
+func ReviewSaveFirstItems() string { return In(i18n.Locale()).ReviewSaveFirstItems() }
+
+// ReviewSaveFirstItems says "Save the file before collecting code or adding a comment."
+// in the language of msgs.
+func (msgs Messages) ReviewSaveFirstItems() string {
+	return Catalog.Format(msgs.locale, "reviewSaveFirstItems", nil)
 }
 
 // ReviewSaveHint says "{keys} to save · Esc to cancel"
@@ -9744,44 +9844,84 @@ func (msgs Messages) ReviewSaveHint(keys string) string {
 	return Catalog.Format(msgs.locale, "reviewSaveHint", map[string]any{"keys": keys})
 }
 
-// ReviewSendButton says "{count, plural, one {Send # Item} other {Send # Items}}"
+// ReviewSendButton says "{count, plural, one {Send # Comment} other {Send # Comments}}"
 // in the language the app shows.
 func ReviewSendButton(count int) string { return In(i18n.Locale()).ReviewSendButton(count) }
 
-// ReviewSendButton says "{count, plural, one {Send # Item} other {Send # Items}}"
+// ReviewSendButton says "{count, plural, one {Send # Comment} other {Send # Comments}}"
 // in the language of msgs.
 func (msgs Messages) ReviewSendButton(count int) string {
 	return Catalog.Format(msgs.locale, "reviewSendButton", map[string]any{"count": count})
 }
 
-// ReviewSendTip says "{count, plural, one {Send # Review Item to Terminal} other {Send # Review Items to Terminal}}"
+// ReviewSendButtonItems says "{count, plural, one {Send # Item} other {Send # Items}}"
+// in the language the app shows.
+func ReviewSendButtonItems(count int) string { return In(i18n.Locale()).ReviewSendButtonItems(count) }
+
+// ReviewSendButtonItems says "{count, plural, one {Send # Item} other {Send # Items}}"
+// in the language of msgs.
+func (msgs Messages) ReviewSendButtonItems(count int) string {
+	return Catalog.Format(msgs.locale, "reviewSendButtonItems", map[string]any{"count": count})
+}
+
+// ReviewSendTip says "{count, plural, one {Send # Review Comment to Terminal} other {Send # Review Comments to Terminal}}"
 // in the language the app shows.
 func ReviewSendTip(count int) string { return In(i18n.Locale()).ReviewSendTip(count) }
 
-// ReviewSendTip says "{count, plural, one {Send # Review Item to Terminal} other {Send # Review Items to Terminal}}"
+// ReviewSendTip says "{count, plural, one {Send # Review Comment to Terminal} other {Send # Review Comments to Terminal}}"
 // in the language of msgs.
 func (msgs Messages) ReviewSendTip(count int) string {
 	return Catalog.Format(msgs.locale, "reviewSendTip", map[string]any{"count": count})
 }
 
-// ReviewSent says "{count, plural, one {Sent # review item to the terminal} other {Sent # review items to the terminal}}"
+// ReviewSendTipItems says "{count, plural, one {Send # Review Item to Terminal} other {Send # Review Items to Terminal}}"
+// in the language the app shows.
+func ReviewSendTipItems(count int) string { return In(i18n.Locale()).ReviewSendTipItems(count) }
+
+// ReviewSendTipItems says "{count, plural, one {Send # Review Item to Terminal} other {Send # Review Items to Terminal}}"
+// in the language of msgs.
+func (msgs Messages) ReviewSendTipItems(count int) string {
+	return Catalog.Format(msgs.locale, "reviewSendTipItems", map[string]any{"count": count})
+}
+
+// ReviewSent says "{count, plural, one {Sent # review comment to the terminal} other {Sent # review comments to the terminal}}"
 // in the language the app shows.
 func ReviewSent(count int) string { return In(i18n.Locale()).ReviewSent(count) }
 
-// ReviewSent says "{count, plural, one {Sent # review item to the terminal} other {Sent # review items to the terminal}}"
+// ReviewSent says "{count, plural, one {Sent # review comment to the terminal} other {Sent # review comments to the terminal}}"
 // in the language of msgs.
 func (msgs Messages) ReviewSent(count int) string {
 	return Catalog.Format(msgs.locale, "reviewSent", map[string]any{"count": count})
 }
 
-// ReviewStatusTip says "{count, plural, one {# review item: copy, or send to the terminal} other {# review items: copy, or send to the termin…"
+// ReviewSentItems says "{count, plural, one {Sent # review item to the terminal} other {Sent # review items to the terminal}}"
+// in the language the app shows.
+func ReviewSentItems(count int) string { return In(i18n.Locale()).ReviewSentItems(count) }
+
+// ReviewSentItems says "{count, plural, one {Sent # review item to the terminal} other {Sent # review items to the terminal}}"
+// in the language of msgs.
+func (msgs Messages) ReviewSentItems(count int) string {
+	return Catalog.Format(msgs.locale, "reviewSentItems", map[string]any{"count": count})
+}
+
+// ReviewStatusTip says "{count, plural, one {# review comment: copy, or send to the terminal} other {# review comments: copy, or send to the …"
 // in the language the app shows.
 func ReviewStatusTip(count int) string { return In(i18n.Locale()).ReviewStatusTip(count) }
 
-// ReviewStatusTip says "{count, plural, one {# review item: copy, or send to the terminal} other {# review items: copy, or send to the termin…"
+// ReviewStatusTip says "{count, plural, one {# review comment: copy, or send to the terminal} other {# review comments: copy, or send to the …"
 // in the language of msgs.
 func (msgs Messages) ReviewStatusTip(count int) string {
 	return Catalog.Format(msgs.locale, "reviewStatusTip", map[string]any{"count": count})
+}
+
+// ReviewStatusTipItems says "{count, plural, one {# review item: copy, or send to the terminal} other {# review items: copy, or send to the termin…"
+// in the language the app shows.
+func ReviewStatusTipItems(count int) string { return In(i18n.Locale()).ReviewStatusTipItems(count) }
+
+// ReviewStatusTipItems says "{count, plural, one {# review item: copy, or send to the terminal} other {# review items: copy, or send to the termin…"
+// in the language of msgs.
+func (msgs Messages) ReviewStatusTipItems(count int) string {
+	return Catalog.Format(msgs.locale, "reviewStatusTipItems", map[string]any{"count": count})
 }
 
 // SaveAsEllipsis says "Save As…"

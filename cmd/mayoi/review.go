@@ -575,9 +575,10 @@ func (a *app) addReviewComment() {
 }
 
 func (a *app) commentEditor(d *editor) {
+	a.keepDraft()
 	n := editorExcerpt(d)
 	if n == nil {
-		a.tell(note{message: locales.ReviewSaveFirst()})
+		a.tell(note{message: a.reviewLabel(locales.ReviewSaveFirst(), locales.ReviewSaveFirstItems())})
 		return
 	}
 	for _, o := range a.review.notes {
@@ -646,7 +647,14 @@ func (a *app) revealDraft(v *diffView) {
 // for nil.
 func (a *app) startDraft(n *reviewNote, ed *editor) {
 	r := &a.review
+	if r.draft == n && r.ed == ed {
+		return
+	}
+	a.keepDraft()
 	r.draft, r.text, r.ed = n, n.text, ed
+	if ed != nil {
+		ed.releaseReview = a.keepDraft
+	}
 	r.gen++
 }
 
@@ -661,31 +669,57 @@ func (a *app) editNote(n *reviewNote, ed *editor) {
 // saveDraft keeps the comment typed for its note. An empty comment is
 // allowed only for a snippet deliberately collected without one.
 func (a *app) saveDraft() {
+	if a.storeDraft() {
+		a.focusColumn()
+	}
+}
+
+// storeDraft commits a valid draft without changing the active pane's focus.
+func (a *app) storeDraft() bool {
 	r := &a.review
 	n := r.draft
 	text := strings.TrimSpace(r.text)
 	if n == nil || text == "" && !n.context {
-		return
+		return false
 	}
 	n.text = text
 	if !slices.Contains(r.notes, n) {
 		r.notes = append(r.notes, n)
 	}
-	a.endDraft()
+	a.finishDraft()
 	a.reviewChanged()
+	return true
+}
+
+// keepDraft finishes an interrupted draft without losing its text or snippet.
+// Empty legacy comments have nothing to save, but still release their editor.
+func (a *app) keepDraft() {
+	if a.review.draft == nil {
+		return
+	}
+	if !a.storeDraft() {
+		a.finishDraft()
+	}
 }
 
 // endDraft closes the box of the note being written, and gives the
 // keyboard back to where it was.
 func (a *app) endDraft() {
+	a.finishDraft()
+	a.focusColumn()
+}
+
+func (a *app) finishDraft() {
 	r := &a.review
-	if d := r.ed; d != nil && d.reviewSource != nil {
-		d.reviewSource = nil
-		d.resync, d.focusNext = true, true
+	if d := r.ed; d != nil {
+		d.releaseReview = nil
+		if d.reviewSource != nil {
+			d.reviewSource = nil
+			d.resync = true
+		}
 	}
 	r.draft, r.text, r.ed = nil, "", nil
 	r.gen++
-	a.focusColumn()
 }
 
 // deleteNote drops a note, which the toast that says so puts back.
@@ -694,7 +728,7 @@ func (a *app) deleteNote(n *reviewNote) {
 	at := slices.Index(r.notes, n)
 	r.notes = slices.DeleteFunc(r.notes, func(o *reviewNote) bool { return o == n })
 	if r.draft == n {
-		r.draft, r.text, r.ed = nil, "", nil
+		a.endDraft()
 	}
 	r.gen++
 	a.reviewChanged()
@@ -731,29 +765,30 @@ func (a *app) reviewText() string {
 func (a *app) copyReview() {
 	k := len(a.review.notes)
 	if k == 0 {
-		a.tell(note{message: locales.ReviewNoneToCopy()})
+		a.tell(note{message: a.reviewLabel(locales.ReviewNoneToCopy(), locales.ReviewNoneToCopyItems())})
 		return
 	}
 	a.services.WriteClipboard(a.reviewText())
-	a.tell(note{message: locales.ReviewCopied(k)})
+	a.tell(note{message: a.reviewLabel(locales.ReviewCopied(k), locales.ReviewCopiedItems(k))})
 }
 
 // sendReview pastes the notes into the terminal used last, as a message
 // to the agent in it, without pressing Enter, and clears them. With no
 // terminal, it copies them.
 func (a *app) sendReview() {
+	a.keepDraft()
 	k := len(a.review.notes)
 	if k == 0 {
-		a.tell(note{message: locales.ReviewNoneToSend()})
+		a.tell(note{message: a.reviewLabel(locales.ReviewNoneToSend(), locales.ReviewNoneToSendItems())})
 		return
 	}
 	if !a.pasteToTerminal(a.reviewText() + "\n") {
 		a.services.WriteClipboard(a.reviewText())
-		a.tell(note{message: locales.ReviewNoTerminal(k)})
+		a.tell(note{message: a.reviewLabel(locales.ReviewNoTerminal(k), locales.ReviewNoTerminalItems(k))})
 		return
 	}
 	a.dropReview()
-	a.tell(note{message: locales.ReviewSent(k)})
+	a.tell(note{message: a.reviewLabel(locales.ReviewSent(k), locales.ReviewSentItems(k))})
 }
 
 // pasteToTerminal pastes text into the terminal used last, without
@@ -770,18 +805,22 @@ func (a *app) pasteToTerminal(text string) bool {
 
 // clearReview drops every note, which the toast that says so puts back.
 func (a *app) clearReview() {
+	a.keepDraft()
 	gone := map[int]*reviewNote{}
 	for i, n := range a.review.notes {
 		gone[i] = n
 	}
 	a.dropReview()
 	if len(gone) > 0 {
-		a.tell(note{message: locales.ReviewCleared(len(gone)), label: locales.ButtonUndo(), action: func() { a.restoreNotes(gone) }})
+		a.tell(note{message: a.reviewLabel(locales.ReviewCleared(len(gone)), locales.ReviewClearedItems(len(gone))), label: locales.ButtonUndo(), action: func() { a.restoreNotes(gone) }})
 	}
 }
 
 // dropReview drops every note.
 func (a *app) dropReview() {
+	if a.review.draft != nil {
+		a.endDraft()
+	}
 	r := &a.review
 	r.notes, r.draft, r.text, r.ed = nil, nil, "", nil
 	r.gen++
@@ -814,6 +853,9 @@ func (a *app) keptReview() []settings.ReviewNote {
 // restoreReview shows the notes the settings kept, in place of those
 // shown; one whose lines make no sense is left out.
 func (a *app) restoreReview(kept []settings.ReviewNote) {
+	if a.review.draft != nil {
+		a.endDraft()
+	}
 	r := &a.review
 	r.notes, r.draft, r.text, r.ed = nil, nil, "", nil
 	r.gen++
@@ -912,7 +954,7 @@ func (a *app) goToNote(n *reviewNote) {
 func (a *app) stepNote(step int) {
 	r := &a.review
 	if len(r.notes) == 0 {
-		a.tell(note{message: locales.ReviewNone()})
+		a.tell(note{message: a.reviewLabel(locales.ReviewNone(), locales.ReviewNoneItems())})
 		return
 	}
 	if t := a.activeTab(); t != nil && t.diff != nil && len(t.diff.cards) > 0 {
@@ -986,6 +1028,12 @@ func (a *app) reviewMenu(m *ui.Menu) {
 		if n.outdated {
 			label += " (outdated)"
 		}
+		if !a.settings.EditorAgentContext {
+			if m.Item(label).Chosen() {
+				a.goToNote(n)
+			}
+			continue
+		}
 		m.Submenu(label, func(m *ui.Menu) {
 			if m.Item(locales.AgentContextGoTo()).Chosen() {
 				a.goToNote(n)
@@ -1007,13 +1055,13 @@ func (a *app) reviewMenu(m *ui.Menu) {
 		})
 	}
 	m.Separator()
-	if m.Item(locales.CmdReviewSend()).Chosen() {
+	if m.Item(a.reviewLabel(locales.CmdReviewSend(), locales.CmdReviewSendItems())).Chosen() {
 		a.sendReview()
 	}
-	if m.Item(locales.CmdReviewCopy()).Chosen() {
+	if m.Item(a.reviewLabel(locales.CmdReviewCopy(), locales.CmdReviewCopyItems())).Chosen() {
 		a.copyReview()
 	}
-	if m.Item(locales.CmdReviewClear()).Chosen() {
+	if m.Item(a.reviewLabel(locales.CmdReviewClear(), locales.CmdReviewClearItems())).Chosen() {
 		a.clearReview()
 	}
 }
@@ -1423,7 +1471,7 @@ func (a *app) reviewBoxView(c *ui.Context, d *editor) {
 			if x < d.gutterW || y < 0 || y > view.H {
 				continue
 			}
-			tip := locales.ReviewEditTip(strings.TrimSpace(h.n.text))
+			tip := locales.ReviewEditTip(noteHint(h.n))
 			b := ui.ButtonBase(c.Key(fmt.Sprintf("hint:%p", h.n))).Absolute().Left(x-4).Top(y+2).Size(h.w+8, a.font.lineH-4).
 				Radius(4).Label(locales.ReviewEditComment()).Tooltip(tip)
 			if b.Hovered() {
@@ -1458,7 +1506,7 @@ func (a *app) reviewSendButton(c *ui.Context) {
 		return
 	}
 	p := a.pal
-	tip := locales.ReviewSendTip(k)
+	tip := a.reviewLabel(locales.ReviewSendTip(k), locales.ReviewSendTipItems(k))
 	b := ui.ButtonBase(c.Key("review-send")).Height(crumbsH-6).Padding(0, 8).Gap(5).Radius(5).Shrink(0).
 		AlignItems(ui.Center).Label(tip).Tooltip(tip).Margin(0, 6, 0, 0)
 	switch {
@@ -1473,7 +1521,7 @@ func (a *app) reviewSendButton(c *ui.Context) {
 	pressPose(b)
 	b.Children(func() {
 		ui.Icon(c, iconSend).FontSize(12).TextColor(p.fillText)
-		ui.Text(c, locales.ReviewSendButton(k)).FontSize(11.5).FontWeight(600).TextColor(p.fillText).SingleLine()
+		ui.Text(c, a.reviewLabel(locales.ReviewSendButton(k), locales.ReviewSendButtonItems(k))).FontSize(11.5).FontWeight(600).TextColor(p.fillText).SingleLine()
 	})
 	if b.Clicked() {
 		a.post(a.sendReview)
@@ -1488,7 +1536,7 @@ func (a *app) reviewStatus(c *ui.Context, text func(string) ui.Element) {
 		return
 	}
 	p := a.pal
-	tip := locales.ReviewStatusTip(k)
+	tip := a.reviewLabel(locales.ReviewStatusTip(k), locales.ReviewStatusTipItems(k))
 	b := ui.ButtonBase(c.Key("status:review")).Height(statusBarH-6).Padding(0, 6).Gap(5).Radius(4).
 		AlignItems(ui.Center).Label(tip).Tooltip(tip)
 	if b.Hovered() {
@@ -1500,4 +1548,12 @@ func (a *app) reviewStatus(c *ui.Context, text func(string) ui.Element) {
 		text(fmt.Sprint(k))
 	})
 	b.Menu(a.reviewMenu)
+}
+
+// reviewLabel keeps the ordinary review vocabulary when collection is off.
+func (a *app) reviewLabel(comment, item string) string {
+	if a.settings.EditorAgentContext {
+		return item
+	}
+	return comment
 }

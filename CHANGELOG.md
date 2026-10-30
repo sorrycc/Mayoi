@@ -3,7 +3,7 @@
 The update window shows the section of the version it offers. Every release
 needs a `## <version>` section here, or its build fails.
 
-## Unreleased
+## 0.16.0
 
 - **Mayoi → Settings…** (⌘,) opens a settings window with every preference by category, and a search.
 - Changes in the settings window apply to every window at once, and each one resets with one click.

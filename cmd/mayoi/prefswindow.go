@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"math"
 	"slices"
 	"strings"
@@ -247,7 +248,7 @@ func (w *prefsWindow) view(c *ui.Context) {
 // sidebar is the window's search and its sections.
 func (w *prefsWindow) sidebar(c *ui.Context) {
 	p := w.pal
-	ui.Column(c.Key("prefs-sidebar")).Width(212).Shrink(0).Padding(14, 10, 10, 10).Gap(10).
+	ui.Column(c.Key("prefs-sidebar")).Width(220).Shrink(0).Padding(14, 10, 10, 10).Gap(10).
 		Background(p.chrome).BorderWidth(0, 1, 0, 0).BorderColor(p.border).Children(func() {
 		ui.SearchField(c.Key("prefs-search"), &w.query).Label(locales.PrefsSearch()).Placeholder(locales.PrefsSearch()).AutoFocus()
 		// No section is chosen while the search shows what it finds of
@@ -256,26 +257,66 @@ func (w *prefsWindow) sidebar(c *ui.Context) {
 		if w.query != "" {
 			section = ""
 		}
-		ui.Scroll(c.Key("prefs-sections")).Grow(1).MinHeight(0).Children(func() {
-			ui.Sidebar(c.Key("prefs-sections-list"), &section, func() {
-				for _, cat := range append(slices.Clone(settings.Categories), prefsShortcuts) {
-					ui.SidebarItem(c.Key("prefs-section-"+cat), cat, prefsIcons[cat], prefSection(cat))
+		// The sections sit on the sidebar itself, not on a box of their
+		// own, as the app's sidebar lists sit on its chrome.
+		scope := w.scope()
+		ui.Sidebar(c.Key("prefs-sections-list"), &section, func() {
+			for _, cat := range append(slices.Clone(settings.Categories), prefsShortcuts) {
+				item := ui.SidebarItem(c.Key("prefs-section-"+cat), cat, prefsIcons[cat], prefSection(cat))
+				if n := w.changedIn(cat, scope); n > 0 {
+					item.Children(func() {
+						ui.Text(c.Key("count"), fmt.Sprint(n)).FontSize(10.5).FontWeight(600).TextColor(p.muted).
+							Padding(0, 6).Radius(8).MinWidth(18).Shrink(0).TextAlign(ui.Center).Background(p.text.Alpha(0.07)).
+							Tooltip(locales.PrefsChangedCount(n)).ContentTransition(ui.ContentTransition{Numeric: true}).Transition(dotPop)
+					})
 				}
-			})
-		})
+			}
+		}).Background(ui.Color{}).Padding(0).Gap(1).Grow(1).MinHeight(0)
 		if section != "" && (section != w.section || w.query != "") {
 			w.section, w.query = section, ""
 		}
-		w.footLink(c, "json", "settings.json", locales.CmdFileSettingsJSON(), func() { w.inFront(func(a *app) { a.openSettings() }) })
-		w.footLink(c, "keys-json", "keybindings.json", locales.CmdFileKeybindingsJSON(), func() { w.inFront(func(a *app) { a.openKeybindings() }) })
+		ui.Column(c.Key("prefs-links")).Gap(1).Padding(8, 0, 0, 0).BorderWidth(1, 0, 0, 0).BorderColor(p.border).Children(func() {
+			w.footLink(c, "json", "settings.json", locales.CmdFileSettingsJSON(), func() { w.inFront(func(a *app) { a.openSettings() }) })
+			w.footLink(c, "keys-json", "keybindings.json", locales.CmdFileKeybindingsJSON(), func() { w.inFront(func(a *app) { a.openKeybindings() }) })
+		})
 	})
+}
+
+// changedIn is how many of the person's preferences of the category are
+// not as a first launch has them, or the folder chooses while its own
+// show, or of the shortcuts how many commands have keys of the person's.
+func (w *prefsWindow) changedIn(cat string, scope *prefFolder) int {
+	n := 0
+	if cat == prefsShortcuts {
+		if km := w.m.keys; km != nil {
+			seen := map[string]bool{}
+			for _, b := range km.Bindings {
+				name := strings.TrimPrefix(b.Command, "-")
+				if b.When == nil && len(b.Args) == 0 && !seen[name] {
+					seen[name] = true
+					n++
+				}
+			}
+		}
+		return n
+	}
+	user := w.m.s.Prefs
+	for _, f := range settings.Schema {
+		if f.Category != cat || f.Memory {
+			continue
+		}
+		if scope != nil && f.Folder && scope.f.Has(f.Key) || scope == nil && !user.IsDefaultKey(f.Key) {
+			n++
+		}
+	}
+	return n
 }
 
 // footLink is a link of the foot of the sidebar to the file name, which
 // label says what opening does.
 func (w *prefsWindow) footLink(c *ui.Context, key, name, label string, fn func()) {
 	p := w.pal
-	b := ui.ButtonBase(c.Key("prefs-link-"+key)).Padding(5, 8).Gap(8).Radius(6).AlignItems(ui.Center).Label(label).Tooltip(label)
+	b := ui.ButtonBase(c.Key("prefs-link-"+key)).Padding(6, 8).Gap(8).Radius(6).AlignItems(ui.Center).Label(label).Tooltip(label)
 	col := p.muted
 	if b.Hovered() {
 		b.Background(p.hover)
@@ -284,7 +325,8 @@ func (w *prefsWindow) footLink(c *ui.Context, key, name, label string, fn func()
 	b.Transition(hoverFade)
 	b.Children(func() {
 		ui.Icon(c, iconFileJSON).FontSize(13).TextColor(col).Shrink(0)
-		ui.Text(c, name).Font(w.monoFont()).FontSize(11.5).TextColor(col).SingleLine().Shrink(1)
+		ui.Text(c, name).Font(w.monoFont()).FontSize(11.5).TextColor(col).SingleLine().Grow(1).Shrink(1)
+		ui.Icon(c, iconExternal).FontSize(11).TextColor(p.faint).Shrink(0)
 	})
 	if b.Clicked() {
 		fn()
@@ -307,16 +349,14 @@ func (w *prefsWindow) prefsPane(c *ui.Context) {
 	p := w.pal
 	scope := w.scope()
 	fields := w.shown(scope != nil)
-	title := prefSection(w.section)
+	title, icon := prefSection(w.section), prefsIcons[w.section]
 	if w.query != "" {
-		title = locales.PrefsFound(len(fields))
+		title, icon = locales.PrefsFound(len(fields)), iconSearch
 	}
-	ui.Row(c.Key("prefs-head")).Padding(16, 24, 12, 24).Gap(12).AlignItems(ui.Center).BorderWidth(0, 0, 1, 0).BorderColor(p.border).Children(func() {
-		ui.Text(c, title).FontSize(17).FontWeight(600).TextColor(p.text).SingleLine().Grow(1).Shrink(1)
-		w.scopePicker(c, scope)
-	})
+	w.head(c, "prefs-head", icon, title, func() { w.scopePicker(c, scope) })
 	if scope != nil {
-		ui.Row(c.Key("prefs-folder-note")).Padding(10, 24).Gap(8).AlignItems(ui.Center).Background(p.accent.Alpha(0.08)).Children(func() {
+		ui.Row(c.Key("prefs-folder-note")).Padding(10, 24).Gap(8).AlignItems(ui.Center).Background(p.accent.Alpha(0.08)).
+			BorderWidth(0, 0, 1, 0).BorderColor(p.border).Transition(popIn).Children(func() {
 			ui.Icon(c, iconFolder).FontSize(13).TextColor(p.accent).Shrink(0)
 			ui.Text(c, locales.PrefsFolderNote(settings.FolderDir+"/"+settings.FolderFile)).FontSize(12).TextColor(p.text).Grow(1).Shrink(1)
 			if ui.Button(c.Key("prefs-folder-open"), locales.PrefsOpenFile()).FontSize(12).Padding(3, 10).Clicked() {
@@ -326,22 +366,84 @@ func (w *prefsWindow) prefsPane(c *ui.Context) {
 			}
 		})
 	}
-	ui.Scroll(c.Key("prefs-rows-" + w.section)).Grow(1).MinHeight(0).Children(func() {
-		ui.Column(c).Padding(8, 24, 24, 24).MaxWidth(820).Children(func() {
+	// A page of its own for each section and for the search, so that it
+	// rises in as it shows, and keeps where it was scrolled to.
+	page := w.section
+	if w.query != "" {
+		page = "search"
+	}
+	ui.Scroll(c.Key("prefs-rows-" + page)).Grow(1).MinHeight(0).Children(func() {
+		riseIn(ui.Column(c.Key("prefs-page-"+page)).Padding(20, 28, 32, 28).Gap(8).AlignSelf(ui.Center).
+			WidthPercent(100).MaxWidth(prefsPageWidth), 0).Children(func() {
 			if len(fields) == 0 {
-				ui.Text(c, locales.PrefsNoneFound()).FontSize(13).TextColor(p.muted).Padding(24, 0)
+				w.noneFound(c, locales.PrefsNoneFound())
 				return
 			}
-			last := ""
-			for _, f := range fields {
-				if w.query != "" && f.Category != last {
-					last = f.Category
-					ui.Text(c.Key("prefs-cat-"+f.Category), strings.ToUpper(prefSection(f.Category))).FontSize(10.5).FontWeight(600).
-						LetterSpacing(0.7).TextColor(p.faint).Padding(14, 0, 2, 0)
+			for len(fields) > 0 {
+				// The search finds them by category, each under its name.
+				n := 1
+				for n < len(fields) && fields[n].Category == fields[0].Category {
+					n++
 				}
-				w.row(c, f, scope)
+				if w.query == "" {
+					n = len(fields)
+				} else {
+					cat := fields[0].Category
+					ui.Row(c.Key("prefs-cat-"+cat)).Gap(6).AlignItems(ui.Center).Padding(10, 4, 0, 4).
+						Transition(revealFade).Children(func() {
+						ui.Icon(c, prefsIcons[cat]).FontSize(11.5).TextColor(p.faint)
+						ui.Text(c, strings.ToUpper(prefSection(cat))).FontSize(10.5).FontWeight(600).
+							LetterSpacing(0.7).TextColor(p.faint).SingleLine()
+					})
+				}
+				group := fields[:n]
+				fields = fields[n:]
+				w.card(c, "prefs-card-"+group[0].Category, func() {
+					for i, f := range group {
+						if i > 0 {
+							ui.Row(c.Key("prefs-rule-"+f.Key)).Height(1).Margin(0, 16).Background(p.border).Shrink(0)
+						}
+						w.row(c, f, scope)
+					}
+				})
 			}
 		})
+	})
+}
+
+// prefsPageWidth is how wide the preferences grow, at most: wider, a line
+// of them is too long to read across.
+const prefsPageWidth = 760
+
+// head is the head of a pane of the window: its icon and title, and the
+// controls fn adds at its end.
+func (w *prefsWindow) head(c *ui.Context, key string, icon *ui.SVG, title string, fn func()) {
+	p := w.pal
+	ui.Row(c.Key(key)).Height(56).Padding(0, 20, 0, 24).Gap(10).AlignItems(ui.Center).Shrink(0).
+		BorderWidth(0, 0, 1, 0).BorderColor(p.border).Children(func() {
+		ui.Box(c.Key("icon")).Size(26, 26).Radius(7).Shrink(0).Justify(ui.Center).AlignItems(ui.Center).
+			Background(p.accent.Alpha(0.14)).Children(func() {
+			ui.Icon(c, icon).FontSize(14).TextColor(p.accent)
+		})
+		ui.Text(c.Key("title"), title).FontSize(16).FontWeight(600).TextColor(p.text).SingleLine().Grow(1).Shrink(1).MinWidth(0)
+		fn()
+	})
+}
+
+// card is a box of rows of the window, as a group of System Settings.
+func (w *prefsWindow) card(c *ui.Context, key string, fn func()) {
+	p := w.pal
+	ui.Column(c.Key(key)).Radius(10).Clip().Background(p.text.Alpha(0.025)).Border(1, p.border).Children(fn)
+}
+
+// noneFound says a search found nothing.
+func (w *prefsWindow) noneFound(c *ui.Context, text string) {
+	p := w.pal
+	ui.Column(c.Key("none-found")).Padding(48, 16).Gap(10).AlignItems(ui.Center).Children(func() {
+		popUp(ui.Box(c.Key("badge")).Size(44, 44).Radius(22).Background(p.text.Alpha(0.06)).Justify(ui.Center).AlignItems(ui.Center)).Children(func() {
+			ui.Icon(c, iconSearch).FontSize(19).TextColor(p.muted)
+		})
+		ui.Text(c, text).FontSize(13).TextColor(p.muted).TextAlign(ui.Center)
 	})
 }
 
@@ -381,11 +483,14 @@ func (w *prefsWindow) row(c *ui.Context, f settings.Field, scope *prefFolder) {
 		eff, changed = scope.f.Apply(user), scope.f.Has(f.Key)
 	}
 	raw := eff.Raw(f.Key)
-	row := ui.Column(c.Key("prefs-row-"+f.Key)).Padding(14, 12).Margin(0, -12).Gap(6).Radius(8)
+	row := ui.Column(c.Key("prefs-row-"+f.Key)).Padding(14, 16).Gap(10).Transition(ui.ElementTransition{
+		Colors: true, Duration: 160 * time.Millisecond, Enter: &ui.Motion{Y: 4},
+	})
 	if f.Key == w.jump {
 		row.ScrollIntoView()
-		if since := c.Now().Sub(w.jumpAt); since < 1600*time.Millisecond {
-			row.Background(p.accent.Alpha(0.12 * float32(1-since.Seconds()/1.6)))
+		// The row a link asked for glows, and fades back as it is seen.
+		if since := c.Now().Sub(w.jumpAt); since < 1600*time.Millisecond && !c.Preferences().ReduceMotion {
+			row.Background(p.accent.Alpha(0.14 * float32(1-since.Seconds()/1.6)))
 			c.AnimationFrame()
 		} else {
 			w.jump = ""
@@ -393,24 +498,27 @@ func (w *prefsWindow) row(c *ui.Context, f settings.Field, scope *prefFolder) {
 	}
 	wide := f.Kind == settings.KindList || f.Kind == settings.KindStyles
 	row.Children(func() {
-		ui.Row(c).Gap(16).AlignItems(ui.Center).Children(func() {
+		ui.Row(c).Gap(12).AlignItems(ui.Center).Children(func() {
 			ui.Column(c).Gap(3).Grow(1).Shrink(1).MinWidth(0).Children(func() {
-				ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
+				ui.Row(c).Gap(7).AlignItems(ui.Center).Children(func() {
+					ui.Text(c, prefTitle(f.Key)).FontSize(13).FontWeight(500).TextColor(p.text).Shrink(1)
 					if changed {
-						ui.Row(c).Width(6).Height(6).Radius(3).Shrink(0).Background(p.accent)
+						ui.Box(c.Key("changed")).Size(6, 6).Radius(3).Shrink(0).Background(p.accent).Transition(dotPop)
 					}
-					ui.Text(c, prefTitle(f.Key)).FontSize(13).FontWeight(600).TextColor(p.text).Shrink(1)
-					ui.Text(c, f.Key).Font(w.monoFont()).FontSize(11).TextColor(p.faint).SingleLine().Shrink(1)
 				})
-				ui.Text(c, prefDesc(f.Key)).FontSize(12).TextColor(p.muted)
-				if scope != nil && !changed {
-					ui.Text(c, locales.PrefsInherited()).FontSize(11).TextColor(p.faint)
-				}
+				ui.Text(c, prefDesc(f.Key)).FontSize(12).LineHeight(1.4).TextColor(p.muted)
+				ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
+					ui.Text(c, f.Key).Font(w.monoFont()).FontSize(10.5).TextColor(p.faint).SingleLine().Shrink(1)
+					if scope != nil && !changed {
+						ui.Text(c, "·").FontSize(11).TextColor(p.faint)
+						ui.Text(c, locales.PrefsInherited()).FontSize(11).TextColor(p.faint).SingleLine().Shrink(1)
+					}
+				})
 			})
+			w.resetButton(c, f, scope, changed)
 			if !wide {
 				ui.Row(c).Shrink(0).Children(func() { w.control(c, f, raw, scope) })
 			}
-			w.resetButton(c, f, scope, changed)
 		})
 		if wide {
 			w.control(c, f, raw, scope)
@@ -422,28 +530,29 @@ func (w *prefsWindow) row(c *ui.Context, f settings.Field, scope *prefFolder) {
 func (w *prefsWindow) monoFont() string { return w.m.s.FontFamily }
 
 // resetButton takes the preference back to its default, or the folder's
-// choice of it away: room for it while there is nothing to take back.
+// choice of it away: it shows while there is something to take back.
 func (w *prefsWindow) resetButton(c *ui.Context, f settings.Field, scope *prefFolder, changed bool) {
+	if !changed {
+		return
+	}
 	p := w.pal
 	label := locales.PrefsReset()
 	if scope != nil {
 		label = locales.PrefsInherit()
 	}
-	b := ui.ButtonBase(c.Key("prefs-reset-" + f.Key)).Width(26).Height(26).Radius(6).Shrink(0).
-		AlignItems(ui.Center).Justify(ui.Center).Label(label).Disabled(!changed)
-	if changed {
-		b.Tooltip(label)
-	}
-	if b.Hovered() && changed {
+	b := ui.ButtonBase(c.Key("prefs-reset-"+f.Key)).Size(26, 26).Radius(6).Shrink(0).
+		AlignItems(ui.Center).Justify(ui.Center).Label(label).Tooltip(label)
+	col := p.faint
+	if b.Hovered() {
 		b.Background(p.hover)
+		col = p.text
 	}
-	b.Transition(hoverFade)
+	b.Transition(revealFade)
+	pressPose(b)
 	b.Children(func() {
-		if changed {
-			ui.Icon(c, iconUndo).FontSize(13).TextColor(p.muted)
-		}
+		ui.Icon(c, iconUndo).FontSize(13).TextColor(col)
 	})
-	if b.Clicked() && changed {
+	if b.Clicked() {
 		if scope != nil {
 			w.setFolder(scope, f.Key, nil)
 		} else {

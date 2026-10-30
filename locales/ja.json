@@ -1236,6 +1236,7 @@
   "prefsTitle": "設定",
   "prefsSearch": "設定を検索",
   "prefsFound": "{count} 件の設定",
+  "prefsChangedCount": "{count} 件変更済み",
   "prefsNoneFound": "一致する設定はありません",
   "prefsUser": "ユーザー",
   "prefsFolder": "フォルダー: {folder}",

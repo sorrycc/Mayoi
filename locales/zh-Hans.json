@@ -1236,6 +1236,7 @@
   "prefsTitle": "设置",
   "prefsSearch": "搜索设置",
   "prefsFound": "找到 {count} 项设置",
+  "prefsChangedCount": "已更改 {count} 项",
   "prefsNoneFound": "没有匹配的设置",
   "prefsUser": "用户",
   "prefsFolder": "文件夹：{folder}",

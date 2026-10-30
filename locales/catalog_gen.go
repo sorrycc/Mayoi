@@ -12524,6 +12524,16 @@ func (msgs Messages) PrefsFound(count int) string {
 	return Catalog.Format(msgs.locale, "prefsFound", map[string]any{"count": count})
 }
 
+// PrefsChangedCount says "{count, plural, one {# setting changed} other {# settings changed}}"
+// in the language the app shows.
+func PrefsChangedCount(count int) string { return In(i18n.Locale()).PrefsChangedCount(count) }
+
+// PrefsChangedCount says "{count, plural, one {# setting changed} other {# settings changed}}"
+// in the language of msgs.
+func (msgs Messages) PrefsChangedCount(count int) string {
+	return Catalog.Format(msgs.locale, "prefsChangedCount", map[string]any{"count": count})
+}
+
 // PrefsNoneFound says "No settings match"
 // in the language the app shows.
 func PrefsNoneFound() string { return In(i18n.Locale()).PrefsNoneFound() }

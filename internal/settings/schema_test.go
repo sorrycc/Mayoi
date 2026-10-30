@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -237,5 +238,32 @@ func TestPrefsGen(t *testing.T) {
 	s.SetPrefs(p)
 	if s.Gen() == gen {
 		t.Error("SetPrefs did not count")
+	}
+}
+
+// A reload of the file while the folder sets a preference, as its watcher
+// does, never takes the change back.
+func TestFolderReloadDuringSet(t *testing.T) {
+	dir := t.TempDir()
+	os.MkdirAll(filepath.Join(dir, FolderDir), 0o755)
+	f := LoadFolder(dir)
+	done := make(chan struct{})
+	go func() {
+		for {
+			select {
+			case <-done:
+				return
+			default:
+				f.Reload()
+			}
+		}
+	}()
+	defer close(done)
+	for i := range 200 {
+		on := i%2 == 0
+		f.Set("vim", json.RawMessage(strconv.FormatBool(on)))
+		if p := f.Apply(Prefs{}); p.Vim != on {
+			t.Fatalf("set %d: vim is %v", i, p.Vim)
+		}
 	}
 }

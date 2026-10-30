@@ -60,7 +60,11 @@ func LoadFolder(dir string) *Folder {
 
 // Reload reads the file again, and reports whether its preferences
 // changed. A file that does not parse is let be until it does.
+// The file is read under the lock that Set writes it under, so a read
+// never finds the file of before a change the values already have.
 func (f *Folder) Reload() bool {
+	f.mu.Lock()
+	defer f.mu.Unlock()
 	data, err := os.ReadFile(f.Path)
 	var values map[string]json.RawMessage
 	if err == nil {
@@ -68,8 +72,6 @@ func (f *Folder) Reload() bool {
 			return false
 		}
 	}
-	f.mu.Lock()
-	defer f.mu.Unlock()
 	if bytes.Equal(data, f.written) && data != nil {
 		return false
 	}
@@ -151,6 +153,7 @@ func (f *Folder) Apply(p Prefs) Prefs {
 // stop choosing it for nil, and writes the file.
 func (f *Folder) Set(key string, raw json.RawMessage) error {
 	f.mu.Lock()
+	defer f.mu.Unlock()
 	values := make(map[string]json.RawMessage, len(f.values)+1)
 	for k, v := range f.values {
 		values[k] = v
@@ -162,13 +165,11 @@ func (f *Folder) Set(key string, raw json.RawMessage) error {
 	}
 	data, err := json.MarshalIndent(values, "", "  ")
 	if err != nil {
-		f.mu.Unlock()
 		return err
 	}
 	data = append(data, '\n')
 	f.setValues(values)
 	f.written = data
-	f.mu.Unlock()
 	return WriteFile(f.Path, data)
 }
 

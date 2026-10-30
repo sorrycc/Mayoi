@@ -4,6 +4,7 @@ import (
 	"os"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/egoist/mygo/ui"
 
@@ -25,6 +26,9 @@ type keysPane struct {
 	// and strokes what was pressed of them: two for a chord.
 	recording *command
 	strokes   []keymap.Stroke
+	// shown is whether the dialog that takes the keys showed in the frame
+	// before, so that it fades in as it starts showing.
+	shown bool
 }
 
 // keySource is where the keys of a command come from.
@@ -96,15 +100,6 @@ func (k *keysPane) match(r keyRow) bool {
 	return true
 }
 
-// keyCaps are the caps of keys as the window shows them, each stroke's
-// apart for a chord.
-func keyCaps(keys []keymap.Stroke) []string {
-	if len(keys) == 1 {
-		return []string{capsText(accelCaps(keys[0].Accel(), macKeys()))}
-	}
-	return chordCaps(keys)
-}
-
 func (k *keysPane) view(c *ui.Context) {
 	w := k.w
 	p := w.pal
@@ -113,15 +108,13 @@ func (k *keysPane) view(c *ui.Context) {
 	}
 	a := w.m.wins[0].a
 	rows := slices.DeleteFunc(k.rows(a), func(r keyRow) bool { return !k.match(r) })
-	ui.Row(c.Key("keys-head")).Padding(16, 24, 12, 24).Gap(10).AlignItems(ui.Center).BorderWidth(0, 0, 1, 0).BorderColor(p.border).Children(func() {
-		ui.Text(c, prefSection(prefsShortcuts)).FontSize(17).FontWeight(600).TextColor(p.text).SingleLine().Shrink(0)
-		ui.Spacer(c)
+	w.head(c, "keys-head", iconKeyboard, prefSection(prefsShortcuts), func() {
 		if k.byKeys {
 			k.keysSearch(c)
 		} else {
 			ui.SearchField(c.Key("keys-search"), &k.query).Label(locales.KeysSearch()).Placeholder(locales.KeysSearch()).Width(260)
 		}
-		by := ui.ButtonBase(c.Key("keys-by-keys")).Width(28).Height(28).Radius(6).AlignItems(ui.Center).Justify(ui.Center).
+		by := ui.ButtonBase(c.Key("keys-by-keys")).Size(28, 28).Radius(6).Shrink(0).AlignItems(ui.Center).Justify(ui.Center).
 			Label(locales.KeysSearchByKeys()).Tooltip(locales.KeysSearchByKeys()).Selected(k.byKeys)
 		switch {
 		case k.byKeys:
@@ -130,6 +123,7 @@ func (k *keysPane) view(c *ui.Context) {
 			by.Background(p.hover)
 		}
 		by.Transition(hoverFade)
+		pressPose(by)
 		by.Children(func() {
 			col := p.muted
 			if k.byKeys {
@@ -141,19 +135,20 @@ func (k *keysPane) view(c *ui.Context) {
 			k.byKeys, k.found = !k.byKeys, nil
 		}
 	})
-	ui.Row(c.Key("keys-columns")).Padding(8, 24, 6, 24).Gap(12).AlignItems(ui.Center).Children(func() {
+	ui.Row(c.Key("keys-columns")).Padding(10, 24, 8, 24).Gap(12).AlignItems(ui.Center).Shrink(0).
+		BorderWidth(0, 0, 1, 0).BorderColor(p.border).Children(func() {
 		head := func(s string) ui.Element {
 			return ui.Text(c, strings.ToUpper(s)).FontSize(10.5).FontWeight(600).LetterSpacing(0.7).TextColor(p.faint).SingleLine()
 		}
 		head(locales.KeysCommand()).Grow(1).Shrink(1)
-		head(locales.KeysKeys()).Width(180).Shrink(0)
-		head(locales.KeysSource()).Width(88).Shrink(0)
-		ui.Row(c).Width(84).Shrink(0)
+		head(locales.KeysKeys()).Width(keysWidth).Shrink(0)
+		head(locales.KeysSource()).Width(sourceWidth).Shrink(0)
+		ui.Row(c).Width(actionsWidth).Shrink(0)
 	})
 	ui.Scroll(c.Key("keys-rows")).Grow(1).MinHeight(0).Children(func() {
-		ui.Column(c).Padding(0, 12, 16, 12).Children(func() {
+		ui.Column(c).Padding(6, 12, 16, 12).Gap(1).Children(func() {
 			if len(rows) == 0 {
-				ui.Text(c, locales.KeysNoneFound()).FontSize(13).TextColor(p.muted).Padding(24, 12)
+				w.noneFound(c, locales.KeysNoneFound())
 			}
 			for _, r := range rows {
 				k.row(c, r)
@@ -162,12 +157,20 @@ func (k *keysPane) view(c *ui.Context) {
 	})
 }
 
+// The widths of the columns of the shortcuts after the command's.
+const (
+	keysWidth    = 160
+	sourceWidth  = 84
+	actionsWidth = 84
+)
+
 // keysSearch is the search by keys: what is pressed in it finds the
 // commands whose keys start so.
 func (k *keysPane) keysSearch(c *ui.Context) {
 	p := k.w.pal
 	box := ui.ButtonBase(c.Key("keys-search-keys")).Width(260).Height(28).Padding(0, 10).Gap(6).Radius(6).AlignItems(ui.Center).
-		Background(c.Theme().Surface).BorderWidth(1, 1, 1, 1).BorderColor(p.accentDim).Label(locales.KeysPressToSearch()).Focus()
+		Background(c.Theme().Surface).BorderWidth(1, 1, 1, 1).BorderColor(p.accent).Label(locales.KeysPressToSearch()).Focus().
+		Transition(popIn)
 	box.HandleInput(func(ev ui.InputEvent) bool {
 		switch {
 		case ev.Kind == ui.InputText:
@@ -185,21 +188,38 @@ func (k *keysPane) keysSearch(c *ui.Context) {
 		return true
 	})
 	box.Children(func() {
+		ui.Icon(c, iconKeyboard).FontSize(13).TextColor(p.accent).Shrink(0)
 		if len(k.found) == 0 {
 			ui.Text(c, locales.KeysPressToSearch()).FontSize(12).TextColor(p.faint).SingleLine()
 			return
 		}
-		k.caps(c, k.found)
+		k.caps(c, k.found, false)
 	})
 }
 
-// caps shows keys as caps.
-func (k *keysPane) caps(c *ui.Context, keys []keymap.Stroke) {
+// caps shows keys as caps, a cap for each key, the strokes of a chord
+// apart: large ones for the dialog that takes them, which pop in as they
+// are pressed.
+func (k *keysPane) caps(c *ui.Context, keys []keymap.Stroke, large bool) {
 	p := k.w.pal
-	ui.Row(c).Gap(4).AlignItems(ui.Center).Children(func() {
-		for i, cap := range keyCaps(keys) {
-			ui.Text(c.Key(i), cap).FontSize(11.5).TextColor(p.text).Padding(1, 6).Radius(4).
-				Background(p.hover).BorderWidth(1, 1, 1, 1).BorderColor(p.border).SingleLine()
+	size, h, minW, gap := float32(11), float32(20), float32(20), float32(3)
+	if large {
+		size, h, minW, gap = 15, 32, 32, 5
+	}
+	ui.Row(c).Gap(gap * 3).AlignItems(ui.Center).Shrink(0).Children(func() {
+		for i, st := range keys {
+			ui.Row(c.Key(i)).Gap(gap).AlignItems(ui.Center).Children(func() {
+				for j, cap := range accelCaps(st.Accel(), macKeys()) {
+					b := ui.Row(c.Key(j)).MinWidth(minW).Height(h).Padding(0, size/2.5).Radius(h/5).AlignItems(ui.Center).
+						Justify(ui.Center).Background(p.surface).BorderWidth(1, 1, 2, 1).BorderColor(p.border)
+					if large {
+						b.Transition(dotPop)
+					}
+					b.Children(func() {
+						ui.Text(c, cap).FontSize(size).FontWeight(500).TextColor(p.text).SingleLine()
+					})
+				}
+			})
 		}
 	})
 }
@@ -207,19 +227,20 @@ func (k *keysPane) caps(c *ui.Context, keys []keymap.Stroke) {
 // row is a command with its keys, and the buttons that change them.
 func (k *keysPane) row(c *ui.Context, r keyRow) {
 	p := k.w.pal
-	row := ui.ButtonBase(c.Key("keys-row-"+r.cmd.id)).Padding(6, 12).Gap(12).Radius(6).AlignItems(ui.Center).Label(r.cmd.label)
-	if row.Hovered() {
+	row := ui.ButtonBase(c.Key("keys-row-"+r.cmd.id)).Padding(7, 12).Gap(12).Radius(7).AlignItems(ui.Center).Label(r.cmd.label)
+	hovered := row.Hovered()
+	if hovered {
 		row.Background(p.hover)
 	}
-	hovered := row.Hovered()
+	row.Transition(hoverFade)
 	row.Children(func() {
-		ui.Column(c).Gap(1).Grow(1).Shrink(1).MinWidth(0).Children(func() {
+		ui.Column(c).Gap(2).Grow(1).Shrink(1).MinWidth(0).Children(func() {
 			ui.Text(c, r.cmd.label).FontSize(12.5).TextColor(p.text).SingleLine()
 			ui.Text(c, r.cmd.id).Font(k.w.monoFont()).FontSize(10.5).TextColor(p.faint).SingleLine()
 		})
-		ui.Row(c).Width(180).Shrink(0).Gap(6).AlignItems(ui.Center).Children(func() {
+		ui.Row(c).Width(keysWidth).Shrink(0).Gap(6).AlignItems(ui.Center).Children(func() {
 			if len(r.keys) > 0 {
-				k.caps(c, r.keys)
+				k.caps(c, r.keys, false)
 			} else {
 				ui.Text(c, "—").FontSize(12).TextColor(p.faint)
 			}
@@ -228,17 +249,17 @@ func (k *keysPane) row(c *ui.Context, r keyRow) {
 					Tooltip(locales.KeysMoreTip())
 			}
 		})
-		source, col := "", p.faint
-		switch r.source {
-		case keyDefault:
-			source = locales.KeysDefault()
-		case keyUser:
-			source, col = locales.KeysUser(), p.accent
-		case keyRemoved:
-			source, col = locales.KeysRemoved(), p.modifiedFg
-		}
-		ui.Text(c, source).FontSize(11.5).TextColor(col).Width(88).Shrink(0).SingleLine()
-		ui.Row(c).Width(84).Shrink(0).Gap(2).Justify(ui.End).Children(func() {
+		ui.Row(c).Width(sourceWidth).Shrink(0).Children(func() {
+			switch r.source {
+			case keyDefault:
+				ui.Text(c, locales.KeysDefault()).FontSize(11.5).TextColor(p.faint).SingleLine()
+			case keyUser:
+				k.pill(c, locales.KeysUser(), p.accent)
+			case keyRemoved:
+				k.pill(c, locales.KeysRemoved(), p.modifiedFg)
+			}
+		})
+		ui.Row(c).Width(actionsWidth).Shrink(0).Gap(2).Justify(ui.End).Children(func() {
 			if !hovered {
 				return
 			}
@@ -252,14 +273,23 @@ func (k *keysPane) row(c *ui.Context, r keyRow) {
 	}
 }
 
+// pill is where the keys of a row come from, when they are the person's,
+// in col.
+func (k *keysPane) pill(c *ui.Context, text string, col ui.Color) {
+	ui.Text(c.Key("pill"), text).FontSize(10.5).FontWeight(600).TextColor(col).Padding(1, 7).Radius(9).
+		Background(col.Alpha(0.14)).SingleLine().Transition(dotPop)
+}
+
 // action is a button of a row of the shortcuts.
 func (k *keysPane) action(c *ui.Context, key string, icon *ui.SVG, label string, on bool, fn func()) {
 	p := k.w.pal
-	b := ui.ButtonBase(c.Key("keys-" + key)).Width(24).Height(24).Radius(5).AlignItems(ui.Center).Justify(ui.Center).
+	b := ui.ButtonBase(c.Key("keys-"+key)).Size(24, 24).Radius(5).AlignItems(ui.Center).Justify(ui.Center).
 		Label(label).Tooltip(label).Disabled(!on)
 	if b.Hovered() && on {
 		b.Background(p.surfaceHover)
 	}
+	b.Transition(revealFade)
+	pressPose(b)
 	b.Children(func() {
 		col := p.muted
 		if !on {
@@ -320,10 +350,12 @@ func (k *keysPane) conflicts() []string {
 	return out
 }
 
-// recordView is the dialog that takes the keys pressed for a command.
+// recordView is the dialog that takes the keys pressed for a command. It
+// fades in, growing a little to its size, as it shows.
 func (k *keysPane) recordView(c *ui.Context) {
 	cmd := k.recording
 	if cmd == nil {
+		k.shown = false
 		return
 	}
 	p := k.w.pal
@@ -333,13 +365,26 @@ func (k *keysPane) recordView(c *ui.Context) {
 		}
 		k.recording, k.strokes = nil, nil
 	}
+	others := k.conflicts()
 	ui.Overlay(c, func() {
 		back := ui.Column(c.Key("keys-record-back")).Absolute().Left(0).Right(0).Top(0).Bottom(0).
-			AlignItems(ui.Center).Justify(ui.Center).Background(ui.RGBA(0, 0, 0, 0.25)).Modal()
+			AlignItems(ui.Center).Justify(ui.Center).Modal()
+		if !k.shown {
+			k.shown = true
+			back.Animate("in", 0, 0)
+		}
+		in := back.Animate("in", 1, 140*time.Millisecond)
+		back.Background(ui.RGBA(0, 0, 0, 0.28*in))
 		back.Children(func() {
-			box := ui.Column(c.Key("keys-record")).Width(420).MaxWidthPercent(92).Padding(20).Gap(14).Radius(12).
-				Background(c.Theme().Surface).Border(1, p.border).Shadow(0, 16, 40, 0, ui.RGBA(0, 0, 0, 0.3)).
-				Role(ui.RoleDialog).Label(locales.KeysRecordTitle(cmd.label)).Focusable().Focus().FocusRing(false)
+			box := ui.Column(c.Key("keys-record")).Width(440).MaxWidthPercent(92).Padding(22).Gap(16).Radius(12).
+				Background(c.Theme().Surface).Border(1, p.border).
+				Role(ui.RoleDialog).Label(locales.KeysRecordTitle(cmd.label)).Focusable().Focus().FocusRing(false).
+				Opacity(in).Scale(0.96+0.04*in, 0.96+0.04*in)
+			if p.dark {
+				box.Shadow(0, 16, 40, 0, ui.RGBA(0, 0, 0, 0.40))
+			} else {
+				box.Shadow(0, 12, 32, 0, ui.RGBA(20, 20, 40, 0.16))
+			}
 			box.HandleInput(func(ev ui.InputEvent) bool {
 				switch {
 				case ev.Kind == ui.InputText:
@@ -359,28 +404,38 @@ func (k *keysPane) recordView(c *ui.Context) {
 				return true
 			})
 			box.Children(func() {
-				ui.Text(c, locales.KeysRecordTitle(cmd.label)).FontSize(14).FontWeight(600).TextColor(p.text)
-				ui.Row(c.Key("keys-record-keys")).Height(52).Radius(8).AlignItems(ui.Center).Justify(ui.Center).
-					Background(p.hover).BorderWidth(1, 1, 1, 1).BorderColor(p.accentDim).Children(func() {
+				ui.Column(c).Gap(4).Children(func() {
+					ui.Text(c, locales.KeysRecordTitle(cmd.label)).FontSize(14).FontWeight(600).TextColor(p.text)
+					ui.Text(c, cmd.id).Font(k.w.monoFont()).FontSize(11).TextColor(p.faint).SingleLine()
+				})
+				// The keys pressed, in a well whose edge turns as they are
+				// another command's.
+				edge := p.accent
+				if len(others) > 0 {
+					edge = p.modifiedFg
+				}
+				ui.Row(c.Key("keys-record-keys")).Height(68).Radius(10).AlignItems(ui.Center).Justify(ui.Center).
+					Background(p.text.Alpha(0.04)).Border(1, edge.Alpha(0.7)).
+					Transition(ui.ElementTransition{Colors: true, Duration: 160 * time.Millisecond}).Children(func() {
 					if len(k.strokes) == 0 {
-						ui.Text(c, locales.KeysPress()).FontSize(13).TextColor(p.faint)
+						ui.Text(c.Key("press"), locales.KeysPress()).FontSize(13).TextColor(p.faint).Transition(revealFade)
 						return
 					}
-					k.caps(c, k.strokes)
+					k.caps(c, k.strokes, true)
 				})
-				ui.Text(c, locales.KeysRecordHint()).FontSize(11.5).TextColor(p.muted)
-				if others := k.conflicts(); len(others) > 0 {
-					ui.Row(c.Key("keys-record-conflict")).Gap(8).Padding(8, 10).Radius(6).Background(p.modified.Alpha(0.12)).
-						AlignItems(ui.Center).Children(func() {
+				if len(others) > 0 {
+					ui.Row(c.Key("keys-record-conflict")).Gap(8).Padding(8, 10).Radius(7).Background(p.modified.Alpha(0.12)).
+						AlignItems(ui.Center).Transition(popIn).Children(func() {
 						ui.Icon(c, iconTriangleAlert).FontSize(13).TextColor(p.modifiedFg).Shrink(0)
 						ui.Text(c, locales.KeysConflict(strings.Join(others, ", "))).FontSize(11.5).TextColor(p.text).Grow(1).Shrink(1)
 					})
 				}
-				ui.Row(c).Gap(8).Justify(ui.End).Children(func() {
-					if ui.Button(c.Key("keys-record-cancel"), locales.ButtonCancel()).Clicked() {
+				ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
+					ui.Text(c, locales.KeysRecordHint()).FontSize(11).LineHeight(1.4).TextColor(p.muted).Grow(1).Shrink(1)
+					if ui.Button(c.Key("keys-record-cancel"), locales.ButtonCancel()).Shrink(0).Clicked() {
 						done(false)
 					}
-					if ui.PrimaryButton(c.Key("keys-record-save"), locales.KeysSave()).Disabled(len(k.strokes) == 0).Clicked() {
+					if ui.PrimaryButton(c.Key("keys-record-save"), locales.KeysSave()).Shrink(0).Disabled(len(k.strokes) == 0).Clicked() {
 						done(true)
 					}
 				})

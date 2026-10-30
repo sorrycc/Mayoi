@@ -1464,6 +1464,7 @@
   "prefsTitle": "Settings",
   "prefsSearch": "Search settings",
   "prefsFound": "{count, plural, one {# setting found} other {# settings found}}",
+  "prefsChangedCount": "{count, plural, one {# setting changed} other {# settings changed}}",
   "prefsNoneFound": "No settings match",
   "prefsUser": "User",
   "prefsFolder": "Folder: {folder}",

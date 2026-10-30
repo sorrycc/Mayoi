@@ -16,6 +16,11 @@ needs a `## <version>` section here, or its build fails.
 - Jack-o'-Lantern is pumpkin orange by candlelight, with a carved pumpkin on the welcome page and status bar.
 - Witch's Brew is plum dark with slime green, and a bubbling cauldron for its character.
 - Blood Moon is crimson and old gold on a red-tinged black, with a bat that flaps its wings as it hops.
+- The settings window groups each section's settings in cards, and marks the ones you changed.
+- The settings sidebar shows how many settings you have changed in each section.
+- **Keyboard Shortcuts** shows each key as its own cap, and tags your own keys and removed ones.
+- The dialog for new keys shows them large, and turns amber when another command has them.
+- A folder's own setting changed in the settings window no longer, now and then, snaps back.
 - Headings in the Markdown preview take the color theme's heading color, as the editor does.
 - Command-clicking a terminal path or URL followed by Chinese punctuation no longer takes the text after it.
 - Switching back to a tab no longer flashes a blank editor for a frame before its text shows.

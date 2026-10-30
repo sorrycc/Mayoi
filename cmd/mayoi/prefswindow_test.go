@@ -317,3 +317,57 @@ func TestPrefsKeyRows(t *testing.T) {
 	ph.frames()
 	k.recording = nil
 }
+
+// The sidebar counts what differs from a first launch in each section,
+// or what the folder chooses while its own show.
+func TestPrefsChangedIn(t *testing.T) {
+	ph := newPrefsHarness(t)
+	w := ph.w
+	if n := w.changedIn(settings.CatVim, nil); n != 0 {
+		t.Fatalf("vim has %d changed", n)
+	}
+	w.set("vim", json.RawMessage(`true`))
+	w.set("vimCtrlKeys", json.RawMessage(`true`))
+	if n := w.changedIn(settings.CatVim, nil); n != 2 {
+		t.Errorf("vim has %d changed", n)
+	}
+	w.folder = ph.root
+	scope := w.scope()
+	if scope == nil {
+		t.Fatal("no folder to show")
+	}
+	w.setFolder(scope, "vimCtrlKeys", json.RawMessage(`false`))
+	if n := w.changedIn(settings.CatVim, scope); n != 1 {
+		t.Errorf("the folder chooses %d of vim", n)
+	}
+	ph.m.keys, _ = keymap.Parse([]byte(`[{"key": "f9", "command": "view.sidebar"}, {"key": "cmd+s", "command": "-file.save"}, {"key": "f8", "command": "file.save"}, {"key": "f7", "command": "file.new", "when": "editorFocus"}]`))
+	if n := w.changedIn(prefsShortcuts, nil); n != 2 {
+		t.Errorf("%d commands have the person's keys", n)
+	}
+	ph.frames()
+}
+
+// The dialog that takes the keys fades in each time it shows, and still
+// takes them while it does.
+func TestPrefsRecordDialog(t *testing.T) {
+	ph := newPrefsHarness(t)
+	k := &ph.w.keys
+	ph.w.section = prefsShortcuts
+	ph.frames()
+	save := command{id: "file.save", label: "Save", accel: "CmdOrCtrl+S"}
+	for range 2 {
+		k.record(save)
+		step(ph.pt)
+		if !k.shown {
+			t.Fatal("the dialog did not show")
+		}
+		if _, ok := ph.pt.Find("Keys for Save"); !ok {
+			t.Fatal("no dialog")
+		}
+		ph.pt.Key(0, ui.KeyEscape)
+		ph.frames()
+		if k.recording != nil || k.shown {
+			t.Fatal("Escape left the dialog")
+		}
+	}
+}

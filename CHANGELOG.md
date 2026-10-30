@@ -10,6 +10,7 @@ needs a `## <version>` section here, or its build fails.
 - The gutter **+** leaves line numbers and Git change marks clear and clickable.
 - Closing a tab or column, starting another comment, or jumping to code keeps the draft in Review.
 - **Send** includes the comment being drafted; **Clear** lets Undo recover it.
+- Without a terminal, **Send** copies the draft and returns the keyboard to the source.
 - Clicking source while drafting keeps typing, `Esc`, and `Cmd/Ctrl+Enter` in the comment card.
 - Inline comment cards keep their buttons visible as they grow or the window shrinks.
 - With `editorAgentContext` off, Review keeps its comment labels and one-click note navigation.

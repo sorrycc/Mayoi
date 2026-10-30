@@ -776,13 +776,20 @@ func (a *app) copyReview() {
 // to the agent in it, without pressing Enter, and clears them. With no
 // terminal, it copies them.
 func (a *app) sendReview() {
+	drafting := a.review.draft != nil
 	a.keepDraft()
 	k := len(a.review.notes)
 	if k == 0 {
+		if drafting {
+			a.focusColumn()
+		}
 		a.tell(note{message: a.reviewLabel(locales.ReviewNoneToSend(), locales.ReviewNoneToSendItems())})
 		return
 	}
 	if !a.pasteToTerminal(a.reviewText() + "\n") {
+		if drafting {
+			a.focusColumn()
+		}
 		a.services.WriteClipboard(a.reviewText())
 		a.tell(note{message: a.reviewLabel(locales.ReviewNoTerminal(k), locales.ReviewNoTerminalItems(k))})
 		return
@@ -1159,6 +1166,17 @@ func (a *app) noteCard(c *ui.Context, n *reviewNote, ed *editor, w float32) {
 	in := a.textKeys(ui.TextArea(c.Key("review-text"), &r.text)).AutoFocus().FontSize(noteFontSize).
 		Width(w).Height(a.noteFieldH(r.text, w)).Shrink(0).Padding(noteFieldPad, noteFieldPad+2).
 		Placeholder(locales.ReviewPlaceholder()).Label(locales.ReviewCommentLabel())
+	if ed != nil && ed.reviewSource != nil {
+		in.Bind(&ed.reviewSource.field)
+		if in.Focused() {
+			for i, col := range a.cols {
+				if t := col.tab(); t != nil && t.ed == ed {
+					a.col, a.focus = i, paneEditor
+					break
+				}
+			}
+		}
+	}
 	if in.Focused() {
 		r.typed = a.frame
 	}

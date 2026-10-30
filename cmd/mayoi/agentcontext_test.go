@@ -646,6 +646,11 @@ func TestAgentContextSendSavesDraft(t *testing.T) {
 			if a.review.draft != nil || !strings.Contains(hs.tt.Clipboard(), "unsaved comment") || !strings.Contains(a.reviewText(), "unsaved comment") {
 				t.Fatal("command send lost its draft or fallback queue")
 			}
+			hs.tt.Type("resume source")
+			hs.settle()
+			if !strings.Contains(d.buf.String(), "resume source") {
+				t.Fatal("clipboard fallback did not return focus to the source")
+			}
 		})
 	}
 }
@@ -737,5 +742,35 @@ func TestAgentContextSharedEditorDraft(t *testing.T) {
 	hs.settle()
 	if a.review.draft != n || a.review.ed != left {
 		t.Fatal("closing the previous editor cleared the current draft")
+	}
+}
+
+func TestAgentContextSourceReclaimsFocus(t *testing.T) {
+	hs, left, _ := splitHarness(t, func(hs *harness) string { return hs.path("main.go") })
+	a, tt := hs.a, hs.tt
+	a.openFile(hs.path("README.md"), true)
+	hs.settle()
+	right := a.activeEditor()
+	a.settings.EditorAgentContext = true
+	a.col = 0
+	a.focusColumn()
+	hs.settle()
+	leftArea, _ := tt.Find(locales.EditorLabel(left.name()))
+	a.commentEditor(left)
+	hs.settle()
+	leftText, rightText := left.buf.String(), right.buf.String()
+	rightArea, _ := tt.Find(locales.EditorLabel(right.name()))
+	tt.ClickAt(rightArea.X+right.gutterW+50, rightArea.Y+editorPadY+a.font.lineH/2)
+	hs.settle()
+	tt.ClickAt(leftArea.X+left.gutterW+50, leftArea.Y+editorPadY+a.font.lineH/2)
+	hs.settle()
+	tt.Type("back in the comment")
+	hs.settle()
+	if a.review.text != "back in the comment" || left.buf.String() != leftText || right.buf.String() != rightText {
+		t.Fatal("clicking draft source did not reclaim typing from the other column")
+	}
+	hs.key(0, ui.KeyEscape)
+	if a.review.draft != nil || a.activeEditor() != left {
+		t.Fatal("Escape did not return to the draft's editor")
 	}
 }

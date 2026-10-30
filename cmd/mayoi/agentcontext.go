@@ -75,6 +75,7 @@ type editorReview struct {
 	file     diffFile
 	tops     []float32
 	scroll   ui.ScrollState
+	field    ui.Handle
 	started  bool
 	height   float32
 	viewH    float32
@@ -162,7 +163,7 @@ func (a *app) editorReviewView(c *ui.Context, d *editor) bool {
 		d.hl.Request(snap, first, last)
 	}
 	ui.ScrollBoth(c.Key("editor-review-source")).TrackScroll(&v.scroll).KeepFocus().Fill().Background(a.pal.editor).Children(func() {
-		ui.Box(c).Height(top(count) + editorPadY).Width(max(view.W, v.contentW)).Draw(func(pt *ui.Painter, r ui.Rect) {
+		source := ui.Box(c).Height(top(count) + editorPadY).Width(max(view.W, v.contentW)).Draw(func(pt *ui.Painter, r ui.Rect) {
 			for i := first; i <= last; i++ {
 				y := r.Y + top(i)
 				if i >= n.from && i < n.to {
@@ -198,7 +199,11 @@ func (a *app) editorReviewView(c *ui.Context, d *editor) bool {
 					}
 				}
 			}
-		}).Children(func() {
+		})
+		if source.Clicked() {
+			v.field.Focus(c)
+		}
+		source.Children(func() {
 			card := a.noteCardBox(c, "review-box", v.scroll.X+left, cardY+noteInset, w, h).Label(locales.ReviewCommentLabel())
 			card.Children(func() { a.noteCard(c, n, d, noteTextW(w)) })
 		})

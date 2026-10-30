@@ -3,6 +3,10 @@
 The update window shows the section of the version it offers. Every release
 needs a `## <version>` section here, or its build fails.
 
+## Unreleased
+
+- The Homebrew install steps add `brew trust sorrycc/mayoi`, which recent Homebrew needs to load the cask.
+
 ## 0.14.3
 
 - Mermaid diagrams in a Markdown preview open over the window from their hover button or a double-click.

@@ -93,8 +93,12 @@ Requires macOS 13 or later. Install with [Homebrew](https://brew.sh) on Apple Si
 
 ```sh
 brew tap --custom-remote sorrycc/mayoi https://github.com/sorrycc/Mayoi.git
+brew trust sorrycc/mayoi
 brew install --cask mayoi
 ```
+
+Recent Homebrew refuses to load casks from a tap you haven't trusted, which `brew trust` allows once. On an older
+Homebrew without that command, skip that line.
 
 Or download the DMG for your Mac from [Releases](https://github.com/sorrycc/Mayoi/releases/latest) and drag
 **Mayoi** to Applications. Both methods install the signed, notarized app.
@@ -106,7 +110,8 @@ Homebrew installs and removes the shell command with the app. For a DMG installa
 If you already installed the command through Mayoi, choose **File → Uninstall 'mayoi' Command** before
 installing with Homebrew, so only one `mayoi` command is on your `PATH`.
 
-Mayoi checks for updates automatically. To upgrade with Homebrew, run `brew update && brew upgrade --cask mayoi`.
+Mayoi checks for updates automatically. To upgrade with Homebrew, run `brew update && brew upgrade --cask mayoi`;
+if it refuses to load the cask from an untrusted tap, run `brew trust sorrycc/mayoi` first.
 
 ### Linux
 

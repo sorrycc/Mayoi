@@ -34,6 +34,8 @@ func newPrefsHarness(t *testing.T) *prefsHarness {
 	hs := newHarness(t, true)
 	path := filepath.Join(t.TempDir(), "settings.json")
 	s := settings.Load(path)
+	// Finish delayed writes before TempDir removes the settings directory.
+	t.Cleanup(s.Flush)
 	s.MarkdownPreview = false
 	hs.a.settings = s
 	hs.a.window = s.NewWindow()

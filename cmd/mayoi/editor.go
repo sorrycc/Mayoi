@@ -220,6 +220,14 @@ func (a *app) editorView(c *ui.Context, d *editor) {
 			if a.editorKey(d, ev) {
 				return true
 			}
+			if ev.Button == 0 {
+				switch ev.Kind {
+				case ui.InputPointerDown:
+					d.selecting = true
+				case ui.InputPointerUp:
+					d.selecting = false
+				}
+			}
 			switch ev.Kind {
 			case ui.InputKeyUp, ui.InputPointerUp, ui.InputScroll, ui.InputZoom:
 			default:
@@ -337,6 +345,13 @@ func (a *app) editorView(c *ui.Context, d *editor) {
 		var sticky []stickyRow
 		if len(d.sticky) > 0 {
 			sticky = d.stuck.rows(a, d, snap, d.sticky)
+		}
+		d.reviewHover = -1
+		if a.settings.EditorAgentContext {
+			_, py, over := area.PointerPosition()
+			if over && py >= float32(len(d.sticky))*a.font.lineH {
+				d.reviewHover = g.at(py + d.vscroll.Y - editorPadY)
+			}
 		}
 
 		// The lines in view.

@@ -5,6 +5,11 @@ needs a `## <version>` section here, or its build fails.
 
 ## Unreleased
 
+- Use the gutter **+** in ordinary files to open a review card beneath the selected lines.
+- Scroll long code lines horizontally while writing an inline review comment in ordinary files.
+- Enable `editorAgentContext` to collect selected code in ordinary files, with optional comments.
+- Collect snippets across files and send them together with review comments to the last terminal.
+- Collected snippets survive restarts; the list lets you locate, edit, or remove each item.
 - Headings in the Markdown preview take the color theme's heading color, as the editor does.
 - Command-clicking a terminal path or URL followed by Chinese punctuation no longer takes the text after it.
 - Switching back to a tab no longer flashes a blank editor for a frame before its text shows.

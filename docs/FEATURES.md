@@ -296,6 +296,16 @@ diff focused, keys work as in a pager:
 
 ### Review comments
 
+To collect code for an agent from ordinary files, set `"editorAgentContext": true` in **Settings**
+(off by default). Hover a line and click **+**, or select several lines first, to open the same comment
+card used in reviews. While writing the comment, the source is shown with room for the card under those
+lines; saving or cancelling returns to editing the source. Use ⌘Enter to save or Escape to cancel.
+Leave the comment empty and choose **Add to Agent** to collect just the code. Collect snippets across
+files, then use **Send N Items** above the editor to paste them, together with review comments, into the
+last-used terminal without pressing Enter. The **…** button lists the collected items for navigation,
+editing and removal. With no terminal open, sending copies the batch to the clipboard and keeps it.
+Pending items survive restarts and turning the setting off.
+
 Review an agent's changes, then hand it the review in one paste. Choose lines in a diff and press `c`, or click the
 **+** by the line under the pointer, or select lines in a file and press ⇧⌘M (**Add Review Comment**), and type a
 comment: ⌘Enter keeps it, Escape drops it. In a diff the comment shows under its lines, with buttons to edit or delete
@@ -308,9 +318,9 @@ the next comment and `N` to the one before; **Go to Next Review Comment** and **
 from anywhere, in the order of their files and lines. Going to a comment on lines removed, staged or of a commit shows
 it in its diff.
 
-**Send Review Comments to Terminal**, from the button in the diff's toolbar, that menu, the **Git** menu or the
+**Send Review Items to Terminal**, from the button in the diff's toolbar, that menu, the **Git** menu or the
 command palette, pastes every comment into the terminal used last, without pressing Enter, so you can add to it before
-it goes to the agent, and clears them. **Copy Review Comments** copies them instead. Each says where its lines are, relative to the folder, then shows
+it goes to the agent, and clears them. **Copy Review Items** copies them instead. Each says where its lines are, relative to the folder, then shows
 them, as a diff when it was made in one, then the comment, numbered when there are more than one:
 
 ````
@@ -370,7 +380,7 @@ offers **Reload**.
 menu, or a click on the badge's checks icon, lists the checks of the branch's pull request, failed first, and reads
 them again every 30 seconds while one runs; type to find one. A failed GitHub Actions job offers **Send to Terminal**
 (⏎), which reads the last 3000 lines of its log, without colors or time stamps, and pastes them into the terminal used
-last without pressing Enter, as **Send Review Comments to Terminal** does, copying them with no terminal open; **Copy
+last without pressing Enter, as **Send Review Items to Terminal** does, copying them with no terminal open; **Copy
 Log**; **Re-run** (⌘⏎), which runs that job again; and **Open on GitHub**, the only one a check outside GitHub Actions
 offers.
 

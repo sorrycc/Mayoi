@@ -401,7 +401,7 @@ func TestReviewLineButton(t *testing.T) {
 	if len(v.cards) != 1 || v.rows[v.cards[0]].kind != rowComment {
 		t.Errorf("cards %v", v.cards)
 	}
-	if _, ok := tt.Find("Send 1 Review Comment to Terminal"); !ok {
+	if _, ok := tt.Find("Send 1 Review Item to Terminal"); !ok {
 		t.Error("no button to send them")
 	}
 	// Each card's buttons are its own: delete the second.

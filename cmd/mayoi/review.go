@@ -21,6 +21,8 @@ import (
 // they were.
 type reviewNote struct {
 	path string
+	// context is a deliberately collected snippet, whose comment is optional.
+	context bool
 	// commit is the commit whose diff the note is on, "" for the changes
 	// of the work tree; staged is set for one on the changes staged, whose
 	// new side is the index.
@@ -569,6 +571,10 @@ func (a *app) addReviewComment() {
 	if d == nil {
 		return
 	}
+	a.commentEditor(d)
+}
+
+func (a *app) commentEditor(d *editor) {
 	n := editorExcerpt(d)
 	if n == nil {
 		a.tell(note{message: locales.ReviewSaveFirst()})
@@ -576,10 +582,13 @@ func (a *app) addReviewComment() {
 	}
 	for _, o := range a.review.notes {
 		a.followNote(o)
-		if o.work() && o.path == n.path && o.from <= n.from && o.to >= n.to {
+		if o.work() && !o.oldSide && !o.outdated && o.path == n.path && o.from <= n.from && o.to >= n.to {
 			a.editNote(o, d)
 			return
 		}
+	}
+	if a.settings.EditorAgentContext {
+		n.context = true
 	}
 	a.startDraft(n, d)
 }
@@ -649,13 +658,13 @@ func (a *app) editNote(n *reviewNote, ed *editor) {
 	}
 }
 
-// saveDraft keeps the comment typed for its note; an empty one is not
-// kept, and the box stays.
+// saveDraft keeps the comment typed for its note. An empty comment is
+// allowed only for a snippet deliberately collected without one.
 func (a *app) saveDraft() {
 	r := &a.review
 	n := r.draft
 	text := strings.TrimSpace(r.text)
-	if n == nil || text == "" {
+	if n == nil || text == "" && !n.context {
 		return
 	}
 	n.text = text
@@ -670,6 +679,10 @@ func (a *app) saveDraft() {
 // keyboard back to where it was.
 func (a *app) endDraft() {
 	r := &a.review
+	if d := r.ed; d != nil && d.reviewSource != nil {
+		d.reviewSource = nil
+		d.resync, d.focusNext = true, true
+	}
 	r.draft, r.text, r.ed = nil, "", nil
 	r.gen++
 	a.focusColumn()
@@ -790,7 +803,8 @@ func (a *app) keptReview() []settings.ReviewNote {
 	var out []settings.ReviewNote
 	for _, n := range a.review.notes {
 		out = append(out, settings.ReviewNote{
-			Path: n.path, Commit: n.commit, Staged: n.staged, OldSide: n.oldSide, From: n.from, To: n.to,
+			Context: n.context,
+			Path:    n.path, Commit: n.commit, Staged: n.staged, OldSide: n.oldSide, From: n.from, To: n.to,
 			Diff: n.diff, Snippet: n.snippet, Lines: n.lines, Text: n.text,
 		})
 	}
@@ -804,11 +818,15 @@ func (a *app) restoreReview(kept []settings.ReviewNote) {
 	r.notes, r.draft, r.text, r.ed = nil, nil, "", nil
 	r.gen++
 	for _, k := range kept {
-		if k.Path == "" || k.From < 0 || k.To-k.From != len(k.Lines) || len(k.Lines) == 0 || strings.TrimSpace(k.Text) == "" {
+		if k.Path == "" || k.From < 0 || k.To-k.From != len(k.Lines) || len(k.Lines) == 0 || strings.TrimSpace(k.Text) == "" && !k.Context {
+			continue
+		}
+		if k.Context && (k.Diff || k.Commit != "" || k.Staged || k.OldSide || !slices.Equal(k.Snippet, k.Lines)) {
 			continue
 		}
 		r.notes = append(r.notes, &reviewNote{
-			path: k.Path, commit: k.Commit, staged: k.Staged, oldSide: k.OldSide, from: k.From, to: k.To,
+			context: k.Context,
+			path:    k.Path, commit: k.Commit, staged: k.Staged, oldSide: k.OldSide, from: k.From, to: k.To,
 			diff: k.Diff, snippet: k.Snippet, lines: k.Lines, text: k.Text, version: unfound,
 		})
 	}
@@ -968,9 +986,25 @@ func (a *app) reviewMenu(m *ui.Menu) {
 		if n.outdated {
 			label += " (outdated)"
 		}
-		if m.Item(label).Chosen() {
-			a.goToNote(n)
-		}
+		m.Submenu(label, func(m *ui.Menu) {
+			if m.Item(locales.AgentContextGoTo()).Chosen() {
+				a.goToNote(n)
+			}
+			if m.Item(locales.ReviewEditComment()).Chosen() {
+				a.goToNote(n)
+				var ed *editor
+				if n.work() && !n.oldSide {
+					ed = a.textEditor()
+					if ed == nil || ed.path != n.path {
+						return
+					}
+				}
+				a.editNote(n, ed)
+			}
+			if m.Item(locales.AgentContextRemove()).Chosen() {
+				a.deleteNote(n)
+			}
+		})
 	}
 	m.Separator()
 	if m.Item(locales.CmdReviewSend()).Chosen() {
@@ -1080,7 +1114,7 @@ func (a *app) noteCard(c *ui.Context, n *reviewNote, ed *editor, w float32) {
 	if in.Focused() {
 		r.typed = a.frame
 	}
-	empty := strings.TrimSpace(r.text) == ""
+	empty := strings.TrimSpace(r.text) == "" && !n.context
 	if in.Shortcut(ui.Cmd, ui.KeyEnter) {
 		a.post(a.saveDraft)
 	}
@@ -1114,6 +1148,8 @@ func (a *app) noteCard(c *ui.Context, n *reviewNote, ed *editor, w float32) {
 		label := locales.ReviewComment()
 		if kept {
 			label = locales.ButtonSave()
+		} else if n.context && strings.TrimSpace(r.text) == "" {
+			label = locales.AgentContextAdd()
 		}
 		if a.noteButton(c, label, true, empty) {
 			a.post(a.saveDraft)
@@ -1232,8 +1268,23 @@ const lineCommentSize = 18
 // comments on its line, or on the rows chosen with it, and the room it
 // takes.
 func (a *app) lineCommentButton(c *ui.Context, v *diffView, i int, x, y float32) ui.Rect {
+	a.reviewLineButton(c, x, y, locales.ReviewAddComment(), func() {
+		if i >= len(v.rows) || v.rows[i].kind != rowLine {
+			return
+		}
+		if !v.selected(i) {
+			v.anchor = -1
+			v.setCursor(i)
+		}
+		v.pane.Focus()
+		a.commentDiff(v)
+	})
+	return ui.Rect{X: x, Y: y, W: lineCommentSize, H: lineCommentSize}
+}
+
+// reviewLineButton is shared by source files and diffs.
+func (a *app) reviewLineButton(c *ui.Context, x, y float32, label string, action func()) {
 	p := a.pal
-	label := locales.ReviewAddComment()
 	ui.Box(c.Key("line-comment")).Absolute().Left(x).Top(y).Children(func() {
 		b := ui.ButtonBase(c).Size(lineCommentSize, lineCommentSize).Radius(4).Justify(ui.Center).AlignItems(ui.Center).
 			Label(label).Tooltip(label)
@@ -1251,19 +1302,8 @@ func (a *app) lineCommentButton(c *ui.Context, v *diffView, i int, x, y float32)
 		if !b.Clicked() {
 			return
 		}
-		a.post(func() {
-			if i >= len(v.rows) || v.rows[i].kind != rowLine {
-				return
-			}
-			if !v.selected(i) {
-				v.anchor = -1
-				v.setCursor(i)
-			}
-			v.pane.Focus()
-			a.commentDiff(v)
-		})
+		a.post(action)
 	})
-	return ui.Rect{X: x, Y: y, W: lineCommentSize, H: lineCommentSize}
 }
 
 // diffNotes returns the notes that show in a diff: those kept, and the
@@ -1314,6 +1354,9 @@ func (a *app) notedLines(d *editor) []*reviewNote {
 // its comment's first line, cut short.
 func noteHint(n *reviewNote) string {
 	s, _, more := strings.Cut(strings.TrimSpace(n.text), "\n")
+	if s == "" && n.context {
+		return locales.AgentContextSnippet()
+	}
 	s = strings.TrimSpace(s)
 	if r := []rune(s); len(r) > 80 {
 		s, more = string(r[:79]), true

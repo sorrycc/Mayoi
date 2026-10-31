@@ -10,6 +10,9 @@ needs a `## <version>` section here, or its build fails.
 - Under Claude, the status bar shows Claude Code's ✻ spinner, the work's name and its seconds while Git runs.
 - Claude's errors and removed lines are rose now, apart from its orange, and chosen rows are periwinkle.
 - In Claude Light, the terminal's white and bright white text is readable on the light background.
+- **View → Compact Folders** shows chains of single-child folders on one Explorer row.
+- The Explorer header's context menu, the settings window and `explorerCompactFolders` toggle it too.
+- Hover a compact row to see its whole path when the sidebar cuts it off.
 
 ## 0.16.1
 

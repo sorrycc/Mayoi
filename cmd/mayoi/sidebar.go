@@ -85,7 +85,11 @@ func (a *app) sidebar(c *ui.Context) {
 			// The folder's row, with the explorer's actions while the pointer
 			// is over the sidebar or the tree has the keyboard: on the title's
 			// row, they would leave the title no room.
-			ui.Row(c).Height(24).Padding(0, 6, 0, 16).Gap(2).AlignItems(ui.Center).Children(func() {
+			ui.Row(c).Height(24).Padding(0, 6, 0, 16).Gap(2).AlignItems(ui.Center).ContextMenu(func(m *ui.Menu) {
+				if m.Item(locales.CmdViewCompactFolders()).Checked(a.settings.ExplorerCompactFolders).Chosen() {
+					a.toggleCompactFolders()
+				}
+			}).Children(func() {
 				ui.Text(c, strings.ToUpper(filepath.Base(a.root))).FontSize(11).FontWeight(700).LetterSpacing(0.4).
 					TextColor(p.text).SingleLine().Grow(1)
 				if !hovered && !a.files.List.FocusWithin(c) {
@@ -230,13 +234,6 @@ func (a *app) fileTree(c *ui.Context) {
 	p := a.pal
 	t := a.tree
 	t.Load(a.root)
-	children := func(path string) []string {
-		kids := t.Children(path)
-		if kids != nil && a.files.Open.Has(path) {
-			t.Load(path)
-		}
-		return kids
-	}
 	activePath := ""
 	if t := a.activeTab(); t != nil {
 		activePath = t.path()
@@ -246,17 +243,13 @@ func (a *app) fileTree(c *ui.Context) {
 		a.treeSynced = activePath
 		a.revealInTree(activePath)
 	}
+	chosen := a.explorerChoice()
+	wasCompact := a.explorer.compact
+	a.explorer = a.explorerRows()
+	view := a.explorer
+	children := view.children
 	now := c.Now()
 	a.treeOpening.note(&a.files.Open, now)
-	if a.selectInTree != "" {
-		for i := range a.files.Rows() {
-			if a.files.Item(i) == a.selectInTree {
-				a.fileRow = i
-				a.selectInTree = ""
-				a.files.List.ScrollIntoView(i)
-			}
-		}
-	}
 	// Rows show chosen in a tint of the accent, not in the accent itself,
 	// which would hide the icons: the list takes the colors from the theme
 	// as it builds.
@@ -275,10 +268,15 @@ func (a *app) fileTree(c *ui.Context) {
 	if activePath != "" {
 		activeDir = filepath.Dir(activePath)
 	}
-	out := ui.Outline(c.Key("files"), &a.files, t.Children(a.root), children, func(path string) {
+	out := ui.Outline(c.Key("files"), &a.files, view.roots, children, func(path string) {
 		isDir := t.IsDir(path)
-		name := filepath.Base(path)
+		entry := view.rows[path]
+		name := entry.name
 		row := ui.Row(c).Grow(1).Gap(6).AlignItems(ui.Center).Height(explorerRowH)
+		if entry.first != path {
+			// A long chain is cut off at the sidebar's edge.
+			row.Tooltip(t.Rel(path))
+		}
 		if n := a.files.Rows(); n > 0 && a.files.Item(n-1) == path {
 			if r := row.Bounds(); r.H > 0 {
 				end = r.Y + r.H
@@ -289,10 +287,10 @@ func (a *app) fileTree(c *ui.Context) {
 				top = r.Y
 			}
 		}
-		if depth := treeDepth(a.root, path); depth > 0 {
+		if depth := entry.depth; depth > 0 {
 			row.Draw(func(pt *ui.Painter, r ui.Rect) { a.treeGuides(pt, r, path, depth, activeDir) })
 			// The rows of a folder just opened fade in.
-			if k := a.treeOpening.shown(filepath.Dir(path), now); k < 1 {
+			if k := a.treeOpening.shown(entry.parent, now); k < 1 {
 				row.Opacity(k)
 				c.AnimationFrame()
 			}
@@ -412,11 +410,7 @@ func (a *app) fileTree(c *ui.Context) {
 			// that has changes.
 			var letter byte
 			if isDir {
-				for _, ctx := range a.rootRepositoryList() {
-					if next := ctx.git.dirs[path]; letterRank(next) > letterRank(letter) {
-						letter = next
-					}
-				}
+				letter = a.chainLetter(path, entry.first)
 			} else if e, ok := a.repositoryForPath(path).git.entries[path]; ok {
 				letter = e.Letter()
 			}
@@ -442,6 +436,26 @@ func (a *app) fileTree(c *ui.Context) {
 				TextColor(gitColor(p, letter)).Shrink(0)
 		})
 	}).Grow(1).Padding(0, 6, 8, 6).Gap(0)
+	// A newly read chain may replace the chosen folder's row with its
+	// last folder. Keep the choice on that row, not a neighbor's index.
+	selection := ""
+	if a.selectInTree != "" {
+		selection = view.members[a.selectInTree]
+	} else if row, exists := view.rows[chosen]; t.IsDir(chosen) && (wasCompact || view.compact) && (!exists || !row.visible) {
+		selection = view.selection(chosen)
+	}
+	if selection != "" {
+		for i := range a.files.Rows() {
+			if a.files.Item(i) == selection {
+				a.fileRow = i
+				if a.selectInTree != "" {
+					a.selectInTree = ""
+					a.files.List.ScrollIntoView(i)
+				}
+				break
+			}
+		}
+	}
 	if first, _ := a.files.List.Visible(); a.files.Rows() > 0 && (first > 0 || top >= 0 && top < out.Bounds().Y-0.5) {
 		// A shadow under the folder's row, as the files scroll up under it.
 		out.DrawOver(func(pt *ui.Painter, r ui.Rect) {
@@ -545,8 +559,6 @@ func (a *app) fileTree(c *ui.Context) {
 	}
 }
 
-// treeDepth returns how deep path is in the tree of root: 0 for the
-// files and folders at its top.
 // treeOpening follows the folders of the tree as they open, so that
 // their rows come in rather than pop: the folders open in the last frame,
 // and when each of those that opened since did.
@@ -600,13 +612,6 @@ func (o *treeOpening) shown(dir string, now time.Time) float32 {
 	return ui.EaseOut(min(float32(now.Sub(at))/float32(showFor), 1))
 }
 
-func treeDepth(root, path string) int {
-	if len(path) <= len(root)+1 || !strings.HasPrefix(path, root) {
-		return 0
-	}
-	return strings.Count(path[len(root)+1:], string(filepath.Separator))
-}
-
 // treeGuides paints the indent guides of a row of the tree, depth deep,
 // whose content is in r: a line down from the arrow of each folder above
 // it, as VS Code draws them, brighter for the folder of the document shown.
@@ -615,15 +620,15 @@ func (a *app) treeGuides(pt *ui.Painter, r ui.Rect, path string, depth int, acti
 	x0 := treeGuideX(r.X, depth, th.Space(4), th.Space(1))
 	gap := th.Space(1)
 	y, h := r.Y-gap, r.H+2*gap
-	dir := filepath.Dir(path)
+	dir := a.explorer.rows[path].parent
 	for k := depth - 1; k >= 0; k-- {
 		x := x0[k]
 		col := p.guide
-		if dir == activeDir {
+		if dir == a.explorer.members[activeDir] {
 			col = p.guideNow
 		}
 		pt.Fill(ui.Rect{X: x, Y: y, W: 1, H: h}, col, 0)
-		dir = filepath.Dir(dir)
+		dir = a.explorer.rows[dir].parent
 	}
 }
 

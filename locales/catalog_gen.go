@@ -3086,6 +3086,16 @@ func (msgs Messages) CmdViewAppearanceSystem() string {
 	return Catalog.Format(msgs.locale, "cmdViewAppearanceSystem", nil)
 }
 
+// CmdViewCompactFolders says "Compact Folders"
+// in the language the app shows.
+func CmdViewCompactFolders() string { return In(i18n.Locale()).CmdViewCompactFolders() }
+
+// CmdViewCompactFolders says "Compact Folders"
+// in the language of msgs.
+func (msgs Messages) CmdViewCompactFolders() string {
+	return Catalog.Format(msgs.locale, "cmdViewCompactFolders", nil)
+}
+
 // CmdViewExplorer says "Explorer"
 // in the language the app shows.
 func CmdViewExplorer() string { return In(i18n.Locale()).CmdViewExplorer() }
@@ -13582,6 +13592,30 @@ func PrefDescSidebarRight() string { return In(i18n.Locale()).PrefDescSidebarRig
 // in the language of msgs.
 func (msgs Messages) PrefDescSidebarRight() string {
 	return Catalog.Format(msgs.locale, "prefDescSidebarRight", nil)
+}
+
+// PrefTitleExplorerCompactFolders says "Compact Folders"
+// in the language the app shows.
+func PrefTitleExplorerCompactFolders() string {
+	return In(i18n.Locale()).PrefTitleExplorerCompactFolders()
+}
+
+// PrefTitleExplorerCompactFolders says "Compact Folders"
+// in the language of msgs.
+func (msgs Messages) PrefTitleExplorerCompactFolders() string {
+	return Catalog.Format(msgs.locale, "prefTitleExplorerCompactFolders", nil)
+}
+
+// PrefDescExplorerCompactFolders says "Shows chains of single-child folders on one Explorer row."
+// in the language the app shows.
+func PrefDescExplorerCompactFolders() string {
+	return In(i18n.Locale()).PrefDescExplorerCompactFolders()
+}
+
+// PrefDescExplorerCompactFolders says "Shows chains of single-child folders on one Explorer row."
+// in the language of msgs.
+func (msgs Messages) PrefDescExplorerCompactFolders() string {
+	return Catalog.Format(msgs.locale, "prefDescExplorerCompactFolders", nil)
 }
 
 // PrefTitlePanelPosition says "Panel Position"

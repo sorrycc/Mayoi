@@ -110,6 +110,7 @@ func (a *app) commandsIn(t locales.Messages) []command {
 		{"view.sidebar", t.CmdViewSidebar(), "CmdOrCtrl+B", a.toggleSidebar},
 		{"view.sidebarRight", t.CmdViewSidebarRight(), "", a.toggleSidebarRight},
 		{"view.explorer", t.CmdViewExplorer(), "Shift+CmdOrCtrl+E", a.showExplorer},
+		{"view.compactFolders", t.CmdViewCompactFolders(), "", a.toggleCompactFolders},
 		{"view.search", t.CmdViewSearch(), "", func() { a.showSearch(false) }},
 		{"view.scm", t.CmdViewScm(), "Ctrl+Shift+G", a.showSourceControl},
 		{"git.commit", t.CmdGitCommit(), "", func() { a.commit(false) }},
@@ -579,6 +580,7 @@ func (a *app) menu(cli bool, run func(id string, win *mygo.Window)) *mygo.Menu {
 		}},
 		{Label: locales.MenuView(), Submenu: []*mygo.MenuItem{
 			item("view.sidebar"), checkbox("view.sidebarRight", a.settings.SidebarRight), item("view.explorer"), item("view.search"), item("view.scm"), mygo.Separator(),
+			checkbox("view.compactFolders", a.settings.ExplorerCompactFolders), mygo.Separator(),
 			checkbox("view.wordWrap", a.prefs().WordWrap), item("view.wordWrapTab"), item("view.togglePreview"), item("view.previewToSide"),
 			checkbox("view.markdownPreview", a.prefs().MarkdownPreview), mygo.Separator(),
 			checkbox("view.vim", a.prefs().Vim), checkbox("view.projectTabs", a.settings.ProjectTabs), mygo.Separator(),

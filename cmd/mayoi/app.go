@@ -195,8 +195,9 @@ type app struct {
 	retryAt time.Time
 	// indexed is when the files of a remote folder were last listed,
 	// which is done again at most every remoteIndexEvery.
-	indexed time.Time
-	files   ui.OutlineState[string]
+	indexed  time.Time
+	files    ui.OutlineState[string]
+	explorer explorerTree
 	// crumbs is the box a folder of the breadcrumbs opens.
 	crumbs  crumbsPicker
 	fileRow int
@@ -506,9 +507,10 @@ func (a *app) openFolder(dir string) {
 	a.loadFolderPrefs(dir)
 	a.tree = workspace.NewTree(dir, a.post)
 	a.tree.OnChange = a.diskChanged
-	a.tree.IsOpen = a.files.Open.Has
+	a.tree.IsOpen = a.explorerDirVisible
 	a.tree.Load(dir)
 	a.files = ui.OutlineState[string]{Indent: treeStep}
+	a.explorer = explorerTree{}
 	a.fileRow = -1
 	a.files.List.Selected = &a.fileRow
 	a.index, a.indexStale = nil, true

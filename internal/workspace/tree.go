@@ -141,6 +141,9 @@ func (t *Tree) Loaded(dir string) bool {
 	return ok
 }
 
+// Loading reports whether a directory read is still in flight.
+func (t *Tree) Loading(dir string) bool { return t.loading[dir] }
+
 // Children returns a directory's entries, nil for a file and an empty
 // slice for a directory not read yet: Load reads it.
 func (t *Tree) Children(path string) []string {

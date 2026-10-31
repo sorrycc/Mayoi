@@ -11,6 +11,9 @@ A click on the space below the files, or Escape, unselects the file or folder ch
 folder. A right click there opens the workspace's menu: New File…, New Folder…, Reveal in Finder, Open in Terminal and
 Paste.
 
+**View → Compact Folders** shows a chain of folders that each hold only one folder on one row, as
+`src/main/java/com/example`. The row's actions use its last folder.
+
 ## Editor
 
 Tabs, line numbers, a highlighted caret line, and Chroma syntax highlighting. Files changed on disk reload unless you

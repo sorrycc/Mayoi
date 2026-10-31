@@ -254,7 +254,7 @@ func TestPrefsKeys(t *testing.T) {
 	k.setKeys(save, keys)
 	data, _ := os.ReadFile(path)
 	text := string(data)
-	def, _ := keymap.ParseAccel("CmdOrCtrl+S")
+	def, _ := parseAccel("CmdOrCtrl+S")
 	for _, want := range []string{"// Mine.", `"git.fetch"`, `"when": "editorFocus"`, `"key": "ctrl+k s", "command": "file.save"`,
 		`"key": "` + def.String() + `", "command": "-file.save"`} {
 		if !strings.Contains(text, want) {

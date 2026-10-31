@@ -45,6 +45,16 @@ func platformAccel(id, accel string) string {
 	return strings.ReplaceAll(accel, "CmdOrCtrl", "Ctrl")
 }
 
+// parseAccel reads an accelerator as Mayoi takes it on the system: with
+// Command for CmdOrCtrl on macOS, where MyGo's would follow the machine.
+func parseAccel(accel string) (keymap.Stroke, bool) {
+	if macKeys() {
+		accel = strings.ReplaceAll(accel, "CommandOrControl", "Cmd")
+		accel = strings.ReplaceAll(accel, "CmdOrCtrl", "Cmd")
+	}
+	return keymap.ParseAccel(accel)
+}
+
 // tabMod is the modifier that, with a digit, shows a tab of the column:
 // Command on macOS, Alt elsewhere, as in VS Code.
 func tabMod() ui.Modifiers {

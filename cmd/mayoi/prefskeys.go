@@ -170,7 +170,7 @@ func (k *keysPane) rows(a *app) []keyRow {
 		r := keyRow{cmd: cmd}
 		if keys := km.Last(names...); keys != nil {
 			r.keys, r.source = keys, keyUser
-		} else if st, ok := keymap.ParseAccel(defaultAccel(cmd)); ok {
+		} else if st, ok := parseAccel(defaultAccel(cmd)); ok {
 			r.keys, r.source = []keymap.Stroke{st}, keyDefault
 			if km.Removes(names...) {
 				r.keys, r.source = nil, keyRemoved
@@ -628,7 +628,7 @@ func (k *keysPane) recordAccel(id string) bool {
 	}
 	for _, cmd := range k.w.m.wins[0].a.commands() {
 		if cmd.id == id {
-			if st, ok := keymap.ParseAccel(k.w.m.wins[0].a.menuAccel(cmd)); ok {
+			if st, ok := parseAccel(k.w.m.wins[0].a.menuAccel(cmd)); ok {
 				k.stroke(st)
 				return true
 			}
@@ -757,7 +757,7 @@ func unconditional(e keymap.Entry, names []string) bool {
 // defaultRemoval is the entry that takes cmd's own shortcut away, false
 // when it has none.
 func defaultRemoval(cmd command) (keymap.Entry, bool) {
-	st, ok := keymap.ParseAccel(defaultAccel(cmd))
+	st, ok := parseAccel(defaultAccel(cmd))
 	if !ok {
 		return keymap.Entry{}, false
 	}

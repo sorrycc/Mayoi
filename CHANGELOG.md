@@ -6,7 +6,8 @@ needs a `## <version>` section here, or its build fails.
 ## Unreleased
 
 - **View → Compact Folders** shows chains of single-child folders on one Explorer row.
-- The Explorer folder header's context menu and `explorerCompactFolders` turn it on and off too.
+- The Explorer header's context menu, the settings window and `explorerCompactFolders` toggle it too.
+- Hover a compact row to see its whole path when the sidebar cuts it off.
 
 ## 0.16.1
 

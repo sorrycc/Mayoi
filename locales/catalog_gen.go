@@ -13594,6 +13594,30 @@ func (msgs Messages) PrefDescSidebarRight() string {
 	return Catalog.Format(msgs.locale, "prefDescSidebarRight", nil)
 }
 
+// PrefTitleExplorerCompactFolders says "Compact Folders"
+// in the language the app shows.
+func PrefTitleExplorerCompactFolders() string {
+	return In(i18n.Locale()).PrefTitleExplorerCompactFolders()
+}
+
+// PrefTitleExplorerCompactFolders says "Compact Folders"
+// in the language of msgs.
+func (msgs Messages) PrefTitleExplorerCompactFolders() string {
+	return Catalog.Format(msgs.locale, "prefTitleExplorerCompactFolders", nil)
+}
+
+// PrefDescExplorerCompactFolders says "Shows chains of single-child folders on one Explorer row."
+// in the language the app shows.
+func PrefDescExplorerCompactFolders() string {
+	return In(i18n.Locale()).PrefDescExplorerCompactFolders()
+}
+
+// PrefDescExplorerCompactFolders says "Shows chains of single-child folders on one Explorer row."
+// in the language of msgs.
+func (msgs Messages) PrefDescExplorerCompactFolders() string {
+	return Catalog.Format(msgs.locale, "prefDescExplorerCompactFolders", nil)
+}
+
 // PrefTitlePanelPosition says "Panel Position"
 // in the language the app shows.
 func PrefTitlePanelPosition() string { return In(i18n.Locale()).PrefTitlePanelPosition() }

@@ -1343,6 +1343,8 @@
   "prefDescZoomLevel": "ウィンドウ全体を 1.2 のこの乗数で拡大します。1 は 120% です。",
   "prefTitleSidebarRight": "サイドバーを右に",
   "prefDescSidebarRight": "サイドバーをエディターの右に置きます。",
+  "prefTitleExplorerCompactFolders": "フォルダーをコンパクトに表示",
+  "prefDescExplorerCompactFolders": "子フォルダーが 1 つだけのフォルダーの連なりをエクスプローラーの 1 行に表示します。",
   "prefTitlePanelPosition": "パネルの位置",
   "prefDescPanelPosition": "ターミナル パネルの位置。エディターの下か、ウィンドウの端です。",
   "prefTitleProjectTabs": "プロジェクト タブ",

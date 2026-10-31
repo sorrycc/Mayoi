@@ -611,6 +611,7 @@ type Branch struct {
 	Name          string // as "main", or "origin/main" for a remote's
 	Remote        bool
 	Time          time.Time // when its last commit was made
+	Author        string    // the author of its last commit
 	Subject       string    // the subject of its last commit
 	Hash          string
 	Upstream      string // display name
@@ -623,14 +624,14 @@ type Branch struct {
 // one committed to last first.
 func (r *Repo) BranchList() ([]Branch, error) {
 	out, err := r.run(nil, "for-each-ref", "--sort=-committerdate",
-		"--format=%(refname)%1f%(committerdate:unix)%1f%(subject)", "refs/heads", "refs/remotes")
+		"--format=%(refname)%1f%(committerdate:unix)%1f%(authorname)%1f%(subject)", "refs/heads", "refs/remotes")
 	if err != nil {
 		return nil, err
 	}
 	var bs []Branch
 	for _, line := range strings.Split(string(out), "\n") {
-		f := strings.SplitN(line, "\x1f", 3)
-		if len(f) < 3 {
+		f := strings.SplitN(line, "\x1f", 4)
+		if len(f) < 4 {
 			continue
 		}
 		var b Branch
@@ -648,7 +649,7 @@ func (r *Repo) BranchList() ([]Branch, error) {
 		if s, err := strconv.ParseInt(f[1], 10, 64); err == nil {
 			b.Time = time.Unix(s, 0)
 		}
-		b.Subject = f[2]
+		b.Author, b.Subject = f[2], f[3]
 		bs = append(bs, b)
 	}
 	return bs, nil

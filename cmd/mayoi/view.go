@@ -169,6 +169,7 @@ func (a *app) view(c *ui.Context) {
 	a.stashPickerView(c)
 	a.prPickerView(c)
 	a.prChecksView(c)
+	a.worktreePickerView(c)
 	a.repositoryPickerView(c)
 	a.recentPickerView(c)
 	a.themePickerView(c)

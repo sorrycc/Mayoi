@@ -324,7 +324,7 @@ func (a *gitContext) repositoryHeader(c *ui.Context) {
 			open := !a.changesExpanded()
 			a.expanded = &open
 		}
-		selectRepo := ui.ButtonBase(c.Key("select")).Height(24).Grow(1).Shrink(1).MinWidth(60).Gap(4).
+		selectRepo := ui.ButtonBase(c.Key("select")).Height(24).Grow(1).Shrink(1).MinWidth(20).Gap(4).
 			AlignItems(ui.Center).Justify(ui.Start).Label(locales.ScmSelectRepository(name)).Tooltip(root)
 		selectRepo.Children(func() {
 			ui.Text(c, name).FontSize(12).FontWeight(600).TextColor(p.text).SingleLine().Shrink(1)
@@ -335,6 +335,7 @@ func (a *gitContext) repositoryHeader(c *ui.Context) {
 		if selectRepo.Clicked() {
 			a.app.post(func() { a.app.selectRepository(root) })
 		}
+		a.scmWorktreeButton(c, true)
 		a.scmBranchButton(c, true)
 		// The menu keeps every remote action available in a narrow sidebar.
 		if width >= 360 {

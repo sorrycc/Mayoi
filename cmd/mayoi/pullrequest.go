@@ -165,12 +165,13 @@ func (a *gitContext) currentPR() *git.PR {
 
 // prBadge shows the pull request of the branch, its number, how its
 // checks went and its review, whose changes a click opens in a tab; a
-// click on the icon of the checks lists them. In the
-// status bar, it is in the bar's color, and short says only the number.
-func (a *gitContext) prBadge(c *ui.Context, inStatus, short bool) {
+// click on the icon of the checks lists them. In the status bar, it is in
+// the bar's color, and short says only the number. It returns the badge,
+// nil without a pull request, for a row to measure.
+func (a *gitContext) prBadge(c *ui.Context, inStatus, short bool) *ui.Element {
 	pr := a.currentPR()
 	if pr == nil {
-		return
+		return nil
 	}
 	p := a.app.pal
 	fg, size, key, h := p.muted, float32(11.5), "scm-pr", float32(22)
@@ -225,6 +226,7 @@ func (a *gitContext) prBadge(c *ui.Context, inStatus, short bool) {
 	if b.Clicked() {
 		a.app.post(func() { a.openPullRequest(pr.Number) })
 	}
+	return &b
 }
 
 // prBadgeLabel is what the badge says, for the status bar to measure.

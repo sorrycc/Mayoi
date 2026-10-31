@@ -276,6 +276,11 @@ func (a *app) branchPickerView(c *ui.Context) {
 	ctx.branchPickerView(c)
 }
 
+func (a *app) worktreePickerView(c *ui.Context) {
+	ctx := a.repositoryForRoot(a.worktrees.repoRoot)
+	ctx.worktreePickerView(c)
+}
+
 // Diff tabs and their actions retain their repository when the history
 // picker changes. Legacy tabs without a root belong to the main work tree.
 func (a *app) diffContext(v *diffView) *gitContext {

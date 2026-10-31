@@ -85,10 +85,19 @@ func (a *gitContext) openBranchPicker() {
 				_, name, _ := strings.Cut(br.Name, "/")
 				return br.Remote && local[name]
 			})
-			// The branch checked out comes first.
+			// The branch checked out comes first, then the local branches, then
+			// those of the remotes, each the one committed to last first.
 			cur := a.branch()
-			current := func(br git.Branch) int { return btoi(!br.Remote && br.Name == cur) }
-			slices.SortStableFunc(b.branches, func(x, y git.Branch) int { return current(y) - current(x) })
+			rank := func(br git.Branch) int {
+				switch {
+				case br.Remote:
+					return 2
+				case br.Name == cur:
+					return 0
+				}
+				return 1
+			}
+			slices.SortStableFunc(b.branches, func(x, y git.Branch) int { return rank(x) - rank(y) })
 			b.names = make(branchNames, len(b.branches))
 			for i, br := range b.branches {
 				b.names[i] = br.Name
@@ -220,7 +229,7 @@ func (a *gitContext) branchPickerView(c *ui.Context) {
 					in := a.app.textKeys(ui.TextInputBase(c.Key("branch-input"), &b.query)).Grow(1).FontSize(14).AutoFocus().Disabled(a.git.busy != "").
 						Placeholder(locales.BranchPlaceholder()).Label(locales.BranchSwitchLabel())
 					if in.Shortcut(0, ui.KeyDown) {
-						b.sel, b.moved = min(b.sel+1, len(choices)-1), true
+						b.sel, b.moved = max(min(b.sel+1, len(choices)-1), 0), true
 					}
 					if in.Shortcut(0, ui.KeyUp) {
 						b.sel, b.moved = max(b.sel-1, 0), true
@@ -233,6 +242,11 @@ func (a *gitContext) branchPickerView(c *ui.Context) {
 				case len(choices) > 0:
 					ui.Scroll(c.Key("branch-results")).MaxHeight(380).Padding(6).Children(func() {
 						for i, ch := range choices {
+							// Without a query the branches are in two groups, each under
+							// a heading that no key reaches.
+							if group := b.groupOf(ch); group != "" && (i == 0 || b.groupOf(choices[i-1]) != group) {
+								ui.Text(c, group).FontSize(11.5).TextColor(p.faint).Padding(6, 10, 2, 10)
+							}
 							a.branchRow(c, ch, i)
 							if i == 0 && (ch.prompt || ch.create != "") && len(choices) > 1 {
 								ui.Box(c).Height(1).Background(p.border).Margin(4, 6)
@@ -258,19 +272,67 @@ func (a *gitContext) branchPickerView(c *ui.Context) {
 	})
 }
 
+// groupOf is the heading of the group a row of the box is in when the
+// query is empty: the local branches, then those of the remotes; "" for
+// the rows that are not branches, and for every row with a query.
+func (b *branchPicker) groupOf(ch branchChoice) string {
+	if ch.prompt || ch.create != "" || strings.TrimSpace(b.query) != "" {
+		return ""
+	}
+	if b.branches[b.results[ch.at].Index].Remote {
+		return locales.BranchRemoteGroup()
+	}
+	return locales.BranchLocalGroup()
+}
+
+// matchSpans is name in spans, the runs of it at positions, which the
+// query matched, in the accent color. The runs are slices of name, so a
+// row costs no copy of its text.
+func matchSpans(name string, positions []int, p *palette) []ui.Span {
+	var spans []ui.Span
+	k, start, on := 0, 0, false
+	for at := range name {
+		for k < len(positions) && positions[k] < at {
+			k++
+		}
+		if hit := k < len(positions) && positions[k] == at; hit != on {
+			if at > start {
+				spans = append(spans, matchSpan(name[start:at], on, p))
+			}
+			start, on = at, hit
+		}
+	}
+	if len(name) > start {
+		spans = append(spans, matchSpan(name[start:], on, p))
+	}
+	return spans
+}
+
+// matchSpan is text of a match, or of the rest, in its color.
+func matchSpan(text string, match bool, p *palette) ui.Span {
+	sp := ui.Span{Text: text, Color: p.text}
+	if match {
+		sp.Color, sp.Weight = p.accent, 650
+	}
+	return sp
+}
+
 // branchRow is a row of the box of the branches: a branch, with the
 // characters the query matched in the accent color, a check by the one
-// checked out, and the subject of its last commit and how long ago it was
-// made; or the branch to create.
+// checked out, and beneath it who made its last commit, how long ago, and
+// its subject; or the branch to create.
 func (a *gitContext) branchRow(c *ui.Context, ch branchChoice, i int) {
 	b := &a.app.branches
 	p := a.app.pal
-	key, label := "create", locales.BranchCreateLabel(ch.create)
 	var br git.Branch
 	var positions []int
-	if ch.prompt {
-		label = locales.CreateBranchEllipsis()
-	} else if ch.create == "" {
+	var key, label string
+	switch {
+	case ch.prompt:
+		key, label = "create", locales.CreateBranchEllipsis()
+	case ch.create != "":
+		key, label = "create", locales.BranchCreateLabel(ch.create)
+	default:
 		m := b.results[ch.at]
 		br, positions = b.branches[m.Index], m.Positions
 		key, label = "branch:"+br.Name, br.Name
@@ -311,27 +373,14 @@ func (a *gitContext) branchRow(c *ui.Context, ch branchChoice, i int) {
 			icon, col = iconCheck, p.accent
 		}
 		ui.Icon(c, icon).FontSize(14).TextColor(col)
-		var spans []ui.Span
-		k := 0
-		for at, r := range br.Name {
-			for k < len(positions) && positions[k] < at {
-				k++
+		ui.Column(c).Grow(1).MinWidth(0).Gap(2).Children(func() {
+			ui.RichText(c, matchSpans(br.Name, positions, p)...).FontSize(13).SingleLine()
+			info := []string{br.Author, br.Subject}
+			if !br.Time.IsZero() {
+				info = []string{br.Author, shortAgo(br.Time, time.Now()), br.Subject}
 			}
-			on := k < len(positions) && positions[k] == at
-			if n := len(spans); n > 0 && (spans[n-1].Weight == 650) == on {
-				spans[n-1].Text += string(r)
-				continue
-			}
-			sp := ui.Span{Text: string(r), Color: p.text}
-			if on {
-				sp.Color, sp.Weight = p.accent, 650
-			}
-			spans = append(spans, sp)
-		}
-		ui.RichText(c, spans...).FontSize(13).SingleLine().Shrink(0)
-		ui.Text(c, br.Subject).FontSize(12).TextColor(p.faint).SingleLine().Shrink(1).Grow(1).MinWidth(0)
-		if !br.Time.IsZero() {
-			ui.Text(c, shortAgo(br.Time, time.Now())).FontSize(11.5).TextColor(p.faint).SingleLine().Shrink(0)
-		}
+			info = slices.DeleteFunc(info, func(s string) bool { return s == "" })
+			ui.Text(c, strings.Join(info, " • ")).FontSize(12).TextColor(p.faint).SingleLine()
+		})
 	})
 }

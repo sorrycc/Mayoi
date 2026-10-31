@@ -138,8 +138,16 @@ which link the whole file. The remote is the upstream's, else origin, else the f
 The button beside **EXPLORER** at the top of the sidebar (⌃⇧G) switches it to the changes of the folder's Git work
 tree, with a count of them. Files are grouped as merge changes, staged changes, changes and untracked files.
 
-- The branch at the top opens **Switch Branch…**. Beside it, fetch, pull and push, which show how many commits
-  they would bring down or send up; a branch with no upstream gets **Publish Branch** instead.
+- The row at the top has two buttons: the folder of this work tree, which opens **Switch Worktree…**, and the branch,
+  which opens **Switch Branch…**. The folder names a linked worktree, and the name shortens as the sidebar narrows;
+  the main one shows its icon alone. Beside the branch, fetch, pull and push, which show how many commits they would
+  bring down or send up; a branch with no upstream gets **Publish Branch** instead. With an upstream, a row too narrow
+  for its buttons, counts included, moves fetch, pull and push into the **⋯** menu; without one, fetch and publish stay
+  in the row.
+- **Switch Worktree…** lists the work tree's checkouts, the one open first, by folder and branch. Choosing one
+  opens its folder in the window. Typing a new branch name offers **Create Worktree**, which makes the checkout beside
+  the main one, in `<folder>.worktrees`, from the commit HEAD is at. Typing the name of a branch that is already there
+  points to **Switch Branch…** instead. A folder that has gone missing is reported, not pruned.
 - Click a file, or press Enter, to see its changes with the diff focused, so its keys (`]` `[`, `.` `,`) work at once.
   Shift-click or Shift+Up/Down selects a range of files, ⌘-click (Ctrl-click on Windows and Linux) adds or removes one,
   and ⌘A selects them all. Space, and a selected row's stage, unstage and discard buttons and menu items, act on all the
@@ -179,7 +187,7 @@ it. The current change group (such as Staged Changes or Changes) stays directly
 beneath that header, with its counts and actions, until the next group or
 repository pushes it away. Headers combine the repository name, branch or
 detached HEAD, and repository actions; a narrow sidebar keeps remote actions in
-each repository's **⋯** menu.
+each repository's **⋯** menu. Each header's folder icon opens **Switch Worktree…** for its repository.
 Repositories with changes start expanded; clean repositories start collapsed and
 can be expanded to show their retained commit draft and a disabled commit button.
 The arrow expands or collapses a section; clicking its name selects its history.
@@ -384,16 +392,17 @@ last without pressing Enter, as **Send Review Items to Terminal** does, copying 
 Log**; **Re-run** (⌘⏎), which runs that job again; and **Open on GitHub**, the only one a check outside GitHub Actions
 offers.
 
-Click the branch in the status bar to open the same branch picker as source control. The sync button alongside it
-shows how far the branch is ahead of its upstream (↑) and behind it (↓), and pulls then pushes in one click; a branch
-without an upstream has a publish button instead. Switching waits until open files are saved.
+The sync button in the status bar shows how far the branch is ahead of its upstream (↑) and behind it (↓), and pulls
+then pushes in one click; a branch without an upstream has a publish button instead. Switching waits until open
+files are saved.
 
-**Switch Branch…**, from the branch at the top of source control, the status bar or the **Git** menu, opens a box
-of the branches, local and of the remotes, the one checked out first and then the one committed to last. Each shows the
-subject of its last commit and how long ago it was made. Type to find one by name, or type a new name to create a branch
-from the one checked out. **Create Branch…** at the top of the unfiltered list opens a name prompt. With matching
-branches, Enter switches to the first match; with no matches, it creates the typed name. Choosing a remote's branch
-checks out a local branch that tracks it. Fetch, pull and push are also available in source control and the **Git** menu.
+**Switch Branch…**, from the branch in the status bar, at the top of source control or in the **Git** menu,
+opens a box of the branches: the one checked out first, then the local ones, then those of the remotes, each the one
+committed to last first. Each shows the author of its last commit, how long ago it was made and its subject. Type to find one by
+name, or type a new name to create a branch from the one checked out. **Create Branch…** at the top of the unfiltered
+list opens a name prompt. With matching branches, Enter switches to the first match; with no matches, it creates the
+typed name. Choosing a remote's branch checks out a local branch that tracks it. Fetch, pull and push are also
+available in source control and the **Git** menu.
 
 Pull only fast-forwards. Push sets the upstream the first time. Git never prompts for a password inside Mayoi: it uses
 your SSH agent and credential helper, and if those fail, the error says to run the command once in the terminal.

@@ -522,6 +522,46 @@ func (msgs Messages) CmdGitStashes() string {
 	return Catalog.Format(msgs.locale, "cmdGitStashes", nil)
 }
 
+// BranchLocalGroup says "Local Branches"
+// in the language the app shows.
+func BranchLocalGroup() string { return In(i18n.Locale()).BranchLocalGroup() }
+
+// BranchLocalGroup says "Local Branches"
+// in the language of msgs.
+func (msgs Messages) BranchLocalGroup() string {
+	return Catalog.Format(msgs.locale, "branchLocalGroup", nil)
+}
+
+// BranchRemoteGroup says "Remote Branches"
+// in the language the app shows.
+func BranchRemoteGroup() string { return In(i18n.Locale()).BranchRemoteGroup() }
+
+// BranchRemoteGroup says "Remote Branches"
+// in the language of msgs.
+func (msgs Messages) BranchRemoteGroup() string {
+	return Catalog.Format(msgs.locale, "branchRemoteGroup", nil)
+}
+
+// BusyCreatingWorktree says "Creating worktree {name}…"
+// in the language the app shows.
+func BusyCreatingWorktree(name string) string { return In(i18n.Locale()).BusyCreatingWorktree(name) }
+
+// BusyCreatingWorktree says "Creating worktree {name}…"
+// in the language of msgs.
+func (msgs Messages) BusyCreatingWorktree(name string) string {
+	return Catalog.Format(msgs.locale, "busyCreatingWorktree", map[string]any{"name": name})
+}
+
+// CmdGitSwitchWorktree says "Switch Worktree…"
+// in the language the app shows.
+func CmdGitSwitchWorktree() string { return In(i18n.Locale()).CmdGitSwitchWorktree() }
+
+// CmdGitSwitchWorktree says "Switch Worktree…"
+// in the language of msgs.
+func (msgs Messages) CmdGitSwitchWorktree() string {
+	return Catalog.Format(msgs.locale, "cmdGitSwitchWorktree", nil)
+}
+
 // CmdViewSelectTheme says "Color Theme…"
 // in the language the app shows.
 func CmdViewSelectTheme() string { return In(i18n.Locale()).CmdViewSelectTheme() }
@@ -12560,6 +12600,46 @@ func (msgs Messages) WhitespaceIgnoreEOL() string {
 	return Catalog.Format(msgs.locale, "whitespaceIgnoreEOL", nil)
 }
 
+// WorktreeBranchExists says "Branch {name} already exists. Check it out with Switch Branch…"
+// in the language the app shows.
+func WorktreeBranchExists(name string) string { return In(i18n.Locale()).WorktreeBranchExists(name) }
+
+// WorktreeBranchExists says "Branch {name} already exists. Check it out with Switch Branch…"
+// in the language of msgs.
+func (msgs Messages) WorktreeBranchExists(name string) string {
+	return Catalog.Format(msgs.locale, "worktreeBranchExists", map[string]any{"name": name})
+}
+
+// WorktreeCreateLabel says "Create Worktree {name}"
+// in the language the app shows.
+func WorktreeCreateLabel(name string) string { return In(i18n.Locale()).WorktreeCreateLabel(name) }
+
+// WorktreeCreateLabel says "Create Worktree {name}"
+// in the language of msgs.
+func (msgs Messages) WorktreeCreateLabel(name string) string {
+	return Catalog.Format(msgs.locale, "worktreeCreateLabel", map[string]any{"name": name})
+}
+
+// WorktreeCreatePrefix says "Create worktree "
+// in the language the app shows.
+func WorktreeCreatePrefix() string { return In(i18n.Locale()).WorktreeCreatePrefix() }
+
+// WorktreeCreatePrefix says "Create worktree "
+// in the language of msgs.
+func (msgs Messages) WorktreeCreatePrefix() string {
+	return Catalog.Format(msgs.locale, "worktreeCreatePrefix", nil)
+}
+
+// WorktreeCreated says "Created the worktree at {path}."
+// in the language the app shows.
+func WorktreeCreated(path string) string { return In(i18n.Locale()).WorktreeCreated(path) }
+
+// WorktreeCreated says "Created the worktree at {path}."
+// in the language of msgs.
+func (msgs Messages) WorktreeCreated(path string) string {
+	return Catalog.Format(msgs.locale, "worktreeCreated", map[string]any{"path": path})
+}
+
 // WorktreeCurrentWindow says "Current Window"
 // in the language the app shows.
 func WorktreeCurrentWindow() string { return In(i18n.Locale()).WorktreeCurrentWindow() }
@@ -12568,6 +12648,46 @@ func WorktreeCurrentWindow() string { return In(i18n.Locale()).WorktreeCurrentWi
 // in the language of msgs.
 func (msgs Messages) WorktreeCurrentWindow() string {
 	return Catalog.Format(msgs.locale, "worktreeCurrentWindow", nil)
+}
+
+// WorktreeExists says "The folder {path} already exists, so no worktree was made."
+// in the language the app shows.
+func WorktreeExists(path string) string { return In(i18n.Locale()).WorktreeExists(path) }
+
+// WorktreeExists says "The folder {path} already exists, so no worktree was made."
+// in the language of msgs.
+func (msgs Messages) WorktreeExists(path string) string {
+	return Catalog.Format(msgs.locale, "worktreeExists", map[string]any{"path": path})
+}
+
+// WorktreeFrom says "based on {base}"
+// in the language the app shows.
+func WorktreeFrom(base string) string { return In(i18n.Locale()).WorktreeFrom(base) }
+
+// WorktreeFrom says "based on {base}"
+// in the language of msgs.
+func (msgs Messages) WorktreeFrom(base string) string {
+	return Catalog.Format(msgs.locale, "worktreeFrom", map[string]any{"base": base})
+}
+
+// WorktreeLockedHint says "locked"
+// in the language the app shows.
+func WorktreeLockedHint() string { return In(i18n.Locale()).WorktreeLockedHint() }
+
+// WorktreeLockedHint says "locked"
+// in the language of msgs.
+func (msgs Messages) WorktreeLockedHint() string {
+	return Catalog.Format(msgs.locale, "worktreeLockedHint", nil)
+}
+
+// WorktreeMissing says "The worktree folder {path} is missing."
+// in the language the app shows.
+func WorktreeMissing(path string) string { return In(i18n.Locale()).WorktreeMissing(path) }
+
+// WorktreeMissing says "The worktree folder {path} is missing."
+// in the language of msgs.
+func (msgs Messages) WorktreeMissing(path string) string {
+	return Catalog.Format(msgs.locale, "worktreeMissing", map[string]any{"path": path})
 }
 
 // WorktreeMissingDetail says "The branch “{branch}” is checked out in a worktree whose folder is gone:\n\n{path}\n\nPrune the missing worktree and …"
@@ -12580,6 +12700,16 @@ func WorktreeMissingDetail(branch string, path string) string {
 // in the language of msgs.
 func (msgs Messages) WorktreeMissingDetail(branch string, path string) string {
 	return Catalog.Format(msgs.locale, "worktreeMissingDetail", map[string]any{"branch": branch, "path": path})
+}
+
+// WorktreeMissingHint says "missing"
+// in the language the app shows.
+func WorktreeMissingHint() string { return In(i18n.Locale()).WorktreeMissingHint() }
+
+// WorktreeMissingHint says "missing"
+// in the language of msgs.
+func (msgs Messages) WorktreeMissingHint() string {
+	return Catalog.Format(msgs.locale, "worktreeMissingHint", nil)
 }
 
 // WorktreeMissingTitle says "Worktree Folder Missing"
@@ -12600,6 +12730,26 @@ func WorktreeNewWindow() string { return In(i18n.Locale()).WorktreeNewWindow() }
 // in the language of msgs.
 func (msgs Messages) WorktreeNewWindow() string {
 	return Catalog.Format(msgs.locale, "worktreeNewWindow", nil)
+}
+
+// WorktreeNoCommit says "Make a first commit to create a worktree."
+// in the language the app shows.
+func WorktreeNoCommit() string { return In(i18n.Locale()).WorktreeNoCommit() }
+
+// WorktreeNoCommit says "Make a first commit to create a worktree."
+// in the language of msgs.
+func (msgs Messages) WorktreeNoCommit() string {
+	return Catalog.Format(msgs.locale, "worktreeNoCommit", nil)
+}
+
+// WorktreeNoMatches says "No matching worktrees"
+// in the language the app shows.
+func WorktreeNoMatches() string { return In(i18n.Locale()).WorktreeNoMatches() }
+
+// WorktreeNoMatches says "No matching worktrees"
+// in the language of msgs.
+func (msgs Messages) WorktreeNoMatches() string {
+	return Catalog.Format(msgs.locale, "worktreeNoMatches", nil)
 }
 
 // WorktreeOpenCurrent says "Open in Current Window"
@@ -12644,6 +12794,16 @@ func (msgs Messages) WorktreeOpenTitle() string {
 	return Catalog.Format(msgs.locale, "worktreeOpenTitle", nil)
 }
 
+// WorktreePlaceholder says "Switch to a worktree, or type a name to create one"
+// in the language the app shows.
+func WorktreePlaceholder() string { return In(i18n.Locale()).WorktreePlaceholder() }
+
+// WorktreePlaceholder says "Switch to a worktree, or type a name to create one"
+// in the language of msgs.
+func (msgs Messages) WorktreePlaceholder() string {
+	return Catalog.Format(msgs.locale, "worktreePlaceholder", nil)
+}
+
 // WorktreePruneSwitch says "Prune and Switch"
 // in the language the app shows.
 func WorktreePruneSwitch() string { return In(i18n.Locale()).WorktreePruneSwitch() }
@@ -12652,6 +12812,46 @@ func WorktreePruneSwitch() string { return In(i18n.Locale()).WorktreePruneSwitch
 // in the language of msgs.
 func (msgs Messages) WorktreePruneSwitch() string {
 	return Catalog.Format(msgs.locale, "worktreePruneSwitch", nil)
+}
+
+// WorktreeReading says "Reading the worktrees…"
+// in the language the app shows.
+func WorktreeReading() string { return In(i18n.Locale()).WorktreeReading() }
+
+// WorktreeReading says "Reading the worktrees…"
+// in the language of msgs.
+func (msgs Messages) WorktreeReading() string {
+	return Catalog.Format(msgs.locale, "worktreeReading", nil)
+}
+
+// WorktreeStatusTip says "Worktree {name}: switch or create a worktree"
+// in the language the app shows.
+func WorktreeStatusTip(name string) string { return In(i18n.Locale()).WorktreeStatusTip(name) }
+
+// WorktreeStatusTip says "Worktree {name}: switch or create a worktree"
+// in the language of msgs.
+func (msgs Messages) WorktreeStatusTip(name string) string {
+	return Catalog.Format(msgs.locale, "worktreeStatusTip", map[string]any{"name": name})
+}
+
+// WorktreeSwitchLabel says "Switch Worktree"
+// in the language the app shows.
+func WorktreeSwitchLabel() string { return In(i18n.Locale()).WorktreeSwitchLabel() }
+
+// WorktreeSwitchLabel says "Switch Worktree"
+// in the language of msgs.
+func (msgs Messages) WorktreeSwitchLabel() string {
+	return Catalog.Format(msgs.locale, "worktreeSwitchLabel", nil)
+}
+
+// WorktreeTypeToCreate says "Type a new name to create a worktree"
+// in the language the app shows.
+func WorktreeTypeToCreate() string { return In(i18n.Locale()).WorktreeTypeToCreate() }
+
+// WorktreeTypeToCreate says "Type a new name to create a worktree"
+// in the language of msgs.
+func (msgs Messages) WorktreeTypeToCreate() string {
+	return Catalog.Format(msgs.locale, "worktreeTypeToCreate", nil)
 }
 
 // WriteMessageFirst says "Write a commit message first."

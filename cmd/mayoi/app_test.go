@@ -196,6 +196,8 @@ func step(tt *ui.Tester) {
 	tt.Frame()
 }
 
+const settleTimeout = 30 * time.Second
+
 // settle draws frames until the background work (reading directories,
 // highlighting, indexing, git) is done: half a second of the tester's
 // clock, which the animations, the double clicks and the waits of the app
@@ -205,11 +207,17 @@ func step(tt *ui.Tester) {
 // counts for two frames in a row, as a frame can start work that one
 // finished asks for.
 func (hs *harness) settle() {
-	for range 30 {
+	hs.t.Helper()
+	hs.a.gitClock = hs.tt.Now
+	// Advance before waiting: a final frame after the wait can start work.
+	for range 31 {
 		step(hs.tt)
 	}
-	for idle, deadline := 0, time.Now().Add(10*time.Second); idle < 2 && time.Now().Before(deadline); {
+	for idle, deadline := 0, time.Now().Add(settleTimeout); idle < 2; {
 		running, queued := hs.busy()
+		if time.Now().After(deadline) {
+			hs.t.Fatalf("settle: %d background jobs still run after %s (queued: %v)", bg.Running()-hs.held, settleTimeout, queued)
+		}
 		switch {
 		case queued:
 			idle = 0
@@ -218,24 +226,26 @@ func (hs *harness) settle() {
 			idle = 0
 			time.Sleep(time.Millisecond)
 		default:
-			idle++
 			hs.tt.Frame()
+			if hs.idle() {
+				idle++
+			} else {
+				idle = 0
+			}
 		}
 	}
-	if !hs.idle() {
-		hs.t.Logf("settle: %d background jobs still run after 10s", bg.Running()-hs.held)
-	}
-	step(hs.tt)
 }
 
 // busy reports whether background work runs, and whether some it posted
 // waits for a frame. Whether the view asks for a frame does not count: it
 // always does while something on screen moves.
 func (hs *harness) busy() (running, queued bool) {
+	// A job posts before it stops counting: sample the work before its queue.
+	running = bg.Running() > hs.held
 	hs.a.mu.Lock()
 	n := len(hs.a.queue)
 	hs.a.mu.Unlock()
-	return bg.Running() > hs.held, n > 0
+	return running, n > 0
 }
 
 // idle reports whether no background work runs and none posted waits.

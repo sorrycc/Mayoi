@@ -30,7 +30,7 @@ func TestRepositorySwitchKeepsNewStatusReadRunning(t *testing.T) {
 	hs.gitRepo()
 	a := hs.a
 	a.drain()
-	a.git.checked = time.Now()
+	a.git.checked = a.gitNow()
 	a.git.status = nil // only start the status read
 	a.git.stale = true
 	a.refreshGit()

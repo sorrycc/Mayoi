@@ -208,6 +208,7 @@ type app struct {
 	// file it should choose once its row shows.
 	treeSynced, selectInTree string
 	git                      gitState
+	gitClock                 func() time.Time // nil uses real time; tests use the frame clock
 	repositories             repositoryState
 	commitTools              commitTools
 	scm                      scmState
@@ -318,6 +319,7 @@ type app struct {
 	stashes    stashPicker       // the box of the stashes
 	prs        prPicker          // the box of the pull requests
 	checks     checksPicker      // the box of the checks of the pull request
+	worktrees  worktreePicker    // the box that switches worktrees
 	recents    recentPicker      // the box of the recent folders
 	themes     themePicker       // the box of the color themes
 	remotePick remotePicker      // the box that connects to a host

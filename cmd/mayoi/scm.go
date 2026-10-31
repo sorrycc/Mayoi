@@ -2253,16 +2253,73 @@ func (a *app) activePaths() []string {
 	return nil
 }
 
+// scmWorktreeMinW and scmBranchMinW are the least widths of the worktree and
+// branch buttons: an icon with its padding, and for the branch its chevron and
+// the gaps, the names shrinking to nothing. They decide whether the pull
+// request badge shows whole, so a long name does not push it to its number.
+const (
+	scmWorktreeMinW = 30
+	scmBranchMinW   = 46
+)
+
+// scmRemoteRowW is the narrowest source control row that keeps the fetch, pull
+// and push buttons beside the branch when they show no counts: their three
+// buttons and the worktree and branch buttons' least widths, with the gaps
+// between them, need about 175 DIP.
+const scmRemoteRowW = 180
+
 // scmBranchRow is the row at the top of the source control view: the
 // branch, which a click switches, and the buttons of its remote, which
 // say how far it is ahead and behind.
 func (a *gitContext) scmBranchRow(c *ui.Context) {
-	ui.Row(c).Height(30).Padding(0, 8, 0, 8).Gap(2).AlignItems(ui.Center).Children(func() {
+	row := ui.Row(c).Height(30).Padding(0, 8, 0, 8).Gap(2).AlignItems(ui.Center)
+	width := row.Bounds().W
+	row.Children(func() {
+		a.scmWorktreeButton(c, false)
 		a.scmBranchButton(c, false)
-		a.prBadge(c, false, false)
+		// The badge shows its number alone when the whole badge would leave no
+		// room beside the worktree and branch buttons at their least width: a
+		// long name shrinks to make room for it, so it does not decide.
+		short := false
+		if pr := a.currentPR(); pr != nil {
+			full, _ := c.MeasureText(0, ui.Span{Text: prBadgeLabel(pr), Size: 11.5})
+			full += 2*6 + 2
+			if pr.Checks != git.ChecksNone {
+				full += 12 + 5
+			}
+			short = width-2*8-scmWorktreeMinW-scmBranchMinW-2*2 < full
+		}
+		// The badge takes the room of its own, as last frame measured it.
+		need := a.remoteRowNeed(c)
+		if badge := a.prBadge(c, false, short); badge != nil {
+			need += badge.Bounds().W + 2
+		}
 		ui.Spacer(c)
-		a.scmActions(c)
+		// A narrow row keeps fetch, pull and push in the menu of the view's
+		// title, which has all three; publish stays, as the menu lacks it.
+		st := a.git.status
+		if width >= need || st != nil && st.Branch != "" && st.Upstream == "" {
+			a.scmActions(c)
+		}
 	})
+}
+
+// remoteRowNeed is the width the row needs to keep fetch, pull and push
+// beside the branch: scmRemoteRowW without counts, and the width of each
+// non-zero count with the gap before it.
+func (a *gitContext) remoteRowNeed(c *ui.Context) float32 {
+	need := float32(scmRemoteRowW)
+	st := a.git.status
+	if st == nil {
+		return need
+	}
+	for _, n := range []int{st.Behind, st.Ahead} {
+		if n > 0 {
+			w, _ := c.MeasureText(0, ui.Span{Text: fmt.Sprint(n), Size: 11.5, Weight: 600})
+			need += w + 3
+		}
+	}
+	return need
 }
 
 // scmBranchButton also fits in a multi-repository header.
@@ -2291,6 +2348,32 @@ func (a *gitContext) scmBranchButton(c *ui.Context, compact bool) {
 	})
 	if b.Clicked() {
 		a.openBranchPicker()
+	}
+}
+
+// scmWorktreeButton is the folder of this repository's work tree, which a click
+// opens the box of the worktrees for. It names a linked worktree's folder, and
+// shows its icon alone otherwise, or when compact. It belongs to this
+// repository, not the selected one, so the box it opens does too.
+func (a *gitContext) scmWorktreeButton(c *ui.Context, compact bool) {
+	p := a.app.pal
+	name := filepath.Base(a.git.repo.Root)
+	tip := locales.WorktreeStatusTip(name)
+	b := ui.ButtonBase(c.Key("scm-worktree")).Height(24).Padding(0, 6).Gap(5).Radius(5).AlignItems(ui.Center).
+		Shrink(1).Label(tip).Tooltip(tip).Disabled(a.git.busy != "")
+	if b.Hovered() || b.Pressed() {
+		b.Background(p.hover)
+	}
+	b.Transition(hoverFade)
+	linked := a.git.repo.Dir != a.git.repo.Common
+	b.Children(func() {
+		ui.Icon(c, iconFolderGit).FontSize(13).TextColor(p.muted)
+		if linked && !compact {
+			ui.Text(c, name).FontSize(12.5).FontWeight(500).TextColor(p.text).SingleLine().Shrink(1).MinWidth(0)
+		}
+	})
+	if b.Clicked() {
+		a.openWorktreePicker()
 	}
 }
 

@@ -132,6 +132,13 @@ const historyPage = 50
 // files changed in folders the tree does not watch.
 const statusEvery = 5 * time.Second
 
+func (a *app) gitNow() time.Time {
+	if a.gitClock != nil {
+		return a.gitClock()
+	}
+	return time.Now()
+}
+
 // lookUpRepo finds the work tree of the folder in the background.
 func (a *app) lookUpRepo() {
 	g := &a.git
@@ -169,11 +176,12 @@ func (a *gitContext) refreshGit() {
 	if g.repo == nil || !a.app.online() {
 		return
 	}
+	now := a.app.gitNow()
 	switch {
 	case a.app.conn != nil:
 		// On the host, at one round trip, in the background.
-		if !g.metaRunning && time.Since(g.checked) >= remoteMetaEvery {
-			g.checked, g.metaRunning = time.Now(), true
+		if !g.metaRunning && now.Sub(g.checked) >= remoteMetaEvery {
+			g.checked, g.metaRunning = now, true
 			r := g.repo
 			bg.Go(func() {
 				defer recoverCrash()
@@ -189,12 +197,12 @@ func (a *gitContext) refreshGit() {
 				})
 			})
 		}
-	case time.Since(g.checked) >= 1500*time.Millisecond:
-		g.checked = time.Now()
+	case now.Sub(g.checked) >= 1500*time.Millisecond:
+		g.checked = now
 		a.tookGitMeta(gitMeta(g.repo))
 	}
 	a.refreshHistory()
-	if g.running || !g.stale && time.Since(g.read) < statusEvery {
+	if g.running || !g.stale && now.Sub(g.read) < statusEvery {
 		return
 	}
 	g.running, g.stale = true, false
@@ -217,7 +225,7 @@ func (a *gitContext) refreshGit() {
 			if g.repo != r {
 				return
 			}
-			g.running, g.read = false, time.Now()
+			g.running, g.read = false, a.app.gitNow()
 			if err != nil {
 				return
 			}

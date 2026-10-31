@@ -54,6 +54,10 @@ needs a `## <version>` section here, or its build fails.
 - Deleting the longest line shrinks how far the editor scrolls sideways.
 - A tab you switch back to shows the same lines after edits in another column added lines above them.
 - With word wrap on, moving a tab to another column keeps the same lines in view.
+- The folder button by the branch in source control opens **Switch Worktree…** to change checkouts.
+- **Switch Worktree…** finds a checkout by folder or branch; Enter on a new name makes a worktree.
+- Typing an existing branch's name in **Switch Worktree…** points to **Switch Branch…** instead.
+- **Switch Branch…** lists local branches first, with each branch's last author and time.
 
 ## 0.15.0
 

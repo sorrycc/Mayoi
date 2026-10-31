@@ -1453,5 +1453,13 @@
   "prefOptCrashReportsNever": "不发送",
   "prefHintFontFamily": "monospace",
   "prefHintTerminalFontFamily": "代码字体",
-  "prefHintAiModel": "deepseek-flash"
+  "prefHintAiModel": "deepseek-flash",
+  "welcomeActivity": "最近活动",
+  "welcomeAutoSaveOff": "自动保存已关闭",
+  "welcomeAutoSaveOn": "自动保存已开启",
+  "welcomeBack": "欢迎回来！",
+  "welcomeNoActivity": "暂无最近活动",
+  "welcomePrompt": "输入文件名，@ 跳到符号，> 运行命令",
+  "welcomeShortcuts": "? 查看快捷键",
+  "welcomeTips": "入门提示"
 }

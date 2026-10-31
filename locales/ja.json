@@ -1453,5 +1453,13 @@
   "prefOptCrashReportsNever": "送信しない",
   "prefHintFontFamily": "monospace",
   "prefHintTerminalFontFamily": "コードのフォント",
-  "prefHintAiModel": "deepseek-flash"
+  "prefHintAiModel": "deepseek-flash",
+  "welcomeActivity": "最近のアクティビティ",
+  "welcomeAutoSaveOff": "自動保存オフ",
+  "welcomeAutoSaveOn": "自動保存オン",
+  "welcomeBack": "おかえりなさい！",
+  "welcomeNoActivity": "最近のアクティビティはありません",
+  "welcomePrompt": "ファイル名、@ でシンボル、> でコマンド",
+  "welcomeShortcuts": "? でショートカット",
+  "welcomeTips": "はじめかたのヒント"
 }

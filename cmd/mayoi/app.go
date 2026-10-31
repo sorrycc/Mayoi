@@ -293,6 +293,7 @@ type app struct {
 	rain        rainState   // The Matrix's, behind the welcome page
 	throne      throneState // Purple Gold's apse, behind the welcome page
 	mascot      mascotState // the theme's character, Claude's or Qoder's
+	spin        spinState   // Claude's spinner, while Git works
 	// blurred is set while the window has not the keyboard.
 	blurred  bool
 	colsView ui.Handle // the columns, whose width their weights share

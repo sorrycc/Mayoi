@@ -3,6 +3,14 @@
 The update window shows the section of the version it offers. Every release
 needs a `## <version>` section here, or its build fails.
 
+## Unreleased
+
+- **View → Theme → Claude** now looks like Claude Code in a terminal, with the whole window in the code's font.
+- Under Claude, the welcome page is Claude Code's welcome box, with Clawd, tips and your recent folders.
+- Under Claude, the status bar shows Claude Code's ✻ spinner, the work's name and its seconds while Git runs.
+- Claude's errors and removed lines are rose now, apart from its orange, and chosen rows are periwinkle.
+- In Claude Light, the terminal's white and bright white text is readable on the light background.
+
 ## 0.16.1
 
 - **View → Theme → Purple Gold** is now Porphyry: Tyrian purple chrome, gold leaf and gold hairlines.

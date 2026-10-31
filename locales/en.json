@@ -1681,5 +1681,13 @@
   "prefOptCrashReportsNever": "Don't send",
   "prefHintFontFamily": "monospace",
   "prefHintTerminalFontFamily": "The code's font",
-  "prefHintAiModel": "deepseek-flash"
+  "prefHintAiModel": "deepseek-flash",
+  "welcomeActivity": "Recent activity",
+  "welcomeAutoSaveOff": "auto-save off",
+  "welcomeAutoSaveOn": "auto-save on",
+  "welcomeBack": "Welcome back!",
+  "welcomeNoActivity": "No recent activity",
+  "welcomePrompt": "Try a file's name, @ for a symbol, or > for a command",
+  "welcomeShortcuts": "? for shortcuts",
+  "welcomeTips": "Tips for getting started"
 }

@@ -123,7 +123,7 @@ type Prefs struct {
 	WordWrap bool `json:"wordWrap,omitempty"`
 	// EditorAgentContext offers selection actions in ordinary files to
 	// collect code snippets and send them with review comments.
-	EditorAgentContext bool `json:"editorAgentContext"`
+	EditorAgentContext bool `json:"editorAgentContext,omitempty"`
 	// PreviewMermaid draws the blocks of Mermaid of a Markdown preview as
 	// the diagrams they make, rather than their source.
 	PreviewMermaid bool `json:"previewMermaid"`

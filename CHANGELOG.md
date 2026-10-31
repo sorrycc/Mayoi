@@ -5,18 +5,10 @@ needs a `## <version>` section here, or its build fails.
 
 ## Unreleased
 
-- Enable `editorAgentContext` to collect selected code with the gutter **+** and optional comments.
-- With `editorAgentContext`, scroll code sideways while the comment card and gutter stay fixed.
-- The gutter **+** leaves line numbers and Git change marks clear and clickable.
-- Closing a tab or column, starting another comment, or jumping to code keeps the draft in Review.
-- **Send** includes the comment being drafted; **Clear** lets Undo recover it.
-- Without a terminal, **Send** copies the draft and returns the keyboard to the source.
-- Clicking source while drafting keeps typing, `Esc`, and `Cmd/Ctrl+Enter` in the comment card.
-- Inline comment cards keep their buttons visible as they grow or the window shrinks.
-- With `editorAgentContext` off, Review keeps its comment labels and one-click note navigation.
-- Code snippets without comments show a useful edit tooltip.
-- Collect snippets across files and send them together with review comments to the last terminal.
-- Collected snippets survive restarts; the list lets you locate, edit, or remove each item.
+- Turn on `editorAgentContext` to show a gutter **+** in ordinary files that collects code with a comment.
+- Leave the comment empty and choose **Add to Agent** to collect the code alone.
+- Code collected across files goes to the last terminal together with **Send N Items**.
+- The **…** button above the editor lists collected items to go to, edit or remove; they survive restarts.
 - **Mayoi → Settings…** (⌘,) opens a settings window with every preference by category, and a search.
 - Changes in the settings window apply to every window at once, and each one resets with one click.
 - **File → Keyboard Shortcuts…** lists every command's keys; double-click one and press its new keys to change them.

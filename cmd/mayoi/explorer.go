@@ -139,6 +139,20 @@ func (a *app) explorerRows() explorerTree {
 	return v
 }
 
+// chainLetter is what Git has of the folders of a row, from first to its
+// last, path: a file deleted from a folder hidden in the row marks it too.
+func (a *app) chainLetter(path, first string) byte {
+	var letter byte
+	for dir := path; len(dir) >= len(first); dir = filepath.Dir(dir) {
+		for _, ctx := range a.rootRepositoryList() {
+			if next := ctx.git.dirs[dir]; letterRank(next) > letterRank(letter) {
+				letter = next
+			}
+		}
+	}
+	return letter
+}
+
 func (a *app) explorerDirVisible(dir string) bool {
 	return a.files.Open.Has(dir) || a.settings.ExplorerCompactFolders && a.explorer.inspected[dir]
 }

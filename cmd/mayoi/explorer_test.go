@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"slices"
@@ -378,4 +379,42 @@ func TestCompactExplorerBoundsAutomaticTraversal(t *testing.T) {
 		t.Fatal(err)
 	}
 	hs.until("the rest of the chain", func() bool { return hs.tt.HasText("pkg/pkg/pkg/pkg/pkg/pkg") })
+}
+
+// A change in a folder hidden in a compact row shows on the row.
+func TestCompactExplorerMarksChangesInHiddenFolders(t *testing.T) {
+	hs := newHarness(t, true)
+	hs.root = t.TempDir()
+	for _, name := range []string{"a/b/gone.txt", "a/b/c/kept.txt"} {
+		path := hs.path(name)
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, []byte("text\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, args := range [][]string{
+		{"init", "-q"}, {"add", "."},
+		{"-c", "user.name=t", "-c", "user.email=t@example.com", "commit", "-q", "-m", "first"},
+	} {
+		cmd := exec.Command("git", args...)
+		cmd.Dir = hs.root
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("git %v: %s", args, out)
+		}
+	}
+	if err := os.Remove(hs.path("a/b/gone.txt")); err != nil {
+		t.Fatal(err)
+	}
+	a := hs.a
+	a.settings.ExplorerCompactFolders = true
+	a.openFolder(hs.root)
+	hs.until("the compact chain", func() bool { return hs.tt.HasText("a/b/c") })
+	hs.until("the deleted file's mark", func() bool {
+		return a.chainLetter(hs.path("a/b/c"), hs.path("a")) != 0
+	})
+	if letter := a.chainLetter(hs.path("a/b/c"), hs.path("a/b/c")); letter != 0 {
+		t.Fatalf("the last folder alone has %q", letter)
+	}
 }

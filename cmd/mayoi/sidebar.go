@@ -410,11 +410,7 @@ func (a *app) fileTree(c *ui.Context) {
 			// that has changes.
 			var letter byte
 			if isDir {
-				for _, ctx := range a.rootRepositoryList() {
-					if next := ctx.git.dirs[path]; letterRank(next) > letterRank(letter) {
-						letter = next
-					}
-				}
+				letter = a.chainLetter(path, entry.first)
 			} else if e, ok := a.repositoryForPath(path).git.entries[path]; ok {
 				letter = e.Letter()
 			}

@@ -38,6 +38,8 @@ type spinState struct {
 // spinAt returns what the spinner shows after a time: its glyph, its
 // word, and where the light on the word is, in runes from its start.
 func spinAt(in time.Duration, label string) (glyph, word string, light float64) {
+	// The frame's clock may be behind the one the work started by.
+	in = max(in, 0)
 	k := int(in / spinStep)
 	glyph, word = spinGlyphs[k%len(spinGlyphs)], label
 	if in >= spinFlavorAt {

@@ -248,6 +248,9 @@ func TestClaudeTheme(t *testing.T) {
 // names the work, and after a while now and then says one of the CLI's
 // own words instead, as the light runs across it.
 func TestClaudeSpinner(t *testing.T) {
+	if g, w, _ := spinAt(-time.Second, "Pushing…"); g != "·" || w != "Pushing…" {
+		t.Errorf("before it started: %q %q", g, w)
+	}
 	if g, w, _ := spinAt(0, "Pushing…"); g != "·" || w != "Pushing…" {
 		t.Errorf("at first the spinner shows %q %q", g, w)
 	}

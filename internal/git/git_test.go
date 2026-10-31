@@ -216,6 +216,24 @@ func TestCommitHookFindsShellCommands(t *testing.T) {
 	}
 }
 
+// TestRefs: one read names the branches and the tags apart, a tag named as
+// a branch too, and says whether a stash is kept.
+func TestRefs(t *testing.T) {
+	r, git := repo(t)
+	git("branch", "topic")
+	git("tag", "topic")
+	git("tag", "v1")
+	refs, err := r.Refs()
+	if err != nil || !slices.Equal(refs.Branches, []string{"main", "topic"}) || !slices.Equal(refs.Tags, []string{"topic", "v1"}) || refs.Stash {
+		t.Fatalf("refs %+v %v", refs, err)
+	}
+	write(t, r.Root, "a.txt", "changed\n")
+	git("stash", "-q")
+	if refs, _ = r.Refs(); !refs.Stash {
+		t.Errorf("no stash in %+v", refs)
+	}
+}
+
 func TestBranchesAndBlame(t *testing.T) {
 	r, _ := repo(t)
 	if err := r.Switch("topic", true); err != nil {
@@ -363,15 +381,22 @@ func TestLogAndCommitFiles(t *testing.T) {
 		t.Errorf("info %+v %v", info, err)
 	}
 	// Without an upstream, no remote has them.
-	if u := r.Unpushed(10); len(u) != 2 {
+	if u := r.Unpushed(10, ""); len(u) != 2 {
 		t.Errorf("unpushed without an upstream %v", u)
 	}
 	remote := filepath.Join(t.TempDir(), "remote.git")
 	git("init", "-q", "--bare", remote)
 	git("remote", "add", "origin", remote)
 	git("push", "-q", "origin", cs[1].Hash+":refs/heads/main")
-	if u := r.Unpushed(10); len(u) != 1 || !u[cs[0].Hash] {
+	if u := r.Unpushed(10, ""); len(u) != 1 || !u[cs[0].Hash] {
 		t.Errorf("unpushed of a branch not published %v", u)
+	}
+	// With one, those it has not, even as other remotes' branches have them.
+	git("fetch", "-q", "origin")
+	git("branch", "-q", "-u", "origin/main")
+	git("push", "-q", "origin", cs[0].Hash+":refs/heads/other")
+	if u := r.Unpushed(10, "origin/main"); len(u) != 1 || !u[cs[0].Hash] {
+		t.Errorf("unpushed of a branch with an upstream %v", u)
 	}
 }
 

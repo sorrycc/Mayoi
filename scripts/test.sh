@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 # Runs the tests: those of every package but cmd/mayoi with go test, and
-# cmd/mayoi's, which are most of the time and run one after another, split
-# over as many processes as the machine has cores. Each process has its own
-# globals (the system the keys are for, the language, the environment), so
-# the tests need not be written to run beside each other.
+# cmd/mayoi's, which are most of the time, in as many worker processes as
+# the machine has cores, which take the slowest first from one queue (see
+# cmd/mayoi/split_test.go). Each process has its own globals (the system
+# the keys are for, the language, the environment), so the tests need not
+# be written to run beside each other.
 # Usage: scripts/test.sh [-full]
 #   -full     also run the tests that start a shell (no -short)
 # JOBS=<n> sets the number of processes (default: the cores).
@@ -22,7 +23,7 @@ if [ "${1:-}" = -full ]; then
     shift
 fi
 if [ $# -ne 0 ]; then
-    sed -n '2,13s/^# \{0,1\}//p' "$0" >&2
+    sed -n '2,14s/^# \{0,1\}//p' "$0" >&2
     exit 1
 fi
 
@@ -48,52 +49,23 @@ bin="$TMP/mayoi.test"
 case "$(go env GOOS)" in windows) bin="$bin.exe" ;; esac
 go test -c -o "$bin" ./cmd/mayoi
 
-# Every top-level test of this shard, dealt round robin into JOBS lists, so
-# that the slow tests of one file spread over all of them.
-"$bin" -test.list "${RUN:-.}" | grep '^Test' |
-    awk -v s="$shard" -v m="$shards" '(NR - 1) % m == s - 1' |
-    awk -v n="$JOBS" -v dir="$TMP" '{ print > (dir "/list." ((NR - 1) % n)) }'
+# The tests of this shard, every m-th from the i-th.
+run="${RUN:-}"
+if [ "$shards" != 1 ]; then
+    "$bin" -test.list "${RUN:-.}" | grep '^Test' |
+        awk -v s="$shard" -v m="$shards" '(NR - 1) % m == s - 1' > "$TMP/list"
+    run="^($(paste -sd'|' "$TMP/list"))\$"
+fi
 
 status=0
-pids=()
-lists=()
 start=$SECONDS
-for list in "$TMP"/list.*; do
-    [ -e "$list" ] || continue
-    re="^($(paste -sd'|' "$list"))\$"
-    # The tests read their fixtures from the package's folder.
-    (
-        cd cmd/mayoi
-        rc=0
-        "$bin" $( [ -n "$SHORT" ] && echo -test.short ) -test.timeout 30m -test.v -test.run "$re" > "$list.log" 2>&1 || rc=$?
-        echo "$((SECONDS - start))" > "$list.time"
-        exit $rc
-    ) &
-    pids+=($!)
-    lists+=("$list")
-done
-for i in "${!pids[@]}"; do
-    list="${lists[$i]}"
-    if wait "${pids[$i]}"; then
-        echo "ok   cmd/mayoi [$(wc -l < "$list" | tr -d ' ') tests, $(cat "$list.time")s]"
-    else
-        status=1
-        echo "FAIL cmd/mayoi [$(wc -l < "$list" | tr -d ' ') tests, $(cat "$list.time" 2>/dev/null)s]:"
-        # The tests that failed, with what they said, and what came after
-        # the last test, such as a panic.
-        awk '/^=== RUN/ { buf = ""; next }
-            /^--- FAIL/ { printf "%s", buf; print; buf = ""; next }
-            /^--- (PASS|SKIP)/ { buf = ""; next }
-            { buf = buf $0 "\n" }
-            END { printf "%s", buf }' "$list.log"
-    fi
-    [ -z "${SLOWEST:-}" ] || cat "$list.log" >> "$TMP/all.log"
-done
-if [ -n "${SLOWEST:-}" ]; then
-    echo "the $SLOWEST slowest tests:"
-    sed -n 's/^--- [A-Z]*: \(Test[^ ]*\) (\(.*\)s)$/\2 \1/p' "$TMP/all.log" | sort -rn | head -n "$SLOWEST"
-fi
-echo "cmd/mayoi: $((SECONDS - start))s in ${#pids[@]} processes (shard $SHARD)"
+# The tests read their fixtures from the package's folder.
+(
+    cd cmd/mayoi
+    MAYOI_TEST_JOBS="$JOBS" MAYOI_TEST_SLOWEST="${SLOWEST:-}" \
+        "$bin" ${SHORT:+-test.short} -test.timeout 30m ${run:+-test.run "$run"}
+) || status=1
+echo "cmd/mayoi: $((SECONDS - start))s in $JOBS processes (shard $SHARD)"
 
 if [ -n "$others" ]; then
     wait "$others" || status=1

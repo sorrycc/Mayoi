@@ -137,26 +137,35 @@ func (h *fakeHost) nativeDrags() bool       { return false }
 func (h *fakeHost) shown() bool { return false }
 
 // workspaceFixture makes a folder of a few files.
+// fixtureFiles are the files of a test's folder, by their paths in it.
+var fixtureFiles = map[string]string{
+	"main.go":             "package main\n\nimport \"fmt\"\n\n// main says hello.\nfunc main() {\n\tfmt.Println(\"hello, mayoi\")\n}\n",
+	"README.md":           "# Mayoi\n\nA small editor.\n",
+	"internal/a/a.go":     "package a\n\nconst Answer = 42\n",
+	"internal/b/b.ts":     "export const greet = (name: string) => `hi ${name}`;\n",
+	"web/index.html":      "<!doctype html>\n<title>Mayoi</title>\n",
+	"web/style.css":       "body { color: #333; }\n",
+	"node_modules/x/x.js": "module.exports = 1\n",
+	"go.mod":              "module example\n\ngo 1.27\n",
+}
+
 func workspaceFixture(t testing.TB) string {
 	root := t.TempDir()
-	files := map[string]string{
-		"main.go":             "package main\n\nimport \"fmt\"\n\n// main says hello.\nfunc main() {\n\tfmt.Println(\"hello, mayoi\")\n}\n",
-		"README.md":           "# Mayoi\n\nA small editor.\n",
-		"internal/a/a.go":     "package a\n\nconst Answer = 42\n",
-		"internal/b/b.ts":     "export const greet = (name: string) => `hi ${name}`;\n",
-		"web/index.html":      "<!doctype html>\n<title>Mayoi</title>\n",
-		"web/style.css":       "body { color: #333; }\n",
-		"node_modules/x/x.js": "module.exports = 1\n",
-		"go.mod":              "module example\n\ngo 1.27\n",
+	if err := writeFixture(root); err != nil {
+		t.Fatal(err)
 	}
-	for name, body := range files {
+	return root
+}
+
+func writeFixture(root string) error {
+	for name, body := range fixtureFiles {
 		p := filepath.Join(root, filepath.FromSlash(name))
 		os.MkdirAll(filepath.Dir(p), 0o755)
 		if err := os.WriteFile(p, []byte(body), 0o644); err != nil {
-			t.Fatal(err)
+			return err
 		}
 	}
-	return root
+	return nil
 }
 
 type harness struct {

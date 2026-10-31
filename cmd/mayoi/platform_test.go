@@ -21,6 +21,7 @@ import (
 // unless MYGO_LOCALE asks for another, as for shots of a translation.
 // The language is worked out once: with no app running, MyGo would match
 // it again for every message, which the frame benchmarks would measure.
+// Many tests run in worker processes beside each other: see splitTests.
 func TestMain(m *testing.M) {
 	hostOS = "darwin"
 	keepLineEndings()
@@ -32,7 +33,12 @@ func TestMain(m *testing.M) {
 	// The previews' pictures of the web are not fetched, but by the tests
 	// of them, from servers of their own.
 	markdownRemote.get = func(string) ([]byte, error) { return nil, errors.New("offline") }
-	os.Exit(m.Run())
+	code, split := splitTests()
+	if !split {
+		code = m.Run()
+	}
+	removeFixtureRepo()
+	os.Exit(code)
 }
 
 // keepLineEndings has every git the tests run, theirs and the app's, keep

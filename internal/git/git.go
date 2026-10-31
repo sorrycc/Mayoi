@@ -591,19 +591,36 @@ func (r *Repo) LastMessage() string {
 	return strings.TrimSpace(string(out))
 }
 
-// Branches returns the local branches, by name.
-func (r *Repo) Branches() ([]string, error) {
-	out, err := r.run(nil, "for-each-ref", "--format=%(refname:short)", "refs/heads")
+// Refs are the local branches and the tags, by name, and whether a stash
+// is kept: what one read of the refs says.
+type Refs struct {
+	Branches, Tags []string
+	Stash          bool
+}
+
+// Refs reads the branches, the tags and the stash's ref, at one git.
+func (r *Repo) Refs() (Refs, error) {
+	out, err := r.run(nil, "for-each-ref", "--format=%(refname)", "refs/heads", "refs/tags", "refs/stash")
 	if err != nil {
-		return nil, err
+		return Refs{}, err
 	}
-	var bs []string
-	for _, b := range strings.Split(strings.TrimSpace(string(out)), "\n") {
-		if b != "" {
-			bs = append(bs, b)
+	var refs Refs
+	for _, ref := range strings.Split(string(out), "\n") {
+		if b, ok := strings.CutPrefix(ref, "refs/heads/"); ok {
+			refs.Branches = append(refs.Branches, b)
+		} else if t, ok := strings.CutPrefix(ref, "refs/tags/"); ok {
+			refs.Tags = append(refs.Tags, t)
+		} else if ref == "refs/stash" {
+			refs.Stash = true
 		}
 	}
-	return bs, nil
+	return refs, nil
+}
+
+// Branches returns the local branches, by name.
+func (r *Repo) Branches() ([]string, error) {
+	refs, err := r.Refs()
+	return refs.Branches, err
 }
 
 // Branch is a branch, local or of a remote, and its last commit.
@@ -687,11 +704,8 @@ func (r *Repo) CreateTag(name, at, message string) error {
 
 // Tags returns the names of the tags.
 func (r *Repo) Tags() ([]string, error) {
-	out, err := r.run(nil, "tag", "--list")
-	if err != nil {
-		return nil, err
-	}
-	return strings.Fields(string(out)), nil
+	refs, err := r.Refs()
+	return refs.Tags, err
 }
 
 // Switch checks out a branch, making it first when create is set.
@@ -855,15 +869,16 @@ func parseCommit(rec string) (Commit, bool) {
 // and tag when all is set, newest first and each after the commits made
 // on it: none before the first commit.
 func (r *Repo) Log(n int, all bool) ([]Commit, error) {
-	if _, err := r.run(nil, "rev-parse", "--verify", "-q", "HEAD"); err != nil {
-		return nil, nil
-	}
 	args := []string{"log", "-z", "--date-order", "--decorate=full", "-n", strconv.Itoa(n), commitFormat, "HEAD"}
 	if all {
 		args = append(args, "--branches", "--remotes", "--tags")
 	}
 	out, err := r.run(nil, append(args, "--")...)
 	if err != nil {
+		// Before the first commit HEAD names none: no history, no error.
+		if r.Head() == "" {
+			return nil, nil
+		}
 		return nil, err
 	}
 	var cs []Commit
@@ -877,10 +892,15 @@ func (r *Repo) Log(n int, all bool) ([]Commit, error) {
 
 // Unpushed returns the commits, up to n of them, that HEAD has and its
 // upstream has not, by hash; without an upstream, or one gone, those no
-// branch of a remote has.
-func (r *Repo) Unpushed(n int) map[string]bool {
-	out, err := r.run(nil, "rev-list", "-n", strconv.Itoa(n), "@{upstream}..HEAD")
-	if err != nil {
+// branch of a remote has. upstream is the one the status names, "" when
+// it names none, which saves asking git for it.
+func (r *Repo) Unpushed(n int, upstream string) map[string]bool {
+	var out []byte
+	var err error
+	if upstream != "" {
+		out, err = r.run(nil, "rev-list", "-n", strconv.Itoa(n), "@{upstream}..HEAD")
+	}
+	if upstream == "" || err != nil {
 		out, err = r.run(nil, "rev-list", "-n", strconv.Itoa(n), "HEAD", "--not", "--remotes")
 	}
 	if err != nil {

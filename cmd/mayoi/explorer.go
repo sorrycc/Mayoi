@@ -56,7 +56,9 @@ func (a *app) explorerRows() explorerTree {
 	}
 	v := explorerTree{
 		compact: a.settings.ExplorerCompactFolders,
-		rows:    map[string]explorerRow{}, members: map[string]string{}, pending: previous.pending,
+		rows:    make(map[string]explorerRow, len(previous.rows)),
+		members: make(map[string]string, len(previous.members)),
+		pending: previous.pending,
 	}
 	wasCompact, previousMembers := previous.compact, previous.members
 	t := a.tree
@@ -113,6 +115,7 @@ func (a *app) explorerRows() explorerTree {
 						break
 					}
 					path = children[0]
+					// A slash on every system, as VS Code shows chains.
 					name += "/" + filepath.Base(path)
 				}
 				// A newly compacted chain keeps its first folder's state,

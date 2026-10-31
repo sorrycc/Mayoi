@@ -381,6 +381,30 @@ func TestCompactExplorerBoundsAutomaticTraversal(t *testing.T) {
 	hs.until("the rest of the chain", func() bool { return hs.tt.HasText("pkg/pkg/pkg/pkg/pkg/pkg") })
 }
 
+// The rows above a chosen file change as a chain folds or unfolds; the
+// choice stays on the file, not on the row at its old index.
+func TestCompactExplorerKeepsFileChosenAsRowsChange(t *testing.T) {
+	hs := compactExplorerHarness(t)
+	a := hs.a
+	file := hs.path("zz.txt")
+	if err := os.WriteFile(file, nil, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	a.tree.Refresh()
+	hs.until("the new file", func() bool { return explorerDepth(a, file) == 0 })
+	a.files.Open.Add(hs.path(packageChain))
+	hs.settle()
+	a.revealInTree(file)
+	hs.until("the chosen file", func() bool { return a.explorerChoice() == file })
+	for _, name := range []string{"unfolded", "folded"} {
+		a.run("view.compactFolders")
+		hs.settle()
+		if choice := a.explorerChoice(); choice != file {
+			t.Fatalf("%s: the choice moved to %q", name, choice)
+		}
+	}
+}
+
 // A change in a folder hidden in a compact row shows on the row.
 func TestCompactExplorerMarksChangesInHiddenFolders(t *testing.T) {
 	hs := newHarness(t, true)

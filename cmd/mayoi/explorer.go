@@ -2,6 +2,7 @@ package main
 
 import (
 	"path/filepath"
+	"strings"
 
 	"mayoi/internal/workspace"
 )
@@ -45,7 +46,9 @@ func (a *app) explorerRows() explorerTree {
 			for dir := filepath.Dir(path); len(dir) >= len(row.first); dir = filepath.Dir(dir) {
 				if a.files.Open.Has(path) {
 					a.files.Open.Add(dir)
-				} else {
+				} else if !strings.HasPrefix(a.selectInTree, dir+string(filepath.Separator)) {
+					// A reveal waiting for a file new in a hidden folder
+					// keeps that folder open until the tree lists the file.
 					a.files.Open.Remove(dir)
 				}
 			}

@@ -418,3 +418,26 @@ func TestCompactExplorerMarksChangesInHiddenFolders(t *testing.T) {
 		t.Fatalf("the last folder alone has %q", letter)
 	}
 }
+
+// A file new in a folder hidden in a collapsed row splits the row as the
+// watcher sees it, and shows in the folder revealed before that.
+func TestCompactExplorerRevealsFileThatSplitsAChain(t *testing.T) {
+	hs := compactExplorerHarness(t)
+	a := hs.a
+	file := hs.path("src/main/new.txt")
+	if err := os.WriteFile(file, nil, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	a.revealInTree(file)
+	hs.until("the revealed file", func() bool { return a.explorerChoice() == file })
+	if !a.files.Open.Has(hs.path("src/main")) || a.explorer.rows[hs.path("src/main")].name != "src/main" {
+		t.Fatalf("row %+v", a.explorer.rows[hs.path("src/main")])
+	}
+	if a.explorer.rows[hs.path(packageChain)].name != "java/com/example" {
+		t.Fatalf("row %+v", a.explorer.rows[hs.path(packageChain)])
+	}
+	if err := os.Remove(file); err != nil {
+		t.Fatal(err)
+	}
+	hs.until("the chain again", func() bool { return a.explorer.rows[hs.path(packageChain)].name == packageChain })
+}

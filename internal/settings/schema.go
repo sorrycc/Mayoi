@@ -74,6 +74,7 @@ var Schema = []Field{
 
 	{Key: "autoSave", Category: CatEditor, Kind: KindBool, Folder: true},
 	{Key: "wordWrap", Category: CatEditor, Kind: KindBool, Folder: true},
+	{Key: "editorAgentContext", Category: CatEditor, Kind: KindBool},
 
 	{Key: "markdownPreview", Category: CatMarkdown, Kind: KindBool, Folder: true},
 	{Key: "previewMermaid", Category: CatMarkdown, Kind: KindBool, Folder: true},

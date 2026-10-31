@@ -121,6 +121,9 @@ type Prefs struct {
 	// scrolling sideways to them. A tab may choose otherwise, until this
 	// changes: Settings.WrapGen counts its changes.
 	WordWrap bool `json:"wordWrap,omitempty"`
+	// EditorAgentContext offers selection actions in ordinary files to
+	// collect code snippets and send them with review comments.
+	EditorAgentContext bool `json:"editorAgentContext,omitempty"`
 	// PreviewMermaid draws the blocks of Mermaid of a Markdown preview as
 	// the diagrams they make, rather than their source.
 	PreviewMermaid bool `json:"previewMermaid"`
@@ -321,6 +324,8 @@ type Session struct {
 // the comment quotes, a diff when Diff is set, and Lines the lines as they
 // were, which the comment finds again as the file changes.
 type ReviewNote struct {
+	// Context keeps a code snippet even when it has no comment.
+	Context bool     `json:"context,omitempty"`
 	Path    string   `json:"path"`
 	Commit  string   `json:"commit,omitempty"`
 	Staged  bool     `json:"staged,omitempty"`

@@ -143,9 +143,13 @@ type editor struct {
 	// out.
 	rows wrapRows
 
-	caret     int    // the caret's rune offset in the last frame
-	sel       [2]int // the selection in the last frame
-	caretSeen bool
+	caret         int           // the caret's rune offset in the last frame
+	sel           [2]int        // the selection in the last frame
+	selecting     bool          // the pointer is dragging a text selection
+	reviewSource  *editorReview // source layout while writing an inline review
+	releaseReview func()        // keep a draft before any editor release path
+	reviewHover   int           // the source line under the pointer, or -1
+	caretSeen     bool
 	// pending is a selection the app asked for, which the next frame
 	// makes, scrolling the editor to it, nearer its top when center is
 	// set (selectRange).
@@ -234,6 +238,9 @@ func newEditor(doc *document) *editor {
 
 // release takes the editor from its document, as its tab closes.
 func (d *editor) release() {
+	if d.releaseReview != nil {
+		d.releaseReview()
+	}
 	doc := d.document
 	doc.views = slices.DeleteFunc(doc.views, func(o *editor) bool { return o == d })
 	if doc.typist == d {

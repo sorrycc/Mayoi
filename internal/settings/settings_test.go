@@ -331,6 +331,38 @@ func TestTerminalCopyOnSelect(t *testing.T) {
 	}
 }
 
+func TestEditorAgentContext(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "settings.json")
+	s := Load(path)
+	if s.EditorAgentContext {
+		t.Fatal("agent context enabled by default")
+	}
+	if err := os.WriteFile(path, []byte(`{"editorAgentContext":true}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	p, ok := s.Edited()
+	if !ok || !p.EditorAgentContext {
+		t.Fatal("did not pick up the edited preference")
+	}
+	s.SetPrefs(p)
+	w := s.NewWindow()
+	w.Review = []ReviewNote{{Context: true, Path: "/repo/file.go", From: 0, To: 1,
+		Snippet: []string{"hello()"}, Lines: []string{"hello()"}}}
+	s.Flush()
+	loaded := Load(path)
+	if !loaded.EditorAgentContext || len(loaded.Windows) != 1 || len(loaded.Windows[0].Review) != 1 ||
+		!loaded.Windows[0].Review[0].Context || loaded.Windows[0].Review[0].Text != "" {
+		t.Fatal("preference or uncommented context was not persisted")
+	}
+	if err := os.WriteFile(path, []byte(`{}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	p, ok = s.Edited()
+	if !ok || p.EditorAgentContext {
+		t.Fatal("removing the setting did not disable it")
+	}
+}
+
 // An edit of the file changes the preferences it watches, but not the
 // windows; the settings' own writes and a file that does not parse
 // change nothing.

@@ -608,6 +608,9 @@ func (a *app) columnView(c *ui.Context, col *column) {
 						a.previewFindView(c, v)
 					}
 				default:
+					if a.editorReviewView(c, shown.ed) {
+						break
+					}
 					shown.ed.areaKept = shown.ed.areaShown(a, col)
 					if ed := shown.ed; !ed.areaKept && ed.areaCol != nil && ed.areaCol != col {
 						// Moved to another column, it gets a new text area: it
@@ -618,6 +621,7 @@ func (a *app) columnView(c *ui.Context, col *column) {
 					a.editorView(c, shown.ed)
 					a.hunkPeekView(c, shown.ed)
 					a.reviewBoxView(c, shown.ed)
+					a.agentContextView(c, shown.ed)
 					if col == a.findCol {
 						a.findView(c, shown.ed)
 					}
@@ -899,9 +903,20 @@ func (a *app) breadcrumbs(c *ui.Context, col *column, t *colTab) {
 				ui.Icon(c, iconChevronRight).FontSize(11).TextColor(p.faint)
 			}
 		}
-		if d != nil && canPreview(d.document) {
+		if d != nil && (canPreview(d.document) || a.settings.EditorAgentContext) {
 			ui.Spacer(c)
-			a.previewButton(c, t, d)
+			if a.settings.EditorAgentContext {
+				a.reviewSendButton(c)
+				if len(a.review.notes) > 0 {
+					b := ui.ButtonBase(c.Key("agent-context-list")).Size(26, crumbsH-6).Radius(4).
+						AlignItems(ui.Center).Justify(ui.Center).Label(locales.AgentContextList()).Tooltip(locales.AgentContextList())
+					b.Children(func() { ui.Icon(c, iconMore).FontSize(14).TextColor(p.muted) })
+					b.Menu(a.reviewMenu)
+				}
+			}
+			if canPreview(d.document) {
+				a.previewButton(c, t, d)
+			}
 		}
 		if t.diff != nil {
 			ui.Spacer(c)

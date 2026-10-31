@@ -5,6 +5,10 @@ needs a `## <version>` section here, or its build fails.
 
 ## 0.16.0
 
+- Turn on `editorAgentContext` to show a gutter **+** in ordinary files that collects code with a comment.
+- Leave the comment empty and choose **Add to Agent** to collect the code alone.
+- Code collected across files goes to the last terminal together with **Send N Items**.
+- The **…** button above the editor lists collected items to go to, edit or remove; they survive restarts.
 - **Mayoi → Settings…** (⌘,) opens a settings window with every preference by category, and a search.
 - Changes in the settings window apply to every window at once, and each one resets with one click.
 - **File → Keyboard Shortcuts…** lists every command's keys; double-click one and press its new keys to change them.

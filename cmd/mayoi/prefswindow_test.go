@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strings"
 	"testing"
@@ -33,6 +34,8 @@ func newPrefsHarness(t *testing.T) *prefsHarness {
 	hs := newHarness(t, true)
 	path := filepath.Join(t.TempDir(), "settings.json")
 	s := settings.Load(path)
+	// Finish delayed writes before TempDir removes the settings directory.
+	t.Cleanup(s.Flush)
 	s.MarkdownPreview = false
 	hs.a.settings = s
 	hs.a.window = s.NewWindow()
@@ -572,6 +575,9 @@ func TestPrefsKeyGroups(t *testing.T) {
 // Commands of the same keys mark each other, and the filters show those,
 // or those whose keys the person changed.
 func TestPrefsKeyConflicts(t *testing.T) {
+	// ParseAccel resolves CmdOrCtrl for the actual runtime, so use that
+	// system's defaults rather than TestMain's simulated macOS commands.
+	onOS(t, runtime.GOOS)
 	ph := newPrefsHarness(t)
 	k := &ph.w.keys
 	for _, r := range k.rows(ph.a) {
@@ -579,7 +585,7 @@ func TestPrefsKeyConflicts(t *testing.T) {
 			t.Errorf("%s shares its own keys with %q", r.cmd.id, r.others)
 		}
 	}
-	ph.m.keys, _ = keymap.Parse([]byte(`[{"key": "cmd+b", "command": "git.fetch"}, {"key": "f9", "command": "git.pull"}]`))
+	ph.m.keys, _ = keymap.Parse([]byte(`[{"key": "cmdorctrl+b", "command": "git.fetch"}, {"key": "f9", "command": "git.pull"}]`))
 	ph.a.keys = ph.m.keys
 	rows := k.rows(ph.a)
 	var conflicting, changed []string

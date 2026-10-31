@@ -85,7 +85,7 @@ func (a *app) view(c *ui.Context) {
 		case t.ed != nil && t.ed.vscroll.FocusWithin(c):
 			a.focus, a.col = paneEditor, i
 			t.ed.typist = t.ed
-		case t.term != nil && t.term.view.FocusWithin(c):
+		case t.term != nil && (t.term.view.FocusWithin(c) || t.term.findInput.Focused(c)):
 			a.focus, a.col = paneEditor, i
 		case t.view != nil && t.view.pane.FocusWithin(c):
 			a.focus, a.col = paneEditor, i
@@ -97,7 +97,7 @@ func (a *app) view(c *ui.Context) {
 	}
 	a.autoSaveTick()
 	switch {
-	case a.panelTerm != nil && a.panelTerm.view.FocusWithin(c):
+	case a.panelTerm != nil && (a.panelTerm.view.FocusWithin(c) || a.panelTerm.findInput.Focused(c)):
 		a.focus = paneTerminal
 	case a.files.List.FocusWithin(c):
 		a.focus = paneFiles

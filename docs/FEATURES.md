@@ -476,8 +476,13 @@ the caret there. Relative paths use the directory the shell reports, or the term
 it reports none. Windows drive-letter and backslash paths are not recognized yet. Holding Command (Control
 elsewhere) over a recognized path underlines it and shows a hand cursor.
 
+⌘F (Ctrl+F on Linux and Windows) in a terminal opens a find bar over it that searches the screen and the scrollback,
+ignoring the case of ASCII letters, and highlights the matches as output comes. Return and the up arrow go to the
+match above, in older output, and Shift+Return and the down arrow to the one below; ⌘G and ⇧⌘G do the same. Escape
+closes it and gives the terminal back the keyboard.
+
 On Windows and Linux the shell has the keys with Ctrl, which edit its line, except the workbench's: Quick Open, the
-Command Palette, the terminal and the sidebar toggles, Next and Previous Tab, Alt+1 to Alt+9 and zoom, and every
+Command Palette, Find, the terminal and the sidebar toggles, Next and Previous Tab, Alt+1 to Alt+9 and zoom, and every
 Ctrl+Shift shortcut but Ctrl+Shift+C and Ctrl+Shift+V, the terminal's copy and paste, and those of the function keys.
 
 ## Quick open

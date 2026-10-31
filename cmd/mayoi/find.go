@@ -63,6 +63,10 @@ func (f *findState) pattern() string {
 // openFind opens the find widget, with the selection's text as the query
 // when it is on one line, and selects the query so typing replaces it.
 func (a *app) openFind(replace bool) {
+	if s := a.findTerminal(); s != nil {
+		a.openTermFind(s)
+		return
+	}
 	f := &a.find
 	if v := a.activeMarkdown(); v != nil && !replace {
 		// A preview finds in its rendered text, which it cannot replace.
@@ -87,8 +91,13 @@ func (a *app) openFind(replace bool) {
 }
 
 // findStep goes to the next match of find, or the previous, opening find:
-// in a Markdown preview its rendered text's, else the editor's.
+// in a terminal with the keyboard its output's, in a Markdown preview its
+// rendered text's, else the editor's.
 func (a *app) findStep(by int) {
+	if s := a.findTerminal(); s != nil {
+		a.termFindStep(s, by)
+		return
+	}
 	a.find.open = true
 	if v := a.activeMarkdown(); v != nil {
 		a.findPreview = v.markdown

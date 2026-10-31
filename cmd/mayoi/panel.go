@@ -50,6 +50,15 @@ type session struct {
 	// waitSince is when it last began to wait, to start in herdr-core or
 	// for its connection or machine.
 	waitSince time.Time
+	// find is its find bar's: open, what it looks for, how the search
+	// goes, as OnSearch tells, and back set when the last step went
+	// toward newer output, which rolls the count down.
+	findOpen  bool
+	findQuery string
+	found     terminal.SearchStatus
+	findInput ui.Handle
+	findShook time.Time
+	findBack  bool
 }
 
 type panelHeaderLayout struct {
@@ -63,6 +72,9 @@ func termTheme(p *palette) *terminal.Theme {
 	return &terminal.Theme{
 		Foreground: p.text, Background: p.panel,
 		Cursor: p.accent, Selection: p.selection,
+		// The matches of find as the editor's, made opaque.
+		Search: p.match.Over(p.panel), SearchText: p.text,
+		SearchSelected: p.matchNow.Over(p.panel), SearchSelectedText: p.text,
 		Palette: p.ansi,
 	}
 }
@@ -204,6 +216,9 @@ func (a *app) spawnTerminal(s *session, dir string) (*terminal.Terminal, error) 
 		// macOS, Control on Windows/Linux. Ignore terminal-local zoom so
 		// scrolling with the modifier held cannot change its font size.
 		OnZoom: func(terminal.Zoom) bool { return true },
+		OnSearch: func(st terminal.SearchStatus) {
+			a.post(func() { s.found = st })
+		},
 		OnExit: func(code int) {
 			a.post(func() { a.terminalExited(s, term, code) })
 		},
@@ -596,6 +611,7 @@ func (a *app) terminalView(c *ui.Context, s *session) {
 			v.Opacity(o)
 		}
 		a.waitPill(c, s)
+		a.termFindView(c, s)
 	})
 }
 

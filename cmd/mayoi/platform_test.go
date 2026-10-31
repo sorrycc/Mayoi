@@ -166,8 +166,8 @@ func TestWindowsMenuKeys(t *testing.T) {
 	}
 }
 
-// A terminal off macOS leaves Mayoi the keys of the workbench, and the
-// shell the others with Control, which edit its line.
+// A terminal off macOS leaves Mayoi the keys of the workbench and find,
+// and the shell the others with Control, which edit its line.
 func TestShellSkip(t *testing.T) {
 	onOS(t, "linux")
 	a := newApp(&fakeHost{}, settings.Default(), settings.Default().NewWindow())
@@ -184,7 +184,7 @@ func TestShellSkip(t *testing.T) {
 		{0, ui.KeyF3, "edit.findNext", true},
 		{ui.Alt, ui.Key2, "", true},
 		{ui.Ctrl, ui.KeyW, "", false},
-		{ui.Ctrl, ui.KeyF, "", false},
+		{ui.Ctrl, ui.KeyF, "edit.find", true},
 		{ui.Ctrl, ui.KeyR, "", false},
 		{ui.Ctrl | ui.Shift, ui.KeyV, "", false},
 	} {

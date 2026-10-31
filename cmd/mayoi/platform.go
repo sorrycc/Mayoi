@@ -136,12 +136,13 @@ func (a *app) menuKeys(c *ui.Context) {
 }
 
 // shellSkips are the commands whose shortcuts a terminal leaves to Mayoi
-// on Windows and Linux, as VS Code's commandsToSkipShell: the shell has
-// the other keys with Control, which edit its line.
+// on Windows and Linux, as VS Code's commandsToSkipShell, find among them:
+// the shell has the other keys with Control, which edit its line.
 var shellSkips = map[string]bool{
 	"go.quickOpen": true, "go.commands": true, "go.nextTab": true, "go.prevTab": true,
 	"view.terminal": true, "view.newTerminal": true, "view.sidebar": true,
 	"view.zoomIn": true, "view.zoomOut": true, "view.zoomReset": true,
+	"edit.find": true,
 }
 
 // shellSkip returns the command a terminal leaves stroke s to, on Windows

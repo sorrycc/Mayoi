@@ -13,6 +13,9 @@ needs a `## <version>` section here, or its build fails.
 - **View → Compact Folders** shows chains of single-child folders on one Explorer row.
 - The Explorer header's context menu, the settings window and `explorerCompactFolders` toggle it too.
 - Hover a compact row to see its whole path when the sidebar cuts it off.
+- `⌘F` in a terminal opens a find bar that searches its output and scrollback, highlighting each match.
+- In the terminal's find bar, `Return` goes to the match above and `Shift+Return` to the one below.
+- On Linux and Windows, `Ctrl+F` in a terminal opens find instead of reaching the shell.
 
 ## 0.16.1
 

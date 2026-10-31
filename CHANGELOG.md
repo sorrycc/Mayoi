@@ -3,6 +3,13 @@
 The update window shows the section of the version it offers. Every release
 needs a `## <version>` section here, or its build fails.
 
+## Unreleased
+
+- **View → Theme → Purple Gold** is now Porphyry: Tyrian purple chrome, gold leaf and gold hairlines.
+- Under Purple Gold, a gold mosaic apse shimmers behind the welcome page, under an arched card.
+- Purple Gold has a character, Corona, a jeweled crown that blinks, glances and hops while Git works.
+- Purple Gold's code is in amethyst, gold, rose quartz and jade, and the open tab gets a gilded line.
+
 ## 0.16.0
 
 - Turn on `editorAgentContext` to show a gutter **+** in ordinary files that collects code with a comment.

@@ -76,6 +76,11 @@ type palette struct {
 	// one, as far as they need to read at 4.5:1 on the chrome and the
 	// editor. The marks and tints keep the brighter ones.
 	modifiedFg, addedFg, removedFg, dangerFg ui.Color
+	// rule, when set, is the theme's own hairline along the foot of the
+	// title bar and the top of the status bar, in place of the border;
+	// gilt, when set, is the light of its gold, which runs to the middle
+	// of the line along the top of the tab shown, with a gem there.
+	rule, gilt ui.Color
 
 	syntax [highlight.Kinds]ui.Color
 	// ansi is the terminal's 16 colors: black, red, green, yellow, blue,
@@ -936,81 +941,83 @@ func cursorDarkPalette() *palette {
 	return p
 }
 
-// purpleGoldPalette is Purple Gold, always dark: a near-black sidebar,
-// tab strip and panel around a charcoal editor, a royal purple status
-// bar, and classic gold for the accent, the buttons, with deep purple
-// labels on them, and the chosen rows. Its code is in golds, lavenders,
-// roses and teals.
+// purpleGoldPalette is Purple Gold, always dark: Porphyry, the emperor's
+// purple set in gold mosaic. Tyrian chrome around a deep purple editor, a
+// Tyrian status bar lettered in gold, and gold leaf for the accent and the
+// buttons, with deep purple labels on them. Gold hairlines run under the
+// title bar and over the status bar, and along the tab shown to a gem.
+// Its code is in amethyst, gold, rose quartz and jade.
 func purpleGoldPalette() *palette {
 	p := &palette{
 		dark:   true,
-		editor: ui.Hex("#17141e"),
-		chrome: ui.Hex("#110d18"),
-		panel:  ui.Hex("#110d18"),
-		border: ui.Hex("#2e2440"),
-		hover:  ui.RGBA(212, 175, 55, 0.06),
+		editor: ui.Hex("#1b0f26"),
+		chrome: ui.Hex("#12091a"),
+		panel:  ui.Hex("#150b1f"),
+		border: ui.Hex("#33204a"),
+		hover:  ui.RGBA(227, 184, 74, 0.07),
 		// A tint, not a color: the mark of a chosen row is drawn over it.
-		active:    ui.RGBA(212, 175, 55, 0.16),
-		text:      ui.Hex("#e8e2d4"),
-		muted:     ui.Hex("#a59cae"),
-		faint:     ui.Hex("#6e6380"),
-		accent:    ui.Hex("#d4af37"),
-		accentDim: ui.RGBA(212, 175, 55, 0.5),
-		line:      ui.RGBA(212, 175, 55, 0.035),
-		selection: ui.RGBA(120, 80, 190, 0.4),
-		gutter:    ui.Hex("#5a5068"),
-		gutterNow: ui.Hex("#d4af37"),
-		status:    ui.Hex("#2a1650"),
-		statusFg:  ui.Hex("#d4af37"),
-		modified:  ui.Hex("#e0b872"),
-		danger:    ui.Hex("#f0707e"),
-		match:     ui.RGBA(212, 175, 55, 0.22),
-		matchNow:  ui.RGBA(212, 175, 55, 0.38),
-		matchRing: ui.RGBA(212, 175, 55, 0.85),
-		guide:     ui.RGBA(212, 175, 55, 0.07),
-		guideNow:  ui.RGBA(212, 175, 55, 0.2),
-		bracket:   ui.RGBA(212, 175, 55, 0.3),
-		word:      ui.RGBA(212, 175, 55, 0.1),
-		shadow:    ui.RGBA(0, 0, 0, 0.5),
-		added:     ui.Hex("#6fbf8e"),
-		changed:   ui.Hex("#e0b872"),
-		removed:   ui.Hex("#f0707e"),
-		// Deep purple on the gold, as the status bar is gold on purple.
-		fill:           ui.Hex("#d4af37"),
-		fillHover:      ui.Hex("#dfbd4f"),
-		fillText:       ui.Hex("#1a0f2e"),
-		dangerFill:     ui.Hex("#f0707e"),
-		dangerText:     ui.Hex("#1a0f2e"),
-		surface:        ui.Hex("#1d1826"),
-		surfaceHover:   ui.Hex("#261f31"),
-		surfacePressed: ui.Hex("#30283d"),
-		scrollbar:      ui.RGBA(212, 175, 55, 0.16),
-		inverse:        ui.Hex("#2a1650"),
-		inverseText:    ui.Hex("#f0e6c8"),
+		active:    ui.RGBA(227, 184, 74, 0.15),
+		text:      ui.Hex("#f1e7d0"),
+		muted:     ui.Hex("#b6a5c4"),
+		faint:     ui.Hex("#7d6a93"),
+		accent:    ui.Hex("#e3b84a"),
+		accentDim: ui.RGBA(227, 184, 74, 0.5),
+		line:      ui.RGBA(227, 184, 74, 0.05),
+		selection: ui.RGBA(156, 72, 214, 0.42),
+		gutter:    ui.Hex("#5f4c78"),
+		gutterNow: ui.Hex("#f0cc6a"),
+		status:    ui.Hex("#3e1058"),
+		statusFg:  ui.Hex("#f3d47c"),
+		modified:  ui.Hex("#f0c46a"),
+		danger:    ui.Hex("#f07a86"),
+		match:     ui.RGBA(227, 184, 74, 0.24),
+		matchNow:  ui.RGBA(227, 184, 74, 0.4),
+		matchRing: ui.RGBA(227, 184, 74, 0.85),
+		guide:     ui.RGBA(227, 184, 74, 0.08),
+		guideNow:  ui.RGBA(227, 184, 74, 0.24),
+		bracket:   ui.RGBA(227, 184, 74, 0.32),
+		word:      ui.RGBA(227, 184, 74, 0.1),
+		shadow:    ui.RGBA(0, 0, 0, 0.55),
+		added:     ui.Hex("#79c79a"),
+		changed:   ui.Hex("#f0c46a"),
+		removed:   ui.Hex("#f07a86"),
+		// Deep purple on the gold leaf, as the status bar is gold on purple.
+		fill:           ui.Hex("#e3b84a"),
+		fillText:       ui.Hex("#2a0a38"),
+		dangerFill:     ui.Hex("#f07a86"),
+		dangerText:     ui.Hex("#2a0a38"),
+		surface:        ui.Hex("#221432"),
+		surfaceHover:   ui.Hex("#2a1a3d"),
+		surfacePressed: ui.Hex("#332148"),
+		scrollbar:      ui.RGBA(227, 184, 74, 0.16),
+		inverse:        ui.Hex("#4b1468"),
+		inverseText:    ui.Hex("#f8ecc8"),
+		rule:           ui.Hex("#8a6a2a"),
+		gilt:           ui.Hex("#fbe9a6"),
 		ansi: [16]ui.Color{
-			ui.Hex("#2a2438"), ui.Hex("#f0707e"), ui.Hex("#8cc79a"), ui.Hex("#e0b872"),
-			ui.Hex("#8fa8e8"), ui.Hex("#c49be0"), ui.Hex("#7ec4c4"), ui.Hex("#d8cfc9"),
-			ui.Hex("#645877"), ui.Hex("#ff8c98"), ui.Hex("#a6dbb2"), ui.Hex("#f0cf90"),
-			ui.Hex("#aec2f5"), ui.Hex("#d9b6f2"), ui.Hex("#9cdada"), ui.Hex("#ffffff"),
+			ui.Hex("#2c1d3e"), ui.Hex("#f07a86"), ui.Hex("#8fd3a3"), ui.Hex("#f0c46a"),
+			ui.Hex("#93acf0"), ui.Hex("#cf9bf2"), ui.Hex("#86cfc6"), ui.Hex("#e6dccb"),
+			ui.Hex("#6a5880"), ui.Hex("#ff98a2"), ui.Hex("#ade3bd"), ui.Hex("#f8d88e"),
+			ui.Hex("#b3c6f8"), ui.Hex("#e2bbf8"), ui.Hex("#a6e2da"), ui.Hex("#fff8e8"),
 		},
 	}
-	p.fillPressed = p.fill.Mix(black, 0.15)
+	p.fillHover, p.fillPressed = p.fill.Mix(white, 0.12), p.fill.Mix(black, 0.15)
 	s := &p.syntax
-	s[highlight.Plain] = ui.Hex("#dcd3cc")
-	s[highlight.Keyword] = ui.Hex("#c9a0e8")
-	s[highlight.Type] = ui.Hex("#e6c068")
-	s[highlight.Function] = ui.Hex("#f0c9a8")
-	s[highlight.String] = ui.Hex("#e8a6b4")
-	s[highlight.Number] = ui.Hex("#d4af37")
-	s[highlight.Comment] = ui.Hex("#7a6e8a")
-	s[highlight.Operator] = ui.Hex("#b8acc0")
-	s[highlight.Punctuation] = ui.Hex("#9488a0")
-	s[highlight.Constant] = ui.Hex("#d4af37")
-	s[highlight.Builtin] = ui.Hex("#8ccaca")
-	s[highlight.Tag] = ui.Hex("#c9a0e8")
-	s[highlight.Attribute] = ui.Hex("#e6c068")
-	s[highlight.Variable] = ui.Hex("#dcd3cc")
-	s[highlight.Heading] = ui.Hex("#d4af37")
+	s[highlight.Plain] = ui.Hex("#e6dccb")
+	s[highlight.Keyword] = ui.Hex("#d29bf5")
+	s[highlight.Type] = ui.Hex("#f0c75e")
+	s[highlight.Function] = ui.Hex("#f6dcae")
+	s[highlight.String] = ui.Hex("#eaa6c0")
+	s[highlight.Number] = p.accent
+	s[highlight.Comment] = ui.Hex("#857199")
+	s[highlight.Operator] = ui.Hex("#c2b0d2")
+	s[highlight.Punctuation] = ui.Hex("#9a82ab")
+	s[highlight.Constant] = p.accent
+	s[highlight.Builtin] = ui.Hex("#8fd6c6")
+	s[highlight.Tag] = ui.Hex("#d29bf5")
+	s[highlight.Attribute] = ui.Hex("#f0c75e")
+	s[highlight.Variable] = ui.Hex("#e6dccb")
+	s[highlight.Heading] = p.accent
 	s[highlight.Deleted] = p.removed
 	s[highlight.Inserted] = p.added
 	return p
@@ -1367,6 +1374,15 @@ func (p *palette) derive() *palette {
 	p.selectedDim = p.selection.Alpha(0.5).Over(p.editor)
 	p.cursor = p.accent.Alpha(0.5)
 	return p
+}
+
+// hairline is the line along the foot of the title bar and the top of the
+// status bar: the theme's own rule, or the border.
+func (p *palette) hairline() ui.Color {
+	if p.rule.A == 0 {
+		return p.border
+	}
+	return p.rule
 }
 
 // legible returns col as text that reads at 4.5:1, WCAG's AA, on each of

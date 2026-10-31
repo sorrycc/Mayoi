@@ -50,7 +50,9 @@ func TestMatrixTheme(t *testing.T) {
 	}
 }
 
-// Purple Gold is always dark, whatever the appearance, and has no rain.
+// Purple Gold is always dark, whatever the appearance, with Corona and
+// gold hairlines, and its apse moves behind the welcome page in place of
+// rain, holding still without the keyboard.
 func TestPurpleGoldTheme(t *testing.T) {
 	if paletteFor(themePurpleGold, false) != purpleGoldPal || paletteFor(themePurpleGold, true) != purpleGoldPal {
 		t.Error("Purple Gold follows the window's light or dark")
@@ -58,9 +60,35 @@ func TestPurpleGoldTheme(t *testing.T) {
 	if themeSource(themePurpleGold, "light") != mygo.ThemeDark || themeSource(themePurpleGold, "") != mygo.ThemeDark {
 		t.Error("the native window is not dark under Purple Gold")
 	}
+	if themeMascotOf(themePurpleGold) != corona {
+		t.Error("Purple Gold has not Corona")
+	}
+	if purpleGoldPal.hairline() != purpleGoldPal.rule || darkPal.hairline() != darkPal.border {
+		t.Error("the hairline is not the theme's own rule, or the border without one")
+	}
 	hs := themeHarness(t, themePurpleGold, false)
-	if hs.a.pal != purpleGoldPal || hs.a.rain.moving {
+	a := hs.a
+	if a.pal != purpleGoldPal || a.rain.moving {
 		t.Error("a light window is not in Purple Gold, without rain")
+	}
+	if !a.throne.moving {
+		t.Fatal("the apse does not move on the welcome page")
+	}
+	a.post(func() { a.blurred = true })
+	hs.settle()
+	step := a.throne.step
+	if a.throne.moving {
+		t.Error("the apse moves in a window without the keyboard")
+	}
+	hs.settle()
+	if a.throne.step != step {
+		t.Error("the apse moved while still")
+	}
+	a.setTheme("")
+	a.throne.moving = false
+	hs.settle()
+	if a.throne.moving {
+		t.Error("the apse shows out of Purple Gold")
 	}
 }
 
@@ -256,7 +284,8 @@ func TestMascotMoves(t *testing.T) {
 		m     *mascot
 		name  string
 	}{{themeClaude, clawd, "Claude"}, {themeQoder, qoduck, "Qoder"}, {themeGrokBot, grokBot, "Grok Bot"},
-		{themePumpkin, jack, "Jack-o'-Lantern"}, {themeWitchsBrew, cauldron, "Witch's Brew"}, {themeBloodMoon, bat, "Blood Moon"}} {
+		{themePumpkin, jack, "Jack-o'-Lantern"}, {themeWitchsBrew, cauldron, "Witch's Brew"}, {themeBloodMoon, bat, "Blood Moon"},
+		{themePurpleGold, corona, "Corona"}} {
 		hs := themeHarness(t, tc.theme, true)
 		a := hs.a
 		if a.themeMascot() != tc.m {
@@ -390,8 +419,8 @@ func TestThemeMenu(t *testing.T) {
 	if l, g := find("Light"), find("Purple Gold"); g == nil || !g.Checked || !l.Disabled || !l.Checked || !a.commandOn("view.theme.purplegold") {
 		t.Error("Purple Gold is not the theme checked, with Light greyed out and kept")
 	}
-	if a.themeMascot() != nil {
-		t.Error("Purple Gold has a character")
+	if a.themeMascot() != corona {
+		t.Error("Purple Gold has not Corona")
 	}
 	a.setTheme(themeWitchsBrew)
 	if l, w := find("Light"), find("Witch's Brew"); w == nil || !w.Checked || find("Purple Gold").Checked || !l.Disabled ||

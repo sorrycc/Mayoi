@@ -354,7 +354,7 @@ func (a *app) titleBar(c *ui.Context) {
 		rightPad = bar.Right - 2
 	}
 	ui.Row(c).Height(max(bar.Height, titleBarH)).Padding(0, rightPad, 0, bar.Left+10).AlignItems(ui.Center).
-		BorderWidth(0, 0, 1, 0).BorderColor(p.border).DragWindow().Children(func() {
+		BorderWidth(0, 0, 1, 0).BorderColor(p.hairline()).DragWindow().Children(func() {
 		// The sidebar's button is on its side. The terminal's is on the
 		// panel's: at the left of the bar when the panel is at the
 		// window's left, past the sidebar's button when the sidebar is
@@ -1183,7 +1183,7 @@ func (a *app) statusBar(c *ui.Context) {
 	width, _ := c.Size()
 	visible := a.statusFit(c, width)
 	ui.Row(c).Height(statusBarH).Padding(0, 6).Gap(2).AlignItems(ui.Center).Background(p.status).
-		BorderWidth(1, 0, 0, 0).BorderColor(p.border).Children(func() {
+		BorderWidth(1, 0, 0, 0).BorderColor(p.hairline()).Children(func() {
 		text := func(s string) ui.Element {
 			return ui.Text(c, s).FontSize(11.5).TextColor(p.statusFg).SingleLine()
 		}
@@ -1423,9 +1423,12 @@ func (a *app) welcome(c *ui.Context) {
 	// Centered in the view, and scrolled when the window is too short.
 	view := a.welcomeView.Bounds(c)
 	page := ui.Scroll(c.Key("welcome")).Bind(&a.welcomeView).Fill().Background(p.editor)
-	if a.settings.Theme == themeMatrix {
-		still := a.blurred || c.Preferences().ReduceMotion
+	throne := a.settings.Theme == themePurpleGold
+	switch still := a.blurred || c.Preferences().ReduceMotion; {
+	case a.settings.Theme == themeMatrix:
 		page.Draw(func(pt *ui.Painter, r ui.Rect) { a.drawRain(pt, r, still) })
+	case throne:
+		page.Draw(func(pt *ui.Painter, r ui.Rect) { a.drawThrone(pt, r, still) })
 	}
 	page.Children(func() {
 		ui.Column(c).FillWidth().MinHeight(view.H).Center().Padding(40, 24, 64).Children(func() {
@@ -1434,9 +1437,21 @@ func (a *app) welcome(c *ui.Context) {
 				// Over the rain, which would run through the words.
 				content.Width(380+2*24).Padding(24).Radius(12).Background(p.editor.Alpha(0.88)).Border(1, p.border)
 			}
+			if throne {
+				// An arch over the apse, its top half a circle.
+				content.Width(380+2*28).Padding(56, 28, 24).Radius(218, 218, 14, 14).Background(p.editor.Alpha(0.9)).
+					Border(1, p.accent.Alpha(0.5))
+			}
 			content.Children(func() {
 				// Inset as the rows below, so the logo lines up with their icons.
-				riseIn(ui.Row(c.Key("welcome:head")).Padding(0, 10).Gap(16).AlignItems(ui.Center), 0).Children(func() {
+				// Under the arch, the character over the name, centered.
+				var head ui.Element
+				if throne {
+					head = ui.Column(c.Key("welcome:head")).Gap(14).AlignItems(ui.Center)
+				} else {
+					head = ui.Row(c.Key("welcome:head")).Padding(0, 10).Gap(16).AlignItems(ui.Center)
+				}
+				riseIn(head, 0).Children(func() {
 					if m := a.themeMascot(); m != nil {
 						a.welcomeMascot(c, m)
 					} else {
@@ -1444,6 +1459,15 @@ func (a *app) welcome(c *ui.Context) {
 						ui.Column(c).Size(52, 52).Radius(52.0 * 185 / 824).Clip().Children(func() {
 							ui.Image(c, logo()).Size(52, 52)
 						})
+					}
+					if throne {
+						ui.Column(c).Gap(6).AlignItems(ui.Center).Children(func() {
+							// Inscribed, as a Roman capital is. The spacing
+							// trails the last letter, so the padding evens it.
+							ui.Text(c, "MAYOI").Font(throneFont).FontSize(34).LetterSpacing(7).Padding(0, 0, 0, 7).TextColor(p.accent)
+							ui.Text(c, locales.WelcomeTagline()).FontSize(13).TextColor(p.muted)
+						})
+						return
 					}
 					ui.Column(c).Gap(3).Children(func() {
 						ui.Text(c, "Mayoi").FontSize(26).FontWeight(600).LetterSpacing(-0.3).TextColor(p.text)

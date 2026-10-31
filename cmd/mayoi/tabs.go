@@ -115,8 +115,11 @@ func (a *app) tabStrip(c *ui.Context, col *column) {
 							if focused {
 								line = p.accent
 							}
-							ui.Box(c.Key("line")).Absolute().Top(0).Left(0).Right(0).Height(2).Background(line).
+							l := ui.Box(c.Key("line")).Absolute().Top(0).Left(0).Right(0).Height(2).Background(line).
 								Transition(ui.ElementTransition{Animation: &ui.Snappy, Match: tabLine{col.id}})
+							if focused && p.gilt.A != 0 {
+								l.Draw(func(pt *ui.Painter, r ui.Rect) { drawGilt(pt, r, p) })
+							}
 						}
 						icon, tint := iconTerminal, p.muted
 						switch {

@@ -688,9 +688,13 @@ and a dark kind, and its code in the warm colors of x.ai's terminal. Grok Bot's 
 eyes, takes the logo's place and the status bar's start as Clawd does, looks up as it hops, and now and then glances
 to one side and the other. Cursor is Cursor's own Cursor Light and Cursor Dark: near-white or near-black greys with
 Cursor's blue for the accent and the buttons, in a light and a dark kind, and its code in Cursor's own colors. It has
-no character, so the welcome page keeps Mayoi's logo. Purple Gold is a near-black sidebar, tab strip and panel around
-a charcoal editor, with a royal purple status bar, classic gold for the accent, the buttons and the chosen rows, and its
-code in golds, lavenders, roses and teals. It has no character either. Jack-o'-Lantern is soot-black chrome around a
+no character, so the welcome page keeps Mayoi's logo. Purple Gold is Porphyry, the emperor's purple set in gold mosaic:
+Tyrian chrome around a deep purple editor, a Tyrian status bar lettered in gold, gold leaf for the accent, the buttons
+and the chosen rows, gold hairlines under the title bar and over the status bar, and a gilded line along the tab shown
+with a gem at its middle. Its code is in amethyst, gold, rose quartz and jade. Behind the welcome page an apse of gold
+tesserae rises in a purple mosaic, and a band of light crosses it, stepping as the rain does and holding still in the
+same way; the page's rows sit in an arch over it, under the name inscribed in Optima. Its character is Corona, a crown
+in gold leaf set with amethysts and a ruby, whose jewels flash as it hops. Jack-o'-Lantern is soot-black chrome around a
 warm editor, pumpkin orange for the accent and the buttons, and a status bar that glows like the lantern's face, with its
 code in candle yellow, ember and vine green and witch-purple keywords. Witch's Brew is plum chrome with a witch-purple
 status bar and slime green for the accent and the buttons, with its code in violets, slime greens, teals and lilacs.

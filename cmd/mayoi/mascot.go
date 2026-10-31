@@ -33,6 +33,8 @@ var (
 	jack     = &mascot{name: "Jack-o'-Lantern", size: jackSize, draw: drawJack}
 	cauldron = &mascot{name: "Witch's Brew", size: cauldronSize, draw: drawCauldron}
 	bat      = &mascot{name: "Blood Moon", size: batSize, draw: drawBat}
+
+	corona = &mascot{name: "Corona", size: coronaSize, draw: drawCorona}
 )
 
 // themeMascot returns the character of the window's theme, or nil.
@@ -55,6 +57,8 @@ func themeMascotOf(theme string) *mascot {
 		return cauldron
 	case themeBloodMoon:
 		return bat
+	case themePurpleGold:
+		return corona
 	}
 	return nil
 }

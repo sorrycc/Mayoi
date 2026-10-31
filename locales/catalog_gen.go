@@ -832,11 +832,11 @@ func (msgs Messages) ThemeAboutMayoi() string {
 	return Catalog.Format(msgs.locale, "themeAboutMayoi", nil)
 }
 
-// ThemeAboutPurpleGold says "Near-black and royal purple, with classic gold"
+// ThemeAboutPurpleGold says "Tyrian purple set in gold mosaic, with Corona"
 // in the language the app shows.
 func ThemeAboutPurpleGold() string { return In(i18n.Locale()).ThemeAboutPurpleGold() }
 
-// ThemeAboutPurpleGold says "Near-black and royal purple, with classic gold"
+// ThemeAboutPurpleGold says "Tyrian purple set in gold mosaic, with Corona"
 // in the language of msgs.
 func (msgs Messages) ThemeAboutPurpleGold() string {
 	return Catalog.Format(msgs.locale, "themeAboutPurpleGold", nil)

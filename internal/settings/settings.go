@@ -253,12 +253,17 @@ const (
 	SyncKeybindings = "keybindings.json"
 )
 
+// MachineKept are the keys of the preferences settings sync leaves on
+// this machine whatever SyncIgnored says, as a development build's looks,
+// which would otherwise change the everyday Mayoi's.
+var MachineKept []string
+
 // SyncKept returns the keys of the preferences settings sync leaves on
 // this machine, and whether it leaves the keyboard shortcuts.
 func (p Prefs) SyncKept() (keys []string, keybindings bool) {
 	all := slices.Contains(p.SyncIgnored, SyncSettings)
 	for _, k := range PrefKeys {
-		if all && !slices.Contains(unsynced, k) || slices.Contains(p.SyncIgnored, k) {
+		if all && !slices.Contains(unsynced, k) || slices.Contains(p.SyncIgnored, k) || slices.Contains(MachineKept, k) {
 			keys = append(keys, k)
 		}
 	}

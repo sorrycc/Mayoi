@@ -291,6 +291,11 @@ func main() {
 	if dir := os.Getenv("MAYOI_DATA_DIR"); dir != "" {
 		mygo.App.SetPath(mygo.PathUserData, dir)
 	}
+	// A development build signed in to the same account keeps its theme,
+	// so that trying one leaves the everyday Mayoi's alone.
+	if mygo.IsDev() {
+		settings.MachineKept = []string{"theme", "appearance"}
+	}
 	// Started as the mayoi command, Mayoi asks the app that runs, and
 	// exits.
 	commandLineClient()

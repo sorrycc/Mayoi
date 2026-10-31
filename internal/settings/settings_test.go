@@ -500,6 +500,25 @@ func TestSyncIgnoredPrefs(t *testing.T) {
 	}
 }
 
+// TestMachineKept: what a development build keeps stays on the machine
+// though syncIgnored leaves it out.
+func TestMachineKept(t *testing.T) {
+	MachineKept = []string{"theme", "appearance"}
+	defer func() { MachineKept = nil }()
+	p := Default().Prefs
+	p.Theme = "pumpkin"
+	if keys, _ := p.SyncKept(); len(keys) != 2 || !slices.Contains(keys, "theme") || !slices.Contains(keys, "appearance") {
+		t.Errorf("kept %v", keys)
+	}
+	q, err := p.WithSynced(map[string]json.RawMessage{"theme": json.RawMessage(`"qoder"`), "fontSize": json.RawMessage("12")})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if q.Theme != "pumpkin" || q.FontSize != 12 {
+		t.Errorf("prefs = %+v", q)
+	}
+}
+
 func TestOnPrefsWritten(t *testing.T) {
 	s := Load(filepath.Join(t.TempDir(), "settings.json"))
 	written := make(chan struct{}, 4)

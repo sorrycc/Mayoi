@@ -290,7 +290,7 @@
   "themeAboutGrokBot": "Grok Bot's Sand: monochrome, with its blue",
   "themeAboutMatrix": "Phosphor green, with digital rain",
   "themeAboutMayoi": "Mayoi's own, in violet",
-  "themeAboutPurpleGold": "Tyrian purple set in gold mosaic, with Corona",
+  "themeAboutPurpleGold": "Tyrian purple and gold leaf, with Corona",
   "themeAboutPumpkin": "Pumpkin orange by candlelight",
   "themeAboutWitchsBrew": "Plum dark, with slime green",
   "themeAboutBloodMoon": "Crimson and old gold under a red moon",
@@ -1684,13 +1684,5 @@
   "prefOptCrashReportsNever": "Don't send",
   "prefHintFontFamily": "monospace",
   "prefHintTerminalFontFamily": "The code's font",
-  "prefHintAiModel": "deepseek-flash",
-  "welcomeActivity": "Recent activity",
-  "welcomeAutoSaveOff": "auto-save off",
-  "welcomeAutoSaveOn": "auto-save on",
-  "welcomeBack": "Welcome back!",
-  "welcomeNoActivity": "No recent activity",
-  "welcomePrompt": "Try a file's name, @ for a symbol, or > for a command",
-  "welcomeShortcuts": "? for shortcuts",
-  "welcomeTips": "Tips for getting started"
+  "prefHintAiModel": "deepseek-flash"
 }

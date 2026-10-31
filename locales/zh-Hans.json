@@ -1191,7 +1191,7 @@
   "themeAboutGrokBot": "Grok Bot 的 Sand：黑白，配它的蓝色",
   "themeAboutMatrix": "荧光绿，伴着数字雨",
   "themeAboutMayoi": "Mayoi 自己的紫色",
-  "themeAboutPurpleGold": "泰尔紫镶金色马赛克，配 Corona",
+  "themeAboutPurpleGold": "泰尔紫与金箔，配 Corona",
   "themeAboutPumpkin": "烛光下的南瓜橙",
   "themeAboutWitchsBrew": "深紫配黏液绿",
   "themeAboutBloodMoon": "血月下的深红与古金",
@@ -1456,13 +1456,5 @@
   "prefOptCrashReportsNever": "不发送",
   "prefHintFontFamily": "monospace",
   "prefHintTerminalFontFamily": "代码字体",
-  "prefHintAiModel": "deepseek-flash",
-  "welcomeActivity": "最近活动",
-  "welcomeAutoSaveOff": "自动保存已关闭",
-  "welcomeAutoSaveOn": "自动保存已开启",
-  "welcomeBack": "欢迎回来！",
-  "welcomeNoActivity": "暂无最近活动",
-  "welcomePrompt": "输入文件名，@ 跳到符号，> 运行命令",
-  "welcomeShortcuts": "? 查看快捷键",
-  "welcomeTips": "入门提示"
+  "prefHintAiModel": "deepseek-flash"
 }

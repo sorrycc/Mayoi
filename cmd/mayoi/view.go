@@ -1425,39 +1425,20 @@ func (a *app) welcome(c *ui.Context) {
 	// Centered in the view, and scrolled when the window is too short.
 	view := a.welcomeView.Bounds(c)
 	page := ui.Scroll(c.Key("welcome")).Bind(&a.welcomeView).Fill().Background(p.editor)
-	throne := a.settings.Theme == themePurpleGold
-	switch still := a.blurred || c.Preferences().ReduceMotion; {
-	case a.settings.Theme == themeMatrix:
+	if a.settings.Theme == themeMatrix {
+		still := a.blurred || c.Preferences().ReduceMotion
 		page.Draw(func(pt *ui.Painter, r ui.Rect) { a.drawRain(pt, r, still) })
-	case throne:
-		page.Draw(func(pt *ui.Painter, r ui.Rect) { a.drawThrone(pt, r, still) })
 	}
 	page.Children(func() {
-		if a.settings.Theme == themeClaude {
-			a.welcomeBox(c, view)
-			return
-		}
 		ui.Column(c).FillWidth().MinHeight(view.H).Center().Padding(40, 24, 64).Children(func() {
 			content := ui.Column(c).Width(380).MaxWidthPercent(100).Gap(32)
 			if a.settings.Theme == themeMatrix {
 				// Over the rain, which would run through the words.
 				content.Width(380+2*24).Padding(24).Radius(12).Background(p.editor.Alpha(0.88)).Border(1, p.border)
 			}
-			if throne {
-				// An arch over the apse, its top half a circle.
-				content.Width(380+2*28).Padding(56, 28, 24).Radius(218, 218, 14, 14).Background(p.editor.Alpha(0.9)).
-					Border(1, p.accent.Alpha(0.5))
-			}
 			content.Children(func() {
 				// Inset as the rows below, so the logo lines up with their icons.
-				// Under the arch, the character over the name, centered.
-				var head ui.Element
-				if throne {
-					head = ui.Column(c.Key("welcome:head")).Gap(14).AlignItems(ui.Center)
-				} else {
-					head = ui.Row(c.Key("welcome:head")).Padding(0, 10).Gap(16).AlignItems(ui.Center)
-				}
-				riseIn(head, 0).Children(func() {
+				riseIn(ui.Row(c.Key("welcome:head")).Padding(0, 10).Gap(16).AlignItems(ui.Center), 0).Children(func() {
 					if m := a.themeMascot(); m != nil {
 						a.welcomeMascot(c, m)
 					} else {
@@ -1465,15 +1446,6 @@ func (a *app) welcome(c *ui.Context) {
 						ui.Column(c).Size(52, 52).Radius(52.0 * 185 / 824).Clip().Children(func() {
 							ui.Image(c, logo()).Size(52, 52)
 						})
-					}
-					if throne {
-						ui.Column(c).Gap(6).AlignItems(ui.Center).Children(func() {
-							// Inscribed, as a Roman capital is. The spacing
-							// trails the last letter, so the padding evens it.
-							ui.Text(c, "MAYOI").Font(throneFont).FontSize(34).LetterSpacing(7).Padding(0, 0, 0, 7).TextColor(p.accent)
-							ui.Text(c, locales.WelcomeTagline()).FontSize(13).TextColor(p.muted)
-						})
-						return
 					}
 					ui.Column(c).Gap(3).Children(func() {
 						ui.Text(c, "Mayoi").FontSize(26).FontWeight(600).LetterSpacing(-0.3).TextColor(p.text)

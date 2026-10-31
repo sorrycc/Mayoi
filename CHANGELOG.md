@@ -6,7 +6,6 @@ needs a `## <version>` section here, or its build fails.
 ## Unreleased
 
 - **View → Theme → Claude** now looks like Claude Code in a terminal, with the whole window in the code's font.
-- Under Claude, the welcome page is Claude Code's welcome box, with Clawd, tips and your recent folders.
 - Under Claude, the status bar shows Claude Code's ✻ spinner, the work's name and its seconds while Git runs.
 - Claude's errors and removed lines are rose now, apart from its orange, and chosen rows are periwinkle.
 - In Claude Light, the terminal's white and bright white text is readable on the light background.
@@ -16,6 +15,7 @@ needs a `## <version>` section here, or its build fails.
 - `⌘F` in a terminal opens a find bar that searches its output and scrollback, highlighting each match.
 - In the terminal's find bar, `Return` goes to the match above and `Shift+Return` to the one below.
 - On Linux and Windows, `Ctrl+F` in a terminal opens find instead of reaching the shell.
+- Under Purple Gold, the welcome page drops the mosaic apse and arch and matches the other themes.
 
 ## 0.16.1
 

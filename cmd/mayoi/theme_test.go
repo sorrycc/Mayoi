@@ -54,8 +54,7 @@ func TestMatrixTheme(t *testing.T) {
 }
 
 // Purple Gold is always dark, whatever the appearance, with Corona and
-// gold hairlines, and its apse moves behind the welcome page in place of
-// rain, holding still without the keyboard.
+// gold hairlines, and has no rain.
 func TestPurpleGoldTheme(t *testing.T) {
 	if paletteFor(themePurpleGold, false) != purpleGoldPal || paletteFor(themePurpleGold, true) != purpleGoldPal {
 		t.Error("Purple Gold follows the window's light or dark")
@@ -70,28 +69,8 @@ func TestPurpleGoldTheme(t *testing.T) {
 		t.Error("the hairline is not the theme's own rule, or the border without one")
 	}
 	hs := themeHarness(t, themePurpleGold, false)
-	a := hs.a
-	if a.pal != purpleGoldPal || a.rain.moving {
+	if hs.a.pal != purpleGoldPal || hs.a.rain.moving {
 		t.Error("a light window is not in Purple Gold, without rain")
-	}
-	if !a.throne.moving {
-		t.Fatal("the apse does not move on the welcome page")
-	}
-	a.post(func() { a.blurred = true })
-	hs.settle()
-	step := a.throne.step
-	if a.throne.moving {
-		t.Error("the apse moves in a window without the keyboard")
-	}
-	hs.settle()
-	if a.throne.step != step {
-		t.Error("the apse moved while still")
-	}
-	a.setTheme("")
-	a.throne.moving = false
-	hs.settle()
-	if a.throne.moving {
-		t.Error("the apse shows out of Purple Gold")
 	}
 }
 

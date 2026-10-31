@@ -46,15 +46,21 @@ func (w *lineWindow) covers(from, to int) bool {
 }
 
 // window returns a window of lines from up to to (exclusive) of a
-// snapshot of d, clamped to it. The window is read with as many lines
-// again around it and kept, so that the frames that follow, scrolling
-// line by line, find theirs in it.
+// snapshot of d, clamped to it. Read again as the view scrolls, the
+// window is read with as many lines again around it and kept, so that
+// the frames that follow, scrolling line by line, find theirs in it. A
+// text just changed, as each key typed changes it, is read only as far
+// as asked: the next change would drop the rest unread.
 func (d *editor) window(snap ui.TextSnapshot, from, to int) *lineWindow {
 	from, to = max(from, 0), min(to, snap.LineCount())
-	if w := d.win; w != nil && d.winVersion == snap.Version() && w.covers(from, to) {
+	w := d.win
+	if w != nil && d.winVersion == snap.Version() && w.covers(from, to) {
 		return w
 	}
-	d.win, d.winVersion = newLineWindow(snap, from-maxLineScan, to+maxLineScan), snap.Version()
+	if w != nil && d.winVersion == snap.Version() {
+		from, to = from-maxLineScan, to+maxLineScan
+	}
+	d.win, d.winVersion = newLineWindow(snap, from, to), snap.Version()
 	return d.win
 }
 

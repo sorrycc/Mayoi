@@ -1,9 +1,11 @@
 package git
 
 import (
+	"mayoi/internal/cli"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strings"
 	"testing"
@@ -180,6 +182,37 @@ func TestStageUnstageDiscardCommit(t *testing.T) {
 	}
 	if _, ok, err := r.Show("HEAD", filepath.Join(r.Root, "none.txt")); ok || err != nil {
 		t.Fatalf("a file HEAD lacks: ok %v err %v", ok, err)
+	}
+}
+
+// A hook finds the commands of the user's shell, which Mayoi opened from
+// the Finder takes as it starts (issue 82).
+func TestCommitHookFindsShellCommands(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("shell scripts")
+	}
+	r, git := repo(t)
+	tools := t.TempDir()
+	write(t, tools, "pnpm", "#!/bin/sh\nexit 0\n")
+	os.Chmod(filepath.Join(tools, "pnpm"), 0o755)
+	sh := filepath.Join(t.TempDir(), "zsh")
+	write(t, filepath.Dir(sh), "zsh", "#!/bin/sh\nPATH="+tools+":$PATH; export PATH; shift; exec /bin/sh -c \"$1\"\n")
+	os.Chmod(sh, 0o755)
+	t.Setenv("SHELL", sh)
+	t.Setenv("PATH", "/usr/bin:/bin:/usr/sbin:/sbin")
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("no git on the system's path")
+	}
+	write(t, r.Root, ".git/hooks/pre-commit", "#!/bin/sh\npnpm lint-staged\n")
+	os.Chmod(filepath.Join(r.Root, ".git", "hooks", "pre-commit"), 0o755)
+	write(t, r.Root, "c.txt", "sea\n")
+	git("add", "c.txt")
+	if err := r.Commit("before", false); err == nil {
+		t.Fatal("the hook found pnpm on the system's path")
+	}
+	t.Setenv("PATH", strings.Join(cli.ShellPath(), string(os.PathListSeparator)))
+	if err := r.Commit("after", false); err != nil {
+		t.Fatal(err)
 	}
 }
 

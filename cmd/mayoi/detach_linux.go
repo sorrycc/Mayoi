@@ -2,8 +2,6 @@ package main
 
 import (
 	"os"
-	"os/exec"
-	"syscall"
 
 	"github.com/egoist/mygo"
 	"golang.org/x/sys/unix"
@@ -26,24 +24,7 @@ func detach() bool {
 	if os.Getenv("MAYOI_FOREGROUND") != "" || !mygo.App.IsPackaged() || !onTerminal() {
 		return false
 	}
-	exe, err := os.Executable()
-	if err != nil {
-		return false
-	}
-	null, err := os.OpenFile(os.DevNull, os.O_RDWR, 0)
-	if err != nil {
-		return false
-	}
-	defer null.Close()
-	cmd := exec.Command(exe, os.Args[1:]...)
-	cmd.Env = append(os.Environ(), detachedEnv+"=1")
-	cmd.Stdin, cmd.Stdout, cmd.Stderr = null, null, null
-	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
-	if err := cmd.Start(); err != nil {
-		return false
-	}
-	cmd.Process.Release()
-	return true
+	return startDetached(os.Args[1:], detachedEnv+"=1") == nil
 }
 
 // onTerminal reports whether Mayoi was started with a terminal for its

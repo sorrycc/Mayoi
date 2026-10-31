@@ -17,6 +17,8 @@ type prompt struct {
 	err         string
 	done        func(value string) string
 	selected    bool
+	// optional lets the value be empty.
+	optional bool
 }
 
 func (a *app) promptView(c *ui.Context) {
@@ -66,7 +68,7 @@ func (a *app) promptView(c *ui.Context) {
 					if ui.Button(c, locales.ButtonCancel()).Clicked() {
 						a.prompt = nil
 					}
-					if ui.PrimaryButton(c, strings.TrimSuffix(pr.title, "…")).Disabled(strings.TrimSpace(pr.value) == "").Clicked() {
+					if ui.PrimaryButton(c, strings.TrimSuffix(pr.title, "…")).Disabled(!pr.optional && strings.TrimSpace(pr.value) == "").Clicked() {
 						submit()
 					}
 				})

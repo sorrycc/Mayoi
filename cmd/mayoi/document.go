@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"time"
 	"unicode/utf8"
 
 	"github.com/egoist/mygo/ui"
@@ -20,7 +21,15 @@ import (
 // maxOpenBytes is the largest file the editor opens.
 const maxOpenBytes = 64 << 20
 
-var errBinary = errors.New("binary file")
+// maxLineBytes is the longest line the editor opens: a line is laid out
+// whole, and one of a minified bundle or source map would take
+// gigabytes and the main thread.
+const maxLineBytes = 64 << 10
+
+var (
+	errBinary   = errors.New("binary file")
+	errLongLine = errors.New("line too long")
+)
 
 // document is a file open in the editor: its text, and what follows from
 // the text alone. Each tab that shows it has an editor of its own.
@@ -115,6 +124,12 @@ type editor struct {
 	stuck    stickyCache
 	overview overview
 
+	// landing is whether the jump asked for lights up the line it lands
+	// on, which landLine is, from landAt.
+	landing  bool
+	landLine int
+	landAt   time.Time
+
 	vscroll ui.ScrollState // the text area's
 	hscroll ui.ScrollState // the container that scrolls it sideways
 	// lines is where the text area lays out the lines, while it wraps
@@ -128,12 +143,24 @@ type editor struct {
 	// out.
 	rows wrapRows
 
-	caret     int    // the caret's rune offset in the last frame
-	sel       [2]int // the selection in the last frame
-	caretSeen bool
+	caret         int           // the caret's rune offset in the last frame
+	sel           [2]int        // the selection in the last frame
+	selecting     bool          // the pointer is dragging a text selection
+	reviewSource  *editorReview // source layout while writing an inline review
+	releaseReview func()        // keep a draft before any editor release path
+	reviewHover   int           // the source line under the pointer, or -1
+	caretSeen     bool
 	// pending is a selection the app asked for, which the next frame
-	// makes, scrolling the editor to it.
+	// makes, scrolling the editor to it, nearer its top when center is
+	// set (selectRange).
 	pending *[2]int
+	center  bool
+	// quiet has the next frame make the pending selection without
+	// scrolling to it, as selecting all does.
+	quiet bool
+	// areaInput is whether the text area took input since the frame read
+	// its selection, which may have moved it.
+	areaInput bool
 	// version is the version of the text the editor showed last.
 	version uint64
 	// resync has the next frame give the text area the selection, which
@@ -144,14 +171,40 @@ type editor struct {
 	// the area scrolls to its caret when its text changes under it.
 	parked int
 	// hidden is set while another tab shows in the editor's place, and
-	// hiddenY is where it was scrolled then.
-	hidden  bool
-	hiddenY float32
+	// hiddenY is where it was scrolled then. hiddenAt is the start of the
+	// line at the top then, which moves with the edits made since, and
+	// hiddenOff where that line showed, which a new text area, whose
+	// rows' heights are estimates, puts it back at; hiddenPlaced tells
+	// they are known, unlike for a tab restored out of sight.
+	hidden       bool
+	hiddenY      float32
+	hiddenAt     int
+	hiddenOff    float32
+	hiddenPlaced bool
 	// focusNext repeats a focus request after a hidden editor is built again.
 	focusNext bool
-	// shownFrame is the frame the editor came back in sight, which covers
-	// it as its new text area scrolls to its selection.
-	shownFrame int
+	// pressing is set while a pointer button pressed on the text is down.
+	pressing bool
+	// lateLine is the line to keep at the top, at lateY, for the next frame
+	// to show the edits made after this one's text was read, -1 for none.
+	lateLine int
+	lateY    float32
+	// areaCol is the column whose last build, areaBuild, made the editor's
+	// text area, shown or kept out of sight, and areaKept tells that the
+	// area showing is the one that build made, not a new one. seenBuild
+	// is the last build that showed it.
+	areaCol              *column
+	areaBuild, seenBuild int
+	areaKept             bool
+	// shownFrame is the frame the editor came back in sight, and
+	// coverFrame one that covers it as its new text area scrolls to its
+	// selection, not knowing where it is.
+	shownFrame, coverFrame int
+	// lastView is where the editor showed last.
+	lastView ui.Rect
+	// reloaded is where the file read again last changed the text, which
+	// the next frame keeps the line at the top of the view on.
+	reloaded *reloadShift
 	// pinFrame is the frame that gave the text area a selection the view
 	// is not to follow, 0 for none, and pinY where the editor was scrolled
 	// then, which the frame after puts back.
@@ -175,7 +228,7 @@ type editor struct {
 
 // newEditor makes an editor of doc, its caret at the start.
 func newEditor(doc *document) *editor {
-	d := &editor{document: doc, parked: -1, peek: -1, version: doc.buf.Version()}
+	d := &editor{document: doc, parked: -1, peek: -1, lateLine: -1, version: doc.buf.Version()}
 	doc.views = append(doc.views, d)
 	if doc.typist == nil {
 		doc.typist = d
@@ -185,6 +238,9 @@ func newEditor(doc *document) *editor {
 
 // release takes the editor from its document, as its tab closes.
 func (d *editor) release() {
+	if d.releaseReview != nil {
+		d.releaseReview()
+	}
 	doc := d.document
 	doc.views = slices.DeleteFunc(doc.views, func(o *editor) bool { return o == d })
 	if doc.typist == d {
@@ -233,6 +289,9 @@ func readDocument(id int, path string, notify func()) (*document, error) {
 	if isBinary(data) {
 		return nil, errBinary
 	}
+	if hasLongLine(data) {
+		return nil, errLongLine
+	}
 	crlf := bytes.Contains(data, []byte("\r\n"))
 	if crlf {
 		data = bytes.ReplaceAll(data, []byte("\r\n"), []byte("\n"))
@@ -270,6 +329,18 @@ func isBinary(data []byte) bool {
 		}
 	}
 	return !utf8.Valid(head)
+}
+
+// hasLongLine reports whether a line of data is longer than maxLineBytes.
+func hasLongLine(data []byte) bool {
+	for len(data) > maxLineBytes {
+		i := bytes.IndexByte(data[:maxLineBytes+1], '\n')
+		if i < 0 {
+			return true
+		}
+		data = data[i+1:]
+	}
+	return false
 }
 
 // save writes the document to its path, beside it first and renamed, so
@@ -352,9 +423,31 @@ func columns(s string) int {
 	return col
 }
 
+// areaShown reports whether the build before this one made the editor's
+// text area in col: its state lives on as this build makes it there again.
+func (d *editor) areaShown(a *app, col *column) bool {
+	return d.areaCol == col && d.areaBuild == a.builds-1
+}
+
+// editedAt returns the line of the caret an edit asked for, if one did.
+func (d *editor) editedAt(snap ui.TextSnapshot) (int, bool) {
+	if d.pending == nil {
+		return 0, false
+	}
+	return snap.LineAt(min(d.pending[1], snap.Len())), true
+}
+
 // selectRange selects runes start up to end in the next frame, and
 // scrolls the editor to show them, nearer its top than its bottom when
 // center is set or they are out of view.
 func (d *editor) selectRange(start, end int, center bool) {
-	d.pending = &[2]int{start, end}
+	d.pending, d.center = &[2]int{start, end}, center
 }
+
+// landFor is how long the line a jump lands on stays lit.
+const landFor = 650 * time.Millisecond
+
+// lightLanding has the line the selection asked for lands on light up,
+// and fade, as the editor gets there: a jump from elsewhere, as going to
+// a line or to a match of a search, shows where it went.
+func (d *editor) lightLanding() { d.landing = true }

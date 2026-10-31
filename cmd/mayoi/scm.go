@@ -12,6 +12,7 @@ import (
 
 	"github.com/egoist/mygo/ui"
 
+	"mayoi/internal/bg"
 	"mayoi/internal/git"
 	"mayoi/internal/vfs"
 	"mayoi/locales"
@@ -63,11 +64,29 @@ type scmRow struct {
 	name  string
 	depth int
 	panel *scmPanelRow
+	// under is the commit of the history a row of its files is under, at
+	// at in it: a folder's, a file's, or one with a note, while its files
+	// are read or when they could not be.
+	under *git.Commit
+	note  string
 }
 
 // file reports whether a row is a file's.
 func (r *scmRow) file() bool {
-	return r.panel == nil && !r.header && r.commit == nil && !r.more && r.dir == ""
+	return r.panel == nil && !r.header && r.commit == nil && !r.more && r.dir == "" && r.under == nil
+}
+
+// choice is the list of rows a row is chosen with: the files, the commits
+// of the history, or those of one panel; "" for a row that is not chosen.
+// The rows chosen are all of one list.
+func (r *scmRow) choice() string {
+	switch {
+	case r.file():
+		return "file"
+	case r.commit != nil:
+		return strings.TrimSuffix(r.key, r.commit.Hash)
+	}
+	return ""
 }
 
 // scmState is the source control view's: its list, the row chosen, and
@@ -94,7 +113,32 @@ type scmState struct {
 	rowsTree      bool
 	panels        scmPanels
 	rowsPanels    int
+	// openCommits are the commits of the history whose files show under
+	// them, by hash, and commitFiles what was read of each; commitsGen
+	// counts their changes, and rowsCommits is what the rows were made
+	// for.
+	openCommits map[string]bool
+	commitFiles map[string]*commitFilesRead
+	commitsGen  int
+	rowsCommits int
+	// rowsGen counts the rows made; appear follows them as they come, as
+	// of appearGen, for the section and the layout of appearScope.
+	rowsGen     int
+	appear      appearing
+	appearGen   int
+	appearScope [2]int
+	// scrolledAt is when the list last scrolled: commits show no tooltip
+	// until it has rested for scmScrollQuiet.
+	scrolledAt time.Time
+	// selectAll is Select All of the Edit menu, which the list takes in
+	// its next frame.
+	selectAll bool
 }
+
+// scmScrollQuiet is how long the list rests after scrolling before its
+// commits show their tooltips again, so that none pops up over the rows
+// gliding under a still pointer.
+const scmScrollQuiet = 300 * time.Millisecond
 
 // groupEntries returns the files of each group, by path. They are worked
 // out once for each status read, as the view asks for them every frame.
@@ -143,7 +187,8 @@ func (a *gitContext) scmRows() []scmRow {
 	g := a.git
 	tree := a.app.settings.ScmTree
 	if s.rows != nil && s.rowsOf == g.status && s.rowsCollapsed == s.collapsed && s.rowsHistory == g.historyGen &&
-		s.rowsDirs == s.dirsGen && s.rowsTree == tree && s.rowsPanels == s.panels.gen && s.rowsSection == s.section {
+		s.rowsDirs == s.dirsGen && s.rowsTree == tree && s.rowsPanels == s.panels.gen && s.rowsSection == s.section &&
+		s.rowsCommits == s.commitsGen {
 		return s.rows
 	}
 	var rows []scmRow
@@ -172,6 +217,9 @@ func (a *gitContext) scmRows() []scmRow {
 		if !s.collapsed[groupCommits] {
 			for i := range h {
 				rows = append(rows, scmRow{group: groupCommits, commit: &h[i], at: i, key: "commit:" + h[i].Hash})
+				if s.openCommits[h[i].Hash] {
+					rows = a.commitFileRows(rows, &h[i], i)
+				}
 			}
 			if len(h) >= max(g.historyN, historyPage) {
 				rows = append(rows, scmRow{group: groupCommits, more: true, key: "commits:more"})
@@ -184,7 +232,8 @@ func (a *gitContext) scmRows() []scmRow {
 	s.rowsSection = s.section
 	s.rowsPanels = s.panels.gen
 	s.rows, s.rowsOf, s.rowsCollapsed, s.rowsHistory = rows, g.status, s.collapsed, g.historyGen
-	s.rowsDirs, s.rowsTree = s.dirsGen, tree
+	s.rowsDirs, s.rowsTree, s.rowsCommits = s.dirsGen, tree, s.commitsGen
+	s.rowsGen++
 	// A refresh or a collapsed folder must not leave invisible files chosen.
 	if s.selection.Len() > 0 {
 		visible := make(map[string]bool, len(rows))
@@ -211,12 +260,19 @@ type scmDir struct {
 	files      []git.Entry
 }
 
-// treeRows adds the rows of a group's files, es by path, to rows, in a
-// tree of their folders under root: a folder's folders first, then its
-// files, and a folder with a single folder in it and no files shown as
-// one, as "internal/git". The folders closed, by their rows' keys, show
-// without what is in them.
-func treeRows(rows []scmRow, g scmGroup, es []git.Entry, root string, closed map[string]bool) []scmRow {
+// treeRow is a row of a tree of files: a folder's, dir its path and name
+// what it shows of it, or a file's, e; depth is how deep it is.
+type treeRow struct {
+	dir, name string
+	e         git.Entry
+	depth     int
+}
+
+// fileTree lays out files, es by path, in a tree of their folders under
+// root: a folder's folders first, then its files, and a folder with a
+// single folder in it and no files shown as one, as "internal/git". The
+// folders closed show without what is in them.
+func fileTree(es []git.Entry, root string, closed func(dir string) bool) []treeRow {
 	top := &scmDir{path: root}
 	at := map[string]*scmDir{root: top}
 	var dirOf func(path string) *scmDir
@@ -246,6 +302,7 @@ func treeRows(rows []scmRow, g scmGroup, es []git.Entry, root string, closed map
 		d := dirOf(dir)
 		d.files = append(d.files, e)
 	}
+	var rows []treeRow
 	var add func(d *scmDir, depth int)
 	add = func(d *scmDir, depth int) {
 		slices.SortFunc(d.dirs, func(x, y *scmDir) int { return strings.Compare(x.name, y.name) })
@@ -255,17 +312,31 @@ func treeRows(rows []scmRow, g scmGroup, es []git.Entry, root string, closed map
 				sub = sub.dirs[0]
 				name += "/" + sub.name
 			}
-			key := fmt.Sprintf("%d:dir:%s", g, sub.path)
-			rows = append(rows, scmRow{group: g, dir: sub.path, name: name, depth: depth, key: key})
-			if !closed[key] {
+			rows = append(rows, treeRow{dir: sub.path, name: name, depth: depth})
+			if closed == nil || !closed(sub.path) {
 				add(sub, depth+1)
 			}
 		}
 		for _, e := range d.files {
-			rows = append(rows, scmRow{group: g, e: e, depth: depth, key: fmt.Sprintf("%d:%s", g, e.Path)})
+			rows = append(rows, treeRow{e: e, depth: depth})
 		}
 	}
 	add(top, 0)
+	return rows
+}
+
+// treeRows adds the rows of a group's files, es by path, to rows, in a
+// tree of their folders under root, as fileTree lays them out. The
+// folders closed, by their rows' keys, show without what is in them.
+func treeRows(rows []scmRow, g scmGroup, es []git.Entry, root string, closed map[string]bool) []scmRow {
+	dirKey := func(dir string) string { return fmt.Sprintf("%d:dir:%s", g, dir) }
+	for _, t := range fileTree(es, root, func(dir string) bool { return closed[dirKey(dir)] }) {
+		if t.dir != "" {
+			rows = append(rows, scmRow{group: g, dir: t.dir, name: t.name, depth: t.depth, key: dirKey(t.dir)})
+			continue
+		}
+		rows = append(rows, scmRow{group: g, e: t.e, depth: t.depth, key: fmt.Sprintf("%d:%s", g, t.e.Path)})
+	}
 	return rows
 }
 
@@ -324,7 +395,6 @@ func (a *gitContext) changeCount() int {
 // scmView is the sidebar's source control view: the branch, the commit
 // message, and the files changed, staged and not.
 func (a *gitContext) scmView(c *ui.Context) {
-	p := a.app.pal
 	g := a.git
 	a.scmActivity(c)
 	if g.repo == nil {
@@ -334,7 +404,15 @@ func (a *gitContext) scmView(c *ui.Context) {
 		return
 	}
 	a.scmBranchRow(c)
-	ui.Column(c).Padding(2, 12, 10, 12).Gap(8).Children(func() {
+	a.scmCommitControls(c)
+	a.scmList(c)
+}
+
+// scmCommitControls is shared by the single-repository view and the rows of
+// the multi-repository list. It always acts on this repository.
+func (a *gitContext) scmCommitControls(c *ui.Context) {
+	p, g := a.app.pal, a.git
+	ui.Column(c).FillWidth().Padding(2, 12, 10, 12).Gap(8).Children(func() {
 		if g.amend {
 			ui.Row(c).Gap(6).AlignItems(ui.Center).Padding(4, 4, 4, 8).Radius(5).Background(p.accent.Alpha(0.12)).Children(func() {
 				ui.Icon(c, iconPencil).FontSize(12).TextColor(p.accent)
@@ -394,7 +472,6 @@ func (a *gitContext) scmView(c *ui.Context) {
 		a.subjectLength(c)
 		a.commitButton(c)
 	})
-	a.scmList(c)
 }
 
 func (a *gitContext) scmList(c *ui.Context) {
@@ -428,6 +505,8 @@ func (a *gitContext) scmList(c *ui.Context) {
 			return r.panel.label
 		case r.header:
 			return ""
+		case r.note != "":
+			return r.note
 		case r.dir != "":
 			return r.name
 		case r.commit != nil:
@@ -440,7 +519,7 @@ func (a *gitContext) scmList(c *ui.Context) {
 	base := c.Theme()
 	quiet := *base
 	quiet.Accent, quiet.AccentText, quiet.SurfaceHover = p.active, p.text, p.hover
-	if s.row >= 0 && s.row < len(rows) && rows[s.row].file() && !s.selection.Has(rows[s.row].key) {
+	if s.row >= 0 && s.row < len(rows) && rows[s.row].choice() != "" && !s.selection.Has(rows[s.row].key) {
 		quiet.Accent = p.chrome
 	}
 	c.SetTheme(&quiet)
@@ -454,7 +533,9 @@ func (a *gitContext) scmList(c *ui.Context) {
 			case r.header:
 				a.scmHeader(c, r, &action)
 			case r.commit != nil:
-				a.scmCommit(c, i, r, &action)
+				a.scmCommit(c, r, &action)
+			case r.under != nil:
+				a.scmCommitFile(c, i, r, &action)
 			case r.more:
 				a.scmMore(c, &action)
 			case r.dir != "":
@@ -463,6 +544,12 @@ func (a *gitContext) scmList(c *ui.Context) {
 				a.scmFile(c, r, &action)
 			}
 		}).Grow(1).Padding(0, 6, 8, 6)
+		out.HandleInput(func(ev ui.InputEvent) bool {
+			if ev.Kind == ui.InputScroll {
+				s.scrolledAt = ev.Time
+			}
+			return a.scmInput(ev, rows)
+		})
 		if s.section == scmChanges {
 			out.Fill()
 		}
@@ -476,6 +563,13 @@ func (a *gitContext) scmList(c *ui.Context) {
 	if action != nil {
 		action()
 	}
+	a.scmListInput(out, rows, s.list.ScrollIntoView)
+}
+
+// scmListInput keeps keyboard selection and actions scoped to one repository,
+// whether its rows have a list of their own or share the multi-repository list.
+func (a *gitContext) scmListInput(out ui.Element, rows []scmRow, reveal func(int)) {
+	s, g := a.scm, a.git
 	chosen := func() (scmRow, bool) {
 		if s.row >= 0 && s.row < len(rows) && rows[s.row].file() {
 			return rows[s.row], true
@@ -483,12 +577,18 @@ func (a *gitContext) scmList(c *ui.Context) {
 		return scmRow{}, false
 	}
 	if out.Changed() {
-		if _, ok := chosen(); ok {
+		if s.row >= 0 && s.row < len(rows) && rows[s.row].choice() != "" {
 			a.selectScmRow(s.row, 0)
 		} else {
 			s.selection.Clear()
 			s.anchor = ""
 		}
+	}
+	// The list of the row chosen, or the files', which Shift and Select
+	// All choose in.
+	list := "file"
+	if s.row >= 0 && s.row < len(rows) && rows[s.row].choice() != "" {
+		list = rows[s.row].choice()
 	}
 	for _, key := range []ui.Key{ui.KeyUp, ui.KeyDown, ui.KeyHome, ui.KeyEnd} {
 		if !out.Shortcut(ui.Shift, key) {
@@ -504,24 +604,26 @@ func (a *gitContext) scmList(c *ui.Context) {
 			step, start = -1, len(rows)-1
 		}
 		for i := start; i >= 0 && i < len(rows); i += step {
-			if rows[i].file() {
+			if rows[i].choice() == list {
 				a.selectScmRow(i, ui.Shift)
-				s.list.ScrollIntoView(i)
+				reveal(i)
 				break
 			}
 		}
 	}
-	if out.Shortcut(ui.Cmd, ui.KeyA) {
-		if _, ok := chosen(); !ok {
+	if s.selectAll {
+		s.selectAll = false
+		if s.row < 0 || s.row >= len(rows) || rows[s.row].choice() != list {
 			for i, r := range rows {
-				if r.file() {
+				if r.choice() == list {
 					s.row, s.anchor = i, r.key
 					break
 				}
 			}
 		}
+		s.selection.Clear()
 		for _, r := range rows {
-			if r.file() {
+			if r.choice() == list {
 				s.selection.Add(r.key)
 			}
 		}
@@ -530,6 +632,8 @@ func (a *gitContext) scmList(c *ui.Context) {
 		switch r := rows[s.row]; {
 		case r.panel != nil:
 			a.activateScmPanelRow(r)
+		case r.under != nil && r.dir == "" && r.note == "":
+			a.showCommitFile(*r.under, r.e.Path, true)
 		case r.dir != "":
 			a.toggleDir(r)
 		case r.commit != nil:
@@ -540,6 +644,28 @@ func (a *gitContext) scmList(c *ui.Context) {
 	}
 	if r, ok := chosen(); ok && out.Submitted() {
 		a.openChange(r, true)
+	}
+	// Right shows the files of the commit chosen, or opens the folder of
+	// them; Left hides them, or closes the folder.
+	if s.row >= 0 && s.row < len(rows) {
+		r := rows[s.row]
+		right, left := out.Shortcut(0, ui.KeyRight), out.Shortcut(0, ui.KeyLeft)
+		switch {
+		case r.commit != nil && r.at >= 0:
+			if right && !s.openCommits[r.commit.Hash] || left && s.openCommits[r.commit.Hash] {
+				a.toggleCommitOpen(*r.commit)
+			}
+		case r.under != nil && r.dir != "" && (right && s.closedDirs[r.key] || left && !s.closedDirs[r.key]):
+			a.toggleDir(r)
+		case r.under != nil && left:
+			for k := s.row - 1; k >= 0; k-- {
+				if rows[k].commit == r.under {
+					s.row = k
+					s.list.ScrollIntoView(k)
+					break
+				}
+			}
+		}
 	}
 	if r, ok := chosen(); ok && out.Shortcut(0, ui.KeySpace) {
 		a.toggleStaged(r)
@@ -800,7 +926,7 @@ func (a *gitContext) scmClean(c *ui.Context) {
 // scmHeader is the row heading a group: a click opens or closes it.
 func (a *gitContext) scmHeader(c *ui.Context, r scmRow, action *func()) {
 	p := a.app.pal
-	row := ui.Row(c).Grow(1).Gap(4).AlignItems(ui.Center).Height(22).Background(p.chrome)
+	row := ui.Row(c).Grow(1).Gap(4).AlignItems(ui.Center).Height(scmRowHeight).Background(p.chrome)
 	hovered := row.Hovered()
 	clicked := row.Clicked()
 	row.Children(func() {
@@ -870,6 +996,27 @@ func (a *gitContext) scmHeader(c *ui.Context, r scmRow, action *func()) {
 	}
 }
 
+// scmFade has the row of key fade in as it comes: in a group or a folder
+// just opened, or for a file just changed. The rows shown at first, or
+// once the section or the layout changes, show at once.
+func (a *gitContext) scmFade(c *ui.Context, row ui.Element, key string) {
+	s := a.scm
+	now := c.Now()
+	if s.appearGen != s.rowsGen {
+		scope := [2]int{int(s.rowsSection), 0}
+		if s.rowsTree {
+			scope[1] = 1
+		}
+		rows := s.rows
+		s.appear.note(len(rows), func(i int) string { return rows[i].key }, now, scope != s.appearScope)
+		s.appearGen, s.appearScope = s.rowsGen, scope
+	}
+	if k := s.appear.shown(key, now); k < 1 {
+		row.Opacity(k)
+		c.AnimationFrame()
+	}
+}
+
 // scmFile is the row of a changed file: a click shows its changes.
 func (a *gitContext) scmFile(c *ui.Context, r scmRow, action *func()) {
 	p := a.app.pal
@@ -879,7 +1026,8 @@ func (a *gitContext) scmFile(c *ui.Context, r scmRow, action *func()) {
 	if tree {
 		indent = treeIndent(r.depth) + 16
 	}
-	row := ui.Row(c).Grow(1).Gap(6).AlignItems(ui.Center).Height(22).Padding(0, 0, 0, indent)
+	row := ui.Row(c).Grow(1).Gap(6).AlignItems(ui.Center).Height(scmRowHeight).Padding(0, 0, 0, indent)
+	a.scmFade(c, row, r.key)
 	if tree {
 		a.app.scmGuides(row, r.depth)
 	}
@@ -890,6 +1038,9 @@ func (a *gitContext) scmFile(c *ui.Context, r scmRow, action *func()) {
 	clicked := row.Clicked()
 	row.ContextMenu(func(m *ui.Menu) { a.scmFileMenu(m, r, action) })
 	letter := e.Letter()
+	if e.Submodule() {
+		row.Tooltip(submoduleDescription(e, r.group == groupStaged))
+	}
 	if r.group == groupStaged {
 		letter = e.X
 	}
@@ -906,6 +1057,16 @@ func (a *gitContext) scmFile(c *ui.Context, r scmRow, action *func()) {
 		}
 		if dir := filepath.Dir(a.git.repo.Rel(e.Path)); dir != "." && !tree {
 			ui.Text(c, dir).FontSize(11.5).TextColor(p.faint).SingleLine().Shrink(1)
+		}
+		if e.Submodule() {
+			state := locales.ScmSubmoduleContentLabel()
+			if r.group == groupStaged || len(e.Sub) == 4 && e.Sub[1] == 'C' {
+				state = locales.ScmSubmoduleCommitLabel()
+				if r.group != groupStaged && e.Dirty() {
+					state += " · " + locales.ScmSubmoduleContentLabel()
+				}
+			}
+			ui.Text(c, state).FontSize(10.5).TextColor(p.muted).SingleLine().Shrink(2)
 		}
 		ui.Spacer(c)
 		if hovered {
@@ -949,28 +1110,35 @@ func (a *gitContext) scmFile(c *ui.Context, r scmRow, action *func()) {
 	}
 }
 
-// selectScmRow keeps a file's range anchor independent of the diff preview
-// and the list's keyboard cursor. File rows also handle dragging, so their
-// pointer clicks do not reach the list's built-in selection handler.
+// selectScmRow keeps a file's or a commit's range anchor independent of
+// the diff preview and the list's keyboard cursor. File rows also handle
+// dragging, so their pointer clicks do not reach the list's built-in
+// selection handler. Rows of another list than row i's are let go.
 func (a *gitContext) selectScmRow(i int, mods ui.Modifiers) {
 	s := a.scm
 	rows := a.scmRows()
-	if i < 0 || i >= len(rows) || !rows[i].file() {
+	if i < 0 || i >= len(rows) || rows[i].choice() == "" {
 		return
 	}
 	r := rows[i]
+	list := r.choice()
 	anchor := -1
 	for j, row := range rows {
-		if row.key == s.anchor && row.file() {
+		if row.key == s.anchor && row.choice() == list {
 			anchor = j
 			break
+		}
+	}
+	for _, row := range rows {
+		if row.choice() != list {
+			s.selection.Remove(row.key)
 		}
 	}
 	switch {
 	case mods&ui.Shift != 0 && anchor >= 0:
 		s.selection.Clear()
 		for j := min(anchor, i); j <= max(anchor, i); j++ {
-			if rows[j].file() {
+			if rows[j].choice() == list {
 				s.selection.Add(rows[j].key)
 			}
 		}
@@ -989,17 +1157,57 @@ func (a *gitContext) selectScmRow(i int, mods ui.Modifiers) {
 	s.row = i
 }
 
+// scmInput takes Copy and Select All of the Edit menu while the list has
+// the keyboard: the menu, not the list, gets their keys, ⌘C and ⌘A.
+func (a *gitContext) scmInput(ev ui.InputEvent, rows []scmRow) bool {
+	if ev.Kind != ui.InputCommand {
+		return false
+	}
+	switch ev.Text {
+	case "copy":
+		return a.copyChosenCommits(rows)
+	case "selectAll":
+		a.scm.selectAll = true
+		return true
+	}
+	return false
+}
+
+// copyChosenCommits copies the short hashes of the commits chosen, one a
+// line in the order of the list, or of the commit of the row the cursor
+// is on when none are, and reports whether it copied any.
+func (a *gitContext) copyChosenCommits(rows []scmRow) bool {
+	s := a.scm
+	var hashes []string
+	for _, r := range rows {
+		if r.commit != nil && s.selection.Has(r.key) {
+			hashes = append(hashes, r.commit.Short())
+		}
+	}
+	if len(hashes) == 0 && s.row >= 0 && s.row < len(rows) && rows[s.row].commit != nil {
+		hashes = append(hashes, rows[s.row].commit.Short())
+	}
+	if len(hashes) == 0 {
+		return false
+	}
+	a.app.services.WriteClipboard(strings.Join(hashes, "\n"))
+	a.app.tell(note{message: locales.CopiedCommitHashes(len(hashes))})
+	return true
+}
+
 // scmCommit is the row of a commit of the history: its lanes of the
 // graph, who made it, its branches and tags, its subject, and how long
-// ago it was made. A click chooses row i and shows the commit's changes
-// in the preview tab, which Enter or a double click keeps.
-func (a *gitContext) scmCommit(c *ui.Context, i int, r scmRow, action *func()) {
+// ago it was made. A click chooses its row and shows the commit's changes
+// in the preview tab, which Enter or a double click keeps; Cmd and Shift
+// choose more commits with it.
+func (a *gitContext) scmCommit(c *ui.Context, r scmRow, action *func()) {
 	p := a.app.pal
 	cm := r.commit
 	g := a.git
 	unpushed := g.unpushed[cm.Hash]
 	head := g.status != nil && g.status.Head == cm.Hash
 	badges := refBadges(cm.Refs)
+	prs := a.prHeadsAt(cm.Hash)
 	tip := fmt.Sprintf("%s\n%s · %s · %s", cm.Subject, cm.Author, ago(cm.Time, time.Now()), cm.Short())
 	if unpushed {
 		tip += locales.ScmNotPushed()
@@ -1014,13 +1222,26 @@ func (a *gitContext) scmCommit(c *ui.Context, i int, r scmRow, action *func()) {
 		}
 		tip += "\n" + strings.Join(names, ", ")
 	}
+	for _, pr := range prs {
+		tip += "\n" + prHeadTip(pr)
+	}
 	indent := float32(6)
 	if r.at < 0 {
 		indent = scmPanelContentIndent(r.depth)
 	}
-	row := ui.Row(c).Grow(1).Gap(6).AlignItems(ui.Center).Height(22).Padding(0, 4, 0, indent).Tooltip(tip)
+	row := ui.Row(c).Grow(1).Gap(6).AlignItems(ui.Center).Height(scmRowHeight).Padding(0, 4, 0, indent)
+	if wait := scmScrollQuiet - c.Now().Sub(a.scm.scrolledAt); wait > 0 {
+		c.After(wait)
+	} else {
+		row.Tooltip(tip)
+	}
+	a.scmFade(c, row, r.key)
+	if a.scm.selection.Has(r.key) {
+		row.Background(p.active)
+	}
 	clicked := row.Clicked()
 	row.ContextMenu(func(m *ui.Menu) { a.scmCommitMenu(m, cm, head, action) })
+	open := a.scm.openCommits[cm.Hash]
 	graph := a.historyGraph()
 	var gr *graphRow
 	if r.at >= 0 && r.at < len(graph) {
@@ -1029,6 +1250,17 @@ func (a *gitContext) scmCommit(c *ui.Context, i int, r scmRow, action *func()) {
 	lanes := min(graphLanes(graph), graphMaxLanes)
 	row.Children(func() {
 		if r.at >= 0 {
+			// The arrow that shows the files of the commit under it.
+			label := locales.ScmShowCommitFiles()
+			if open {
+				label = locales.ScmHideCommitFiles()
+			}
+			b := ui.ButtonBase(c.Key("files:"+cm.Hash)).Size(12, 22).Shrink(0).Justify(ui.Center).AlignItems(ui.Center).
+				Label(label).Tooltip(label)
+			b.Children(func() { chevron(c, open).FontSize(12).TextColor(p.muted) })
+			if b.Clicked() {
+				*action = func() { a.toggleCommitOpen(*cm) }
+			}
 			ui.Box(c).Size(graphLaneW*float32(lanes-1)+12, 22).Shrink(0).Draw(func(pt *ui.Painter, b ui.Rect) {
 				if gr != nil {
 					a.app.paintGraphRow(pt, b, gr, cm, head)
@@ -1048,16 +1280,22 @@ func (a *gitContext) scmCommit(c *ui.Context, i int, r scmRow, action *func()) {
 		// the author.
 		lead := indent + 15 + 6
 		if r.at >= 0 {
-			lead += graphLaneW*float32(lanes-1) + 12 + 6
+			lead += 12 + 6 + graphLaneW*float32(lanes-1) + 12 + 6
 		}
-		shown, badgeW := a.app.badgeRoom(len(badges), indent-6, lead)
-		for i, bd := range badges {
-			if i == shown && len(badges) > shown {
-				ui.Text(c, fmt.Sprintf("+%d", len(badges)-i)).FontSize(10.5).TextColor(p.muted).Padding(0, 4).
+		// The pull requests whose head it is go first, then its refs.
+		n := len(prs) + len(badges)
+		shown, badgeW := a.app.badgeRoom(n, indent-6, lead)
+		for i := range n {
+			if i == shown && n > shown {
+				ui.Text(c, fmt.Sprintf("+%d", n-i)).FontSize(10.5).TextColor(p.muted).Padding(0, 4).
 					Height(16).Radius(4).Background(p.hover).Shrink(0)
 				break
 			}
-			a.app.refBadge(c, bd, lane, badgeW)
+			if i < len(prs) {
+				a.prHeadChip(c, cm.Hash, prs[i], lane, badgeW, action)
+				continue
+			}
+			a.app.refBadge(c, badges[i-len(prs)], lane, badgeW)
 		}
 		col := p.text
 		switch {
@@ -1074,11 +1312,17 @@ func (a *gitContext) scmCommit(c *ui.Context, i int, r scmRow, action *func()) {
 		ui.Text(c, shortAgo(cm.Time, time.Now())).FontSize(11).TextColor(p.faint).Shrink(0).Padding(0, 2, 0, 0)
 	})
 	if clicked && *action == nil {
+		mods := row.ClickModifiers()
 		*action = func() {
-			a.scm.selection.Clear()
-			a.scm.anchor = ""
-			a.scm.row = i
-			a.previewCommit(*cm)
+			for i, row := range a.scmRows() {
+				if row.key == r.key {
+					a.selectScmRow(i, mods)
+					break
+				}
+			}
+			if mods&(ui.Cmd|ui.Shift) == 0 {
+				a.previewCommit(*cm)
+			}
 		}
 	}
 }
@@ -1362,7 +1606,7 @@ func (a *gitContext) toggleAllBranches() {
 // scmMore is the row after the commits of the history, which reads more.
 func (a *gitContext) scmMore(c *ui.Context, action *func()) {
 	p := a.app.pal
-	row := ui.Row(c).Grow(1).Height(22).Padding(0, 0, 0, 24).AlignItems(ui.Center)
+	row := ui.Row(c).Grow(1).Height(scmRowHeight).Padding(0, 0, 0, 24).AlignItems(ui.Center)
 	hovered, clicked := row.Hovered(), row.Clicked()
 	row.Children(func() {
 		col := p.muted
@@ -1419,7 +1663,8 @@ func (a *app) scmGuides(row ui.Element, depth int) {
 func (a *gitContext) scmFolder(c *ui.Context, r scmRow, action *func()) {
 	p := a.app.pal
 	closed := a.scm.closedDirs[r.key]
-	row := ui.Row(c).Grow(1).Gap(4).AlignItems(ui.Center).Height(22).Padding(0, 0, 0, treeIndent(r.depth))
+	row := ui.Row(c).Grow(1).Gap(4).AlignItems(ui.Center).Height(scmRowHeight).Padding(0, 0, 0, treeIndent(r.depth))
+	a.scmFade(c, row, r.key)
 	a.app.scmGuides(row, r.depth)
 	hovered, clicked := row.Hovered(), row.Clicked()
 	row.Children(func() {
@@ -1538,6 +1783,32 @@ func (a *gitContext) scmMenu(m *ui.Menu) {
 		a.app.post(func() { a.discard(append(groups[groupChanges], groups[groupUntracked]...)...) })
 	}
 	m.Separator()
+	if m.Item(locales.CmdGitStash()).Disabled(!a.canStash(false)).Chosen() {
+		a.app.post(func() { a.askStash(false) })
+	}
+	if m.Item(locales.CmdGitStashUntracked()).Disabled(!a.canStash(true)).Chosen() {
+		a.app.post(func() { a.askStash(true) })
+	}
+	if len(g.stashes) == 0 {
+		m.Item(locales.ScmStashes()).Disabled(true)
+	} else {
+		m.Submenu(locales.ScmStashes(), a.stashMenu)
+	}
+	m.Separator()
+	if g.ghOK {
+		if pr := a.currentPR(); pr != nil {
+			if m.Item(locales.PrOpenChanges()).Chosen() {
+				a.app.post(func() { a.openPullRequest(pr.Number) })
+			}
+			if m.Item(locales.PrShowChecks()).Disabled(pr.Checks == git.ChecksNone).Chosen() {
+				a.app.post(a.openChecks)
+			}
+		}
+		if m.Item(locales.CmdGitOpenPullRequest()).Chosen() {
+			a.app.post(a.openPRPicker)
+		}
+		m.Separator()
+	}
 	if m.Item(locales.CmdGitFetch()).Disabled(g.busy != "").Chosen() {
 		a.app.post(a.fetch)
 	}
@@ -1606,6 +1877,9 @@ func (a *gitContext) chooseScmFile(f *diffFile) {
 	for i, r := range a.scm.rows {
 		if !r.header && r.e.Path == f.path && (r.group == groupStaged) == (f.base == diffStaged) {
 			a.scm.row = i
+			if a.scm.section == scmChanges {
+				a.app.repositories.cursor = a.git.repo.Root + ":" + r.key
+			}
 			return
 		}
 	}
@@ -1808,14 +2082,14 @@ func (a *gitContext) startAmend() {
 		return
 	}
 	r := g.repo
-	go func() {
+	bg.Go(func() {
 		msg := r.LastMessage()
 		a.app.post(func() {
 			if g.repo == r && g.amend && strings.TrimSpace(g.message) == "" {
 				g.message = msg
 			}
 		})
-	}()
+	})
 }
 
 // undoCommit takes back the last commit, keeping its changes staged and
@@ -1941,7 +2215,7 @@ func (a *app) initRepo() {
 		return
 	}
 	root := a.root
-	go func() {
+	bg.Go(func() {
 		err := git.Init(root)
 		a.post(func() {
 			if err != nil {
@@ -1953,7 +2227,7 @@ func (a *app) initRepo() {
 				a.ignoredStale = true
 			}
 		})
-	}()
+	})
 }
 
 // showExplorer shows the files in the sidebar.
@@ -1979,34 +2253,128 @@ func (a *app) activePaths() []string {
 	return nil
 }
 
+// scmWorktreeMinW and scmBranchMinW are the least widths of the worktree and
+// branch buttons: an icon with its padding, and for the branch its chevron and
+// the gaps, the names shrinking to nothing. They decide whether the pull
+// request badge shows whole, so a long name does not push it to its number.
+const (
+	scmWorktreeMinW = 30
+	scmBranchMinW   = 46
+)
+
+// scmRemoteRowW is the narrowest source control row that keeps the fetch, pull
+// and push buttons beside the branch when they show no counts: their three
+// buttons and the worktree and branch buttons' least widths, with the gaps
+// between them, need about 175 DIP.
+const scmRemoteRowW = 180
+
 // scmBranchRow is the row at the top of the source control view: the
 // branch, which a click switches, and the buttons of its remote, which
 // say how far it is ahead and behind.
 func (a *gitContext) scmBranchRow(c *ui.Context) {
-	p := a.app.pal
-	ui.Row(c).Height(30).Padding(0, 8, 0, 8).Gap(2).AlignItems(ui.Center).Children(func() {
-		branch := a.branch()
-		if branch == "" {
-			branch = locales.NoBranch()
+	row := ui.Row(c).Height(30).Padding(0, 8, 0, 8).Gap(2).AlignItems(ui.Center)
+	width := row.Bounds().W
+	row.Children(func() {
+		a.scmWorktreeButton(c, false)
+		a.scmBranchButton(c, false)
+		// The badge shows its number alone when the whole badge would leave no
+		// room beside the worktree and branch buttons at their least width: a
+		// long name shrinks to make room for it, so it does not decide.
+		short := false
+		if pr := a.currentPR(); pr != nil {
+			full, _ := c.MeasureText(0, ui.Span{Text: prBadgeLabel(pr), Size: 11.5})
+			full += 2*6 + 2
+			if pr.Checks != git.ChecksNone {
+				full += 12 + 5
+			}
+			short = width-2*8-scmWorktreeMinW-scmBranchMinW-2*2 < full
 		}
-		b := ui.ButtonBase(c.Key("scm-branch")).Height(24).Padding(0, 6).Gap(5).Radius(5).AlignItems(ui.Center).
-			Shrink(1).Label(locales.BranchLabel(branch)).Tooltip(locales.CmdGitSwitchBranch()).Disabled(a.git.busy != "")
-		col := p.text
-		if b.Hovered() || b.Pressed() {
-			b.Background(p.hover)
-		}
-		b.Transition(hoverFade)
-		b.Children(func() {
-			ui.Icon(c, iconBranch).FontSize(13).TextColor(p.muted)
-			ui.Text(c, branch).FontSize(12.5).FontWeight(500).TextColor(col).SingleLine().Shrink(1)
-			ui.Icon(c, iconChevronDown).FontSize(11).TextColor(p.faint)
-		})
-		if b.Clicked() {
-			a.openBranchPicker()
+		// The badge takes the room of its own, as last frame measured it.
+		need := a.remoteRowNeed(c)
+		if badge := a.prBadge(c, false, short); badge != nil {
+			need += badge.Bounds().W + 2
 		}
 		ui.Spacer(c)
-		a.scmActions(c)
+		// A narrow row keeps fetch, pull and push in the menu of the view's
+		// title, which has all three; publish stays, as the menu lacks it.
+		st := a.git.status
+		if width >= need || st != nil && st.Branch != "" && st.Upstream == "" {
+			a.scmActions(c)
+		}
 	})
+}
+
+// remoteRowNeed is the width the row needs to keep fetch, pull and push
+// beside the branch: scmRemoteRowW without counts, and the width of each
+// non-zero count with the gap before it.
+func (a *gitContext) remoteRowNeed(c *ui.Context) float32 {
+	need := float32(scmRemoteRowW)
+	st := a.git.status
+	if st == nil {
+		return need
+	}
+	for _, n := range []int{st.Behind, st.Ahead} {
+		if n > 0 {
+			w, _ := c.MeasureText(0, ui.Span{Text: fmt.Sprint(n), Size: 11.5, Weight: 600})
+			need += w + 3
+		}
+	}
+	return need
+}
+
+// scmBranchButton also fits in a multi-repository header.
+func (a *gitContext) scmBranchButton(c *ui.Context, compact bool) {
+	p := a.app.pal
+	branch := a.branch()
+	if branch == "" {
+		branch = locales.NoBranch()
+	}
+	b := ui.ButtonBase(c.Key("scm-branch")).Height(24).Padding(0, 6).Gap(5).Radius(5).AlignItems(ui.Center).
+		Shrink(1).Label(locales.BranchLabel(branch)).Tooltip(locales.CmdGitSwitchBranch()).Disabled(a.git.busy != "")
+	size := float32(12.5)
+	if compact {
+		b.MaxWidth(100).Shrink(2)
+		size = 11
+	}
+	col := p.text
+	if b.Hovered() || b.Pressed() {
+		b.Background(p.hover)
+	}
+	b.Transition(hoverFade)
+	b.Children(func() {
+		ui.Icon(c, iconBranch).FontSize(13).TextColor(p.muted)
+		ui.Text(c, branch).FontSize(size).FontWeight(500).TextColor(col).SingleLine().Shrink(1)
+		ui.Icon(c, iconChevronDown).FontSize(11).TextColor(p.faint)
+	})
+	if b.Clicked() {
+		a.openBranchPicker()
+	}
+}
+
+// scmWorktreeButton is the folder of this repository's work tree, which a click
+// opens the box of the worktrees for. It names a linked worktree's folder, and
+// shows its icon alone otherwise, or when compact. It belongs to this
+// repository, not the selected one, so the box it opens does too.
+func (a *gitContext) scmWorktreeButton(c *ui.Context, compact bool) {
+	p := a.app.pal
+	name := filepath.Base(a.git.repo.Root)
+	tip := locales.WorktreeStatusTip(name)
+	b := ui.ButtonBase(c.Key("scm-worktree")).Height(24).Padding(0, 6).Gap(5).Radius(5).AlignItems(ui.Center).
+		Shrink(1).Label(tip).Tooltip(tip).Disabled(a.git.busy != "")
+	if b.Hovered() || b.Pressed() {
+		b.Background(p.hover)
+	}
+	b.Transition(hoverFade)
+	linked := a.git.repo.Dir != a.git.repo.Common
+	b.Children(func() {
+		ui.Icon(c, iconFolderGit).FontSize(13).TextColor(p.muted)
+		if linked && !compact {
+			ui.Text(c, name).FontSize(12.5).FontWeight(500).TextColor(p.text).SingleLine().Shrink(1).MinWidth(0)
+		}
+	})
+	if b.Clicked() {
+		a.openWorktreePicker()
+	}
 }
 
 // scmActions are the buttons of the branch's remote: fetching, and

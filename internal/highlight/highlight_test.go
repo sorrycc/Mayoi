@@ -34,6 +34,21 @@ func TestLexSplitsTokensByLine(t *testing.T) {
 	}
 }
 
+func TestVueDirectiveOverLines(t *testing.T) {
+	src := "<template>\n  <div\n    v-if=\"\n      a &&\n      !b\n    \"\n    class=\"hint\"\n  >\n    text\n  </div>\n</template>\n"
+	lines := Lex(Lexer("x.vue"), src)
+	// class after the wrapped value is an attribute, not more of its string.
+	if got := lines[6].Tokens; len(got) == 0 || got[0] != (Token{4, 9, Attribute}) {
+		t.Errorf("class line tokens %v", got)
+	}
+	if !slices.Contains(lines[9].Tokens, Token{4, 7, Tag}) {
+		t.Errorf("closing div tokens %v", lines[9].Tokens)
+	}
+	if Name(Lexer("x.vue")) != "vue" {
+		t.Errorf("lexer %q", Name(Lexer("x.vue")))
+	}
+}
+
 func TestPlainText(t *testing.T) {
 	if Lexer("notes.unknownext") != nil {
 		t.Error("lexer for an unknown extension")
@@ -300,5 +315,39 @@ func TestLanguageNames(t *testing.T) {
 		if got := DisplayName(Lexer(name)); got != want {
 			t.Errorf("%s is %s, want %s", name, got, want)
 		}
+	}
+}
+
+// A large file scrolled has the lines below the view lexed again before
+// they show.
+func TestHighlighterLexesAhead(t *testing.T) {
+	var lines []string
+	for len(lines) <= WholeFile {
+		lines = append(lines, strings.Split(relexSamples["x.go"], "\n")...)
+	}
+	passes := make(chan struct{}, 8)
+	h := New(Lexer("x.go"), func() { passes <- struct{}{} })
+	defer h.Close()
+	pass := func() {
+		select {
+		case <-passes:
+		case <-time.After(5 * time.Second):
+			t.Fatal("no pass")
+		}
+	}
+	src := newSource(lines, 1)
+	h.Request(src, 1000, 1040)
+	pass()
+	h.mu.Lock()
+	end := h.first + len(h.lines) - 1
+	h.mu.Unlock()
+	// The view's last line nearer the end of those lexed than Ahead.
+	last := end - Ahead + 1
+	h.Request(src, last-40, last)
+	pass()
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if got := h.first + len(h.lines) - 1; got < last+Ahead {
+		t.Errorf("lexed up to line %d, not %d past the view's %d", got, Ahead, last)
 	}
 }

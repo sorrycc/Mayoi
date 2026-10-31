@@ -7,9 +7,15 @@ area, so every column showing a file shares its text and history. This page walk
 
 ## Windows and commands
 
-**`main.go`, `cli.go`.** These manage the windows. Folders and files reach the app in two ways. The `mayoi` script hands
-them to `open` with the app's identifier, and a second Mayoi started with paths passes them on and exits. Each folder
-goes to the window that already has it, or to a new one. A file goes to the window whose folder contains it.
+**`main.go`, `ipc.go`, `internal/cli`.** These manage the windows. Folders and files reach the app in three ways. The
+`mayoi` command is the app's own executable, which on macOS the installed script runs with `MAYOI_CLI` set, and which
+on Linux is the command itself: it reads its options (`cli.Parse`), and sends them as JSON over a Unix socket in the
+data folder, which the running app listens on, to `serve` on the main thread. The reply is what to print, or what went
+wrong, and with `--wait` it comes once the files are closed. With no app running, the command starts it, and sends what
+it asked once the app answers; folders and files alone go to the app as it starts, as the Finder's do. The Finder hands
+the app folders and files to open, and a second Mayoi started with paths passes them on and exits. Each folder goes to
+the window that already has it, or to a new one. A file goes to the window whose folder contains it, and a command to
+the project whose folder contains the directory it ran in.
 
 **`projects.go`.** A `frame` is a native window, and a `desktop` a project in it, with its own `app`. A window
 holds one project, or with project tabs every one, which a rail on its left chooses among. Only the project shown is
@@ -226,11 +232,11 @@ match, then reads those and matches them here, as it does local files, so that b
 ## Theme
 
 **`theme.go`.** The palettes for the window, the code and the terminal: Mayoi's own light and
-dark, and the other themes that the `theme` setting names: The Matrix, which makes the native window dark whatever the
-`appearance` setting is, and Claude and Qoder, which have a light and a dark palette and are as the appearance is. `rain.go` paints The Matrix's digital rain behind the welcome page,
+dark, and the other themes that the `theme` setting names: The Matrix, Purple Gold and the Halloween themes, which make the native window dark whatever the
+`appearance` setting is, and Claude, Qoder, Grok Bot and Cursor, which have a light and a dark palette and are as the appearance is. `rain.go` paints The Matrix's digital rain behind the welcome page,
 worked out from the time alone, a step every 70 ms. `mascot.go` places a theme's character on the welcome page and in
 the status bar, its pose also worked out from the time, asking for a frame only when the pose next changes: `clawd.go`
-paints Claude's from cells, and `qoduck.go` Qoder's duck from vector shapes. It also styles what floats over
+paints Claude's from cells, `qoduck.go` Qoder's duck from vector shapes, `grokbot.go` Grok Bot's face from them too, and `halloween.go` the Halloween themes' pumpkin, cauldron and bat from cells; Cursor and Purple Gold have none. It also styles what floats over
 the window, dialogs and the boxes over an editor, and fades them in as they show.
 
 ## Performance

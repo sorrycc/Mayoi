@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"mayoi/internal/bg"
 	"mayoi/internal/git"
 	"mayoi/locales"
 
@@ -118,7 +119,7 @@ func (a *gitContext) refreshScmPanels() {
 			openRemotes[strings.TrimPrefix(key, "panel:remote:")] = true
 		}
 	}
-	go func() {
+	bg.Go(func() {
 		defer recoverCrash()
 		branches, err := repo.PanelBranches()
 		var remotes []git.Remote
@@ -156,7 +157,7 @@ func (a *gitContext) refreshScmPanels() {
 			}
 			p.gen++
 		})
-	}()
+	})
 }
 
 func panelRef(b git.Branch) string {
@@ -179,7 +180,7 @@ func (a *gitContext) panelLog(key, from, to string) *scmPanelLog {
 	l.loading, l.request = true, p.request
 	repo, token := p.repo, p.request
 	n := l.n
-	go func() {
+	bg.Go(func() {
 		defer recoverCrash()
 		var commits []git.Commit
 		var err error
@@ -209,7 +210,7 @@ func (a *gitContext) panelLog(key, from, to string) *scmPanelLog {
 			}
 			p.gen++
 		})
-	}()
+	})
 	return l
 }
 
@@ -240,8 +241,7 @@ func (a *gitContext) scmPanelRows(rows []scmRow) []scmRow {
 		}
 		rows = append(rows, panelRow(kind, key+":status", label, p.err, depth))
 	}
-	var addLog func(key, from, to string, depth int)
-	addLog = func(key, from, to string, depth int) {
+	addLog := func(key, from, to string, depth int) {
 		l := a.panelLog(key, from, to)
 		switch {
 		case l.loading && !l.loaded:
@@ -750,7 +750,7 @@ func (a *gitContext) editPanelRemote(name string, push bool) {
 	if repo == nil {
 		return
 	}
-	go func() {
+	bg.Go(func() {
 		remote, err := repo.RemoteURLs(name)
 		a.app.post(func() {
 			if a.git.repo != repo {
@@ -762,7 +762,7 @@ func (a *gitContext) editPanelRemote(name string, push bool) {
 			}
 			a.askPanelRemote(&remote, push)
 		})
-	}()
+	})
 }
 
 func (a *gitContext) askPanelRemote(remote *git.Remote, push bool) {

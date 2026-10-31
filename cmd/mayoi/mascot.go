@@ -6,9 +6,10 @@ import (
 	"github.com/egoist/mygo/ui"
 )
 
-// A theme's character, Clawd in Claude and Qoduck in Qoder, takes the
-// logo's place on the welcome page and sits at the start of the status
-// bar. It blinks now and then and bobs once in a while, and while Git or
+// A theme's character, Clawd in Claude, Qoduck in Qoder, Grok Bot's face
+// in Grok Bot, and Jack, a cauldron and a bat in the Halloween themes,
+// takes the logo's place on the welcome page and sits at the start of the
+// status bar. It blinks now and then and bobs once in a while, and while Git or
 // search works in the background it hops, in place of the Git spinner.
 // Like the rain, it steps rather than glides, and holds still while the
 // window has not the keyboard or the desktop asks for less motion.
@@ -19,23 +20,45 @@ type mascot struct {
 	// size is its size drawn in cells of a width, with the headroom of
 	// its hop over it.
 	size func(cell float32) (w, h float32)
-	// draw paints it in r, centered, in cells of a width, in a pose, on
-	// bg.
-	draw func(a *app, pt *ui.Painter, r ui.Rect, cell float32, bg ui.Color, p mascotPose)
+	// draw paints it in the colors of pal, in r, centered, in cells of a
+	// width, in a pose, on bg.
+	draw func(pal *palette, pt *ui.Painter, r ui.Rect, cell float32, bg ui.Color, p mascotPose)
 }
 
 var (
-	clawd  = &mascot{name: "Claude", size: clawdSize, draw: (*app).drawClawd}
-	qoduck = &mascot{name: "Qoder", size: qoduckSize, draw: (*app).drawQoduck}
+	clawd   = &mascot{name: "Claude", size: clawdSize, draw: drawClawd}
+	qoduck  = &mascot{name: "Qoder", size: qoduckSize, draw: drawQoduck}
+	grokBot = &mascot{name: "Grok Bot", size: grokBotSize, draw: drawGrokBot}
+
+	jack     = &mascot{name: "Jack-o'-Lantern", size: jackSize, draw: drawJack}
+	cauldron = &mascot{name: "Witch's Brew", size: cauldronSize, draw: drawCauldron}
+	bat      = &mascot{name: "Blood Moon", size: batSize, draw: drawBat}
+
+	corona = &mascot{name: "Corona", size: coronaSize, draw: drawCorona}
 )
 
 // themeMascot returns the character of the window's theme, or nil.
 func (a *app) themeMascot() *mascot {
-	switch a.settings.Theme {
+	return themeMascotOf(a.settings.Theme)
+}
+
+// themeMascotOf returns the character of a theme of the settings, or nil.
+func themeMascotOf(theme string) *mascot {
+	switch theme {
 	case themeClaude:
 		return clawd
 	case themeQoder:
 		return qoduck
+	case themeGrokBot:
+		return grokBot
+	case themePumpkin:
+		return jack
+	case themeWitchsBrew:
+		return cauldron
+	case themeBloodMoon:
+		return bat
+	case themePurpleGold:
+		return corona
 	}
 	return nil
 }
@@ -46,6 +69,9 @@ const (
 	mascotBobAt  = 2100 * time.Millisecond // into every third period
 	mascotBob    = 260 * time.Millisecond
 	mascotHop    = 130 * time.Millisecond // a step of the hop
+	// A glance, each way, into every third period but the bob's.
+	mascotGlanceAt = 1800 * time.Millisecond
+	mascotGlance   = 520 * time.Millisecond
 )
 
 // mascotState is how the character is: moving whether the last paint
@@ -55,11 +81,13 @@ type mascotState struct {
 }
 
 // mascotPose is a moment of the character's: the eyes shut, the body
-// lifted by a part of its headroom, and which step of the hop.
+// lifted by a part of its headroom, which step of the hop, and where the
+// eyes look, -1 to the left, 1 to the right, for a character that glances.
 type mascotPose struct {
 	blink bool
 	lift  float32
 	step  int
+	look  int
 }
 
 // poseAt returns the character's pose at a moment, and how long it holds.
@@ -83,6 +111,17 @@ func poseAt(now time.Time, busy bool) (mascotPose, time.Duration) {
 		marks = []int64{mascotBlink.Milliseconds(), at, end, period}
 		if in >= at && in < end {
 			p.lift = 0.5
+		}
+	case n%3 == 2:
+		// A glance to the left, then to the right.
+		at, mid := mascotGlanceAt.Milliseconds(), (mascotGlanceAt + mascotGlance).Milliseconds()
+		end := mid + mascotGlance.Milliseconds()
+		marks = []int64{mascotBlink.Milliseconds(), at, mid, end, period}
+		switch {
+		case in >= at && in < mid:
+			p.look = -1
+		case in >= mid && in < end:
+			p.look = 1
 		}
 	}
 	for _, m := range marks {
@@ -110,7 +149,7 @@ func (a *app) drawMascot(pt *ui.Painter, m *mascot, r ui.Rect, cell float32, bg 
 		p, hold = poseAt(pt.Now(), busy)
 		pt.After(hold)
 	}
-	m.draw(a, pt, r, cell, bg, p)
+	m.draw(a.pal, pt, r, cell, bg, p)
 }
 
 // mascotStill reports whether the character holds still in the window

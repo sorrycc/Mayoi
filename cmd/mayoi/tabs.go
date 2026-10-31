@@ -78,11 +78,14 @@ func (a *app) tabStrip(c *ui.Context, col *column) {
 					_, over := ui.DragOver[dragItem](tab)
 					over = over || tab.FileDragOver()
 					hovered := tab.Hovered()
+					under := p.chrome
 					switch {
 					case active:
-						tab.Background(p.editor)
+						under = p.editor
+						tab.Background(under)
 					case hovered:
-						tab.Background(mix(p.chrome, p.editor, 0.5))
+						under = mix(p.chrome, p.editor, 0.5)
+						tab.Background(under)
 					}
 					if tab.Pressed() && a.middle != t && (!active || !focused) {
 						a.activate(col, i, true)
@@ -112,11 +115,16 @@ func (a *app) tabStrip(c *ui.Context, col *column) {
 							if focused {
 								line = p.accent
 							}
-							ui.Box(c.Key("line")).Absolute().Top(0).Left(0).Right(0).Height(2).Background(line).
+							l := ui.Box(c.Key("line")).Absolute().Top(0).Left(0).Right(0).Height(2).Background(line).
 								Transition(ui.ElementTransition{Animation: &ui.Snappy, Match: tabLine{col.id}})
+							if focused && p.gilt.A != 0 {
+								l.Draw(func(pt *ui.Painter, r ui.Rect) { drawGilt(pt, r, p) })
+							}
 						}
 						icon, tint := iconTerminal, p.muted
 						switch {
+						case t.diff != nil && t.diff.commit != nil && t.diff.commit.pr != nil:
+							icon, tint = iconPullRequest, p.accent
 						case t.diff != nil && t.diff.commit != nil:
 							icon, tint = iconCommit, p.accent
 						case t.diff != nil:
@@ -124,7 +132,11 @@ func (a *app) tabStrip(c *ui.Context, col *column) {
 						case t.term == nil:
 							icon, tint = fileIcon(p, t.name())
 						}
-						ui.Icon(c, icon).FontSize(14).TextColor(tint)
+						if t.term != nil {
+							a.termIcon(c, t.term, 14, tint, under)
+						} else {
+							ui.Icon(c, icon).FontSize(14).TextColor(tint)
+						}
 						name := ui.Text(c, t.name()).FontSize(12.5).SingleLine().MaxWidth(220)
 						if t.transient {
 							// A preview, which the next file chosen replaces.
@@ -140,7 +152,7 @@ func (a *app) tabStrip(c *ui.Context, col *column) {
 						}
 						// The dot of unsaved changes turns into the cross under the
 						// pointer.
-						x := ui.ButtonBase(c).Size(18, 18).Radius(4).Justify(ui.Center).AlignItems(ui.Center).Label(locales.CloseName(t.name()))
+						x := ui.ButtonBase(c).Size(18, 18).Radius(4).Justify(ui.Center).AlignItems(ui.Center).Label(t.closeLabel())
 						if x.Hovered() {
 							x.Background(p.hover)
 						}
@@ -260,6 +272,7 @@ func (a *app) tabMenu(m *ui.Menu, col *column, t *colTab, closing **colTab) {
 		if m.Item(locales.MoveToPanel()).Chosen() {
 			a.post(func() { a.terminalToPanel(t.term) })
 		}
+		a.hcMenu(m, t.term)
 		return
 	}
 	m.Separator()
@@ -290,7 +303,19 @@ func (a *app) tabMenu(m *ui.Menu, col *column, t *colTab, closing **colTab) {
 		a.host.reveal(path)
 	}
 	if m.Item(locales.CopyPath()).Disabled(path == "").Chosen() {
-		a.services.WriteClipboard(hostPath(path))
+		a.copyPath(path, false)
+	}
+	if m.Item(locales.CopyRelativePath()).Disabled(path == "").Chosen() {
+		a.copyPath(path, true)
+	}
+	if path != "" && a.repositoryForPath(path).git.repo != nil {
+		m.Separator()
+		if m.Item(locales.CmdGitOpenFileOnRemote()).Chosen() {
+			a.post(func() { a.fileOnRemote(path, t.ed, false) })
+		}
+		if m.Item(locales.CmdGitCopyPermalink()).Chosen() {
+			a.post(func() { a.fileOnRemote(path, t.ed, true) })
+		}
 	}
 }
 

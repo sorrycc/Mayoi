@@ -89,11 +89,11 @@ func (a *app) rowUnder(v *diffView, x, y float32, l diffGeometry) int {
 	return v.rowAt(y, a.font.lineH)
 }
 
-// diffViewUI shows a diff: its rows painted in a pane that scrolls both
+// diffPaneUI shows a diff: its rows painted in a pane that scrolls both
 // ways, keeping the line numbers in place, or down only as its lines wrap.
 // While its writable side is edited, the edits run first, as a frame is
 // built.
-func (a *app) diffViewUI(c *ui.Context, v *diffView) {
+func (a *app) diffPaneUI(c *ui.Context, v *diffView) {
 	p, f := a.pal, a.font
 	a.refreshDiff(v)
 	a.runDiffEdits(v, v.pane.FocusWithin(c))
@@ -233,6 +233,9 @@ func (a *app) diffViewUI(c *ui.Context, v *diffView) {
 		if v.cursor >= first && v.cursor <= last {
 			at = v.cursor
 		}
+		if at >= 0 && v.commit != nil {
+			v.tree.top = v.files[rows[at].file]
+		}
 		if at >= 0 {
 			if fl := v.files[rows[at].file]; fl != v.synced && v.commit == nil {
 				v.synced = fl
@@ -304,7 +307,7 @@ func (a *app) diffViewUI(c *ui.Context, v *diffView) {
 			}
 			return 0
 		}
-		var arrowRects []ui.Rect
+		var arrowRects, viewedRects []ui.Rect
 		glow := map[int]float32{}
 		box.Children(func() {
 			if card != nil && first == 0 && rows[0].kind == rowCommit {
@@ -322,6 +325,7 @@ func (a *app) diffViewUI(c *ui.Context, v *diffView) {
 				buttons = a.fileButtons(c, v, v.files[rows[i].file], v.scroll.X+view.W, y)
 				buttonRow = i
 			}
+			viewedRects = a.viewedMarks(c, v, first, last, sticky, stickyY, v.scroll.X+view.W)
 			// The cards of the notes in view.
 			for i := first; i <= last; i++ {
 				if rows[i].kind != rowComment {
@@ -409,7 +413,8 @@ func (a *app) diffViewUI(c *ui.Context, v *diffView) {
 		// click opens the file at a line, unless its first click did that.
 		// Shift chooses the rows from the one chosen to it.
 		arrowed := func(x, y float32) bool {
-			return slices.ContainsFunc(arrowRects, func(r ui.Rect) bool { return r.Contains(x, y) })
+			in := func(r ui.Rect) bool { return r.Contains(x, y) }
+			return slices.ContainsFunc(arrowRects, in) || slices.ContainsFunc(viewedRects, in)
 		}
 		if clicked, double := box.Clicked(), box.DoubleClicked(); clicked || double {
 			if x, y, ok := box.PointerPosition(); ok && len(rows) > 0 && !buttons.Contains(x, y) && !hunkButtons.Contains(x, y) && !cardRect.Contains(x, y) &&
@@ -766,11 +771,79 @@ func uiText(pt *ui.Painter, x, y, h float32, s string, size float32, weight int,
 // counts start, as it paints them: the lines added and removed and the
 // bar of blocks after them.
 func (a *app) fileHeaderRight(f *diffFile) float32 {
+	right := float32(18)
+	if f.prPath != "" {
+		right += a.viewedW
+	}
 	if !f.loaded || f.binary {
-		return 18
+		return right
 	}
 	add, del := f.counts()
-	return 18 + float32(len([]rune(fmt.Sprintf("+%d −%d", add, del))))*a.font.charW + 10 + diffStatBlocks*8
+	return right + float32(len([]rune(fmt.Sprintf("+%d −%d", add, del))))*a.font.charW + 10 + diffStatBlocks*8
+}
+
+// viewedMarks are the boxes of the headers in view of the files of a pull
+// request's diff, rows first to last and the header that sticks at the
+// top, which mark a file viewed on GitHub; their right is at right. It
+// returns where they are.
+func (a *app) viewedMarks(c *ui.Context, v *diffView, first, last, sticky int, stickyY, right float32) []ui.Rect {
+	pr := v.commit
+	if pr == nil || pr.pr == nil {
+		return nil
+	}
+	p, lineH := a.pal, a.font.lineH
+	label := locales.PrViewed()
+	tw, _ := c.MeasureText(0, ui.Span{Text: label, Size: 11.5})
+	// The box, its label and its padding, and the gap before the counts.
+	a.viewedW = 12 + 5 + tw + 2*6 + 8
+	var rects []ui.Rect
+	rows := v.rows
+	mark := func(i int, y float32) {
+		f := v.files[rows[i].file]
+		if f.prPath == "" {
+			return
+		}
+		on, ok := v.fileViewed(f), pr.pr.viewedOK && !pr.pr.marking[f.prPath]
+		w := a.viewedW - 8
+		r := ui.Rect{X: right - 18 - w, Y: y, W: w, H: lineH}
+		rects = append(rects, r)
+		b := ui.ButtonBase(c.Key("viewed:"+f.path)).Absolute().Left(r.X).Top(y+(lineH-20)/2).Width(w).Height(20).
+			Padding(0, 6).Gap(5).Radius(4).AlignItems(ui.Center).Role(ui.RoleCheckBox).Label(label).Checked(on).Disabled(!ok)
+		if b.Hovered() && ok {
+			b.Background(p.hover)
+		}
+		b.Transition(hoverFade)
+		b.Children(func() {
+			box := ui.Box(c).Size(12, 12).Radius(3).BorderWidth(1, 1, 1, 1).BorderColor(p.muted).Justify(ui.Center).AlignItems(ui.Center).Shrink(0)
+			if on {
+				box.Background(p.fill).BorderColor(p.fill)
+			}
+			box.Children(func() {
+				if on {
+					ui.Icon(c, iconCheck).FontSize(10).TextColor(p.fillText)
+				}
+			})
+			col := p.muted
+			if on {
+				col = p.text
+			}
+			ui.Text(c, label).FontSize(11.5).TextColor(col).SingleLine()
+		})
+		if b.Clicked() && ok {
+			a.post(func() { a.toggleViewed(v, f) })
+		}
+	}
+	for i := max(first, 0); i <= last && i < len(rows); i++ {
+		y := editorPadY + float32(v.tops[i])*lineH
+		if rows[i].kind != rowFile || i == sticky || sticky >= 0 && y < stickyY+lineH {
+			continue
+		}
+		mark(i, y)
+	}
+	if sticky >= 0 && sticky < len(rows) && rows[sticky].kind == rowFile {
+		mark(sticky, stickyY)
+	}
+	return rects
 }
 
 // paintFileHeader paints the header of a file in the diff of every file:
@@ -990,7 +1063,9 @@ func (a *app) layOutCommitCard(c *ui.Context, v *diffView, w float32) *commitCar
 		return h
 	}
 	subject := info.Subject
-	if cm.from != "" {
+	if cm.pr != nil {
+		subject = cm.pr.name()
+	} else if cm.from != "" {
 		subject = locales.ChangesFromTo(a.diffContext(v).revisionLabel(cm.from), a.diffContext(v).revisionLabel(cm.hash))
 	}
 	k.subject = ui.Span{Text: subject, Size: 15, Weight: 600, Color: p.text}
@@ -1027,6 +1102,56 @@ func (a *app) layOutCommitCard(c *ui.Context, v *diffView, w float32) *commitCar
 		}}
 	}
 	var pieces []cardPiece
+	if pr := cm.pr; pr != nil {
+		button := func(key, s string, fn func()) cardPiece {
+			span := label(s, 500, p.accent)
+			return cardPiece{w: measure(span) + 12, dot: true, show: func() {
+				b := ui.ButtonBase(c.Key(key)).Height(18).Padding(0, 6).Radius(5).AlignItems(ui.Center).Shrink(0).Label(s)
+				if b.Hovered() {
+					b.Background(p.accent.Alpha(0.12))
+				}
+				if b.Clicked() {
+					a.post(fn)
+				}
+				b.Transition(hoverFade)
+				b.Children(func() { ui.RichText(c, span).SingleLine() })
+			}}
+		}
+		if in := pr.info; in != nil {
+			state, col := locales.PrOpen(), p.addedFg
+			switch {
+			case in.State == "MERGED":
+				state, col = locales.PrMerged(), p.accent
+			case in.State == "CLOSED":
+				state, col = locales.PrClosed(), p.dangerFg
+			case in.Draft:
+				state, col = locales.PrDraft(), p.muted
+			}
+			chip := label(state, 600, col)
+			pieces = append(pieces, cardPiece{w: measure(chip) + 12, show: func() {
+				ui.Row(c).Height(18).Padding(0, 6).Radius(5).AlignItems(ui.Center).Background(col.Alpha(0.14)).Shrink(0).Children(func() {
+					ui.RichText(c, chip).SingleLine()
+				})
+			}})
+			pieces = append(pieces, text(label(in.BaseRef+" ← "+in.HeadRef, 400, p.muted), true))
+		}
+		pieces = append(pieces, hashChip(cm.from, true), text(label("→", 400, p.muted), false), hashChip(cm.hash, false),
+			text(label(locales.CardFilesChanged(len(v.files)), 400, p.muted), true))
+		if pr.viewedOK && len(v.files) > 0 {
+			pieces = append(pieces, text(label(locales.PrViewedCount(fmt.Sprint(v.viewedCount()), fmt.Sprint(len(v.files))), 400, p.muted), true))
+		}
+		if pr.err != "" {
+			pieces = append(pieces, text(label(pr.err, 400, p.dangerFg), true))
+		}
+		if pr.newer {
+			pieces = append(pieces, text(label(locales.PrUpdated(), 500, p.modifiedFg), true), button("card-pr-reload", locales.PrReload(), func() { a.reloadPR(v) }))
+			pieces[len(pieces)-1].dot = false
+		}
+		if pr.info != nil && pr.info.URL != "" {
+			pieces = append(pieces, button("card-pr-open", locales.PrOpenOnGitHub(), func() { a.openPRInBrowser(v) }))
+		}
+		return a.finishCommitCard(c, v, k, w, pieces)
+	}
 	if cm.from != "" {
 		// A comparison: its two commits, and what changed between them.
 		pieces = append(pieces, hashChip(cm.from, false), text(label("→", 400, p.muted), false), hashChip(cm.hash, false),
@@ -1510,8 +1635,11 @@ func (a *app) paintDiffLine(pt *ui.Painter, file *diffFile, newSide bool, n, pee
 	}
 	text := clipLine(s.lines[n])
 	shown, at := expandTabs(text)
+	// The lines in view are painted every frame: their slices are the
+	// app's, kept from line to line.
+	sc := &a.diffScratch
 	// Where each row starts in shown, and ends.
-	breaks := []int{0}
+	breaks := append(sc.breaks[:0], 0)
 	if wrap {
 		breaks = append(breaks, wrapAt(shown, cols)...)
 	}
@@ -1537,14 +1665,10 @@ func (a *app) paintDiffLine(pt *ui.Painter, file *diffFile, newSide bool, n, pee
 		})
 	}
 	// The runs of shown in the colors of their tokens.
-	type run struct {
-		from, to int
-		col      ui.Color
-	}
-	var runs []run
+	runs := sc.runs[:0]
 	plain := func(from, to int) {
 		if to > from {
-			runs = append(runs, run{from, to, p.text})
+			runs = append(runs, diffRun{from, to, p.text})
 		}
 	}
 	var toks []highlight.Token
@@ -1555,11 +1679,12 @@ func (a *app) paintDiffLine(pt *ui.Painter, file *diffFile, newSide bool, n, pee
 		plain(0, len(shown))
 	} else {
 		// Tokens are in runes from the line's start.
-		runeAt := make([]int, 0, len(text)+1)
+		runeAt := sc.runeAt[:0]
 		for i := range text {
 			runeAt = append(runeAt, i)
 		}
 		runeAt = append(runeAt, len(text))
+		sc.runeAt = runeAt
 		byteOf := func(r int) int { return runeAt[min(r, len(runeAt)-1)] }
 		done := 0
 		for _, t := range toks {
@@ -1568,25 +1693,41 @@ func (a *app) paintDiffLine(pt *ui.Painter, file *diffFile, newSide bool, n, pee
 				continue
 			}
 			plain(done, b0)
-			runs = append(runs, run{b0, b1, p.syntax[t.Kind]})
+			runs = append(runs, diffRun{b0, b1, p.syntax[t.Kind]})
 			done = b1
 		}
 		plain(done, len(shown))
 	}
-	rowSpans := make([][]ui.Span, len(breaks)-1)
-	for _, rn := range runs {
-		piece(rn.from, rn.to, func(k int, _, _ float32, s0, s1 int) {
-			if s1 > s0 {
-				rowSpans[k] = append(rowSpans[k], f.span(shown[s0:s1], rn.col))
+	// Each row's spans, painted as they are gathered.
+	spans := sc.spans
+	for k := 0; k+1 < len(breaks); k++ {
+		lo, hi := breaks[k], breaks[k+1]
+		spans = spans[:0]
+		for _, rn := range runs {
+			if s0, s1 := max(rn.from, lo), min(rn.to, hi); s1 > s0 {
+				spans = append(spans, f.span(shown[s0:s1], rn.col))
 			}
-		})
-	}
-	for k, spans := range rowSpans {
+		}
 		if len(spans) > 0 {
 			_, h := pt.MeasureText(0, spans[0])
 			pt.RichText(x, y+float32(k)*f.lineH+(f.lineH-h)/2, 0, spans...)
 		}
 	}
+	sc.breaks, sc.runs, sc.spans = breaks, runs, spans
+}
+
+// diffRun is a run of a line of a diff in the color of its token.
+type diffRun struct {
+	from, to int
+	col      ui.Color
+}
+
+// diffLineScratch holds the slices paintDiffLine fills for each line it
+// paints, kept for the next.
+type diffLineScratch struct {
+	breaks, runeAt []int
+	runs           []diffRun
+	spans          []ui.Span
 }
 
 // lineWords returns the runs of line n of a side of a file that changed

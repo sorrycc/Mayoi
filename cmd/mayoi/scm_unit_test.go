@@ -200,3 +200,25 @@ func TestInHead(t *testing.T) {
 		t.Error("not worked out again as HEAD moved")
 	}
 }
+
+func TestPRHeadsAt(t *testing.T) {
+	a := &app{}
+	g := &a.git
+	r, other := &git.Repo{Root: "/r"}, &git.Repo{Root: "/o"}
+	g.repo, g.prHeadsRepo = r, r
+	g.prHeads = map[string][]git.PRHead{"a": {{Number: 7, Title: "Fix"}}}
+	if got := a.repository().prHeadsAt("a"); len(got) != 1 || got[0].Number != 7 {
+		t.Errorf("at a = %+v", got)
+	}
+	if got := a.repository().prHeadsAt("b"); got != nil {
+		t.Errorf("at b = %+v", got)
+	}
+	// Those read of another repository mark none of this one's.
+	g.repo = other
+	if got := a.repository().prHeadsAt("a"); got != nil {
+		t.Errorf("of another repository = %+v", got)
+	}
+	if got := prHeadTip(git.PRHead{Number: 9, Title: "Try", Draft: true}); got != "Pull request #9: Try · Draft" {
+		t.Errorf("tip = %q", got)
+	}
+}

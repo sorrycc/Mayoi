@@ -28,6 +28,7 @@ import (
 	"github.com/egoist/mygo/ui"
 	xdraw "golang.org/x/image/draw"
 
+	"mayoi/internal/bg"
 	"mayoi/internal/remote"
 	"mayoi/internal/settings"
 	"mayoi/internal/vfs"
@@ -157,6 +158,8 @@ func (m *mayoi) newFrame(h *desktop) *frame {
 		}
 		if len(m.wins) == 0 {
 			m.s.Flush()
+			// The settings window goes with the last, which quits the app.
+			m.closePrefs()
 		}
 	})
 	return f
@@ -496,7 +499,7 @@ func (f *frame) setProjectIcon(a *app, dir, path string) {
 	}
 	icons := f.m.icons
 	name, _ := railName(dir)
-	go func() {
+	bg.Go(func() {
 		icon, err := importProjectIcon(icons, path)
 		a.post(func() {
 			if err != nil {
@@ -505,7 +508,7 @@ func (f *frame) setProjectIcon(a *app, dir, path string) {
 			}
 			f.setTabStyle(dir, func(st *settings.TabStyle) { st.Icon, st.Label = icon, "" })
 		})
-	}()
+	})
 }
 
 // move puts h before the project before on the rail, at its end for nil.
@@ -721,8 +724,8 @@ func (f *frame) railTab(c *ui.Context, a *app, h *desktop, i int, label string) 
 		if mn.Item(locales.CmdFileCloseProject()).Chosen() {
 			h.closeProject()
 		}
-		if mn.Item(locales.CloseOtherProjects()).Chosen() {
-			a.post(func() { f.closeOthers(h) })
+		if mn.Item(locales.CloseOtherProjects()).Disabled(len(f.tabs) < 2).Chosen() {
+			a.post(func() { f.confirmCloseOthers(a, h) })
 		}
 	})
 	if b.Clicked() {
@@ -738,7 +741,7 @@ func (f *frame) railTip(c *ui.Context, a *app, b ui.Element, name, where string,
 	p := a.pal
 	ui.TooltipBase(c, b, func(tip ui.Element) {
 		tip.AttachTo(b, ui.AnchorRight, ui.AnchorLeft).Margin(0, 0, 0, 4)
-		a.floating(c, tip, false).Padding(8, 10).Radius(8).Gap(3).MaxWidth(360)
+		fadeIn(a.floating(c, tip, false)).Padding(8, 10).Radius(8).Gap(3).MaxWidth(360)
 		tip.Children(func() {
 			ui.Row(c).Gap(10).AlignItems(ui.Center).Children(func() {
 				ui.Text(c, name).FontSize(12.5).FontWeight(600).TextColor(p.text).SingleLine().Grow(1).MinWidth(0)
@@ -959,6 +962,15 @@ func (f *frame) railAdd(c *ui.Context, a *app, folders bool) {
 	})
 	if b.Clicked() {
 		a.chooseFolder()
+	}
+}
+
+// confirmCloseOthers asks in a, the app shown, before closing the
+// projects of the window but h.
+func (f *frame) confirmCloseOthers(a *app, h *desktop) {
+	a.confirm = &confirm{
+		title: locales.CloseOtherProjectsQuestion(len(f.tabs) - 1), message: locales.CloseOtherProjectsDetail(),
+		ok: locales.TabClose(), danger: true, run: func() { f.closeOthers(h) },
 	}
 }
 
@@ -1814,7 +1826,7 @@ func (f *frame) scanProjectLogo(a *app, h *desktop, dir, icon string) {
 	h.logoScannedAt = time.Now()
 	h.logoGen++
 	gen := h.logoGen
-	go func() {
+	bg.Go(func() {
 		defer recoverCrash()
 		var src ui.ImageSource
 		if icon != "" {
@@ -1829,7 +1841,7 @@ func (f *frame) scanProjectLogo(a *app, h *desktop, dir, icon string) {
 			}
 			h.logoSrc = src
 		})
-	}()
+	})
 }
 
 // unit is 1 for true and 0 for false, as an animation's target.

@@ -142,12 +142,18 @@ func splitPort(host string) (string, string) {
 
 // hostArgs are the arguments of ssh that name host.
 func hostArgs(host string) []string {
-	h, port := splitPort(host)
-	h = strings.NewReplacer("[", "", "]", "").Replace(h)
+	h, port := SSHTarget(host)
 	if port != "" {
 		return []string{"-p", port, h}
 	}
 	return []string{h}
+}
+
+// SSHTarget is host as ssh takes it, [user@]host with no brackets, and
+// its port, "" for none.
+func SSHTarget(host string) (target, port string) {
+	h, port := splitPort(host)
+	return strings.NewReplacer("[", "", "]", "").Replace(h), port
 }
 
 // quote quotes s for the POSIX shell.

@@ -183,6 +183,8 @@ func TestCompareKeybindings(t *testing.T) {
 	hs := newHarness(t, true)
 	dir := t.TempDir()
 	hs.a.settings = settings.Load(filepath.Join(dir, "settings.json"))
+	// Before dir goes, so that no late save of the tabs opened lands in it.
+	t.Cleanup(hs.a.settings.Flush)
 	hs.a.compareKeybindings()
 	if len(hs.a.cols) != 1 || hs.h.resolved != 1 {
 		t.Fatalf("without a conflict: %d columns, %d resolved", len(hs.a.cols), hs.h.resolved)

@@ -90,24 +90,89 @@ jobs:
         env:
           MYGO_UPDATER_PRIVATE_KEY: ${{ secrets.MYGO_UPDATER_PRIVATE_KEY }}
         run: test -n "$MYGO_UPDATER_PRIVATE_KEY" || { echo "::error::MYGO_UPDATER_PRIVATE_KEY is not set"; exit 1; }
-      # -upload adds the installers, the install script and the updates to
-      # the draft release, then the update manifests, so that they never
-      # point at a file that isn't there. The disk images and installers
-      # carry their architecture, so the two builds of a system keep both.
-      - name: Build and upload
+      # Each build writes a SHA256SUMS of its files, which the upload job
+      # merges: builds that each uploaded their own, as mygo build -upload
+      # does, raced to replace the release's, losing lines or failing.
+      - name: Build
         env:
-          GH_TOKEN: ${{ github.token }} # finds the published versions that delta updates start from, and uploads
+          GH_TOKEN: ${{ github.token }} # finds the published versions that delta updates start from
           MYGO_UPDATER_PRIVATE_KEY: ${{ secrets.MYGO_UPDATER_PRIVATE_KEY }}
-        run: go tool mygo build -platform "${{ matrix.platform }}" -upload
+        run: go tool mygo build -platform "${{ matrix.platform }}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: build-${{ matrix.name }}
+          path: |
+            build/SHA256SUMS
+            build/*/*.dmg
+            build/*/*.deb
+            build/*/*.tar.gz
+            build/*/*.delta
+            build/*/*-setup-*.exe
+            build/*/install.*
+            build/*/update-*.json
+          if-no-files-found: error
+          compression-level: 0
       - name: Remove the keychain
         if: always() && runner.os == 'macOS'
         run: security delete-keychain "$RUNNER_TEMP/signing.keychain-db" || true
 
-  publish:
+  # Uploads the files SHA256SUMS lists to the draft release, then the update
+  # manifests, so that they never point at a file that isn't there. The disk
+  # images and installers carry their architecture, so the two builds of a
+  # system keep both.
+  upload:
     needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: build-*
+          path: dist
+      - name: Upload to the draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        working-directory: dist
+        run: |
+          # A file that two builds make, as install.sh, must be the same.
+          dup="$(cat */SHA256SUMS | sort -u | awk '{print $2}' | uniq -d)"
+          test -z "$dup" || { echo "::error::the builds made different $dup"; exit 1; }
+          cat */SHA256SUMS | sort -u -k2 > SHA256SUMS
+          files=(SHA256SUMS)
+          while read -r _ name; do
+            f="$(find . -mindepth 3 -type f -name "$name" | head -1)"
+            test -n "$f" || { echo "::error::no build has $name of SHA256SUMS"; exit 1; }
+            files+=("$f")
+          done < SHA256SUMS
+          gh release upload "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --clobber "${files[@]}"
+          gh release upload "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --clobber */*/update-*.json
+
+  publish:
+    needs: upload
     runs-on: ubuntu-latest
     steps:
       - name: Publish the release
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh release edit "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --draft=false --latest
+
+  homebrew:
+    needs: publish
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: main
+      - name: Update the Homebrew cask from the published disk images
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: sh scripts/update-homebrew.sh "${GITHUB_REF_NAME#v}"
+      - name: Commit the cask
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Casks/mayoi.rb
+          if ! git diff --cached --quiet; then
+            git commit -m "Update Homebrew cask to ${GITHUB_REF_NAME#v}"
+            git pull --rebase origin main
+            git push origin HEAD:main
+          fi

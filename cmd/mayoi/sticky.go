@@ -31,8 +31,17 @@ func scopes(snap ui.TextSnapshot, line int) []int {
 // scopesIn is scopes of a text of n lines, read from w, which has those
 // above line as far as the scan goes, and a few below for a blank line.
 func scopesIn(n, line int, w *lineWindow) []int {
+	out, _ := scopesWithin(n, line, w)
+	return out
+}
+
+// scopesWithin is scopesIn, and whether the scan stayed within w: false
+// when it needed a line of the text that w does not have.
+func scopesWithin(n, line int, w *lineWindow) ([]int, bool) {
+	whole := true
 	indentOf := func(i int) (int, string) {
 		if !w.has(i) {
+			whole = whole && (i < 0 || i >= n)
 			return -1, ""
 		}
 		return w.indent(i), w.line(i)
@@ -43,7 +52,7 @@ func scopesIn(n, line int, w *lineWindow) []int {
 		cur, _ = indentOf(i)
 	}
 	if cur <= 0 {
-		return nil
+		return nil, whole
 	}
 	var out []int
 	for j := line - 1; j >= max(0, line-maxScopeScan) && cur > 0; j-- {
@@ -77,8 +86,17 @@ func scopesIn(n, line int, w *lineWindow) []int {
 	for i, k := 0, len(out)-1; i < k; i, k = i+1, k-1 {
 		out[i], out[k] = out[k], out[i]
 	}
-	return out
+	return out, whole
 }
+
+// scopeProbe is how many lines above a line its scopes are looked for
+// first, and below it for a blank line: most blocks open within them,
+// and reading them costs far less than the thousands of lines the scan
+// may go over.
+const (
+	scopeProbe      = 600
+	scopeProbeBelow = 100
+)
 
 // scopeCache keeps the scopes of a few lines of one version of a text,
 // which each frame asks for again: those of the caret's line and of the
@@ -86,12 +104,28 @@ func scopesIn(n, line int, w *lineWindow) []int {
 type scopeCache struct {
 	version uint64
 	lines   map[int][]int
+	// near is the lines read around a line asked for, of version, which
+	// the lines near it, as the view scrolls, read theirs from too.
+	near *lineWindow
+}
+
+// probe returns the lines around line that its scopes are looked for in
+// first, of the cache's version of the text.
+func (sc *scopeCache) probe(snap ui.TextSnapshot, line int) *lineWindow {
+	if w := sc.near; w != nil && w.has(line-min(line, scopeProbe/2)) && w.has(min(line+scopeProbeBelow/2, snap.LineCount()-1)) {
+		return w
+	}
+	sc.near = newLineWindow(snap, line-scopeProbe, line+scopeProbeBelow)
+	return sc.near
 }
 
 // scopesOf returns scopes of a line of d, from its cache when the text is
 // the same.
 func (d *editor) scopesOf(snap ui.TextSnapshot, line int) []int {
 	sc := &d.scopes
+	if sc.version != snap.Version() {
+		sc.near = nil
+	}
 	if sc.version != snap.Version() || sc.lines == nil || len(sc.lines) > 64 {
 		sc.version, sc.lines = snap.Version(), map[int][]int{}
 	}
@@ -99,8 +133,17 @@ func (d *editor) scopesOf(snap ui.TextSnapshot, line int) []int {
 		return s
 	}
 	var s []int
-	if line > 0 && line < snap.LineCount() {
-		s = scopesIn(snap.LineCount(), line, d.window(snap, line-maxScopeScan, line+maxLineScan))
+	if n := snap.LineCount(); line > 0 && line < n {
+		// A line typed in reads the lines around it again: those near it
+		// first, and as far as the scan goes only when they do not tell.
+		from, to := line-maxScopeScan, line+maxLineScan
+		if w := d.win; w != nil && d.winVersion == snap.Version() && w.covers(max(from, 0), min(to, n)) {
+			s = scopesIn(n, line, w)
+		} else if probe, whole := scopesWithin(n, line, sc.probe(snap, line)); whole {
+			s = probe
+		} else {
+			s = scopesIn(n, line, d.window(snap, from, to))
+		}
 	}
 	sc.lines[line] = s
 	return s

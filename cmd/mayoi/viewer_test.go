@@ -69,19 +69,26 @@ func TestImageOpensInAViewer(t *testing.T) {
 		t.Fatalf("%d tabs", n)
 	}
 
-	// ⌘= zooms the picture, not the text.
+	// Window zoom leaves the picture's own zoom and base font size alone.
 	size := a.settings.FontSize
 	a.run("view.zoomIn")
+	hs.settle()
+	if a.settings.ZoomLevel != 1 || v.zoom != 0 || a.settings.FontSize != size {
+		t.Fatalf("window zoom %v, picture zoom %v, font %v", a.settings.ZoomLevel, v.zoom, a.settings.FontSize)
+	}
+	a.run("view.zoomReset")
+	// Image commands zoom only the picture.
+	a.run("image.zoomIn")
 	hs.settle()
 	if v.zoom != 1.5 || a.settings.FontSize != size || !tt.HasText("150%") {
 		t.Fatalf("zoom %v, font size %v", v.zoom, a.settings.FontSize)
 	}
-	a.run("view.zoomOut")
-	a.run("view.zoomOut")
+	a.run("image.zoomOut")
+	a.run("image.zoomOut")
 	if v.zoom != 2.0/3 {
 		t.Fatalf("zoomed out to %v", v.zoom)
 	}
-	a.run("view.zoomReset")
+	a.run("image.zoomReset")
 	if v.zoom != 0 {
 		t.Fatalf("reset to %v", v.zoom)
 	}
@@ -132,6 +139,32 @@ func TestOtherBinaryFilesStillRefuse(t *testing.T) {
 	}
 }
 
+func TestLongLineRefuses(t *testing.T) {
+	line := strings.Repeat("x", maxLineBytes)
+	for _, c := range []struct {
+		data string
+		long bool
+	}{
+		{"", false},
+		{line, false},
+		{line + "\n" + line, false},
+		{line + "x", true},
+		{"a\n" + line + "x\nb", true},
+		{line + "\n" + line + "x", true},
+	} {
+		if got := hasLongLine([]byte(c.data)); got != c.long {
+			t.Errorf("%d bytes: long %v", len(c.data), got)
+		}
+	}
+	hs := newHarness(t, true)
+	a := hs.a
+	os.WriteFile(hs.path("index.js.map"), []byte(line+"x"), 0o644)
+	a.openFile(hs.path("index.js.map"), true)
+	if len(a.errors) != 1 || !strings.Contains(a.errors[0], "too long") || len(a.column().tabs) != 0 {
+		t.Fatalf("errors %q, %d tabs", a.errors, len(a.column().tabs))
+	}
+}
+
 func TestImageFollowsTheDisk(t *testing.T) {
 	hs := newHarness(t, true)
 	a := hs.a
@@ -163,7 +196,7 @@ func TestImageTabsMoveAndRestore(t *testing.T) {
 	if len(a.cols) != 2 || a.cols[1].tab().view == nil || a.cols[1].tab().view == a.cols[0].tab().view || a.cols[1].tab().view.src == nil {
 		t.Fatalf("%d columns", len(a.cols))
 	}
-	a.run("view.zoomIn")
+	a.run("image.zoomIn")
 	if a.cols[0].tab().view.zoom != 0 {
 		t.Error("zooming one column zoomed the other")
 	}
@@ -219,7 +252,7 @@ func TestSVGPreview(t *testing.T) {
 	if got := a.window.Columns[0].Tabs[0]; !got.Preview {
 		t.Errorf("preview not remembered: %+v", got)
 	}
-	a.run("view.zoomIn")
+	a.run("image.zoomIn")
 	if v.zoom != 1.5 {
 		t.Fatalf("zoom %v", v.zoom)
 	}

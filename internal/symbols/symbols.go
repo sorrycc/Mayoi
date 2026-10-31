@@ -76,8 +76,9 @@ func declare(text string) (Symbol, bool) {
 	receiver := ""
 	if kw == "func" && strings.HasPrefix(rest, "(") {
 		if end := strings.IndexByte(rest, ')'); end > 0 {
-			f := strings.Fields(rest[1:end])
-			receiver = strings.TrimLeft(f[len(f)-1], "*")
+			if f := strings.Fields(rest[1:end]); len(f) > 0 {
+				receiver = strings.TrimLeft(f[len(f)-1], "*")
+			}
 			rest = strings.TrimSpace(rest[end+1:])
 		}
 	}

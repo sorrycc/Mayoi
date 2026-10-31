@@ -305,7 +305,7 @@ func (a *app) appendHunks(v *diffView, f *diffFile, hs []linediff.Hunk) {
 	}
 	name := filepath.Base(f.path)
 	a.confirm = &confirm{title: locales.DiffAppendTitle(name), message: locales.DiffAppendDetail(), ok: locales.HunkAppend(), run: func() {
-		a.openFile(f.path, false)
+		a.openText(func() { a.openFile(f.path, false) })
 		d, _ := a.editorOf(a.diffDoc(f))
 		if d == nil || d.loading || d.loadErr != nil || d.offline {
 			a.fail("%s", locales.DiffOpenFailAppend(name))
@@ -554,7 +554,7 @@ func (a *app) applyLocalArrow(v *diffView, f *diffFile, h linediff.Hunk, ar hunk
 		return
 	}
 	if doc == nil {
-		a.openFile(path, false)
+		a.openText(func() { a.openFile(path, false) })
 		if ar.dir > 0 {
 			doc = a.diffPeerDoc(f)
 		} else {
@@ -639,7 +639,7 @@ func (a *app) intoByOpening(v *diffView, f *diffFile, hs []linediff.Hunk) {
 		a.fail("%s", locales.DiffCatchingUpFiles())
 		return
 	}
-	a.openFile(f.path, false)
+	a.openText(func() { a.openFile(f.path, false) })
 	d, _ := a.editorOf(a.diffDoc(f))
 	if d == nil || d.loadErr != nil || d.offline {
 		a.fail("%s", locales.DiffOpenFailRevert(filepath.Base(f.path)))

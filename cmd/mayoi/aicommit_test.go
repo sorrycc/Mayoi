@@ -85,7 +85,9 @@ func (hs *harness) signInTo(f *fakeGateway, token string) {
 
 // settleWriting draws frames until the AI stops writing.
 func (hs *harness) settleWriting() {
-	for range 200 {
+	// The model's answer, from a server of the test's own, is not
+	// background work settle waits for.
+	for deadline := time.Now().Add(10 * time.Second); time.Now().Before(deadline); {
 		hs.settle()
 		if hs.a.git.writing == nil {
 			return
@@ -156,7 +158,7 @@ func TestWriteCommitMessage(t *testing.T) {
 	f.answer = []string{"Half", " and more"}
 	a.git.message = ""
 	a.writeMessage()
-	for range 100 {
+	for deadline := time.Now().Add(10 * time.Second); time.Now().Before(deadline); {
 		hs.settle()
 		if a.git.message == "Half" {
 			break

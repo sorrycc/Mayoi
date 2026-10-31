@@ -25,11 +25,16 @@ func (a *app) terminalExited(s *session, t *terminal.Terminal, code int) {
 	if s.term != t {
 		return // one restarted in its place
 	}
+	if s.hc != "" {
+		a.hcExited(s, t)
+		return
+	}
 	// ssh exits with 255 when the connection fails, which a shell does
 	// only if asked.
 	if c := sessionConn(s); c != nil && c == a.conn && (code == 255 || !c.Connected()) {
 		if !s.lost {
 			s.lost = true
+			a.beginWait(s)
 			t.Feed([]byte(lostNote(c.Host)))
 		}
 		return
@@ -48,8 +53,13 @@ func (a *app) restartTerminals() {
 }
 
 // restartTerminal starts a terminal of a host again, in the folder its
-// shell was last in, showing what it showed before.
+// shell was last in, showing what it showed before. One whose shell runs
+// in herdr-core attaches to it again.
 func (a *app) restartTerminal(s *session) {
+	if s.hc != "" {
+		a.hcReattach(s)
+		return
+	}
 	c := sessionConn(s)
 	if c == nil {
 		return

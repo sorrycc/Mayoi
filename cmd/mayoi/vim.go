@@ -1,6 +1,7 @@
 package main
 
 import (
+	"mayoi/internal/settings"
 	"mayoi/locales"
 	"strconv"
 	"strings"
@@ -503,7 +504,7 @@ var vimPunct = map[ui.Key]string{
 // before the view's shortcuts.
 func (a *app) vimTakesKeys(c *ui.Context) bool {
 	d := a.activeEditor()
-	return a.settings.Vim && d != nil && d.preview == nil && d.vim.mode != vimInsert && d.vscroll.Focused(c)
+	return a.prefs().Vim && d != nil && d.preview == nil && d.vim.mode != vimInsert && d.vscroll.Focused(c)
 }
 
 // vimKey takes the keys of an editor in vim mode, reporting whether it
@@ -2233,7 +2234,6 @@ func vimVisualChanges(key string) bool {
 
 // toggleVim turns vim mode on, the editors in normal mode, or off.
 func (a *app) toggleVim() {
-	a.settings.Vim = !a.settings.Vim
-	a.settings.Changed()
+	a.setPref("vim", func(p *settings.Prefs) { p.Vim = !p.Vim })
 	a.invalidate()
 }

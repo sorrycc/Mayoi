@@ -1,6 +1,7 @@
 package git
 
 import (
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -143,4 +144,60 @@ func TestCommitPatchesRemainApplicableWithForcedColor(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestFileWebURL(t *testing.T) {
+	hash := strings.Repeat("a", 40)
+	for _, tc := range []struct {
+		raw, ref, path string
+		from, to       int
+		want           string
+	}{
+		{"git@github.com:org/repo.git", hash, "a/b.go", 10, 20, "https://github.com/org/repo/blob/" + hash + "/a/b.go#L10-L20"},
+		{"git@github.com:org/repo.git", hash, "a/b.go", 10, 10, "https://github.com/org/repo/blob/" + hash + "/a/b.go#L10"},
+		{"https://github.com/org/repo", "feat/x", "my file.md", 0, 0, "https://github.com/org/repo/blob/feat/x/my%20file.md"},
+		{"https://gitlab.com/g/s/repo.git", hash, "x.go", 3, 7, "https://gitlab.com/g/s/repo/-/blob/" + hash + "/x.go#L3-7"},
+		{"git@bitbucket.org:org/repo.git", "main", "x.go", 3, 7, "https://bitbucket.org/org/repo/src/main/x.go#lines-3:7"},
+		{"git@bitbucket.org:org/repo.git", "main", "x.go", 3, 3, "https://bitbucket.org/org/repo/src/main/x.go#lines-3"},
+	} {
+		got, err := FileWebURL(tc.raw, tc.ref, tc.path, tc.from, tc.to)
+		if err != nil || got != tc.want {
+			t.Errorf("FileWebURL(%q, %q, %q) = %q, %v; want %q", tc.raw, tc.ref, tc.path, got, err, tc.want)
+		}
+	}
+	for _, tc := range [][3]string{
+		{"https://unknown.test/org/repo", "main", "x"},
+		{"https://github.com/org/repo", "../x", "x"},
+		{"https://github.com/org/repo", "-x", "x"},
+		{"https://github.com/org/repo", "main", "../x"},
+	} {
+		if got, err := FileWebURL(tc[0], tc[1], tc[2], 1, 1); err == nil {
+			t.Errorf("accepted %q => %q", tc, got)
+		}
+	}
+}
+
+func TestFileRemoteURL(t *testing.T) {
+	r, git := repo(t)
+	hash := actionHash(t, r, "HEAD")
+	path := filepath.Join(r.Root, "b.txt")
+	if _, err := r.FileRemoteURL(path, 1, 1, true); err == nil {
+		t.Fatal("accepted repository without remotes")
+	}
+	git("remote", "add", "origin", "git@github.com:origin/repo.git")
+	git("remote", "add", "upstream", "git@github.com:upstream/repo.git")
+	check := func(permalink bool, want string) {
+		t.Helper()
+		got, err := r.FileRemoteURL(path, 2, 4, permalink)
+		if err != nil || got != want {
+			t.Fatalf("URL = %q, %v; want %q", got, err, want)
+		}
+	}
+	check(true, "https://github.com/origin/repo/blob/"+hash+"/b.txt#L2-L4")
+	check(false, "https://github.com/origin/repo/blob/"+hash+"/b.txt#L2-L4")
+	git("update-ref", "refs/remotes/upstream/topic/x", hash)
+	git("config", "branch.main.remote", "upstream")
+	git("config", "branch.main.merge", "refs/heads/topic/x")
+	check(false, "https://github.com/upstream/repo/blob/topic/x/b.txt#L2-L4")
+	check(true, "https://github.com/upstream/repo/blob/"+hash+"/b.txt#L2-L4")
 }

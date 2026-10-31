@@ -275,9 +275,9 @@ func TestScmPanelHistoryRetryAndPagination(t *testing.T) {
 			// Remove the real ref after metadata was read: the read must expose an
 			// actionable error, then recover when that same ref is restored.
 			// Keep the ref snapshot stale deliberately while exercising a failed read.
-			// Otherwise a wall-clock metadata poll can remove the deleted branch
-			// before its error row is observed, especially on slower CI hosts.
-			ctx.git.checked = time.Now().Add(time.Hour)
+			// Otherwise a metadata poll can remove the deleted branch
+			// before its error row is observed.
+			ctx.git.checked = ctx.app.gitNow().Add(time.Hour)
 			defer func() { ctx.git.checked = time.Time{} }()
 			run("branch", "-D", "topic")
 			l.loaded = false

@@ -72,6 +72,8 @@ type mayoi struct {
 	// Mayoi is up to date, and update the one shown, "" when skipped.
 	updateFound string
 	update      string
+	// prefs is the settings window, nil while it is closed.
+	prefs *prefsWindow
 }
 
 func (h *desktop) openFolder(done func(string)) {
@@ -147,6 +149,10 @@ func (h *desktop) confirmClose(name string, done func(int)) {
 }
 
 func (h *desktop) trash(path string) error { return mygo.Shell.TrashItem(path) }
+func (h *desktop) nativeDrags() bool       { return true }
+func (h *desktop) shown() bool {
+	return h.f.active == h && h.f.win.IsVisible() && !h.f.win.IsMinimized()
+}
 func (h *desktop) reveal(path string) {
 	if !remote.Is(path) {
 		mygo.Shell.ShowItemInFolder(path)
@@ -211,16 +217,19 @@ func (h *desktop) openFolders(dirs []string) {
 func (h *desktop) recentChanged() { h.m.refreshMenu() }
 func (h *desktop) menuChanged()   { h.m.refreshMenu() }
 
-func (h *desktop) fontChanged() {
+func (h *desktop) showSettings(section, key string) { h.m.showPrefs(section, key, h) }
+
+func (h *desktop) redrawWindows() {
 	for _, w := range h.m.wins {
 		w.a.invalidate()
 	}
+	h.m.prefsChanged()
 }
 
 func (h *desktop) installCLI() {
 	go func() {
 		home, _ := os.UserHomeDir()
-		p, err := cli.Install(cli.Dirs(home, cli.ShellPath()), appBundle())
+		p, err := cli.Install(cli.Dirs(home, cli.LoginPath()), appBundle())
 		switch {
 		case errors.Is(err, cli.ErrCanceled):
 		case err != nil:
@@ -234,7 +243,8 @@ func (h *desktop) installCLI() {
 func (h *desktop) uninstallCLI() {
 	go func() {
 		home, _ := os.UserHomeDir()
-		removed, err := cli.Uninstall([]string{filepath.Join(home, ".local", "bin"), "/usr/local/bin"})
+		// PATH is the login shell's already, as main set it at start.
+		removed, err := cli.Uninstall(cli.InstalledDirs(home, filepath.SplitList(os.Getenv("PATH"))))
 		switch {
 		case errors.Is(err, cli.ErrCanceled):
 		case err != nil:
@@ -281,6 +291,14 @@ func main() {
 	if dir := os.Getenv("MAYOI_DATA_DIR"); dir != "" {
 		mygo.App.SetPath(mygo.PathUserData, dir)
 	}
+	// A development build signed in to the same account keeps its theme,
+	// so that trying one leaves the everyday Mayoi's alone.
+	if mygo.IsDev() {
+		settings.MachineKept = []string{"theme", "appearance"}
+	}
+	// Started as the mayoi command, Mayoi asks the app that runs, and
+	// exits.
+	commandLineClient()
 	// From a terminal on Linux, Mayoi runs on apart from it; before the
 	// lock, which the Mayoi it starts takes.
 	if detach() {
@@ -292,9 +310,23 @@ func main() {
 		return
 	}
 	// After the lock, so that a second Mayoi leaves the first's crash.log
-	// alone.
-	if dir, err := mygo.App.Path(mygo.PathUserData); err == nil {
+	// alone; a snapshot, which takes no lock, leaves it alone too.
+	if dir, err := mygo.App.Path(mygo.PathUserData); err == nil && os.Getenv("MAYOI_SNAPSHOT") == "" {
 		keepCrashes(dir)
+		keepStderr(dir)
+	}
+	// Opened from the Finder or the Dock, Mayoi has the system's PATH
+	// only; git, its hooks and what else Mayoi runs look for commands
+	// where the user's shell does. In the background, as a slow shell
+	// would hold up the window.
+	shellPathReady := make(chan struct{})
+	if runtime.GOOS != "windows" && os.Getenv("MAYOI_SNAPSHOT") == "" {
+		go func() {
+			os.Setenv("PATH", strings.Join(cli.ShellPath(), string(os.PathListSeparator)))
+			close(shellPathReady)
+		}()
+	} else {
+		close(shellPathReady)
 	}
 	// Release builds check for updates every hour (startUpdates) and show
 	// them in the window, whose click opens MyGo's update window; the
@@ -353,6 +385,9 @@ func main() {
 			applyLocale(m.s.Locale)
 		}
 		mygo.App.OnLocaleChanged(func(string) { m.localeChanged() })
+		// A menu or a button changing a preference shows in the settings
+		// window.
+		m.s.OnPrefsChanged(m.prefsChanged)
 		if stop, err := m.s.Watch(func(p settings.Prefs) { mygo.RunOnMain(func() { m.reload(p); m.cloud.changed() }) }); err == nil {
 			mygo.App.OnQuit(stop)
 		}
@@ -366,6 +401,11 @@ func main() {
 		m.ready = true
 		m.launch(append(m.pending, argPaths(os.Args[1:], wd)...))
 		m.pending = nil
+		m.listenCLI()
+		go func() {
+			<-shellPathReady
+			refreshCLI()
+		}()
 		m.startCloud()
 		m.startUpdates()
 		if len(m.wins) == 0 {
@@ -534,10 +574,17 @@ func (m *mayoi) openFolder(dir string, reuse bool) {
 
 // openFile opens a file in the window whose folder holds it, else in the
 // window focused last, else in a new window.
-func (m *mayoi) openFile(path string) {
-	var win *desktop
+func (m *mayoi) openFile(path string) { m.openFileIn(nil, path, nil) }
+
+// openFileIn opens a file as openFile does, or in win when it is not nil,
+// then calls then, if not nil, with its tab shown.
+func (m *mayoi) openFileIn(in *desktop, path string, then func(a *app)) {
+	win := in
 	deepest := ""
 	for _, w := range m.wins {
+		if in != nil && w != in {
+			continue
+		}
 		if root := w.a.folder(); root != "" && inFolder(root, path) && len(root) > len(deepest) {
 			win, deepest = w, root
 		}
@@ -555,7 +602,12 @@ func (m *mayoi) openFile(path string) {
 		win = m.openWindow(m.s.NewWindow())
 	}
 	a := win.a
-	win.do(func() { a.openFile(path, true) })
+	win.do(func() {
+		a.openFile(path, true)
+		if then != nil {
+			then(a)
+		}
+	})
 	win.show()
 }
 
@@ -579,12 +631,16 @@ func (m *mayoi) of(st *settings.Window) *desktop {
 	return nil
 }
 
+// setThemeSource sets the light or dark appearance of the native windows,
+// as the preferences change: the tests, which have none, leave it.
+var setThemeSource = func(s mygo.ThemeSource) { mygo.Theme.SetSource(s) }
+
 // reload applies the preferences of the settings file, which a person
 // changed as Mayoi runs.
 func (m *mayoi) reload(p settings.Prefs) {
 	old := m.s.SetPrefs(p)
 	if p.Appearance != old.Appearance || p.Theme != old.Theme {
-		mygo.Theme.SetSource(themeSource(p.Theme, p.Appearance))
+		setThemeSource(themeSource(p.Theme, p.Appearance))
 	}
 	if p.ProjectTabs != old.ProjectTabs {
 		m.projectTabsChanged()
@@ -599,6 +655,7 @@ func (m *mayoi) reload(p settings.Prefs) {
 		w.a.invalidate()
 	}
 	m.refreshMenu()
+	m.prefsChanged()
 }
 
 // reloadKeys applies the shortcuts of keybindings.json, which a person
@@ -638,11 +695,13 @@ func (m *mayoi) localeChanged() {
 	}
 	m.menuKey = ""
 	m.refreshMenu()
+	m.prefsChanged()
 }
 
 // refreshMenu builds the menus anew on the window in front, whose folder
 // the recent folders of the File menu leave out.
 func (m *mayoi) refreshMenu() {
+	m.prefsChanged()
 	if !m.ready || len(m.wins) == 0 {
 		return
 	}
@@ -742,6 +801,26 @@ func (m *mayoi) run(id string, win *mygo.Window) {
 	// The menu toggled the item chosen, which the command may leave as
 	// it was: the menu is set anew as the next one is made.
 	m.menuKey = ""
+	// The settings window takes the shortcut of a menu as a key pressed
+	// while it records keys, closes as a tab would, and finds in its
+	// search.
+	if w := m.prefs; w != nil && win == w.win {
+		switch {
+		case w.keys.recordAccel(id):
+			return
+		case id == "file.close":
+			w.win.Close()
+			return
+		case id == "file.settings":
+			return
+		case id == "edit.find":
+			w.find()
+			return
+		case strings.HasPrefix(id, "edit.") || strings.HasPrefix(id, "sel."):
+			// The editing of the window behind it.
+			return
+		}
+	}
 	h := m.wins[0]
 	for _, f := range m.frames {
 		if f.win == win && f.active != nil {

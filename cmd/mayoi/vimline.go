@@ -407,7 +407,7 @@ func vimMatchCount(snap ui.TextSnapshot, re *regexp.Regexp, at int) (cur, total 
 // to last, for the editor to highlight: of what the command line has as
 // it is typed, else of the last search, while it shows.
 func (a *app) vimMatches(d *editor, snap ui.TextSnapshot, first, last int) []matchRect {
-	if !a.settings.Vim || a.find.open && a.find.doc == d.id {
+	if !a.prefs().Vim || a.find.open && a.find.doc == d.id {
 		return nil
 	}
 	pattern := ""

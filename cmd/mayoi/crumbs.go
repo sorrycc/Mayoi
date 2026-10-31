@@ -8,6 +8,7 @@ import (
 
 	"github.com/egoist/mygo/ui"
 
+	"mayoi/internal/bg"
 	"mayoi/internal/remote"
 	"mayoi/internal/vfs"
 	"mayoi/internal/workspace"
@@ -120,7 +121,7 @@ func (a *app) crumbsLoad(dir string) {
 	k.loading[dir] = true
 	delete(k.errs, dir)
 	gen := k.gen
-	go func() {
+	bg.Go(func() {
 		defer recoverCrash()
 		entries, err := vfs.ReadDir(dir)
 		a.post(func() {
@@ -138,7 +139,7 @@ func (a *app) crumbsLoad(dir string) {
 			}
 			k.kids[dir] = kids
 		})
-	}()
+	})
 }
 
 // crumbsValid reports whether the box still belongs to what shows: its
@@ -181,7 +182,7 @@ func (a *app) crumbsBox(c *ui.Context, anchor ui.Element) {
 	}
 	ui.PopoverBase(c, anchor, &k.open, func(panel ui.Element) {
 		p := a.pal
-		a.floating(c, panel.Width(300).Radius(8).Padding(4).Gap(0), false).
+		dropIn(a.floating(c, panel.Width(300).Radius(8).Padding(4).Gap(0), false), 4).
 			Role(ui.RoleDialog).Label(locales.CrumbsFolderTip(filepath.Base(k.dir)))
 		panel.Children(func() {
 			kids, read := k.kids[k.dir]

@@ -39,7 +39,7 @@ func commandGroup(t locales.Messages, id string) string {
 		return t.MenuSelection()
 	case "go":
 		return t.MenuGo()
-	case "view":
+	case "view", "editor", "image":
 		return t.MenuView()
 	case "git":
 		return t.MenuGit()
@@ -92,7 +92,7 @@ func (a *app) paletteEntries() []paletteEntry {
 // commandOn reports whether a command that turns something on or off,
 // or picks a theme, has it on.
 func (a *app) commandOn(id string) bool {
-	s := a.settings
+	s := a.prefs()
 	switch id {
 	case "file.autoSave":
 		return s.AutoSave
@@ -128,6 +128,14 @@ func (a *app) commandOn(id string) bool {
 	return false
 }
 
+// keyNames are the caps of the keys named in accelerators that have
+// signs of their own: macOS's sign, and the name elsewhere.
+var keyNames = map[string][2]string{
+	"Left": {"←", "Left"}, "Right": {"→", "Right"}, "Up": {"↑", "Up"}, "Down": {"↓", "Down"},
+	"Tab": {"⇥", "Tab"}, "Enter": {"⏎", "Enter"}, "Return": {"⏎", "Enter"},
+	"Escape": {"esc", "Esc"}, "Backspace": {"⌫", "Backspace"}, "Delete": {"⌦", "Delete"},
+}
+
 // accelCaps returns the keys of an accelerator as the caps of a keyboard:
 // as macOS shows them with mac, as ⇧⌘P, and otherwise by name.
 func accelCaps(accel string, mac bool) []string {
@@ -161,11 +169,6 @@ func accelCaps(accel string, mac bool) []string {
 			key = p
 		}
 	}
-	names := map[string][2]string{
-		"Left": {"←", "Left"}, "Right": {"→", "Right"}, "Up": {"↑", "Up"}, "Down": {"↓", "Down"},
-		"Tab": {"⇥", "Tab"}, "Enter": {"⏎", "Enter"}, "Return": {"⏎", "Enter"},
-		"Escape": {"esc", "Esc"}, "Backspace": {"⌫", "Backspace"}, "Delete": {"⌦", "Delete"},
-	}
 	var caps []string
 	if mac {
 		for _, m := range []struct {
@@ -186,7 +189,7 @@ func accelCaps(accel string, mac bool) []string {
 			}
 		}
 	}
-	if n, ok := names[key]; ok {
+	if n, ok := keyNames[key]; ok {
 		if mac {
 			key = n[0]
 		} else {
@@ -284,7 +287,7 @@ func (a *app) quickCommands(c *ui.Context, query string) {
 					})
 				}
 				q.moved = false
-				a.quickFooter(c, false, locales.QuickRunAction(), "", false)
+				a.quickFooter(c, false, locales.QuickRunAction(), "", false, false)
 			})
 			if box.PressedOutside() || back.OverlayShortcut(0, ui.KeyEscape) {
 				a.closeQuick()

@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	mtransfer "github.com/egoist/mygo/transfer"
 	"github.com/egoist/mygo/ui"
 
 	"mayoi/internal/remote"
@@ -247,6 +248,8 @@ func (a *app) fileTree(c *ui.Context) {
 	a.explorer = a.explorerRows()
 	view := a.explorer
 	children := view.children
+	now := c.Now()
+	a.treeOpening.note(&a.files.Open, now)
 	// Rows show chosen in a tint of the accent, not in the accent itself,
 	// which would hide the icons: the list takes the colors from the theme
 	// as it builds.
@@ -282,6 +285,11 @@ func (a *app) fileTree(c *ui.Context) {
 		}
 		if depth := entry.depth; depth > 0 {
 			row.Draw(func(pt *ui.Painter, r ui.Rect) { a.treeGuides(pt, r, path, depth, activeDir) })
+			// The rows of a folder just opened fade in.
+			if k := a.treeOpening.shown(entry.parent, now); k < 1 {
+				row.Opacity(k)
+				c.AnimationFrame()
+			}
 		}
 		if row.Clicked() {
 			clicked = path
@@ -293,6 +301,10 @@ func (a *app) fileTree(c *ui.Context) {
 		}
 		if !isDir {
 			a.dragFile(row, &fileDrag{path: path})
+		} else if a.host.nativeDrags() {
+			// A folder drags out to other apps as the folder; within
+			// Mayoi it drags nowhere.
+			row.DragDataFrom(func() mtransfer.Data { return fileDragData(path) })
 		}
 		// Files of the Finder dropped on a row copy into its folder, up to
 		// a host for a remote folder.
@@ -327,6 +339,9 @@ func (a *app) fileTree(c *ui.Context) {
 			if isDir && m.Item(locales.OpenInTerminal()).Chosen() {
 				action = func() { a.openTerminal(path) }
 			}
+			if isDir && m.Item(locales.FindInFolderEllipsis()).Chosen() {
+				action = func() { a.searchInFolder(t.Rel(path)) }
+			}
 			m.Separator()
 			if _, changed := a.repositoryForPath(path).git.entries[path]; changed && !isDir {
 				if m.Item(locales.CmdGitOpenChanges()).Chosen() {
@@ -355,6 +370,15 @@ func (a *app) fileTree(c *ui.Context) {
 			}
 			if m.Item(locales.CopyRelativePath()).Chosen() {
 				action = func() { a.services.WriteClipboard(t.Rel(path)) }
+			}
+			if !isDir && a.repositoryForPath(path).git.repo != nil {
+				m.Separator()
+				if m.Item(locales.CmdGitOpenFileOnRemote()).Chosen() {
+					action = func() { a.fileOnRemote(path, nil, false) }
+				}
+				if m.Item(locales.CmdGitCopyPermalink()).Chosen() {
+					action = func() { a.fileOnRemote(path, nil, true) }
+				}
 			}
 			m.Separator()
 			if m.Item(locales.RenameEllipsis()).Chosen() {
@@ -535,6 +559,59 @@ func (a *app) fileTree(c *ui.Context) {
 	}
 }
 
+// treeOpening follows the folders of the tree as they open, so that
+// their rows come in rather than pop: the folders open in the last frame,
+// and when each of those that opened since did.
+type treeOpening struct {
+	open   map[string]bool
+	opened map[string]time.Time
+}
+
+// note takes the folders open at now: one that was not opens. The first
+// frame takes them alone, as the tree shows as it was left.
+func (o *treeOpening) note(open *ui.Selection[string], now time.Time) {
+	first := o.open == nil
+	if first {
+		o.open, o.opened = map[string]bool{}, map[string]time.Time{}
+	}
+	for dir, at := range o.opened {
+		if now.Sub(at) >= showFor {
+			delete(o.opened, dir)
+		}
+	}
+	if !first && open.Len() == len(o.open) {
+		same := true
+		for dir := range open.All() {
+			if !o.open[dir] {
+				same = false
+				break
+			}
+		}
+		if same {
+			return
+		}
+	}
+	for dir := range open.All() {
+		if !first && !o.open[dir] {
+			o.opened[dir] = now
+		}
+	}
+	clear(o.open)
+	for dir := range open.All() {
+		o.open[dir] = true
+	}
+}
+
+// shown returns how far in the rows of folder dir are at now, from 0,
+// as it opens, to 1.
+func (o *treeOpening) shown(dir string, now time.Time) float32 {
+	at, ok := o.opened[dir]
+	if !ok {
+		return 1
+	}
+	return ui.EaseOut(min(float32(now.Sub(at))/float32(showFor), 1))
+}
+
 // treeGuides paints the indent guides of a row of the tree, depth deep,
 // whose content is in r: a line down from the arrow of each folder above
 // it, as VS Code draws them, brighter for the folder of the document shown.
@@ -634,7 +711,8 @@ func (a *app) askNewEntry(dir string, folder bool) {
 		a.tree.Refresh()
 		a.indexStale = true
 		if !folder {
-			a.openFile(path, true)
+			// A file made anew opens as its source, to edit.
+			a.openText(func() { a.openFile(path, true) })
 		}
 		return ""
 	}}
@@ -722,7 +800,8 @@ func (a *app) newRemoteEntry(dir, path string, folder bool) {
 			a.tree.Refresh()
 			a.indexStale, a.indexed = true, time.Time{}
 			if !folder {
-				a.openFile(path, true)
+				// A file made anew opens as its source, to edit.
+				a.openText(func() { a.openFile(path, true) })
 			}
 		})
 	}()
@@ -769,7 +848,7 @@ func (a *app) relOrPath(path string) string {
 		if path == a.root {
 			return filepath.Base(a.root)
 		}
-		if strings.HasPrefix(path, a.root+string(filepath.Separator)) {
+		if len(path) > len(a.root) && path[len(a.root)] == filepath.Separator && strings.HasPrefix(path, a.root) {
 			return filepath.ToSlash(path[len(a.root)+1:])
 		}
 	}

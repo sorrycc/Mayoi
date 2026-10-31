@@ -12,6 +12,8 @@ import (
 	"github.com/egoist/mygo/ui"
 
 	"mayoi/internal/keymap"
+	"mayoi/internal/remote"
+	"mayoi/internal/settings"
 	"mayoi/locales"
 )
 
@@ -27,13 +29,6 @@ func (a *app) commands() []command { return a.commandsIn(locales.In(i18n.Locale(
 // commandsIn are the commands, labelled in the language of t: the palette
 // also matches their English names.
 func (a *app) commandsIn(t locales.Messages) []command {
-	doc := func(fn func(d *editor)) func() {
-		return func() {
-			if d := a.textEditor(); d != nil {
-				fn(d)
-			}
-		}
-	}
 	cmds := []command{
 		{"file.new", t.CmdFileNew(), "CmdOrCtrl+N", a.newFile},
 		{"file.newWindow", t.CmdFileNewWindow(), "Shift+CmdOrCtrl+N", func() { a.host.newBlankWindow() }},
@@ -51,8 +46,11 @@ func (a *app) commandsIn(t locales.Messages) []command {
 		{"file.saveAs", t.CmdFileSaveAs(), "Shift+CmdOrCtrl+S", a.saveActiveAs},
 		{"file.saveAll", t.CmdFileSaveAll(), "Alt+CmdOrCtrl+S", a.saveAll},
 		{"file.autoSave", t.CmdFileAutoSave(), "", a.toggleAutoSave},
-		{"file.settings", t.CmdFileSettings(), "CmdOrCtrl+,", a.openSettings},
-		{"file.keybindings", t.CmdFileKeybindings(), "", a.openKeybindings},
+		{"file.settings", t.CmdFileSettings(), "CmdOrCtrl+,", func() { a.host.showSettings("", "") }},
+		{"file.settingsJSON", t.CmdFileSettingsJSON(), "", a.openSettings},
+		{"file.keybindings", t.CmdFileKeybindings(), "", func() { a.host.showSettings(prefsShortcuts, "") }},
+		{"file.keybindingsJSON", t.CmdFileKeybindingsJSON(), "", a.openKeybindings},
+		{"file.folderSettings", t.CmdFileFolderSettings(), "", a.openFolderSettings},
 		{"file.copyPath", t.CmdFileCopyPath(), "", func() { a.copyActivePath(false) }},
 		{"file.copyRelativePath", t.CmdFileCopyRelativePath(), "", func() { a.copyActivePath(true) }},
 		{"file.reveal", revealActiveLabel(t), "", a.revealActive},
@@ -73,10 +71,11 @@ func (a *app) commandsIn(t locales.Messages) []command {
 		{"edit.undo", t.CmdEditUndo(), "", a.editActive(func(d *editor) { d.undo() })},
 		{"edit.redo", t.CmdEditRedo(), "", a.editActive(func(d *editor) { d.redo() })},
 		{"edit.cut", t.CmdEditCut(), "CmdOrCtrl+X", a.editActive(a.cut)},
+		{"edit.selectAll", t.CmdEditSelectAll(), "CmdOrCtrl+A", a.editActive(selectAll)},
 		{"edit.find", t.CmdEditFind(), "CmdOrCtrl+F", func() { a.openFind(false) }},
 		{"edit.replace", t.CmdEditReplace(), "Alt+CmdOrCtrl+F", func() { a.openFind(true) }},
-		{"edit.findNext", t.CmdEditFindNext(), "CmdOrCtrl+G", doc(func(d *editor) { a.find.open = true; a.step(d, 1) })},
-		{"edit.findPrev", t.CmdEditFindPrev(), "Shift+CmdOrCtrl+G", doc(func(d *editor) { a.find.open = true; a.step(d, -1) })},
+		{"edit.findNext", t.CmdEditFindNext(), "CmdOrCtrl+G", func() { a.findStep(1) }},
+		{"edit.findPrev", t.CmdEditFindPrev(), "Shift+CmdOrCtrl+G", func() { a.findStep(-1) }},
 		{"edit.findInFiles", t.CmdEditFindInFiles(), "Shift+CmdOrCtrl+F", func() { a.showSearch(false) }},
 		{"edit.replaceInFiles", t.CmdEditReplaceInFiles(), "Shift+CmdOrCtrl+H", func() { a.showSearch(true) }},
 		{"sel.comment", t.CmdSelComment(), "CmdOrCtrl+/", a.editActive(toggleComment)},
@@ -127,6 +126,7 @@ func (a *app) commandsIn(t locales.Messages) []command {
 		{"git.prevChange", t.CmdGitPrevChange(), "Shift+Alt+F5", func() { a.stepChange(-1) }},
 		{"git.nextFile", t.CmdGitNextFile(), "", func() { a.stepDiffFile(1) }},
 		{"git.prevFile", t.CmdGitPrevFile(), "", func() { a.stepDiffFile(-1) }},
+		{"git.toggleCommitFiles", t.CmdGitToggleCommitFiles(), "", a.toggleCommitFiles},
 		{"git.appendChange", t.CmdGitAppendChange(), "", a.appendAtCursor},
 		{"git.showChange", t.CmdGitShowChange(), "", a.editActive(func(d *editor) { d.peekHunk(caretLine(d)) })},
 		{"git.revertChange", t.CmdGitRevertChange(), "", a.editActive(func(d *editor) { a.onCaretHunk(d, a.revertHunk) })},
@@ -146,8 +146,16 @@ func (a *app) commandsIn(t locales.Messages) []command {
 		{"git.continue", t.CmdGitContinue(), "", a.continueOp},
 		{"git.abort", t.CmdGitAbort(), "", a.abortOp},
 		{"git.switchBranch", t.CmdGitSwitchBranch(), "", a.openBranchPicker},
+		{"git.switchWorktree", t.CmdGitSwitchWorktree(), "", a.openWorktreePicker},
 		{"git.createBranch", t.CmdGitCreateBranch(), "", a.askNewBranch},
+		{"git.stash", t.CmdGitStash(), "", func() { a.askStash(false) }},
+		{"git.stashUntracked", t.CmdGitStashUntracked(), "", func() { a.askStash(true) }},
+		{"git.stashes", t.CmdGitStashes(), "", a.openStashPicker},
+		{"git.openPullRequest", t.CmdGitOpenPullRequest(), "", a.openPRPicker},
+		{"git.showPullRequestChecks", t.CmdGitShowPullRequestChecks(), "", a.openChecks},
 		{"git.blame", t.CmdGitBlame(), "", a.toggleBlame},
+		{"git.openFileOnRemote", t.CmdGitOpenFileOnRemote(), "", func() { a.activeFileOnRemote(false) }},
+		{"git.copyPermalink", t.CmdGitCopyPermalink(), "", func() { a.activeFileOnRemote(true) }},
 		{"git.fetch", t.CmdGitFetch(), "", a.fetch},
 		{"git.pull", t.CmdGitPull(), "", a.pull},
 		{"git.push", t.CmdGitPush(), "", a.push},
@@ -155,13 +163,14 @@ func (a *app) commandsIn(t locales.Messages) []command {
 		{"review.comment", t.CmdReviewComment(), "Shift+CmdOrCtrl+M", a.addReviewComment},
 		{"review.next", t.CmdReviewNext(), "", func() { a.stepNote(1) }},
 		{"review.previous", t.CmdReviewPrevious(), "", func() { a.stepNote(-1) }},
-		{"review.copy", t.CmdReviewCopy(), "", a.copyReview},
-		{"review.send", t.CmdReviewSend(), "", a.sendReview},
-		{"review.clear", t.CmdReviewClear(), "", a.clearReview},
+		{"review.copy", a.reviewLabel(t.CmdReviewCopy(), t.CmdReviewCopyItems()), "", a.copyReview},
+		{"review.send", a.reviewLabel(t.CmdReviewSend(), t.CmdReviewSendItems()), "", a.sendReview},
+		{"review.clear", a.reviewLabel(t.CmdReviewClear(), t.CmdReviewClearItems()), "", a.clearReview},
 		{"view.terminal", t.CmdViewTerminal(), "Ctrl+`", a.togglePanel},
 		{"view.newTerminal", t.CmdViewNewTerminal(), "Ctrl+Shift+`", func() { a.openTerminal(a.workDir()) }},
 		{"view.terminalTab", t.CmdViewTerminalTab(), "", func() { a.newTerminalTab(a.fileColumn(), a.workDir(), true) }},
 		{"view.terminalMove", t.CmdViewTerminalMove(), "", a.moveTerminal},
+		{"view.installHC", t.CmdViewInstallHC(), "", a.installHC},
 		{"view.terminalLocation", t.CmdViewTerminalLocation(), "", a.toggleTerminalLocation},
 		{"view.terminalLockRight", t.CmdViewTerminalLockRight(), "", a.moveTerminalToLockedRight},
 		{"view.panelPosition.bottom", t.CmdViewPanelBottom(), "", func() { a.setPanelPosition("") }},
@@ -179,17 +188,31 @@ func (a *app) commandsIn(t locales.Messages) []command {
 		{"view.wordWrapTab", t.CmdViewWordWrapTab(), "Alt+Z", a.toggleTabWrap},
 		{"view.togglePreview", t.CmdViewTogglePreview(), "Shift+CmdOrCtrl+V", a.togglePreview},
 		{"view.previewToSide", t.CmdViewPreviewToSide(), "", a.previewToSide},
-		// The text, or the picture shown.
+		{"view.markdownPreview", t.CmdViewMarkdownPreview(), "", a.toggleMarkdownPreview},
+		// The whole window, independent of the focused pane.
 		{"view.zoomIn", t.CmdViewZoomIn(), "CmdOrCtrl+=", func() { a.zoom(1) }},
 		{"view.zoomOut", t.CmdViewZoomOut(), "CmdOrCtrl+-", func() { a.zoom(-1) }},
 		{"view.zoomReset", t.CmdViewZoomReset(), "CmdOrCtrl+0", func() { a.zoom(0) }},
+		{"editor.fontZoomIn", t.CmdEditorFontZoomIn(), "", func() { a.fontZoom(1) }},
+		{"editor.fontZoomOut", t.CmdEditorFontZoomOut(), "", func() { a.fontZoom(-1) }},
+		{"editor.fontZoomReset", t.CmdEditorFontZoomReset(), "", func() { a.fontZoom(0) }},
+		{"image.zoomIn", t.CmdImageZoomIn(), "", func() { a.imageZoom(1) }},
+		{"image.zoomOut", t.CmdImageZoomOut(), "", func() { a.imageZoom(-1) }},
+		{"image.zoomReset", t.CmdImageZoomReset(), "", func() { a.imageZoom(0) }},
 		{"view.appearance.system", t.CmdViewAppearanceSystem(), "", func() { a.setAppearance("") }},
 		{"view.appearance.light", t.CmdViewAppearanceLight(), "", func() { a.setAppearance("light") }},
 		{"view.appearance.dark", t.CmdViewAppearanceDark(), "", func() { a.setAppearance("dark") }},
+		{"view.selectTheme", t.CmdViewSelectTheme(), "", a.openThemePicker},
 		{"view.theme.mayoi", "Mayoi", "", func() { a.setTheme("") }},
 		{"view.theme.matrix", t.CmdViewThemeMatrix(), "", func() { a.setTheme(themeMatrix) }},
 		{"view.theme.claude", "Claude", "", func() { a.setTheme(themeClaude) }},
 		{"view.theme.qoder", "Qoder", "", func() { a.setTheme(themeQoder) }},
+		{"view.theme.grokbot", "Grok Bot", "", func() { a.setTheme(themeGrokBot) }},
+		{"view.theme.cursor", "Cursor", "", func() { a.setTheme(themeCursor) }},
+		{"view.theme.purplegold", t.CmdViewThemePurpleGold(), "", func() { a.setTheme(themePurpleGold) }},
+		{"view.theme.pumpkin", t.CmdViewThemePumpkin(), "", func() { a.setTheme(themePumpkin) }},
+		{"view.theme.witchsbrew", t.CmdViewThemeWitchsBrew(), "", func() { a.setTheme(themeWitchsBrew) }},
+		{"view.theme.bloodmoon", t.CmdViewThemeBloodMoon(), "", func() { a.setTheme(themeBloodMoon) }},
 		{localeCommand + "system", t.CmdViewLocaleSystem(), "", func() { a.setLocale("") }},
 	}
 	// The languages, each named in itself.
@@ -201,6 +224,9 @@ func (a *app) commandsIn(t locales.Messages) []command {
 	}
 	if !remoteSupported {
 		cmds = slices.DeleteFunc(cmds, func(c command) bool { return strings.HasPrefix(c.id, "remote.") })
+	}
+	if !hcInstallable() {
+		cmds = slices.DeleteFunc(cmds, func(c command) bool { return c.id == "view.installHC" })
 	}
 	return cmds
 }
@@ -361,13 +387,32 @@ func (a *app) openSettings() {
 	}
 }
 
-// zoom makes the picture shown bigger or smaller, or fits it for 0, and
-// otherwise the text.
+// zoom scales all window content, or restores its default scale for 0.
 func (a *app) zoom(by float32) {
-	if v := a.activeViewer(); v != nil && v.markdown == nil {
-		v.zoomBy(int(by))
+	s := a.settings
+	if by == 0 {
+		s.ZoomLevel = 0
+	} else {
+		s.ZoomLevel = clamp(s.ZoomLevel+by, settings.MinZoomLevel, settings.MaxZoomLevel)
+	}
+	s.Changed()
+	a.host.redrawWindows()
+}
+
+// imageZoom changes only the picture shown, or fits it for 0: the
+// diagram over the window while one is.
+func (a *app) imageZoom(by int) {
+	if a.diagram != nil {
+		a.diagram.view.zoomBy(by)
 		return
 	}
+	if v := a.activeViewer(); v != nil && v.markdown == nil {
+		v.zoomBy(by)
+	}
+}
+
+// fontZoom changes the base text size without scaling the window's UI.
+func (a *app) fontZoom(by float32) {
 	s := a.settings
 	if by == 0 {
 		s.FontSize = 13
@@ -375,7 +420,7 @@ func (a *app) zoom(by float32) {
 		s.FontSize = clamp(s.FontSize+by, 9, 28)
 	}
 	s.Changed()
-	a.host.fontChanged()
+	a.host.redrawWindows()
 }
 
 // updateItem is "Check for Updates…", or "Update to 0.12.0…" once a
@@ -414,11 +459,11 @@ func (a *app) menu(cli bool, run func(id string, win *mygo.Window)) *mygo.Menu {
 		it.Type, it.Checked = mygo.MenuItemRadio, checked
 		return it
 	}
-	// The appearances, which The Matrix, always dark, has no choice of,
-	// and the themes.
+	// The appearances, which the themes that are always dark have no
+	// choice of, and the themes.
 	appearance := func(id, ap string) *mygo.MenuItem {
 		it := radio(id, a.settings.Appearance == ap)
-		it.Disabled = a.settings.Theme == themeMatrix
+		it.Disabled = alwaysDark(a.settings.Theme)
 		return it
 	}
 	theme := func(id, th string) *mygo.MenuItem { return radio(id, a.settings.Theme == th) }
@@ -456,7 +501,15 @@ func (a *app) menu(cli bool, run func(id string, win *mygo.Window)) *mygo.Menu {
 		}})
 	}
 	file = append(file, mygo.Separator(),
-		item("file.save"), item("file.saveAs"), item("file.saveAll"), checkbox("file.autoSave", a.settings.AutoSave), item("file.settings"), item("file.keybindings"), mygo.Separator(),
+		item("file.save"), item("file.saveAs"), item("file.saveAll"), checkbox("file.autoSave", a.prefs().AutoSave), mygo.Separator(),
+	)
+	if runtime.GOOS != "darwin" {
+		file = append(file, item("file.settings"))
+	}
+	// A folder's own settings are of a folder on this machine.
+	folderSettings := item("file.folderSettings")
+	folderSettings.Disabled = a.root == "" || remote.Is(a.root)
+	file = append(file, item("file.settingsJSON"), item("file.keybindings"), item("file.keybindingsJSON"), folderSettings, mygo.Separator(),
 		item("file.close"), item("file.reopenClosed"), item("file.closeFolder"), item("file.closeProject"),
 	)
 	if cli {
@@ -484,7 +537,7 @@ func (a *app) menu(cli bool, run func(id string, win *mygo.Window)) *mygo.Menu {
 	appMenu := &mygo.MenuItem{Role: mygo.RoleAppMenu}
 	if runtime.GOOS == "darwin" {
 		help = nil
-		appMenu = &mygo.MenuItem{Label: mygo.App.Name(), Submenu: slices.Concat(about, []*mygo.MenuItem{mygo.Separator()}, account, []*mygo.MenuItem{
+		appMenu = &mygo.MenuItem{Label: mygo.App.Name(), Submenu: slices.Concat(about, []*mygo.MenuItem{mygo.Separator(), item("file.settings"), mygo.Separator()}, account, []*mygo.MenuItem{
 			mygo.Separator(),
 			{Role: mygo.RoleServices}, mygo.Separator(),
 			{Role: mygo.RoleHide}, {Role: mygo.RoleHideOthers}, {Role: mygo.RoleUnhide}, mygo.Separator(),
@@ -497,16 +550,24 @@ func (a *app) menu(cli bool, run func(id string, win *mygo.Window)) *mygo.Menu {
 		it.Disabled = len(a.review.notes) == 0
 		return it
 	}
-	cut := &mygo.MenuItem{Role: mygo.RoleCut}
-	if a.keyFocus == placeEditor {
-		cut = item("edit.cut")
+	// The items of pull requests, off until gh answered where the
+	// repository is.
+	prItem := func(id string) *mygo.MenuItem {
+		it := item(id)
+		it.Disabled = !a.repository().git.ghOK
+		return it
 	}
+	cut, selectAll := &mygo.MenuItem{Role: mygo.RoleCut}, &mygo.MenuItem{Role: mygo.RoleSelectAll}
+	if a.keyFocus == placeEditor {
+		cut, selectAll = item("edit.cut"), item("edit.selectAll")
+	}
+	installHC := item("view.installHC")
 	menus := []*mygo.MenuItem{
 		appMenu,
 		{Label: locales.MenuFile(), Submenu: file},
 		{Label: locales.MenuEdit(), Submenu: []*mygo.MenuItem{
 			item("edit.undo"), item("edit.redo"), mygo.Separator(),
-			cut, {Role: mygo.RoleCopy}, {Role: mygo.RolePaste}, {Role: mygo.RoleSelectAll}, mygo.Separator(),
+			cut, {Role: mygo.RoleCopy}, {Role: mygo.RolePaste}, selectAll, mygo.Separator(),
 			item("edit.find"), item("edit.replace"), item("edit.findNext"), item("edit.findPrev"), mygo.Separator(),
 			item("edit.findInFiles"), item("edit.replaceInFiles"),
 		}},
@@ -520,11 +581,12 @@ func (a *app) menu(cli bool, run func(id string, win *mygo.Window)) *mygo.Menu {
 		{Label: locales.MenuView(), Submenu: []*mygo.MenuItem{
 			item("view.sidebar"), checkbox("view.sidebarRight", a.settings.SidebarRight), item("view.explorer"), item("view.search"), item("view.scm"), mygo.Separator(),
 			checkbox("view.compactFolders", a.settings.ExplorerCompactFolders), mygo.Separator(),
-			checkbox("view.wordWrap", a.settings.WordWrap), item("view.wordWrapTab"), item("view.togglePreview"), item("view.previewToSide"),
-			checkbox("view.vim", a.settings.Vim), checkbox("view.projectTabs", a.settings.ProjectTabs), mygo.Separator(),
+			checkbox("view.wordWrap", a.prefs().WordWrap), item("view.wordWrapTab"), item("view.togglePreview"), item("view.previewToSide"),
+			checkbox("view.markdownPreview", a.prefs().MarkdownPreview), mygo.Separator(),
+			checkbox("view.vim", a.prefs().Vim), checkbox("view.projectTabs", a.settings.ProjectTabs), mygo.Separator(),
 			item("view.splitRight"), item("view.nextColumn"), item("view.prevColumn"),
 			item("view.moveTabNext"), item("view.moveTabPrev"), mygo.Separator(),
-			item("view.terminal"), item("view.newTerminal"), item("view.terminalTab"), item("view.terminalMove"),
+			item("view.terminal"), item("view.newTerminal"), item("view.terminalTab"), item("view.terminalMove"), installHC,
 			checkbox("view.terminalLocation", a.settings.TerminalLocation == "editor"),
 			{Label: locales.MenuPanelPosition(), Submenu: []*mygo.MenuItem{
 				radio("view.panelPosition.bottom", a.panelSide() == "bottom"),
@@ -533,9 +595,12 @@ func (a *app) menu(cli bool, run func(id string, win *mygo.Window)) *mygo.Menu {
 			}}, mygo.Separator(),
 			item("view.zoomIn"), item("view.zoomOut"), item("view.zoomReset"), mygo.Separator(),
 			{Label: locales.MenuTheme(), Submenu: []*mygo.MenuItem{
+				item("view.selectTheme"), mygo.Separator(),
 				appearance("view.appearance.system", ""), appearance("view.appearance.light", "light"), appearance("view.appearance.dark", "dark"),
 				mygo.Separator(), theme("view.theme.mayoi", ""), theme("view.theme.matrix", themeMatrix), theme("view.theme.claude", themeClaude),
-				theme("view.theme.qoder", themeQoder),
+				theme("view.theme.qoder", themeQoder), theme("view.theme.grokbot", themeGrokBot), theme("view.theme.cursor", themeCursor),
+				theme("view.theme.purplegold", themePurpleGold), theme("view.theme.pumpkin", themePumpkin),
+				theme("view.theme.witchsbrew", themeWitchsBrew), theme("view.theme.bloodmoon", themeBloodMoon),
 			}},
 			{Label: locales.MenuLanguage(), Submenu: languages}, mygo.Separator(),
 			{Role: mygo.RoleToggleFullScreen}, {Role: mygo.RoleToggleDevTools},
@@ -547,11 +612,14 @@ func (a *app) menu(cli bool, run func(id string, win *mygo.Window)) *mygo.Menu {
 		}},
 		{Label: locales.MenuGit(), Submenu: []*mygo.MenuItem{
 			item("git.commit"), item("git.commitPush"), item("git.amend"), item("git.undoCommit"), mygo.Separator(),
-			item("git.openChanges"), item("git.openAllChanges"), item("git.compareFiles"), item("git.nextChange"), item("git.prevChange"), item("git.nextFile"), item("git.prevFile"), mygo.Separator(),
+			item("git.openChanges"), item("git.openAllChanges"), item("git.compareFiles"), item("git.nextChange"), item("git.prevChange"), item("git.nextFile"), item("git.prevFile"),
+			checkbox("git.toggleCommitFiles", a.window.CommitFilesOpen), mygo.Separator(),
 			item("git.showChange"), item("git.revertChange"), item("git.appendChange"), item("git.stageChange"), mygo.Separator(),
 			item("git.stageFile"), item("git.unstageFile"), item("git.stageAll"), mygo.Separator(),
-			item("git.switchBranch"), item("git.createBranch"), item("git.fetch"), item("git.pull"), item("git.push"), mygo.Separator(),
-			checkbox("git.blame", a.settings.Blame), item("git.refresh"), mygo.Separator(),
+			item("git.switchBranch"), item("git.switchWorktree"), item("git.createBranch"), item("git.fetch"), item("git.pull"), item("git.push"), mygo.Separator(),
+			item("git.stash"), item("git.stashUntracked"), item("git.stashes"), mygo.Separator(),
+			prItem("git.openPullRequest"), prItem("git.showPullRequestChecks"), mygo.Separator(),
+			checkbox("git.blame", a.prefs().Blame), item("git.openFileOnRemote"), item("git.copyPermalink"), item("git.refresh"), mygo.Separator(),
 			item("review.comment"), reviewItem("review.next"), reviewItem("review.previous"),
 			reviewItem("review.copy"), reviewItem("review.send"), reviewItem("review.clear"),
 		}},
@@ -559,6 +627,12 @@ func (a *app) menu(cli bool, run func(id string, win *mygo.Window)) *mygo.Menu {
 	}
 	if len(help) > 0 {
 		menus = append(menus, &mygo.MenuItem{Label: locales.MenuHelp(), Submenu: help})
+	}
+	// Install hc… only where herdr has builds of hc.
+	if !hcInstallable() {
+		for _, m := range menus {
+			m.Submenu = slices.DeleteFunc(m.Submenu, func(it *mygo.MenuItem) bool { return it == installHC })
+		}
 	}
 	return mygo.NewMenu(menus)
 }

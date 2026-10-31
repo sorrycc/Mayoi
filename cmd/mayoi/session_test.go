@@ -170,6 +170,28 @@ func TestRestoresWhereTabsWere(t *testing.T) {
 	}
 }
 
+// A file with a line too long to lay out is not opened again as the
+// window starts, which it would hang.
+func TestRestoreSkipsLongLines(t *testing.T) {
+	root := workspaceFixture(t)
+	long := filepath.Join(root, "index.js.map")
+	os.WriteFile(long, []byte(strings.Repeat("x", maxLineBytes+1)), 0o644)
+	s := settings.Default()
+	w := s.NewWindow()
+	w.Folder = root
+	w.Columns = []settings.Column{{Tabs: []settings.Tab{
+		{File: long},
+		{File: filepath.Join(root, "main.go")},
+	}, Active: 0, Weight: 1}}
+	a := newApp(&fakeHost{folder: root}, s, w)
+	t.Cleanup(a.shutdown)
+	tt := ui.NewTester(a.view, 1200, 760)
+	step(tt)
+	if names := allTabNames(a); !slices.Equal(names, []string{"main.go"}) {
+		t.Fatalf("tabs %v", names)
+	}
+}
+
 // A tab restored shows its text where it was scrolled, not at its caret.
 func TestRestoresTheScroll(t *testing.T) {
 	root := workspaceFixture(t)

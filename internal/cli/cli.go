@@ -1,5 +1,7 @@
-// Package cli installs and uninstalls the mayoi shell command, which opens
-// folders and files in the app.
+// Package cli is the mayoi shell command, which opens folders and files
+// in the app and runs its commands: it installs and uninstalls the
+// command, reads its arguments, and carries them to the running app over
+// a socket.
 package cli
 
 import (
@@ -20,64 +22,119 @@ const bundleID = "dev.mayoi.editor"
 // scriptMark is a line of the mayoi command, by which uninstalling knows it.
 const scriptMark = "# Installed by Mayoi: File > Install 'mayoi' Command."
 
-// script is the mayoi command. It hands its folders and files to the
-// app by its identifier, so it keeps working when the app moves, else to
-// the app at app, where it was installed from; and returns at once: a
-// running Mayoi opens them, or one starts.
+// script is the mayoi command. It runs the app's own executable, which,
+// told so by MAYOI_CLI, asks the running app over its socket, or starts
+// it: the app at app, where it was installed from, else the one the
+// system knows by its identifier, so it keeps working when the app moves.
 func script(app string) string {
-	fallback := ""
-	if app != "" {
-		fallback = " 2>/dev/null || open -a " + shellQuote(app) + ` "$@"`
-	}
 	return `#!/bin/sh
-# mayoi [folder or file]... opens them in Mayoi.
+# mayoi [options] [folder or file]... opens them in Mayoi: mayoi --help says more.
 ` + scriptMark + `
-for p in "$@"; do
-	case $p in
-	/*) ;;
-	*) p=$PWD/$p ;;
-	esac
-	set -- "$@" "$p"
-	shift
-done
-open -b ` + bundleID + ` "$@"` + fallback + `
+app=` + shellQuote(app) + `
+if [ ! -x "$app/Contents/MacOS/Mayoi" ]; then
+	app=$(mdfind "kMDItemCFBundleIdentifier == '` + bundleID + `'" 2>/dev/null | head -n 1)
+fi
+if [ ! -x "$app/Contents/MacOS/Mayoi" ]; then
+	echo "mayoi: Mayoi.app is not found" >&2
+	exit 1
+fi
+MAYOI_CLI=1 exec "$app/Contents/MacOS/Mayoi" "$@"
 `
 }
 
-// Dirs are where the command goes: ~/.local/bin when the shell looks
-// there, which needs no password, else /usr/local/bin, which is always on
-// the path.
+// Dirs are the known installation folders that the login shell searches,
+// preferring the user's folders over the system-wide destination.
 func Dirs(home string, path []string) []string {
-	local := filepath.Join(home, ".local", "bin")
-	if slices.Contains(path, local) {
-		return []string{local, "/usr/local/bin"}
+	var dirs []string
+	path = cleanPath(path)
+	for _, dir := range []string{filepath.Join(home, ".local", "bin"), filepath.Join(home, "bin"), "/usr/local/bin"} {
+		if slices.Contains(path, filepath.Clean(dir)) {
+			dirs = append(dirs, dir)
+		}
 	}
-	return []string{"/usr/local/bin"}
+	return dirs
+}
+
+// InstalledDirs also finds copies in older or custom locations, so they
+// can still be refreshed or removed after the installation policy changes.
+func InstalledDirs(home string, path []string) []string {
+	var dirs []string
+	for _, dir := range cleanPath(path) {
+		if filepath.IsAbs(dir) {
+			dirs = append(dirs, dir)
+		}
+	}
+	for _, dir := range []string{filepath.Join(home, ".local", "bin"), filepath.Join(home, "bin"), "/usr/local/bin"} {
+		if !slices.Contains(dirs, dir) {
+			dirs = append(dirs, dir)
+		}
+	}
+	return dirs
 }
 
 // ErrCanceled is the user declining to give the password.
 var ErrCanceled = errors.New("canceled")
 
 // Install writes the mayoi command of the app at app into the first
-// of dirs that takes it, as an administrator for the last, and returns
-// where it went.
+// of dirs that takes it, and returns where it went. Only /usr/local/bin
+// may request administrator privileges, after every destination was tried.
 func Install(dirs []string, app string) (string, error) {
-	var err error
-	for i, dir := range dirs {
+	const guidance = "add ~/.local/bin to your shell's PATH and try again"
+	var candidates, installed []string
+	// Check every candidate before writing, so another program's command
+	// is neither replaced nor shadowed. Skip folders we cannot inspect.
+	for _, dir := range dirs {
 		p := filepath.Join(dir, "mayoi")
-		if data, rerr := os.ReadFile(p); rerr == nil && !strings.Contains(string(data), scriptMark) {
+		if _, err := os.Lstat(p); err != nil {
+			if os.IsNotExist(err) {
+				candidates = append(candidates, dir)
+				continue
+			}
+			if errors.Is(err, os.ErrPermission) {
+				continue
+			}
+			if info, statErr := os.Stat(dir); statErr == nil && !info.IsDir() {
+				continue
+			}
+			return "", err
+		}
+		data, err := os.ReadFile(p)
+		if errors.Is(err, os.ErrPermission) {
+			continue
+		}
+		if err != nil || !strings.Contains(string(data), scriptMark) {
 			return "", fmt.Errorf("%s is another program's", p)
 		}
+		installed = append(installed, dir)
+	}
+	// Reinstall in place rather than leave a second copy earlier on PATH.
+	if len(installed) > 0 {
+		candidates = installed
+	}
+	if len(candidates) == 0 {
+		return "", fmt.Errorf("no installation directory available on your PATH; %s", guidance)
+	}
+	var err error
+	var admin bool
+	for _, dir := range candidates {
 		if err = write(dir, app); err == nil {
-			return p, nil
+			return filepath.Join(dir, "mayoi"), nil
 		}
-		if i == len(dirs)-1 && errors.Is(err, os.ErrPermission) {
-			if err = writeAsAdmin(dir, app); err == nil {
-				return p, nil
-			}
+		if dir == "/usr/local/bin" && errors.Is(err, os.ErrPermission) {
+			admin = true
 		}
 	}
-	return "", err
+	// Ask only after trying every user-writable destination, and only for
+	// the traditional system-wide destination when it is on PATH.
+	if admin {
+		if err = writeAsAdmin("/usr/local/bin", app); err == nil {
+			return "/usr/local/bin/mayoi", nil
+		}
+		if errors.Is(err, ErrCanceled) {
+			return "", err
+		}
+	}
+	return "", fmt.Errorf("could not install mayoi; %s: %w", guidance, err)
 }
 
 func write(dir, app string) error {
@@ -108,6 +165,19 @@ func writeAsAdmin(dir, app string) error {
 	p := filepath.Join(dir, "mayoi")
 	return runAsAdmin(fmt.Sprintf("mkdir -p %s && cp %s %s && chmod 755 %s",
 		shellQuote(dir), shellQuote(f.Name()), shellQuote(p), shellQuote(p)))
+}
+
+// Refresh writes the command of the app at app over the copies of
+// Mayoi's in dirs that an older Mayoi wrote, where no password is needed.
+func Refresh(dirs []string, app string) {
+	for _, dir := range dirs {
+		p := filepath.Join(dir, "mayoi")
+		data, err := os.ReadFile(p)
+		if err != nil || !strings.Contains(string(data), scriptMark) || string(data) == script(app) {
+			continue
+		}
+		write(dir, app)
+	}
 }
 
 // Uninstall removes the mayoi command from dirs, where it is Mayoi's,
@@ -149,9 +219,15 @@ func runAsAdmin(cmd string) error {
 func shellQuote(s string) string { return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'" }
 
 // ShellPath is where the user's shell looks for commands, which an app
-// opened from the Finder does not inherit: the login shell says.
+// opened from the Finder does not inherit: the login shell's folders
+// first, in its order, then those of PATH it lacks.
 func ShellPath() []string {
-	path := filepath.SplitList(os.Getenv("PATH"))
+	return cleanPath(append(LoginPath(), filepath.SplitList(os.Getenv("PATH"))...))
+}
+
+// LoginPath is only the login shell's PATH. Installation must not use
+// Finder-only fallback directories that the user's terminal cannot find.
+func LoginPath() []string {
 	sh := os.Getenv("SHELL")
 	if sh == "" {
 		sh = "/bin/zsh"
@@ -159,14 +235,24 @@ func ShellPath() []string {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	const mark = "MAYOI_PATH="
-	out, _ := exec.CommandContext(ctx, sh, "-ilc", `echo "`+mark+`$PATH"`).Output()
+	// printenv preserves PATH's colon separators in fish as well as sh/zsh.
+	// A shell may exit non-zero after printing; keep any usable output.
+	out, _ := exec.CommandContext(ctx, sh, "-ilc", `printf '`+mark+`'; /usr/bin/printenv PATH`).Output()
+	var all []string
 	for line := range strings.Lines(string(out)) {
 		if p, ok := strings.CutPrefix(strings.TrimSpace(line), mark); ok {
-			path = append(path, filepath.SplitList(p)...)
+			all = append(all, filepath.SplitList(p)...)
 		}
 	}
-	for i, p := range path {
-		path[i] = filepath.Clean(p)
+	return cleanPath(all)
+}
+
+func cleanPath(all []string) []string {
+	var path []string
+	for _, p := range all {
+		if p = filepath.Clean(p); p != "." && !slices.Contains(path, p) {
+			path = append(path, p)
+		}
 	}
 	return path
 }

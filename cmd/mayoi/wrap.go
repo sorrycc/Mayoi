@@ -4,6 +4,8 @@ import (
 	"unicode/utf8"
 
 	"github.com/egoist/mygo/ui"
+
+	"mayoi/internal/settings"
 )
 
 // wraps reports whether an editor wraps its lines: as its tab chose, or
@@ -12,25 +14,38 @@ func (a *app) wraps(d *editor) bool {
 	if d.wrap != nil && d.wrapGen == a.settings.WrapGen {
 		return *d.wrap
 	}
-	return a.settings.WordWrap
+	return a.prefs().WordWrap
+}
+
+// wrapsMerge reports whether a merge wraps the lines of its panes: as its
+// tab chose, or else as the settings say.
+func (a *app) wrapsMerge(v *mergeView) bool {
+	if v.wrap != nil && v.wrapGen == a.settings.WrapGen {
+		return *v.wrap
+	}
+	return a.prefs().WordWrap
 }
 
 // toggleWordWrap wraps the lines of every editor, or none: the tabs that
 // chose otherwise follow it again.
 func (a *app) toggleWordWrap() {
-	s := a.settings
-	s.WordWrap = !s.WordWrap
-	s.WrapGen++
-	s.Changed()
+	a.setPref("wordWrap", func(p *settings.Prefs) { p.WordWrap = !p.WordWrap })
+	a.settings.WrapGen++
 	a.invalidate()
 }
 
 // toggleTabWrap wraps the lines of the editor shown, or stops, until
 // the settings' Word Wrap changes.
 func (a *app) toggleTabWrap() {
-	if t := a.activeTab(); t != nil && t.diff != nil {
-		a.toggleDiffWrap(t.diff)
-		return
+	if t := a.activeTab(); t != nil {
+		if t.diff != nil {
+			a.toggleDiffWrap(t.diff)
+			return
+		}
+		if t.merge != nil {
+			a.toggleMergeWrap(t.merge)
+			return
+		}
 	}
 	d := a.activeEditor()
 	if d == nil {
@@ -38,6 +53,14 @@ func (a *app) toggleTabWrap() {
 	}
 	w := !a.wraps(d)
 	d.wrap, d.wrapGen = &w, a.settings.WrapGen
+	a.invalidate()
+}
+
+// toggleMergeWrap wraps the lines of a merge's panes, or stops, until the
+// settings' Word Wrap changes.
+func (a *app) toggleMergeWrap(v *mergeView) {
+	w := !a.wrapsMerge(v)
+	v.wrap, v.wrapGen = &w, a.settings.WrapGen
 	a.invalidate()
 }
 
@@ -74,6 +97,41 @@ func (g geometry) at(y float32) int {
 	return min(max(0, int(y/g.lineH)), g.n-1)
 }
 
+// topF returns the top of a fractional line i, between the tops of the
+// lines its whole part falls between: where a line across from i stands.
+// Below the first line it goes on by the first line's rows, as i*lineH
+// does and as atF reads it back.
+func (g geometry) topF(i float32) float32 {
+	if g.lines == nil {
+		return i * g.lineH
+	}
+	if i < 0 {
+		return i * (g.lines.Top(1) - g.lines.Top(0))
+	}
+	lo, f := float32(int(i)), i-float32(int(i))
+	t0 := g.lines.Top(int(lo))
+	if f == 0 {
+		return t0
+	}
+	return t0 + f*(g.lines.Top(int(lo)+1)-t0)
+}
+
+// atF returns the fractional line at y: the line y falls in, and how far
+// into it, as the line across from y goes. Past the last line it stays
+// at the last.
+func (g geometry) atF(y float32) float32 {
+	if g.lines == nil {
+		return min(y/g.lineH, float32(g.n))
+	}
+	i := g.lines.At(y)
+	t0 := g.lines.Top(i)
+	t1 := g.lines.Top(i + 1)
+	if t1 <= t0 {
+		return float32(i)
+	}
+	return min(float32(i)+(y-t0)/(t1-t0), float32(g.n))
+}
+
 // height returns the height of all the lines.
 func (g geometry) height() float32 { return g.top(g.n) }
 
@@ -89,6 +147,18 @@ func (g geometry) row(i, off int) int {
 		k++
 	}
 	return k
+}
+
+// measureDown has the text area lay out the lines from line i down, as many
+// as fill room, for their tops below to be known rather than estimated.
+func (g geometry) measureDown(i int, room float32) {
+	if g.lines == nil {
+		return
+	}
+	for ; i < g.n && room > 0; i++ {
+		g.lines.Rows(i)
+		room -= g.top(i+1) - g.top(i)
+	}
 }
 
 // rowSlack is how many lines beyond those in view the editor finds the

@@ -16,6 +16,7 @@ func TestRoundTrip(t *testing.T) {
 	w := s.NewWindow()
 	w.Folder, w.Columns = "/tmp/x", []Column{{Tabs: []Tab{{File: "/tmp/x/a.go"}}}}
 	w.SidebarWidth = 300
+	w.ScmChangesRatio = 0.65
 	// Laid out as the window focused last, then as it chooses.
 	y := s.NewWindow()
 	y.Folder = "/tmp/y"
@@ -26,9 +27,44 @@ func TestRoundTrip(t *testing.T) {
 		got.Windows[1].Folder != "/tmp/x" || len(got.Windows[1].Columns) != 1 {
 		t.Errorf("loaded %+v", got)
 	}
-	if x, y := got.Windows[1].Layout, got.Windows[0].Layout; x.SidebarWidth != 300 || x.SidebarView != "" ||
+	if x, y := got.Windows[1].Layout, got.Windows[0].Layout; x.SidebarWidth != 300 || x.SidebarView != "" || x.ScmChangesRatio != 0.65 ||
 		y.SidebarWidth != 300 || y.SidebarView != "git" || y.PanelHeight != DefaultLayout.PanelHeight {
 		t.Errorf("layouts %+v and %+v", x, y)
+	}
+}
+
+func TestZoomLevel(t *testing.T) {
+	for _, tc := range []struct {
+		json string
+		want float32
+	}{
+		{`{}`, 0},
+		{`{"zoomLevel": 1.5}`, 1.5},
+		{`{"zoomLevel": -0.75}`, -0.75},
+		{`{"zoomLevel": -100}`, MinZoomLevel},
+		{`{"zoomLevel": 100}`, MaxZoomLevel},
+	} {
+		t.Run(tc.json, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "settings.json")
+			if err := os.WriteFile(path, []byte(tc.json), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			s := Load(path)
+			if s.ZoomLevel != tc.want {
+				t.Fatalf("loaded zoom %v, want %v", s.ZoomLevel, tc.want)
+			}
+			s.Flush()
+			if got := Load(path).ZoomLevel; got != tc.want {
+				t.Fatalf("saved zoom %v, want %v", got, tc.want)
+			}
+			if err := os.WriteFile(path, []byte(`{"zoomLevel": 0.25}`), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			p, ok := s.Edited()
+			if !ok || p.ZoomLevel != 0.25 {
+				t.Fatalf("reloaded zoom %v, changed %v", p.ZoomLevel, ok)
+			}
+		})
 	}
 }
 
@@ -119,6 +155,29 @@ func TestStateMovesToItsFile(t *testing.T) {
 	}
 	if got := Load(path); len(got.Windows) != 2 || got.FontSize != 15 {
 		t.Errorf("loaded again: windows %d, font %v", len(got.Windows), got.FontSize)
+	}
+}
+
+// The addresses of terminals in herdr-core, of tabs and of the panel,
+// last to the next start.
+func TestHCTerminalsKept(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "settings.json")
+	s := Load(path)
+	w := s.NewWindow()
+	w.Folder = "/tmp/x"
+	w.Columns = []Column{{Tabs: []Tab{{Terminal: true, HC: "t3"}, {Terminal: true}}}}
+	w.PanelTerms, w.PanelTerm = []string{"t4", "vps/t5"}, 1
+	s.Flush()
+	got := Load(path).Windows
+	if len(got) != 1 {
+		t.Fatalf("windows %+v", got)
+	}
+	g := got[0]
+	if tabs := g.Columns[0].Tabs; len(tabs) != 2 || tabs[0].HC != "t3" || tabs[1].HC != "" || !tabs[1].Terminal {
+		t.Errorf("tabs %+v", tabs)
+	}
+	if len(g.PanelTerms) != 2 || g.PanelTerms[1] != "vps/t5" || g.PanelTerm != 1 {
+		t.Errorf("panel %q, showing %d", g.PanelTerms, g.PanelTerm)
 	}
 }
 
@@ -272,6 +331,38 @@ func TestTerminalCopyOnSelect(t *testing.T) {
 	}
 }
 
+func TestEditorAgentContext(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "settings.json")
+	s := Load(path)
+	if s.EditorAgentContext {
+		t.Fatal("agent context enabled by default")
+	}
+	if err := os.WriteFile(path, []byte(`{"editorAgentContext":true}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	p, ok := s.Edited()
+	if !ok || !p.EditorAgentContext {
+		t.Fatal("did not pick up the edited preference")
+	}
+	s.SetPrefs(p)
+	w := s.NewWindow()
+	w.Review = []ReviewNote{{Context: true, Path: "/repo/file.go", From: 0, To: 1,
+		Snippet: []string{"hello()"}, Lines: []string{"hello()"}}}
+	s.Flush()
+	loaded := Load(path)
+	if !loaded.EditorAgentContext || len(loaded.Windows) != 1 || len(loaded.Windows[0].Review) != 1 ||
+		!loaded.Windows[0].Review[0].Context || loaded.Windows[0].Review[0].Text != "" {
+		t.Fatal("preference or uncommented context was not persisted")
+	}
+	if err := os.WriteFile(path, []byte(`{}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	p, ok = s.Edited()
+	if !ok || p.EditorAgentContext {
+		t.Fatal("removing the setting did not disable it")
+	}
+}
+
 // An edit of the file changes the preferences it watches, but not the
 // windows; the settings' own writes and a file that does not parse
 // change nothing.
@@ -352,6 +443,17 @@ func TestTerminalLocation(t *testing.T) {
 	}
 }
 
+// A terminal runs in Mayoi unless the file says "hc".
+func TestTerminalBackend(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "settings.json")
+	for in, want := range map[string]string{"": "", "hc": "hc", "herdr": "", "HC": ""} {
+		os.WriteFile(path, []byte(`{"terminalBackend": "`+in+`"}`), 0o644)
+		if got := Load(path).TerminalBackend; got != want {
+			t.Errorf("%q loaded as %q, want %q", in, got, want)
+		}
+	}
+}
+
 func TestScmRepositoryPreferencesRoundTrip(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "settings.json")
 	s := Load(path)
@@ -426,6 +528,25 @@ func TestSyncIgnoredPrefs(t *testing.T) {
 		t.Fatal(err)
 	}
 	if q.FontSize != 18 || !q.Vim || q.Theme != "qoder" || len(q.SyncIgnored) != 4 {
+		t.Errorf("prefs = %+v", q)
+	}
+}
+
+// TestMachineKept: what a development build keeps stays on the machine
+// though syncIgnored leaves it out.
+func TestMachineKept(t *testing.T) {
+	MachineKept = []string{"theme", "appearance"}
+	defer func() { MachineKept = nil }()
+	p := Default().Prefs
+	p.Theme = "pumpkin"
+	if keys, _ := p.SyncKept(); len(keys) != 2 || !slices.Contains(keys, "theme") || !slices.Contains(keys, "appearance") {
+		t.Errorf("kept %v", keys)
+	}
+	q, err := p.WithSynced(map[string]json.RawMessage{"theme": json.RawMessage(`"qoder"`), "fontSize": json.RawMessage("12")})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if q.Theme != "pumpkin" || q.FontSize != 12 {
 		t.Errorf("prefs = %+v", q)
 	}
 }

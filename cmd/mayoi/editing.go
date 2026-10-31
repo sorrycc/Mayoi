@@ -408,7 +408,7 @@ func deleteLines(d *editor) {
 // cut cuts the selection, or the caret's line when there is none, as in
 // VS Code.
 func (a *app) cut(d *editor) {
-	if d.locked() || a.settings.Vim && d.vim.mode != vimInsert {
+	if d.locked() || a.prefs().Vim && d.vim.mode != vimInsert {
 		return
 	}
 	snap := d.buf.Snapshot()
@@ -425,6 +425,13 @@ func (a *app) cut(d *editor) {
 	start, end := snap.LineRange(snap.LineAt(min(d.sel[1], snap.Len())))
 	a.services.WriteClipboard(snap.Slice(start, end) + "\n")
 	deleteLines(d)
+}
+
+// selectAll selects the whole text, leaving the view where it is, as in
+// VS Code.
+func selectAll(d *editor) {
+	d.selectRange(0, d.buf.Snapshot().Len(), false)
+	d.quiet = true
 }
 
 // insertLine opens a line below the caret's, or above, with its indent.
@@ -483,18 +490,28 @@ func home(d *editor, extend bool) {
 	d.selectRange(anchor, to, false)
 }
 
+// swipeSideways takes a swipe mostly sideways for the scroll state s:
+// a trackpad's sideways push moves the text sideways only, as in VS
+// Code — the text area would take the whole of it for the little it
+// goes down, and the text stop and drift. Taken at an edge too, or
+// wrapped, so that the text stays put. Shift is left out: a mouse
+// scrolls sideways with Shift+wheel, which the caller may route its own
+// way. Reports whether the swipe was taken.
+func (a *app) swipeSideways(s *ui.ScrollState, ev ui.InputEvent) bool {
+	if ev.Kind != ui.InputScroll || ev.Mods&ui.Shift != 0 || max(ev.DX, -ev.DX) <= max(ev.DY, -ev.DY) {
+		return false
+	}
+	if x := max(0, min(s.X+ev.DX, s.MaxX)); x != s.X {
+		s.X = x
+		a.invalidate()
+	}
+	return true
+}
+
 // editorKey takes the keys of the editor that the app handles itself,
 // before its text area: they queue an edit for the next frame.
 func (a *app) editorKey(d *editor, ev ui.InputEvent) bool {
-	if ev.Kind == ui.InputScroll && ev.Mods&ui.Shift == 0 && max(ev.DX, -ev.DX) > max(ev.DY, -ev.DY) {
-		// A swipe mostly sideways moves the text sideways only, as in VS
-		// Code: the text area would take the whole of it for the little it
-		// goes down, and the text stop and drift.
-		// Taken at an edge too, or wrapped, so that the text stays put.
-		if x := max(0, min(d.hscroll.X+ev.DX, d.hscroll.MaxX)); x != d.hscroll.X {
-			d.hscroll.X = x
-			a.invalidate()
-		}
+	if a.swipeSideways(&d.hscroll, ev) {
 		return true
 	}
 	if ev.Kind == ui.InputPointerDown && ev.Button == 0 && len(d.sticky) > 0 && a.font.lineH > 0 {
@@ -511,7 +528,12 @@ func (a *app) editorKey(d *editor, ev ui.InputEvent) bool {
 		a.invalidate()
 		return true
 	}
-	if ev.Kind == ui.InputPointerDown && a.settings.Vim && d.vim.mode.visual() {
+	// A Cmd-click on a wiki link of a note opens what it links to, once the
+	// click put the caret in it.
+	if ev.Kind == ui.InputPointerDown && ev.Button == 0 && ev.Clicks == 1 && ev.Mods == ui.Cmd && isMarkdown(d.document) {
+		d.cmds = append(d.cmds, a.followWikiLink)
+	}
+	if ev.Kind == ui.InputPointerDown && a.prefs().Vim && d.vim.mode.visual() {
 		// A click ends visual mode; a drag selects anew.
 		d.vim.lastVisual = vimVisualArea{d.vim.anchor, d.vim.cursor, d.vim.mode}
 		d.vim.mode, d.vim.keys = vimNormal, d.vim.keys[:0]
@@ -523,7 +545,7 @@ func (a *app) editorKey(d *editor, ev ui.InputEvent) bool {
 		d.peek = -1
 		return true
 	}
-	if a.settings.Vim && a.vimKey(d, ev) {
+	if a.prefs().Vim && a.vimKey(d, ev) {
 		return true
 	}
 	var cmd func(d *editor)
@@ -531,6 +553,8 @@ func (a *app) editorKey(d *editor, ev ui.InputEvent) bool {
 	switch m := ev.Mods; {
 	case ev.Key == ui.KeyX && m == cmdKey:
 		cmd = a.cut
+	case ev.Key == ui.KeyA && m == cmdKey:
+		cmd = selectAll
 	case ev.Key == ui.KeyTab && (m == 0 || m == ui.Shift):
 		outdent := m == ui.Shift
 		cmd = func(d *editor) { tab(d, outdent) }

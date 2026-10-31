@@ -86,14 +86,19 @@ func (a *app) quickOpenView(c *ui.Context) {
 		q.shown, q.stale = q.query, false
 		q.sel = 0
 	}
-	choose := func(i int) {
+	// choose opens a file of the results, to the side with side.
+	choose := func(i int, side bool) {
 		if i < 0 || i >= len(q.results) {
 			q.shook = c.Now()
 			return
 		}
 		rel := a.index[q.results[i].Index]
 		q.open = false
-		a.openFile(inDir(a.root, rel), true)
+		if side {
+			a.openFileToSide(inDir(a.root, rel))
+		} else {
+			a.openFile(inDir(a.root, rel), true)
+		}
 	}
 	ui.Overlay(c, func() {
 		back := a.dialogBack(c, "quick")
@@ -119,7 +124,9 @@ func (a *app) quickOpenView(c *ui.Context) {
 					if in.Shortcut(0, ui.KeyUp) {
 						q.sel, q.moved = max(q.sel-1, 0), true
 					}
-					if in.Submitted() {
+					if !isLine && in.Shortcut(ui.Cmd, ui.KeyEnter) {
+						choose(q.sel, true)
+					} else if in.Submitted() {
 						if isLine {
 							if line > 0 {
 								q.open = false
@@ -128,12 +135,14 @@ func (a *app) quickOpenView(c *ui.Context) {
 								q.shook = c.Now()
 							}
 						} else {
-							choose(q.sel)
+							choose(q.sel, false)
 						}
 					}
 				})
 				a.quickBody(c, isLine, line, col, choose)
-				a.quickFooter(c, isLine, locales.QuickOpenAction(), "", a.root != "")
+				// The prefixes are of use before a query, the side after.
+				typed := strings.TrimSpace(q.query) != ""
+				a.quickFooter(c, isLine, locales.QuickOpenAction(), "", a.root != "" && !typed, typed && len(q.results) > 0)
 
 			})
 			if box.PressedOutside() || back.OverlayShortcut(0, ui.KeyEscape) {
@@ -145,11 +154,11 @@ func (a *app) quickOpenView(c *ui.Context) {
 
 // quickBody is what quick open lists: the files found, or what going to
 // a line does.
-func (a *app) quickBody(c *ui.Context, isLine bool, line, col int, choose func(int)) {
+func (a *app) quickBody(c *ui.Context, isLine bool, line, col int, choose func(int, bool)) {
 	q := &a.quick
 	p := a.pal
 	if isLine {
-		hint := locales.QuickLineHint()
+		var hint string
 		if d := a.activeEditor(); d == nil {
 			hint = locales.QuickLineNoFile()
 		} else if line > 0 {
@@ -185,7 +194,7 @@ func (a *app) quickBody(c *ui.Context, isLine bool, line, col int, choose func(i
 				row.ScrollIntoView()
 			}
 			if row.Clicked() {
-				choose(i)
+				choose(i, false)
 			}
 			row.Transition(hoverFade)
 			row.Children(func() { a.pickMark(c, i == q.sel, "quick"); a.quickRow(c, rel, m.Positions) })
@@ -195,8 +204,9 @@ func (a *app) quickBody(c *ui.Context, isLine bool, line, col int, choose func(i
 }
 
 // quickFooter shows the keys of quick open, and at its end a tip, or with
-// prefixes the prefixes that make quick open search something else.
-func (a *app) quickFooter(c *ui.Context, isLine bool, open, tip string, prefixes bool) {
+// prefixes the prefixes that make quick open search something else, or
+// with side the key that opens a file to the side.
+func (a *app) quickFooter(c *ui.Context, isLine bool, open, tip string, prefixes, side bool) {
 	p := a.pal
 	ui.Row(c).Height(30).Padding(0, 14).Gap(14).AlignItems(ui.Center).Background(p.hover).
 		BorderWidth(1, 0, 0, 0).BorderColor(p.border).Children(func() {
@@ -218,6 +228,8 @@ func (a *app) quickFooter(c *ui.Context, isLine bool, open, tip string, prefixes
 		case isLine:
 		case tip != "":
 			ui.Text(c, tip).FontSize(11.5).TextColor(p.faint).SingleLine()
+		case side:
+			hint(keyText("CmdOrCtrl+Enter"), locales.QuickOpenToSide())
 		case prefixes:
 			hint(">", locales.QuickCommands())
 			hint(":", locales.QuickLine())
@@ -276,6 +288,7 @@ func (a *app) goToLine(line, col int) {
 	s, e := snap.LineRange(l)
 	at := min(s+max(col-1, 0), e)
 	d.selectRange(at, at, true)
+	d.lightLanding()
 	d.vscroll.Focus()
 }
 
@@ -399,7 +412,7 @@ func (a *app) quickSymbols(c *ui.Context, query string) {
 					})
 					q.moved = false
 				}
-				a.quickFooter(c, false, locales.QuickGoToAction(), "", false)
+				a.quickFooter(c, false, locales.QuickGoToAction(), "", false, false)
 			})
 			if box.PressedOutside() || back.OverlayShortcut(0, ui.KeyEscape) {
 				a.closeQuick()

@@ -45,6 +45,16 @@ func platformAccel(id, accel string) string {
 	return strings.ReplaceAll(accel, "CmdOrCtrl", "Ctrl")
 }
 
+// parseAccel reads an accelerator as Mayoi takes it on the system: with
+// Command for CmdOrCtrl on macOS, where MyGo's would follow the machine.
+func parseAccel(accel string) (keymap.Stroke, bool) {
+	if macKeys() {
+		accel = strings.ReplaceAll(accel, "CommandOrControl", "Cmd")
+		accel = strings.ReplaceAll(accel, "CmdOrCtrl", "Cmd")
+	}
+	return keymap.ParseAccel(accel)
+}
+
 // tabMod is the modifier that, with a digit, shows a tab of the column:
 // Command on macOS, Alt elsewhere, as in VS Code.
 func tabMod() ui.Modifiers {
@@ -208,7 +218,7 @@ func revealActiveLabel(t locales.Messages) string {
 // vimCtrl reports whether vim's normal mode takes ⌃F, ⌃B and ⌃R: on
 // macOS, where shortcuts are Command's, and elsewhere with vimCtrlKeys,
 // rather than Find, Toggle Sidebar and Open Recent.
-func (a *app) vimCtrl() bool { return macKeys() || a.settings.VimCtrlKeys }
+func (a *app) vimCtrl() bool { return macKeys() || a.prefs().VimCtrlKeys }
 
 // vimTakesCtrl reports whether the editor with the keyboard takes vim's
 // keys with Control, as ⌃R.

@@ -33,8 +33,9 @@ var crashDir string
 // the Dock. crash.log starts with a line of the app's version and system,
 // which the crash follows. A crash.log a crash left is moved first into
 // the crashes folder, named by its time, with the home folder taken out,
-// so that each launch starts an empty one. The crashes the system
-// reported since the last launch join it there.
+// so that each launch starts an empty one, with the end of what the run
+// wrote to stderr (keepStderr). The crashes the system reported since the
+// last launch join it there.
 func keepCrashes(dir string) {
 	if dir == "" {
 		return
@@ -42,14 +43,17 @@ func keepCrashes(dir string) {
 	crashDir = dir
 	crashes := filepath.Join(dir, "crashes")
 	path := filepath.Join(dir, "crash.log")
+	stderr := filepath.Join(dir, crashStderrFile)
 	if fi, err := os.Stat(path); err == nil {
 		if b, err := os.ReadFile(path); err == nil && crashed(b) && os.MkdirAll(crashes, 0o755) == nil {
 			name := filepath.Join(crashes, fi.ModTime().Format(crashTime)+".log")
-			if os.WriteFile(name, []byte(redactHome(string(b))), 0o644) == nil {
+			if os.WriteFile(name, []byte(redactHome(string(b)+crashedStderr(stderr, b))), 0o644) == nil {
 				os.Chtimes(name, fi.ModTime(), fi.ModTime())
 			}
 		}
 	}
+	// Of the last run only: this one may not keep its stderr.
+	os.Remove(stderr)
 	keepSystemCrashes(crashes)
 	pruneCrashes(crashes)
 	os.MkdirAll(dir, 0o755)
@@ -79,6 +83,45 @@ func crashed(b []byte) bool {
 		_, b, _ = bytes.Cut(b, []byte("\n\n"))
 	}
 	return len(bytes.TrimSpace(b)) > 0
+}
+
+// crashStderrFile is the file in the data folder that keeps stderr
+// (keepStderr).
+const crashStderrFile = "stderr.log"
+
+// crashStderr heads, in a crash log, what the run wrote to stderr.
+const crashStderr = "\n\nstderr:\n"
+
+// maxCrashStderr is how much of the end of stderr a crash log keeps.
+const maxCrashStderr = 16 << 10
+
+// crashedStderr is the section of a crash log with the end of the stderr
+// of the run that crashed, kept at path: without the crash, which the
+// runtime writes to stderr as well as to crash.log. "" when it wrote
+// nothing else.
+func crashedStderr(path string, crash []byte) string {
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return ""
+	}
+	if bytes.HasPrefix(crash, []byte("Mayoi ")) {
+		_, crash, _ = bytes.Cut(crash, []byte("\n\n"))
+	}
+	first, _, _ := bytes.Cut(bytes.TrimLeft(crash, "\x00\n"), []byte("\n"))
+	if i := bytes.LastIndex(b, first); len(first) > 0 && i >= 0 {
+		b = b[:i]
+	}
+	if len(b) > maxCrashStderr {
+		b = b[len(b)-maxCrashStderr:]
+		if i := bytes.IndexByte(b, '\n'); i >= 0 {
+			b = b[i+1:]
+		}
+	}
+	b = bytes.TrimRight(b, "\n")
+	if len(b) == 0 {
+		return ""
+	}
+	return crashStderr + strings.ToValidUTF8(string(b), "")
 }
 
 // pruneCrashes removes all but the newest maxCrashes logs of dir.

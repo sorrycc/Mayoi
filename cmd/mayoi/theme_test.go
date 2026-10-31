@@ -50,6 +50,72 @@ func TestMatrixTheme(t *testing.T) {
 	}
 }
 
+// Purple Gold is always dark, whatever the appearance, with Corona and
+// gold hairlines, and its apse moves behind the welcome page in place of
+// rain, holding still without the keyboard.
+func TestPurpleGoldTheme(t *testing.T) {
+	if paletteFor(themePurpleGold, false) != purpleGoldPal || paletteFor(themePurpleGold, true) != purpleGoldPal {
+		t.Error("Purple Gold follows the window's light or dark")
+	}
+	if themeSource(themePurpleGold, "light") != mygo.ThemeDark || themeSource(themePurpleGold, "") != mygo.ThemeDark {
+		t.Error("the native window is not dark under Purple Gold")
+	}
+	if themeMascotOf(themePurpleGold) != corona {
+		t.Error("Purple Gold has not Corona")
+	}
+	if purpleGoldPal.hairline() != purpleGoldPal.rule || darkPal.hairline() != darkPal.border {
+		t.Error("the hairline is not the theme's own rule, or the border without one")
+	}
+	hs := themeHarness(t, themePurpleGold, false)
+	a := hs.a
+	if a.pal != purpleGoldPal || a.rain.moving {
+		t.Error("a light window is not in Purple Gold, without rain")
+	}
+	if !a.throne.moving {
+		t.Fatal("the apse does not move on the welcome page")
+	}
+	a.post(func() { a.blurred = true })
+	hs.settle()
+	step := a.throne.step
+	if a.throne.moving {
+		t.Error("the apse moves in a window without the keyboard")
+	}
+	hs.settle()
+	if a.throne.step != step {
+		t.Error("the apse moved while still")
+	}
+	a.setTheme("")
+	a.throne.moving = false
+	hs.settle()
+	if a.throne.moving {
+		t.Error("the apse shows out of Purple Gold")
+	}
+}
+
+// The Halloween themes are always dark, whatever the appearance, without
+// rain, each with its character.
+func TestHalloweenThemes(t *testing.T) {
+	for _, tc := range []struct {
+		theme string
+		pal   *palette
+		m     *mascot
+	}{{themePumpkin, pumpkinPal, jack}, {themeWitchsBrew, witchsBrewPal, cauldron}, {themeBloodMoon, bloodMoonPal, bat}} {
+		if paletteFor(tc.theme, false) != tc.pal || paletteFor(tc.theme, true) != tc.pal {
+			t.Errorf("%s follows the window's light or dark", tc.theme)
+		}
+		if themeSource(tc.theme, "light") != mygo.ThemeDark || themeSource(tc.theme, "") != mygo.ThemeDark {
+			t.Errorf("the native window is not dark under %s", tc.theme)
+		}
+		if themeMascotOf(tc.theme) != tc.m {
+			t.Errorf("%s has not its character", tc.theme)
+		}
+		hs := themeHarness(t, tc.theme, false)
+		if hs.a.pal != tc.pal || hs.a.rain.moving {
+			t.Errorf("a light window is not in %s, without rain", tc.theme)
+		}
+	}
+}
+
 // The rain falls while the window has the keyboard, and holds still
 // without it, asking for no frames.
 func TestMatrixRainStopsWhenBlurred(t *testing.T) {
@@ -123,12 +189,14 @@ func themeHarness(t testing.TB, theme string, dark bool) *harness {
 	return hs
 }
 
-// Claude and Qoder have a light and a dark palette, as the appearance is.
+// Claude, Qoder, Grok Bot and Cursor have a light and a dark palette, as
+// the appearance is.
 func TestLightOrDarkThemes(t *testing.T) {
 	for _, tc := range []struct {
 		name, theme string
 		light, dark *palette
-	}{{"Claude", themeClaude, claudeLightPal, claudeDarkPal}, {"Qoder", themeQoder, qoderLightPal, qoderDarkPal}} {
+	}{{"Claude", themeClaude, claudeLightPal, claudeDarkPal}, {"Qoder", themeQoder, qoderLightPal, qoderDarkPal},
+		{"Grok Bot", themeGrokBot, grokBotLightPal, grokBotDarkPal}, {"Cursor", themeCursor, cursorLightPal, cursorDarkPal}} {
 		if paletteFor(tc.theme, false) != tc.light || paletteFor(tc.theme, true) != tc.dark {
 			t.Errorf("%s does not follow the window's light or dark", tc.name)
 		}
@@ -168,7 +236,13 @@ func TestLightOrDarkThemes(t *testing.T) {
 	}
 }
 
-// A character blinks for a moment, bobs once in a few periods, and hops
+func restingPose(now time.Time) mascotPose {
+	p, _ := poseAt(now, false)
+	return p
+}
+
+// A character blinks for a moment, bobs once in a few periods, glances
+// once in a few, and hops
 // while there is work, the hop changing every step.
 func TestMascotPoses(t *testing.T) {
 	at := func(ms int64) time.Time { return time.UnixMilli(ms) }
@@ -186,6 +260,13 @@ func TestMascotPoses(t *testing.T) {
 	if p, hold := poseAt(at(3*period+500), false); p.lift != 0 || hold != mascotBobAt-500*time.Millisecond {
 		t.Errorf("the character does not wait for its bob: %+v for %v", p, hold)
 	}
+	glance := 2*period + mascotGlanceAt.Milliseconds()
+	if p, hold := poseAt(at(glance-10), false); p.look != 0 || hold != 10*time.Millisecond {
+		t.Errorf("the character does not wait for its glance: %+v for %v", p, hold)
+	}
+	if l, r := restingPose(at(glance+10)), restingPose(at(glance+mascotGlance.Milliseconds()+10)); l.look != -1 || r.look != 1 {
+		t.Errorf("the character does not glance left, then right: %+v, %+v", l, r)
+	}
 	a, _ := poseAt(at(0), true)
 	b, hold := poseAt(at(mascotHop.Milliseconds()), true)
 	if a == b || hold != mascotHop {
@@ -195,13 +276,16 @@ func TestMascotPoses(t *testing.T) {
 
 // The theme's character moves on the welcome page and in the status bar
 // while the window has the keyboard, hops while Git works, and holds
-// still without the keyboard: Clawd in Claude, and Qoduck in Qoder.
+// still without the keyboard: Clawd in Claude, Qoduck in Qoder, and Grok
+// Bot's face in Grok Bot.
 func TestMascotMoves(t *testing.T) {
 	for _, tc := range []struct {
 		theme string
 		m     *mascot
 		name  string
-	}{{themeClaude, clawd, "Claude"}, {themeQoder, qoduck, "Qoder"}} {
+	}{{themeClaude, clawd, "Claude"}, {themeQoder, qoduck, "Qoder"}, {themeGrokBot, grokBot, "Grok Bot"},
+		{themePumpkin, jack, "Jack-o'-Lantern"}, {themeWitchsBrew, cauldron, "Witch's Brew"}, {themeBloodMoon, bat, "Blood Moon"},
+		{themePurpleGold, corona, "Corona"}} {
 		hs := themeHarness(t, tc.theme, true)
 		a := hs.a
 		if a.themeMascot() != tc.m {
@@ -246,6 +330,24 @@ func TestShotQoder(t *testing.T) {
 	shotTheme(t, themeQoder)
 }
 
+func TestShotGrokBot(t *testing.T) {
+	shotTheme(t, themeGrokBot)
+}
+
+func TestShotCursor(t *testing.T) {
+	shotTheme(t, themeCursor)
+}
+
+func TestShotPurpleGold(t *testing.T) {
+	shotTheme(t, themePurpleGold)
+}
+
+func TestShotHalloween(t *testing.T) {
+	for _, theme := range []string{themePumpkin, themeWitchsBrew, themeBloodMoon} {
+		shotTheme(t, theme)
+	}
+}
+
 // shotTheme shoots a theme's welcome page and an editor, light and dark.
 func shotTheme(t *testing.T, theme string) {
 	if os.Getenv("SHOTS") == "" {
@@ -273,8 +375,9 @@ func shotTheme(t *testing.T, theme string) {
 	}
 }
 
-// The appearances are greyed out in the menu under The Matrix, which is
-// always dark, and the themes and appearances are checked apart.
+// The appearances are greyed out in the menu under The Matrix, Purple
+// Gold and Witch's Brew, which are always dark, and the themes and
+// appearances are checked apart.
 func TestThemeMenu(t *testing.T) {
 	hs := newHarness(t, true)
 	a := hs.a
@@ -312,12 +415,35 @@ func TestThemeMenu(t *testing.T) {
 	if find("Mayoi").Checked || !find("The Matrix").Checked {
 		t.Error("The Matrix is not the theme checked")
 	}
+	a.setTheme(themePurpleGold)
+	if l, g := find("Light"), find("Purple Gold"); g == nil || !g.Checked || !l.Disabled || !l.Checked || !a.commandOn("view.theme.purplegold") {
+		t.Error("Purple Gold is not the theme checked, with Light greyed out and kept")
+	}
+	if a.themeMascot() != corona {
+		t.Error("Purple Gold has not Corona")
+	}
+	a.setTheme(themeWitchsBrew)
+	if l, w := find("Light"), find("Witch's Brew"); w == nil || !w.Checked || find("Purple Gold").Checked || !l.Disabled ||
+		!a.commandOn("view.theme.witchsbrew") {
+		t.Error("Witch's Brew is not the theme checked, with Light greyed out")
+	}
 	a.setTheme(themeQoder)
 	if q, l := find("Qoder"), find("Light"); q == nil || !q.Checked || find("The Matrix").Checked || l.Disabled {
 		t.Error("Qoder is not the theme checked, with Light to choose")
 	}
 	if !a.commandOn("view.theme.qoder") {
 		t.Error("the palette does not check Qoder")
+	}
+	a.setTheme(themeGrokBot)
+	if g := find("Grok Bot"); g == nil || !g.Checked || find("Qoder").Checked || !a.commandOn("view.theme.grokbot") {
+		t.Error("Grok Bot is not the theme checked")
+	}
+	a.setTheme(themeCursor)
+	if c := find("Cursor"); c == nil || !c.Checked || find("Grok Bot").Checked || !a.commandOn("view.theme.cursor") {
+		t.Error("Cursor is not the theme checked")
+	}
+	if a.themeMascot() != nil {
+		t.Error("Cursor has a character")
 	}
 }
 
@@ -326,7 +452,9 @@ func TestThemeMenu(t *testing.T) {
 // least at the 3:1 AA asks of large or bold text.
 func TestButtonContrast(t *testing.T) {
 	pals := map[string]*palette{"light": lightPal, "dark": darkPal, "matrix": matrixPal, "claude light": claudeLightPal, "claude dark": claudeDarkPal,
-		"qoder light": qoderLightPal, "qoder dark": qoderDarkPal}
+		"qoder light": qoderLightPal, "qoder dark": qoderDarkPal, "grok bot light": grokBotLightPal, "grok bot dark": grokBotDarkPal,
+		"cursor light": cursorLightPal, "cursor dark": cursorDarkPal, "purple gold": purpleGoldPal,
+		"jack-o'-lantern": pumpkinPal, "witch's brew": witchsBrewPal, "blood moon": bloodMoonPal}
 	for name, p := range pals {
 		for _, pair := range []struct {
 			what     string
@@ -351,7 +479,9 @@ func TestButtonContrast(t *testing.T) {
 // Source Control does on a light window.
 func TestStatusTextContrast(t *testing.T) {
 	pals := map[string]*palette{"light": lightPal, "dark": darkPal, "matrix": matrixPal, "claude light": claudeLightPal, "claude dark": claudeDarkPal,
-		"qoder light": qoderLightPal, "qoder dark": qoderDarkPal}
+		"qoder light": qoderLightPal, "qoder dark": qoderDarkPal, "grok bot light": grokBotLightPal, "grok bot dark": grokBotDarkPal,
+		"cursor light": cursorLightPal, "cursor dark": cursorDarkPal, "purple gold": purpleGoldPal,
+		"jack-o'-lantern": pumpkinPal, "witch's brew": witchsBrewPal, "blood moon": bloodMoonPal}
 	for name, p := range pals {
 		for what, fg := range map[string]ui.Color{"modified": p.modifiedFg, "added": p.addedFg, "removed": p.removedFg, "danger": p.dangerFg} {
 			for _, back := range []ui.Color{p.chrome, p.editor, p.panel} {

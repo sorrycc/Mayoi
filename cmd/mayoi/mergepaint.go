@@ -41,7 +41,7 @@ func (a *app) mergeViewUI(c *ui.Context, v *mergeView) {
 		v.syncRegions()
 	}
 	if v.ed != nil {
-		if !a.settings.Vim {
+		if !a.prefs().Vim {
 			vimReset(v.ed)
 		}
 		// The typing of the result is the merge editor's while the result
@@ -190,8 +190,8 @@ func (a *app) mergeHead(c *ui.Context, v *mergeView) {
 					if m.Item(locales.MergeApplyRight()).Chosen() {
 						a.post(func() { a.applyNonConflicts(v, applyRight) })
 					}
-					if m.Item(locales.MergeApplyAuto()).Checked(a.settings.MergeAutoApply).Chosen() {
-						a.post(func() { a.setMergeAutoApply(!a.settings.MergeAutoApply) })
+					if m.Item(locales.MergeApplyAuto()).Checked(a.prefs().MergeAutoApply).Chosen() {
+						a.post(func() { a.setMergeAutoApply(!a.prefs().MergeAutoApply) })
 					}
 				})
 				col := p.text
@@ -561,7 +561,7 @@ func (a *app) mergePane(c *ui.Context, v *mergeView, k int, label, tip string) {
 			ui.Text(c, label).FontSize(10.5).FontWeight(600).LetterSpacing(0.4).TextColor(p.muted).SingleLine().Shrink(1)
 		})
 		pane := ui.ScrollHorizontal(c.Key(fmt.Sprintf("merge-scroll-%d", k))).TrackScroll(&v.panes[k].hscroll).
-			Grow(1).MinHeight(0).Background(p.editor)
+			FillWidth().Grow(1).MinHeight(0).Background(p.editor)
 		pane.Children(func() {
 			// The pane's room is the scroller's, which the text area,
 			// as wide as its longest line, may be wider than.
@@ -569,28 +569,68 @@ func (a *app) mergePane(c *ui.Context, v *mergeView, k int, label, tip string) {
 			view.H = v.panes[k].scroll.Bounds(c).H
 			v.viewW, v.viewH = view.W, view.H
 			v.panes[k].viewH = view.H
+			wrap := a.wrapsMerge(v)
 			// The width of the longest line, worked out again as the text
 			// changes: wideVer is one past the version it was of.
 			ver := buf.Version()
-			if v.panes[k].wideVer != ver+1 {
-				v.panes[k].wideVer = ver + 1
-				v.panes[k].widest = widestOf(v.paneLines(k))
+			contentW := view.W
+			if !wrap {
+				if v.panes[k].wideVer != ver+1 {
+					v.panes[k].wideVer = ver + 1
+					v.panes[k].widest = widestOf(v.paneLines(k))
+				}
+				contentW = max(view.W, textXOf(f, v.panes[k].widest))
 			}
-			contentW := max(view.W, textXOf(f, v.panes[k].widest))
 			area := ui.TextAreaBufferBase(c, buf).
 				Font(f.family).FontSize(f.size).FontWeight(f.weight).FixedLineHeight(f.lineH).TextColor(p.text).
 				FillHeight().Padding(editorPadY, textPadR, editorPadY, mergeTextX).
 				Label(label).Tooltip(tip)
 			if k == 1 {
-				vimKeys := a.settings.Vim && v.ed.vim.mode != vimInsert
+				vimKeys := a.prefs().Vim && v.ed.vim.mode != vimInsert
 				area.ReadOnly(vimKeys || a.chording() || v.ed.locked())
-				a.takeKeys(area, placeEditor, func(ev ui.InputEvent) bool { return a.editorKey(v.ed, ev) })
+				a.takeKeys(area, placeEditor, func(ev ui.InputEvent) bool {
+					if ev.Kind == ui.InputScroll && max(ev.DX, -ev.DX) > max(ev.DY, -ev.DY) {
+						// A sideways swipe, or a mouse's Shift+wheel,
+						// scrolls the pane, as the side panes' swipe
+						// does: the editor's own sideways scroll is no
+						// scroller's here, and taking either for it
+						// would stand the pane still. Wrapped, there is
+						// nothing to scroll, and the swipe stands the
+						// text where it is.
+						s := &v.panes[1].hscroll
+						if x := clamp(s.X+ev.DX, 0, s.MaxX); x != s.X {
+							s.X = x
+							a.invalidate()
+						}
+						return true
+					}
+					return a.editorKey(v.ed, ev)
+				})
 				a.mergeResultSync(c, area, ver)
 			} else {
 				area.ReadOnly(true)
 				a.takeKeys(area, placeDiff, func(ev ui.InputEvent) bool { return a.mergePaneKey(v, k, ev) })
 			}
-			area.NoWrap().Width(contentW).TrackScroll(&v.panes[k].scroll).
+			// The area is as wide as the pane as it wraps, or as its
+			// widest line as it does not, and the pane scrolls sideways to
+			// that. The width comes from the pane's box rather than the
+			// area's own: a wrapping area is measured as it currently
+			// wraps, so a width read back from it feeds forward, and an
+			// early frame pins the panes narrow beside a blank. The widest
+			// line only grows, so what the sides read while they load
+			// cannot shrink what stands.
+			if contentW > 0 {
+				area.Width(contentW)
+			} else {
+				area.FillWidth()
+			}
+			if wrap {
+				v.panes[k].hscroll.X = 0
+				area.TrackLines(&v.panes[k].lines)
+			} else {
+				area.NoWrap()
+			}
+			area.TrackScroll(&v.panes[k].scroll).
 				ScrollbarInsets(2, max(0, v.panes[k].hscroll.MaxX-v.panes[k].hscroll.X)+2, 2, 0)
 			area.Draw(func(pt *ui.Painter, r ui.Rect) { a.paintMergeRegions(pt, v, k, r) })
 		})
@@ -647,10 +687,10 @@ func (a *app) mergePaneKey(v *mergeView, pane int, ev ui.InputEvent) bool {
 	}
 	lineH := a.font.lineH
 	page := max(v.panes[pane].viewH-lineH, lineH)
+	g := a.mergeGeometry(v, pane)
 	scroll := func(dy float32) {
 		s := &v.panes[pane].scroll
-		n := v.paneLineCount(pane)
-		end := max(0, 2*editorPadY+float32(n)*lineH-v.panes[pane].viewH)
+		end := max(0, 2*editorPadY+g.top(v.paneLineCount(pane))-v.panes[pane].viewH)
 		s.Y = clamp(s.Y+dy, 0, end)
 	}
 	switch ev.Key {
@@ -683,10 +723,27 @@ func (a *app) mergePaneKey(v *mergeView, pane int, ev ui.InputEvent) bool {
 // state by them.
 func (a *app) paintMergeRegions(pt *ui.Painter, v *mergeView, k int, r ui.Rect) {
 	p := a.pal
-	lineH := a.font.lineH
+	if a.wrapsMerge(v) {
+		// In Draw the pane's area stands laid out: its lines can be laid
+		// out for their height, rather than estimated.
+		a.layOutMergeLines(v, k, v.paneBuf(k).Version(), r.W)
+		if v.panes[k].sweeping {
+			pt.AnimationFrame() // the next band, though nothing else moves
+		}
+	} else {
+		// Unwrapped, the area drops the wrapped heights: wrapping again
+		// lays them out anew.
+		v.panes[k].laidW = 0
+	}
+	g := a.mergeGeometry(v, k)
 	sc := v.panes[k].scroll.Y
-	first := max(int((sc-editorPadY)/lineH)-1, 0)
-	last := first + int(v.panes[k].viewH/lineH) + 3
+	first := max(g.at(sc-editorPadY)-1, 0)
+	last := g.at(sc+v.panes[k].viewH) + 2
+	if !v.panes[k].sweeping {
+		// A sweeping frame reads estimates: its range says nothing about
+		// where the view is.
+		v.panes[k].viewFirst, v.panes[k].viewLast = first, last
+	}
 	// The changes of a side's own that are no conflict, which the result
 	// lacks.
 	if k != 1 {
@@ -695,8 +752,8 @@ func (a *app) paintMergeRegions(pt *ui.Painter, v *mergeView, k int, r ui.Rect) 
 			if b.region >= 0 || !b.own || hi <= first || lo >= last {
 				continue
 			}
-			y := r.Y + editorPadY + float32(lo)*lineH - sc
-			h := max(float32(hi-lo)*lineH, 2)
+			y := r.Y + editorPadY + g.top(lo) - sc
+			h := max(g.top(hi)-g.top(lo), 2)
 			if hi == lo {
 				y--
 			}
@@ -721,8 +778,8 @@ func (a *app) paintMergeRegions(pt *ui.Painter, v *mergeView, k int, r ui.Rect) 
 		case st == regionIgnored, st == regionLeft && k == 2, st == regionRight && k == 0:
 			col = p.muted // the side the conflict did not take
 		}
-		y := r.Y + editorPadY + float32(lo)*lineH - sc
-		h := float32(hi-lo) * lineH
+		y := r.Y + editorPadY + g.top(lo) - sc
+		h := g.top(hi) - g.top(lo)
 		bg := col.Alpha(0.09)
 		if i == v.chosen {
 			bg = col.Alpha(0.20)
@@ -787,4 +844,75 @@ func widestOf(lines []string) int {
 // and how wide its content is for its longest line.
 func textXOf(f codeFont, widest int) float32 {
 	return mergeTextX + textPadR + float32(widest)*f.charW
+}
+
+// mergeGeometry places the lines of pane k of a merge in its content: a
+// row of its own each as the lines do not wrap, or where the pane laid
+// them out as they do — an editor's geometry over the pane's lines.
+func (a *app) mergeGeometry(v *mergeView, k int) geometry {
+	g := geometry{lineH: a.font.lineH, n: v.paneLineCount(k)}
+	if a.wrapsMerge(v) {
+		g.lines = &v.panes[k].lines
+	}
+	return g
+}
+
+// mergeLayOutMax is how many lines of a wrapping merge pane are laid out
+// for their height at once: every line of the files a merge stops for, or
+// the first ones of a giant one.
+const mergeLayOutMax = 8192
+
+// mergeLayOutStep is how many lines of a wrapping merge pane a frame
+// lays out beyond those in view, until every line stands measured.
+const mergeLayOutStep = 768
+
+// layOutMergeLines lays out the lines of pane k as it wraps, once for
+// its text and the width it has. A pane is narrow, so its lines wrap
+// deep; the heights the area has not measured it estimates, and a scroll
+// into estimated country — as revealing a conflict goes — lands the view
+// where its heights say there is text that is not, and the pane shows a
+// blank. The lines in view are laid out at once; the rest follow a band
+// a frame, so that dragging the window or the sidebar lays out the view
+// of the frame, not every line of a giant file three times over.
+func (a *app) layOutMergeLines(v *mergeView, k int, ver uint64, w float32) {
+	p := &v.panes[k]
+	n := min(p.lines.Count(), mergeLayOutMax)
+	if p.laidVer == ver && p.laidW == w && p.laidFont == a.font && p.laidFrom == 0 && p.laidTo >= n {
+		return
+	}
+	if p.laidVer != ver || p.laidW != w || p.laidFont != a.font {
+		// A new text or a new width: the lines in view first, the rest a
+		// band a frame, sweeping outward until all stand measured. While
+		// the width keeps changing the far lines wait, so a drag does
+		// not reshape thousands of them a frame. The window is the view
+		// as the last frame drew it, by line: the heights of this frame
+		// are estimates until the area lays the new width out, and
+		// reading them here would place the window by a guess.
+		p.laidVer, p.laidW, p.laidFont = ver, w, a.font
+		slack := int(v.panes[k].viewH/a.font.lineH) + 48
+		p.laidFrom = max(p.viewFirst-slack, 0)
+		p.laidTo = min(p.viewLast+slack, n)
+		if p.viewLast <= p.viewFirst {
+			p.laidFrom, p.laidTo = 0, min(slack, n) // no frame has drawn: the head of the file
+		}
+		for i := p.laidFrom; i < p.laidTo; i++ {
+			p.lines.Rows(i)
+		}
+		p.sweeping = p.laidFrom > 0 || p.laidTo < n
+		return
+	}
+	if !p.sweeping {
+		return
+	}
+	// The width stands: sweep outward a band a frame.
+	from := max(p.laidFrom-mergeLayOutStep, 0)
+	to := min(p.laidTo+mergeLayOutStep, n)
+	for i := from; i < p.laidFrom; i++ {
+		p.lines.Rows(i)
+	}
+	for i := p.laidTo; i < to; i++ {
+		p.lines.Rows(i)
+	}
+	p.laidFrom, p.laidTo = from, to
+	p.sweeping = p.laidFrom > 0 || p.laidTo < n
 }

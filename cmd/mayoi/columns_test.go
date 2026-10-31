@@ -128,8 +128,9 @@ func TestHiddenTabStaysWhereItIsScrolled(t *testing.T) {
 	hs.settle()
 	a.activate(a.cols[0], 0, false)
 	hs.settle()
-	if left.vscroll.Y != 6000 {
-		t.Fatalf("back at %v", left.vscroll.Y)
+	// On the text it showed, below the line typed above it.
+	if want := 6000 + a.font.lineH; left.vscroll.Y != want {
+		t.Fatalf("back at %v, not %v", left.vscroll.Y, want)
 	}
 }
 
@@ -168,6 +169,107 @@ func TestHiddenTabComesBackInPlace(t *testing.T) {
 		}
 	}
 	t.Fatalf("back at %v", d.vscroll.Y)
+}
+
+// TestHiddenTabComesBackWithItsText: a tab shown again with its caret in
+// view, which its new text area leaves where it is, shows its text from
+// the first frame, not a blank one.
+func TestHiddenTabComesBackWithItsText(t *testing.T) {
+	for _, c := range []struct {
+		name      string
+		wrap      bool
+		caretAway bool
+	}{
+		{"caret in view", false, false},
+		{"caret out of view", false, true},
+		{"wrapped, caret in view", true, false},
+		{"wrapped, caret out of view", true, true},
+	} {
+		hs := newHarness(t, true)
+		a, tt := hs.a, hs.tt
+		a.settings.WordWrap = c.wrap
+		a.openFile(hs.proseFile("prose.txt"), true)
+		hs.settle()
+		d := a.activeEditor()
+		s, _ := d.buf.Snapshot().LineRange(300)
+		hs.place(d, s, s)
+		if c.caretAway {
+			d.vscroll.Y = 400
+			hs.settle()
+		}
+		gutter := func() []byte {
+			t.Helper()
+			box, ok := tt.Find("Editor prose.txt")
+			if !ok {
+				t.Fatal("no editor")
+			}
+			img := tt.Image()
+			r := image.Rect(int(box.X), int(box.Y), int(box.X+d.gutterW), int(box.Y+box.H)).Intersect(img.Bounds())
+			var out []byte
+			for y := r.Min.Y; y < r.Max.Y; y++ {
+				for x := r.Min.X; x < r.Max.X; x++ {
+					c := img.RGBAAt(x, y)
+					out = append(out, c.R, c.G, c.B)
+				}
+			}
+			return out
+		}
+		want := string(gutter())
+		y := d.vscroll.Y
+		a.openFile(hs.path("README.md"), true)
+		hs.settle()
+		a.activate(a.column(), 0, true)
+		for i := range 3 {
+			step(tt)
+			if d.vscroll.Y != y {
+				t.Errorf("%s: frame %d is scrolled to %v, not %v", c.name, i, d.vscroll.Y, y)
+			}
+			if string(gutter()) != want {
+				t.Errorf("%s: frame %d shows other line numbers, scrolled to %v", c.name, i, d.vscroll.Y)
+			}
+		}
+		// The area kept takes the keys, at the caret kept.
+		tt.Type("Z")
+		hs.settle()
+		if got := d.buf.Snapshot().Slice(s, s+1); got != "Z" {
+			t.Errorf("%s: typed before %q", c.name, got)
+		}
+		if box, _ := tt.Find("Editor prose.txt"); !a.inView(d, a.geometry(d, d.buf.Snapshot().LineCount()), d.buf.Snapshot(), s, box.H) {
+			t.Errorf("%s: the caret it typed at is out of view", c.name)
+		}
+	}
+}
+
+// Text changed while a tab is out of sight shows as it comes back, with
+// the caret moved along with it, from a text area that has not seen it.
+func TestHiddenTabComesBackToEditedText(t *testing.T) {
+	for _, wrap := range []bool{false, true} {
+		hs, left, right := splitHarness(t, func(hs *harness) string { return hs.proseFile("prose.txt") })
+		a := hs.a
+		a.settings.WordWrap = wrap
+		hs.settle()
+		s, _ := left.buf.Snapshot().LineRange(300)
+		hs.place(left, s, s)
+		col := a.cols[0]
+		left.vscroll.Focus()
+		hs.settle()
+		a.openFile(hs.path("README.md"), true)
+		hs.settle()
+		right.vscroll.Focus()
+		hs.settle()
+		right.edit([2]int{0, 0}, textEdit{0, 0, "new\n"})
+		hs.settle()
+		a.activate(col, 0, true)
+		hs.settle()
+		if left.sel != [2]int{s + 4, s + 4} {
+			t.Errorf("wrap %v: selection %v, want the caret at %d", wrap, left.sel, s+4)
+		}
+		// The area's estimates start over with the new text: only the lines
+		// that do not wrap are where they were.
+		if box, _ := hs.tt.Find("Editor prose.txt"); !wrap && !a.inView(left, a.geometry(left, left.buf.Snapshot().LineCount()), left.buf.Snapshot(), left.sel[1], box.H) {
+			t.Errorf("the caret is out of view at %v", left.vscroll.Y)
+		}
+	}
 }
 
 func TestClosingAsksForTheLastTabOfADocument(t *testing.T) {
@@ -524,6 +626,33 @@ func TestFindFollowsTheColumn(t *testing.T) {
 	}
 }
 
+// A press on a tab of the column on the right, while find is open on the
+// left, gives that column the keyboard as the columns draw: find moves
+// with it at the next frame, rather than show in both, whose input binds
+// one control.
+func TestFindStaysInOneColumnAsATabIsPressed(t *testing.T) {
+	hs := newHarness(t, true)
+	a, tt := hs.a, hs.tt
+	a.openFile(hs.path("main.go"), true)
+	a.openFile(hs.path("internal/a/a.go"), true)
+	a.run("view.moveTabNext")
+	a.run("view.prevColumn")
+	hs.settle()
+	a.run("edit.find")
+	hs.settle()
+	if a.col != 0 || !a.find.open {
+		t.Fatalf("find open %v in column %d", a.find.open, a.col)
+	}
+	x, y := hs.tabCenter("a.go")
+	tt.Press(x, y)
+	hs.settle()
+	tt.Release(x, y)
+	hs.settle()
+	if a.col != 1 || a.find.doc != a.cols[1].tab().ed.id {
+		t.Fatalf("column %d has the keyboard, find is of document %d", a.col, a.find.doc)
+	}
+}
+
 func TestDraggingTerminals(t *testing.T) {
 	if testing.Short() {
 		t.Skip("starts a shell")
@@ -564,6 +693,37 @@ func TestDraggingTerminals(t *testing.T) {
 		t.Fatalf("a document dropped on the panel: %d tabs", len(a.cols[0].tabs))
 	}
 	a.closeTerminals()
+}
+
+// A tab or a terminal dragged from another window, dropped in this one,
+// stays where it is: showing it in both would bind its view in both.
+func TestDropsFromAnotherWindowStayThere(t *testing.T) {
+	src, dst := newHarness(t, true), newHarness(t, true)
+	src.a.openFile(src.path("main.go"), true)
+	dst.a.openFile(dst.path("README.md"), true)
+	src.settle()
+	dst.settle()
+	b := dst.a
+	tab := src.a.activeTab()
+	term := &session{id: 99, title: "elsewhere"}
+	col := b.column()
+	for _, it := range []dragItem{{tab: tab}, {term: term}} {
+		if b.owns(it) {
+			t.Errorf("%+v is taken as this window's", it)
+		}
+		b.dropInColumn(it, col, 0)
+		b.dropBeside(it, col, true)
+	}
+	dst.settle()
+	if len(b.cols) != 1 || len(col.tabs) != 1 || col.tab().name() != "README.md" || len(b.terms) != 0 {
+		t.Fatalf("%d columns, %d tabs, %d terminals", len(b.cols), len(col.tabs), len(b.terms))
+	}
+	if from, _ := src.a.locate(tab); from == nil || term.tab != nil {
+		t.Error("what was dragged left its window")
+	}
+	if !b.owns(dragItem{tab: col.tab()}) {
+		t.Error("this window's own tab is not its to take")
+	}
 }
 
 // Closing the last tab of a column that another follows takes the column
@@ -641,5 +801,146 @@ func TestSplitDiffRight(t *testing.T) {
 	first, last := a.cols[0].tab().diff, a.column().tab().diff
 	if first == nil || last == nil || first == last || first.scroll.Handle == last.scroll.Handle {
 		t.Errorf("diffs share their scroll: %p %p", first, last)
+	}
+}
+
+// TestHiddenTabsKeptAreTheLastShown: only the tabs shown last keep their
+// text areas out of sight, and one past them still comes back where it
+// was scrolled, with its text.
+func TestHiddenTabsKeptAreTheLastShown(t *testing.T) {
+	hs := newHarness(t, true)
+	a, tt := hs.a, hs.tt
+	a.openFile(hs.longFile("long.go", 400), true)
+	hs.settle()
+	d := a.activeEditor()
+	d.vscroll.Y = 6000
+	hs.settle()
+	for i := range keepTabs + 2 {
+		p := hs.path(fmt.Sprintf("t%02d.txt", i))
+		os.WriteFile(p, []byte("tab\n"), 0o644)
+		a.openFile(p, false)
+		hs.settle()
+	}
+	col := a.column()
+	kept := 0
+	for _, t := range col.tabs {
+		if t != col.tab() && t.ed != nil && t.ed.areaBuild == a.builds {
+			kept++
+		}
+	}
+	if kept != keepTabs {
+		t.Errorf("%d tabs out of sight keep their areas, want %d", kept, keepTabs)
+	}
+	if d.areaBuild == a.builds {
+		t.Error("the tab shown first keeps its area")
+	}
+	// Built anew, it is covered until it is back where it was.
+	a.activate(col, 0, true)
+	for range 3 {
+		step(tt)
+		if d.vscroll.Y == 6000 {
+			return
+		}
+		box, ok := tt.Find("Editor long.go")
+		if !ok {
+			t.Fatal("no editor")
+		}
+		img := tt.Image()
+		r := image.Rect(int(box.X), int(box.Y), int(box.X+box.W), int(box.Y+box.H)).Intersect(img.Bounds())
+		first := img.At(r.Min.X, r.Min.Y)
+		for y := r.Min.Y; y < r.Max.Y; y += 3 {
+			for x := r.Min.X; x < r.Max.X; x += 3 {
+				if img.At(x, y) != first {
+					t.Fatalf("a frame shows the tab scrolled to %v", d.vscroll.Y)
+				}
+			}
+		}
+	}
+	t.Fatalf("back at %v", d.vscroll.Y)
+}
+
+// TestWrappedTabComesBackToItsLine: a wrapped tab that comes back with a
+// new text area, as its text changed out of sight or it kept none, shows
+// the line it showed at the top, where it showed, not the lines that the
+// offset it was scrolled to finds over the new area's estimates.
+func TestWrappedTabComesBackToItsLine(t *testing.T) {
+	for _, edited := range []bool{false, true} {
+		hs, left, right := splitHarness(t, func(hs *harness) string { return hs.proseFile("prose.txt") })
+		a := hs.a
+		a.settings.WordWrap = true
+		col := a.cols[0]
+		left.vscroll.Focus()
+		hs.settle()
+		left.vscroll.Y = 9000
+		hs.settle()
+		topLine := func() (string, float32) {
+			snap := left.buf.Snapshot()
+			g := a.geometry(left, snap.LineCount())
+			top := g.at(left.vscroll.Y - editorPadY)
+			s, e := snap.LineRange(top)
+			return snap.Slice(s, e), editorPadY + g.top(top) - left.vscroll.Y
+		}
+		want, wantY := topLine()
+		if edited {
+			a.openFile(hs.path("README.md"), true)
+			hs.settle()
+			right.vscroll.Focus()
+			hs.settle()
+			right.edit([2]int{0, 0}, textEdit{0, 0, "new\n"})
+			hs.settle()
+		} else {
+			for i := range keepTabs + 1 {
+				p := hs.path(fmt.Sprintf("t%02d.txt", i))
+				os.WriteFile(p, []byte("tab\n"), 0o644)
+				a.openFileIn(col, len(col.tabs), p, false)
+				a.activate(col, len(col.tabs)-1, false)
+				hs.settle()
+			}
+		}
+		a.activate(col, 0, true)
+		// The first frame may be covered as its area scrolls to the caret.
+		step(hs.tt)
+		for i := 1; i < 4; i++ {
+			step(hs.tt)
+			if got, y := topLine(); got != want || y < wantY-1 || y > wantY+1 {
+				t.Errorf("edited %v: frame %d shows %.20q at %v on top", edited, i, got, y)
+			}
+		}
+		hs.settle()
+		if got, y := topLine(); got != want || y < wantY-1 || y > wantY+1 {
+			t.Errorf("edited %v: back with %.20q at %v on top, not %.20q at %v", edited, got, y, want, wantY)
+		}
+	}
+}
+
+// TestWrappedTabMovesWithItsLine: a wrapped tab moved to another column
+// shows the line it showed at the top there, from the first frame.
+func TestWrappedTabMovesWithItsLine(t *testing.T) {
+	hs := newHarness(t, true)
+	a := hs.a
+	a.settings.WordWrap = true
+	a.openFile(hs.proseFile("prose.txt"), true)
+	a.openFile(hs.path("README.md"), true)
+	a.activate(a.column(), 0, true)
+	hs.settle()
+	d := a.activeEditor()
+	d.vscroll.Y = 9000
+	hs.settle()
+	topLine := func() string {
+		snap := d.buf.Snapshot()
+		g := a.geometry(d, snap.LineCount())
+		s, e := snap.LineRange(g.at(d.vscroll.Y - editorPadY))
+		return snap.Slice(s, e)
+	}
+	want := topLine()
+	a.run("view.moveTabNext")
+	for i := range 3 {
+		step(hs.tt)
+		if got := topLine(); got != want {
+			t.Fatalf("frame %d shows %.20q on top, not %.20q", i, got, want)
+		}
+	}
+	if len(a.cols) != 2 || a.cols[1].tab().ed != d {
+		t.Fatal("the tab did not move")
 	}
 }

@@ -78,6 +78,9 @@ func TestCheckHost(t *testing.T) {
 	if got := hostArgs("[::1]:22"); !slices.Equal(got, []string{"-p", "22", "::1"}) {
 		t.Errorf("hostArgs of IPv6 = %q", got)
 	}
+	if target, port := SSHTarget("me@box"); target != "me@box" || port != "" {
+		t.Errorf("SSHTarget = %q, %q", target, port)
+	}
 }
 
 func TestQuote(t *testing.T) {

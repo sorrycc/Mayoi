@@ -7,6 +7,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/egoist/mygo/i18n"
 	"github.com/egoist/mygo/ui"
 
 	"mayoi/internal/git"
@@ -50,6 +51,18 @@ type colTab struct {
 	// control: the next one chosen replaces it, until it is edited or
 	// kept.
 	transient bool
+	// closeText is the label of the tab's close button, for the name and
+	// the language of closeFor: made again only as they change.
+	closeText string
+	closeFor  [2]string
+}
+
+// closeLabel is the label of the tab's close button.
+func (t *colTab) closeLabel() string {
+	if key := [2]string{t.name(), i18n.Locale()}; key != t.closeFor || t.closeText == "" {
+		t.closeText, t.closeFor = locales.CloseName(key[0]), key
+	}
+	return t.closeText
 }
 
 func (t *colTab) name() string {
@@ -211,6 +224,33 @@ func (a *app) openFile(path string, focus bool) {
 	a.openFileIn(col, col.active+1, path, focus)
 }
 
+// openFileToSide shows a file in a tab of the column beside the file
+// column, splitting one off on its right when there is none.
+func (a *app) openFileToSide(path string) {
+	col := a.fileColumn()
+	if side := a.sideColumn(col); side != nil {
+		a.openFileIn(side, side.active+1, path, true)
+		return
+	}
+	side := a.splitColumn(col, true)
+	a.openFileIn(side, 0, path, true)
+	if len(side.tabs) == 0 {
+		// It could not be read.
+		col.weight *= 2
+		a.removeColumn(side)
+	}
+}
+
+// openText has open run with openingText set, so a file it opens shows
+// its text, whatever markdownPreview says. The flag goes back to what it
+// was when open returns, a nested call included.
+func (a *app) openText(open func()) {
+	was := a.openingText
+	a.openingText = true
+	defer func() { a.openingText = was }()
+	open()
+}
+
 // openFileIn shows a file in a tab of a column, opening one at place at
 // unless the column has one.
 func (a *app) openFileIn(col *column, at int, path string, focus bool) {
@@ -224,6 +264,11 @@ func (a *app) openFileIn(col *column, at int, path string, focus bool) {
 		if at := col.showing(doc); at >= 0 {
 			a.keepTab(col.tabs[at])
 			a.activate(col, at, focus)
+			if a.openingText {
+				if ed := col.tabs[at].ed; ed != nil && ed.preview != nil {
+					a.setPreview(ed, false)
+				}
+			}
 			return
 		}
 	} else if remote.Is(path) {
@@ -242,6 +287,10 @@ func (a *app) openFileIn(col *column, at int, path string, focus bool) {
 			a.fail("%s", locales.FailBinary(filepath.Base(path)))
 			return
 		}
+		if errors.Is(err, errLongLine) {
+			a.fail("%s", locales.FailLongLine(filepath.Base(path)))
+			return
+		}
 		if err != nil {
 			a.fail("%s", locales.FailOpen(filepath.Base(path), err.Error()))
 			return
@@ -253,8 +302,12 @@ func (a *app) openFileIn(col *column, at int, path string, focus bool) {
 		}
 	}
 	at = min(max(at, 0), len(col.tabs))
-	a.addTab(col, at, &colTab{ed: newEditor(doc), transient: a.opening})
+	t := &colTab{ed: newEditor(doc), transient: a.opening}
+	a.addTab(col, at, t)
 	a.activate(col, at, focus)
+	if a.prefs().MarkdownPreview && !a.openingText && isMarkdown(t.ed.document) {
+		a.setPreview(t.ed, true)
+	}
 }
 
 // showingFile returns the place of the tab of the column that shows the
@@ -465,7 +518,7 @@ func (a *app) closeTab(t *colTab, then func()) {
 	}
 	if t.term != nil {
 		a.rememberClosed(t)
-		a.removeTerminal(t.term)
+		a.killTerminal(t.term)
 		done()
 		return
 	}
@@ -593,6 +646,7 @@ func (a *app) dropTab(t *colTab) {
 		if len(doc.views) == 0 {
 			doc.hl.Close()
 			a.docs = slices.DeleteFunc(a.docs, func(d *document) bool { return d == doc })
+			a.docClosed(doc)
 			if a.tree != nil && doc.path != "" {
 				a.tree.Unwatch(doc.path)
 			}
@@ -676,6 +730,13 @@ func (a *app) splitRight() {
 		v := newDiffView(t.diff.layout)
 		if cm := t.diff.commit; cm != nil {
 			v = newCommitView(t.diff.layout, cm.key(), cm.info)
+			if cm.pr != nil {
+				// What GitHub told of the pull request, which it need not
+				// be asked again.
+				pr := *cm.pr
+				pr.reading, pr.marking = false, nil
+				v.commit.pr = &pr
+			}
 		}
 		v.repoRoot = t.diff.repoRoot
 		// The offsets only: the scroll's handle binds one view's control,
@@ -710,12 +771,35 @@ func (a *app) splitRight() {
 		}
 		return
 	}
-	ed := newEditor(t.ed.document)
-	ed.sel, ed.caret = t.ed.sel, t.ed.caret
-	ed.vscroll.Y, ed.hscroll.X = t.ed.vscroll.Y, t.ed.hscroll.X
-	ed.wrap, ed.wrapGen = t.ed.wrap, t.ed.wrapGen
-	a.addTab(nc, 0, &colTab{ed: ed})
+	a.addTab(nc, 0, &colTab{ed: cloneEditor(t.ed)})
 	a.activate(nc, 0, true)
+}
+
+// cloneEditor returns another editor of d's document, its caret and
+// scroll where d has them.
+func cloneEditor(d *editor) *editor {
+	ed := newEditor(d.document)
+	ed.sel, ed.caret = d.sel, d.caret
+	ed.vscroll.Y, ed.hscroll.X = d.vscroll.Y, d.hscroll.X
+	ed.wrap, ed.wrapGen = d.wrap, d.wrapGen
+	return ed
+}
+
+// sideColumn returns the unlocked column nearest col on its right, or
+// else on its left, nil when there is none.
+func (a *app) sideColumn(col *column) *column {
+	i := slices.Index(a.cols, col)
+	for j := i + 1; j < len(a.cols); j++ {
+		if !a.cols[j].locked {
+			return a.cols[j]
+		}
+	}
+	for j := i - 1; j >= 0; j-- {
+		if !a.cols[j].locked {
+			return a.cols[j]
+		}
+	}
+	return nil
 }
 
 // moveTab moves a tab to place at of a column, which may be its own, and
@@ -795,7 +879,7 @@ func (a *app) rememberTabs() {
 			var ts settings.Tab
 			switch {
 			case t.term != nil:
-				ts = settings.Tab{Terminal: true}
+				ts = settings.Tab{Terminal: true, HC: t.term.hc}
 			case t.diff != nil && t.diff.commit != nil:
 				ts = settings.Tab{Diff: "commit:" + t.diff.commit.key(), Layout: t.diff.layout.key(), Transient: t.transient}
 			case t.diff != nil:
@@ -822,11 +906,16 @@ func (a *app) rememberTabs() {
 				ts.Wrap = a.ownWrap(v.wrap, v.wrapGen)
 			}
 			if ed := t.ed; ed != nil {
-				ts.Sel, ts.ScrollX, ts.ScrollY = ed.sel, ed.hscroll.X, ed.vscroll.Y
-				if ed.hidden {
-					ts.ScrollY = ed.hiddenY
+				if saved := ed.restoreTab; saved != nil {
+					ts.Preview, ts.Sel = saved.Preview, saved.Sel
+					ts.ScrollX, ts.ScrollY, ts.Wrap = saved.ScrollX, saved.ScrollY, saved.Wrap
+				} else {
+					ts.Sel, ts.ScrollX, ts.ScrollY = ed.sel, ed.hscroll.X, ed.vscroll.Y
+					if ed.hidden {
+						ts.ScrollY = ed.hiddenY
+					}
+					ts.Wrap = a.ownWrap(ed.wrap, ed.wrapGen)
 				}
-				ts.Wrap = a.ownWrap(ed.wrap, ed.wrapGen)
 			}
 			cs.Tabs = append(cs.Tabs, ts)
 			if i == col.active {
@@ -851,6 +940,16 @@ func (a *app) rememberTabs() {
 		a.window.Expanded = open
 	}
 	a.window.Review = a.keptReview()
+	a.window.PanelTerms, a.window.PanelTerm = nil, 0
+	for _, s := range a.panelTerms() {
+		if s.hc == "" {
+			continue
+		}
+		if s == a.panelTerm {
+			a.window.PanelTerm = len(a.window.PanelTerms)
+		}
+		a.window.PanelTerms = append(a.window.PanelTerms, s.hc)
+	}
 	a.settings.Changed()
 }
 
@@ -914,12 +1013,13 @@ func (a *app) restoreEditor(ed *editor, ts settings.Tab) {
 	ed.caret = ed.sel[1]
 	ed.vscroll.Y, ed.hscroll.X = ts.ScrollY, ts.ScrollX
 	if ed.hidden {
-		ed.hiddenY = ts.ScrollY
+		ed.hiddenY, ed.hiddenPlaced = ts.ScrollY, false
 	}
 	if ts.Wrap != nil {
 		w := *ts.Wrap
 		ed.wrap, ed.wrapGen = &w, a.settings.WrapGen
 	}
+	a.setPreview(ed, ts.Preview)
 }
 
 // restoreTabs opens the columns of the last session and their files, as
@@ -932,6 +1032,19 @@ func (a *app) restoreTabs() {
 	// Allocate each saved column before opening tabs. Empty locked columns
 	// and the file workspace beside them are part of the saved layout too.
 	restored := make([]*column, len(saved))
+	// The terminals whose shells run on in herdr-core attach again.
+	var addrs []string
+	for _, cs := range saved {
+		for _, ts := range cs.Tabs {
+			if ts.HC != "" {
+				addrs = append(addrs, ts.HC)
+			}
+		}
+	}
+	var live map[string]string
+	if len(addrs) > 0 {
+		live = a.hcTerms(addrs)
+	}
 	for i, cs := range saved {
 		col := a.cols[len(a.cols)-1]
 		if i > 0 || len(col.tabs) > 0 {
@@ -958,7 +1071,11 @@ func (a *app) restoreTabs() {
 			n := len(col.tabs)
 			switch {
 			case ts.Terminal:
-				if a.root != "" {
+				if dir, ok := live[ts.HC]; ok && ts.HC != "" {
+					if !a.hcShown(ts.HC) {
+						a.terminalTab(col, len(col.tabs), a.attachTerminal(ts.HC, dir), false)
+					}
+				} else if a.root != "" {
 					a.newTerminalTab(col, a.root, false)
 				}
 			case strings.HasPrefix(ts.Diff, "commit:"):
@@ -986,11 +1103,8 @@ func (a *app) restoreTabs() {
 				// A remote file that is gone closes its tab once read.
 				if _, err := os.Stat(ts.File); err == nil || remote.Is(ts.File) {
 					a.opening = ts.Transient
-					a.openFileIn(col, len(col.tabs), ts.File, false)
+					a.openText(func() { a.openFileIn(col, len(col.tabs), ts.File, false) })
 					a.opening = false
-					if t := col.tab(); ts.Preview && len(col.tabs) > n && t.ed != nil && canPreview(t.ed.document) {
-						a.setPreview(t.ed, true)
-					}
 				}
 			case ts.Untitled != "":
 				a.restoreUntitled(col, ts)

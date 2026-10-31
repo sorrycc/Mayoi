@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"mayoi/internal/keymap"
 	"mayoi/internal/remote"
 	"mayoi/internal/settings"
@@ -11,6 +12,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/egoist/mygo/plugins/terminal"
 	mtransfer "github.com/egoist/mygo/transfer"
@@ -29,6 +31,25 @@ type session struct {
 	// lost is set while a terminal of a host waits for the connection
 	// that ended it, to start again.
 	lost bool
+	// hc is the address of the terminal of herdr-core the shell runs in,
+	// "" for one that runs here.
+	hc string
+	// attached is when the view last attached to it, and hcNew is set
+	// until the first attach of a shell just started, which has no
+	// history to show.
+	attached time.Time
+	hcNew    bool
+	// hcStarting is set while its shell starts in herdr-core, in the
+	// background, and the terminal shows nothing.
+	hcStarting bool
+	hcWait     *hcWait
+	// hcReady is when its shell in herdr-core last came to be attached,
+	// having started or its machine come back, which the terminal shows
+	// for a moment.
+	hcReady time.Time
+	// waitSince is when it last began to wait, to start in herdr-core or
+	// for its connection or machine.
+	waitSince time.Time
 }
 
 type panelHeaderLayout struct {
@@ -78,12 +99,29 @@ func (a *app) workDir() string {
 
 // startTerminal starts a terminal in dir, nil when it cannot.
 func (a *app) startTerminal(dir string) *session {
-	a.nextTerm++
-	s := &session{id: a.nextTerm, dir: dir, title: shellName()}
+	s := &session{dir: dir, title: shellName()}
+	a.offerHC()
 	if c := sessionConn(s); c != nil {
 		s.title = c.Host
 	}
-	term, err := a.spawnTerminal(s, dir)
+	// A shell in herdr-core, of the host in a remote folder as one of hc's
+	// machines, starts in the background: the terminal shows meanwhile.
+	s.hcStarting = a.hcBackend()
+	if a.addTerminal(s) == nil {
+		return nil
+	}
+	if s.hcStarting {
+		a.beginWait(s)
+		a.hcBegin(s)
+	}
+	return s
+}
+
+// addTerminal starts the program of a terminal, nil when it cannot.
+func (a *app) addTerminal(s *session) *session {
+	a.nextTerm++
+	s.id = a.nextTerm
+	term, err := a.spawnTerminal(s, s.dir)
 	if err != nil {
 		a.fail("%s", locales.FailStartTerminal(err.Error()))
 		return nil
@@ -103,18 +141,30 @@ func (a *app) spawnTerminal(s *session, dir string) (*terminal.Terminal, error) 
 		command = c.TerminalCommand(rdir)
 		dir, _ = os.UserHomeDir()
 	}
+	// In herdr-core, its terminal there.
+	if s.hc != "" {
+		command = hcAttach(s.hc, !s.hcNew)
+		s.attached, s.hcNew = time.Now(), false
+	}
+	// Its shell still starting in herdr-core, nothing yet.
+	var conn io.ReadWriteCloser
+	if s.hcStarting {
+		s.hcWait = newHCWait()
+		conn = s.hcWait
+	}
 	// term is the terminal made, which OnExit tells from one that took
 	// its place.
 	var term *terminal.Terminal
 	term, err := terminal.New(terminal.Options{
 		Command:   command,
+		Conn:      conn,
 		Dir:       dir,
 		Font:      termFont(a.settings),
 		Theme:     light,
 		DarkTheme: dark,
 		Cursor:    terminal.CursorBar,
 		// Selecting copies, as in Ghostty and iTerm2.
-		CopyOnSelect: copyOnSelect(a.settings.TerminalCopyOnSelect),
+		CopyOnSelect: copyOnSelect(a.prefs().TerminalCopyOnSelect),
 		OnTitle: func(title string) {
 			a.post(func() { s.title = title })
 		},
@@ -124,7 +174,8 @@ func (a *app) spawnTerminal(s *session, dir string) (*terminal.Terminal, error) 
 			text, _ := d.Read(mtransfer.Text)
 			return a.terminalPaste(s, string(text))
 		},
-		// A link to a port of the host opens the port forwarded to it.
+		// Local file paths open in the editor; links to a port of a
+		// remote host open the port forwarded to it here.
 		OpenLink: func(link string) bool { return a.terminalLink(s, link) },
 		// The shortcuts of keybindings.json, before the shell, and on
 		// Windows and Linux those of Mayoi's it leaves to Mayoi.
@@ -132,6 +183,9 @@ func (a *app) spawnTerminal(s *session, dir string) (*terminal.Terminal, error) 
 			a.keyTerm = s
 			st := keymap.Stroke{Mods: mods, Key: key}
 			if a.keyStroke(st, placeTerminal) {
+				return true
+			}
+			if hcDetachKey(s, mods, key) {
 				return true
 			}
 			id, ok := a.shellSkip(st)
@@ -146,9 +200,9 @@ func (a *app) spawnTerminal(s *session, dir string) (*terminal.Terminal, error) 
 			}
 			return ok
 		},
-		// The wheel with Command held zooms no terminal on its own: Cmd+=
-		// and Cmd+- size all the text, and Command held to switch apps
-		// scrolls no terminal's font away.
+		// CmdOrCtrl+= and CmdOrCtrl+- scale the whole window: Command on
+		// macOS, Control on Windows/Linux. Ignore terminal-local zoom so
+		// scrolling with the modifier held cannot change its font size.
 		OnZoom: func(terminal.Zoom) bool { return true },
 		OnExit: func(code int) {
 			a.post(func() { a.terminalExited(s, term, code) })
@@ -181,7 +235,7 @@ func (a *app) newTerminalIn(dir string) {
 	}
 	a.panelTerm = s
 	a.window.PanelOpen, a.window.TerminalOpen = true, true
-	a.settings.Changed()
+	a.rememberTabs()
 	a.focusTerminal()
 }
 
@@ -204,7 +258,12 @@ func (a *app) newTerminalTab(col *column, dir string, focus bool) bool {
 // newTerminalTabAt starts a terminal in dir in a tab at place at of a
 // column.
 func (a *app) newTerminalTabAt(col *column, at int, dir string, focus bool) bool {
-	s := a.startTerminal(dir)
+	return a.terminalTab(col, at, a.startTerminal(dir), focus)
+}
+
+// terminalTab shows a terminal started in a tab at place at of a column,
+// and reports whether there was one.
+func (a *app) terminalTab(col *column, at int, s *session, focus bool) bool {
 	if s == nil {
 		return false
 	}
@@ -287,6 +346,7 @@ func (a *app) removeTerminal(s *session) {
 	}
 	a.leavePanel(s)
 	a.terms = slices.Delete(a.terms, i, i+1)
+	a.rememberTabs()
 	if a.panelTerm == nil {
 		a.focusColumn()
 	} else {
@@ -390,7 +450,7 @@ func (a *app) panel(c *ui.Context) {
 	box := ui.Column(c).Fill().Background(p.panel)
 	if it, ok := ui.Drop[dragItem](box); ok {
 		switch s := a.panelTerm; {
-		case it.tab != nil && it.tab.term != nil:
+		case it.tab != nil && it.tab.term != nil && a.owns(it):
 			a.post(func() { a.terminalToPanel(it.tab.term) })
 		case it.file != nil && s != nil:
 			// A file of the sidebar types its path, as one from the Finder.
@@ -435,13 +495,16 @@ func (a *app) panel(c *ui.Context) {
 							a.dragNow = true
 						}
 						on := s == a.panelTerm
+						under := p.panel
 						if on {
 							chip.Background(p.active)
+							under = p.active.Over(p.panel)
 						} else if chip.Hovered() {
 							chip.Background(p.hover)
+							under = p.hover.Over(p.panel)
 						}
 						chip.Children(func() {
-							ui.Icon(c, iconTerminal).FontSize(12).TextColor(p.muted)
+							a.termIcon(c, s, 12, p.muted, under)
 							col := p.muted
 							if on {
 								col = p.text
@@ -459,8 +522,9 @@ func (a *app) panel(c *ui.Context) {
 							if m.Item(locales.TermMoveEditorArea()).Chosen() {
 								a.post(func() { a.terminalToColumn(s, a.column(), a.column().active+1) })
 							}
+							a.hcMenu(m, s)
 							if m.Item(locales.TermKill()).Chosen() {
-								a.post(func() { a.removeTerminal(s) })
+								a.post(func() { a.killTerminal(s) })
 							}
 						})
 					}
@@ -475,7 +539,7 @@ func (a *app) panel(c *ui.Context) {
 						a.post(func() { a.terminalToColumn(s, a.column(), a.column().active+1) })
 					}
 					if a.iconButton(c, iconTrash, locales.TermKill(), false).Clicked() {
-						a.post(func() { a.removeTerminal(s) })
+						a.post(func() { a.killTerminal(s) })
 					}
 				}
 				icon, label := iconMaximize, locales.PanelMaximize()
@@ -518,10 +582,20 @@ func (a *app) panel(c *ui.Context) {
 	})
 }
 
-// terminalView shows a terminal, in the panel or in a tab.
+// terminalView shows a terminal, in the panel or in a tab: faded while it
+// waits for its connection or its machine, as what it shows may be old,
+// or while its shell starts, which it shows once attached.
 func (a *app) terminalView(c *ui.Context, s *session) {
 	ui.Box(c).Fill().Padding(2, 4, 4, 14).Background(a.pal.panel).Children(func() {
-		terminal.View(c.Key(s.id), s.term).Fill().Bind(&s.view)
+		v := terminal.View(c.Key(s.id), s.term).Fill().Bind(&s.view)
+		shown := float32(1)
+		if s.lost || s.hcStarting {
+			shown = 0.55
+		}
+		if o := v.Animate("shown", shown, 220*time.Millisecond); o < 1 {
+			v.Opacity(o)
+		}
+		a.waitPill(c, s)
 	})
 }
 
@@ -555,7 +629,7 @@ func (a *app) fontTerminals() {
 // copyTerminals has the terminals copy what is selected, or not, as the
 // settings say, once they change.
 func (a *app) copyTerminals() {
-	on := a.settings.TerminalCopyOnSelect
+	on := a.prefs().TerminalCopyOnSelect
 	if on == a.termCopy {
 		return
 	}

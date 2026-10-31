@@ -19,7 +19,9 @@ import (
 	"github.com/egoist/mygo/ui"
 	xdraw "golang.org/x/image/draw"
 
+	"mayoi/internal/bg"
 	"mayoi/internal/remote"
+	"mayoi/internal/settings"
 	"mayoi/internal/vfs"
 	"mayoi/locales"
 )
@@ -43,6 +45,7 @@ const maxBitmapSide = 8192
 
 // maxSVGSide is the longest side an SVG is drawn at, in DIPs: MyGo draws
 // an SVG whole, and not past 4096 pixels, which is this on a 2× display.
+// A diagram is drawn in tiles, of which this holds for the largest.
 const maxSVGSide = 2048
 
 // zoomSteps are the scales zooming in and out goes through.
@@ -87,12 +90,17 @@ type viewer struct {
 	// markdown is a Markdown preview's parsed text and place, nil for
 	// an image or an SVG.
 	markdown *markdownPreview
+	// diagram is a Mermaid preview's diagram, drawn in style, while
+	// drawing draws it again.
+	diagram *mermaidDiagram
+	style   mermaidStyle
+	drawing bool
 }
 
 // newImageViewer makes the viewer of an image file, which load reads.
 func newImageViewer(path string) *viewer { return &viewer{path: path} }
 
-// newPreviewViewer makes the preview of an SVG or Markdown document.
+// newPreviewViewer makes the preview of an SVG, Mermaid or Markdown document.
 func newPreviewViewer(d *document) *viewer { return &viewer{doc: d} }
 
 func (v *viewer) name() string { return filepath.Base(v.path) }
@@ -102,7 +110,7 @@ func (v *viewer) name() string { return filepath.Base(v.path) }
 func (a *app) loadImage(v *viewer) {
 	v.loading++
 	n, path := v.loading, v.path
-	go func() {
+	bg.Go(func() {
 		defer recoverCrash()
 		bm, w, h, size, err := decodeImage(path)
 		a.post(func() {
@@ -127,7 +135,7 @@ func (a *app) loadImage(v *viewer) {
 			}
 			v.src, v.w, v.h = bm, float32(w), float32(h)
 		})
-	}()
+	})
 }
 
 // decodeImage reads an image file into a bitmap, at most maxBitmapSide
@@ -245,6 +253,51 @@ func (a *app) followSVG(v *viewer) {
 	v.wait = time.AfterFunc(svgDelay, func() { a.post(parse) })
 }
 
+// followMermaid draws the diagram of a Mermaid document's preview again
+// once its text or the theme changed, a moment after the last edit and
+// away from the UI thread, keeping the last diagram that drew.
+func (a *app) followMermaid(v *viewer) {
+	d := v.doc
+	st := a.mermaidStyle()
+	if v.loaded && d.buf.Version() == v.version && st == v.style || v.wait != nil || v.drawing {
+		return
+	}
+	draw := func() {
+		v.wait = nil
+		if !slices.Contains(a.docs, d) {
+			return
+		}
+		v.drawing = true
+		v.loading++
+		n, ver, source := v.loading, d.buf.Version(), d.buf.String()
+		bg.Go(func() {
+			defer recoverCrash()
+			dg := renderMermaid(source, st)
+			a.post(func() {
+				v.drawing = false
+				if v.loading != n {
+					return
+				}
+				v.version, v.style, v.loaded = ver, st, true
+				if dg.err != "" {
+					v.err = dg.err
+					return
+				}
+				v.err = ""
+				if v.src != nil && (v.w != dg.w || v.h != dg.h) {
+					v.zoom, v.panX, v.panY = 0, 0, 0
+				}
+				v.diagram, v.src, v.w, v.h = dg, dg.svg, dg.w, dg.h
+			})
+		})
+	}
+	if !v.loaded {
+		draw() // at once, as it opens
+		return
+	}
+	v.wait = time.AfterFunc(svgDelay, func() { a.post(draw) })
+}
+
 // stop stops what the viewer waits for, as it goes.
 func (v *viewer) stop() {
 	if v.wait != nil {
@@ -275,6 +328,13 @@ func (v *viewer) fitScale(w, h float32) float32 {
 
 // maxScale is the largest the picture zooms to.
 func (v *viewer) maxScale() float32 {
+	if v.diagram != nil {
+		side := float32(0)
+		for _, t := range v.diagram.tiles {
+			side = max(side, t.w, t.h)
+		}
+		return max(maxSVGSide/max(side, 1), 1)
+	}
 	if _, ok := v.src.(*ui.SVG); ok {
 		return max(maxSVGSide/max(v.w, v.h), 1)
 	}
@@ -403,7 +463,10 @@ func (a *app) viewerView(c *ui.Context, v *viewer, name string) {
 	if v.doc != nil {
 		label = locales.PreviewLabel(name)
 	}
-	if v.doc != nil {
+	switch {
+	case v.doc != nil && isMermaid(v.doc):
+		a.followMermaid(v)
+	case v.doc != nil:
 		a.followSVG(v)
 	}
 	b := v.pane.Bounds(c)
@@ -434,6 +497,12 @@ func (a *app) viewerView(c *ui.Context, v *viewer, name string) {
 			pt.Shadow(at, 0, 0, 6, 24, 0, p.shadow)
 		}
 		pt.Clip(shown, 0, func() {
+			if v.diagram != nil {
+				// A diagram is drawn on the color its labels are for.
+				pt.Fill(at, v.style.bg, 0)
+				v.diagram.draw(pt, at)
+				return
+			}
 			// The checks start at the picture's corner, as it moves.
 			tile := checkers(p.dark)
 			for y := at.Y + float32(int((shown.Y-at.Y)/checkTile))*checkTile; y < shown.Y+shown.H; y += checkTile {
@@ -547,7 +616,7 @@ func (a *app) setPreview(d *editor, on bool) {
 			// The text opens where the preview was.
 			y := a.textY(d, m.sync.top)
 			if d.hidden {
-				d.hiddenY = y
+				d.hiddenY, d.hiddenPlaced = y, false
 			} else {
 				d.vscroll.Y = y
 			}
@@ -561,6 +630,12 @@ func (a *app) setPreview(d *editor, on bool) {
 	a.rememberTabs()
 }
 
+// toggleMarkdownPreview switches opening Markdown files, .mdx included,
+// rendered or as text.
+func (a *app) toggleMarkdownPreview() {
+	a.setPref("markdownPreview", func(p *settings.Prefs) { p.MarkdownPreview = !p.MarkdownPreview })
+}
+
 // togglePreview switches between a document's source and rendered view.
 func (a *app) togglePreview() {
 	if d := a.activeEditor(); d != nil && canPreview(d.document) {
@@ -569,8 +644,9 @@ func (a *app) togglePreview() {
 	}
 }
 
-// previewToSide shows the preview of the document shown in a column to
-// the right, beside its text, which keeps the keyboard.
+// previewToSide shows the preview of the document shown in the column
+// beside it, to its right or else its left, or in a new one to its right,
+// and the text keeps the keyboard.
 func (a *app) previewToSide() {
 	d := a.activeEditor()
 	if d == nil || !canPreview(d.document) {
@@ -581,8 +657,22 @@ func (a *app) previewToSide() {
 		a.setPreview(d, false)
 	}
 	src := a.column()
-	a.splitRight()
-	side := a.activeEditor()
+	var side *editor
+	switch col := a.sideColumn(src); {
+	case col == nil:
+		a.splitRight()
+		side = a.activeEditor()
+	case col.showing(d.document) >= 0:
+		// The column shows the document already: that tab previews it.
+		i := col.showing(d.document)
+		a.activate(col, i, true)
+		side = col.tabs[i].ed
+	default:
+		at := col.active + 1
+		a.addTab(col, at, &colTab{ed: cloneEditor(d)})
+		a.activate(col, at, true)
+		side = col.tabs[at].ed
+	}
 	// The text takes the keyboard back before the preview is shown, which
 	// would take it.
 	if col, i := a.locate(src.tab()); col != nil {
@@ -629,5 +719,5 @@ func (a *app) viewerStatus(c *ui.Context, v *viewer, item func(key, label, tip s
 	if v.size > 0 {
 		item("size", sizeText(v.size), "", nil, nil)
 	}
-	item("zoom", v.zoomPercent(), a.withKey(locales.FitToView(), "view.zoomReset"), nil, func() { v.zoomBy(0) })
+	item("zoom", v.zoomPercent(), a.withKey(locales.FitToView(), "image.zoomReset"), nil, func() { v.zoomBy(0) })
 }

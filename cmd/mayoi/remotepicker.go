@@ -467,11 +467,11 @@ func (a *app) remotePickerView(c *ui.Context) {
 				r.moved = false
 				switch r.stage {
 				case pickFolder:
-					a.quickFooter(c, false, locales.QuickOpenOrGoIn(), locales.PickTabGoesIn(), false)
+					a.quickFooter(c, false, locales.QuickOpenOrGoIn(), locales.PickTabGoesIn(), false, false)
 				case pickConnecting:
 					a.connectingFooter(c)
 				case pickHost:
-					a.quickFooter(c, false, locales.QuickConnectAction(), locales.PickSignsIn(), false)
+					a.quickFooter(c, false, locales.QuickConnectAction(), locales.PickSignsIn(), false, false)
 				}
 			})
 			if box.PressedOutside() {

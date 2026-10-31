@@ -46,7 +46,7 @@ func submoduleHarness(t *testing.T) (*harness, *gitContext, func(...string) stri
 
 func settleRepositories(t *testing.T, hs *harness, count int) {
 	t.Helper()
-	deadline := time.Now().Add(8 * time.Second)
+	deadline := time.Now().Add(settleTimeout)
 	for time.Now().Before(deadline) {
 		hs.settle()
 		contexts := hs.a.repositories.contexts
@@ -313,7 +313,7 @@ func TestSubmoduleUIAndStatusRepositoryPicker(t *testing.T) {
 	a.selectRepository(a.git.repo.Root)
 	sub.git.message = "commit from module button"
 	sub.scm.panels.key = "cached before module commit"
-	sub.git.checked = time.Now().Add(time.Hour)
+	sub.git.checked = sub.app.gitNow().Add(time.Hour)
 	hs.settle()
 	before := strings.TrimSpace(parent("rev-parse", "HEAD"))
 	if err := hs.tt.Click("Commit"); err != nil {
@@ -401,8 +401,8 @@ func TestRepositoryDiscoveryOnlyOnMetadataChanges(t *testing.T) {
 	a := hs.a
 	token := a.repositories.token
 	for _, ctx := range a.repositories.contexts {
-		ctx.git.checked = time.Now().Add(time.Hour)
-		ctx.git.read = time.Now().Add(-2 * statusEvery)
+		ctx.git.checked = ctx.app.gitNow().Add(time.Hour)
+		ctx.git.read = ctx.app.gitNow().Add(-2 * statusEvery)
 	}
 	// A status interval is not a reason to enumerate any repository's index.
 	a.refreshGit()

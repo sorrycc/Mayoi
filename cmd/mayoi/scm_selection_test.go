@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/egoist/mygo/ui"
@@ -153,7 +154,7 @@ func TestScmToggleSelectionAndKeyboardNavigation(t *testing.T) {
 	expectScmSelection(t, hs, "c.txt", "d.txt")
 	hs.key(ui.Shift, ui.KeyHome)
 	expectScmSelection(t, hs, "a.txt", "b.txt", "c.txt")
-	hs.key(ui.Cmd, ui.KeyA)
+	hs.command("selectAll")
 	expectScmSelection(t, hs, "a.txt", "b.txt", "c.txt", "d.txt")
 }
 
@@ -239,4 +240,100 @@ func TestScmSelectionDiscard(t *testing.T) {
 	if hs.a.confirm == nil || hs.a.confirm.title != "Move a.txt to "+trashName()+"?" {
 		t.Fatalf("discard of an unselected row: %+v", hs.a.confirm)
 	}
+}
+
+func TestScmCommitSelectionAndCopy(t *testing.T) {
+	hs := newHarness(t, true)
+	run := hs.gitRepo()
+	for _, msg := range []string{"second", "third", "fourth"} {
+		if err := os.WriteFile(hs.path(msg+".txt"), []byte(msg+"\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		run("add", ".")
+		run("commit", "-qm", msg)
+	}
+	if err := os.WriteFile(hs.path("loose.txt"), []byte("loose\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	a, tt := hs.a, hs.tt
+	a.run("view.scm")
+	hs.settleGit()
+	h := a.git.history
+	short := func(subjects ...string) string {
+		var hashes []string
+		for _, s := range subjects {
+			for _, cm := range h {
+				if cm.Subject == s {
+					hashes = append(hashes, cm.Short())
+				}
+			}
+		}
+		return strings.Join(hashes, "\n")
+	}
+	chosen := func() string {
+		var subjects []string
+		for _, r := range a.scmRows() {
+			if r.commit != nil && a.scm.selection.Has(r.key) {
+				subjects = append(subjects, r.commit.Subject)
+			}
+		}
+		return strings.Join(subjects, ",")
+	}
+	// The rows are found before a preview shows their subjects elsewhere.
+	at := map[string]ui.Rect{}
+	for _, name := range []string{"loose.txt", "fourth", "third", "second"} {
+		b, ok := tt.Find(name)
+		if !ok {
+			t.Fatalf("missing %s", name)
+		}
+		at[name] = b
+	}
+	click := func(mods ui.Modifiers, name string) {
+		b := at[name]
+		tt.ClickAtWith(mods, b.X+b.W/2, b.Y+b.H/2)
+		hs.settle()
+	}
+	// A file chosen is let go by a commit chosen, and the other way round.
+	click(0, "loose.txt")
+	click(0, "fourth")
+	expectScmSelection(t, hs)
+	hs.command("copy")
+	if got := tt.Clipboard(); got != short("fourth") {
+		t.Fatalf("copied after a click %q", got)
+	}
+	click(ui.Cmd, "second")
+	if got := chosen(); got != "fourth,second" {
+		t.Fatalf("Cmd-click chose %q", got)
+	}
+	hs.command("copy")
+	if got := tt.Clipboard(); got != short("fourth", "second") {
+		t.Fatalf("copied %q", got)
+	}
+	click(ui.Cmd, "second")
+	if got := chosen(); got != "fourth" {
+		t.Fatalf("Cmd-click again chose %q", got)
+	}
+	click(0, "fourth")
+	click(ui.Shift, "second")
+	if got := chosen(); got != "fourth,third,second" {
+		t.Fatalf("Shift-click chose %q", got)
+	}
+	hs.key(ui.Shift, ui.KeyDown)
+	if got := chosen(); got != "fourth,third,second,first" {
+		t.Fatalf("Shift+Down chose %q", got)
+	}
+	hs.command("copy")
+	if got := tt.Clipboard(); got != short("fourth", "third", "second", "first") {
+		t.Fatalf("copied range %q", got)
+	}
+	click(0, "third")
+	hs.command("selectAll")
+	if got := chosen(); got != "fourth,third,second,first" {
+		t.Fatalf("Select All chose %q", got)
+	}
+	click(0, "loose.txt")
+	if got := chosen(); got != "" {
+		t.Fatalf("file click kept commits %q", got)
+	}
+	expectScmSelection(t, hs, "loose.txt")
 }

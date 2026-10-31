@@ -65,6 +65,7 @@ func TestRecoverCrash(t *testing.T) {
 		wg.Go(func() {
 			defer recoverCrash()
 			var m map[string]int
+			//lint:ignore SA5000 the panic is what the test recovers
 			m["x"] = 1
 		})
 		wg.Wait()
@@ -95,8 +96,58 @@ func TestCrashReport(t *testing.T) {
 	if c.Version != "0.11.3" || c.OS != runtime.GOOS {
 		t.Errorf("ips = %+v", c)
 	}
+	// A log written before crash logs had the line is of an older version
+	// than this one, not known which.
+	c = crashReport(crashLog{kind: crashFatal}, "panic: boom\n\ngoroutine 1 [running]:")
+	if c.Version != crashUnknownVersion || c.Runtime != "" || c.OS != runtime.GOOS {
+		t.Errorf("headerless = %+v", c)
+	}
 	if c := crashReport(crashLog{kind: crashFatal}, strings.Repeat("é", maxCrashReport)); len(c.Log) > maxCrashReport {
 		t.Errorf("log of %d bytes", len(c.Log))
+	}
+	// Goroutines too many to send make room for stderr.
+	stderr := crashStderr + "*** Terminating app due to uncaught exception"
+	c = crashReport(crashLog{kind: crashFatal}, "SIGABRT: abort\n"+strings.Repeat("goroutine\n", maxCrashReport/10)+stderr)
+	if len(c.Log) > maxCrashReport || !strings.HasPrefix(c.Log, "SIGABRT: abort\n") || !strings.HasSuffix(c.Log, stderr) {
+		t.Errorf("long log with stderr: %d bytes, %q…%q", len(c.Log), c.Log[:20], c.Log[len(c.Log)-60:])
+	}
+}
+
+// TestCrashStderr adds the end of what a crashed run wrote to stderr to
+// its log, without the crash, which the runtime wrote there too.
+func TestCrashStderr(t *testing.T) {
+	defer debug.SetCrashOutput(nil, debug.CrashOptions{})
+	home, _ := os.UserHomeDir()
+	dir := t.TempDir()
+	crash := "SIGABRT: abort\nPC=0x183e9d5b0 m=0 sigcode=0\n"
+	os.WriteFile(filepath.Join(dir, "crash.log"), []byte(crashHeader(time.Now())+crash), 0o644)
+	why := "*** Terminating app due to uncaught exception 'NSRangeException', reason: " + home + "/x"
+	os.WriteFile(filepath.Join(dir, crashStderrFile), []byte(strings.Repeat("noise\n", maxCrashStderr)+why+"\n"+crash), 0o644)
+
+	keepCrashes(dir)
+
+	logs := listCrashes(filepath.Join(dir, "crashes"))
+	if len(logs) != 1 {
+		t.Fatalf("%d crashes kept", len(logs))
+	}
+	b, _ := os.ReadFile(logs[0].path)
+	log := string(b)
+	i := strings.Index(log, crashStderr)
+	if i < 0 || !strings.HasSuffix(log, "reason: ~/x") || strings.Count(log, "SIGABRT") != 1 {
+		t.Fatalf("crash log = …%q", log[max(0, len(log)-200):])
+	}
+	if n := len(log) - i - len(crashStderr); n > maxCrashStderr {
+		t.Errorf("%d bytes of stderr kept", n)
+	}
+	if _, err := os.Stat(filepath.Join(dir, crashStderrFile)); !os.IsNotExist(err) {
+		t.Errorf("stderr.log of the last run kept: %v", err)
+	}
+
+	// A run that wrote nothing else to stderr adds no section.
+	os.WriteFile(filepath.Join(dir, "crash.log"), []byte(crashHeader(time.Now())+crash), 0o644)
+	os.WriteFile(filepath.Join(dir, crashStderrFile), []byte(crash), 0o644)
+	if s := crashedStderr(filepath.Join(dir, crashStderrFile), []byte(crashHeader(time.Now())+crash)); s != "" {
+		t.Errorf("stderr of only the crash = %q", s)
 	}
 }
 

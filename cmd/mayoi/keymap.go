@@ -190,9 +190,12 @@ var vscodeCommands = map[string]string{
 	"workbench.action.files.saveAll":                      "file.saveAll",
 	"workbench.action.toggleAutoSave":                     "file.autoSave",
 	"workbench.action.openSettings":                       "file.settings",
-	"workbench.action.openSettingsJson":                   "file.settings",
+	"workbench.action.openSettings2":                      "file.settings",
+	"workbench.action.openSettingsJson":                   "file.settingsJSON",
+	"workbench.action.openGlobalSettings":                 "file.settingsJSON",
 	"workbench.action.openGlobalKeybindings":              "file.keybindings",
-	"workbench.action.openGlobalKeybindingsFile":          "file.keybindings",
+	"workbench.action.openGlobalKeybindingsFile":          "file.keybindingsJSON",
+	"workbench.action.openWorkspaceSettingsFile":          "file.folderSettings",
 	"workbench.action.closeActiveEditor":                  "file.close",
 	"workbench.action.reopenClosedEditor":                 "file.reopenClosed",
 	"workbench.action.closeFolder":                        "file.closeFolder",
@@ -256,9 +259,10 @@ var vscodeCommands = map[string]string{
 	"workbench.action.zoomIn":                    "view.zoomIn",
 	"workbench.action.zoomOut":                   "view.zoomOut",
 	"workbench.action.zoomReset":                 "view.zoomReset",
-	"editor.action.fontZoomIn":                   "view.zoomIn",
-	"editor.action.fontZoomOut":                  "view.zoomOut",
-	"editor.action.fontZoomReset":                "view.zoomReset",
+	"editor.action.fontZoomIn":                   "editor.fontZoomIn",
+	"editor.action.fontZoomOut":                  "editor.fontZoomOut",
+	"editor.action.fontZoomReset":                "editor.fontZoomReset",
+	"workbench.action.selectTheme":               "view.selectTheme",
 	"git.commit":                                 "git.commit",
 	"git.commitStaged":                           "git.commit",
 	"git.stageAll":                               "git.stageAll",
@@ -268,6 +272,11 @@ var vscodeCommands = map[string]string{
 	"git.undoCommit":                             "git.undoCommit",
 	"git.checkout":                               "git.switchBranch",
 	"git.branch":                                 "git.createBranch",
+	"git.stash":                                  "git.stash",
+	"git.stashIncludeUntracked":                  "git.stashUntracked",
+	"git.stashApply":                             "git.stashes",
+	"git.stashPop":                               "git.stashes",
+	"git.stashDrop":                              "git.stashes",
 	"git.fetch":                                  "git.fetch",
 	"git.pull":                                   "git.pull",
 	"git.push":                                   "git.push",
@@ -487,6 +496,14 @@ func (a *app) activeFile() string {
 	return ""
 }
 
+// copyPath copies path, relative to the workspace when rel is set.
+func (a *app) copyPath(path string, rel bool) {
+	if rel && a.tree != nil {
+		path = a.tree.Rel(path)
+	}
+	a.services.WriteClipboard(hostPath(path))
+}
+
 // copyActivePath puts the path of the file shown on the clipboard,
 // relative to the folder with rel.
 func (a *app) copyActivePath(rel bool) {
@@ -494,10 +511,7 @@ func (a *app) copyActivePath(rel bool) {
 	if path == "" {
 		return
 	}
-	if rel && a.tree != nil {
-		path = a.tree.Rel(path)
-	}
-	a.services.WriteClipboard(hostPath(path))
+	a.copyPath(path, rel)
 }
 
 // revealActive shows the file of the tab shown in the file manager.

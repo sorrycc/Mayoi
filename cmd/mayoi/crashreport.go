@@ -25,6 +25,10 @@ const crashApp = "mayoi"
 // 256 KB, which the log, escaped in JSON, stays under.
 const maxCrashReport = 192 << 10
 
+// crashUnknownVersion is the version a report gives for a log that
+// doesn't say which crashed.
+const crashUnknownVersion = "unknown"
+
 // The kinds of crash log, as their names in the crashes folder end:
 // -recovered for a panic Mayoi recovered from, -system for the system's
 // report.
@@ -245,10 +249,19 @@ func crashReport(l crashLog, log string) mon.Crash {
 		if goos, arch, ok := strings.Cut(f[2], "/"); ok {
 			c.OS, c.Arch = goos, arch
 		}
+	} else {
+		// A log of before 0.11.6, without the line: of a version older
+		// than this one, not known which, nor its Go.
+		c.Version, c.Runtime = crashUnknownVersion, ""
 	}
 	if len(c.Log) > maxCrashReport {
-		// The goroutine that crashed comes first.
-		c.Log = strings.ToValidUTF8(c.Log[:maxCrashReport], "")
+		// The goroutine that crashed comes first, and stderr, which may
+		// say why, last: the other goroutines make room.
+		head, stderr := c.Log, ""
+		if i := strings.LastIndex(head, crashStderr); i >= 0 && len(head)-i <= maxCrashReport/2 {
+			head, stderr = head[:i], head[i:]
+		}
+		c.Log = strings.ToValidUTF8(head[:maxCrashReport-len(stderr)], "") + stderr
 	}
 	return c
 }

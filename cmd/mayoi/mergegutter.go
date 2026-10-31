@@ -61,6 +61,15 @@ func mapMergeLine(hs []linediff.Hunk, line float32, back bool) float32 {
 // top and the end the line followed goes to the top and the end of the
 // view, so that the panes start and end together.
 func (a *app) syncMergePanes(v *mergeView) {
+	// While a pane sweeps its wrapped lines outward, the heights of the
+	// frame are part estimate, and mapping the panes onto each other by
+	// them would carry the views away; they stand still until the sweep
+	// has measured the file.
+	for k := range 3 {
+		if v.panes[k].sweeping {
+			return
+		}
+	}
 	moved := -1
 	for k := range 3 {
 		if v.panes[k].scroll.Y != v.lastY[k] {
@@ -69,14 +78,13 @@ func (a *app) syncMergePanes(v *mergeView) {
 		}
 	}
 	if moved >= 0 && v.loaded && v.doc != nil {
-		lineH := a.font.lineH
 		end := func(k int) float32 {
-			return max(0, 2*editorPadY+float32(v.paneLineCount(k))*lineH-v.panes[k].viewH)
+			return max(0, 2*editorPadY+a.mergeGeometry(v, k).top(v.paneLineCount(k))-v.panes[k].viewH)
 		}
 		h := v.panes[moved].viewH
 		s := v.panes[moved].scroll.Y
 		off := clamp(min(s, h/2)+h/2-min(end(moved)-s, h/2), 0, h)
-		line := (s + off - editorPadY) / lineH
+		line := a.mergeGeometry(v, moved).atF(s + off - editorPadY)
 		res := line
 		if moved != 1 {
 			res = mapMergeLine(v.pairHunks(moved), line, false)
@@ -89,7 +97,7 @@ func (a *app) syncMergePanes(v *mergeView) {
 			if k != 1 {
 				at = mapMergeLine(v.pairHunks(k), res, true)
 			}
-			v.panes[k].scroll.Y = clamp(editorPadY+at*lineH-off, 0, end(k))
+			v.panes[k].scroll.Y = clamp(editorPadY+a.mergeGeometry(v, k).topF(at)-off, 0, end(k))
 		}
 	}
 	for k := range 3 {
@@ -185,27 +193,43 @@ type mergeGlow struct{ side, i int }
 // take the side's lines or ignore them, by its lines on the side; a
 // change of the side's own that is no conflict has one that applies it.
 func (a *app) mergeGutter(c *ui.Context, v *mergeView, left int) {
-	p, lineH := a.pal, a.font.lineH
+	p := a.pal
 	side := 0
 	if left == 1 {
 		side = 2
 	}
 	bands := a.mergeBands(v, side)
+	// Where a pane's lines stand as that pane wraps them: the sides and
+	// the result wrap each at their width, and the bands join their rows.
+	var gs [3]geometry
+	for k := range gs {
+		gs[k] = a.mergeGeometry(v, k)
+	}
 	ui.Column(c.Key(fmt.Sprintf("merge-gutter-%d", left))).Width(mergeMidW).Shrink(0).Children(func() {
 		ui.Box(c).Height(20).Background(p.chrome)
 		box := ui.Box(c.Key(fmt.Sprintf("merge-bands-%d", left))).Grow(1).MinHeight(0).Background(p.text.Alpha(0.02)).Clip()
 		viewH := v.panes[side].viewH
-		y := func(k int, line int) float32 { return editorPadY + float32(line)*lineH - v.panes[k].scroll.Y }
+		y := func(k int, line int) float32 { return editorPadY + gs[k].top(line) - v.panes[k].scroll.Y }
 		glow := map[int]float32{}
 		box.Children(func() {
 			hot := -1
 			for i, b := range bands {
-				sy := y(side, b.h.A)
-				if b.h.ALen > 0 {
-					sy += min(lineH, float32(b.h.ALen)*lineH) / 2
-				}
-				if sy < -lineH || sy > viewH+lineH {
+				top, bot := y(side, b.h.A), y(side, b.h.A+b.h.ALen)
+				// A band keeps its buttons while any part of it stands in
+				// the box: a wrapped conflict can run past the pane, and
+				// its middle, the buttons' anchor, scrolls away long
+				// before the band does. The anchor pins inside instead.
+				if bot < 0 || top > viewH {
 					continue
+				}
+				sy := top
+				if b.h.ALen > 0 {
+					sy = (top + bot) / 2
+				}
+				if sy < mergeButtonW/2 {
+					sy = mergeButtonW / 2
+				} else if sy > viewH-mergeButtonW/2 {
+					sy = viewH - mergeButtonW/2
 				}
 				type button struct {
 					icon       *ui.SVG
@@ -361,8 +385,8 @@ func (a *app) paintMergeFlash(pt *ui.Painter, v *mergeView, r ui.Rect) {
 		return
 	}
 	k := (1 - t) * (1 - t)
-	lineH := a.font.lineH
-	y := r.Y + editorPadY + float32(fl.lo)*lineH - v.panes[1].scroll.Y
-	pt.Fill(ui.Rect{X: r.X, Y: y, W: r.W, H: float32(fl.hi-fl.lo) * lineH}, a.pal.accent.Alpha(0.30*k), 0)
+	g := a.mergeGeometry(v, 1)
+	y := r.Y + editorPadY + g.top(fl.lo) - v.panes[1].scroll.Y
+	pt.Fill(ui.Rect{X: r.X, Y: y, W: r.W, H: g.top(fl.hi) - g.top(fl.lo)}, a.pal.accent.Alpha(0.30*k), 0)
 	pt.AnimationFrame()
 }

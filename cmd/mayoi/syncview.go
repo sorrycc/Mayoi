@@ -124,7 +124,8 @@ func (a *app) syncPanel(c *ui.Context, anchor, panel ui.Element, si syncInfo) {
 		a.countdownTick()
 	}
 	panel.AttachTo(anchor, ui.AnchorTopRight, ui.AnchorBottomRight).Margin(0, 0, 6, 0)
-	a.floating(c, panel.Width(304).Radius(10).Gap(0), false).Role(ui.RoleDialog).Label(locales.SyncPanelLabel(si.name))
+	// It rises from the status bar, which it opens above.
+	dropIn(a.floating(c, panel.Width(304).Radius(10).Gap(0), false), -4).Role(ui.RoleDialog).Label(locales.SyncPanelLabel(si.name))
 	divider := func() { ui.Row(c).Height(1).Background(p.border) }
 	close := func(fn func()) {
 		a.syncOpen = false
@@ -216,7 +217,7 @@ func (a *app) syncPanel(c *ui.Context, anchor, panel ui.Element, si syncInfo) {
 				ui.Text(c, locales.SyncKeepHint()).FontSize(11).TextColor(col)
 			})
 			if hint.Clicked() {
-				close(a.openSettings)
+				close(func() { a.host.showSettings(settings.CatGeneral, "syncIgnored") })
 			}
 		})
 		divider()

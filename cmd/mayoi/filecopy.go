@@ -14,6 +14,7 @@ import (
 
 	"github.com/egoist/mygo/ui"
 
+	"mayoi/internal/bg"
 	"mayoi/internal/remote"
 	"mayoi/internal/vfs"
 	"mayoi/locales"
@@ -140,7 +141,7 @@ func (a *app) pasteAcross(srcs []string, dir string) {
 		return
 	}
 	x := a.startTransfer(transferLabel(srcs, dir))
-	go func() {
+	bg.Go(func() {
 		got, err := transferInto(srcs, dir, x.progress)
 		a.post(func() {
 			if x.progress.Canceled() {
@@ -169,7 +170,7 @@ func (a *app) pasteAcross(srcs []string, dir string) {
 				a.pasted(dir, got[0])
 			}
 		})
-	}()
+	})
 }
 
 // transferLabel says what a paste does: "Uploading 3 items to box…".

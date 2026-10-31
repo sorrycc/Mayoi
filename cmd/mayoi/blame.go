@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"time"
 
+	"mayoi/internal/bg"
 	"mayoi/internal/git"
+	"mayoi/internal/settings"
 	"mayoi/locales"
 
 	"github.com/egoist/mygo/i18n"
@@ -36,7 +38,7 @@ const blamePause = 350 * time.Millisecond
 func (a *app) blameLine(d *editor, line int, version uint64, focused bool) string {
 	ctx := a.repositoryForPath(d.path)
 	r := ctx.git.repo
-	if !a.settings.Blame || !focused || r == nil || d.path == "" || !r.Contains(d.path) {
+	if !a.prefs().Blame || !focused || r == nil || d.path == "" || !r.Contains(d.path) {
 		return ""
 	}
 	if e, ok := ctx.git.entries[d.path]; ok && e.Untracked() {
@@ -45,7 +47,7 @@ func (a *app) blameLine(d *editor, line int, version uint64, focused bool) strin
 	b := &d.blame
 	if b.line != line || b.version != version {
 		*b = blameState{line: line, version: version, since: time.Now()}
-		time.AfterFunc(blamePause, a.invalidate)
+		bg.AfterFunc(blamePause, a.invalidate)
 		return ""
 	}
 	if b.done || b.running {
@@ -56,7 +58,7 @@ func (a *app) blameLine(d *editor, line int, version uint64, focused bool) strin
 	}
 	b.running = true
 	path, text := d.path, d.buf.Snapshot().String()
-	go func() {
+	bg.Go(func() {
 		defer recoverCrash()
 		bl, err := r.BlameLine(path, line, text)
 		a.post(func() {
@@ -68,7 +70,7 @@ func (a *app) blameLine(d *editor, line int, version uint64, focused bool) strin
 				d.blame.text = blameText(bl, time.Now())
 			}
 		})
-	}()
+	})
 	return ""
 }
 
@@ -106,6 +108,5 @@ func dateTime(t time.Time) string {
 
 // toggleBlame shows the blame of the caret's line, or stops.
 func (a *app) toggleBlame() {
-	a.settings.Blame = !a.settings.Blame
-	a.settings.Changed()
+	a.setPref("blame", func(p *settings.Prefs) { p.Blame = !p.Blame })
 }

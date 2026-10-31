@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/egoist/mygo/ui"
+	"mayoi/internal/bg"
 	"mayoi/internal/git"
 )
 
@@ -13,13 +14,12 @@ import (
 // work tree. Shared editor services are reached explicitly through app;
 // no window Git commands can be promoted onto a repository controller.
 type gitContext struct {
-	app           *app
-	git           *gitState
-	identity      *git.Repo
-	scm           *scmState
-	closed        bool
-	changesUI     *scmState
-	changesHeight float32
+	app       *app
+	git       *gitState
+	identity  *git.Repo
+	scm       *scmState
+	expanded  *bool // nil uses the default: expand repositories with changes
+	changesUI *scmState
 }
 
 type repositoryState struct {
@@ -29,6 +29,9 @@ type repositoryState struct {
 	dirty    bool
 	token    *int
 	picker   repositoryPicker
+	changes  ui.ListState
+	row      int
+	cursor   string // pending row key when a diff chooses a changed file
 }
 
 func (a *app) rootRepository() *gitContext {
@@ -131,6 +134,8 @@ func (a *app) refreshGit() {
 	for _, ctx := range a.repositories.contexts {
 		ctx.refreshGit()
 	}
+	a.repository().refreshPR()
+	a.repository().refreshPRHeads()
 }
 
 // The index and module roots are read in the background after Git metadata
@@ -144,7 +149,7 @@ func (a *app) discoverRepositories() {
 	root, folder := a.git.repo, a.root
 	token := new(int)
 	state.token, state.scanning, state.dirty = token, true, false
-	go func() {
+	bg.Go(func() {
 		defer recoverCrash()
 		// An incomplete scan must not drop live contexts and their messages.
 		failed := func() {
@@ -220,7 +225,7 @@ func (a *app) discoverRepositories() {
 			}
 			state.scanning = false
 		})
-	}()
+	})
 }
 
 func (a *app) changeCount() int {
@@ -271,6 +276,11 @@ func (a *app) branchPickerView(c *ui.Context) {
 	ctx.branchPickerView(c)
 }
 
+func (a *app) worktreePickerView(c *ui.Context) {
+	ctx := a.repositoryForRoot(a.worktrees.repoRoot)
+	ctx.worktreePickerView(c)
+}
+
 // Diff tabs and their actions retain their repository when the history
 // picker changes. Legacy tabs without a root belong to the main work tree.
 func (a *app) diffContext(v *diffView) *gitContext {
@@ -309,15 +319,17 @@ func (a *gitContext) openChangesTab(focus bool) *diffView {
 	}
 	return a.app.openChangesTab(focus, a.git.repo.Root)
 }
-func (a *gitContext) showCommit(cm git.Commit, focus bool) {
+func (a *gitContext) showCommit(cm git.Commit, focus bool) *diffView {
 	if a.git.repo != nil {
-		a.app.showCommit(cm, focus, a.git.repo.Root)
+		return a.app.showCommit(cm, focus, a.git.repo.Root)
 	}
+	return nil
 }
-func (a *gitContext) previewCommit(cm git.Commit) {
+func (a *gitContext) previewCommit(cm git.Commit) *diffView {
 	if a.git.repo != nil {
-		a.app.previewCommit(cm, a.git.repo.Root)
+		return a.app.previewCommit(cm, a.git.repo.Root)
 	}
+	return nil
 }
 
 // A controller captured by a dialog must not start work on a folder opened

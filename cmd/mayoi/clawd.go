@@ -36,8 +36,8 @@ func clawdSize(cell float32) (w, h float32) {
 
 // drawClawd paints Clawd in r, centered, in cells of a width, in a pose,
 // its eyes the color of bg.
-func (a *app) drawClawd(pt *ui.Painter, r ui.Rect, cell float32, bg ui.Color, p mascotPose) {
-	body := a.pal.accent
+func drawClawd(pal *palette, pt *ui.Painter, r ui.Rect, cell float32, bg ui.Color, p mascotPose) {
+	body := pal.accent
 	w, h := clawdSize(cell)
 	ch := 2 * cell
 	// A cell of headroom over the body, for the hop.

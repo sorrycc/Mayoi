@@ -14,6 +14,7 @@ import (
 
 	gitpkg "mayoi/internal/git"
 	"mayoi/internal/linediff"
+	"mayoi/locales"
 )
 
 // gitRepo makes the harness's folder a work tree with all its files
@@ -786,8 +787,8 @@ func TestDiffOfEveryFile(t *testing.T) {
 	if !hs.tt.HasText("Changes") {
 		t.Errorf("no name: %q", hs.tt.Texts())
 	}
-	if _, ok := hs.tt.Find("Side by Side"); !ok {
-		t.Errorf("no side-by-side diff toggle")
+	if _, ok := hs.tt.Find("Layout"); !ok {
+		t.Errorf("no diff layout menu")
 	}
 	hs.shot("git-diff-all")
 	v.cursor = -1
@@ -2723,5 +2724,54 @@ func TestRevertArrowOfOneOfTwoNearbyBlocks(t *testing.T) {
 	hs.settle()
 	if d.buf.String() != orig {
 		t.Fatalf("after the arrow of the second block:\n%s", d.buf.String())
+	}
+}
+
+func TestGutterHunkActionsWithAgentContext(t *testing.T) {
+	for _, size := range []float32{10, 18, 26} {
+		t.Run(fmt.Sprint(size), func(t *testing.T) {
+			hs := newHarness(t, true)
+			a, tt := hs.a, hs.tt
+			path := hs.path("many.go")
+			if err := os.WriteFile(path, []byte(strings.Repeat("line()\n", 1100)), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			hs.gitRepo()
+			lines := strings.Split(strings.Repeat("line()\n", 1100), "\n")
+			lines[999] = "changed()"
+			if err := os.WriteFile(path, []byte(strings.Join(lines, "\n")), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			a.settings.EditorAgentContext, a.settings.FontSize = true, size
+			a.openFileAt(path, 999, true)
+			hs.settleGit()
+			d := a.activeEditor()
+			area, ok := tt.Find(locales.EditorLabel(d.name()))
+			if !ok {
+				t.Fatal("no editor")
+			}
+			x := area.X + d.gutterW - 7
+			y := area.Y + editorPadY + 999.5*a.font.lineH - d.vscroll.Y
+			tt.Move(x, y)
+			hs.settle()
+			button, ok := tt.Find(locales.AgentContextComment())
+			numberX := area.X + d.gutterW - 14 - 4*a.font.charW
+			if !ok || button.X+button.W > numberX || button.X < area.X {
+				t.Fatalf("action overlaps four-digit number: %+v; number x %v", button, numberX)
+			}
+			tt.ClickAt(x, y)
+			hs.settle()
+			if _, k := d.peekedHunk(); k != 0 || a.review.draft != nil {
+				t.Fatal("action intercepted the Git mark")
+			}
+			if err := tt.Click(locales.AgentContextComment()); err != nil {
+				t.Fatal(err)
+			}
+			hs.settle()
+			if a.review.draft == nil || a.review.draft.from != 999 {
+				t.Fatal("changed line cannot be commented on")
+			}
+			hs.shot("agent-context-gutter-" + fmt.Sprint(size))
+		})
 	}
 }

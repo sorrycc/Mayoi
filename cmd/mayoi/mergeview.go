@@ -11,9 +11,11 @@ import (
 
 	"github.com/egoist/mygo/ui"
 
+	"mayoi/internal/bg"
 	"mayoi/internal/git"
 	"mayoi/internal/highlight"
 	"mayoi/internal/linediff"
+	"mayoi/internal/settings"
 	"mayoi/internal/vfs"
 	"mayoi/locales"
 )
@@ -75,6 +77,12 @@ type mergeView struct {
 	// one gone to last, which the next conflict goes on from.
 	chosen, current int
 
+	// wrap is the tab's own choice to wrap the panes' lines, nil to
+	// follow WordWrap; wrapGen is the settings' generation it was made
+	// at, as an editor's and a diff's are.
+	wrap    *bool
+	wrapGen int
+
 	// ignored are the regions a Ignore took back to the base's lines on
 	// purpose, by their base range: baseSame alone cannot tell a
 	// deliberate ignore from a conflict nobody looked at.
@@ -103,12 +111,20 @@ type mergeView struct {
 }
 
 // paneScroll is what one of the three panes keeps as it shows: its
-// scrolling, and how wide its text was.
+// scrolling, how wide its widest line was, and where it laid its lines
+// out as they wrap.
 type paneScroll struct {
-	scroll, hscroll ui.ScrollState
-	viewH           float32
-	widest          int
-	wideVer         uint64
+	scroll, hscroll     ui.ScrollState
+	viewH               float32
+	widest              int
+	wideVer             uint64
+	lines               ui.TextLines
+	laidVer             uint64  // the version the wrapping lines were laid out at
+	laidW               float32 // the width they were laid out for
+	laidFont            codeFont
+	laidFrom, laidTo    int  // the lines measured so far, sweeping outward
+	sweeping            bool // until every line stands measured at this width
+	viewFirst, viewLast int  // the lines in view, as the last frame drew them
 }
 
 // oursLabel is what the pane of ours says it is.
@@ -520,7 +536,7 @@ func (a *app) refreshMerge(v *mergeView) {
 	}
 	v.loading = true
 	path, op := v.path, v.op
-	go func() {
+	bg.Go(func() {
 		defer recoverCrash()
 		base, ours, theirs, err := r.Stages(path)
 		oursSide, theirsSide := r.MergeSides(op)
@@ -552,7 +568,7 @@ func (a *app) refreshMerge(v *mergeView) {
 			}
 			a.invalidate()
 		})
-	}()
+	})
 }
 
 // makeMergeResult makes the document the middle pane edits: the base of
@@ -592,7 +608,7 @@ func (a *app) makeMergeResult(v *mergeView, data []byte, diskErr error) {
 	// A result that starts from the base takes the changes that no
 	// conflict holds at once, when the settings have it: the conflicts
 	// stand, for the hand to decide.
-	if fresh && a.settings.MergeAutoApply {
+	if fresh && a.prefs().MergeAutoApply {
 		a.applyNonConflicts(v, applyAll)
 	}
 	// The first conflict stands chosen, for its actions to be at hand.
@@ -852,11 +868,10 @@ func (a *app) applyNonConflicts(v *mergeView, side applySide) {
 // changes that no conflict holds as it opens, or not, as the settings
 // keep it.
 func (a *app) setMergeAutoApply(on bool) {
-	if a.settings.MergeAutoApply == on {
+	if a.prefs().MergeAutoApply == on {
 		return
 	}
-	a.settings.MergeAutoApply = on
-	a.settings.Changed()
+	a.setPref("mergeAutoApply", func(p *settings.Prefs) { p.MergeAutoApply = on })
 	a.invalidate()
 }
 
@@ -885,7 +900,7 @@ func (a *app) saveMerge(v *mergeView) {
 		return
 	}
 	doc, path := v.doc, v.path
-	go func() {
+	bg.Go(func() {
 		data, err := vfs.ReadFile(path)
 		differs := err != nil || doc.buf.String() != strings.ReplaceAll(string(data), "\r\n", "\n")
 		a.post(func() {
@@ -894,7 +909,7 @@ func (a *app) saveMerge(v *mergeView) {
 			}
 			a.saveDoc(doc, nil)
 		})
-	}()
+	})
 }
 
 // markMergeResolved saves the result of a merge view and stages its file,
@@ -953,7 +968,7 @@ func (a *app) revertMergeConflict(path string) {
 			a.gitDo("", func(r *git.Repo) error { return r.RestoreConflict(path) }, func() {
 				if t := a.mergeTab(path); t != nil {
 					a.resetMerge(t.merge)
-					if a.settings.MergeAutoApply {
+					if a.prefs().MergeAutoApply {
 						a.applyNonConflicts(t.merge, applyAll)
 					}
 				}
@@ -987,13 +1002,13 @@ func (a *app) revealMergeRegion(v *mergeView, i int) {
 	if room <= 0 {
 		return
 	}
-	y := max(0, editorPadY+float32(at[1])*a.font.lineH-room/3)
+	y := max(0, editorPadY+a.mergeGeometry(v, 1).top(at[1])-room/3)
 	if d := y - v.panes[1].scroll.Y; d != 0 && max(d, -d) < 3*v.viewH {
 		v.panes[1].scroll.ScrollTo(v.panes[1].scroll.X, y, ui.Animation{Duration: 220 * time.Millisecond, Ease: ui.EaseOut})
 		return
 	}
 	for k, line := range at {
-		v.panes[k].scroll.Y = max(0, editorPadY+float32(line)*a.font.lineH-room/3)
+		v.panes[k].scroll.Y = max(0, editorPadY+a.mergeGeometry(v, k).top(line)-room/3)
 	}
 	v.lastY = [3]float32{v.panes[0].scroll.Y, v.panes[1].scroll.Y, v.panes[2].scroll.Y}
 }
@@ -1001,7 +1016,7 @@ func (a *app) revealMergeRegion(v *mergeView, i int) {
 // chooseMergeLine takes the region a click in a pane went to, by the
 // lines of that pane.
 func (a *app) chooseMergeLine(v *mergeView, pane int, y float32) {
-	line := int((y + v.panes[pane].scroll.Y - editorPadY) / a.font.lineH)
+	line := a.mergeGeometry(v, pane).at(y + v.panes[pane].scroll.Y - editorPadY)
 	for i, r := range v.regions {
 		lo, hi := v.regionLines(r, pane)
 		if line >= lo && line < max(hi, lo+1) {

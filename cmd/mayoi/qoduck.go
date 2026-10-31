@@ -36,7 +36,7 @@ func qoduckSize(cell float32) (w, h float32) {
 
 // drawQoduck paints the duck in r, centered, in cells of a width, in a
 // pose.
-func (a *app) drawQoduck(pt *ui.Painter, r ui.Rect, cell float32, _ ui.Color, p mascotPose) {
+func drawQoduck(pal *palette, pt *ui.Painter, r ui.Rect, cell float32, _ ui.Color, p mascotPose) {
 	u := cell / 2
 	w, h := qoduckSize(cell)
 	x0, y0 := r.X+(r.W-w)/2, r.Y+(r.H-h)/2+2*cell*(1-p.lift)
@@ -78,7 +78,7 @@ func (a *app) drawQoduck(pt *ui.Painter, r ui.Rect, cell float32, _ ui.Color, p 
 
 	// The edges first, half of them under the shapes.
 	edge := max(0.8*u, 1)
-	light := !a.pal.dark
+	light := !pal.dark
 	if light {
 		pt.StrokePath(tuft, tuftW+2*edge, qoduckBodyEdge)
 		pt.StrokePath(body, 2*edge, qoduckBodyEdge)

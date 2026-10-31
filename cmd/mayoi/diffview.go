@@ -15,6 +15,7 @@ import (
 
 	"github.com/egoist/mygo/ui"
 
+	"mayoi/internal/bg"
 	"mayoi/internal/git"
 	"mayoi/internal/highlight"
 	"mayoi/internal/linediff"
@@ -81,9 +82,6 @@ const (
 	crossNever                   // stay in the file
 )
 
-// key is how the settings name a crossing.
-func (x diffCross) key() string { return [...]string{"", "always", "never"}[x] }
-
 func parseDiffCross(s string) diffCross {
 	switch s {
 	case "always":
@@ -121,7 +119,7 @@ func parseDiffHighlight(s string) diffHighlight {
 
 // diffHighlightOf is how the diffs show what changed within a line, as
 // the settings say.
-func (a *app) diffHighlightOf() diffHighlight { return parseDiffHighlight(a.settings.DiffHighlight) }
+func (a *app) diffHighlightOf() diffHighlight { return parseDiffHighlight(a.prefs().DiffHighlight) }
 
 // diffWhitespace controls which whitespace differences participate in the
 // line comparison. The original lines remain untouched for painting and
@@ -150,7 +148,7 @@ func parseDiffWhitespace(s string) diffWhitespace {
 }
 
 func (a *app) diffWhitespaceOf() diffWhitespace {
-	return parseDiffWhitespace(a.settings.DiffWhitespace)
+	return parseDiffWhitespace(a.prefs().DiffWhitespace)
 }
 
 func normalizeDiffLine(s string, mode diffWhitespace) string {
@@ -221,7 +219,7 @@ func withoutBlankHunks(hs []linediff.Hunk, old, new []string) []linediff.Hunk {
 // diffContextOf is how many unchanged lines the diffs show around a
 // change, as the settings say.
 func (a *app) diffContextOf() int {
-	return min(max(a.settings.DiffContext, 0), settings.MaxDiffContext)
+	return min(max(a.prefs().DiffContext, 0), settings.MaxDiffContext)
 }
 
 // diffSide is a version of the file a diff shows.
@@ -273,6 +271,9 @@ type diffFile struct {
 	// folded is set for a file whose lines are hidden under its header.
 	open   map[int]bool
 	folded bool
+	// prPath is the file's path in the repository when it is of a pull
+	// request's diff, whose header marks it viewed; "" for any other.
+	prPath string
 }
 
 func newDiffFile(e git.Entry, group scmGroup) *diffFile {
@@ -325,6 +326,8 @@ type diffView struct {
 	// commit is the commit whose changes the tab shows, from its first
 	// parent; nil for the tab of the changes of the work tree.
 	commit *commitDiff
+	// tree is the panel of the files of a commit's tab, beside it.
+	tree commitTree
 
 	// rows are the rows of the files as they show, and tops where each
 	// starts, in lines, and after the last, the lines of all. starts are
@@ -427,6 +430,9 @@ type commitDiff struct {
 	// unfolded whether the card shows all of the message.
 	lines    int
 	unfolded bool
+	// pr is the pull request whose changes these are, from where its
+	// head left its base to its head; nil for a commit's.
+	pr *prDiff
 }
 
 // diffTarget is a file of a diff to scroll to: path, as compared against
@@ -487,9 +493,14 @@ func newLocalCompareView(layout diffLayout, left, right string) *diffView {
 // already in info when its hash is set.
 //
 // A key "from..to" makes the tab of a comparison instead: the changes from
-// commit from to commit to, read as those of a commit whose parent is from.
+// commit from to commit to, read as those of a commit whose parent is from;
+// and "pr:n:from..to" that of pull request n, whose changes they are.
 func newCommitView(layout diffLayout, key string, info git.Commit) *diffView {
 	v := newDiffView(layout)
+	if n, from, to, ok := parsePRKey(key); ok {
+		v.commit = &commitDiff{hash: to, from: from, info: git.Commit{Hash: to, Parents: []string{from}}, pr: &prDiff{number: n}}
+		return v
+	}
 	if from, to, ok := strings.Cut(key, ".."); ok {
 		v.commit = &commitDiff{hash: to, from: from, info: git.Commit{Hash: to, Parents: []string{from}}}
 		return v
@@ -501,7 +512,10 @@ func newCommitView(layout diffLayout, key string, info git.Commit) *diffView {
 // key is what names a commit's diff: its hash, or "from..to" for a
 // comparison, as newCommitView takes it.
 func (cm *commitDiff) key() string {
-	if cm.from == "" {
+	switch {
+	case cm.pr != nil:
+		return prKey(cm.pr.number, cm.from, cm.hash)
+	case cm.from == "":
 		return cm.hash
 	}
 	return cm.from + ".." + cm.hash
@@ -512,6 +526,9 @@ func (v *diffView) name() string {
 		return filepath.Base(v.files[0].path) + " ↔ " + filepath.Base(v.files[0].peerPath)
 	}
 	if c := v.commit; c != nil {
+		if c.pr != nil {
+			return c.pr.name()
+		}
 		if c.from != "" {
 			return git.ShortHash(c.from) + " → " + git.ShortHash(c.hash)
 		}
@@ -660,12 +677,18 @@ func (a *app) compareLocalFiles() {
 			a.fail("%s", locales.DiffChooseDifferent())
 			return
 		}
-		col := a.column()
-		at := min(col.active+1, len(col.tabs))
-		v := newLocalCompareView(parseDiffLayout(a.settings.DiffLayout), paths[0], paths[1])
-		a.addTab(col, at, &colTab{diff: v})
-		a.activate(col, at, true)
+		a.compareFiles(paths[0], paths[1])
 	})
+}
+
+// compareFiles shows the differences of two files of this machine in a
+// tab after the one shown.
+func (a *app) compareFiles(left, right string) {
+	col := a.column()
+	at := min(col.active+1, len(col.tabs))
+	v := newLocalCompareView(parseDiffLayout(a.settings.DiffLayout), left, right)
+	a.addTab(col, at, &colTab{diff: v})
+	a.activate(col, at, true)
 }
 
 // openChanges shows the changes of the file of the tab shown, or, from
@@ -721,13 +744,14 @@ func (a *app) commitTab(hash string, roots ...string) (*column, int) {
 }
 
 // showCommit shows the changes of a commit in a tab of its own, made after
-// the tab shown of the column that has the keyboard when there is none.
-func (a *app) showCommit(c git.Commit, focus bool, roots ...string) {
+// the tab shown of the column that has the keyboard when there is none,
+// and returns its diff.
+func (a *app) showCommit(c git.Commit, focus bool, roots ...string) *diffView {
 	root := a.diffRoot(roots)
 	if col, i := a.commitTab(c.Hash, root); col != nil {
 		a.keepTab(col.tabs[i])
 		a.activate(col, i, focus)
-		return
+		return col.tabs[i].diff
 	}
 	col := a.fileColumn()
 	at := min(col.active+1, len(col.tabs))
@@ -736,24 +760,27 @@ func (a *app) showCommit(c git.Commit, focus bool, roots ...string) {
 	a.addTab(col, at, &colTab{diff: v})
 	a.activate(col, at, focus)
 	a.rememberTabs()
+	return v
 }
 
 // previewCommit shows the changes of a commit in the preview tab of the
 // column that has the keyboard, without giving it the keyboard, unless a
-// tab shows them already.
-func (a *app) previewCommit(c git.Commit, roots ...string) {
+// tab shows them already, and returns its diff.
+func (a *app) previewCommit(c git.Commit, roots ...string) *diffView {
 	root := a.diffRoot(roots)
 	if col, i := a.commitTab(c.Hash, root); col != nil {
 		a.activate(col, i, false)
-		return
+		return col.tabs[i].diff
 	}
 	col := a.fileColumn()
+	var v *diffView
 	a.previewIn(col, func(at int) {
-		v := newCommitView(parseDiffLayout(a.settings.DiffLayout), c.Hash, c)
+		v = newCommitView(parseDiffLayout(a.settings.DiffLayout), c.Hash, c)
 		v.repoRoot = root
 		a.addTab(col, at, &colTab{diff: v, transient: true})
 		a.activate(col, at, false)
 	})
+	return v
 }
 
 // diffDoc returns the open document of a file of a diff, whose text is
@@ -849,12 +876,15 @@ func (a *app) listDiffFiles(v *diffView) {
 func (a *app) listCommitFiles(v *diffView) {
 	cm := v.commit
 	r := a.diffContext(v).git.repo
+	if cm.pr != nil {
+		a.readPR(v)
+	}
 	if cm.loaded || cm.loading || r == nil {
 		return
 	}
 	cm.loading = true
 	hash, info := cm.hash, cm.info
-	go func() {
+	bg.Go(func() {
 		defer recoverCrash()
 		var err error
 		if info.Hash == "" || len(info.Parents) == 0 && info.Subject == "" {
@@ -873,18 +903,33 @@ func (a *app) listCommitFiles(v *diffView) {
 			}
 			cm.info, cm.files = info, files
 			v.files = make([]*diffFile, 0, len(files))
-			for _, cf := range files {
-				f := &diffFile{path: cf.Path, base: diffCommit, group: groupCommits, letter: cf.Status, gitStale: true}
+			for _, e := range commitEntries(files) {
+				f := &diffFile{path: e.Path, base: diffCommit, group: groupCommits, letter: e.X, gitStale: true}
 				f.repoRoot = v.repoRoot
-				f.entry = git.Entry{Path: cf.Path, Orig: cf.Orig, X: cf.Status, Y: '.'}
+				f.entry = e
+				if cm.pr != nil {
+					f.prPath = r.Rel(e.Path)
+					f.folded = cm.pr.viewed[f.prPath]
+				}
 				v.files = append(v.files, f)
 			}
+			v.tree.gen++
 			if a.tree != nil {
 				a.rememberTabs()
 			}
 			v.changed()
 		})
-	}()
+	})
+}
+
+// commitEntries returns the files a commit changed as entries of a
+// status, their letters as the commit's.
+func commitEntries(files []git.CommitFile) []git.Entry {
+	es := make([]git.Entry, len(files))
+	for i, cf := range files {
+		es[i] = git.Entry{Path: cf.Path, Orig: cf.Orig, X: cf.Status, Y: '.'}
+	}
+	return es
 }
 
 // refreshDiff compares the sides of the files of a diff near its view
@@ -949,7 +994,7 @@ func (a *app) refreshDiffFile(v *diffView, f *diffFile) bool {
 	}
 	if wait := diffViewPause - time.Since(f.started); f.loaded && !f.gitStale && wait > 0 {
 		f.waiting = true
-		time.AfterFunc(wait, func() { a.post(func() { f.waiting = false }) })
+		bg.AfterFunc(wait, func() { a.post(func() { f.waiting = false }) })
 		return false
 	}
 	f.running, f.started = true, time.Now()
@@ -975,7 +1020,7 @@ func (a *app) refreshDiffFile(v *diffView, f *diffFile) bool {
 	if orig == "" {
 		orig = path
 	}
-	go func() {
+	bg.Go(func() {
 		defer recoverCrash()
 		var err error
 		read := func(rev, path string) (string, bool) {
@@ -1072,7 +1117,7 @@ func (a *app) refreshDiffFile(v *diffView, f *diffFile) bool {
 			}
 			v.changed()
 		})
-	}()
+	})
 	return true
 }
 
@@ -1113,7 +1158,7 @@ func (a *app) wrapsDiff(v *diffView) bool {
 	if v.wrap != nil && v.wrapGen == a.settings.WrapGen {
 		return *v.wrap
 	}
-	return a.settings.WordWrap
+	return a.prefs().WordWrap
 }
 
 // splitWidth is how many columns each side of a diff needs, at least, for
@@ -1175,7 +1220,7 @@ func (a *app) layoutRows(v *diffView, l diffGeometry) {
 	// The file to reveal shows its lines.
 	var target *diffFile
 	t := v.reveal
-	if t != nil && v.status != nil {
+	if t != nil && (v.status != nil || v.commit != nil && v.commit.loaded && v.commit.err == "") {
 		v.reveal = nil
 		if t.path != "" {
 			for _, f := range v.files {
@@ -2168,12 +2213,17 @@ func (a *app) openPath(path string, focus bool) {
 
 // openFileAt shows a file with the caret at the start of a line.
 func (a *app) openFileAt(path string, line int, focus bool) {
-	a.openPath(path, focus)
+	// The line is in the text, whatever markdownPreview says.
+	a.openText(func() { a.openPath(path, focus) })
 	if d := a.activeEditor(); d != nil && d.path == path {
+		if a.review.ed == d {
+			a.keepDraft()
+		}
 		snap := d.buf.Snapshot()
 		line = min(max(line, 0), snap.LineCount()-1)
 		s, _ := snap.LineRange(line)
 		d.selectRange(s, s, true)
+		d.lightLanding()
 	}
 }
 
@@ -2252,17 +2302,15 @@ func (a *app) diffButtons(c *ui.Context, t *colTab) {
 		}
 	}
 	a.reviewSendButton(c)
+	if v.commit != nil {
+		if button(iconListTree, a.withKey(locales.DiffToggleCommitFiles(), "git.toggleCommitFiles"), a.window.CommitFilesOpen).Clicked() {
+			a.post(a.toggleCommitFiles)
+		}
+	}
 	act(iconArrowUp, locales.DiffPrevChange(), func() { v.stepHunk(-1, a.crossesDiff()) })
 	act(iconArrowDown, locales.DiffNextChange(), func() { v.stepHunk(1, a.crossesDiff()) })
 	act(iconChevronLeft, locales.DiffPrevFile(), func() { v.stepFile(-1) })
 	act(iconChevronRight, locales.DiffNextFile(), func() { v.stepFile(1) })
-	if button(iconColumns, locales.DiffLayoutSplit(), v.split).Clicked() {
-		next := layoutSplit
-		if v.split {
-			next = layoutInline
-		}
-		a.post(func() { a.setDiffLayout(v, next) })
-	}
 	if button(iconUnfold, locales.DiffShowFullFiles(), v.full).Clicked() {
 		a.post(func() { a.setDiffFull(v, !v.full) })
 	}
@@ -2284,7 +2332,7 @@ func (a *app) diffButtons(c *ui.Context, t *colTab) {
 	})
 	// Whitespace filtering changes comparison and navigation only; the
 	// original file text remains what block actions edit.
-	b = button(iconRows, locales.DiffWhitespaceMenu(), false)
+	b = button(iconWhitespace, locales.DiffWhitespaceMenu(), false)
 	b.Menu(func(m *ui.Menu) {
 		for _, w := range []struct {
 			mode  diffWhitespace
@@ -2296,7 +2344,7 @@ func (a *app) diffButtons(c *ui.Context, t *colTab) {
 		}
 	})
 	// The unchanged lines around a change, which the rest folds down to.
-	b = button(iconRows, locales.DiffContextMenu(), false)
+	b = button(iconContext, locales.DiffContextMenu(), false)
 	b.Menu(func(m *ui.Menu) {
 		for _, n := range []int{0, 1, 2, 3, 5, 10} {
 			label := locales.DiffContextNone()
@@ -2379,11 +2427,10 @@ func (a *app) setDiffFull(v *diffView, full bool) {
 // the line at the top of the view where it was.
 func (a *app) setDiffContext(n int) {
 	n = min(max(n, 0), settings.MaxDiffContext)
-	if a.settings.DiffContext == n {
+	if a.prefs().DiffContext == n {
 		return
 	}
-	a.settings.DiffContext = n
-	a.settings.Changed()
+	a.setPref("diffContext", func(p *settings.Prefs) { p.DiffContext = n })
 	a.invalidate()
 }
 
@@ -2395,8 +2442,7 @@ func (a *app) setDiffHighlight(h diffHighlight) {
 	if a.diffHighlightOf() == h {
 		return
 	}
-	a.settings.DiffHighlight = h.key()
-	a.settings.Changed()
+	a.setPref("diffHighlight", func(p *settings.Prefs) { p.DiffHighlight = h.key() })
 	a.invalidate()
 }
 
@@ -2407,8 +2453,7 @@ func (a *app) setDiffWhitespace(w diffWhitespace) {
 	if a.diffWhitespaceOf() == w {
 		return
 	}
-	a.settings.DiffWhitespace = w.key()
-	a.settings.Changed()
+	a.setPref("diffWhitespace", func(p *settings.Prefs) { p.DiffWhitespace = w.key() })
 	for _, col := range a.cols {
 		for _, t := range col.tabs {
 			if t.diff == nil {
@@ -2541,7 +2586,7 @@ func (a *app) diffsOnDisk(changed []string) {
 
 // crossesDiff is how the settings have a diff's change navigation cross
 // into another file at the ends of one.
-func (a *app) crossesDiff() diffCross { return parseDiffCross(a.settings.DiffCrossFiles) }
+func (a *app) crossesDiff() diffCross { return parseDiffCross(a.prefs().DiffCrossFiles) }
 
 // stepChange goes to the next change of the tab shown, or the previous
 // one: a diff's hunk, or the lines of an editor changed since the last

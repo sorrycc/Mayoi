@@ -28,13 +28,17 @@ https://github.com/user-attachments/assets/673e7907-2b2c-4ed6-9093-1ba9633cd61c
 - **Remote SSH:** open a folder on another machine with the system's `ssh`, nothing installed there: the Explorer,
   search, Git and terminals run on the host, and its ports forward to this machine
 - **Image viewer:** PNG, JPEG, GIF, WebP and BMP
-- **Previews:** a live preview of Markdown and SVG beside the source (⇧⌘V)
+- **Previews:** a live preview of Markdown, SVG and Mermaid beside the source (⇧⌘V), with the Markdown's Mermaid
+  blocks drawn as diagrams and its LaTeX math as formulas
 - **Windows:** a window per folder or every folder in one window as project tabs, a welcome page with the recent
-  folders and hosts, Open Recent (⌃R), and a `mayoi` shell command
-- **Themes:** light and dark, The Matrix with digital rain, and Claude and Qoder, each in light and dark
+  folders and hosts, Open Recent (⌃R), and a `mayoi` shell command that opens files at a line, compares them, waits
+  for them to close and runs any command
+- **Themes:** light and dark, The Matrix with digital rain, Purple Gold with a gold mosaic, the Halloween themes
+  Jack-o'-Lantern, Witch's Brew and Blood Moon, and Claude, Qoder, Grok Bot and Cursor, each in light and dark
 - **Auto save,** and every window reopened as you left it, with its columns, tabs and carets
-- **Settings:** JSON files applied as you save them, with the code's and the terminal's fonts, weight, ligatures and
-  line height, and keyboard shortcuts in VS Code's format (see [docs/SETTINGS.md](docs/SETTINGS.md))
+- **Settings:** a settings window with search and a keyboard shortcuts editor, over JSON files applied as you save
+  them, with the code's and the terminal's fonts, weight, ligatures and line height, keyboard shortcuts in VS Code's
+  format, and a folder's own settings in `.mayoi/settings.json` (see [docs/SETTINGS.md](docs/SETTINGS.md))
 - **AI commit messages:** signed in, write the commit message from the changes with Mon's AI gateway
 - **Settings sync:** sign in with GitHub or Google, and your settings and keyboard shortcuts follow you between machines
 
@@ -82,25 +86,58 @@ source and how fast it runs, and [CONTRIBUTING.md](CONTRIBUTING.md) to build, te
   </tr>
 </table>
 
-## Requirements
+## Installation
 
-- macOS 13 or later, or Linux with GTK 3, such as Ubuntu 22.04 or later
-- Go 1.27 or later
+### macOS
 
-Mayoi also builds for Windows.
+Requires macOS 13 or later. Install with [Homebrew](https://brew.sh) on Apple Silicon or Intel:
 
-On Linux, `curl -fsSL https://github.com/sorrycc/Mayoi/releases/latest/download/install.sh | sh` installs the latest
-release for you in `~/.local`, with the `mayoi` command and an entry in the applications menu.
+```sh
+brew tap --custom-remote sorrycc/mayoi https://github.com/sorrycc/Mayoi.git
+brew trust sorrycc/mayoi
+brew install --cask mayoi
+```
 
-## Getting started
+Recent Homebrew refuses to load casks from a tap you haven't trusted, which `brew trust` allows once. On an older
+Homebrew without that command, skip that line.
+
+Or download the DMG for your Mac from [Releases](https://github.com/sorrycc/Mayoi/releases/latest) and drag
+**Mayoi** to Applications. Both methods install the signed, notarized app.
+
+Open **Mayoi** from Applications, or run `mayoi .` or `mayoi <file>` in a shell.
+Homebrew installs and removes the shell command with the app. For a DMG installation, choose
+**File → Install 'mayoi' Command** in the app instead.
+
+If you already installed the command through Mayoi, choose **File → Uninstall 'mayoi' Command** before
+installing with Homebrew, so only one `mayoi` command is on your `PATH`.
+
+Mayoi checks for updates automatically. To upgrade with Homebrew, run `brew update && brew upgrade --cask mayoi`;
+if it refuses to load the cask from an untrusted tap, run `brew trust sorrycc/mayoi` first.
+
+### Linux
+
+Requires GTK 3, such as on Ubuntu 22.04 or later:
+
+```sh
+curl -fsSL https://github.com/sorrycc/Mayoi/releases/latest/download/install.sh | sh
+```
+
+The installer adds Mayoi to `~/.local`, with the `mayoi` command and an entry in the applications menu.
+
+### Windows
+
+Download the installer for your architecture from [Releases](https://github.com/sorrycc/Mayoi/releases/latest).
+
+### Build from source
+
+Requires Go 1.27 or later; Linux also needs GTK 3. From the repository:
 
 ```sh
 go run ./cmd/mayoi ~/some/project    # open a folder or a file
 go tool mygo build                   # build build/darwin-arm64/Mayoi.app and a .dmg
 ```
 
-To open folders from a shell, choose **File → Install 'mayoi' Command** (on Linux the installer adds it), then run
-`mayoi .` or `mayoi <file>`.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development and testing.
 
 ## Keyboard shortcuts
 
@@ -121,7 +158,7 @@ To open folders from a shell, choose **File → Install 'mayoi' Command** (on Li
 | ⌥↑ / ⌥↓, ⇧⌥↑ / ⇧⌥↓ | Move line / copy line |
 | ⇧⌘K / ⌘↵ / ⇧⌘↵ | Delete line / insert line below / insert line above |
 | ⌘L / ⇧⌘\\ | Select line / go to bracket |
-| ⌘= / ⌘- / ⌘0 | Zoom text or image in / out / reset |
+| ⌘= / ⌘- / ⌘0 | Zoom the whole window in / out / reset |
 | ⇧⌘V | Toggle SVG preview |
 | ⌥Z | Toggle word wrap for the current tab |
 

@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -450,6 +451,9 @@ func TestMergeViewRestoreConflict(t *testing.T) {
 	hs.mergeRepo("a\nm\nz\n", "a\nours\nz\n", "a\nside\nz\n")
 	v := hs.mergeOf()
 	a := hs.a
+	// The result started over at the base would save itself a second
+	// later, over the markers, when git is slow to settle.
+	a.settings.AutoSave = false
 	path := hs.path("shared.txt")
 	a.takeMergeSide(v, 0, false)
 	a.completeMerge(v)
@@ -937,6 +941,9 @@ func TestMergeViewFilesBar(t *testing.T) {
 		t.Fatal(err)
 	}
 	hs.settle()
+	// The merge of two.txt reads its sides in the background; its head,
+	// with Apply Changes, shows once they are in.
+	hs.awaitMerge()
 	if v2 := a.activeTab().merge; v2 == nil || v2.path != hs.path("two.txt") {
 		t.Fatalf("the merge of the file chosen is not open: %+v", a.activeTab())
 	}
@@ -1636,5 +1643,457 @@ func TestMergeActionsOverflowMenuActs(t *testing.T) {
 		if st := v.stateOf(r); st != regionRight {
 			t.Errorf("a conflict stands %v, not theirs", st)
 		}
+	}
+}
+
+// TestMergePaneWrapsLines: a merge's panes wrap their lines at their
+// width as Word Wrap says, ⌥Z unwraps the merge alone, and a change of
+// the setting takes the tab's choice away again.
+func TestMergePaneWrapsLines(t *testing.T) {
+	hs := newHarness(t, true)
+	long := strings.Repeat("a long merge line ", 20)
+	hs.mergeRepo("a\n"+long+"\nz\n", "ours\n"+long+"\nz\n", "theirs\n"+long+"\nz\n")
+	v := hs.mergeOf()
+	a := hs.a
+	lineH := a.font.lineH
+	// Without wrapping, a line stands one lineH apart.
+	if top := a.mergeGeometry(v, 0).top(2); top != 2*lineH {
+		t.Fatalf("line 2 of ours stands %v from the top, want %v", top, 2*lineH)
+	}
+	// Word Wrap on: the long line of every pane wraps, and the line after
+	// it stands lower than the lines apart of no wrapping — but not to
+	// ribbons either, as a pane that hugged its content would, wrapping
+	// every line again and again in a collapsed column.
+	a.toggleWordWrap()
+	hs.settle()
+	for k := range v.panes {
+		top := a.mergeGeometry(v, k).top(2)
+		if top <= 2*lineH {
+			t.Errorf("pane %d does not wrap: line 2 stands %v from the top", k, top)
+		}
+		if top >= 20*lineH {
+			t.Errorf("pane %d wraps to ribbons: line 2 stands %v from the top", k, top)
+		}
+	}
+	// ⌥Z unwraps the merge alone: the setting stays on.
+	a.toggleTabWrap()
+	hs.settle()
+	if top := a.mergeGeometry(v, 0).top(2); top != 2*lineH {
+		t.Fatalf("after ⌥Z line 2 stands %v, want %v", top, 2*lineH)
+	}
+	if !a.settings.WordWrap {
+		t.Error("⌥Z turned the Word Wrap setting off")
+	}
+	// A change of the setting takes the tab's choice away: the panes
+	// wrap again.
+	a.toggleWordWrap()
+	a.toggleWordWrap()
+	hs.settle()
+	if top := a.mergeGeometry(v, 0).top(2); top <= 2*lineH {
+		t.Fatalf("the tab's choice outlived the setting: line 2 stands %v", top)
+	}
+}
+
+// TestMergePaneWrapChoosesRegion: a click on a row of a wrapped line
+// finds the conflict the line belongs to, not the line its row sits at.
+func TestMergePaneWrapChoosesRegion(t *testing.T) {
+	hs := newHarness(t, true)
+	long := strings.Repeat("a long merge line ", 20)
+	hs.mergeRepo(long+"\n"+long+"\nz\n", long+"\n"+long+"\nours\n", long+"\n"+long+"\ntheirs\n")
+	v := hs.mergeOf()
+	a := hs.a
+	a.toggleWordWrap()
+	hs.settle()
+	// The conflict holds line 2; the rows its wrapped lines above take
+	// push it far past where one line a row would have it. A click on its
+	// first row still finds it. chooseMergeLine takes the pointer's place
+	// in the pane: the scroll and the padding come off inside it.
+	v.chosen = -1
+	y := a.mergeGeometry(v, 0).top(2) + a.font.lineH/2 - v.panes[0].scroll.Y + editorPadY
+	a.chooseMergeLine(v, 0, y)
+	if v.chosen != 0 {
+		t.Fatalf("a click on line 2 chose region %d, want 0", v.chosen)
+	}
+}
+
+// TestMergePaneWrapHoldsNoEstimates: as a merge's panes wrap, every line
+// of them is laid out for its height, so that none stands on an estimate
+// — a pane is narrow and wraps deep, and a scroll into estimated
+// country, as revealing a far conflict goes, shows a blank where the
+// heights say text is. All measured, the height of the lines is the rows
+// they wrap to.
+func TestMergePaneWrapHoldsNoEstimates(t *testing.T) {
+	hs := newHarness(t, true)
+	var base, ours, theirs []string
+	for i := 0; i < 80; i++ {
+		switch i % 4 {
+		case 0:
+			base = append(base, fmt.Sprintf("// comment %02d — a fairly long line of commentary text that wraps in a narrow merge pane", i))
+		case 1:
+			base = append(base, fmt.Sprintf("func f%02d() int {", i))
+		case 2:
+			base = append(base, "	return 1")
+		default:
+			base = append(base, "}")
+		}
+	}
+	ours, theirs = append([]string{}, base...), append([]string{}, base...)
+	ours[61] = "// comment 61 changed by ours — a fairly long line of it"
+	theirs[61] = "// comment 61 changed by theirs — a fairly long line"
+	hs.mergeRepo(strings.Join(base, "\n")+"\n", strings.Join(ours, "\n")+"\n", strings.Join(theirs, "\n")+"\n")
+	v := hs.mergeOf()
+	a := hs.a
+	a.toggleWordWrap()
+	hs.settle()
+	a.stepMergeRegion(v, 1)
+	hs.settle()
+	lineH := a.font.lineH
+	for k := 0; k < 3; k++ {
+		g := a.mergeGeometry(v, k)
+		before := g.top(v.paneLineCount(k))
+		rows := float32(0)
+		for i := 0; i < v.paneLineCount(k); i++ {
+			rows += float32(len(v.panes[k].lines.Rows(i)))
+		}
+		if h := before; h < rows*lineH-lineH/8 || h > rows*lineH+lineH/8 {
+			t.Errorf("pane %d stands on estimated heights: %v high, its rows %v", k, h, rows*lineH)
+		}
+	}
+}
+
+// TestMergePaneWrapMeasuresAbove: a merge opened on a conflict far down
+// a long file sweeps its wrapped lines out both ways, and lays them out
+// again when wrapping stops and starts or the font changes, so that no
+// height above the view is left an estimate.
+func TestMergePaneWrapMeasuresAbove(t *testing.T) {
+	hs := newHarness(t, true)
+	var base []string
+	for i := 0; i < 3000; i++ {
+		base = append(base, fmt.Sprintf("// comment %04d — a fairly long line of commentary text that wraps in a narrow merge pane", i))
+	}
+	ours, theirs := slices.Clone(base), slices.Clone(base)
+	ours[2900], theirs[2900] = "// ours", "// theirs"
+	hs.mergeRepo(strings.Join(base, "\n")+"\n", strings.Join(ours, "\n")+"\n", strings.Join(theirs, "\n")+"\n")
+	v := hs.mergeOf()
+	a := hs.a
+	measured := func(what string) {
+		t.Helper()
+		for k := range 3 {
+			l := &v.panes[k].lines
+			h := l.Height()
+			for i := range l.Count() {
+				l.Rows(i)
+			}
+			if got := l.Height(); got != h {
+				t.Errorf("%s: pane %d stood %v high on estimates, %v measured", what, k, h, got)
+			}
+		}
+	}
+	a.toggleWordWrap()
+	hs.settle()
+	measured("wrapped")
+	a.toggleMergeWrap(v)
+	hs.settle()
+	a.toggleMergeWrap(v)
+	hs.settle()
+	measured("unwrapped and wrapped again")
+	a.fontZoom(3)
+	hs.settle()
+	measured("a larger font")
+}
+
+// TestMergeSyncScrollFollowsWrapped: with the panes wrapping, scrolling
+// one pane of a merge still moves the others with it, so that the line in
+// the middle of the mover stands across from theirs — by the rows the
+// lines wrap to, which put the mapped lines far from where one row a line
+// would stand them.
+func TestMergeSyncScrollFollowsWrapped(t *testing.T) {
+	hs := newHarness(t, true)
+	head := []string{"package calc", "", "// one", "// two", "// three", ""}
+	longs := make([]string, 36)
+	for i := range longs {
+		longs[i] = fmt.Sprintf("// wrapped note %02d — a fairly long line of commentary text that keeps going well past the width of a merge pane, wrapping deep", i)
+	}
+	base := strings.Join(slices.Concat(head,
+		[]string{"func Conflict() int {", "\treturn 1", "\treturn 2", "\treturn 3", "}"}, longs), "\n")
+	ours := strings.Join(slices.Concat(head,
+		[]string{"func Conflict() int {", "\treturn 12 // ours took its own line", "}"}, longs), "\n")
+	theirs := strings.Join(slices.Concat(head,
+		[]string{"func Conflict() int {", "\treturn 13", "\treturn 14", "\treturn 15", "\treturn 16", "\treturn 17", "}"}, longs), "\n")
+	hs.mergeRepo(base+"\n", ours+"\n", theirs+"\n")
+	v := hs.mergeOf()
+	a := hs.a
+	a.toggleWordWrap()
+	hs.settle()
+	midAt := func(k int) float32 {
+		return a.mergeGeometry(v, k).atF(v.panes[k].scroll.Y + v.panes[k].viewH/2 - editorPadY)
+	}
+	// Scroll ours so the middle of its view stands in the long stretch,
+	// well past the conflict and well before the end, where the follower
+	// takes the anchor unhindered: ours' line there maps two lines on in
+	// the result and four on in theirs.
+	g := a.mergeGeometry(v, 0)
+	v.panes[0].scroll.Y = editorPadY + g.top(20) - v.panes[0].viewH/2
+	hs.settle()
+	if at := midAt(0); at < 19 || at > 21 {
+		t.Fatalf("ours stands at line %v, the scroll did not take", at)
+	}
+	res := mapMergeLine(v.pairHunks(0), midAt(0), false)
+	if d := midAt(1) - res; d < -0.1 || d > 0.1 {
+		t.Errorf("the result's middle line %.2f does not stand across ours' %.2f (want %.2f)", midAt(1), midAt(0), res)
+	}
+	at2 := mapMergeLine(v.pairHunks(2), res, true)
+	if d := midAt(2) - at2; d < -0.1 || d > 0.1 {
+		t.Errorf("theirs' middle line %.2f does not stand across the result's %.2f (want %.2f)", midAt(2), res, at2)
+	}
+	// Scrolling the result leads the sides the same way.
+	g1 := a.mergeGeometry(v, 1)
+	v.panes[1].scroll.Y = editorPadY + g1.top(24) - v.panes[1].viewH/2
+	hs.settle()
+	if v.panes[0].scroll.Y == editorPadY+g.top(20)-v.panes[0].viewH/2 {
+		t.Error("ours did not follow the result")
+	}
+	res = midAt(1)
+	at0 := mapMergeLine(v.pairHunks(0), res, true)
+	if d := midAt(0) - at0; d < -0.1 || d > 0.1 {
+		t.Errorf("ours' middle line %.2f does not stand across the result's %.2f (want %.2f)", midAt(0), res, at0)
+	}
+	at2 = mapMergeLine(v.pairHunks(2), res, true)
+	if d := midAt(2) - at2; d < -0.1 || d > 0.1 {
+		t.Errorf("theirs' middle line %.2f does not stand across the result's %.2f (want %.2f)", midAt(2), res, at2)
+	}
+	// At the very top the mapped line goes negative: the followers rest
+	// at the top too, their first line across the leader's, not one pad
+	// below it.
+	v.panes[0].scroll.Y = 0
+	hs.settle()
+	if y := v.panes[1].scroll.Y; y != 0 {
+		t.Errorf("the result rests at %v with ours at the top, want 0", y)
+	}
+	if y := v.panes[2].scroll.Y; y != 0 {
+		t.Errorf("theirs rests at %v with ours at the top, want 0", y)
+	}
+}
+
+// TestMergeGutterButtonChoosesWrapped: with the panes wrapping, the
+// button of a conflict whose lines the rows above have pushed deep still
+// stands with its band, and taking its side takes that conflict's, not
+// the first's, whose rows stand above the view.
+func TestMergeGutterButtonChoosesWrapped(t *testing.T) {
+	hs := newHarness(t, true)
+	longs := make([]string, 10)
+	for i := range longs {
+		longs[i] = fmt.Sprintf("// wrapped note %02d — a fairly long line of commentary that keeps going well past the width of a merge pane", i)
+	}
+	join := func(ss ...[]string) string {
+		var all []string
+		for _, s := range ss {
+			all = append(all, s...)
+		}
+		return strings.Join(all, "\n") + "\n"
+	}
+	one := []string{"func conflictOne() int {", "\treturn 1", "}"}
+	oneOurs := []string{"func conflictOne() int {", "\treturn 11", "}"}
+	oneTheirs := []string{"func conflictOne() int {", "\treturn 12", "}"}
+	two := []string{"func conflictTwo() int {", "\treturn 2", "}"}
+	twoOurs := []string{"func conflictTwo() int {", "\treturn 21", "}"}
+	twoTheirs := []string{"func conflictTwo() int {", "\treturn 22", "}"}
+	hs.mergeRepo(join([]string{"package calc", ""}, one, longs, two),
+		join([]string{"package calc", ""}, oneOurs, longs, twoOurs),
+		join([]string{"package calc", ""}, oneTheirs, longs, twoTheirs))
+	v := hs.mergeOf()
+	a := hs.a
+	a.toggleWordWrap()
+	// The head's bar of the conflict chosen holds an Accept Left of its
+	// own: none chosen, so the gutter's is the one the click finds.
+	v.chosen, v.current = -1, -1
+	hs.settle()
+	// Ours scrolled so the second conflict's band stands in the middle of
+	// the view; the first's stands above it, culled.
+	g := a.mergeGeometry(v, 0)
+	lo, hi := v.regionLines(v.regions[1], 0)
+	mid := (g.top(lo) + g.top(hi)) / 2
+	v.panes[0].scroll.Y = max(0, editorPadY+mid-v.panes[0].viewH/2)
+	hs.settle()
+	for i, r := range v.regions {
+		if st := v.stateOf(r); st != regionUndecided {
+			t.Fatalf("conflict %d stands %v before the click", i, st)
+		}
+	}
+	if err := hs.tt.Click("Accept Left"); err != nil {
+		t.Fatalf("the second conflict's button: %v", err)
+	}
+	hs.settle()
+	if st := v.stateOf(v.regions[1]); st != regionLeft {
+		t.Errorf("the second conflict stands %v, not ours' side", st)
+	}
+	if st := v.stateOf(v.regions[0]); st != regionUndecided {
+		t.Errorf("the first conflict moved too: %v", st)
+	}
+	if got := v.resultLines(); !slices.Contains(got, "\treturn 21") {
+		t.Errorf("the result lacks ours' second conflict: %q", got)
+	}
+}
+
+// TestMergeGutterButtonSurvivesTallConflict: a wrapped conflict taller
+// than the pane keeps its buttons while any part of it shows, even once
+// its middle has scrolled past — the buttons pin to the pane's edge
+// instead of vanishing with the middle.
+func TestMergeGutterButtonSurvivesTallConflict(t *testing.T) {
+	hs := newHarness(t, true)
+	base := make([]string, 24)
+	ours := make([]string, 24)
+	theirs := make([]string, 24)
+	for i := range base {
+		base[i] = fmt.Sprintf("// base note %02d", i)
+		ours[i] = fmt.Sprintf("// ours note %02d — a fairly long line of commentary that keeps going well past the width of a merge pane, wrapping deep", i)
+		theirs[i] = fmt.Sprintf("// theirs note %02d — a fairly long line of commentary that keeps going well past the width of a merge pane, wrapping deep", i)
+	}
+	join := func(ss []string) string { return "package calc\n\n" + strings.Join(ss, "\n") + "\n" }
+	hs.mergeRepo(join(base), join(ours), join(theirs))
+	v := hs.mergeOf()
+	a := hs.a
+	a.toggleWordWrap()
+	// The head's bar of the conflict chosen holds an Accept Left of its
+	// own: none chosen, so the gutter's is the one the click finds.
+	v.chosen, v.current = -1, -1
+	hs.settle()
+	if n := len(v.regions); n != 1 {
+		t.Fatalf("%d conflicts, want 1", n)
+	}
+	// Scroll ours so the conflict's top stands at the top of the pane:
+	// its middle, tens of wrapped rows down, lies past the pane's
+	// bottom, and the buttons used to be culled away with it.
+	lo, _ := v.regionLines(v.regions[0], 0)
+	g := a.mergeGeometry(v, 0)
+	v.panes[0].scroll.Y = max(0, editorPadY+g.top(lo))
+	hs.settle()
+	if st := v.stateOf(v.regions[0]); st != regionUndecided {
+		t.Fatalf("the conflict stands %v before the click", st)
+	}
+	if err := hs.tt.Click("Accept Left"); err != nil {
+		t.Fatalf("the tall conflict's button: %v", err)
+	}
+	hs.settle()
+	if st := v.stateOf(v.regions[0]); st != regionLeft {
+		t.Errorf("the conflict stands %v, not ours' side", st)
+	}
+}
+
+// TestMergeResultScrollsSideways: a mostly sideways swipe on the result
+// pane scrolls the pane, as the side panes do — the editor the pane
+// embeds must not take the swipe for its own sideways scroll, which no
+// scroller of the merge tracks.
+func TestMergeResultScrollsSideways(t *testing.T) {
+	hs := newHarness(t, true)
+	long := strings.Repeat("a long merge line ", 20)
+	hs.mergeRepo("a\n"+long+"\nz\n", "ours\n"+long+"\nz\n", "theirs\n"+long+"\nz\n")
+	v := hs.mergeOf()
+	r, ok := hs.tt.Find(v.resultLabel())
+	if !ok {
+		t.Fatal("no result header")
+	}
+	hs.tt.Scroll(r.X+r.W/2, r.Y+r.H+120, 90, 0)
+	hs.settle()
+	if v.panes[1].hscroll.X <= 0 {
+		t.Errorf("the result pane stands at %v after a sideways swipe", v.panes[1].hscroll.X)
+	}
+}
+
+// TestMergePaneWrapLaysOutViewFirst: a change of the width lays the
+// lines in view out first and sweeps outward a band a frame, so dragging
+// the window does not reshape every far line of a giant file a frame,
+// and what is in view stands measured at once.
+func TestMergePaneWrapLaysOutViewFirst(t *testing.T) {
+	hs := newHarness(t, true)
+	body := make([]string, 3000)
+	for i := range body {
+		switch i % 4 {
+		case 0:
+			body[i] = fmt.Sprintf("// note %04d — a fairly long line of commentary text that keeps going well past the width of a merge pane, wrapping deep", i)
+		case 1:
+			body[i] = fmt.Sprintf("func f%04d() int {", i)
+		case 2:
+			body[i] = "\treturn 1"
+		default:
+			body[i] = "}"
+		}
+	}
+	mk := func(tag string) string {
+		return "package calc\n\n" + strings.Replace(strings.Join(body, "\n"), "// note 0000", "// "+tag+" 0000", 1) + "\n"
+	}
+	hs.a.settings.MergeAutoApply = false
+	hs.mergeRepo(mk("base"), mk("ours"), mk("theirs"))
+	v := hs.mergeOf()
+	a := hs.a
+	// Anchor the view at the top of the file: the sweep starts from the
+	// view as the last frame drew it.
+	v.panes[0].scroll.Y = 0
+	hs.settle()
+	a.toggleWordWrap()
+	hs.settle()
+	p := &v.panes[0]
+	n := v.paneLineCount(0)
+	if p.laidTo < n {
+		t.Fatalf("after settling, only %d of %d lines stand measured", p.laidTo, n)
+	}
+	// The width changes: the frame of the change lays out the view and
+	// leaves the far lines for the frames after.
+	ver := v.paneBuf(0).Version()
+	a.layOutMergeLines(v, 0, ver, p.laidW-40)
+	if p.laidFrom != 0 {
+		t.Errorf("the sweep does not cover the top of the view: from %d", p.laidFrom)
+	}
+	if p.laidTo >= n {
+		t.Fatalf("the frame of the width change laid out all %d lines at once", n)
+	}
+	// The frames after sweep outward, a band a frame, until all stand
+	// measured.
+	frames := 0
+	for p.laidFrom > 0 || p.laidTo < n {
+		to0, from0 := p.laidTo, p.laidFrom
+		a.layOutMergeLines(v, 0, ver, p.laidW)
+		if p.laidTo == to0 && p.laidFrom == from0 {
+			t.Fatal("the sweep stands still")
+		}
+		frames++
+		if frames > 10 {
+			t.Fatalf("the sweep needs more than %d frames of %d lines", frames, n)
+		}
+	}
+	if p.laidFrom != 0 || p.laidTo < n {
+		t.Fatalf("after the sweep, %d..%d of %d lines stand measured", p.laidFrom, p.laidTo, n)
+	}
+}
+
+// TestSwipeSideways: a swipe mostly sideways moves the scroll state it
+// is given, clamped at its ends; a mostly vertical one, and a mouse's
+// Shift+wheel, are left for the caller.
+func TestSwipeSideways(t *testing.T) {
+	hs := newHarness(t, true)
+	a := hs.a
+	s := &ui.ScrollState{MaxX: 100}
+	if !a.swipeSideways(s, ui.InputEvent{Kind: ui.InputScroll, DX: 30, DY: 2}) {
+		t.Fatal("a sideways swipe was not taken")
+	}
+	if s.X != 30 {
+		t.Fatalf("the swipe stood the scroll at %v, want 30", s.X)
+	}
+	if a.swipeSideways(s, ui.InputEvent{Kind: ui.InputScroll, DX: 2, DY: 30}) {
+		t.Error("a mostly vertical swipe was taken")
+	}
+	if a.swipeSideways(s, ui.InputEvent{Kind: ui.InputScroll, DX: 30, DY: 2, Mods: ui.Shift}) {
+		t.Error("a Shift+wheel was taken")
+	}
+	if a.swipeSideways(s, ui.InputEvent{Kind: ui.InputPointerDown, DX: 30, DY: 2}) {
+		t.Error("a pointer event was taken")
+	}
+	a.swipeSideways(s, ui.InputEvent{Kind: ui.InputScroll, DX: 500})
+	if s.X != 100 {
+		t.Fatalf("the swipe ran past the end: %v, want 100", s.X)
+	}
+	a.swipeSideways(s, ui.InputEvent{Kind: ui.InputScroll, DX: -500})
+	if s.X != 0 {
+		t.Fatalf("the swipe ran before the start: %v, want 0", s.X)
 	}
 }

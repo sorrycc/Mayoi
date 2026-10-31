@@ -273,6 +273,10 @@ func (a *app) fileTree(c *ui.Context) {
 		entry := view.rows[path]
 		name := entry.name
 		row := ui.Row(c).Grow(1).Gap(6).AlignItems(ui.Center).Height(explorerRowH)
+		if entry.first != path {
+			// A long chain is cut off at the sidebar's edge.
+			row.Tooltip(t.Rel(path))
+		}
 		if n := a.files.Rows(); n > 0 && a.files.Item(n-1) == path {
 			if r := row.Bounds(); r.H > 0 {
 				end = r.Y + r.H

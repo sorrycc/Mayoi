@@ -1,6 +1,7 @@
 package main
 
 import (
+	"math"
 	"os"
 	"strings"
 	"testing"
@@ -8,6 +9,8 @@ import (
 
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
+
+	"mayoi/internal/highlight"
 )
 
 // matrixHarness is a dark window in The Matrix.
@@ -218,9 +221,10 @@ func TestLightOrDarkThemes(t *testing.T) {
 			if light.Background != tc.light.panel || darkTh.Palette != tc.dark.ansi {
 				t.Errorf("the terminal's colors are not %s's", tc.name)
 			}
-			// The icons of files keep their languages' colors.
-			if _, c := fileIcon(a.pal, "main.go"); c == langColor(matrixPal, "#00add8", "") {
-				t.Error("a Go file's icon is a mono shade")
+			// The icons of files keep their languages' colors, but in
+			// Claude, which is in the code's font and shades its icons.
+			if _, c := fileIcon(a.pal, "main.go"); (c == langColor(&palette{mono: true, muted: a.pal.muted, accent: a.pal.accent}, "#00add8", "")) != a.pal.mono {
+				t.Errorf("a Go file's icon under %s is %v", tc.name, c)
 			}
 			// Choosing an appearance keeps the theme.
 			a.setAppearance("light")
@@ -234,6 +238,81 @@ func TestLightOrDarkThemes(t *testing.T) {
 			}
 		}
 	}
+}
+
+// Claude is as Claude Code draws itself: the whole window in the code's
+// font, and errors and what is removed in a rose apart from the orange of
+// the accent, so that neither reads as a mark. Its terminal's whites read
+// on a light window, as text does.
+func TestClaudeTheme(t *testing.T) {
+	for name, p := range map[string]*palette{"light": claudeLightPal, "dark": claudeDarkPal} {
+		if !p.mono {
+			t.Errorf("Claude %s is not in the code's font", name)
+		}
+		for what, c := range map[string]ui.Color{"danger": p.danger, "removed": p.removed, "keyword": p.syntax[highlight.Keyword]} {
+			if d := hueApart(c, p.accent); d < 20 {
+				t.Errorf("Claude %s: %s is %.0f° from the accent", name, what, d)
+			}
+		}
+		if hueApart(p.active, p.accent) < 90 {
+			t.Errorf("Claude %s: what is chosen is tinted with the accent", name)
+		}
+	}
+	for i, least := range map[int]float64{7: 3, 15: 3} {
+		if r := contrast(claudeLightPal.ansi[i], claudeLightPal.panel); r < least {
+			t.Errorf("Claude light: the terminal's color %d reads at %.2f:1", i, r)
+		}
+	}
+}
+
+// Claude's spinner turns through Claude Code's glyphs a step at a time,
+// names the work, and after a while now and then says one of the CLI's
+// own words instead, as the light runs across it.
+func TestClaudeSpinner(t *testing.T) {
+	if g, w, _ := spinAt(0, "Pushing…"); g != "·" || w != "Pushing…" {
+		t.Errorf("at first the spinner shows %q %q", g, w)
+	}
+	if g, _, _ := spinAt(4*spinStep, "Pushing…"); g != "✻" {
+		t.Errorf("four steps in, the glyph is %q", g)
+	}
+	if _, w, _ := spinAt(spinFlavorAt, "Pushing…"); w != spinVerbs[0] {
+		t.Errorf("after a while the word is %q, not Claude Code's", w)
+	}
+	if _, w, _ := spinAt(spinFlavorAt+spinFlavor, "Pushing…"); w != "Pushing…" {
+		t.Errorf("the word does not come back to the work's name: %q", w)
+	}
+	if _, _, l1 := spinAt(0, "Pushing…"); func() bool { _, _, l2 := spinAt(spinStep, "Pushing…"); return l2 != l1+1 }() {
+		t.Error("the light does not move a rune a step")
+	}
+	hs := themeHarness(t, themeClaude, true)
+	a := hs.a
+	a.repository().git.busy = "Pushing…"
+	hs.settle()
+	if a.spin.label != "Pushing…" || a.spin.since.IsZero() {
+		t.Errorf("the spinner is not timing the push: %+v", a.spin)
+	}
+	hs.shot("claude-spinner")
+	a.repository().git.busy = ""
+}
+
+// hueApart is how far apart the hues of two colors are, in degrees.
+func hueApart(x, y ui.Color) float64 {
+	hue := func(c ui.Color) float64 {
+		r, g, b := float64(c.R)/255, float64(c.G)/255, float64(c.B)/255
+		hi, lo := math.Max(r, math.Max(g, b)), math.Min(r, math.Min(g, b))
+		d := hi - lo
+		switch {
+		case d == 0:
+			return 0
+		case hi == r:
+			return math.Mod((g-b)/d+6, 6) * 60
+		case hi == g:
+			return ((b-r)/d + 2) * 60
+		}
+		return ((r-g)/d + 4) * 60
+	}
+	d := math.Abs(hue(x) - hue(y))
+	return math.Min(d, 360-d)
 }
 
 func restingPose(now time.Time) mascotPose {

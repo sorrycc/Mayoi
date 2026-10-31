@@ -1264,7 +1264,9 @@ func (a *app) statusBar(c *ui.Context) {
 				text(busy)
 			})
 		}
-		if busy := repo.git.busy; busy != "" {
+		if busy := repo.git.busy; busy != "" && a.settings.Theme == themeClaude {
+			a.claudeSpinner(c, busy)
+		} else if busy != "" {
 			ui.Row(c.Key("status:busy")).Height(statusBarH).Padding(0, 6).Gap(5).AlignItems(ui.Center).Children(func() {
 				// In a theme with a character, it hops for it instead.
 				if a.themeMascot() == nil {
@@ -1431,6 +1433,10 @@ func (a *app) welcome(c *ui.Context) {
 		page.Draw(func(pt *ui.Painter, r ui.Rect) { a.drawThrone(pt, r, still) })
 	}
 	page.Children(func() {
+		if a.settings.Theme == themeClaude {
+			a.welcomeBox(c, view)
+			return
+		}
 		ui.Column(c).FillWidth().MinHeight(view.H).Center().Padding(40, 24, 64).Children(func() {
 			content := ui.Column(c).Width(380).MaxWidthPercent(100).Gap(32)
 			if a.settings.Theme == themeMatrix {

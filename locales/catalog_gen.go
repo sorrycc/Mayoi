@@ -14737,3 +14737,83 @@ func PrefHintAiModel() string { return In(i18n.Locale()).PrefHintAiModel() }
 func (msgs Messages) PrefHintAiModel() string {
 	return Catalog.Format(msgs.locale, "prefHintAiModel", nil)
 }
+
+// WelcomeActivity says "Recent activity"
+// in the language the app shows.
+func WelcomeActivity() string { return In(i18n.Locale()).WelcomeActivity() }
+
+// WelcomeActivity says "Recent activity"
+// in the language of msgs.
+func (msgs Messages) WelcomeActivity() string {
+	return Catalog.Format(msgs.locale, "welcomeActivity", nil)
+}
+
+// WelcomeAutoSaveOff says "auto-save off"
+// in the language the app shows.
+func WelcomeAutoSaveOff() string { return In(i18n.Locale()).WelcomeAutoSaveOff() }
+
+// WelcomeAutoSaveOff says "auto-save off"
+// in the language of msgs.
+func (msgs Messages) WelcomeAutoSaveOff() string {
+	return Catalog.Format(msgs.locale, "welcomeAutoSaveOff", nil)
+}
+
+// WelcomeAutoSaveOn says "auto-save on"
+// in the language the app shows.
+func WelcomeAutoSaveOn() string { return In(i18n.Locale()).WelcomeAutoSaveOn() }
+
+// WelcomeAutoSaveOn says "auto-save on"
+// in the language of msgs.
+func (msgs Messages) WelcomeAutoSaveOn() string {
+	return Catalog.Format(msgs.locale, "welcomeAutoSaveOn", nil)
+}
+
+// WelcomeBack says "Welcome back!"
+// in the language the app shows.
+func WelcomeBack() string { return In(i18n.Locale()).WelcomeBack() }
+
+// WelcomeBack says "Welcome back!"
+// in the language of msgs.
+func (msgs Messages) WelcomeBack() string {
+	return Catalog.Format(msgs.locale, "welcomeBack", nil)
+}
+
+// WelcomeNoActivity says "No recent activity"
+// in the language the app shows.
+func WelcomeNoActivity() string { return In(i18n.Locale()).WelcomeNoActivity() }
+
+// WelcomeNoActivity says "No recent activity"
+// in the language of msgs.
+func (msgs Messages) WelcomeNoActivity() string {
+	return Catalog.Format(msgs.locale, "welcomeNoActivity", nil)
+}
+
+// WelcomePrompt says "Try a file's name, @ for a symbol, or > for a command"
+// in the language the app shows.
+func WelcomePrompt() string { return In(i18n.Locale()).WelcomePrompt() }
+
+// WelcomePrompt says "Try a file's name, @ for a symbol, or > for a command"
+// in the language of msgs.
+func (msgs Messages) WelcomePrompt() string {
+	return Catalog.Format(msgs.locale, "welcomePrompt", nil)
+}
+
+// WelcomeShortcuts says "? for shortcuts"
+// in the language the app shows.
+func WelcomeShortcuts() string { return In(i18n.Locale()).WelcomeShortcuts() }
+
+// WelcomeShortcuts says "? for shortcuts"
+// in the language of msgs.
+func (msgs Messages) WelcomeShortcuts() string {
+	return Catalog.Format(msgs.locale, "welcomeShortcuts", nil)
+}
+
+// WelcomeTips says "Tips for getting started"
+// in the language the app shows.
+func WelcomeTips() string { return In(i18n.Locale()).WelcomeTips() }
+
+// WelcomeTips says "Tips for getting started"
+// in the language of msgs.
+func (msgs Messages) WelcomeTips() string {
+	return Catalog.Format(msgs.locale, "welcomeTips", nil)
+}

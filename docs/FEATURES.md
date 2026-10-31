@@ -677,10 +677,18 @@ dark mode or is always Light or Dark. Light and Dark are greyed out under The Ma
 themes, which are always dark.
 The Matrix is phosphor green on black, with the whole window in the code's font, file icons in greens, and red and amber
 kept for what is removed, failed or changed. Digital rain falls behind the welcome page while the window has the
-keyboard, and holds still without it or when the system asks for reduced motion. Claude is Anthropic's ivory and warm
-near-black with Claude's orange, in a light and a dark kind. Clawd, Claude Code's character, takes the logo's place on
-the welcome page and sits at the start of the status bar: it blinks now and then, and hops while a Git command or a search of the files
-runs, and holds still as the rain does. Qoder is Qoder's Forest theme: white or green-tinged greys with forest green,
+keyboard, and holds still without it or when the system asks for reduced motion. Claude is Claude Code as it draws itself in a
+terminal, in a light and a dark kind: the whole window in the code's font, as The Matrix is, warm near-black or
+off-white, Claude's orange for the accent and the buttons, with dark labels on them, and periwinkle for what is chosen,
+with errors and what is removed in Claude Code's rose, apart from the orange. Its welcome page is Claude Code's welcome
+box: an orange box with Mayoi's name and version in its top border, Clawd and a greeting on its left, and on its right
+tips that run their commands and the folders opened before, which open on a click, or with ⌘ in a window of their
+own. Under it a prompt opens Quick Open, **? for shortcuts** opens the keyboard shortcuts, and whether auto save is on
+shows at the right. The boxes over the window, as Quick Open's, are outlined in the orange. While a Git command runs,
+the status bar has Claude Code's spinner: a ✻ that turns through its glyphs, the command's name with a light running
+across it, and the seconds it has taken, and after five seconds now and then one of Claude Code's own words, as
+Clauding…, in its place. Clawd, Claude Code's character, sits at the start of the status bar: it blinks now and then,
+and hops while a Git command or a search of the files runs, and holds still as the rain does, as the spinner does. Qoder is Qoder's Forest theme: white or green-tinged greys with forest green,
 in a light and a dark kind, and its code in Forest's greens, blues, teals and ambers. Qoduck, Qoder's duck, takes the
 logo's place and the status bar's start as Clawd does, and blinks, bobs and hops as it does. Grok Bot is the Grok Bot
 app's Sand theme: white or near-black greys, near-black or near-white buttons and its blue for the accent, in a light

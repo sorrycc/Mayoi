@@ -2,8 +2,8 @@
 # of 22.04 too for pushes to main, and on macOS and Windows, as pushes to
 # main and pull requests come. A pull request pushed again stops the run
 # of what it had before. Each system's tests are shared out over five
-# runners, which take a fifth of cmd/mayoi's tests each (see
-# scripts/test.sh), and the first of them the other packages and go vet.
+# runners, which take a fifth of cmd/mayoi's tests and of the other
+# packages each (see scripts/test.sh), and the first of them go vet.
 name: Test
 
 on:
@@ -136,6 +136,13 @@ jobs:
           - { name: macOS, os: macos-latest }
           - { name: Windows, os: windows-latest }
     steps:
+      # Defender scans each file written and each program started, which
+      # slows unpacking Go and its caches, building, and the git the tests
+      # run.
+      - name: Turn off Defender's scanning
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: Set-MpPreference -DisableRealtimeMonitoring $true
       # The files as they are in the repository, with LF: the fixtures the
       # tests read compare as they were written.
       - run: git config --global core.autocrlf false

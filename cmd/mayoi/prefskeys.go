@@ -74,7 +74,7 @@ var keyGroups = []struct {
 	{locales.MenuFile, []string{"file.", "remote."}},
 	{locales.MenuEdit, []string{"edit."}},
 	{locales.MenuSelection, []string{"sel."}},
-	{locales.MenuView, []string{"view.", "editor.", "image."}},
+	{locales.MenuView, []string{"view.", "editor.", "image.", "mermaid."}},
 	{locales.MenuGo, []string{"go."}},
 	{locales.MenuGit, []string{"git.", "review."}},
 	{locales.MenuAccount, []string{"account."}},

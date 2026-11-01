@@ -12,7 +12,9 @@ import (
 // status bar. It blinks now and then and bobs once in a while, and while Git or
 // search works in the background it hops, in place of the Git spinner.
 // Like the rain, it steps rather than glides, and holds still while the
-// window has not the keyboard or the desktop asks for less motion.
+// window has not the keyboard or the desktop asks for less motion. In the
+// status bar, Qoduck holds up a prop for the work going on, as it does in
+// Qoder's pictures.
 
 // mascot is a theme's character.
 type mascot struct {
@@ -76,22 +78,59 @@ const (
 	// A glance, each way, into every third period but the bob's.
 	mascotGlanceAt = 1800 * time.Millisecond
 	mascotGlance   = 520 * time.Millisecond
+	// How long the character holds its megaphone up after a toast.
+	mascotNews = 3 * time.Second
 )
 
 // mascotState is how the character is: moving whether the last paint
-// asked for a next, and hopping whether it hopped.
+// asked for a next, hopping whether it hopped, and the prop it held up in
+// the status bar.
 type mascotState struct {
 	moving, hopping bool
+	prop            mascotProp
 }
 
 // mascotPose is a moment of the character's: the eyes shut, the body
-// lifted by a part of its headroom, which step of the hop, and where the
-// eyes look, -1 to the left, 1 to the right, for a character that glances.
+// lifted by a part of its headroom, which step of the hop, where the
+// eyes look, -1 to the left, 1 to the right, for a character that glances,
+// and the prop it holds up, for one that has them.
 type mascotPose struct {
 	blink bool
 	lift  float32
 	step  int
 	look  int
+	prop  mascotProp
+}
+
+// mascotProp is what a character holds up for the work going on: a
+// magnifier as the files are searched, a laptop as Git works, a headset
+// as AI writes the commit message, and a megaphone for a while after a
+// toast.
+type mascotProp int
+
+const (
+	propNone mascotProp = iota
+	propSearch
+	propGit
+	propAI
+	propNews
+)
+
+// mascotPropAt is the prop the character holds up at a moment, and how
+// long until it puts it down by itself: 0 when only the work ending does.
+func (a *app) mascotPropAt(now time.Time) (mascotProp, time.Duration) {
+	switch {
+	case a.inFiles.running:
+		return propSearch, 0
+	case a.git.writing != nil:
+		return propAI, 0
+	case a.git.busy != "":
+		return propGit, 0
+	}
+	if left := a.toldAt.Add(mascotNews).Sub(now); !a.toldAt.IsZero() && left > 0 {
+		return propNews, left
+	}
+	return propNone, 0
 }
 
 // poseAt returns the character's pose at a moment, and how long it holds.
@@ -142,9 +181,10 @@ func (a *app) mascotBusy() bool {
 	return a.git.busy != "" || a.inFiles.running
 }
 
-// drawMascot paints m in r, centered, in cells of a width, on bg. still
-// holds it standing, asking for no more frames.
-func (a *app) drawMascot(pt *ui.Painter, m *mascot, r ui.Rect, cell float32, bg ui.Color, still bool) {
+// drawMascot paints m in r, centered, in cells of a width, on bg, with
+// its prop when props. still holds it standing, asking for no more
+// frames but the one that puts its prop down.
+func (a *app) drawMascot(pt *ui.Painter, m *mascot, r ui.Rect, cell float32, bg ui.Color, still, props bool) {
 	busy := a.mascotBusy()
 	var p mascotPose
 	a.mascot.moving, a.mascot.hopping = !still, !still && busy
@@ -152,6 +192,14 @@ func (a *app) drawMascot(pt *ui.Painter, m *mascot, r ui.Rect, cell float32, bg 
 		var hold time.Duration
 		p, hold = poseAt(pt.Now(), busy)
 		pt.After(hold)
+	}
+	if props {
+		var left time.Duration
+		p.prop, left = a.mascotPropAt(pt.Now())
+		a.mascot.prop = p.prop
+		if left > 0 {
+			pt.After(left)
+		}
 	}
 	m.draw(a.pal, pt, r, cell, bg, p)
 }
@@ -180,7 +228,7 @@ func (a *app) statusMascot(c *ui.Context, m *mascot) {
 	still := a.mascotStill(c)
 	bg := a.pal.status
 	ui.Row(c.Key("status:mascot")).Size(w+12, statusBarH).Tooltip(a.mascotTip(m)).Draw(func(pt *ui.Painter, r ui.Rect) {
-		a.drawMascot(pt, m, ui.Rect{X: r.X + 6, Y: r.Y + (r.H-h)/2, W: w, H: h}, cell, bg, still)
+		a.drawMascot(pt, m, ui.Rect{X: r.X + 6, Y: r.Y + (r.H-h)/2, W: w, H: h}, cell, bg, still, true)
 	})
 }
 
@@ -192,6 +240,6 @@ func (a *app) welcomeMascot(c *ui.Context, m *mascot) {
 	still := a.mascotStill(c)
 	bg := a.pal.editor
 	ui.Row(c.Key("welcome:mascot")).Size(w, h).Tooltip(a.mascotTip(m)).Draw(func(pt *ui.Painter, r ui.Rect) {
-		a.drawMascot(pt, m, r, cell, bg, still)
+		a.drawMascot(pt, m, r, cell, bg, still, false)
 	})
 }

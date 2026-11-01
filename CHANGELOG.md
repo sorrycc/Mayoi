@@ -36,6 +36,12 @@ needs a `## <version>` section here, or its build fails.
 - In the find bar, `Shift+Return` now goes to the previous match instead of the next one.
 - In the find bar's replace field, `Shift+Return` replaces the match and goes back to the one before it.
 - In **Search**, `Shift+Return` in the query selects and previews the previous result, wrapping to the last.
+- The Qoder theme lays the editors and terminal on a rounded card, in a grained shell without dividing lines.
+- In the Qoder theme, dragging a sidebar or panel edge lights the edge only around the pointer.
+- The Qoder theme titles the sidebar, Source Control and the terminal in sentence case, as Explorer.
+- The Qoder theme colors code in Qoder's own chart colors: green, blue, violet, amber and rose.
+- In the Qoder theme, Qoduck holds up a magnifier while searching and a laptop while Git works.
+- Qoduck wears a headset while AI writes a commit message, and raises a megaphone when a toast appears.
 
 ## 0.16.1
 

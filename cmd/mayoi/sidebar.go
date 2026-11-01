@@ -54,8 +54,9 @@ func (a *app) sidebar(c *ui.Context) {
 			if a.root != "" {
 				room -= 3*26 + 2*3
 			}
-			title = fitTitle(c, title, short, room)
-			ui.Text(c, title).FontSize(11).FontWeight(600).LetterSpacing(titleSpacing).TextColor(p.muted).Grow(1).
+			size, spacing := p.titleLook(11, titleSpacing)
+			title = fitTitle(c, p.title(title), p.title(short), room, size, spacing)
+			ui.Text(c, title).FontSize(size).FontWeight(600).LetterSpacing(spacing).TextColor(p.muted).Grow(1).
 				Padding(0, 0, 0, 6).SingleLine()
 			if scm {
 				a.scmTitleActions(c)
@@ -87,7 +88,12 @@ func (a *app) sidebar(c *ui.Context) {
 					a.toggleCompactFolders()
 				}
 			}).Children(func() {
-				ui.Text(c, strings.ToUpper(filepath.Base(a.root))).FontSize(11).FontWeight(700).LetterSpacing(0.4).
+				// The folder's own name in sentence case, not recased.
+				name, size, spacing := strings.ToUpper(filepath.Base(a.root)), float32(11), float32(0.4)
+				if p.sentence {
+					name, size, spacing = filepath.Base(a.root), 12, 0
+				}
+				ui.Text(c, name).FontSize(size).FontWeight(700).LetterSpacing(spacing).
 					TextColor(p.text).SingleLine().Grow(1)
 				if !hovered && !a.files.List.FocusWithin(c) {
 					return
@@ -150,13 +156,14 @@ const (
 
 // fitTitle returns the sidebar's title, or its short form when the title
 // would not fit in room, as the sidebar is narrow or the buttons beside it
-// are many: cut short, it would read as neither.
-func fitTitle(c *ui.Context, title, short string, room float32) string {
+// are many: cut short, it would read as neither. It is of a size and a
+// letter spacing.
+func fitTitle(c *ui.Context, title, short string, room, size, spacing float32) string {
 	if short == "" {
 		return title
 	}
-	w, _ := c.MeasureText(0, ui.Span{Text: title, Size: 11, Weight: 600})
-	if w+titleSpacing*float32(len(title)) <= room {
+	w, _ := c.MeasureText(0, ui.Span{Text: title, Size: size, Weight: 600})
+	if w+spacing*float32(len(title)) <= room {
 		return title
 	}
 	return short

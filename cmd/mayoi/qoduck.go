@@ -25,6 +25,13 @@ var (
 	// and the beak are edged in deeper shades of theirs.
 	qoduckBodyEdge = ui.Hex("#e3b13a")
 	qoduckBeakEdge = ui.Hex("#d6611a")
+	// Its props: the laptop and its prompt, and the forest green
+	// megaphone.
+	qoduckLaptop     = ui.Hex("#232523")
+	qoduckLaptopEdge = ui.Hex("#6b736d")
+	qoduckPrompt     = ui.Hex("#a7ada8")
+	qoduckHorn       = ui.Hex("#3a8a62")
+	qoduckHornEdge   = ui.Hex("#1f4c37")
 )
 
 // qoduckSize is the size of the duck drawn in cells of a width, with two
@@ -105,6 +112,57 @@ func drawQoduck(pal *palette, pt *ui.Painter, r ui.Rect, cell float32, _ ui.Colo
 		pt.StrokePath(beak, 2*edge, qoduckBeakEdge)
 	}
 	pt.FillPath(beak, qoduckBeak)
+	drawQoduckProp(pal, pt, p.prop, x0, y0, u)
+}
+
+// drawQoduckProp paints what the duck holds up, in units of u from its
+// corner at x0, y0, as Qoder's pictures of it have them: the magnifier
+// over its near eye, the laptop before it with a prompt, the megaphone at
+// its beak, and the headset over its head, the microphone at its cheek.
+func drawQoduckProp(pal *palette, pt *ui.Painter, prop mascotProp, x0, y0, u float32) {
+	at := func(x, y float32) (float32, float32) { return x0 + x*u, y0 + y*u }
+	// line is a stroke of w units, no thinner than shows.
+	line := func(w float32) float32 { return max(w*u, 0.75) }
+	switch prop {
+	case propSearch:
+		lens := ellipse(new(ui.Path), x0+7.6*u, y0+18.4*u, 5.2*u, 5.2*u, 0)
+		pt.FillPath(lens, ui.RGBA(255, 255, 255, 0.35))
+		pt.StrokePath(lens, line(1.7), qoduckInk)
+		pt.StrokePath(new(ui.Path).MoveTo(at(10.9, 22.5)).LineTo(at(13.6, 27)), line(2.4), qoduckInk)
+	case propGit:
+		lid := ui.Rect{X: x0 + 15*u, Y: y0 + 18.5*u, W: 15 * u, H: 11 * u}
+		pt.Fill(lid, qoduckLaptop, 1.8*u)
+		pt.Stroke(lid, qoduckLaptopEdge, 1.8*u, line(0.7))
+		prompt := new(ui.Path).MoveTo(at(17.8, 21.6)).LineTo(at(19.8, 23.3)).LineTo(at(17.8, 25))
+		prompt.MoveTo(at(21.1, 26.2)).LineTo(at(24.1, 26.2))
+		pt.StrokePath(prompt, line(1), qoduckPrompt)
+	case propNews:
+		horn := new(ui.Path).MoveTo(at(1.5, 17.8)).LineTo(at(-3.4, 14.6)).LineTo(at(-3.4, 26.4)).LineTo(at(1.5, 23.2)).Close()
+		pt.FillPath(horn, qoduckHorn)
+		pt.StrokePath(horn, line(0.6), qoduckHornEdge)
+		pt.Fill(ui.Rect{X: x0 + 0.6*u, Y: y0 + 17.2*u, W: 2.4 * u, H: 6.6 * u}, qoduckHornEdge, u)
+		sound := new(ui.Path).MoveTo(at(-5, 16.2)).LineTo(at(-6.2, 15.2))
+		sound.MoveTo(at(-5.4, 20.5)).LineTo(at(-7, 20.5))
+		sound.MoveTo(at(-5, 24.8)).LineTo(at(-6.2, 25.8))
+		ink := qoduckInk
+		if pal.dark {
+			ink = pal.muted
+		}
+		pt.StrokePath(sound, line(1.1), ink)
+	case propAI:
+		band := new(ui.Path).MoveTo(at(5.6, 13.2))
+		c1x, c1y := at(6.4, 4.8)
+		c2x, c2y := at(25.6, 4.8)
+		x, y := at(26.8, 13.2)
+		pt.StrokePath(band.CubeTo(c1x, c1y, c2x, c2y, x, y), line(1.3), qoduckInk)
+		pt.Fill(ui.Rect{X: x0 + 25.2*u, Y: y0 + 11.6*u, W: 3.6 * u, H: 6.8 * u}, qoduckInk, 1.8*u)
+		arm := new(ui.Path).MoveTo(at(27, 18.4))
+		c1x, c1y = at(27, 23.4)
+		c2x, c2y = at(24, 25.8)
+		x, y = at(19.4, 26)
+		pt.StrokePath(arm.CubeTo(c1x, c1y, c2x, c2y, x, y), line(1.1), qoduckInk)
+		pt.FillPath(ellipse(new(ui.Path), x0+19.2*u, y0+26*u, 1.4*u, 1.4*u, 0), qoduckInk)
+	}
 }
 
 // ellipse adds an ellipse as a subpath, in four cubic curves, turned by

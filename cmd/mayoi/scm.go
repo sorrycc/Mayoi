@@ -931,7 +931,8 @@ func (a *gitContext) scmHeader(c *ui.Context, r scmRow, action *func()) {
 	clicked := row.Clicked()
 	row.Children(func() {
 		chevron(c, !a.scm.collapsed[r.group]).FontSize(12).TextColor(p.muted)
-		ui.Text(c, strings.ToUpper(groupName(r.group))).FontSize(11).FontWeight(600).LetterSpacing(0.4).
+		size, spacing := p.titleLook(11, 0.4)
+		ui.Text(c, p.title(groupName(r.group))).FontSize(size).FontWeight(600).LetterSpacing(spacing).
 			TextColor(p.muted).SingleLine().Shrink(1)
 		ui.Spacer(c)
 		if r.group == groupCommits && len(a.app.repositories.contexts) > 1 {

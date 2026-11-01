@@ -697,9 +697,15 @@ through its glyphs, the command's name with a light running across it, and the s
 seconds now and then one of Claude Code's own words, as Clauding…, in its place. Clawd, Claude Code's character, takes
 the logo's place on the welcome page and sits at the start of the status bar: it blinks now and then, and hops while a
 Git command or a search of the files runs, and holds still as the rain does, as the spinner does. Qoder is Qoder's
-Forest theme: white or green-tinged greys with forest green,
-in a light and a dark kind, and its code in Forest's greens, blues, teals and ambers. Qoduck, Qoder's duck, takes the
-logo's place and the status bar's start as Clawd does, and blinks, bobs and hops as it does. Grok Bot is the Grok Bot
+Forest theme: white or green-tinged greys with forest green, in a light and a dark kind, laid out as Qoder's workbench.
+The editors and the terminal below them sit on a card with rounded corners, and the title bar, sidebar and status bar
+around it are a lightly grained shell with no lines between them. A sidebar or panel edge lights only around the
+pointer as you drag it. The sidebar, Source Control and terminal titles are in sentence case, Explorer rather than
+EXPLORER, and code is in Qoder's chart colors: green keywords, blue functions, violet types, amber strings and rose
+numbers. Qoduck, Qoder's duck, takes the logo's place and the status bar's start as Clawd does, and blinks, bobs and
+hops as it does. In the status bar it holds up a prop for the work going on: a magnifier while the files are
+searched, a laptop while Git works, a headset while AI writes the commit message, and a megaphone for a few seconds
+after a toast. Grok Bot is the Grok Bot
 app's Sand theme: white or near-black greys, near-black or near-white buttons and its blue for the accent, in a light
 and a dark kind, and its code in the warm colors of x.ai's terminal. Grok Bot's face, a round head with two slanted
 eyes, takes the logo's place and the status bar's start as Clawd does, looks up as it hops, and now and then glances

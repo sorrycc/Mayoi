@@ -494,7 +494,8 @@ func (a *app) panel(c *ui.Context) {
 		head.Children(func() {
 			if titled {
 				ui.Column(c).Height(panelHeadH).Margin(0, 0, scrollbarH, 0).Justify(ui.Center).Children(func() {
-					ui.Text(c, strings.ToUpper(locales.TabTerminal())).FontSize(11).FontWeight(600).LetterSpacing(0.7).TextColor(p.text)
+					size, spacing := p.titleLook(11, 0.7)
+					ui.Text(c, p.title(locales.TabTerminal())).FontSize(size).FontWeight(600).LetterSpacing(spacing).TextColor(p.text)
 					ui.Box(c).Absolute().Bottom(0).Left(0).Right(0).Height(1.5).Background(p.accent)
 				})
 				ui.Box(c).Width(10)

@@ -233,10 +233,10 @@ match, then reads those and matches them here, as it does local files, so that b
 
 **`theme.go`.** The palettes for the window, the code and the terminal: Mayoi's own light and
 dark, and the other themes that the `theme` setting names: The Matrix, Purple Gold and the Halloween themes, which make the native window dark whatever the
-`appearance` setting is, and Claude, Qoder, Grok Bot and Cursor, which have a light and a dark palette and are as the appearance is. `rain.go` paints The Matrix's digital rain behind the welcome page,
+`appearance` setting is, and Claude, Qoder, Grok Bot and Cursor, which have a light and a dark palette and are as the appearance is. A palette with a `card` radius, Qoder's, has `workbench.go` lay the editors and the bottom panel out as a card in a grained shell of chrome, with no lines between the shell's parts and splitters lit around the pointer. `rain.go` paints The Matrix's digital rain behind the welcome page,
 worked out from the time alone, a step every 70 ms. `mascot.go` places a theme's character on the welcome page and in
 the status bar, its pose also worked out from the time, asking for a frame only when the pose next changes: `clawd.go`
-paints Claude's from cells, `qoduck.go` Qoder's duck from vector shapes, `grokbot.go` Grok Bot's face from them too, and `halloween.go` the Halloween themes' pumpkin, cauldron and bat from cells, `rabbit.go` The Matrix's White Rabbit from them too; Cursor and Purple Gold have none. `clauding.go` draws Claude's welcome page as Claude Code's welcome box, and its spinner in the status bar while Git works, its glyph, the light on its word and its seconds painted from the time, a step every 120 ms. It also styles what floats over
+paints Claude's from cells, `qoduck.go` Qoder's duck from vector shapes, with the prop `mascot.go` picks from the work going on for the status bar's, `grokbot.go` Grok Bot's face from them too, and `halloween.go` the Halloween themes' pumpkin, cauldron and bat from cells, `rabbit.go` The Matrix's White Rabbit from them too; Cursor and Purple Gold have none. `clauding.go` draws Claude's welcome page as Claude Code's welcome box, and its spinner in the status bar while Git works, its glyph, the light on its word and its seconds painted from the time, a step every 120 ms. It also styles what floats over
 the window, dialogs and the boxes over an editor, and fades them in as they show.
 
 ## Performance

@@ -3,7 +3,10 @@ package main
 import (
 	"math"
 	"reflect"
+	"strings"
 	"time"
+	"unicode"
+	"unicode/utf8"
 	"unsafe"
 
 	"github.com/egoist/mygo"
@@ -81,6 +84,17 @@ type palette struct {
 	// gilt, when set, is the light of its gold, which runs to the middle
 	// of the line along the top of the tab shown, with a gem there.
 	rule, gilt ui.Color
+	// card, when set, is the radius of the card the editors and the panel
+	// below them sit in, as Qoder's workbench has: the title bar, the
+	// sidebar and the status bar are a shell around it in the chrome, with
+	// no lines between them, grained as much as grain says, from 0 to 1.
+	card, grain float32
+	// strip is the tab strip's background: the chrome, but for a theme
+	// whose editors sit in a card, whose own it is.
+	strip ui.Color
+	// sentence titles the sidebar and the panel in sentence case, as
+	// Explorer, rather than in capitals.
+	sentence bool
 
 	syntax [highlight.Kinds]ui.Color
 	// ansi is the terminal's 16 colors: black, red, green, yellow, blue,
@@ -471,13 +485,18 @@ func claudeLightPalette() *palette {
 
 // qoderLightPalette is Qoder in a light window, its Forest Light: white,
 // grey with a hint of green, and the forest green of its buttons for the
-// accent. Forest has no colors of code, so they are drawn from its
-// terminal's.
+// accent. As in Qoder's workbench, the editors and the panel are a white
+// card in a grained shell. Its code is in Qoder's chart series, the hues
+// it tells data apart by in every theme.
 func qoderLightPalette() *palette {
 	p := &palette{
 		editor:    ui.Hex("#ffffff"),
 		chrome:    ui.Hex("#f2f4f2"),
-		panel:     ui.Hex("#f5f7f5"),
+		panel:     ui.Hex("#ffffff"),
+		strip:     ui.Hex("#ffffff"),
+		card:      10,
+		grain:     0.2,
+		sentence:  true,
 		border:    ui.Hex("#e3e6e3"),
 		hover:     ui.RGBA(0, 0, 0, 0.04),
 		active:    ui.RGBA(75, 111, 90, 0.12),
@@ -527,36 +546,48 @@ func qoderLightPalette() *palette {
 			ui.Hex("#2b83c1"), ui.Hex("#aa69a7"), ui.Hex("#249d94"), ui.Hex("#d5dbd8"),
 		},
 	}
+	qoderSyntax(p, [5]string{"#477a61", "#427db5", "#9870b4", "#ba7b37", "#b7647b"})
 	s := &p.syntax
-	s[highlight.Plain] = p.text
-	s[highlight.Keyword] = ui.Hex("#2f7550")
-	s[highlight.Type] = ui.Hex("#0b7f78")
-	s[highlight.Function] = ui.Hex("#0969a8")
-	s[highlight.String] = ui.Hex("#8a5a00")
-	s[highlight.Number] = ui.Hex("#b85a1f")
 	s[highlight.Comment] = ui.Hex("#848c86")
 	s[highlight.Operator] = ui.Hex("#555b57")
 	s[highlight.Punctuation] = ui.Hex("#6c726d")
-	s[highlight.Constant] = ui.Hex("#b85a1f")
-	s[highlight.Builtin] = ui.Hex("#8e4e8b")
-	s[highlight.Tag] = ui.Hex("#b3434a")
-	s[highlight.Attribute] = ui.Hex("#8e4e8b")
 	s[highlight.Variable] = p.text
-	s[highlight.Heading] = ui.Hex("#2f7550")
 	s[highlight.Deleted] = ui.Hex("#c9363e")
 	s[highlight.Inserted] = ui.Hex("#2e7d4f")
 	return p
 }
 
+// qoderSyntax colors Qoder's code in its chart series, green, blue,
+// violet, amber and rose: keywords, functions, types, strings and
+// numbers, each as deep or as light as it must be to read at 4.5:1 on the
+// editor.
+func qoderSyntax(p *palette, chart [5]string) {
+	var c [5]ui.Color
+	for i, hex := range chart {
+		c[i] = legible(ui.Hex(hex), p.dark, p.editor)
+	}
+	s := &p.syntax
+	s[highlight.Plain] = p.text
+	s[highlight.Keyword], s[highlight.Heading] = c[0], c[0]
+	s[highlight.Function] = c[1]
+	s[highlight.Type], s[highlight.Builtin], s[highlight.Attribute] = c[2], c[2], c[2]
+	s[highlight.String] = c[3]
+	s[highlight.Number], s[highlight.Constant], s[highlight.Tag] = c[4], c[4], c[4]
+}
+
 // qoderDarkPalette is Qoder in a dark window, its Forest Dark: greys
 // with a little green, a deeper green for buttons, with dark labels, and
-// a light one for links and marks.
+// a light one for links and marks, the card darker than its shell.
 func qoderDarkPalette() *palette {
 	p := &palette{
 		dark:      true,
 		editor:    ui.Hex("#191b1a"),
 		chrome:    ui.Hex("#242624"),
-		panel:     ui.Hex("#1c1f1d"),
+		panel:     ui.Hex("#191b1a"),
+		strip:     ui.Hex("#191b1a"),
+		card:      10,
+		grain:     0.5,
+		sentence:  true,
 		border:    ui.Hex("#363c37"),
 		hover:     ui.RGBA(220, 240, 225, 0.05),
 		active:    ui.RGBA(77, 156, 97, 0.2),
@@ -608,22 +639,13 @@ func qoderDarkPalette() *palette {
 			ui.Hex("#a3d3ff"), ui.Hex("#e6b9e2"), ui.Hex("#a2ede5"), ui.Hex("#ffffff"),
 		},
 	}
+	// The chart series, lifted to read on the dark editor.
+	qoderSyntax(p, [5]string{"#7cb196", "#7fb0e0", "#c4a3dc", "#dcaa72", "#e095aa"})
 	s := &p.syntax
-	s[highlight.Plain] = p.text
-	s[highlight.Keyword] = ui.Hex("#73cd94")
-	s[highlight.Type] = ui.Hex("#82d2ce")
-	s[highlight.Function] = ui.Hex("#87c3ff")
-	s[highlight.String] = ui.Hex("#d8c07a")
-	s[highlight.Number] = ui.Hex("#efb080")
 	s[highlight.Comment] = ui.Hex("#758077")
 	s[highlight.Operator] = ui.Hex("#a3aba5")
 	s[highlight.Punctuation] = ui.Hex("#8a948c")
-	s[highlight.Constant] = ui.Hex("#efb080")
-	s[highlight.Builtin] = ui.Hex("#aaa0fa")
-	s[highlight.Tag] = ui.Hex("#e394dc")
-	s[highlight.Attribute] = ui.Hex("#aaa0fa")
 	s[highlight.Variable] = ui.Hex("#e4e7e4")
-	s[highlight.Heading] = ui.Hex("#8ee5a1")
 	s[highlight.Deleted] = ui.Hex("#ff6b70")
 	s[highlight.Inserted] = ui.Hex("#73cd94")
 	return p
@@ -1382,16 +1404,60 @@ func (p *palette) derive() *palette {
 	p.selected = p.selection.Over(p.editor)
 	p.selectedDim = p.selection.Alpha(0.5).Over(p.editor)
 	p.cursor = p.accent.Alpha(0.5)
+	if p.strip.A == 0 {
+		p.strip = p.chrome
+	}
 	return p
 }
 
 // hairline is the line along the foot of the title bar and the top of the
-// status bar: the theme's own rule, or the border.
+// status bar: the theme's own rule, or the border, or none around a card.
 func (p *palette) hairline() ui.Color {
-	if p.rule.A == 0 {
+	switch {
+	case p.card > 0:
+		return ui.Color{}
+	case p.rule.A == 0:
 		return p.border
 	}
 	return p.rule
+}
+
+// title is a title of the sidebar, Source Control or the panel as the
+// palette has them: in capitals, or in sentence case.
+func (p *palette) title(s string) string {
+	if p.sentence {
+		return sentenceCase(s)
+	}
+	return strings.ToUpper(s)
+}
+
+// titleLook is the size and the letter spacing of a title whose capitals
+// are of size and spacing, as the palette has them: in sentence case, a
+// point larger and not spaced.
+func (p *palette) titleLook(size, spacing float32) (float32, float32) {
+	if p.sentence {
+		return size + 1, 0
+	}
+	return size, spacing
+}
+
+// sentenceCase returns s with its first letter alone a capital, as
+// Source control for SOURCE CONTROL.
+func sentenceCase(s string) string {
+	if s == "" {
+		return s
+	}
+	r, n := utf8.DecodeRuneInString(s)
+	return string(unicode.ToUpper(r)) + strings.ToLower(s[n:])
+}
+
+// seam is the line between the sidebar or the rail and what is beside
+// them: the border, or none in the shell around a card.
+func (p *palette) seam() ui.Color {
+	if p.card > 0 {
+		return ui.Color{}
+	}
+	return p.border
 }
 
 // legible returns col as text that reads at 4.5:1, WCAG's AA, on each of

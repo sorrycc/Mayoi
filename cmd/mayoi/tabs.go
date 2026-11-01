@@ -43,7 +43,7 @@ func (a *app) tabStrip(c *ui.Context, col *column) {
 			})
 		}
 	}
-	ui.Row(c).Height(tabStripH).Background(p.chrome).AlignItems(ui.Center).
+	ui.Row(c).Height(tabStripH).Background(p.strip).AlignItems(ui.Center).
 		ContextMenu(func(m *ui.Menu) { a.columnLockMenu(m, col) }).Children(func() {
 		// The strip's edge along the bottom, which the tab shown breaks to
 		// join the text below it.
@@ -74,13 +74,17 @@ func (a *app) tabStrip(c *ui.Context, col *column) {
 					_, over := ui.DragOver[dragItem](tab)
 					over = over || tab.FileDragOver()
 					hovered := tab.Hovered()
-					under := p.chrome
+					under := p.strip
 					switch {
 					case active:
 						under = p.editor
 						tab.Background(under)
+					case hovered && p.card > 0:
+						// In a card, the strip is the editor's color already.
+						under = p.hover.Over(p.strip)
+						tab.Background(under)
 					case hovered:
-						under = mix(p.chrome, p.editor, 0.5)
+						under = mix(p.strip, p.editor, 0.5)
 						tab.Background(under)
 					}
 					if tab.Pressed() && a.middle != t && (!active || !focused) {

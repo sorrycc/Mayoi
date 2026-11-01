@@ -399,7 +399,7 @@ func (f *frame) railView(c *ui.Context, a *app) {
 		return
 	}
 	p := a.pal
-	rail := ui.Column(c.Key("rail")).Width(railW).Shrink(0).Background(railGround(p)).BorderWidth(0, 1, 0, 0).BorderColor(p.border)
+	rail := ui.Column(c.Key("rail")).Width(railW).Shrink(0).Background(railGround(p)).BorderWidth(0, 1, 0, 0).BorderColor(p.seam())
 	// Past the last square: at the end.
 	f.railDrop(rail, a, nil)
 	_, atEnd := ui.DragOver[railDrag](rail)

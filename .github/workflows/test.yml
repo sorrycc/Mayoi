@@ -1,7 +1,9 @@
 # Tests Mayoi on Linux, with the Git, GTK and fonts of Ubuntu 24.04, and
 # of 22.04 too for pushes to main, and on macOS and Windows, as pushes to
 # main and pull requests come. A pull request pushed again stops the run
-# of what it had before.
+# of what it had before. Each system's tests are shared out over five
+# runners, which take a fifth of cmd/mayoi's tests and of the other
+# packages each (see scripts/test.sh), and the first of them go vet.
 name: Test
 
 on:
@@ -34,17 +36,39 @@ jobs:
       - run: sh scripts/test-homebrew.sh
 
   linux:
-    name: Linux (${{ matrix.os }})
+    name: Linux (${{ matrix.os }}, ${{ matrix.shard }}/5)
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         os: ${{ github.event_name == 'push' && fromJSON('["ubuntu-22.04", "ubuntu-24.04"]') || fromJSON('["ubuntu-24.04"]') }}
+        shard: [1, 2, 3, 4, 5]
     steps:
       - uses: actions/checkout@v5
-      - uses: actions/setup-go@v6
+      - &go
+        uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
+          cache: false
+      - &gocache
+        # Go's build and module caches, restored from the last run of the
+        # system's first shard, which builds all that the others do and
+        # more, as go vet and the other packages' tests. setup-go's own
+        # cache is saved only by a job that passed, and found only by the
+        # go.sum it was saved with: all built anew from a change of it until
+        # a run passed.
+        name: Restore Go's caches
+        uses: actions/cache/restore@v4
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/Library/Caches/go-build
+            ~/AppData/Local/go-build
+            ~/go/pkg/mod
+          key: go-${{ matrix.os }}-${{ hashFiles('go.sum') }}-${{ github.run_id }}
+          restore-keys: |
+            go-${{ matrix.os }}-${{ hashFiles('go.sum') }}-
+            go-${{ matrix.os }}-
       - &natives
         # The libraries MyGo downloads the first time the tests ask for
         # them, such as the terminal's.
@@ -57,32 +81,77 @@ jobs:
             ~/AppData/Local/mygo/natives
           key: mygo-natives-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('go.sum') }}
           restore-keys: mygo-natives-${{ runner.os }}-${{ runner.arch }}-
+      - &times
+        # The seconds each of the shard's tests took the last run, for the
+        # workers to take the slowest first.
+        name: Restore the times of the tests
+        uses: actions/cache/restore@v4
+        with:
+          path: &timespath |
+            ~/.cache/mayoi/test-times.json
+            ~/Library/Caches/mayoi/test-times.json
+            ~/AppData/Local/mayoi/test-times.json
+          key: mayoi-test-times-${{ matrix.os }}-${{ matrix.shard }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: mayoi-test-times-${{ matrix.os }}-${{ matrix.shard }}-
       # Pango and cairo lay out and draw the text, by way of GTK.
       - name: Install GTK and fonts
         run: sudo apt-get update && sudo apt-get install -y libgtk-3-0 fonts-dejavu-core
-      - run: go vet ./...
-      - run: scripts/test.sh
+      - &vet
+        if: matrix.shard == 1
+        run: go vet ./...
+      - &test
+        run: scripts/test.sh
+        shell: bash
+        env:
+          SHARD: ${{ matrix.shard }}/5
+      # Saved whether the tests passed or not.
+      - &savetimes
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: *timespath
+          key: mayoi-test-times-${{ matrix.os }}-${{ matrix.shard }}-${{ github.run_id }}-${{ github.run_attempt }}
+      - &savegocache
+        if: always() && matrix.shard == 1
+        uses: actions/cache/save@v4
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/Library/Caches/go-build
+            ~/AppData/Local/go-build
+            ~/go/pkg/mod
+          key: go-${{ matrix.os }}-${{ hashFiles('go.sum') }}-${{ github.run_id }}-${{ github.run_attempt }}
 
   # macOS and Windows draw with their own system's text, with nothing to
   # install.
   native:
-    name: ${{ matrix.name }}
+    name: ${{ matrix.name }} (${{ matrix.shard }}/5)
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
+        name: [macOS, Windows]
+        shard: [1, 2, 3, 4, 5]
         include:
           - { name: macOS, os: macos-latest }
           - { name: Windows, os: windows-latest }
     steps:
+      # Defender scans each file written and each program started, which
+      # slows unpacking Go and its caches, building, and the git the tests
+      # run.
+      - name: Turn off Defender's scanning
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: Set-MpPreference -DisableRealtimeMonitoring $true
       # The files as they are in the repository, with LF: the fixtures the
       # tests read compare as they were written.
       - run: git config --global core.autocrlf false
       - uses: actions/checkout@v5
-      - uses: actions/setup-go@v6
-        with:
-          go-version-file: go.mod
+      - *go
+      - *gocache
       - *natives
-      - run: go vet ./...
-      - run: scripts/test.sh
-        shell: bash
+      - *times
+      - *vet
+      - *test
+      - *savetimes
+      - *savegocache

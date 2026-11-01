@@ -229,9 +229,16 @@ func (hs *harness) settle() {
 	hs.t.Helper()
 	hs.a.gitClock = hs.tt.Now
 	// Advance before waiting: a final frame after the wait can start work.
-	for range 31 {
+	// The first frames see what the test changed, and start what moves of
+	// it, as a fade, a frame's time apart, as the app counts its frames;
+	// the clock then draws only the frames something asks for, which
+	// drawing every 16 ms of it spent most of the tests' time on.
+	const seen = 3
+	for range seen {
 		step(hs.tt)
 	}
+	hs.tt.Advance((31 - seen) * 16 * time.Millisecond)
+	hs.tt.Frame()
 	for idle, deadline := 0, time.Now().Add(settleTimeout); idle < 2; {
 		running, queued := hs.busy()
 		if time.Now().After(deadline) {

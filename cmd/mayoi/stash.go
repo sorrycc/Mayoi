@@ -191,7 +191,7 @@ func (a *app) stashPickerView(c *ui.Context) {
 	apply := func(s git.Stash) { g.applyStash(s.Hash) }
 	pop := func(s git.Stash) { g.popStash(s.Hash) }
 	ui.Overlay(c, func() {
-		back := a.dialogBack(c, "stashes")
+		back := a.dialogBack(c)
 		back.Children(func() {
 			box := a.floating(c, ui.Column(c).Width(560).MaxWidthPercent(92).Margin(titleBarH+8, 0, 0, 0).Radius(10), true).Clip().Role(ui.RoleDialog).Label(locales.CmdGitStashes())
 			box.Children(func() {
@@ -234,7 +234,7 @@ func (a *app) stashPickerView(c *ui.Context) {
 						}
 						row.Transition(hoverFade)
 						row.Children(func() {
-							a.pickMark(c, i == pick.sel, "stashes")
+							a.pickMark(c, i == pick.sel)
 							ui.Icon(c, iconBox).FontSize(14).TextColor(p.muted)
 							ui.Text(c, s.Message).FontSize(13).TextColor(p.text).SingleLine().Shrink(1).MinWidth(0)
 							ui.Text(c, s.Branch).FontSize(12).TextColor(p.faint).SingleLine().Shrink(1).Grow(1).MinWidth(0)

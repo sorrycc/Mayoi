@@ -10,6 +10,13 @@ needs a `## <version>` section here, or its build fails.
 - Under The Matrix, primary buttons are the red pill, chosen rows the blue, and Discard is orange.
 - The White Rabbit is The Matrix's character on the welcome page and in the status bar, hopping while Git runs.
 - The Matrix's digital rain is mirrored, as in the film, with a dimmer far layer behind it.
+- Quick open, the command palette, pickers and dialogs now show at once instead of fading in.
+- The find box, the sidebar and the panel appear instantly when opened with their shortcuts.
+- Switching tabs or sidebar views no longer slides or fades the marks and the view.
+- The selected row in quick open and pickers moves at once with the arrow keys.
+- Vim's mode badge changes color at once on `i` and `Esc`.
+- The theme picker shows all its rows at once, and moving through it switches the theme without a fade.
+- Settings pages now fade in quickly without rising, and pressed buttons sink a little less.
 - Mermaid diagrams copy as an image from their hover buttons or the opened diagram's header.
 - Mermaid diagrams export as PNG or SVG from their export button, in the colors of the current theme.
 - `.mmd` previews copy and export their diagram with **Copy Mermaid Diagram as Image** and the export commands.

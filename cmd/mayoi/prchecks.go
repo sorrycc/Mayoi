@@ -234,7 +234,7 @@ func (a *app) prChecksView(c *ui.Context) {
 	openLink := func(ch git.Check) { run(func() { a.services.OpenURL(ch.Link) }) }
 	title := locales.ChecksTitle("#" + strconv.Itoa(number))
 	ui.Overlay(c, func() {
-		back := a.dialogBack(c, "checks")
+		back := a.dialogBack(c)
 		back.Children(func() {
 			box := a.floating(c, ui.Column(c).Width(600).MaxWidthPercent(92).Margin(titleBarH+8, 0, 0, 0).Radius(10), true).Clip().Role(ui.RoleDialog).Label(title)
 			box.Children(func() {
@@ -288,7 +288,7 @@ func (a *app) prChecksView(c *ui.Context) {
 						}
 						row.Transition(hoverFade)
 						row.Children(func() {
-							a.pickMark(c, i == pick.sel, "checks")
+							a.pickMark(c, i == pick.sel)
 							icon, col := checkIcon(p, ch)
 							ui.Icon(c, icon).FontSize(14).TextColor(col)
 							ui.Text(c, ch.Title()).FontSize(13).TextColor(p.text).SingleLine().Shrink(1).MinWidth(0)

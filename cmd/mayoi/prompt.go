@@ -35,7 +35,7 @@ func (a *app) promptView(c *ui.Context) {
 		a.prompt = nil
 	}
 	ui.Overlay(c, func() {
-		back := a.dialogBack(c, "prompt:"+pr.title)
+		back := a.dialogBack(c)
 		back.Children(func() {
 			box := a.floating(c, ui.Column(c).Width(420).MaxWidthPercent(92).Margin(titleBarH+8, 0, 0, 0).Padding(14, 16).Gap(10).Radius(10), true).
 				Role(ui.RoleDialog).Label(pr.title)
@@ -122,7 +122,7 @@ func (a *app) confirmView(c *ui.Context) {
 		width = 560
 	}
 	ui.Overlay(c, func() {
-		back := a.dialogBack(c, "confirm:"+cf.title)
+		back := a.dialogBack(c)
 		back.Children(func() {
 			box := a.floating(c, ui.Column(c).Width(width).MaxWidthPercent(92).Margin(titleBarH+8, 0, 0, 0).Padding(14, 16).Gap(10).Radius(10), true).
 				Role(ui.RoleDialog).Label(cf.title)

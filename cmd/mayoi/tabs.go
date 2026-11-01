@@ -10,10 +10,6 @@ import (
 	"mayoi/locales"
 )
 
-// tabLine is the identity of the line along the top of a column's tab
-// shown, which slides from tab to tab as another shows.
-type tabLine struct{ col int }
-
 // crossFade is how a tab's cross comes and goes with the pointer.
 var crossFade = ui.ElementTransition{Duration: 100 * time.Millisecond, Enter: &ui.Motion{}, Exit: &ui.Motion{}}
 
@@ -109,14 +105,12 @@ func (a *app) tabStrip(c *ui.Context, col *column) {
 							ui.Box(c).Absolute().Top(0).Bottom(0).Left(0).Width(2).Background(p.accent)
 						case active:
 							// The line along the top of the tab shown, in the accent
-							// while its column has the keyboard. It slides from the
-							// tab shown before.
+							// while its column has the keyboard.
 							line := p.faint
 							if focused {
 								line = p.accent
 							}
-							l := ui.Box(c.Key("line")).Absolute().Top(0).Left(0).Right(0).Height(2).Background(line).
-								Transition(ui.ElementTransition{Animation: &ui.Snappy, Match: tabLine{col.id}})
+							l := ui.Box(c.Key("line")).Absolute().Top(0).Left(0).Right(0).Height(2).Background(line)
 							if focused && p.gilt.A != 0 {
 								l.Draw(func(pt *ui.Painter, r ui.Rect) { drawGilt(pt, r, p) })
 							}

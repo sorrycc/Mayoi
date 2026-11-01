@@ -444,7 +444,7 @@ func (a *app) remotePickerView(c *ui.Context) {
 		title, placeholder = locales.PickFolderTitle(r.conn.Host), locales.PickFolderPlaceholder()
 	}
 	ui.Overlay(c, func() {
-		back := a.dialogBack(c, "remote")
+		back := a.dialogBack(c)
 		back.Children(func() {
 			box := a.floating(c, ui.Column(c).Width(600).MaxWidthPercent(92).Margin(titleBarH+8, 0, 0, 0).Radius(10), true).Clip().
 				Role(ui.RoleDialog).Label(title)
@@ -731,7 +731,7 @@ func (a *app) pickRow(c *ui.Context, i int, key string, icon *ui.SVG, label []ui
 	}
 	row.Transition(hoverFade)
 	row.Children(func() {
-		a.pickMark(c, sel, "remote")
+		a.pickMark(c, sel)
 		col := p.muted
 		if sel {
 			col = p.accent

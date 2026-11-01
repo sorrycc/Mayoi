@@ -124,7 +124,7 @@ func (a *app) view(c *ui.Context) {
 				}
 				// Its splitter is along the edge facing the editors.
 				at, dir := edgeRight, float32(1)
-				box := fadeIn(ui.Column(c.Key("sidebar")).Width(w.SidebarWidth).Shrink(0).BorderColor(p.border))
+				box := ui.Column(c.Key("sidebar")).Width(w.SidebarWidth).Shrink(0).BorderColor(p.border)
 				if s.SidebarRight {
 					at, dir = edgeLeft, -1
 					box.BorderWidth(0, 0, 0, 1)
@@ -179,10 +179,6 @@ func (a *app) view(c *ui.Context) {
 	a.promptView(c)
 	a.confirmView(c)
 	a.signinView(c)
-	if !a.dialogBuilt {
-		a.dialog = ""
-	}
-	a.dialogBuilt = false
 	a.windowKeys(c)
 	if inEditor := a.keyFocus == placeEditor; inEditor != a.cutInEditor {
 		a.cutInEditor = inEditor
@@ -221,7 +217,7 @@ func (a *app) main(c *ui.Context) {
 	_, h := c.Size()
 	room := h - titleBarH - statusBarH
 	height := clamp(w.PanelHeight, 80, max(room-80, 80))
-	box := fadeIn(ui.Column(c.Key("panel")).Shrink(0).BorderWidth(1, 0, 0, 0).BorderColor(p.border))
+	box := ui.Column(c.Key("panel")).Shrink(0).BorderWidth(1, 0, 0, 0).BorderColor(p.border)
 	if a.panelMax {
 		box.Grow(1)
 	} else {
@@ -253,7 +249,7 @@ func (a *app) sidePanel(c *ui.Context, right bool) {
 	p, w := a.pal, a.window
 	width, _ := c.Size()
 	at, dir := edgeRight, float32(1)
-	box := fadeIn(ui.Column(c.Key("panel")).Shrink(0).BorderColor(p.border))
+	box := ui.Column(c.Key("panel")).Shrink(0).BorderColor(p.border)
 	if right {
 		at, dir = edgeLeft, -1
 		box.BorderWidth(0, 0, 0, 1)
@@ -1144,10 +1140,6 @@ func (a *app) vimBadge(c *ui.Context, v *vimState, text func(string) ui.Element)
 		bg, fg = p.modified.Alpha(0.22), p.modifiedFg
 	}
 	row := ui.Row(c.Key("status:vim")).Height(statusBarH).Padding(0, 6).Gap(6).AlignItems(ui.Center)
-	// From mode to mode, the badge's colors cross over. Its name changes at
-	// once: the old fading out over the new broke up the strokes of both.
-	fade := ui.Animation{Duration: 140 * time.Millisecond}
-	bg, fg = row.AnimateColor("bg", bg, fade), row.AnimateColor("fg", fg, fade)
 	row.Children(func() {
 		ui.Text(c, v.mode.String()).FontSize(10.5).FontWeight(650).LetterSpacing(0.6).TextColor(fg).SingleLine().
 			Padding(1, 6).Radius(4).Background(bg)

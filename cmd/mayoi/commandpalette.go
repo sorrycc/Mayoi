@@ -242,7 +242,7 @@ func (a *app) quickCommands(c *ui.Context, query string) {
 		a.post(func() { a.run(id) })
 	}
 	ui.Overlay(c, func() {
-		back := a.dialogBack(c, "quick")
+		back := a.dialogBack(c)
 		back.Children(func() {
 			box := a.floating(c, ui.Column(c).Width(600).MaxWidthPercent(92).Margin(titleBarH+8, 0, 0, 0).Radius(10), true).Clip()
 			shake(c, box, q.shook)
@@ -282,7 +282,7 @@ func (a *app) quickCommands(c *ui.Context, query string) {
 								choose(i)
 							}
 							row.Transition(hoverFade)
-							row.Children(func() { a.pickMark(c, i == q.sel, "commands"); a.commandRow(c, e, m.Positions) })
+							row.Children(func() { a.pickMark(c, i == q.sel); a.commandRow(c, e, m.Positions) })
 						}
 					})
 				}

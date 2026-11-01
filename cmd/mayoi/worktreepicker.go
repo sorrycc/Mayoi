@@ -243,7 +243,7 @@ func (a *gitContext) worktreePickerView(c *ui.Context) {
 		w.sel = 1
 	}
 	ui.Overlay(c, func() {
-		back := a.app.dialogBack(c, "worktrees")
+		back := a.app.dialogBack(c)
 		back.Children(func() {
 			box := a.app.floating(c, ui.Column(c).Width(560).MaxWidthPercent(92).Margin(titleBarH+8, 0, 0, 0).Radius(10), true).Clip().
 				Role(ui.RoleDialog).Label(locales.WorktreeSwitchLabel())
@@ -321,7 +321,7 @@ func (a *gitContext) worktreeRow(c *ui.Context, ch worktreeChoice, i int) {
 		}
 		row.Transition(hoverFade)
 		row.Children(func() {
-			a.app.pickMark(c, i == w.sel, "worktrees")
+			a.app.pickMark(c, i == w.sel)
 			ui.Icon(c, iconPlus).FontSize(14).TextColor(p.accent)
 			ui.RichText(c, ui.Span{Text: locales.WorktreeCreatePrefix()}, ui.Span{Text: ch.create, Weight: 650}).FontSize(13).
 				TextColor(p.text).SingleLine().Shrink(1)
@@ -345,7 +345,7 @@ func (a *gitContext) worktreeRow(c *ui.Context, ch worktreeChoice, i int) {
 	}
 	row.Transition(hoverFade)
 	row.Children(func() {
-		a.app.pickMark(c, i == w.sel, "worktrees")
+		a.app.pickMark(c, i == w.sel)
 		icon, col := iconFolderGit, p.muted
 		if t.Current {
 			icon, col = iconCheck, p.accent

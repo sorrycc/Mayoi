@@ -76,11 +76,13 @@ func (a *app) closeThemePicker(keep bool) {
 }
 
 // previewTheme shows the windows in a theme and an appearance without
-// saving them in the settings.
+// saving them in the settings. This window goes to it at once, rather
+// than fading, as the keys go through the themes.
 func (a *app) previewTheme(theme, appearance string) {
 	if a.settings.Theme == theme && a.settings.Appearance == appearance {
 		return
 	}
+	a.fade.snap = true
 	a.settings.Theme, a.settings.Appearance = theme, appearance
 	a.host.setTheme(theme, appearance)
 }
@@ -142,7 +144,7 @@ func (a *app) themePickerView(c *ui.Context) {
 		tp.shown, tp.stale = tp.query, false
 	}
 	ui.Overlay(c, func() {
-		back := a.dialogBack(c, "themes")
+		back := a.dialogBack(c)
 		back.Children(func() {
 			box := a.floating(c, ui.Column(c).Width(560).MaxWidthPercent(92).Margin(titleBarH+8, 0, 0, 0).Radius(10), true).Clip().
 				Role(ui.RoleDialog).Label(locales.ThemeLabel())
@@ -272,9 +274,8 @@ func (a *app) themeRow(c *ui.Context, i int) {
 		})
 	}
 	row.Transition(hoverFade)
-	riseIn(row, time.Duration(i)*28*time.Millisecond)
 	row.Children(func() {
-		a.pickMark(c, i == tp.sel, "themes")
+		a.pickMark(c, i == tp.sel)
 		a.themeSwatch(c, t.id, i == tp.sel)
 		ui.Column(c).Grow(1).Shrink(1).Gap(2).Children(func() {
 			ui.RichText(c, a.matchSpans(t.name(), 0, m.Positions, p.text)...).FontSize(13.5).FontWeight(550).SingleLine()

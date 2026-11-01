@@ -139,7 +139,7 @@ func (a *app) prPickerView(c *ui.Context) {
 		a.post(func() { g.openPullRequest(n) })
 	}
 	ui.Overlay(c, func() {
-		back := a.dialogBack(c, "pull-requests")
+		back := a.dialogBack(c)
 		back.Children(func() {
 			box := a.floating(c, ui.Column(c).Width(600).MaxWidthPercent(92).Margin(titleBarH+8, 0, 0, 0).Radius(10), true).Clip().Role(ui.RoleDialog).Label(locales.CmdGitOpenPullRequest())
 			box.Children(func() {
@@ -180,7 +180,7 @@ func (a *app) prPickerView(c *ui.Context) {
 						}
 						row.Transition(hoverFade)
 						row.Children(func() {
-							a.pickMark(c, i == pick.sel, "pull-requests")
+							a.pickMark(c, i == pick.sel)
 							ui.Icon(c, iconPullRequest).FontSize(14).TextColor(p.muted)
 							if !ch.typed {
 								ui.Text(c, number).FontSize(13).TextColor(p.muted).SingleLine().Shrink(0)

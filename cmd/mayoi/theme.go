@@ -1484,19 +1484,24 @@ const paletteFadeFor = 220 * time.Millisecond
 type paletteFade struct {
 	from, to *palette
 	at       time.Time
+	// snap takes the window to the next palette at once, as the keys of
+	// the theme picker going from theme to theme want.
+	snap bool
 }
 
 // step returns the palette to paint with now, on the way to to: to
-// itself once there, or at once with less motion. Each palette on the way
+// itself once there, or at once with less motion or a snap. Each palette on the way
 // is new, so that what is cached of a palette is made anew.
 func (f *paletteFade) step(c *ui.Context, to *palette) *palette {
 	now := c.Now()
 	if to != f.to {
-		if f.to != nil && !c.Preferences().ReduceMotion {
+		if f.to != nil && !f.snap && !c.Preferences().ReduceMotion {
 			// From where the window is, as it may be on its way already.
 			f.from, f.at = f.paletteAt(now), now
+		} else {
+			f.from = nil
 		}
-		f.to = to
+		f.to, f.snap = to, false
 	}
 	p := f.paletteAt(now)
 	if p == to {
@@ -1568,26 +1573,20 @@ var tabMotion = ui.ElementTransition{
 }
 
 // dotPop is how a small mark comes and goes, as the dot of a tab's
-// unsaved changes: it grows from nothing and shrinks away.
+// unsaved changes: it grows from half its size and shrinks back.
 var dotPop = ui.ElementTransition{
 	Animation: &ui.Snappy,
-	Enter:     &ui.Motion{Scale: 0.2},
-	Exit:      &ui.Motion{Scale: 0.2},
+	Enter:     &ui.Motion{Scale: 0.5},
+	Exit:      &ui.Motion{Scale: 0.5},
 }
 
-// pickMark is the identity of the mark under the row chosen in a list of
-// a box, as quick open's, which slides from row to row as the choice
-// moves.
-type pickMark struct{ list string }
-
-// pickMark marks the row chosen in a list, first in the row's children:
-// it slides from the row chosen before, as the keys move the choice.
-func (a *app) pickMark(c *ui.Context, on bool, list string) {
+// pickMark marks the row chosen in a list, first in the row's children.
+// It moves at once with the keys that move the choice.
+func (a *app) pickMark(c *ui.Context, on bool) {
 	if !on {
 		return
 	}
-	ui.Box(c.Key("pick-mark")).Absolute().Left(0).Right(0).Top(0).Bottom(0).Radius(6).Background(a.pal.active).
-		Transition(ui.ElementTransition{Duration: 90 * time.Millisecond, Match: pickMark{list}})
+	ui.Box(c.Key("pick-mark")).Absolute().Left(0).Right(0).Top(0).Bottom(0).Radius(6).Background(a.pal.active)
 }
 
 // riseIn brings a block of a page in as the page shows: it fades in from
@@ -1596,6 +1595,12 @@ func riseIn(e ui.Element, delay time.Duration) ui.Element {
 	k := e.Keyframes("rise", []ui.Keyframe{{Value: 0}, {At: 240 * time.Millisecond, Value: 1, Ease: ui.EaseOut}},
 		ui.KeyframeOptions{Delay: delay})
 	return e.Opacity(k).Translate(0, 8*(1-k))
+}
+
+// fadePage brings a page in as it is chosen, as a section of the
+// settings: it fades in, without moving.
+func fadePage(e ui.Element) ui.Element {
+	return e.Opacity(e.Keyframes("show", []ui.Keyframe{{Value: 0}, {At: 150 * time.Millisecond, Value: 1, Ease: ui.EaseOut}}))
 }
 
 // showFor is how long a pane or a box that floats takes to come in as it
@@ -1676,7 +1681,7 @@ func chevron(c *ui.Context, open bool) ui.Element {
 func pressPose(b ui.Element) {
 	pose := ui.Pose{}
 	if b.Pressed() {
-		pose.Scale = 0.92
+		pose.Scale = 0.96
 	}
 	b.AnimatePose(pose, ui.Snappy)
 }
@@ -1699,16 +1704,11 @@ func shake(c *ui.Context, e ui.Element, at time.Time) ui.Element {
 }
 
 // popUp brings the badge of an empty view in as the view shows: it grows
-// from a little smaller, past its size and back, and fades in.
+// from a little smaller to its size, and fades in.
 func popUp(e ui.Element) ui.Element {
-	k := e.Keyframes("pop", []ui.Keyframe{{Value: 0}, {At: 320 * time.Millisecond, Value: 1, Ease: backOut}})
-	o := min(1, 2*k)
-	return e.Opacity(o).Scale(0.6+0.4*k, 0.6+0.4*k)
+	k := e.Keyframes("pop", []ui.Keyframe{{Value: 0}, {At: 240 * time.Millisecond, Value: 1, Ease: ui.EaseOut}})
+	return e.Opacity(k).Scale(0.92+0.08*k, 0.92+0.08*k)
 }
-
-// backOut goes a little past its end and comes back to it, as CSS's
-// easeOutBack does.
-var backOut = ui.CubicBezier(0.34, 1.56, 0.64, 1)
 
 // fieldFocus is how a field's border follows the keyboard: the accent
 // fades in as the field takes it, and out as it leaves.
@@ -1739,17 +1739,8 @@ func (a *app) floating(c *ui.Context, box ui.Element, dialog bool) ui.Element {
 }
 
 // dialogBack is the layer under a dialog, over the whole window, that
-// the dialog is in: label names the dialog. It fades in, from a little
-// above, as the dialog shows. The layer is new with the dialog, so a
-// Transition would not move it: its motion starts the first time it is
-// built for the dialog.
-func (a *app) dialogBack(c *ui.Context, label string) ui.Element {
-	back := ui.Column(c).Absolute().Left(0).Right(0).Bottom(0).AlignItems(ui.Center).Modal()
-	if a.dialog != label {
-		a.dialog = label
-		back.Animate("in", 0, 0)
-	}
-	a.dialogBuilt = true
-	k := back.Animate("in", 1, 130*time.Millisecond)
-	return back.Top(-6 * (1 - k)).Opacity(k)
+// the dialog is in. It shows at once, as the
+// keys that open a dialog want it there to type in.
+func (a *app) dialogBack(c *ui.Context) ui.Element {
+	return ui.Column(c).Absolute().Top(0).Left(0).Right(0).Bottom(0).AlignItems(ui.Center).Modal()
 }

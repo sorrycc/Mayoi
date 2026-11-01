@@ -219,7 +219,7 @@ func (a *gitContext) branchPickerView(c *ui.Context) {
 		b.sel = 1
 	}
 	ui.Overlay(c, func() {
-		back := a.app.dialogBack(c, "branches")
+		back := a.app.dialogBack(c)
 		back.Children(func() {
 			box := a.app.floating(c, ui.Column(c).Width(560).MaxWidthPercent(92).Margin(titleBarH+8, 0, 0, 0).Radius(10), true).Clip().
 				Role(ui.RoleDialog).Label(locales.BranchSwitchLabel())
@@ -349,7 +349,7 @@ func (a *gitContext) branchRow(c *ui.Context, ch branchChoice, i int) {
 	}
 	row.Transition(hoverFade)
 	row.Children(func() {
-		a.app.pickMark(c, i == b.sel, "branches")
+		a.app.pickMark(c, i == b.sel)
 		if ch.prompt || ch.create != "" {
 			ui.Icon(c, iconPlus).FontSize(14).TextColor(p.accent)
 			if ch.prompt {

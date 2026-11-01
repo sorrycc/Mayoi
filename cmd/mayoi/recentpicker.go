@@ -78,7 +78,7 @@ func (a *app) recentPickerView(c *ui.Context) {
 		r.shown, r.stale, r.sel = r.query, false, 0
 	}
 	ui.Overlay(c, func() {
-		back := a.dialogBack(c, "recent")
+		back := a.dialogBack(c)
 		back.Children(func() {
 			box := a.floating(c, ui.Column(c).Width(560).MaxWidthPercent(92).Margin(titleBarH+8, 0, 0, 0).Radius(10), true).Clip().
 				Role(ui.RoleDialog).Label(locales.RecentLabel())
@@ -146,7 +146,7 @@ func (a *app) recentRow(c *ui.Context, i int) {
 	}
 	row.Transition(hoverFade)
 	row.Children(func() {
-		a.pickMark(c, i == r.sel, "recent")
+		a.pickMark(c, i == r.sel)
 		ui.Icon(c, iconFolder).FontSize(15).TextColor(p.accent)
 		base := strings.LastIndexByte(name, '/') + 1
 		ui.RichText(c, a.matchSpans(name[base:], base, m.Positions, p.text)...).FontSize(13).SingleLine().Shrink(0)

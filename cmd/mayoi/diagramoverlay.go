@@ -87,7 +87,7 @@ func (a *app) diagramOverlayView(c *ui.Context) {
 	}
 	p, v := a.pal, o.view
 	ui.Overlay(c, func() {
-		back := a.dialogBack(c, "diagram")
+		back := a.dialogBack(c)
 		back.Children(func() {
 			box := a.floating(c, ui.Column(c).Grow(1).AlignSelf(ui.Stretch).Margin(titleBarH+8, 24, 24, 24).Radius(10).Clip(), true).
 				Role(ui.RoleDialog).Label(b.language)

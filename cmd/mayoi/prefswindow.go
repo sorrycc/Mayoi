@@ -523,14 +523,14 @@ func (w *prefsWindow) prefsPane(c *ui.Context) {
 		})
 	}
 	// A page of its own for each section and for the search, so that it
-	// rises in as it shows, and keeps where it was scrolled to.
+	// fades in as it shows, and keeps where it was scrolled to.
 	page := w.section
 	if w.query != "" {
 		page = "search"
 	}
 	ui.Scroll(c.Key("prefs-rows-" + page)).Grow(1).MinHeight(0).Children(func() {
-		riseIn(ui.Column(c.Key("prefs-page-"+page)).Padding(20, 28, 32, 28).Gap(8).AlignSelf(ui.Center).
-			WidthPercent(100).MaxWidth(prefsPageWidth), 0).Children(func() {
+		fadePage(ui.Column(c.Key("prefs-page-"+page)).Padding(20, 28, 32, 28).Gap(8).AlignSelf(ui.Center).
+			WidthPercent(100).MaxWidth(prefsPageWidth)).Children(func() {
 			if len(fields) == 0 {
 				w.noneFound(c, locales.PrefsNoneFound())
 				return

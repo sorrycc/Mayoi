@@ -97,7 +97,7 @@ func (a *app) repositoryPickerView(c *ui.Context) {
 	pick.sel = min(max(pick.sel, 0), max(len(roots)-1, 0))
 	p := a.pal
 	ui.Overlay(c, func() {
-		back := a.dialogBack(c, "repositories")
+		back := a.dialogBack(c)
 		back.Children(func() {
 			box := a.floating(c, ui.Column(c).Width(560).MaxWidthPercent(92).Margin(titleBarH+8, 0, 0, 0).Radius(10), true).Clip().Role(ui.RoleDialog).Label(locales.RepositorySelect())
 			box.Children(func() {

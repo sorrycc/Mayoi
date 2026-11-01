@@ -428,7 +428,7 @@ func (a *app) findBoxView(c *ui.Context, b findBox) {
 			f.stale = true
 		}
 	}
-	box := a.floating(c, ui.Column(c).Absolute().Top(4).Right(22).Width(430).Padding(5, 6).Gap(4).Radius(8), false).Transition(popIn).Bind(&f.box)
+	box := a.floating(c, ui.Column(c).Absolute().Top(4).Right(22).Width(430).Padding(5, 6).Gap(4).Radius(8), false).Bind(&f.box)
 	shake(c, box, f.shook)
 	box.Role(ui.RoleToolbar).Label(locales.FindLabel())
 	box.Children(func() {

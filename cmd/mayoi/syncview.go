@@ -363,7 +363,7 @@ func (a *app) signinView(c *ui.Context) {
 		a.countdownTick()
 	}
 	ui.Overlay(c, func() {
-		back := a.dialogBack(c, "signin")
+		back := a.dialogBack(c)
 		back.Children(func() {
 			box := a.floating(c, ui.Column(c).Width(440).MaxWidthPercent(92).Margin(titleBarH+8, 0, 0, 0).Padding(20, 20, 16, 20).Gap(16).Radius(12), true).
 				Role(ui.RoleDialog).Label(locales.SyncSignInTitle())

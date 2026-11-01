@@ -66,10 +66,7 @@ func (a *app) sidebar(c *ui.Context) {
 				return
 			}
 		})
-		// The view chosen fades in as the switches change it.
-		pane := ui.Column(c.Key("view:" + view)).Grow(1).MinHeight(0)
-		pane.Opacity(pane.Keyframes("in", []ui.Keyframe{{Value: 0}, {At: 150 * time.Millisecond, Value: 1, Ease: ui.EaseOut}}))
-		pane.Children(func() {
+		ui.Column(c.Key("view:" + view)).Grow(1).MinHeight(0).Children(func() {
 			if a.root == "" {
 				a.noFolder(c)
 				return
@@ -165,10 +162,6 @@ func fitTitle(c *ui.Context, title, short string, room float32) string {
 	return short
 }
 
-// switchMark is the identity of the mark under the sidebar's switch of
-// the view shown, which goes from one switch to another.
-type switchMark struct{}
-
 // sidebarSwitch is a button at the top of the sidebar that shows a view
 // of it, with a count of what it has when count is more than 0.
 func (a *app) sidebarSwitch(c *ui.Context, icon *ui.SVG, label string, on bool, count int, show func()) {
@@ -187,9 +180,8 @@ func (a *app) sidebarSwitch(c *ui.Context, icon *ui.SVG, label string, on bool, 
 	pressPose(b)
 	b.Children(func() {
 		if on {
-			// The mark of the view shown slides from the switch before.
-			ui.Box(c.Key("on")).Absolute().Left(0).Right(0).Top(0).Bottom(0).Radius(5).Background(p.active).
-				Transition(ui.ElementTransition{Animation: &ui.Snappy, Match: switchMark{}})
+			// The mark of the view shown.
+			ui.Box(c.Key("on")).Absolute().Left(0).Right(0).Top(0).Bottom(0).Radius(5).Background(p.active)
 		}
 		ui.Icon(c, icon).FontSize(14).TextColor(col)
 		if count > 0 {

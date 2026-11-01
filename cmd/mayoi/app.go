@@ -341,10 +341,6 @@ type app struct {
 	// bar, and tickAt is when a countdown shown repaints next.
 	syncOpen bool
 	tickAt   time.Time
-	// dialog is the dialog shown, which came in as it showed, and
-	// dialogBuilt says a build of the view built one.
-	dialog      string
-	dialogBuilt bool
 
 	errors []string // to show as toasts
 	// fails counts the errors shown, which stop the commands of

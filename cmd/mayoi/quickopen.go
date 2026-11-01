@@ -101,7 +101,7 @@ func (a *app) quickOpenView(c *ui.Context) {
 		}
 	}
 	ui.Overlay(c, func() {
-		back := a.dialogBack(c, "quick")
+		back := a.dialogBack(c)
 		back.Children(func() {
 			box := a.floating(c, ui.Column(c).Width(600).MaxWidthPercent(92).Margin(titleBarH+8, 0, 0, 0).Radius(10), true).Clip()
 			shake(c, box, q.shook)
@@ -197,7 +197,7 @@ func (a *app) quickBody(c *ui.Context, isLine bool, line, col int, choose func(i
 				choose(i, false)
 			}
 			row.Transition(hoverFade)
-			row.Children(func() { a.pickMark(c, i == q.sel, "quick"); a.quickRow(c, rel, m.Positions) })
+			row.Children(func() { a.pickMark(c, i == q.sel); a.quickRow(c, rel, m.Positions) })
 		}
 	})
 	q.moved = false
@@ -365,7 +365,7 @@ func (a *app) quickSymbols(c *ui.Context, query string) {
 		}
 	}
 	ui.Overlay(c, func() {
-		back := a.dialogBack(c, "quick")
+		back := a.dialogBack(c)
 		back.Children(func() {
 			box := a.floating(c, ui.Column(c).Width(600).MaxWidthPercent(92).Margin(titleBarH+8, 0, 0, 0).Radius(10), true).Clip()
 			shake(c, box, q.shook)
@@ -407,7 +407,7 @@ func (a *app) quickSymbols(c *ui.Context, query string) {
 								choose(i)
 							}
 							row.Transition(hoverFade)
-							row.Children(func() { a.pickMark(c, i == q.sel, "symbols"); a.symbolRow(c, sym, m.Positions, query == "") })
+							row.Children(func() { a.pickMark(c, i == q.sel); a.symbolRow(c, sym, m.Positions, query == "") })
 						}
 					})
 					q.moved = false

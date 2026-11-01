@@ -243,9 +243,9 @@ func (k *keysPane) view(c *ui.Context) {
 	}
 	w.head(c, "keys-head", iconKeyboard, prefSection(prefsShortcuts), func() { k.searchBar(c) })
 	k.filterChips(c, counts)
-	// A page of its own for each filter, which rises in as it is chosen
+	// A page of its own for each filter, which fades in as it is chosen
 	// and keeps its place.
-	riseIn(ui.Column(c.Key(fmt.Sprintf("keys-page-%d", k.filter))).Grow(1).MinHeight(0), 0).Children(func() {
+	fadePage(ui.Column(c.Key(fmt.Sprintf("keys-page-%d", k.filter))).Grow(1).MinHeight(0)).Children(func() {
 		if len(rows) == 0 {
 			text := locales.KeysNoneFound()
 			if k.filter == keysConflicting && k.query == "" && !k.byKeys {

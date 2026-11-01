@@ -5,6 +5,8 @@ needs a `## <version>` section here, or its build fails.
 
 ## Unreleased
 
+- Pinching a touchpad zooms images, SVG and Mermaid previews, and opened diagrams around the pointer.
+- On Windows, Ctrl with two-finger scrolling now zooms a picture instead of doing nothing.
 - **View → Theme → Claude** now looks like Claude Code in a terminal, with the whole window in the code's font.
 - Under Claude, the status bar shows Claude Code's ✻ spinner, the work's name and its seconds while Git runs.
 - Claude's errors and removed lines are rose now, apart from its orange, and chosen rows are periwinkle.

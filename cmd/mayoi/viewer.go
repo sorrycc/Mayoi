@@ -399,17 +399,22 @@ func (v *viewer) zoomBy(step int) {
 	v.zoomAt(next, w/2, h/2, w, h)
 }
 
-// viewerInput zooms the picture by scrolling with Cmd or Ctrl held, and
-// moves it by scrolling or dragging. A double click goes between fitted
-// and its own size.
+// viewerInput zooms the picture by pinching a touchpad or scrolling with
+// Cmd or Ctrl held, and moves it by scrolling or dragging. A double click
+// goes between fitted and its own size.
 func (a *app) viewerInput(v *viewer, ev ui.InputEvent) bool {
 	w, h := v.paneW, v.paneH
 	if v.src == nil {
 		return false
 	}
 	switch ev.Kind {
+	case ui.InputZoom:
+		v.zoomAt(v.scaleIn(w, h)*ev.Scale, ev.X, ev.Y, w, h)
+		return true
 	case ui.InputScroll:
-		if ev.Mods&(ui.Cmd|ui.Ctrl) != 0 {
+		// Scrolling that coasts on after the fingers left moves the
+		// picture still, though Cmd was pressed meanwhile.
+		if ev.Mods&(ui.Cmd|ui.Ctrl) != 0 && !ev.Momentum {
 			by := ev.DY
 			if !ev.Precise {
 				by *= 8

@@ -4,6 +4,7 @@ import (
 	"image"
 	"image/color"
 	"image/png"
+	"math"
 	"os"
 	"strings"
 	"testing"
@@ -107,6 +108,12 @@ func TestImageOpensInAViewer(t *testing.T) {
 	hs.settle()
 	if v.zoom <= 4 || v.panX >= 0 {
 		t.Fatalf("scrolled to zoom %v, pan %v", v.zoom, v.panX)
+	}
+	// Scrolling that coasts on with Cmd pressed meanwhile moves it.
+	z0, y0 := v.zoom, v.panY
+	a.viewerInput(v, ui.InputEvent{Kind: ui.InputScroll, Mods: ui.Cmd, X: box.W / 2, Y: box.H / 2, DY: 10, Precise: true, Momentum: true})
+	if v.zoom != z0 || v.panY >= y0 {
+		t.Fatalf("coasting zoomed %v to %v, moved %v to %v", z0, v.zoom, y0, v.panY)
 	}
 	x0 := v.panX
 	hs.drag(cx, cy, cx+80, cy)
@@ -256,6 +263,41 @@ func TestSVGPreview(t *testing.T) {
 	if v.zoom != 1.5 {
 		t.Fatalf("zoom %v", v.zoom)
 	}
+	a.run("image.zoomReset")
+
+	// Pinching zooms around the pointer, as far as the picture zooms.
+	box, ok := tt.Find("Preview logo.svg")
+	if !ok {
+		t.Fatal("no pane")
+	}
+	tt.Pinch(box.X+box.W/2, box.Y+box.H/2, 2)
+	hs.settle()
+	if v.zoom != 2 {
+		t.Fatalf("pinched to %v", v.zoom)
+	}
+	// Larger than the pane, the point under the pointer stays there.
+	v.zoomBy(0)
+	v.zoomAt(24, box.W/2, box.H/2, v.paneW, v.paneH)
+	px, py := box.W/2+20, box.H/2+10
+	before := v.place(v.paneW, v.paneH)
+	tt.Pinch(box.X+px, box.Y+py, 1.25)
+	hs.settle()
+	after := v.place(v.paneW, v.paneH)
+	if v.zoom != 30 ||
+		math.Abs(float64((px-after.X)-1.25*(px-before.X))) > 0.5 || math.Abs(float64((py-after.Y)-1.25*(py-before.Y))) > 0.5 {
+		t.Fatalf("pinched to %v, %+v to %+v", v.zoom, before, after)
+	}
+	tt.Pinch(box.X+px, box.Y+py, 1e6)
+	hs.settle()
+	if v.zoom != v.maxScale() {
+		t.Fatalf("pinched in to %v, past %v", v.zoom, v.maxScale())
+	}
+	tt.Pinch(box.X+px, box.Y+py, 1e-6)
+	hs.settle()
+	if v.zoom != zoomSteps[0] {
+		t.Fatalf("pinched out to %v", v.zoom)
+	}
+	a.run("image.zoomReset")
 
 	// The preview follows the text, saved or not.
 	snap := d.buf.Snapshot()

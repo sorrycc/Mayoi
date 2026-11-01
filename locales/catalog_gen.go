@@ -812,11 +812,11 @@ func (msgs Messages) ThemeAboutGrokBot() string {
 	return Catalog.Format(msgs.locale, "themeAboutGrokBot", nil)
 }
 
-// ThemeAboutMatrix says "Phosphor green, with digital rain"
+// ThemeAboutMatrix says "Green code in steel, with the White Rabbit"
 // in the language the app shows.
 func ThemeAboutMatrix() string { return In(i18n.Locale()).ThemeAboutMatrix() }
 
-// ThemeAboutMatrix says "Phosphor green, with digital rain"
+// ThemeAboutMatrix says "Green code in steel, with the White Rabbit"
 // in the language of msgs.
 func (msgs Messages) ThemeAboutMatrix() string {
 	return Catalog.Format(msgs.locale, "themeAboutMatrix", nil)

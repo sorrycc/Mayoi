@@ -33,8 +33,8 @@ https://github.com/user-attachments/assets/673e7907-2b2c-4ed6-9093-1ba9633cd61c
 - **Windows:** a window per folder or every folder in one window as project tabs, a welcome page with the recent
   folders and hosts, Open Recent (⌃R), and a `mayoi` shell command that opens files at a line, compares them, waits
   for them to close and runs any command
-- **Themes:** light and dark, The Matrix with digital rain, Purple Gold, the Halloween themes Jack-o'-Lantern, Witch's
-  Brew and Blood Moon, and Claude, Qoder, Grok Bot and Cursor, each in light and dark
+- **Themes:** light and dark, The Matrix with digital rain and the White Rabbit, Purple Gold, the Halloween themes
+  Jack-o'-Lantern, Witch's Brew and Blood Moon, and Claude, Qoder, Grok Bot and Cursor, each in light and dark
 - **Auto save,** and every window reopened as you left it, with its columns, tabs and carets
 - **Settings:** a settings window with search and a keyboard shortcuts editor, over JSON files applied as you save
   them, with the code's and the terminal's fonts, weight, ligatures and line height, keyboard shortcuts in VS Code's

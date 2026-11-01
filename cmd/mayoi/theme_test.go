@@ -42,6 +42,17 @@ func TestMatrixTheme(t *testing.T) {
 	if th := termTheme(matrixPal); th.Background != matrixPal.panel || th.Palette != matrixPal.ansi {
 		t.Error("the terminal's colors are not the palette's")
 	}
+	if themeMascotOf(themeMatrix) != rabbit {
+		t.Error("The Matrix has not the White Rabbit")
+	}
+	// The chrome is the real world's steel, the code the Matrix's green,
+	// and comments the steel of people's notes.
+	if matrixPal.chrome.G > matrixPal.chrome.B || matrixPal.editor.G <= matrixPal.editor.B {
+		t.Error("the chrome is not steel, or the editor not green")
+	}
+	if matrixPal.syntax[highlight.Comment] != matrixPal.muted {
+		t.Error("comments are not in the steel of the chrome")
+	}
 	// The icons of files are greens, not their languages' colors.
 	if _, c := fileIcon(a.pal, "main.go"); c != langColor(matrixPal, "#00add8", "") || c.G < c.R || c.G < c.B {
 		t.Errorf("a Go file's icon is %v, not a green", c)
@@ -346,7 +357,7 @@ func TestMascotMoves(t *testing.T) {
 		name  string
 	}{{themeClaude, clawd, "Claude"}, {themeQoder, qoduck, "Qoder"}, {themeGrokBot, grokBot, "Grok Bot"},
 		{themePumpkin, jack, "Jack-o'-Lantern"}, {themeWitchsBrew, cauldron, "Witch's Brew"}, {themeBloodMoon, bat, "Blood Moon"},
-		{themePurpleGold, corona, "Corona"}} {
+		{themePurpleGold, corona, "Corona"}, {themeMatrix, rabbit, "The White Rabbit"}} {
 		hs := themeHarness(t, tc.theme, true)
 		a := hs.a
 		if a.themeMascot() != tc.m {

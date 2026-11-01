@@ -234,79 +234,82 @@ func lightPalette() *palette {
 	return p
 }
 
-// matrixPalette is The Matrix: phosphor green on black, the code in
-// greens told apart by their brightness. What is removed or failed stays
-// red, and what is changed or found amber, so diffs and errors still
-// read.
+// matrixPalette is The Matrix in its two worlds: the chrome in the
+// gunmetal of the real one, and the code in the Matrix's greens, told
+// apart by their hues. Comments are people's notes, so they take the
+// real world's steel. Primary buttons take the red pill and what is
+// chosen the blue; what loses something takes the Sentinels' orange, so
+// that it is never taken for the red pill.
 func matrixPalette() *palette {
 	p := &palette{
 		dark:      true,
 		mono:      true,
-		editor:    ui.Hex("#050a06"),
-		chrome:    ui.Hex("#020503"),
-		panel:     ui.Hex("#040806"),
-		border:    ui.Hex("#0f2a16"),
-		hover:     ui.RGBA(0, 255, 65, 0.06),
-		active:    ui.RGBA(0, 255, 65, 0.14),
-		text:      ui.Hex("#4af07a"),
-		muted:     ui.Hex("#2a9d4c"),
-		faint:     ui.Hex("#1a5c2e"),
-		accent:    ui.Hex("#00ff41"),
-		accentDim: ui.RGBA(0, 255, 65, 0.5),
-		line:      ui.RGBA(0, 255, 65, 0.04),
-		selection: ui.RGBA(0, 255, 65, 0.22),
-		gutter:    ui.Hex("#1f6b36"),
-		gutterNow: ui.Hex("#6dff94"),
-		status:    ui.Hex("#020503"),
-		statusFg:  ui.Hex("#2a9d4c"),
-		modified:  ui.Hex("#d9b44a"),
-		danger:    ui.Hex("#ff4a5a"),
-		match:     ui.RGBA(217, 180, 74, 0.22),
-		matchNow:  ui.RGBA(217, 180, 74, 0.40),
-		matchRing: ui.RGBA(217, 180, 74, 0.85),
-		guide:     ui.RGBA(0, 255, 65, 0.07),
-		guideNow:  ui.RGBA(0, 255, 65, 0.25),
-		bracket:   ui.RGBA(0, 255, 65, 0.35),
-		word:      ui.RGBA(0, 255, 65, 0.09),
+		editor:    ui.Hex("#050d08"),
+		chrome:    ui.Hex("#0e1317"),
+		panel:     ui.Hex("#0c1215"),
+		border:    ui.Hex("#1f2930"),
+		hover:     ui.RGBA(180, 205, 220, 0.06),
+		active:    ui.RGBA(61, 123, 255, 0.16),
+		text:      ui.Hex("#cdd7de"),
+		muted:     ui.Hex("#8a9ba7"),
+		faint:     ui.Hex("#66767f"),
+		accent:    ui.Hex("#22e06b"),
+		accentDim: ui.RGBA(34, 224, 107, 0.5),
+		line:      ui.RGBA(34, 224, 107, 0.05),
+		selection: ui.RGBA(34, 224, 107, 0.22),
+		gutter:    ui.Hex("#3f8a58"),
+		gutterNow: ui.Hex("#b0f7c5"),
+		status:    ui.Hex("#0b1013"),
+		statusFg:  ui.Hex("#8a9ba7"),
+		modified:  ui.Hex("#e7b85a"),
+		danger:    ui.Hex("#ff8a3d"),
+		match:     ui.RGBA(231, 184, 90, 0.22),
+		matchNow:  ui.RGBA(231, 184, 90, 0.40),
+		matchRing: ui.RGBA(231, 184, 90, 0.85),
+		guide:     ui.RGBA(34, 224, 107, 0.07),
+		guideNow:  ui.RGBA(34, 224, 107, 0.25),
+		bracket:   ui.RGBA(34, 224, 107, 0.35),
+		word:      ui.RGBA(34, 224, 107, 0.10),
 		shadow:    ui.RGBA(0, 0, 0, 0.6),
-		added:     ui.Hex("#00d43a"),
-		changed:   ui.Hex("#3fd0b0"),
-		removed:   ui.Hex("#e0505e"),
-		// Black on the green, as a terminal's inverted text.
-		fill:           ui.Hex("#00d43a"),
-		fillText:       ui.Hex("#000000"),
-		dangerFill:     ui.Hex("#ff4a5a"),
+		added:     ui.Hex("#22e06b"),
+		changed:   ui.Hex("#4c8dff"),
+		removed:   ui.Hex("#ff5b6b"),
+		// The red pill, with white on it at 4.7:1.
+		fill:     ui.Hex("#d8323f"),
+		fillText: ui.Hex("#ffffff"),
+		// Black on the Sentinels' orange.
+		dangerFill:     ui.Hex("#ff8a3d"),
 		dangerText:     ui.Hex("#000000"),
-		surface:        ui.Hex("#08140b"),
-		surfaceHover:   ui.Hex("#0c1d10"),
-		surfacePressed: ui.Hex("#102615"),
-		scrollbar:      ui.RGBA(0, 255, 65, 0.2),
-		inverse:        ui.Hex("#0f2a16"),
-		inverseText:    ui.Hex("#8dffad"),
+		surface:        ui.Hex("#141b20"),
+		surfaceHover:   ui.Hex("#1a2329"),
+		surfacePressed: ui.Hex("#212b32"),
+		scrollbar:      ui.RGBA(180, 205, 220, 0.18),
+		inverse:        ui.Hex("#1f2930"),
+		inverseText:    ui.Hex("#e6edf1"),
 		ansi: [16]ui.Color{
-			ui.Hex("#0a1a0e"), ui.Hex("#e0505e"), ui.Hex("#00ff41"), ui.Hex("#d9b44a"),
-			ui.Hex("#2fbf8f"), ui.Hex("#8fd94a"), ui.Hex("#00ff9c"), ui.Hex("#4af07a"),
-			ui.Hex("#1f7a3a"), ui.Hex("#ff6b78"), ui.Hex("#6dff94"), ui.Hex("#f0d070"),
-			ui.Hex("#5fe8c4"), ui.Hex("#b0f070"), ui.Hex("#7dffcf"), ui.Hex("#c8ffd6"),
+			ui.Hex("#1a2228"), ui.Hex("#ff5b6b"), ui.Hex("#22e06b"), ui.Hex("#e7b85a"),
+			ui.Hex("#4c8dff"), ui.Hex("#c78bff"), ui.Hex("#4fe0c8"), ui.Hex("#cdd7de"),
+			ui.Hex("#66767f"), ui.Hex("#ff8590"), ui.Hex("#6dff9a"), ui.Hex("#f5d27f"),
+			ui.Hex("#7aa8ff"), ui.Hex("#d9a8ff"), ui.Hex("#7df0dc"), ui.Hex("#f2f6f8"),
 		},
 	}
-	p.fillHover, p.fillPressed = p.fill.Mix(white, 0.15), p.fill.Mix(black, 0.15)
+	p.fillHover, p.fillPressed = p.fill.Mix(white, 0.1), p.fill.Mix(black, 0.15)
 	s := &p.syntax
-	s[highlight.Plain] = p.text
-	s[highlight.Keyword] = ui.Hex("#b6ffc8")
-	s[highlight.Type] = ui.Hex("#00ff9c")
-	s[highlight.Function] = ui.Hex("#66ff8a")
-	s[highlight.String] = ui.Hex("#8fd94a")
-	s[highlight.Number] = ui.Hex("#c8ff5a")
-	s[highlight.Comment] = ui.Hex("#1f7a3a")
-	s[highlight.Operator] = ui.Hex("#3fbf63")
-	s[highlight.Punctuation] = ui.Hex("#2e8f4a")
-	s[highlight.Constant] = ui.Hex("#c8ff5a")
-	s[highlight.Builtin] = ui.Hex("#7dffcf")
-	s[highlight.Tag] = ui.Hex("#00ff9c")
-	s[highlight.Attribute] = ui.Hex("#8fd94a")
-	s[highlight.Variable] = ui.Hex("#5af58a")
-	s[highlight.Heading] = ui.Hex("#b6ffc8")
+	s[highlight.Plain] = ui.Hex("#b4ecc4")
+	s[highlight.Keyword] = ui.Hex("#e9fff0")
+	s[highlight.Type] = ui.Hex("#4fe0c8")
+	s[highlight.Function] = ui.Hex("#5cff8a")
+	s[highlight.String] = ui.Hex("#d2ec6a")
+	s[highlight.Number] = ui.Hex("#f0cc6a")
+	s[highlight.Comment] = p.muted
+	s[highlight.Operator] = ui.Hex("#62c482")
+	s[highlight.Punctuation] = ui.Hex("#56996a")
+	s[highlight.Constant] = ui.Hex("#f0cc6a")
+	s[highlight.Builtin] = ui.Hex("#8cc4ff")
+	s[highlight.Tag] = ui.Hex("#4fe0c8")
+	s[highlight.Attribute] = ui.Hex("#d2ec6a")
+	s[highlight.Variable] = ui.Hex("#b4ecc4")
+	s[highlight.Heading] = ui.Hex("#e9fff0")
 	s[highlight.Deleted] = p.removed
 	s[highlight.Inserted] = p.added
 	return p

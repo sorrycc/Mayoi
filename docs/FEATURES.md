@@ -683,9 +683,12 @@ for options it doesn't know. A `mayoi` command an older Mayoi installed is broug
 themes, Jack-o'-Lantern, Witch's Brew and Blood Moon, and apart from it whether the window follows the system's light or
 dark mode or is always Light or Dark. Light and Dark are greyed out under The Matrix, Purple Gold and the Halloween
 themes, which are always dark.
-The Matrix is phosphor green on black, with the whole window in the code's font, file icons in greens, and red and amber
-kept for what is removed, failed or changed. Digital rain falls behind the welcome page while the window has the
-keyboard, and holds still without it or when the system asks for reduced motion. Claude is Claude Code as it draws itself in a
+The Matrix is its two worlds: the sidebar, tabs, panels and status bar in the real world's gunmetal steel, and the code
+and the terminal in the Matrix's greens, each kind of code in a hue of its own and comments in the steel. The whole
+window is in the code's font, with file icons in greens. Primary buttons take the red pill and chosen rows the blue;
+buttons that lose something take the Sentinels' orange. Mirrored digital rain falls in two depths behind the welcome
+page while the window has the keyboard, and holds still without it or when the system asks for reduced motion. The
+White Rabbit, with red-pill eyes, takes the logo's place and the status bar's start, and hops while Git works. Claude is Claude Code as it draws itself in a
 terminal, in a light and a dark kind: the whole window in the code's font, as The Matrix is, warm near-black or
 off-white, Claude's orange for the accent and the buttons, with dark labels on them, and periwinkle for what is chosen,
 with errors and what is removed in Claude Code's rose, apart from the orange. The boxes over the window, as Quick

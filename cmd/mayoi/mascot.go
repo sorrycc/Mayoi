@@ -7,8 +7,8 @@ import (
 )
 
 // A theme's character, Clawd in Claude, Qoduck in Qoder, Grok Bot's face
-// in Grok Bot, and Jack, a cauldron and a bat in the Halloween themes,
-// takes the logo's place on the welcome page and sits at the start of the
+// in Grok Bot, the White Rabbit in The Matrix, and Jack, a cauldron and a
+// bat in the Halloween themes, takes the logo's place on the welcome page and sits at the start of the
 // status bar. It blinks now and then and bobs once in a while, and while Git or
 // search works in the background it hops, in place of the Git spinner.
 // Like the rain, it steps rather than glides, and holds still while the
@@ -35,6 +35,8 @@ var (
 	bat      = &mascot{name: "Blood Moon", size: batSize, draw: drawBat}
 
 	corona = &mascot{name: "Corona", size: coronaSize, draw: drawCorona}
+
+	rabbit = &mascot{name: "The White Rabbit", size: rabbitSize, draw: drawRabbit}
 )
 
 // themeMascot returns the character of the window's theme, or nil.
@@ -45,6 +47,8 @@ func (a *app) themeMascot() *mascot {
 // themeMascotOf returns the character of a theme of the settings, or nil.
 func themeMascotOf(theme string) *mascot {
 	switch theme {
+	case themeMatrix:
+		return rabbit
 	case themeClaude:
 		return clawd
 	case themeQoder:

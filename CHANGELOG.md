@@ -5,6 +5,11 @@ needs a `## <version>` section here, or its build fails.
 
 ## Unreleased
 
+- **View → Theme → The Matrix** puts the code's green inside steel chrome, like the film's real world.
+- The Matrix gives each kind of code its own hue, and shows comments in steel that reads at 6.9:1.
+- Under The Matrix, primary buttons are the red pill, chosen rows the blue, and Discard is orange.
+- The White Rabbit is The Matrix's character on the welcome page and in the status bar, hopping while Git runs.
+- The Matrix's digital rain is mirrored, as in the film, with a dimmer far layer behind it.
 - Mermaid diagrams copy as an image from their hover buttons or the opened diagram's header.
 - Mermaid diagrams export as PNG or SVG from their export button, in the colors of the current theme.
 - `.mmd` previews copy and export their diagram with **Copy Mermaid Diagram as Image** and the export commands.

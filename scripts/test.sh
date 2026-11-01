@@ -8,8 +8,8 @@
 # Usage: scripts/test.sh [-full]
 #   -full     also run the tests that start a shell (no -short)
 # JOBS=<n> sets the number of processes (default: the cores).
-# SHARD=<i>/<m> runs only the i-th of m shares of cmd/mayoi's tests (1-based),
-# and none of the other packages' unless i is 1, for a CI matrix.
+# SHARD=<i>/<m> runs only the i-th of m shares of cmd/mayoi's tests and of
+# the other packages (1-based), for a CI matrix.
 # RUN=<regexp> runs only cmd/mayoi's tests whose names match.
 # SLOWEST=<n> lists the n slowest of cmd/mayoi's tests at the end.
 set -euo pipefail
@@ -36,10 +36,12 @@ shards="${SHARD#*/}"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
-# The other packages, in the background while cmd/mayoi builds.
+# The other packages of this shard, every m-th from the i-th, in the
+# background while cmd/mayoi builds.
 others=
-if [ "$shard" = 1 ]; then
-    go list ./... | grep -v '^mayoi/cmd/mayoi$' > "$TMP/packages"
+go list ./... | grep -v '^mayoi/cmd/mayoi$' |
+    awk -v s="$shard" -v m="$shards" '(NR - 1) % m == s - 1' > "$TMP/packages"
+if [ -s "$TMP/packages" ]; then
     # shellcheck disable=SC2046
     go test $SHORT -timeout 30m $(cat "$TMP/packages") > "$TMP/others.log" 2>&1 &
     others=$!

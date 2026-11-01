@@ -287,7 +287,9 @@ func TestQoderTheme(t *testing.T) {
 
 	for _, theme := range []string{themeQoder, ""} {
 		hs := themeHarness(t, theme, false)
-		hs.a.togglePanel()
+		// The panel without a terminal: a shell started in the folder
+		// holds it on Windows, which then cannot remove it.
+		hs.a.window.PanelOpen = true
 		hs.settle()
 		capitals := hs.tt.HasText("EXPLORER") && hs.tt.HasText("TERMINAL")
 		if capitals != (theme == "") {

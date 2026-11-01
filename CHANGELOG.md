@@ -5,6 +5,9 @@ needs a `## <version>` section here, or its build fails.
 
 ## Unreleased
 
+- Mermaid diagrams copy as an image from their hover buttons or the opened diagram's header.
+- Mermaid diagrams export as PNG or SVG from their export button, in the colors of the current theme.
+- `.mmd` previews copy and export their diagram with **Copy Mermaid Diagram as Image** and the export commands.
 - Pinching a touchpad zooms images, SVG and Mermaid previews, and opened diagrams around the pointer.
 - On Windows, Ctrl with two-finger scrolling now zooms a picture instead of doing nothing.
 - **View → Theme → Claude** now looks like Claude Code in a terminal, with the whole window in the code's font.

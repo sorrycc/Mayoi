@@ -115,6 +115,7 @@ func (a *app) diagramOverlayView(c *ui.Context) {
 						a.services.WriteClipboard(markdownRunsText(b.runs))
 						a.tell(note{message: locales.CopiedCode()})
 					}
+					a.diagramButtons(c, b.diagram, o.from.doc, a.diagramNumber(o.from, b.line))
 					if a.smallButton(c, iconX, locales.CloseDiagram()) {
 						a.diagram = nil
 					}

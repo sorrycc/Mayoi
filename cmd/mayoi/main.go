@@ -132,6 +132,18 @@ func (h *desktop) saveAs(name string, done func(string)) {
 	}()
 }
 
+func (h *desktop) exportAs(path, ext string, done func(string)) {
+	go func() {
+		path, err := mygo.Dialog.Save(mygo.SaveDialogOptions{
+			Parent: h.f.win, Title: locales.DialogExport(), DefaultPath: path, CreateDirectories: true,
+			Filters: []mygo.FileFilter{{Name: strings.ToUpper(ext), Extensions: []string{ext}}},
+		})
+		if err == nil && path != "" {
+			h.a.post(func() { done(path) })
+		}
+	}()
+}
+
 func (h *desktop) confirmClose(name string, done func(int)) {
 	go func() {
 		res, err := mygo.Dialog.Message(mygo.MessageOptions{
@@ -165,7 +177,8 @@ func (h *desktop) clipboardFiles() []string {
 	paths, _ := mygo.Clipboard.ReadFiles()
 	return paths
 }
-func (h *desktop) clipboardImage() []byte { return mygo.Clipboard.ReadImage() }
+func (h *desktop) clipboardImage() []byte     { return mygo.Clipboard.ReadImage() }
+func (h *desktop) copyImage(png []byte) error { return mygo.Clipboard.WriteImage(png) }
 
 // setTitle titles the window, while it shows the project.
 func (h *desktop) setTitle(title string) {

@@ -3516,6 +3516,136 @@ func (msgs Messages) CmdImageZoomReset() string {
 	return Catalog.Format(msgs.locale, "cmdImageZoomReset", nil)
 }
 
+// CmdMermaidCopyImage says "Copy Mermaid Diagram as Image"
+// in the language the app shows.
+func CmdMermaidCopyImage() string { return In(i18n.Locale()).CmdMermaidCopyImage() }
+
+// CmdMermaidCopyImage says "Copy Mermaid Diagram as Image"
+// in the language of msgs.
+func (msgs Messages) CmdMermaidCopyImage() string {
+	return Catalog.Format(msgs.locale, "cmdMermaidCopyImage", nil)
+}
+
+// CmdMermaidExportPNG says "Export Mermaid Diagram as PNG"
+// in the language the app shows.
+func CmdMermaidExportPNG() string { return In(i18n.Locale()).CmdMermaidExportPNG() }
+
+// CmdMermaidExportPNG says "Export Mermaid Diagram as PNG"
+// in the language of msgs.
+func (msgs Messages) CmdMermaidExportPNG() string {
+	return Catalog.Format(msgs.locale, "cmdMermaidExportPNG", nil)
+}
+
+// CmdMermaidExportSVG says "Export Mermaid Diagram as SVG"
+// in the language the app shows.
+func CmdMermaidExportSVG() string { return In(i18n.Locale()).CmdMermaidExportSVG() }
+
+// CmdMermaidExportSVG says "Export Mermaid Diagram as SVG"
+// in the language of msgs.
+func (msgs Messages) CmdMermaidExportSVG() string {
+	return Catalog.Format(msgs.locale, "cmdMermaidExportSVG", nil)
+}
+
+// CopyAsImage says "Copy as Image"
+// in the language the app shows.
+func CopyAsImage() string { return In(i18n.Locale()).CopyAsImage() }
+
+// CopyAsImage says "Copy as Image"
+// in the language of msgs.
+func (msgs Messages) CopyAsImage() string {
+	return Catalog.Format(msgs.locale, "copyAsImage", nil)
+}
+
+// CopiedDiagramImage says "Copied the diagram as an image"
+// in the language the app shows.
+func CopiedDiagramImage() string { return In(i18n.Locale()).CopiedDiagramImage() }
+
+// CopiedDiagramImage says "Copied the diagram as an image"
+// in the language of msgs.
+func (msgs Messages) CopiedDiagramImage() string {
+	return Catalog.Format(msgs.locale, "copiedDiagramImage", nil)
+}
+
+// ExportDiagram says "Export Diagram"
+// in the language the app shows.
+func ExportDiagram() string { return In(i18n.Locale()).ExportDiagram() }
+
+// ExportDiagram says "Export Diagram"
+// in the language of msgs.
+func (msgs Messages) ExportDiagram() string {
+	return Catalog.Format(msgs.locale, "exportDiagram", nil)
+}
+
+// ExportPNG says "Export as PNG…"
+// in the language the app shows.
+func ExportPNG() string { return In(i18n.Locale()).ExportPNG() }
+
+// ExportPNG says "Export as PNG…"
+// in the language of msgs.
+func (msgs Messages) ExportPNG() string {
+	return Catalog.Format(msgs.locale, "exportPNG", nil)
+}
+
+// ExportSVG says "Export as SVG…"
+// in the language the app shows.
+func ExportSVG() string { return In(i18n.Locale()).ExportSVG() }
+
+// ExportSVG says "Export as SVG…"
+// in the language of msgs.
+func (msgs Messages) ExportSVG() string {
+	return Catalog.Format(msgs.locale, "exportSVG", nil)
+}
+
+// ExportedDiagram says "Exported {name}"
+// in the language the app shows.
+func ExportedDiagram(name string) string { return In(i18n.Locale()).ExportedDiagram(name) }
+
+// ExportedDiagram says "Exported {name}"
+// in the language of msgs.
+func (msgs Messages) ExportedDiagram(name string) string {
+	return Catalog.Format(msgs.locale, "exportedDiagram", map[string]any{"name": name})
+}
+
+// ErrCopyDiagram says "Cannot copy the diagram: {err}"
+// in the language the app shows.
+func ErrCopyDiagram(err string) string { return In(i18n.Locale()).ErrCopyDiagram(err) }
+
+// ErrCopyDiagram says "Cannot copy the diagram: {err}"
+// in the language of msgs.
+func (msgs Messages) ErrCopyDiagram(err string) string {
+	return Catalog.Format(msgs.locale, "errCopyDiagram", map[string]any{"err": err})
+}
+
+// ErrExportDiagram says "Cannot export the diagram: {err}"
+// in the language the app shows.
+func ErrExportDiagram(err string) string { return In(i18n.Locale()).ErrExportDiagram(err) }
+
+// ErrExportDiagram says "Cannot export the diagram: {err}"
+// in the language of msgs.
+func (msgs Messages) ErrExportDiagram(err string) string {
+	return Catalog.Format(msgs.locale, "errExportDiagram", map[string]any{"err": err})
+}
+
+// NoDiagramShown says "No Mermaid diagram is shown"
+// in the language the app shows.
+func NoDiagramShown() string { return In(i18n.Locale()).NoDiagramShown() }
+
+// NoDiagramShown says "No Mermaid diagram is shown"
+// in the language of msgs.
+func (msgs Messages) NoDiagramShown() string {
+	return Catalog.Format(msgs.locale, "noDiagramShown", nil)
+}
+
+// DialogExport says "Export"
+// in the language the app shows.
+func DialogExport() string { return In(i18n.Locale()).DialogExport() }
+
+// DialogExport says "Export"
+// in the language of msgs.
+func (msgs Messages) DialogExport() string {
+	return Catalog.Format(msgs.locale, "dialogExport", nil)
+}
+
 // CollapseFolders says "Collapse Folders"
 // in the language the app shows.
 func CollapseFolders() string { return In(i18n.Locale()).CollapseFolders() }

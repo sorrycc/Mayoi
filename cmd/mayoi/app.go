@@ -43,8 +43,13 @@ type host interface {
 	// and clipboardFiles are the local files the clipboard has.
 	copyFiles(paths []string) error
 	clipboardFiles() []string
-	// clipboardImage is the image the clipboard has, as PNG, or nil.
+	// clipboardImage is the image the clipboard has, as PNG, or nil, and
+	// copyImage puts a PNG on it.
 	clipboardImage() []byte
+	copyImage(png []byte) error
+	// exportAs asks where to save a file of the type of ext, at path
+	// first.
+	exportAs(path, ext string, done func(path string))
 	// choosePaths asks in the native dialog for files, or for a folder
 	// when folders is set, starting in dir.
 	choosePaths(title, button, dir string, folders bool, done func(paths []string))

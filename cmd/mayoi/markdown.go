@@ -1851,6 +1851,7 @@ func (a *app) markdownDiagram(c *ui.Context, v *viewer, b markdownBlock, size, w
 				a.services.WriteClipboard(markdownRunsText(b.runs))
 				a.tell(note{message: locales.CopiedCode()})
 			}
+			a.diagramButtons(c, d, v.doc, a.diagramNumber(v, b.line))
 		})
 	})
 }

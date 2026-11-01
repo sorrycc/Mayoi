@@ -104,6 +104,10 @@ type mermaidDiagram struct {
 	tiles  []mermaidTile
 	w, h   float32
 	labels []mermaidLabel
+	// shapes is the SVG svg draws, and style what the diagram was drawn
+	// in, which its copies as an image and its exports draw it from.
+	shapes []byte
+	style  mermaidStyle
 	// err is why the diagram could not be drawn, "" when it was.
 	err string
 	// shaped are the labels shaped at scale, the scale the diagram was
@@ -280,7 +284,7 @@ func renderMermaid(source string, st mermaidStyle) *mermaidDiagram {
 	if err != nil {
 		return &mermaidDiagram{err: err.Error()}
 	}
-	d := &mermaidDiagram{svg: s}
+	d := &mermaidDiagram{svg: s, shapes: shapes, style: st}
 	if d.w, d.h = s.Size(); d.w <= 0 || d.h <= 0 {
 		return &mermaidDiagram{err: locales.ErrSVGNoSize()}
 	}

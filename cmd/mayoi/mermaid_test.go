@@ -1,9 +1,14 @@
 package main
 
 import (
+	"bytes"
+	"encoding/xml"
 	"fmt"
+	"image/png"
+	"io"
 	"math"
 	"os"
+	"slices"
 	"strings"
 	"testing"
 
@@ -254,6 +259,72 @@ func TestMermaidFilePreview(t *testing.T) {
 	if d.preview.err != "" {
 		t.Fatal(d.preview.err)
 	}
+
+	// It copies as an image, and exports as PNG and SVG.
+	hs.until("drawn", func() bool { return d.preview.diagram != nil && !d.preview.drawing && d.preview.wait == nil })
+	a.run("mermaid.copyImage")
+	if !bytes.HasPrefix(hs.h.image, []byte("\x89PNG")) {
+		t.Fatalf("copied %d bytes, not a PNG", len(hs.h.image))
+	}
+	for _, ext := range []string{"png", "svg"} {
+		hs.h.saveTo = hs.path("out." + ext)
+		a.run("mermaid.export" + strings.ToUpper(ext))
+		if !slices.Contains(hs.h.asked, "export flow."+ext) {
+			t.Errorf("asked %q", hs.h.asked)
+		}
+		if b, err := os.ReadFile(hs.h.saveTo); err != nil || len(b) == 0 {
+			t.Errorf("exported %s: %v", ext, err)
+		}
+	}
+}
+
+// TestMermaidExport: a diagram copied or exported is drawn as it shows,
+// on the theme's background, its SVG whole, with its labels as text.
+func TestMermaidExport(t *testing.T) {
+	st := testMermaidStyle()
+	d := renderMermaid("flowchart LR\nA[Start] --> B{Ok?}\nB -- yes --> C[Done]\nstyle C fill:#fff", st)
+	if d.err != "" {
+		t.Fatal(d.err)
+	}
+	b, err := d.png()
+	if err != nil {
+		t.Fatal(err)
+	}
+	img, err := png.Decode(bytes.NewReader(b))
+	if err != nil {
+		t.Fatal(err)
+	}
+	w, h := int(math.Ceil(float64(d.w+2*mermaidExportPad))), int(math.Ceil(float64(d.h+2*mermaidExportPad)))
+	if got := img.Bounds().Size(); got.X != w*mermaidExportScale || got.Y != h*mermaidExportScale {
+		t.Fatalf("PNG %v, want %dx%d", got, w*mermaidExportScale, h*mermaidExportScale)
+	}
+	if r, g, bl, _ := img.At(1, 1).RGBA(); uint8(r>>8) != st.bg.R || uint8(g>>8) != st.bg.G || uint8(bl>>8) != st.bg.B {
+		t.Errorf("corner %v, want the background %v", img.At(1, 1), st.bg)
+	}
+	svg := string(d.exportSVG())
+	for _, want := range []string{">Start</text>", ">Done</text>", `fill="` + hexColor(st.bg) + `"`} {
+		if !strings.Contains(svg, want) {
+			t.Errorf("SVG has no %s", want)
+		}
+	}
+	if strings.Contains(svg, "var(") {
+		t.Error("SVG keeps CSS variables")
+	}
+	// Done's label reads on its white fill in the dark theme.
+	if !strings.Contains(svg, `fill="`+hexColor(st.bg)+`">Done</text>`) {
+		t.Errorf("Done drawn in another color than the background: %s", svg)
+	}
+	if _, err := ui.ParseSVG([]byte(svg)); err != nil {
+		t.Errorf("SVG does not parse: %v", err)
+	}
+	dec := xml.NewDecoder(strings.NewReader(svg))
+	for {
+		if _, err := dec.Token(); err == io.EOF {
+			break
+		} else if err != nil {
+			t.Fatalf("SVG is not XML: %v", err)
+		}
+	}
 }
 
 // TestMermaidOverlay: a diagram of a Markdown preview opens over the
@@ -285,6 +356,16 @@ func TestMermaidOverlay(t *testing.T) {
 		t.Fatal("the diagram did not open over the window")
 	}
 	hs.shot("mermaid-overlay")
+	if !hs.tt.HasText(locales.ExportDiagram()) {
+		t.Error("the overlay has no export button")
+	}
+	if err := hs.tt.Click(locales.CopyAsImage()); err != nil {
+		t.Fatal(err)
+	}
+	hs.settle()
+	if !bytes.HasPrefix(hs.h.image, []byte("\x89PNG")) {
+		t.Fatalf("copied %d bytes, not a PNG", len(hs.h.image))
+	}
 	if o.view.zoom != 0 {
 		t.Fatalf("opened at zoom %v, not fitted", o.view.zoom)
 	}

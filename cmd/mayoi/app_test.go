@@ -86,6 +86,16 @@ func (h *fakeHost) copyFiles(paths []string) error {
 }
 func (h *fakeHost) clipboardFiles() []string { return h.clipboard }
 func (h *fakeHost) clipboardImage() []byte   { return h.image }
+func (h *fakeHost) copyImage(png []byte) error {
+	h.image = png
+	return nil
+}
+func (h *fakeHost) exportAs(path, _ string, done func(string)) {
+	h.asked = append(h.asked, "export "+filepath.Base(path))
+	if h.saveTo != "" {
+		done(h.saveTo)
+	}
+}
 func (h *fakeHost) choosePaths(title, _, _ string, _ bool, done func([]string)) {
 	h.asked = append(h.asked, title)
 	if len(h.chosen) > 0 {

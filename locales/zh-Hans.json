@@ -1058,6 +1058,7 @@
   "searchFirstResults": "{files} 个文件中的前 {n} 个结果",
   "searchHintFind": "在文件夹的文件中查找文本。",
   "searchHintOpen": "打开匹配项",
+  "searchHintPrev": "转到上一个结果",
   "searchHintResults": "转到结果",
   "searchIncludeExample": "例如 *.go, src/**",
   "searchMatchChanged": "自搜索以来匹配项已更改，请重新搜索",

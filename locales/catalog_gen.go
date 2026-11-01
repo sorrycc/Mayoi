@@ -11038,6 +11038,16 @@ func (msgs Messages) SearchHintOpen() string {
 	return Catalog.Format(msgs.locale, "searchHintOpen", nil)
 }
 
+// SearchHintPrev says "Go to the previous result"
+// in the language the app shows.
+func SearchHintPrev() string { return In(i18n.Locale()).SearchHintPrev() }
+
+// SearchHintPrev says "Go to the previous result"
+// in the language of msgs.
+func (msgs Messages) SearchHintPrev() string {
+	return Catalog.Format(msgs.locale, "searchHintPrev", nil)
+}
+
 // SearchHintResults says "Go to the results"
 // in the language the app shows.
 func SearchHintResults() string { return In(i18n.Locale()).SearchHintResults() }

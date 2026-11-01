@@ -52,6 +52,9 @@ func TestTerminalFind(t *testing.T) {
 	was := s.found.Selected
 	tt.Key(0, ui.KeyEnter)
 	until("Return went to another match", func() bool { return s.found.Selected != was })
+	was = s.found.Selected
+	tt.Key(ui.Shift, ui.KeyEnter)
+	until("Shift+Return went back", func() bool { return s.found.Selected != was && s.findBack })
 
 	tt.Key(0, ui.KeyEscape)
 	hs.settle()

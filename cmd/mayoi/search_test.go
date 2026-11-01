@@ -380,6 +380,42 @@ func TestSearchViewWalkResults(t *testing.T) {
 	}
 }
 
+// Shift+Return in the query goes back through the matches from the last,
+// leaving the keyboard in the query.
+func TestSearchQueryShiftEnterGoesBack(t *testing.T) {
+	hs := newHarness(t, true)
+	a, tt := hs.a, hs.tt
+	os.WriteFile(hs.path("n0.txt"), []byte("needle 1\nneedle 2\n"), 0o644)
+	os.WriteFile(hs.path("n1.txt"), []byte("needle 3\n"), 0o644)
+	a.indexStale = true
+	hs.searchFor("needle")
+	s := &a.inFiles
+	rows := a.searchRows()
+	var want []int
+	for i, r := range rows {
+		if r.match >= 0 {
+			want = append(want, i)
+		}
+	}
+	if len(want) != 3 {
+		t.Fatalf("%d matches in %d rows", len(want), len(rows))
+	}
+	for _, row := range []int{want[2], want[1], want[0], want[2]} {
+		tt.Key(ui.Shift, ui.KeyEnter)
+		hs.settle()
+		if s.row != row {
+			t.Fatalf("Shift+Return chose row %d; want %d", s.row, row)
+		}
+	}
+	if !tt.Focused("Search") {
+		t.Error("Shift+Return took the keyboard from the query")
+	}
+	d := a.activeEditor()
+	if d == nil || d.path != hs.path("n1.txt") {
+		t.Error("the last match is not in the preview")
+	}
+}
+
 // A query ignoring case finds what its expression finds, without it.
 func TestFoldQueryMatchesAsRegexp(t *testing.T) {
 	texts := []string{

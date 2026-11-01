@@ -848,7 +848,11 @@ func (a *app) searchView(c *ui.Context) {
 					a.optionToggle(c, iconRegex, locales.FindRegex(), &s.regex)
 				})
 				if in.Submitted() {
-					a.startSearch()
+					if in.SubmittedMods()&ui.Shift != 0 {
+						a.searchStepBack()
+					} else {
+						a.startSearch()
+					}
 				}
 				if in.Shortcut(0, ui.KeyDown) && len(s.files) > 0 {
 					s.row = min(1, len(a.searchRows())-1)
@@ -1014,6 +1018,35 @@ func (a *app) searchResults(c *ui.Context) {
 	}
 }
 
+// searchStepBack chooses the match before the one chosen in the results,
+// the last from the first or from none, and shows it in the preview tab,
+// leaving the keyboard in the query. Results not of the query yet are
+// searched for anew instead, as Enter does; a search under way is gone
+// back through as far as it has found.
+func (a *app) searchStepBack() {
+	s := &a.inFiles
+	rows := a.searchRows()
+	if s.waiting || s.key != s.searchKey() || s.re == nil && !s.running {
+		a.startSearch()
+		return
+	}
+	if firstMatchRow(rows) < 0 {
+		return
+	}
+	i := min(s.row, len(rows))
+	for {
+		if i--; i < 0 {
+			i = len(rows) - 1
+		}
+		if rows[i].match >= 0 {
+			break
+		}
+	}
+	s.row = i
+	s.list.ScrollIntoView(i)
+	a.previewRow()
+}
+
 // previewRow shows the match of the row chosen in the results in the
 // preview tab.
 func (a *app) previewRow() {
@@ -1032,7 +1065,7 @@ func (a *app) searchHint(c *ui.Context) {
 	p := a.pal
 	ui.Column(c).Padding(10, 14, 0, 26).Gap(6).Children(func() {
 		ui.Text(c, locales.SearchHintFind()).FontSize(12).TextColor(p.muted)
-		for _, k := range [][2]string{{"↓", locales.SearchHintResults()}, {"⏎", locales.SearchHintOpen()}, {a.keyHint("edit.replaceInFiles"), locales.FindReplace()}} {
+		for _, k := range [][2]string{{"↓", locales.SearchHintResults()}, {"⏎", locales.SearchHintOpen()}, {"⇧⏎", locales.SearchHintPrev()}, {a.keyHint("edit.replaceInFiles"), locales.FindReplace()}} {
 			ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
 				ui.Text(c, k[0]).FontSize(11).TextColor(p.muted).Padding(0, 5).Radius(4).Background(p.hover).MinWidth(22).
 					TextAlign(ui.Center)

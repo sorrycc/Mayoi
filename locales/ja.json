@@ -1058,6 +1058,7 @@
   "searchFirstResults": "{files} 個のファイル内の最初の {n} 件の結果",
   "searchHintFind": "フォルダー内のファイルからテキストを検索します。",
   "searchHintOpen": "一致項目を開く",
+  "searchHintPrev": "前の結果へ移動",
   "searchHintResults": "結果へ移動",
   "searchIncludeExample": "例: *.go, src/**",
   "searchMatchChanged": "検索後に一致項目が変更されました。もう一度検索してください",

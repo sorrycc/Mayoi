@@ -1317,6 +1317,7 @@
   "searchFirstResults": "The first {n} results in {files, plural, one {# file} other {# files}}",
   "searchHintFind": "Find text in the folder's files.",
   "searchHintOpen": "Open the match",
+  "searchHintPrev": "Go to the previous result",
   "searchHintResults": "Go to the results",
   "searchIncludeExample": "e.g. *.go, src/**",
   "searchMatchChanged": "The match changed since the search; search again",

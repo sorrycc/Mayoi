@@ -21,6 +21,9 @@ needs a `## <version>` section here, or its build fails.
 - In the terminal's find bar, `Return` goes to the match above and `Shift+Return` to the one below.
 - On Linux and Windows, `Ctrl+F` in a terminal opens find instead of reaching the shell.
 - Under Purple Gold, the welcome page drops the mosaic apse and arch and matches the other themes.
+- In the find bar, `Shift+Return` now goes to the previous match instead of the next one.
+- In the find bar's replace field, `Shift+Return` replaces the match and goes back to the one before it.
+- In **Search**, `Shift+Return` in the query selects and previews the previous result, wrapping to the last.
 
 ## 0.16.1
 

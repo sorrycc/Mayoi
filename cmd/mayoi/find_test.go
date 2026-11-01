@@ -1,6 +1,7 @@
 package main
 
 import (
+	"os"
 	"testing"
 
 	"github.com/egoist/mygo/i18n"
@@ -65,5 +66,57 @@ func TestFindRevealsAMatchUnderItsBox(t *testing.T) {
 		if top := view.Y + editorPadY + g.top(line) - d.vscroll.Y; top < box.Y+box.H {
 			t.Errorf("wrap %v: the match at %v is under the find box down to %v, scrolled from %v to %v", wrap, top, box.Y+box.H, y, d.vscroll.Y)
 		}
+	}
+}
+
+// TestFindShiftEnterGoesBack: Return goes to the next match and
+// Shift+Return to the one before, wrapping; in the replace field
+// Shift+Return replaces the match and goes to the one before it.
+func TestFindShiftEnterGoesBack(t *testing.T) {
+	hs := newHarness(t, true)
+	a, tt := hs.a, hs.tt
+	p := hs.path("many.txt")
+	if err := os.WriteFile(p, []byte("a x\nb x\nc x\nd x\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	a.openFile(p, true)
+	hs.settle()
+	a.run("edit.replace")
+	hs.settle()
+	tt.Type("x")
+	hs.settle()
+	f := &a.find
+	if len(f.matches) != 4 {
+		t.Fatalf("%d matches", len(f.matches))
+	}
+	f.cur = 1
+	tt.Key(0, ui.KeyEnter)
+	hs.settle()
+	if f.cur != 2 {
+		t.Fatalf("Return went to match %d; want 2", f.cur)
+	}
+	tt.Key(ui.Shift, ui.KeyEnter)
+	hs.settle()
+	if f.cur != 1 {
+		t.Fatalf("Shift+Return went to match %d; want 1", f.cur)
+	}
+	tt.Key(ui.Shift, ui.KeyEnter)
+	tt.Key(ui.Shift, ui.KeyEnter)
+	hs.settle()
+	if f.cur != 3 {
+		t.Fatalf("Shift+Return from the first went to match %d; want the last", f.cur)
+	}
+
+	tt.Click(locales.FindReplace())
+	tt.Type("y")
+	hs.settle()
+	tt.Key(ui.Shift, ui.KeyEnter)
+	hs.settle()
+	d := a.activeEditor()
+	if got := d.buf.Snapshot().Slice(0, d.buf.Snapshot().Len()); got != "a x\nb x\nc x\nd y\n" {
+		t.Fatalf("Shift+Return replaced to %q", got)
+	}
+	if f.cur != 2 {
+		t.Errorf("Shift+Return after replacing went to match %d; want 2", f.cur)
 	}
 }

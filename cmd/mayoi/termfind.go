@@ -86,13 +86,11 @@ func (a *app) termFindView(c *ui.Context, s *session) {
 			if in.Changed() {
 				s.term.Search(s.findQuery)
 			}
-			if in.Shortcut(ui.Shift, ui.KeyEnter) {
-				a.termFindStep(s, -1)
-			} else if in.Submitted() {
+			if in.Submitted() {
 				if none {
 					s.findShook = c.Now()
 				}
-				a.termFindStep(s, 1)
+				a.termFindStep(s, enterStep(in))
 			}
 		})
 		col := p.muted

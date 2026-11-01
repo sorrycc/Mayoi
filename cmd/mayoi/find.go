@@ -254,8 +254,9 @@ func (a *app) step(d *editor, by int) {
 	f.reveal, f.back = true, by < 0
 }
 
-// replaceOne replaces the current match, and goes to the next.
-func (a *app) replaceOne(d *editor) {
+// replaceOne replaces the current match, and goes to the next, or with by
+// negative to the one before it.
+func (a *app) replaceOne(d *editor, by int) {
 	f := &a.find
 	a.search(d)
 	if f.cur < 0 || f.cur >= len(f.matches) || f.re == nil {
@@ -268,12 +269,21 @@ func (a *app) replaceOne(d *editor) {
 	d.edit([2]int{end, end}, textEdit{m[0], m[1], with})
 	a.search(d)
 	if f.cur >= 0 {
-		// The next match is the one after the text put in.
-		f.cur = sort.Search(len(f.matches), func(i int) bool { return f.matches[i][0] >= end })
-		if f.cur == len(f.matches) {
-			f.cur = min(0, len(f.matches)-1)
+		if by < 0 {
+			// The previous match is the last before the text put in.
+			f.cur = sort.Search(len(f.matches), func(i int) bool { return f.matches[i][0] >= m[0] }) - 1
+			if f.cur < 0 {
+				f.cur = len(f.matches) - 1
+			}
+		} else {
+			// The next match is the one after the text put in.
+			f.cur = sort.Search(len(f.matches), func(i int) bool { return f.matches[i][0] >= end })
+			if f.cur == len(f.matches) {
+				f.cur = min(0, len(f.matches)-1)
+			}
 		}
 		f.reveal = f.cur >= 0
+		f.back = by < 0
 	}
 }
 
@@ -391,20 +401,21 @@ func (a *app) findView(c *ui.Context, d *editor) {
 	a.findBoxView(c, findBox{
 		n: len(f.matches), cur: f.cur, err: f.err,
 		step:       func(by int) { a.step(d, by) },
-		replaceOne: func() { a.replaceOne(d) },
+		replaceOne: func(by int) { a.replaceOne(d, by) },
 		replaceAll: func() { a.replaceAll(d) },
 	})
 }
 
 // findBox is what the find widget finds in: its n matches, cur the
 // current one, err why the query is invalid, step going to the match by
-// after, and replaceOne and replaceAll, nil for text that cannot be
-// replaced.
+// after, and replaceOne, going on by after, and replaceAll, nil for text
+// that cannot be replaced.
 type findBox struct {
-	n, cur                 int
-	err                    string
-	step                   func(by int)
-	replaceOne, replaceAll func()
+	n, cur     int
+	err        string
+	step       func(by int)
+	replaceOne func(by int)
+	replaceAll func()
 }
 
 // findBoxView is the find widget of b, over the top right of the column.
@@ -444,13 +455,12 @@ func (a *app) findBoxView(c *ui.Context, b findBox) {
 				if in.Changed() {
 					f.stale = true
 				}
-				if in.Shortcut(ui.Shift, ui.KeyEnter) {
-					b.step(-1)
-				} else if in.Submitted() {
+				// The input keeps Enter, Shift or not, so no Shortcut sees it.
+				if in.Submitted() {
 					if b.n == 0 && f.query != "" {
 						f.shook = c.Now()
 					}
-					b.step(1)
+					b.step(enterStep(in))
 				}
 				toggle(iconCase, locales.FindMatchCase(), &f.matchCase)
 				toggle(iconWord, locales.FindWholeWord(), &f.word)
@@ -496,11 +506,11 @@ func (a *app) findBoxView(c *ui.Context, b findBox) {
 					field.Border(1, p.accentDim)
 				}
 				if in.Submitted() {
-					b.replaceOne()
+					b.replaceOne(enterStep(in))
 				}
 			})
 			if a.iconButton(c, iconReplace, locales.FindReplaceOne(), false).Disabled(b.n == 0).Clicked() {
-				b.replaceOne()
+				b.replaceOne(1)
 			}
 			if a.iconButton(c, iconReplaceAll, locales.FindReplaceAll(), false).Disabled(b.n == 0).Clicked() {
 				b.replaceAll()
@@ -513,6 +523,15 @@ func (a *app) findBoxView(c *ui.Context, b findBox) {
 	if box.OverlayShortcut(0, ui.KeyEscape) || box.Shortcut(0, ui.KeyEscape) {
 		a.closeFind()
 	}
+}
+
+// enterStep is which way the Enter submitting in goes: back to the
+// previous match with Shift, else on to the next.
+func enterStep(in ui.Element) int {
+	if in.SubmittedMods()&ui.Shift != 0 {
+		return -1
+	}
+	return 1
 }
 
 // optionToggle is a button of an option of find or search, as Match

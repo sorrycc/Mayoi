@@ -3,7 +3,7 @@
 The update window shows the section of the version it offers. Every release
 needs a `## <version>` section here, or its build fails.
 
-## Unreleased
+## 0.16.2
 
 - **View → Theme → The Matrix** puts the code's green inside steel chrome, like the film's real world.
 - The Matrix gives each kind of code its own hue, and shows comments in steel that reads at 6.9:1.

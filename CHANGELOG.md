@@ -11,6 +11,7 @@ needs a `## <version>` section here, or its build fails.
 - Typing in a terminal clears the mark of a program's finished or failed work.
 - **Rename Active File…** in the command palette renames the current tab's file, bindable as `file.rename`.
 - Opening a file from outside the folder clears the selection in the Explorer.
+- Splitting a Markdown preview to the right keeps it a preview, scrolled to the same place.
 
 ## 0.16.2
 

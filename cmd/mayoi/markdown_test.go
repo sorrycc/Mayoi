@@ -1668,3 +1668,57 @@ func TestMarkdownSpansHighlight(t *testing.T) {
 		t.Fatalf("spans %q, want %q", got, want)
 	}
 }
+
+func TestMarkdownSplitKeepsPreviewPlace(t *testing.T) {
+	for _, side := range []bool{false, true} {
+		name := "in place"
+		if side {
+			name = "to the side"
+		}
+		t.Run(name, func(t *testing.T) {
+			hs := newHarness(t, true)
+			a := hs.a
+			os.WriteFile(hs.path("sync.md"), []byte(markdownSyncDoc()), 0o644)
+			a.openFile(hs.path("sync.md"), true)
+			hs.settle()
+			d := a.activeEditor()
+			if side {
+				a.run("view.previewToSide")
+				d = a.cols[1].tab().ed
+				a.activate(a.cols[1], 0, true)
+			} else {
+				a.run("view.togglePreview")
+			}
+			hs.until("preview", func() bool { return d.preview != nil && d.preview.loaded })
+			hs.settle()
+			pane, ok := hs.tt.Find(locales.PreviewLabel("sync.md"))
+			if !ok {
+				t.Fatal("no preview")
+			}
+			for range 20 {
+				hs.tt.Scroll(pane.X+pane.W/2, pane.Y+pane.H/2, 0, 120)
+				hs.settle()
+			}
+			for range 4 {
+				hs.settle()
+			}
+			top := d.preview.markdown.sync.top
+			if top < 10 {
+				t.Fatalf("the preview is at %v, not scrolled", top)
+			}
+			a.run("view.splitRight")
+			split := a.activeEditor()
+			if split == d || split.preview == nil {
+				t.Fatal("the split shows the text, not the preview")
+			}
+			hs.until("split preview", func() bool { return split.preview.loaded })
+			for range 8 {
+				hs.settle()
+			}
+			// The same place, within the line or two the column's width rewraps.
+			if got := split.preview.markdown.sync.top; got < top-3 || got > top+3 {
+				t.Fatalf("the split preview is at %v, the preview at %v", got, top)
+			}
+		})
+	}
+}

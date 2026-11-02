@@ -771,8 +771,22 @@ func (a *app) splitRight() {
 		}
 		return
 	}
-	a.addTab(nc, 0, &colTab{ed: cloneEditor(t.ed)})
+	ed := cloneEditor(t.ed)
+	if p := t.ed.preview; p != nil {
+		// The preview again, where the preview is: its text is not
+		// scrolled behind it.
+		ed.preview = newPreviewViewer(ed.document)
+		if p.markdown != nil {
+			m := &markdownPreview{}
+			m.sync.want, m.sync.placing = p.markdown.sync.top, true
+			ed.preview.markdown = m
+		}
+	}
+	a.addTab(nc, 0, &colTab{ed: ed})
 	a.activate(nc, 0, true)
+	if ed.preview != nil {
+		a.rememberTabs()
+	}
 }
 
 // cloneEditor returns another editor of d's document, its caret and

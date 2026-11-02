@@ -3,6 +3,13 @@
 The update window shows the section of the version it offers. Every release
 needs a `## <version>` section here, or its build fails.
 
+## Unreleased
+
+- Terminal icons show whether a program says it works, waits for you, finished or failed (OSC 7501).
+- While a program works or waits for you, a pill over its terminal says what it does, with its progress.
+- A program in a project out of sight that waits for you, finishes or fails marks the project on the rail.
+- Typing in a terminal clears the mark of a program's finished or failed work.
+
 ## 0.16.2
 
 - **View → Theme → The Matrix** puts the code's green inside steel chrome, like the film's real world.

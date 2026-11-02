@@ -59,6 +59,10 @@ type session struct {
 	findInput ui.Handle
 	findShook time.Time
 	findBack  bool
+	// status is what its programs say they do (OSC 7501), and
+	// statusSince when the record most in need of the user last changed.
+	status      terminal.ProgramStatus
+	statusSince time.Time
 }
 
 type panelHeaderLayout struct {
@@ -201,6 +205,9 @@ func (a *app) spawnTerminal(s *session, dir string) (*terminal.Terminal, error) 
 				return true
 			}
 			id, ok := a.shellSkip(st)
+			if !ok {
+				a.seeProgramStatus(s)
+			}
 			if ok {
 				a.post(func() {
 					if id == "" {
@@ -234,6 +241,9 @@ func (a *app) spawnTerminal(s *session, dir string) (*terminal.Terminal, error) 
 					a.alert = locales.NotificationFrom(s.title)
 				}
 			})
+		},
+		OnProgramStatus: func(st terminal.ProgramStatus) {
+			a.post(func() { a.programStatus(s, term, st) })
 		},
 	})
 	return term, err

@@ -1,10 +1,12 @@
 package main
 
 import (
+	"fmt"
 	"math"
 	"strings"
 	"time"
 
+	"github.com/egoist/mygo/plugins/terminal"
 	"github.com/egoist/mygo/ui"
 
 	"mayoi/internal/bg"
@@ -58,6 +60,110 @@ func termWait(s *session) string {
 	return ""
 }
 
+// A program in a terminal may say what it does (OSC 7501): working,
+// waiting for the user, done or failed. The badge of its icon takes the
+// color of the record most in need of the user, the pill over it says
+// what it does while it works or waits, and a project out of sight has
+// its square on the rail marked as it waits, finishes or fails. Typing
+// in the terminal tells that the user saw what finished.
+
+// progStatus returns the record of a terminal's programs most in need of
+// the user, and whether there is one that is not idle.
+func progStatus(s *session) (terminal.StatusRecord, bool) {
+	if s == nil {
+		return terminal.StatusRecord{}, false
+	}
+	r, ok := s.status.Top()
+	return r, ok && r.State != terminal.StatusIdle
+}
+
+// progColor is the color of a program's state.
+func (a *app) progColor(st terminal.StatusState) ui.Color {
+	p := a.pal
+	switch st {
+	case terminal.StatusBlocked:
+		return p.modifiedFg
+	case terminal.StatusDone:
+		return p.addedFg
+	case terminal.StatusError:
+		return p.dangerFg
+	}
+	return p.accent
+}
+
+// progLine is what a record says, for people: the program's label or
+// name, then its message, or its state when it gives none.
+func progLine(r terminal.StatusRecord) string {
+	text := r.Message
+	if text == "" {
+		switch r.State {
+		case terminal.StatusWorking:
+			text = locales.ProgWorking()
+		case terminal.StatusBlocked:
+			switch r.Kind {
+			case terminal.KindPermission:
+				text = locales.ProgApproval()
+			case terminal.KindQuestion:
+				text = locales.ProgAnswer()
+			case terminal.KindAuth:
+				text = locales.ProgSignIn()
+			default:
+				text = locales.ProgBlocked()
+			}
+		case terminal.StatusDone:
+			text = locales.ProgDone()
+		case terminal.StatusError:
+			text = locales.ProgFailed()
+		default:
+			text = locales.ProgIdle()
+		}
+	}
+	who := r.Title
+	if who == "" {
+		who = r.App
+	}
+	if who == "" {
+		return text
+	}
+	return who + ": " + text
+}
+
+// programStatus takes what a terminal's programs say they do, unless the
+// terminal was replaced since. As the record most in need of the user
+// comes to wait, finish or fail, the project's square on the rail is
+// marked, with what it says.
+func (a *app) programStatus(s *session, term *terminal.Terminal, st terminal.ProgramStatus) {
+	if s.term != term {
+		return
+	}
+	old, had := s.status.Top()
+	s.status = st
+	r, ok := st.Top()
+	if !ok || had && old.ID == r.ID && old.State == r.State {
+		return
+	}
+	s.statusSince = time.Now()
+	switch r.State {
+	case terminal.StatusBlocked:
+		// The view again once the badge stops calling.
+		bg.AfterFunc(pulseFor, func() { a.post(func() {}) })
+		fallthrough
+	case terminal.StatusDone, terminal.StatusError:
+		a.alert = progLine(r)
+	}
+}
+
+// seeProgramStatus tells a terminal that the user, typing in it, saw the
+// work of its programs that finished or failed.
+func (a *app) seeProgramStatus(s *session) {
+	for _, r := range s.status.Records {
+		if r.State == terminal.StatusDone || r.State == terminal.StatusError {
+			s.term.SeeProgramStatus()
+			return
+		}
+	}
+}
+
 // pulseFor is how long a terminal's badge sends out rings as it begins to
 // wait, whole beats of them: after, it stays still, so that a machine
 // away for hours doesn't have the window paint all the while.
@@ -97,23 +203,31 @@ func hcJustReady(s *session) bool {
 func (a *app) termIcon(c *ui.Context, s *session, size float32, tint, bg ui.Color) {
 	p := a.pal
 	st := termStatus(s)
+	prog, busy := progStatus(s)
+	// Starting or waiting for its shell comes first: the program's
+	// status is old while it does.
+	busy = busy && st != termStarting && st != termWaiting
 	box := ui.Box(c).Size(size, size).Shrink(0)
-	switch st {
-	case termKept:
+	switch {
+	case busy:
+		box.Tooltip(progLine(prog)).Label(progLine(prog))
+	case st == termKept:
 		box.Tooltip(locales.HcRunsIn(s.hc)).Label(locales.HcRunsIn(s.hc))
-	case termStarting, termWaiting:
+	case st == termStarting, st == termWaiting:
 		box.Tooltip(termWait(s)).Label(termWait(s))
 	}
 	box.Children(func() {
 		ui.Icon(c, iconTerminal).FontSize(size).TextColor(tint)
-		if st == termHere {
+		if st == termHere && !busy {
 			return
 		}
 		col := p.addedFg
-		switch st {
-		case termStarting:
+		switch {
+		case busy:
+			col = a.progColor(prog.State)
+		case st == termStarting:
 			col = p.accent
-		case termWaiting:
+		case st == termWaiting:
 			col = p.modifiedFg
 		}
 		const d, cut = float32(6), float32(1.5)
@@ -123,7 +237,14 @@ func (a *app) termIcon(c *ui.Context, s *session, size float32, tint, bg ui.Colo
 		// The rings stay still for those who ask for less motion.
 		calm := c.Preferences().ReduceMotion
 		var pulse time.Time
-		if (st == termStarting || st == termWaiting) && !calm && !waitedLong(s) {
+		switch {
+		case calm:
+		case busy:
+			// A program that waits for the user calls for a while.
+			if prog.State == terminal.StatusBlocked && time.Since(s.statusSince) < pulseFor {
+				pulse = s.statusSince
+			}
+		case (st == termStarting || st == termWaiting) && !waitedLong(s):
 			pulse = s.waitSince
 		}
 		var ready time.Time
@@ -192,12 +313,21 @@ var pillMotion = ui.ElementTransition{Duration: 160 * time.Millisecond, Colors: 
 // pill says so for a moment, then rises away.
 func (a *app) waitPill(c *ui.Context, s *session) {
 	msg, ready := termWait(s), hcJustReady(s)
-	if msg == "" && !ready {
+	r, busy := progStatus(s)
+	// prog is set when the pill says what the program does, working or
+	// waiting for the user, as nothing else has to be said.
+	prog := msg == "" && !ready && busy && (r.State == terminal.StatusWorking || r.State == terminal.StatusBlocked)
+	if msg == "" && !ready && !prog {
 		return
 	}
 	p := a.pal
 	col := p.accent
 	switch {
+	case prog:
+		msg, col = progLine(r), a.progColor(r.State)
+		if r.Progress >= 0 {
+			msg = fmt.Sprintf("%s · %d%%", msg, r.Progress)
+		}
 	case ready:
 		msg, col = locales.HcReady(), p.addedFg
 	case termStatus(s) == termWaiting:
@@ -207,6 +337,12 @@ func (a *app) waitPill(c *ui.Context, s *session) {
 	a.floating(c, box, false).Transition(pillMotion).Children(func() {
 		ui.Box(c).Size(11, 11).Shrink(0).Children(func() {
 			switch {
+			case prog && r.State == terminal.StatusBlocked && r.Kind == terminal.KindAuth:
+				ui.Icon(c.Key("auth"), iconLock).FontSize(11).TextColor(col).Transition(dotPop)
+			case prog && r.State == terminal.StatusBlocked:
+				ui.Icon(c.Key("ask"), iconMessageAlert).FontSize(11).TextColor(col).Transition(dotPop)
+			case prog:
+				ui.Spinner(c.Key("spin")).Size(11, 11).TextColor(col).Transition(dotPop)
 			case ready:
 				ui.Icon(c.Key("ok"), iconCheck).FontSize(11).TextColor(col).Transition(dotPop)
 			case waitedLong(s) && termStatus(s) == termWaiting:

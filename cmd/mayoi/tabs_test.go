@@ -1,6 +1,8 @@
 package main
 
 import (
+	"fmt"
+	"os"
 	"testing"
 
 	"github.com/egoist/mygo/ui"
@@ -102,4 +104,105 @@ func TestTabMiddleReleasedOffTheTab(t *testing.T) {
 	if a.middle != nil {
 		t.Error("a primary press left the middle one remembered")
 	}
+}
+
+// A plain wheel scrolls the tab strip sideways, as browsers scroll their
+// tabs: the container scrolls sideways only, so the wheel's own way down
+// would leave it still.
+func TestWheelScrollsTheTabStrip(t *testing.T) {
+	hs, col, x, y := crowdedTabs(t)
+	// Over the first tab's cross, a part of the tab that takes its input
+	// itself, rather than the strip's: the wheel scrolls it all the same.
+	hs.tt.Wheel(x, y, 0, 120)
+	hs.settle()
+	if col.tabScroll.X <= 0 {
+		t.Errorf("the wheel left the tabs at X %v", col.tabScroll.X)
+	}
+}
+
+// A wheel of notches of any size stops at the last tab.
+func TestWheelStopsTheTabStripAtItsEnd(t *testing.T) {
+	hs, col, x, y := crowdedTabs(t)
+	hs.tt.Wheel(x, y, 0, 100000)
+	hs.settle()
+	if col.tabScroll.X != col.tabScroll.MaxX {
+		t.Errorf("the wheel left the tabs at X %v, not at the end %v", col.tabScroll.X, col.tabScroll.MaxX)
+	}
+}
+
+// A wheel that goes the way the tabs go, sideways or with Shift, which
+// turns a wheel sideways, is the container's own: it scrolls the strip
+// there and leaves the wheel of the tabs not to take it.
+func TestWheelLeavesSidewaysToTheTabs(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		mods   ui.Modifiers
+		dx, dy float32
+	}{
+		{"sideways", 0, 40, 0},
+		{"sideways with noise", 0, 40, 3},
+		{"with Shift", ui.Shift, 0, 40},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			hs, col, x, y := crowdedTabs(t)
+			ev := ui.InputEvent{Kind: ui.InputScroll, DX: tc.dx, DY: tc.dy, Mods: tc.mods}
+			if hs.a.tabWheel(col, ev) {
+				t.Errorf("the tabs took a wheel %s", tc.name)
+			}
+			hs.tt.HoldModifiers(tc.mods)
+			hs.tt.Wheel(x, y, tc.dx, tc.dy)
+			hs.settle()
+			if col.tabScroll.X <= 0 {
+				t.Errorf("a wheel %s left the tabs at X %v", tc.name, col.tabScroll.X)
+			}
+		})
+	}
+}
+
+// A touchpad's swipe goes down with a little of the other way from finger
+// to finger, and still scrolls the tabs.
+func TestWheelTakesASwipeMostlyDown(t *testing.T) {
+	hs, col, _, _ := crowdedTabs(t)
+	ev := ui.InputEvent{Kind: ui.InputScroll, DX: 2, DY: 40, Precise: true}
+	if !hs.a.tabWheel(col, ev) {
+		t.Fatal("the tabs left a swipe mostly down to the container")
+	}
+	hs.settle()
+	if col.tabScroll.X != 40 {
+		t.Errorf("a swipe mostly down left the tabs at X %v, want 40", col.tabScroll.X)
+	}
+}
+
+// crowdedTabs makes a strip with more tabs than fit, at its start, and
+// returns its column and the middle of its first tab's cross.
+func crowdedTabs(t *testing.T) (*harness, *column, float32, float32) {
+	t.Helper()
+	hs := newHarness(t, true)
+	a := hs.a
+	for i := range 20 {
+		p := hs.path(fmt.Sprintf("scroll-%02d.go", i))
+		if err := os.WriteFile(p, []byte("package scroll\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		a.openFile(p, true)
+	}
+	hs.settle()
+	col := a.column()
+	if len(col.tabs) != 20 {
+		t.Fatalf("%d tabs, want 20", len(col.tabs))
+	}
+	// Show the first, so that the strip starts at its start.
+	a.activate(col, 0, true)
+	hs.settle()
+	if col.tabScroll.MaxX <= 0 {
+		t.Fatalf("the tabs fit the strip: MaxX %v", col.tabScroll.MaxX)
+	}
+	if col.tabScroll.X != 0 {
+		t.Fatalf("the strip starts at X %v, want 0", col.tabScroll.X)
+	}
+	box, ok := hs.tt.Find(col.tabs[0].closeLabel())
+	if !ok {
+		t.Fatalf("the first tab's cross is not shown: %q", hs.tt.Texts())
+	}
+	return hs, col, box.X + box.W/2, box.Y + box.H/2
 }

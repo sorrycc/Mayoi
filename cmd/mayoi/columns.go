@@ -29,6 +29,11 @@ type column struct {
 	locked bool // automatic file opens avoid it; it stays when empty
 	// revealed is the tab the strip last scrolled into view.
 	revealed int
+	// tabScroll is where the strip's tabs scroll, so that a wheel scrolls
+	// them sideways as browsers do; tabWheelTo is where the wheel aims them,
+	// which a glide on its way does not tell.
+	tabScroll  ui.ScrollState
+	tabWheelTo float32
 	// body is where the tab shown is, which a tab dragged is dropped on.
 	body ui.Handle
 	// filesOver is set while files dragged from another app are over the

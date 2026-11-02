@@ -5,6 +5,7 @@ needs a `## <version>` section here, or its build fails.
 
 ## Unreleased
 
+- **Rename Active File…** in the command palette renames the current tab's file, bindable as `file.rename`.
 - Opening a file from outside the folder clears the selection in the Explorer.
 
 ## 0.16.2

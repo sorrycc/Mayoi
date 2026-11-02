@@ -67,3 +67,45 @@ func rightClickTab(t *testing.T, tt *ui.Tester, name string) {
 	}
 	tt.RightClickAt(r.X-12, r.Y+r.H/2)
 }
+
+// Rename Active File renames the tab's file, whatever the explorer has
+// chosen, and a file from outside the folder leaves none chosen.
+func TestRenameActiveFileIsTheTabs(t *testing.T) {
+	hs := newHarness(t, false)
+	a, tt := hs.a, hs.tt
+	a.openFile(hs.path("main.go"), true)
+	hs.settle()
+	if a.explorerChoice() != hs.path("main.go") {
+		t.Fatalf("chosen %q", a.explorerChoice())
+	}
+
+	outside := filepath.Join(t.TempDir(), "outside.txt")
+	os.WriteFile(outside, []byte("x"), 0o644)
+	a.openFile(outside, true)
+	hs.settle()
+	if got := a.explorerChoice(); got != "" {
+		t.Errorf("chosen %q with a file from outside open", got)
+	}
+
+	for i := range a.files.Rows() {
+		if a.files.Item(i) == hs.path("go.mod") {
+			a.fileRow = i
+		}
+	}
+	a.run("file.rename")
+	hs.settle()
+	tt.Key(ui.Cmd, ui.KeyA)
+	tt.Type("renamed.txt")
+	tt.Key(0, ui.KeyEnter)
+	hs.settle()
+	to := filepath.Join(filepath.Dir(outside), "renamed.txt")
+	if _, err := os.Stat(to); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(hs.path("go.mod")); err != nil {
+		t.Errorf("the explorer's choice was renamed: %v", err)
+	}
+	if d := a.activeEditor(); d.path != to {
+		t.Errorf("the tab shows %s", d.path)
+	}
+}

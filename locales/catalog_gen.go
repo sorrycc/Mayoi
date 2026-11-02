@@ -2276,6 +2276,16 @@ func (msgs Messages) CmdFileOpenRecent() string {
 	return Catalog.Format(msgs.locale, "cmdFileOpenRecent", nil)
 }
 
+// CmdFileRename says "Rename Active File…"
+// in the language the app shows.
+func CmdFileRename() string { return In(i18n.Locale()).CmdFileRename() }
+
+// CmdFileRename says "Rename Active File…"
+// in the language of msgs.
+func (msgs Messages) CmdFileRename() string {
+	return Catalog.Format(msgs.locale, "cmdFileRename", nil)
+}
+
 // CmdFileReopenClosed says "Reopen Closed Tab"
 // in the language the app shows.
 func CmdFileReopenClosed() string { return In(i18n.Locale()).CmdFileReopenClosed() }

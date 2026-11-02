@@ -451,6 +451,7 @@
   "cmdFileOpenFolder": "Open Folder…",
   "cmdFileOpenFolderWindow": "Open Folder in New Window…",
   "cmdFileOpenRecent": "Open Recent…",
+  "cmdFileRename": "Rename Active File…",
   "cmdFileReopenClosed": "Reopen Closed Tab",
   "cmdFileSave": "Save",
   "cmdFileSaveAll": "Save All",

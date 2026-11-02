@@ -775,7 +775,9 @@ func (a *app) renamed(path, to string) {
 			}
 		}
 	}
-	a.tree.Refresh()
+	if a.tree != nil {
+		a.tree.Refresh()
+	}
 	a.indexStale, a.indexed = true, time.Time{}
 	a.rememberTabs()
 }

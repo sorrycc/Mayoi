@@ -13,6 +13,14 @@ import (
 // crossFade is how a tab's cross comes and goes with the pointer.
 var crossFade = ui.ElementTransition{Duration: 100 * time.Millisecond, Enter: &ui.Motion{}, Exit: &ui.Motion{}}
 
+// tabWheelGlide is how a notch of the wheel scrolls the tabs, as it scrolls
+// a container elsewhere; tabWheelLand is a touchpad's move, which already
+// follows the fingers, and so lands in the frame after it.
+var (
+	tabWheelGlide = ui.Animation{Duration: 150 * time.Millisecond, Ease: ui.EaseOut}
+	tabWheelLand  = ui.Animation{Duration: time.Millisecond, Ease: ui.EaseOut}
+)
+
 // tabStrip shows a tab for each tab of a column: a click shows it, the
 // cross closes it, and a dot marks unsaved changes. A tab is dragged
 // along the strip, or to another column, and dropped where it goes.
@@ -48,7 +56,9 @@ func (a *app) tabStrip(c *ui.Context, col *column) {
 		// The strip's edge along the bottom, which the tab shown breaks to
 		// join the text below it.
 		ui.Box(c).Absolute().Left(0).Right(0).Bottom(0).Height(1).Background(p.border)
-		strip := ui.ScrollHorizontal(c.Key("tabs")).Grow(1).Height(tabStripH).ScrollbarInsets(0, 0, 0, 0)
+		strip := ui.ScrollHorizontal(c.Key("tabs")).TrackScroll(&col.tabScroll).
+			Grow(1).Height(tabStripH).ScrollbarInsets(0, 0, 0, 0)
+		strip = strip.HandleInput(func(ev ui.InputEvent) bool { return a.tabWheel(col, ev) })
 		// Past the last tab: there.
 		drop(strip, nil)
 		_, atEnd := ui.DragOver[dragItem](strip)
@@ -66,7 +76,9 @@ func (a *app) tabStrip(c *ui.Context, col *column) {
 						Drag(dragItem{tab: t}).Transition(tabMotion)
 					// The middle button closes the tab, as in a browser.
 					box := tab.LayoutBounds()
-					tab = tab.HandleInput(func(ev ui.InputEvent) bool { return a.tabMiddle(t, ev, box) })
+					tab = tab.HandleInput(func(ev ui.InputEvent) bool {
+						return a.tabMiddle(t, ev, box) || a.tabWheel(col, ev)
+					})
 					if tab.Dragging() {
 						a.dragNow = true
 					}
@@ -228,6 +240,33 @@ func (a *app) tabMiddle(t *colTab, ev ui.InputEvent, box ui.Rect) bool {
 		return true
 	}
 	return false
+}
+
+// tabWheel scrolls a column's tabs with the wheel: a plain wheel, which a
+// container that only scrolls sideways leaves alone, scrolls them as
+// browsers scroll their tabs. A sideways wheel, or one with Shift, which
+// turns it sideways, is the container's own.
+func (a *app) tabWheel(col *column, ev ui.InputEvent) bool {
+	// swipeSideways the other way around: the wheel goes down as the tabs go
+	// sideways, and a touchpad's swipe carries a little of the other way.
+	if ev.Kind != ui.InputScroll || ev.Mods&ui.Shift != 0 || max(ev.DY, -ev.DY) <= max(ev.DX, -ev.DX) {
+		return false
+	}
+	// A notch glides there, as it scrolls the containers the wheel is left;
+	// a touchpad's moves follow the fingers, and land at once. Notches on
+	// their way pile up from where the last aimed, since the glide does not
+	// tell where it goes.
+	s := &col.tabScroll
+	if !s.Scrolling() {
+		col.tabWheelTo = s.X
+	}
+	col.tabWheelTo = clamp(col.tabWheelTo+ev.DY, 0, s.MaxX)
+	slide := tabWheelGlide
+	if ev.Precise {
+		slide = tabWheelLand
+	}
+	s.ScrollTo(col.tabWheelTo, s.Y, slide)
+	return true
 }
 
 // tabMenu is the menu of a tab.

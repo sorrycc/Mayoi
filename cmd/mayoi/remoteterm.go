@@ -77,5 +77,7 @@ func (a *app) restartTerminal(s *session) {
 	t.Feed(old.Snapshot())
 	t.Feed([]byte("\x1b[0m\r\n"))
 	s.term, s.lost = t, false
+	// A new shell: what the programs of the old one said is gone.
+	s.status = terminal.ProgramStatus{}
 	old.Close()
 }

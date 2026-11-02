@@ -59,10 +59,12 @@ type session struct {
 	findInput ui.Handle
 	findShook time.Time
 	findBack  bool
-	// status is what its programs say they do (OSC 7501), and
-	// statusSince when the record most in need of the user last changed.
+	// status is what its programs say they do (OSC 7501), statusSince
+	// when the record most in need of the user last changed, and
+	// statusFrom the state that record was in before.
 	status      terminal.ProgramStatus
 	statusSince time.Time
+	statusFrom  terminal.StatusState
 }
 
 type panelHeaderLayout struct {
@@ -169,8 +171,10 @@ func (a *app) spawnTerminal(s *session, dir string) (*terminal.Terminal, error) 
 		conn = s.hcWait
 	}
 	// term is the terminal made, which OnExit tells from one that took
-	// its place.
+	// its place, and in what its programs last said that waits for the
+	// app.
 	var term *terminal.Terminal
+	var in statusIn
 	term, err := terminal.New(terminal.Options{
 		Command:   command,
 		Conn:      conn,
@@ -243,7 +247,14 @@ func (a *app) spawnTerminal(s *session, dir string) (*terminal.Terminal, error) 
 			})
 		},
 		OnProgramStatus: func(st terminal.ProgramStatus) {
-			a.post(func() { a.programStatus(s, term, st) })
+			// Once a frame however often the program says it.
+			if in.put(st) {
+				a.post(func() {
+					if st, ok := in.take(); ok {
+						a.programStatus(s, term, st)
+					}
+				})
+			}
 		},
 	})
 	return term, err

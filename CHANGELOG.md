@@ -9,6 +9,11 @@ needs a `## <version>` section here, or its build fails.
 - While a program works or waits for you, a pill over its terminal says what it does, with its progress.
 - A program in a project out of sight that waits for you, finishes or fails marks the project on the rail.
 - Typing in a terminal clears the mark of a program's finished or failed work.
+- The program status pill shows the program's name in bold, its message, and its progress as a bar.
+- When a program waits for you, its pill gets a colored ring and its icon pulses in time with the badge.
+- As shown work finishes or fails, the pill says so with a check or a cross for a moment.
+- The pill counts the program's other active tasks, and the terminal icon's tooltip lists them.
+- A program that reports its status very often no longer slows the window down.
 - **Rename Active File…** in the command palette renames the current tab's file, bindable as `file.rename`.
 - Opening a file from outside the folder clears the selection in the Explorer.
 - Splitting a Markdown preview to the right keeps it a preview, scrolled to the same place.

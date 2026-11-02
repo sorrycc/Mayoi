@@ -28,7 +28,7 @@ const (
 func (a *gitContext) refreshPR() {
 	g := a.git
 	st := g.status
-	if a.live() && st != nil && st.Branch == "" && !g.ghProbed && a.app.online() {
+	if a.live() && st != nil && st.Branch == "" && !g.ghProbed && a.app.online() && a.app.host.shown() {
 		// Detached, there is no pull request to ask for: only whether gh
 		// answers, for the pull requests' commands.
 		g.ghProbed = true

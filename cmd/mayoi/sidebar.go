@@ -240,6 +240,10 @@ func (a *app) fileTree(c *ui.Context) {
 	// Follow the document shown: open the folders above it and choose it.
 	if activePath != a.treeSynced {
 		a.treeSynced = activePath
+		// A file outside the folder has no row: none is chosen in its place.
+		if activePath != "" && !strings.HasPrefix(activePath, a.root+string(filepath.Separator)) {
+			a.fileRow, a.selectInTree = -1, ""
+		}
 		a.revealInTree(activePath)
 	}
 	chosen := a.explorerChoice()

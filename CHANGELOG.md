@@ -3,6 +3,10 @@
 The update window shows the section of the version it offers. Every release
 needs a `## <version>` section here, or its build fails.
 
+## Unreleased
+
+- Opening a file from outside the folder clears the selection in the Explorer.
+
 ## 0.16.2
 
 - **View → Theme → The Matrix** puts the code's green inside steel chrome, like the film's real world.

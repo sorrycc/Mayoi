@@ -12,6 +12,7 @@ import (
 	"slices"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/egoist/mygo/plugins/terminal"
@@ -19,6 +20,7 @@ import (
 
 	"mayoi/internal/bg"
 	"mayoi/internal/remote"
+	"mayoi/internal/settings"
 	"mayoi/locales"
 )
 
@@ -27,11 +29,40 @@ import (
 // window. Closing a terminal ends it there; closing the window or
 // quitting only ends the attach, and the shell runs on.
 
+// hcConfig is what terminalBackendHcPath and terminalBackendHcEnv ask
+// of hc's commands, kept from the preferences as they change. It is empty
+// while the terminal backend isn't "hc", when hc runs as it did before
+// them.
+type hcConfig struct {
+	path string
+	env  []string
+}
+
+// hcConfigNow is the hc config of the window, which the app sets.
+var hcConfigNow atomic.Pointer[hcConfig]
+
+// setHCConfig keeps what the preferences ask of hc's commands.
+func setHCConfig(p settings.Prefs) {
+	c := &hcConfig{}
+	if p.TerminalBackend == "hc" {
+		c.path = p.TerminalBackendHcPath
+		for _, kv := range p.TerminalBackendHcEnv {
+			if k, _, ok := strings.Cut(kv, "="); ok && k != "" && !strings.Contains(kv, "\x00") {
+				c.env = append(c.env, kv)
+			}
+		}
+	}
+	hcConfigNow.Store(c)
+}
+
 // hcRun runs hc with args and returns what it printed, or the message
 // of the error it printed instead. Tests replace it.
 var hcRun = func(args ...string) ([]byte, error) {
 	var stderr bytes.Buffer
 	cmd := exec.Command(cmp.Or(hcPath(), "hc"), args...)
+	if env := hcEnv(); len(env) > 0 {
+		cmd.Env = append(os.Environ(), env...)
+	}
 	cmd.Stderr = &stderr
 	out, err := cmd.Output()
 	if err != nil {
@@ -74,22 +105,99 @@ var hcLocalBin = func() string {
 	return filepath.Join(home, ".local", "bin")
 }
 
-// hcPath is the hc Mayoi runs: "hc" on the path, else the one herdr's
+// hcPath is the hc Mayoi runs: terminalBackendHcPath when the terminal
+// backend is "hc", else "hc" on the path, else the one herdr's
 // installer put in hcLocalBin, which the path of a Mayoi opened from the
 // Finder may lack. That is herdr-core when another hc was on the path as
 // it installed. "" when there is none.
 func hcPath() string {
+	if c := hcConfigNow.Load(); c != nil {
+		if path := hcPathAt(c.path); path != "" {
+			return path
+		}
+	}
 	if _, err := lookPath("hc"); err == nil {
 		return "hc"
 	}
 	dir := hcLocalBin()
 	for _, name := range []string{"hc", "herdr-core"} {
 		p := filepath.Join(dir, name)
-		if fi, err := os.Stat(p); err == nil && !fi.IsDir() && fi.Mode()&0o111 != 0 {
+		if hcExecutable(p) {
 			return p
 		}
 	}
 	return ""
+}
+
+// hcConfiguredPath is terminalBackendHcPath as the preferences set it,
+// "" while it isn't set or the terminal backend isn't "hc".
+func hcConfiguredPath() string {
+	if c := hcConfigNow.Load(); c != nil {
+		return c.path
+	}
+	return ""
+}
+
+// hcPathAt is the hc at path, which may be the program itself or a folder
+// that has it, and is expanded from ~ when it starts with one. A bare name
+// is looked up on the path, as "hc" is. "" when there is no executable
+// there.
+func hcPathAt(path string) string {
+	path = hcExpandPath(path)
+	if path == "" {
+		return ""
+	}
+	// A bare name is a program to find on the path, not a file of the
+	// process's working folder, which is "/" when the Finder starts Mayoi.
+	if !filepath.IsAbs(path) && path != "." && path != ".." && filepath.Base(path) == path {
+		if p, err := lookPath(path); err == nil {
+			return p
+		}
+		return ""
+	}
+	if hcExecutable(path) {
+		return path
+	}
+	if fi, err := os.Stat(path); err == nil && fi.IsDir() {
+		for _, name := range []string{"hc", "herdr-core"} {
+			p := filepath.Join(path, name)
+			if hcExecutable(p) {
+				return p
+			}
+		}
+	}
+	return ""
+}
+
+// hcExecutable reports whether path is an executable file.
+func hcExecutable(path string) bool {
+	fi, err := os.Stat(path)
+	return err == nil && !fi.IsDir() && fi.Mode()&0o111 != 0
+}
+
+// hcExpandPath makes a path that starts with ~ start with the home folder.
+func hcExpandPath(path string) string {
+	if path != "~" && !strings.HasPrefix(path, "~/") && !strings.HasPrefix(path, `~\`) {
+		return path
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return ""
+	}
+	if path == "~" {
+		return home
+	}
+	return filepath.Join(home, path[2:])
+}
+
+// hcEnv is the environment of hc's commands: terminalBackendHcEnv's
+// "KEY=value" strings, without those that have no "=", an empty key or
+// a NUL. It is nil unless the terminal backend is "hc".
+func hcEnv() []string {
+	if c := hcConfigNow.Load(); c != nil {
+		return c.env
+	}
+	return nil
 }
 
 // hcBackend reports whether new terminals run in herdr-core: the

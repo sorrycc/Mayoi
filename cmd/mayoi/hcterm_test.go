@@ -3,6 +3,8 @@ package main
 import (
 	"errors"
 	"net"
+	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 	"sync"
@@ -96,6 +98,135 @@ func hcSession(t *testing.T, a *app, addr string) *session {
 	a.terms = append(a.terms, s)
 	a.panelTerm = s
 	return s
+}
+
+// With terminalBackendHcPath, hc is found there first, as the program or
+// in the folder that has it, and the old places without a working one.
+func TestHCPathPreference(t *testing.T) {
+	skipOnWindows(t, "herdr has no hc for Windows")
+	hs := newHarness(t, true)
+	a := hs.a
+	oldLook, oldBin := lookPath, hcLocalBin
+	dir := t.TempDir()
+	hcLocalBin = func() string { return dir }
+	lookPath = func(string) (string, error) { return "", errors.New("not found") }
+	t.Cleanup(func() {
+		lookPath, hcLocalBin = oldLook, oldBin
+		setHCConfig(settings.Prefs{})
+	})
+
+	custom := filepath.Join(dir, "custom-hc")
+	if err := os.WriteFile(custom, []byte("#!/bin/sh\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	a.settings.TerminalBackend = "hc"
+	a.settings.TerminalBackendHcPath = custom
+	setHCConfig(a.settings.Prefs)
+	if got := hcPath(); got != custom {
+		t.Errorf("hc %q, want %q", got, custom)
+	}
+
+	folder := filepath.Join(dir, "bin")
+	if err := os.Mkdir(folder, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	nested := filepath.Join(folder, "herdr-core")
+	if err := os.WriteFile(nested, []byte("#!/bin/sh\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	a.settings.TerminalBackendHcPath = folder
+	setHCConfig(a.settings.Prefs)
+	if got := hcPath(); got != nested {
+		t.Errorf("hc %q in a folder, want %q", got, nested)
+	}
+
+	fallback := filepath.Join(dir, "hc")
+	if err := os.WriteFile(fallback, []byte("#!/bin/sh\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	a.settings.TerminalBackendHcPath = filepath.Join(dir, "missing")
+	setHCConfig(a.settings.Prefs)
+	if got := hcPath(); got != fallback {
+		t.Errorf("hc %q without the preferred one, want %q", got, fallback)
+	}
+
+	a.settings.TerminalBackend = ""
+	a.settings.TerminalBackendHcPath = custom
+	setHCConfig(a.settings.Prefs)
+	if got := hcPath(); got != fallback {
+		t.Errorf("hc %q with another backend, want %q", got, fallback)
+	}
+}
+
+// terminalBackendHcEnv is KEY=value strings, with those without one left
+// out, and only with the hc backend.
+func TestHCEnvPreference(t *testing.T) {
+	hs := newHarness(t, true)
+	a := hs.a
+	t.Cleanup(func() { setHCConfig(settings.Prefs{}) })
+	a.settings.TerminalBackend = "hc"
+	a.settings.TerminalBackendHcEnv = []string{"A=1", "B=x=y", "NOEQUAL", "=empty", "C=", "", "D=a\x00b"}
+	setHCConfig(a.settings.Prefs)
+	want := []string{"A=1", "B=x=y", "C="}
+	if got := hcEnv(); !slices.Equal(got, want) {
+		t.Errorf("env %q, want %q", got, want)
+	}
+	a.settings.TerminalBackend = ""
+	setHCConfig(a.settings.Prefs)
+	if got := hcEnv(); got != nil {
+		t.Errorf("env %q with another backend", got)
+	}
+}
+
+// hc's commands run with terminalBackendHcEnv in their environment, from
+// terminalBackendHcPath.
+func TestHCRunEnv(t *testing.T) {
+	skipOnWindows(t, "shell scripts")
+	hs := newHarness(t, true)
+	a := hs.a
+	t.Cleanup(func() { setHCConfig(settings.Prefs{}) })
+	dir := t.TempDir()
+	hc := filepath.Join(dir, "hc")
+	if err := os.WriteFile(hc, []byte("#!/bin/sh\nprintf '%s' \"$HC_TEST_VALUE\"\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	a.settings.TerminalBackend = "hc"
+	a.settings.TerminalBackendHcPath = hc
+	a.settings.TerminalBackendHcEnv = []string{"HC_TEST_VALUE=hello", "IGNORED"}
+	setHCConfig(a.settings.Prefs)
+	out, err := hcRun("ls")
+	if err != nil || string(out) != "hello" {
+		t.Errorf("hc ran with %q, %v", out, err)
+	}
+}
+
+// A bare name of terminalBackendHcPath is found on the path, and an
+// install is not offered for a path the person set.
+func TestHCPathBareNameAndOffer(t *testing.T) {
+	hs := newHarness(t, true)
+	a := hs.a
+	oldLook, oldOffered := lookPath, hcOffered
+	hcOffered = false
+	t.Cleanup(func() {
+		lookPath, hcOffered = oldLook, oldOffered
+		setHCConfig(settings.Prefs{})
+	})
+	a.settings.TerminalBackend = "hc"
+	a.settings.TerminalBackendHcPath = "my-hc"
+	setHCConfig(a.settings.Prefs)
+	lookPath = func(name string) (string, error) {
+		if name == "my-hc" {
+			return "/opt/bin/my-hc", nil
+		}
+		return "", errors.New("not found")
+	}
+	if got := hcPath(); got != "/opt/bin/my-hc" {
+		t.Errorf("hc %q, want the bare name on the path", got)
+	}
+	a.offerHC()
+	if a.confirm != nil {
+		t.Error("offered to install with a path set")
+	}
 }
 
 func TestHCError(t *testing.T) {

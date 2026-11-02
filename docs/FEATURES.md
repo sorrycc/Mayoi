@@ -651,8 +651,8 @@ not have it yet.
 ## The `mayoi` command
 
 **File → Install 'mayoi' Command** installs the command into `~/.local/bin` when that directory is on your `PATH`, and
-otherwise into `/usr/local/bin`, which asks for your password. On Linux, `install.sh` puts it in `~/.local/bin`, and the
-Debian package in `/usr/bin`.
+otherwise into `/usr/local/bin`, which asks for your password. On Windows, it installs `mayoi.cmd` into a writable folder
+on `PATH`. On Linux, `install.sh` puts it in `~/.local/bin`, and the Debian package in `/usr/bin`.
 
 - `mayoi .` opens the current folder, in a new window or the one that already has it, or with project tabs in a new
   tab.

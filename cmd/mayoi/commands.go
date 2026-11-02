@@ -702,7 +702,7 @@ func (a *app) showTabKey(k ui.Key) {
 // appUIMenu fills the titlebar's menu on Windows and Linux, which have no
 // menu bar, with the menu bar's items.
 func (a *app) appUIMenu(m *ui.Menu) {
-	menu := a.menu(false, func(id string, _ *mygo.Window) {
+	menu := a.menu(runtime.GOOS == "windows" && mygo.App.IsPackaged(), func(id string, _ *mygo.Window) {
 		a.post(func() { a.run(id) })
 	})
 	a.populateUIMenu(m, menu.Items())

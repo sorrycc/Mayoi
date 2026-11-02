@@ -58,7 +58,7 @@ func workingDir() string {
 // listenCLI answers the mayoi command on a socket in the data folder,
 // while the app runs.
 func (m *mayoi) listenCLI() {
-	if runtime.GOOS == "windows" || os.Getenv("MAYOI_SNAPSHOT") != "" {
+	if os.Getenv("MAYOI_SNAPSHOT") != "" {
 		return
 	}
 	dir, err := mygo.App.Path(mygo.PathUserData)

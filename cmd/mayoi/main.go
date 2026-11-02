@@ -242,7 +242,7 @@ func (h *desktop) redrawWindows() {
 func (h *desktop) installCLI() {
 	go func() {
 		home, _ := os.UserHomeDir()
-		p, err := cli.Install(cli.Dirs(home, cli.LoginPath()), appBundle())
+		p, err := cli.Install(cli.Dirs(home, cli.LoginPath()), appLocation())
 		switch {
 		case errors.Is(err, cli.ErrCanceled):
 		case err != nil:
@@ -919,12 +919,15 @@ func (a *app) anyDirty() bool {
 	return false
 }
 
-// appBundle is the .app the running executable is in, "" when it is in
-// none.
-func appBundle() string {
+// appLocation is the running executable on Windows, else the .app it is
+// in on macOS, "" when it is in none.
+func appLocation() string {
 	exe, err := os.Executable()
 	if err != nil {
 		return ""
+	}
+	if runtime.GOOS == "windows" {
+		return exe
 	}
 	if exe, err = filepath.EvalSymlinks(exe); err != nil {
 		return ""

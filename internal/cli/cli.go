@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strings"
 	"time"
@@ -19,17 +20,34 @@ import (
 // bundleID is the app's identifier, as mygo.json gives it.
 const bundleID = "dev.mayoi.editor"
 
-// scriptMark is a line of the mayoi command, by which uninstalling knows it.
-const scriptMark = "# Installed by Mayoi: File > Install 'mayoi' Command."
+// scriptMark is text in the mayoi command, by which uninstalling knows it.
+const scriptMark = "Installed by Mayoi: File > Install 'mayoi' Command."
 
 // script is the mayoi command. It runs the app's own executable, which,
 // told so by MAYOI_CLI, asks the running app over its socket, or starts
-// it: the app at app, where it was installed from, else the one the
-// system knows by its identifier, so it keeps working when the app moves.
+// it. On macOS, app is its .app, else the system finds it by identifier,
+// so it keeps working when the app moves; on Windows, app is Mayoi.exe.
 func script(app string) string {
+	if runtime.GOOS == "windows" {
+		// A percent is doubled in a batch file, and delayed expansion would
+		// consume exclamation marks in the executable's path.
+		app = strings.ReplaceAll(app, "%", "%%")
+		return strings.ReplaceAll(`@echo off
+REM mayoi [options] [folder or file]... opens them in Mayoi: mayoi --help says more.
+REM `+scriptMark+`
+setlocal DisableDelayedExpansion
+set "MAYOI_CLI=1"
+if not exist "`+app+`" (
+	echo "mayoi: Mayoi.exe is not found" 1>&2
+	exit /b 1
+)
+"`+app+`" %*
+exit /b %ERRORLEVEL%
+`, "\n", "\r\n")
+	}
 	return `#!/bin/sh
 # mayoi [options] [folder or file]... opens them in Mayoi: mayoi --help says more.
-` + scriptMark + `
+# ` + scriptMark + `
 app=` + shellQuote(app) + `
 if [ ! -x "$app/Contents/MacOS/Mayoi" ]; then
 	app=$(mdfind "kMDItemCFBundleIdentifier == '` + bundleID + `'" 2>/dev/null | head -n 1)
@@ -42,11 +60,34 @@ MAYOI_CLI=1 exec "$app/Contents/MacOS/Mayoi" "$@"
 `
 }
 
-// Dirs are the known installation folders that the login shell searches,
-// preferring the user's folders over the system-wide destination.
+func commandPath(dir string) string {
+	if runtime.GOOS == "windows" {
+		return filepath.Join(dir, "mayoi.cmd")
+	}
+	return filepath.Join(dir, "mayoi")
+}
+
+// Dirs are installation folders the command interpreter searches. Windows
+// uses its PATH directly; elsewhere the known user folders come first,
+// then the system-wide destination.
 func Dirs(home string, path []string) []string {
 	var dirs []string
 	path = cleanPath(path)
+	if runtime.GOOS == "windows" {
+		var other []string
+		for _, dir := range path {
+			if !filepath.IsAbs(dir) {
+				continue
+			}
+			rel, err := filepath.Rel(home, dir)
+			if err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(os.PathSeparator)) {
+				dirs = append(dirs, dir)
+			} else {
+				other = append(other, dir)
+			}
+		}
+		return append(dirs, other...)
+	}
 	for _, dir := range []string{filepath.Join(home, ".local", "bin"), filepath.Join(home, "bin"), "/usr/local/bin"} {
 		if slices.Contains(path, filepath.Clean(dir)) {
 			dirs = append(dirs, dir)
@@ -84,7 +125,7 @@ func Install(dirs []string, app string) (string, error) {
 	// Check every candidate before writing, so another program's command
 	// is neither replaced nor shadowed. Skip folders we cannot inspect.
 	for _, dir := range dirs {
-		p := filepath.Join(dir, "mayoi")
+		p := commandPath(dir)
 		if _, err := os.Lstat(p); err != nil {
 			if os.IsNotExist(err) {
 				candidates = append(candidates, dir)
@@ -118,7 +159,7 @@ func Install(dirs []string, app string) (string, error) {
 	var admin bool
 	for _, dir := range candidates {
 		if err = write(dir, app); err == nil {
-			return filepath.Join(dir, "mayoi"), nil
+			return commandPath(dir), nil
 		}
 		if dir == "/usr/local/bin" && errors.Is(err, os.ErrPermission) {
 			admin = true
@@ -141,7 +182,7 @@ func write(dir, app string) error {
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return err
 	}
-	p := filepath.Join(dir, "mayoi")
+	p := commandPath(dir)
 	tmp := p + ".tmp"
 	if err := os.WriteFile(tmp, []byte(script(app)), 0o755); err != nil {
 		return err
@@ -162,7 +203,7 @@ func writeAsAdmin(dir, app string) error {
 	if err != nil {
 		return err
 	}
-	p := filepath.Join(dir, "mayoi")
+	p := commandPath(dir)
 	return runAsAdmin(fmt.Sprintf("mkdir -p %s && cp %s %s && chmod 755 %s",
 		shellQuote(dir), shellQuote(f.Name()), shellQuote(p), shellQuote(p)))
 }
@@ -171,7 +212,7 @@ func writeAsAdmin(dir, app string) error {
 // Mayoi's in dirs that an older Mayoi wrote, where no password is needed.
 func Refresh(dirs []string, app string) {
 	for _, dir := range dirs {
-		p := filepath.Join(dir, "mayoi")
+		p := commandPath(dir)
 		data, err := os.ReadFile(p)
 		if err != nil || !strings.Contains(string(data), scriptMark) || string(data) == script(app) {
 			continue
@@ -185,7 +226,7 @@ func Refresh(dirs []string, app string) {
 func Uninstall(dirs []string) ([]string, error) {
 	var removed []string
 	for _, dir := range dirs {
-		p := filepath.Join(dir, "mayoi")
+		p := commandPath(dir)
 		data, err := os.ReadFile(p)
 		if err != nil || !strings.Contains(string(data), scriptMark) {
 			continue
@@ -225,9 +266,13 @@ func ShellPath() []string {
 	return cleanPath(append(LoginPath(), filepath.SplitList(os.Getenv("PATH"))...))
 }
 
-// LoginPath is only the login shell's PATH. Installation must not use
-// Finder-only fallback directories that the user's terminal cannot find.
+// LoginPath is where the command interpreter looks. On Windows it is the
+// process's PATH; elsewhere only the login shell's, not Finder-only
+// fallback directories that the user's terminal cannot find.
 func LoginPath() []string {
+	if runtime.GOOS == "windows" {
+		return cleanPath(filepath.SplitList(os.Getenv("PATH")))
+	}
 	sh := os.Getenv("SHELL")
 	if sh == "" {
 		sh = "/bin/zsh"

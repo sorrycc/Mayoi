@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -55,6 +56,75 @@ func TestScript(t *testing.T) {
 	}
 }
 
+// The Windows command is a batch file that runs the app's executable,
+// preserving its arguments and exit status.
+func TestWindowsScript(t *testing.T) {
+	if os.Getenv("MAYOI_TEST_HELPER") != "" {
+		fmt.Println(os.Getenv("MAYOI_CLI"))
+		for _, arg := range os.Args[1:] {
+			fmt.Printf("%q\n", arg)
+		}
+		os.Exit(7)
+	}
+	if runtime.GOOS != "windows" {
+		t.Skip("a Windows batch file")
+	}
+	comspec := os.Getenv("COMSPEC")
+	if comspec == "" {
+		comspec = `C:\Windows\System32\cmd.exe`
+	}
+	exe, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	dir := t.TempDir()
+	app := filepath.Join(dir, "My 100% Mayoi", "Mayoi.exe")
+	data, err := os.ReadFile(exe)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Dir(app), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(app, data, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	bin := filepath.Join(dir, "bin")
+	t.Setenv("PATH", strings.Join([]string{t.TempDir(), bin}, string(os.PathListSeparator)))
+	t.Setenv("SHELL", filepath.Join(dir, "missing"))
+	p, err := Install(Dirs(dir, LoginPath()), app)
+	if err != nil || p != filepath.Join(bin, "mayoi.cmd") {
+		t.Fatalf("installed at %q: %v", p, err)
+	}
+	if _, err := Install([]string{bin}, app); err != nil {
+		t.Fatalf("reinstall: %v", err)
+	}
+	args := []string{"/d", "/c", p, "-test.run=TestWindowsScript", "--", "-g", "a b.go:3"}
+	cmd := exec.Command(comspec, args...)
+	cmd.Env = append(os.Environ(), "MAYOI_TEST_HELPER=1")
+	out, err := cmd.CombinedOutput()
+	exit, ok := err.(*exec.ExitError)
+	if !ok || exit.ExitCode() != 7 {
+		t.Fatalf("command exit: %v\n%s", err, out)
+	}
+	got := strings.ReplaceAll(string(out), "\r\n", "\n")
+	want := "1\n\"-test.run=TestWindowsScript\"\n\"--\"\n\"-g\"\n\"a b.go:3\"\n"
+	if got != want {
+		t.Fatalf("command output:\n%q\nwant:\n%q", got, want)
+	}
+	if err := os.Remove(app); err != nil {
+		t.Fatal(err)
+	}
+	out, err = exec.Command(comspec, "/d", "/c", p).CombinedOutput()
+	if exit, ok := err.(*exec.ExitError); !ok || exit.ExitCode() != 1 || !strings.Contains(string(out), "Mayoi.exe is not found") {
+		t.Fatalf("missing app exit: %v\n%s", err, out)
+	}
+	removed, err := Uninstall([]string{bin})
+	if err != nil || !slices.Equal(removed, []string{p}) {
+		t.Fatalf("removed %v: %v", removed, err)
+	}
+}
+
 // Refresh brings an older Mayoi's command up to date, and leaves another
 // program's.
 func TestRefresh(t *testing.T) {
@@ -65,7 +135,7 @@ func TestRefresh(t *testing.T) {
 	old, foreign := filepath.Join(dir, "old"), filepath.Join(dir, "foreign")
 	os.MkdirAll(old, 0o755)
 	os.MkdirAll(foreign, 0o755)
-	os.WriteFile(filepath.Join(old, "mayoi"), []byte("#!/bin/sh\n"+scriptMark+"\nopen -b x \"$@\"\n"), 0o755)
+	os.WriteFile(filepath.Join(old, "mayoi"), []byte("#!/bin/sh\n# "+scriptMark+"\nopen -b x \"$@\"\n"), 0o755)
 	os.WriteFile(filepath.Join(foreign, "mayoi"), []byte("#!/bin/sh\necho other\n"), 0o755)
 	Refresh([]string{old, foreign, filepath.Join(dir, "none")}, "/Apps/Mayoi.app")
 	if data, _ := os.ReadFile(filepath.Join(old, "mayoi")); string(data) != script("/Apps/Mayoi.app") {

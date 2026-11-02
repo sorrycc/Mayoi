@@ -9,6 +9,7 @@ import (
 	"mayoi/internal/settings"
 	"os"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strings"
 	"testing"
@@ -242,7 +243,7 @@ func (hs *harness) settle() {
 	for idle, deadline := 0, time.Now().Add(settleTimeout); idle < 2; {
 		running, queued := hs.busy()
 		if time.Now().After(deadline) {
-			hs.t.Fatalf("settle: %d background jobs still run after %s (queued: %v)", bg.Running()-hs.held, settleTimeout, queued)
+			hs.t.Fatalf("settle: %d background jobs still run after %s (queued: %v)\n%s", bg.Running()-hs.held, settleTimeout, queued, backgroundStacks())
 		}
 		switch {
 		case queued:
@@ -260,6 +261,20 @@ func (hs *harness) settle() {
 			}
 		}
 	}
+}
+
+// backgroundStacks returns the stacks of the goroutines bg started, to
+// tell which of its jobs a settle waited on in vain.
+func backgroundStacks() string {
+	buf := make([]byte, 1<<22)
+	buf = buf[:runtime.Stack(buf, true)]
+	var jobs []string
+	for _, g := range strings.Split(string(buf), "\n\n") {
+		if strings.Contains(g, "mayoi/internal/bg.") {
+			jobs = append(jobs, g)
+		}
+	}
+	return strings.Join(jobs, "\n\n")
 }
 
 // busy reports whether background work runs, and whether some it posted

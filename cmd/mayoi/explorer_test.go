@@ -13,6 +13,7 @@ import (
 	"github.com/egoist/mygo/ui"
 
 	"mayoi/internal/settings"
+	"mayoi/locales"
 )
 
 const packageChain = "src/main/java/com/example"
@@ -464,4 +465,27 @@ func TestCompactExplorerRevealsFileThatSplitsAChain(t *testing.T) {
 		t.Fatal(err)
 	}
 	hs.until("the chain again", func() bool { return a.explorer.rows[hs.path(packageChain)].name == packageChain })
+}
+
+// The menu of the space below the files takes the item chosen wherever
+// the item was, as over the rows or the editor when the menu flips up or
+// runs past the sidebar.
+func TestExplorerMenuBelowTheFiles(t *testing.T) {
+	hs := newHarness(t, true)
+	a, tt := hs.a, hs.tt
+	r, ok := tt.Find("internal")
+	if !ok {
+		t.Fatalf("no folder row: %q", tt.Texts())
+	}
+	tt.RightClickAt(r.X+20, 680)
+	hs.settle()
+	tt.Move(r.X+600, r.Y)
+	hs.settle()
+	if err := tt.ChooseMenuItem("New File…"); err != nil {
+		t.Fatal(err)
+	}
+	hs.settle()
+	if a.prompt == nil || a.prompt.hint != locales.InDir(a.relOrPath(a.root)) {
+		t.Fatalf("no new file prompt in the workspace: %+v", a.prompt)
+	}
 }

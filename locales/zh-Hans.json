@@ -181,6 +181,7 @@
   "cmdFileOpenFolder": "打开文件夹…",
   "cmdFileOpenFolderWindow": "在新窗口中打开文件夹…",
   "cmdFileOpenRecent": "打开最近的文件夹…",
+  "cmdFileRename": "重命名活动文件…",
   "cmdFileReopenClosed": "重新打开已关闭的标签页",
   "cmdFileSave": "保存",
   "cmdFileSaveAll": "全部保存",

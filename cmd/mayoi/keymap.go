@@ -521,6 +521,13 @@ func (a *app) revealActive() {
 	}
 }
 
+// renameActive asks for a new name for the file of the document shown.
+func (a *app) renameActive() {
+	if t := a.activeTab(); t != nil && t.ed != nil && t.ed.path != "" {
+		a.askRename(t.ed.path)
+	}
+}
+
 // chordCaps are the strokes of a chord, each as a cap of a keyboard with
 // its modifiers, as "⌃." and "G".
 func chordCaps(keys []keymap.Stroke) []string {

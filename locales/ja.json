@@ -181,6 +181,7 @@
   "cmdFileOpenFolder": "フォルダーを開く…",
   "cmdFileOpenFolderWindow": "新しいウィンドウでフォルダーを開く…",
   "cmdFileOpenRecent": "最近使用したフォルダーを開く…",
+  "cmdFileRename": "アクティブなファイルの名前を変更…",
   "cmdFileReopenClosed": "閉じたタブを開き直す",
   "cmdFileSave": "保存",
   "cmdFileSaveAll": "すべて保存",

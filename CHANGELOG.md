@@ -9,6 +9,8 @@ needs a `## <version>` section here, or its build fails.
 - While a program works or waits for you, a pill over its terminal says what it does, with its progress.
 - A program in a project out of sight that waits for you, finishes or fails marks the project on the rail.
 - Typing in a terminal clears the mark of a program's finished or failed work.
+- **Rename Active File…** in the command palette renames the current tab's file, bindable as `file.rename`.
+- Opening a file from outside the folder clears the selection in the Explorer.
 
 ## 0.16.2
 

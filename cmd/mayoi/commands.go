@@ -54,6 +54,7 @@ func (a *app) commandsIn(t locales.Messages) []command {
 		{"file.copyPath", t.CmdFileCopyPath(), "", func() { a.copyActivePath(false) }},
 		{"file.copyRelativePath", t.CmdFileCopyRelativePath(), "", func() { a.copyActivePath(true) }},
 		{"file.reveal", revealActiveLabel(t), "", a.revealActive},
+		{"file.rename", t.CmdFileRename(), "", a.renameActive},
 		{"file.close", t.CmdFileClose(), "CmdOrCtrl+W", a.closeActive},
 		{"file.reopenClosed", t.CmdFileReopenClosed(), "Shift+CmdOrCtrl+T", a.reopenClosed},
 		{"file.closeFolder", t.CmdFileCloseFolder(), "", a.closeFolder},

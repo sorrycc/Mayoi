@@ -3,7 +3,7 @@
 The update window shows the section of the version it offers. Every release
 needs a `## <version>` section here, or its build fails.
 
-## Unreleased
+## 0.17.0
 
 - Terminal icons show whether a program says it works, waits for you, finished or failed (OSC 7501).
 - While a program works or waits for you, a pill over its terminal says what it does, with its progress.

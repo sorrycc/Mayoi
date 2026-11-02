@@ -210,6 +210,9 @@ type app struct {
 	// keyboard as it next shows.
 	filesView  ui.Handle
 	focusFiles bool
+	// filesMenuBelow is set while the menu of the space below the files
+	// shows: chosen, its item runs wherever the pointer went to choose it.
+	filesMenuBelow bool
 	// treeSynced is the document the tree last followed, selectInTree the
 	// file it should choose once its row shows.
 	treeSynced, selectInTree string

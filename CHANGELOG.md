@@ -12,6 +12,7 @@ needs a `## <version>` section here, or its build fails.
 - **Rename Active File…** in the command palette renames the current tab's file, bindable as `file.rename`.
 - Opening a file from outside the folder clears the selection in the Explorer.
 - Splitting a Markdown preview to the right keeps it a preview, scrolled to the same place.
+- **New File…** and the other items of the Explorer's menu below the files no longer do nothing at times.
 
 ## 0.16.2
 

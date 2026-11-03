@@ -1,7 +1,9 @@
 package git
 
 import (
+	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -11,19 +13,25 @@ func TestMessageDiff(t *testing.T) {
 	write(t, r.Root, "a.txt", "one\n2\nthree\n")
 	write(t, r.Root, "new.txt", "fresh\n")
 	write(t, r.Root, "web/package-lock.json", "{\"lockfileVersion\": 3}\n")
+	write(t, r.Root, ".env", "SECRET=abc\n")
+	write(t, r.Root, "certs/server.pem", "PRIVATE KEY\n")
 
-	// Nothing staged: every change, the new files' too, but a lockfile's lines.
+	// Nothing staged: every change, the new files' too, but a lockfile's
+	// lines and a secret file's.
 	d, staged, err := r.MessageDiff(false, 0)
 	if err != nil || staged {
 		t.Fatalf("staged %v err %v", staged, err)
 	}
-	for _, want := range []string{"-two", "+2", "New files:", " new.txt", "+fresh", " web/package-lock.json"} {
+	for _, want := range []string{"-two", "+2", "New files:", " new.txt", "+fresh", " web/package-lock.json", " .env", " certs/server.pem"} {
 		if !strings.Contains(d, want) {
 			t.Errorf("all changes lack %q:\n%s", want, d)
 		}
 	}
 	if strings.Contains(d, "lockfileVersion") {
 		t.Errorf("all changes show a lockfile's lines:\n%s", d)
+	}
+	if strings.Contains(d, "SECRET=abc") || strings.Contains(d, "PRIVATE KEY") {
+		t.Errorf("all changes show a secret file's lines:\n%s", d)
 	}
 
 	// Staged: only what is.
@@ -53,6 +61,8 @@ func TestMessageDiff(t *testing.T) {
 	}
 
 	// Nothing changed.
+	os.RemoveAll(filepath.Join(r.Root, ".env"))
+	os.RemoveAll(filepath.Join(r.Root, "certs"))
 	git("commit", "-q", "-am", "third")
 	if d, _, err := r.MessageDiff(false, 0); d != "" || err != nil {
 		t.Errorf("no changes: %q %v", d, err)

@@ -5,6 +5,7 @@ needs a `## <version>` section here, or its build fails.
 
 ## Unreleased
 
+- AI commit messages no longer send the contents of new secret files like `.env` or keys, only their names.
 - With the `"hc"` backend, `terminalBackendHcPath` finds hc before `PATH` and `~/.local/bin`.
 - With the `"hc"` backend, `terminalBackendHcEnv` passes `KEY=value` variables to hc's commands.
 - With `terminalBackendHcPath` set, Mayoi no longer offers to install hc.

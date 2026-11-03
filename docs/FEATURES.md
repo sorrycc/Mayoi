@@ -162,7 +162,8 @@ tree, with a count of them. Files are grouped as merge changes, staged changes, 
   the summary line shows its length, in a warning color past 72.
 - Signed in to your [Mon](https://mon.sorrycc.dev) account, the ✨ button at the corner of the message box has AI write
   the message from the staged changes, or from every change when nothing is staged, in the style of the branch's last
-  commits. The message streams into the box; click the button again to stop. Text already in the box goes along as
+  commits. With nothing staged, new files go along with their lines, but files that may hold secrets, as `.env` and
+  keys, go by name only. The message streams into the box; click the button again to stop. Text already in the box goes along as
   notes to follow. **Git: Write Commit Message with AI** in the command palette does the same. It uses Mon's AI gateway
   and your account's daily limit; the `aiModel` setting picks another of its models.
 - The arrow beside the commit button has **Commit & Push**, **Amend Last Commit** (which fills in the last message) and

@@ -3336,6 +3336,16 @@ func (msgs Messages) CmdViewTerminalMove() string {
 	return Catalog.Format(msgs.locale, "cmdViewTerminalMove", nil)
 }
 
+// CmdViewTerminalRename says "Rename Terminal…"
+// in the language the app shows.
+func CmdViewTerminalRename() string { return In(i18n.Locale()).CmdViewTerminalRename() }
+
+// CmdViewTerminalRename says "Rename Terminal…"
+// in the language of msgs.
+func (msgs Messages) CmdViewTerminalRename() string {
+	return Catalog.Format(msgs.locale, "cmdViewTerminalRename", nil)
+}
+
 // CmdViewTerminalTab says "New Terminal in Editor Area"
 // in the language the app shows.
 func CmdViewTerminalTab() string { return In(i18n.Locale()).CmdViewTerminalTab() }
@@ -12170,6 +12180,26 @@ func TermKill() string { return In(i18n.Locale()).TermKill() }
 // in the language of msgs.
 func (msgs Messages) TermKill() string {
 	return Catalog.Format(msgs.locale, "termKill", nil)
+}
+
+// TermRename says "Rename Terminal…"
+// in the language the app shows.
+func TermRename() string { return In(i18n.Locale()).TermRename() }
+
+// TermRename says "Rename Terminal…"
+// in the language of msgs.
+func (msgs Messages) TermRename() string {
+	return Catalog.Format(msgs.locale, "termRename", nil)
+}
+
+// TermRenameTitle says "Rename Terminal"
+// in the language the app shows.
+func TermRenameTitle() string { return In(i18n.Locale()).TermRenameTitle() }
+
+// TermRenameTitle says "Rename Terminal"
+// in the language of msgs.
+func (msgs Messages) TermRenameTitle() string {
+	return Catalog.Format(msgs.locale, "termRenameTitle", nil)
 }
 
 // HcAddTitle says "Run Terminals of {host} in herdr-core?"

@@ -171,6 +171,7 @@ func (a *app) commandsIn(t locales.Messages) []command {
 		{"view.newTerminal", t.CmdViewNewTerminal(), "Ctrl+Shift+`", func() { a.openTerminal(a.workDir()) }},
 		{"view.terminalTab", t.CmdViewTerminalTab(), "", func() { a.newTerminalTab(a.fileColumn(), a.workDir(), true) }},
 		{"view.terminalMove", t.CmdViewTerminalMove(), "", a.moveTerminal},
+		{"view.terminalRename", t.CmdViewTerminalRename(), "", a.renameTerminal},
 		{"view.installHC", t.CmdViewInstallHC(), "", a.installHC},
 		{"view.terminalLocation", t.CmdViewTerminalLocation(), "", a.toggleTerminalLocation},
 		{"view.terminalLockRight", t.CmdViewTerminalLockRight(), "", a.moveTerminalToLockedRight},
@@ -329,6 +330,28 @@ func (a *app) moveTerminal() {
 	case a.panelTerm != nil:
 		a.terminalToColumn(a.panelTerm, a.column(), a.column().active+1)
 	}
+}
+
+// renameTerminal asks for a new name for the terminal that has the
+// keyboard, or had it last.
+func (a *app) renameTerminal() {
+	switch t := a.activeTab(); {
+	case a.focus == paneTerminal && a.panelTerm != nil:
+		a.askRenameTerminal(a.panelTerm)
+	case t != nil && t.term != nil:
+		a.askRenameTerminal(t.term)
+	case a.panelTerm != nil:
+		a.askRenameTerminal(a.panelTerm)
+	}
+}
+
+// askRenameTerminal asks for a new name for s, which it keeps over the
+// titles its programs give it; an empty one has it show those again.
+func (a *app) askRenameTerminal(s *session) {
+	a.prompt = &prompt{title: locales.TermRenameTitle(), hint: s.title, value: s.label(), optional: true, done: func(name string) string {
+		s.name = strings.TrimSpace(name)
+		return ""
+	}}
 }
 
 // setAppearance makes the windows light, dark, or follow the system for

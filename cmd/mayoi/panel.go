@@ -1,6 +1,7 @@
 package main
 
 import (
+	"cmp"
 	"fmt"
 	"io"
 	"mayoi/internal/keymap"
@@ -65,6 +66,15 @@ type session struct {
 	status      terminal.ProgramStatus
 	statusSince time.Time
 	statusFrom  terminal.StatusState
+	// name is what the user renamed it to, "" for none, shown over the
+	// title its programs give it.
+	name string
+}
+
+// label is what the terminal is called: the name the user gave it, or
+// the title its programs give it.
+func (s *session) label() string {
+	return cmp.Or(s.name, s.title)
 }
 
 type panelHeaderLayout struct {
@@ -238,13 +248,13 @@ func (a *app) spawnTerminal(s *session, dir string) (*terminal.Terminal, error) 
 		// A program done in a project out of sight, as a build or an
 		// agent, has the rail mark the project's square.
 		OnBell: func() {
-			a.post(func() { a.alert = locales.BellFrom(s.title) })
+			a.post(func() { a.alert = locales.BellFrom(s.label()) })
 		},
 		OnNotify: func(title, body string) {
 			a.post(func() {
 				a.alert = strings.TrimSpace(title + " " + body)
 				if a.alert == "" {
-					a.alert = locales.NotificationFrom(s.title)
+					a.alert = locales.NotificationFrom(s.label())
 				}
 			})
 		},
@@ -501,7 +511,7 @@ func (a *app) panel(c *ui.Context) {
 	width := box.Bounds().W
 	var titles strings.Builder
 	for _, s := range terms {
-		titles.WriteString(s.title)
+		titles.WriteString(s.label())
 		titles.WriteByte(0)
 	}
 	windowWidth, _ := c.Size()
@@ -528,7 +538,7 @@ func (a *app) panel(c *ui.Context) {
 			ui.ScrollHorizontal(c.Key("terms")).TrackScroll(&a.panelScroll).Grow(1).Height(panelHeadH+scrollbarH).Padding(0, 0, scrollbarH, 0).Children(func() {
 				ui.Row(c).Gap(2).AlignItems(ui.Center).Children(func() {
 					for i, s := range terms {
-						chip := ui.ButtonBase(c.Key(s.id)).Padding(3, 8).Gap(6).Radius(5).AlignItems(ui.Center).Label(s.title).
+						chip := ui.ButtonBase(c.Key(s.id)).Padding(3, 8).Gap(6).Radius(5).AlignItems(ui.Center).Label(s.label()).
 							Drag(dragItem{term: s}).Transition(tabMotion)
 						if chip.Dragging() {
 							a.dragNow = true
@@ -548,7 +558,7 @@ func (a *app) panel(c *ui.Context) {
 							if on {
 								col = p.text
 							}
-							ui.Text(c, fmt.Sprintf("%d: %s", i+1, s.title)).FontSize(12).TextColor(col).SingleLine().MaxWidth(180)
+							ui.Text(c, fmt.Sprintf("%d: %s", i+1, s.label())).FontSize(12).TextColor(col).SingleLine().MaxWidth(180)
 						})
 						if chip.Clicked() {
 							a.panelTerm = s
@@ -560,6 +570,9 @@ func (a *app) panel(c *ui.Context) {
 							}
 							if m.Item(locales.TermMoveEditorArea()).Chosen() {
 								a.post(func() { a.terminalToColumn(s, a.column(), a.column().active+1) })
+							}
+							if m.Item(locales.TermRename()).Chosen() {
+								a.post(func() { a.askRenameTerminal(s) })
 							}
 							a.hcMenu(m, s)
 							if m.Item(locales.TermKill()).Chosen() {

@@ -309,6 +309,9 @@ func (a *app) tabMenu(m *ui.Menu, col *column, t *colTab, closing **colTab) {
 		if m.Item(locales.MoveToPanel()).Chosen() {
 			a.post(func() { a.terminalToPanel(t.term) })
 		}
+		if m.Item(locales.TermRename()).Chosen() {
+			a.post(func() { a.askRenameTerminal(t.term) })
+		}
 		a.hcMenu(m, t.term)
 		return
 	}

@@ -8,6 +8,7 @@ needs a `## <version>` section here, or its build fails.
 - With the `"hc"` backend, `terminalBackendHcPath` finds hc before `PATH` and `~/.local/bin`.
 - With the `"hc"` backend, `terminalBackendHcEnv` passes `KEY=value` variables to hc's commands.
 - With `terminalBackendHcPath` set, Mayoi no longer offers to install hc.
+- `terminalBackendHcPath` and `terminalBackendHcEnv` stay on each machine and never upload with settings sync.
 - Rename a terminal from its tab's right-click menu or **View: Rename Terminal…** in the command palette.
 - A renamed terminal keeps its name when programs set a title; rename it to nothing to show theirs again.
 - Pressing Enter in the crash report question chooses **Don't Send** instead of sending the report.

@@ -38,7 +38,7 @@ REM `+scriptMark+`
 setlocal DisableDelayedExpansion
 set "MAYOI_CLI=1"
 if not exist "`+app+`" (
-	echo "mayoi: Mayoi.exe is not found" 1>&2
+	echo mayoi: Mayoi.exe is not found. Run File ^> Install 'mayoi' Command again. 1>&2
 	exit /b 1
 )
 "`+app+`" %*
@@ -60,6 +60,8 @@ MAYOI_CLI=1 exec "$app/Contents/MacOS/Mayoi" "$@"
 `
 }
 
+// commandPath is the command's file in dir: a batch file on Windows, a
+// shell script elsewhere.
 func commandPath(dir string) string {
 	if runtime.GOOS == "windows" {
 		return filepath.Join(dir, "mayoi.cmd")
@@ -67,27 +69,23 @@ func commandPath(dir string) string {
 	return filepath.Join(dir, "mayoi")
 }
 
+// installDir is Mayoi's own Windows command folder, not another tool's.
+func installDir(home string) string {
+	if local := os.Getenv("LOCALAPPDATA"); local != "" {
+		return filepath.Join(local, "Mayoi", "bin")
+	}
+	return filepath.Join(home, "AppData", "Local", "Mayoi", "bin")
+}
+
 // Dirs are installation folders the command interpreter searches. Windows
-// uses its PATH directly; elsewhere the known user folders come first,
-// then the system-wide destination.
+// uses Mayoi's own folder, which AddToUserPath puts on the user's PATH;
+// elsewhere the known user folders come first, then the system-wide one.
 func Dirs(home string, path []string) []string {
+	if runtime.GOOS == "windows" {
+		return []string{installDir(home)}
+	}
 	var dirs []string
 	path = cleanPath(path)
-	if runtime.GOOS == "windows" {
-		var other []string
-		for _, dir := range path {
-			if !filepath.IsAbs(dir) {
-				continue
-			}
-			rel, err := filepath.Rel(home, dir)
-			if err == nil && rel != ".." && !strings.HasPrefix(rel, ".."+string(os.PathSeparator)) {
-				dirs = append(dirs, dir)
-			} else {
-				other = append(other, dir)
-			}
-		}
-		return append(dirs, other...)
-	}
 	for _, dir := range []string{filepath.Join(home, ".local", "bin"), filepath.Join(home, "bin"), "/usr/local/bin"} {
 		if slices.Contains(path, filepath.Clean(dir)) {
 			dirs = append(dirs, dir)
@@ -105,6 +103,12 @@ func InstalledDirs(home string, path []string) []string {
 			dirs = append(dirs, dir)
 		}
 	}
+	if runtime.GOOS == "windows" {
+		if dir := installDir(home); !slices.Contains(dirs, dir) {
+			dirs = append(dirs, dir)
+		}
+		return dirs
+	}
 	for _, dir := range []string{filepath.Join(home, ".local", "bin"), filepath.Join(home, "bin"), "/usr/local/bin"} {
 		if !slices.Contains(dirs, dir) {
 			dirs = append(dirs, dir)
@@ -120,7 +124,10 @@ var ErrCanceled = errors.New("canceled")
 // of dirs that takes it, and returns where it went. Only /usr/local/bin
 // may request administrator privileges, after every destination was tried.
 func Install(dirs []string, app string) (string, error) {
-	const guidance = "add ~/.local/bin to your shell's PATH and try again"
+	guidance := "add ~/.local/bin to your shell's PATH and try again"
+	if runtime.GOOS == "windows" {
+		guidance = `check that %LOCALAPPDATA%\Mayoi\bin is writable and try again`
+	}
 	var candidates, installed []string
 	// Check every candidate before writing, so another program's command
 	// is neither replaced nor shadowed. Skip folders we cannot inspect.

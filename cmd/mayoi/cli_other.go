@@ -8,6 +8,8 @@ import "errors"
 // which there is none of here.
 func commandLine() bool { return false }
 
+func attachConsole() {}
+
 func startApp([]string) error { return errors.New("the mayoi command is not supported here") }
 
 func refreshCLI() {}

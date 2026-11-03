@@ -16,6 +16,9 @@ import (
 // command.
 func commandLine() bool { return os.Getenv(cliEnv) != "" }
 
+// attachConsole does nothing: the shell script starts a console executable.
+func attachConsole() {}
+
 // startApp starts the app the command is in, opening paths, with open, as
 // the Finder would; a development build, in no app, runs itself again.
 func startApp(paths []string) error {

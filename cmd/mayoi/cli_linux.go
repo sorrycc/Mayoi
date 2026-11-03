@@ -9,6 +9,9 @@ func commandLine() bool {
 	return os.Getenv(cliEnv) != "" || len(os.Args) > 1 && os.Getenv(detachedEnv) == "" && os.Getenv("MAYOI_SNAPSHOT") == ""
 }
 
+// attachConsole does nothing: Linux starts with the command's handles.
+func attachConsole() {}
+
 // startApp starts Mayoi apart from the command, opening paths.
 func startApp(paths []string) error { return startDetached(paths, detachedEnv+"=1") }
 

@@ -5,7 +5,7 @@ needs a `## <version>` section here, or its build fails.
 
 ## Unreleased
 
-- **File → Install 'mayoi' Command** now installs a working `mayoi.cmd` on Windows, with the same options as on macOS.
+- Windows can install `mayoi.cmd` from **File → Install 'mayoi' Command**, including user PATH setup.
 
 ## 0.17.0
 

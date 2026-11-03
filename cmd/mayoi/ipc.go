@@ -25,6 +25,7 @@ func commandLineClient() {
 	if !commandLine() {
 		return
 	}
+	attachConsole()
 	os.Unsetenv(cliEnv)
 	dir, err := mygo.App.Path(mygo.PathUserData)
 	if err != nil {

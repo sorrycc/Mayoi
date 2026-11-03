@@ -89,8 +89,10 @@ func TestWindowsScript(t *testing.T) {
 	if err := os.WriteFile(app, data, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	bin := filepath.Join(dir, "bin")
-	t.Setenv("PATH", strings.Join([]string{t.TempDir(), bin}, string(os.PathListSeparator)))
+	localData := filepath.Join(dir, "Local")
+	t.Setenv("LOCALAPPDATA", localData)
+	bin := filepath.Join(localData, "Mayoi", "bin")
+	t.Setenv("PATH", t.TempDir())
 	t.Setenv("SHELL", filepath.Join(dir, "missing"))
 	p, err := Install(Dirs(dir, LoginPath()), app)
 	if err != nil || p != filepath.Join(bin, "mayoi.cmd") {
@@ -187,6 +189,18 @@ func TestDirs(t *testing.T) {
 	local := filepath.Join(home, ".local", "bin")
 	bin := filepath.Join(home, "bin")
 	custom := filepath.Join(home, ".nvm", "versions", "node", "bin")
+	if runtime.GOOS == "windows" {
+		localData := filepath.Join(home, "Local")
+		t.Setenv("LOCALAPPDATA", localData)
+		own := filepath.Join(localData, "Mayoi", "bin")
+		if got := Dirs(home, []string{custom}); !slices.Equal(got, []string{own}) {
+			t.Fatalf("Windows installation uses another tool's folder: %v", got)
+		}
+		if got := InstalledDirs(home, []string{custom}); !slices.Equal(got, []string{custom, own}) {
+			t.Fatalf("Windows management destinations: %v", got)
+		}
+		return
+	}
 	for _, tt := range []struct {
 		name       string
 		path, want []string

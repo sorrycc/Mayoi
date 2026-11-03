@@ -392,6 +392,7 @@ const (
 
 func newApp(h host, s *settings.Settings, w *settings.Window) *app {
 	a := &app{host: h, settings: s, window: w, fileRow: -1}
+	setHCConfig(s.Prefs)
 	w.Normalize(settings.DefaultLayout)
 	a.scm.row, a.inFiles.row = -1, -1
 	a.files.List.Selected = &a.fileRow

@@ -3,6 +3,12 @@
 The update window shows the section of the version it offers. Every release
 needs a `## <version>` section here, or its build fails.
 
+## Unreleased
+
+- With the `"hc"` backend, `terminalBackendHcPath` finds hc before `PATH` and `~/.local/bin`.
+- With the `"hc"` backend, `terminalBackendHcEnv` passes `KEY=value` variables to hc's commands.
+- With `terminalBackendHcPath` set, Mayoi no longer offers to install hc.
+
 ## 0.17.0
 
 - Terminal icons show whether a program says it works, waits for you, finished or failed (OSC 7501).

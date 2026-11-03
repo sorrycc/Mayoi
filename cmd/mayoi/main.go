@@ -652,6 +652,7 @@ var setThemeSource = func(s mygo.ThemeSource) { mygo.Theme.SetSource(s) }
 // changed as Mayoi runs.
 func (m *mayoi) reload(p settings.Prefs) {
 	old := m.s.SetPrefs(p)
+	setHCConfig(p)
 	if p.Appearance != old.Appearance || p.Theme != old.Theme {
 		setThemeSource(themeSource(p.Theme, p.Appearance))
 	}

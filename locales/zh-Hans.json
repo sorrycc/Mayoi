@@ -237,6 +237,7 @@
   "cmdRemoteConnect": "连接到主机…",
   "cmdRemoteDisconnect": "断开与主机的连接",
   "cmdRemoteForwardPort": "转发端口…",
+  "cmdRemoteOpenConfig": "打开 SSH 配置",
   "cmdRemoteOpenFolder": "打开远程文件夹…",
   "cmdRemoteReconnect": "重新连接主机",
   "cmdReviewClear": "清除审阅评论",

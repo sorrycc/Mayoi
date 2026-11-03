@@ -4,7 +4,9 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"os"
 	"path"
+	"path/filepath"
 	"slices"
 	"strings"
 	"sync"
@@ -142,6 +144,40 @@ func (a *app) openRemoteFolder() {
 	}
 	a.openRemotePicker()
 	a.chooseHost(a.conn.Host)
+}
+
+// openSSHConfig opens this machine's SSH config, whose hosts the box
+// lists, in a tab: in a remote window too, as it is this machine that
+// connects. A missing config is made, empty and private as ssh wants it.
+func (a *app) openSSHConfig() {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		a.fail("%s", err)
+		return
+	}
+	path := filepath.Join(home, ".ssh", "config")
+	if err := makeSSHConfig(path); err != nil {
+		a.fail("%s", locales.FailOpen(filepath.Base(path), err.Error()))
+		return
+	}
+	a.closeRemotePicker()
+	a.openFile(path, true)
+}
+
+// makeSSHConfig makes an empty ssh config where there is none, in a
+// folder only its owner reads, leaving one there, or its folder, as it is.
+func makeSSHConfig(path string) error {
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		return err
+	}
+	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+	if errors.Is(err, fs.ErrExist) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	return f.Close()
 }
 
 // closeRemotePicker hides the box, letting go of the connection it held,
@@ -550,6 +586,12 @@ func (a *app) pickHeader(c *ui.Context, title, placeholder string, rows []string
 		}
 		if r.checking || r.listing {
 			ui.Spinner(c).Size(12, 12)
+		}
+		if r.stage == pickHost {
+			if a.barButton(c, "remote-config", locales.PickSshConfig()).Shrink(0).
+				Label(locales.CmdRemoteOpenConfig()).Tooltip("~/.ssh/config").Clicked() {
+				a.post(a.openSSHConfig)
+			}
 		}
 		if r.stage == pickFolder && r.conn != nil {
 			// The host the folders are on.

@@ -2796,6 +2796,16 @@ func (msgs Messages) CmdRemoteForwardPort() string {
 	return Catalog.Format(msgs.locale, "cmdRemoteForwardPort", nil)
 }
 
+// CmdRemoteOpenConfig says "Open SSH Config"
+// in the language the app shows.
+func CmdRemoteOpenConfig() string { return In(i18n.Locale()).CmdRemoteOpenConfig() }
+
+// CmdRemoteOpenConfig says "Open SSH Config"
+// in the language of msgs.
+func (msgs Messages) CmdRemoteOpenConfig() string {
+	return Catalog.Format(msgs.locale, "cmdRemoteOpenConfig", nil)
+}
+
 // CmdRemoteOpenFolder says "Open Remote Folder…"
 // in the language the app shows.
 func CmdRemoteOpenFolder() string { return In(i18n.Locale()).CmdRemoteOpenFolder() }

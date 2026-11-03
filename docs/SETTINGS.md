@@ -72,6 +72,8 @@ takes its default.
 | `panelPosition`         | `""`          | `""` (bottom), `"left"`, `"right"`                          | **View → Panel Position**                      |
 | `terminalLocation`      | `""`          | `""` (the panel), `"editor"`                                | **View → New Terminals in Editor Area**        |
 | `terminalBackend`       | `""`          | `""` (Mayoi), `"hc"` (herdr-core)                           |                                                |
+| `terminalBackendHcPath` | `""`          | A path to `hc`, a folder that has it, or a name on `PATH`   |                                                |
+| `terminalBackendHcEnv`  | none          | A list of `KEY=value` environment variables for `hc`        |                                                |
 | `projectTabs`           | `false`       | `true`, `false`                                             | **View → Project Tabs**                        |
 | `projectTabStyle`       | none          | A label, color and icon for each folder                     | A square's context menu on the rail            |
 | `locale`                | `""`          | `""` (follow the system), `"en"`, `"zh-Hans"`, `"ja"`       | **View → Language**                            |
@@ -160,9 +162,19 @@ differ in width lines them up only roughly.
   with its scrollback. Closing the terminal ends it. In a remote folder the shell runs on the host, one of hc's
   machines (`hc machine ls`): the first terminal of a host hc doesn't know asks to add it, which may copy `hc` there,
   and until then, or if you decline, terminals of the host use ssh until Mayoi quits. Mayoi takes `Ctrl+\`, hc's detach key,
-  and sends it to the shell. Mayoi finds `hc` on the path or in `~/.local/bin`; without it, terminals run in Mayoi,
-  and the first one asks once whether to install it. **View → Install hc…** installs it there with herdr's installer, on
-  macOS and Linux, and new terminals use it without a restart.
+  and sends it to the shell. Mayoi finds `hc` at `terminalBackendHcPath` when it is set, then on the path or in
+  `~/.local/bin`; without it, terminals run in Mayoi, and the first one asks once whether to install it.
+  **View → Install hc…** installs it there with herdr's installer, on macOS and Linux, and new terminals use it without
+  a restart.
+- **`terminalBackendHcPath`** is the `hc` Mayoi runs when `terminalBackend` is `"hc"`: a path to the program, or a
+  folder that has it, which may start with `~`; a bare name, as `"herdr-core"`, is found on the path, and any other
+  relative path is the working folder of Mayoi, so give an absolute path. Mayoi looks there first, and quietly falls
+  back to the path and `~/.local/bin` when it isn't there, so a path that is wrong still runs another `hc` if there is
+  one. With it set, Mayoi doesn't offer to install hc. It has no effect with another backend.
+- **`terminalBackendHcEnv`** is the environment of the `hc` commands Mayoi starts when `terminalBackend` is `"hc"`: a
+  list of `KEY=value` strings, as `["HC_NO_UPDATE=1"]`. Strings without `=` or with a NUL are ignored. It reaches the
+  commands Mayoi starts, not a terminal already attached; a server hc already has running keeps the environment it
+  started with.
 - **`projectTabs`** keeps every folder open in one window, as project tabs on a rail on its left, rather than a
   window for each. Changing it gathers the windows into one, or parts them, at once.
 - **`projectTabStyle`** gives a project's square on the rail its own label, up to two characters, in place of its

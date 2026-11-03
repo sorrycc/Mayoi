@@ -202,6 +202,15 @@ type Prefs struct {
 	// TerminalBackend is what runs a terminal's shell: "" Mayoi itself,
 	// or "hc" a terminal of herdr-core, which outlives the window.
 	TerminalBackend string `json:"terminalBackend,omitempty"`
+	// TerminalBackendHcPath is the hc to run when TerminalBackend is
+	// "hc": a path to the program, a folder that has it, or a name on
+	// the path. Mayoi finds hc there first, and on the path or in
+	// ~/.local/bin without it.
+	TerminalBackendHcPath string `json:"terminalBackendHcPath,omitempty"`
+	// TerminalBackendHcEnv is the environment of hc's commands when
+	// TerminalBackend is "hc", as "KEY=value". A string without "=" or
+	// with a NUL is ignored.
+	TerminalBackendHcEnv []string `json:"terminalBackendHcEnv,omitempty"`
 	// ProjectTabs keeps the folders open in one window, a rail on its left
 	// choosing which shows, rather than a window for each.
 	ProjectTabs bool `json:"projectTabs,omitempty"`

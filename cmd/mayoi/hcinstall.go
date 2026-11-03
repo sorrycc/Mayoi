@@ -72,9 +72,11 @@ func (a *app) installHC() {
 }
 
 // offerHC asks, once as Mayoi runs, whether to install hc, which
-// terminalBackend "hc" needs: the terminal runs in Mayoi meanwhile.
+// terminalBackend "hc" needs: the terminal runs in Mayoi meanwhile. It
+// asks only without terminalBackendHcPath, as a path set is the person's
+// choice, not a missing install.
 func (a *app) offerHC() {
-	if a.settings.TerminalBackend != "hc" || hcOffered || hcInstalling || a.confirm != nil || !hcInstallable() || hcPath() != "" {
+	if a.settings.TerminalBackend != "hc" || hcOffered || hcInstalling || a.confirm != nil || !hcInstallable() || hcConfiguredPath() != "" || hcPath() != "" {
 		return
 	}
 	hcOffered = true

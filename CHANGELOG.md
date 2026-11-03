@@ -5,6 +5,9 @@ needs a `## <version>` section here, or its build fails.
 
 ## Unreleased
 
+- With the `"hc"` backend, `terminalBackendHcPath` finds hc before `PATH` and `~/.local/bin`.
+- With the `"hc"` backend, `terminalBackendHcEnv` passes `KEY=value` variables to hc's commands.
+- With `terminalBackendHcPath` set, Mayoi no longer offers to install hc.
 - Windows can install `mayoi.cmd` from **File → Install 'mayoi' Command**, including user PATH setup.
 
 ## 0.17.0

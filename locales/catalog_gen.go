@@ -14228,6 +14228,48 @@ func (msgs Messages) PrefDescTerminalBackend() string {
 	return Catalog.Format(msgs.locale, "prefDescTerminalBackend", nil)
 }
 
+// PrefTitleTerminalBackendHcPath says "hc Path"
+// in the language the app shows.
+func PrefTitleTerminalBackendHcPath() string {
+	return In(i18n.Locale()).PrefTitleTerminalBackendHcPath()
+}
+
+// PrefTitleTerminalBackendHcPath says "hc Path"
+// in the language of msgs.
+func (msgs Messages) PrefTitleTerminalBackendHcPath() string {
+	return Catalog.Format(msgs.locale, "prefTitleTerminalBackendHcPath", nil)
+}
+
+// PrefDescTerminalBackendHcPath says "The hc to run with herdr-core: a path to it, a folder that has it, or a name on the path. Found there first, then on …"
+// in the language the app shows.
+func PrefDescTerminalBackendHcPath() string { return In(i18n.Locale()).PrefDescTerminalBackendHcPath() }
+
+// PrefDescTerminalBackendHcPath says "The hc to run with herdr-core: a path to it, a folder that has it, or a name on the path. Found there first, then on …"
+// in the language of msgs.
+func (msgs Messages) PrefDescTerminalBackendHcPath() string {
+	return Catalog.Format(msgs.locale, "prefDescTerminalBackendHcPath", nil)
+}
+
+// PrefTitleTerminalBackendHcEnv says "hc Environment"
+// in the language the app shows.
+func PrefTitleTerminalBackendHcEnv() string { return In(i18n.Locale()).PrefTitleTerminalBackendHcEnv() }
+
+// PrefTitleTerminalBackendHcEnv says "hc Environment"
+// in the language of msgs.
+func (msgs Messages) PrefTitleTerminalBackendHcEnv() string {
+	return Catalog.Format(msgs.locale, "prefTitleTerminalBackendHcEnv", nil)
+}
+
+// PrefDescTerminalBackendHcEnv says "Environment variables for hc's commands, as KEY=value. Entries without an equals sign or with a NUL are ignored."
+// in the language the app shows.
+func PrefDescTerminalBackendHcEnv() string { return In(i18n.Locale()).PrefDescTerminalBackendHcEnv() }
+
+// PrefDescTerminalBackendHcEnv says "Environment variables for hc's commands, as KEY=value. Entries without an equals sign or with a NUL are ignored."
+// in the language of msgs.
+func (msgs Messages) PrefDescTerminalBackendHcEnv() string {
+	return Catalog.Format(msgs.locale, "prefDescTerminalBackendHcEnv", nil)
+}
+
 // PrefTitleDiffLayout says "Diff Layout"
 // in the language the app shows.
 func PrefTitleDiffLayout() string { return In(i18n.Locale()).PrefTitleDiffLayout() }

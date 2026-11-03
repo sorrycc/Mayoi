@@ -454,6 +454,20 @@ func TestTerminalBackend(t *testing.T) {
 	}
 }
 
+// terminalBackendHcPath and terminalBackendHcEnv are kept as they are
+// written, for hc to use them as its commands run.
+func TestTerminalBackendHcPreferences(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "settings.json")
+	os.WriteFile(path, []byte(`{"terminalBackend":"hc","terminalBackendHcPath":"/opt/hc/bin/hc","terminalBackendHcEnv":["A=1","NOEQUAL","B=x=y"]}`), 0o644)
+	s := Load(path)
+	if s.TerminalBackendHcPath != "/opt/hc/bin/hc" {
+		t.Errorf("hc path %q", s.TerminalBackendHcPath)
+	}
+	if want := []string{"A=1", "NOEQUAL", "B=x=y"}; !slices.Equal(s.TerminalBackendHcEnv, want) {
+		t.Errorf("hc env %q, want %q", s.TerminalBackendHcEnv, want)
+	}
+}
+
 func TestScmRepositoryPreferencesRoundTrip(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "settings.json")
 	s := Load(path)

@@ -13,6 +13,7 @@ needs a `## <version>` section here, or its build fails.
 - Rename a terminal from its tab's right-click menu or **View: Rename Terminal…** in the command palette.
 - A renamed terminal keeps its name when programs set a title; rename it to nothing to show theirs again.
 - Pressing Enter in the crash report question chooses **Don't Send** instead of sending the report.
+- Find's match count changes instantly instead of rolling, in the editor, preview and terminal.
 
 ## 0.17.0
 

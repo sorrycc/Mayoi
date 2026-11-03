@@ -59,7 +59,6 @@ type session struct {
 	found     terminal.SearchStatus
 	findInput ui.Handle
 	findShook time.Time
-	findBack  bool
 	// status is what its programs say they do (OSC 7501), statusSince
 	// when the record most in need of the user last changed, and
 	// statusFrom the state that record was in before.

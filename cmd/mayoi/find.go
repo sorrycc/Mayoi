@@ -47,9 +47,6 @@ type findState struct {
 	// shook is when Return found no match, which shakes the box.
 	shook  time.Time
 	reveal bool // select the current match
-	// back is set when the last step went to the match before, which
-	// rolls the count down.
-	back bool
 	// countW is the width of the count of matches in the language
 	// countFor: measured again only as it changes.
 	countW   float32
@@ -251,7 +248,7 @@ func (a *app) step(d *editor, by int) {
 	} else {
 		f.cur = (f.cur + by + len(f.matches)) % len(f.matches)
 	}
-	f.reveal, f.back = true, by < 0
+	f.reveal = true
 }
 
 // replaceOne replaces the current match, and goes to the next, or with by
@@ -283,7 +280,6 @@ func (a *app) replaceOne(d *editor, by int) {
 			}
 		}
 		f.reveal = f.cur >= 0
-		f.back = by < 0
 	}
 }
 
@@ -481,9 +477,7 @@ func (a *app) findBoxView(c *ui.Context, b findBox) {
 			if none || b.err != "" {
 				col = p.dangerFg
 			}
-			// The count rolls from match to match, down going back.
-			ui.Text(c, count).FontSize(findCountSize).TextColor(col).Width(countW).SingleLine().TextAlign(ui.Center).
-				ContentTransition(ui.ContentTransition{Numeric: true, Down: f.back})
+			ui.Text(c, count).FontSize(findCountSize).TextColor(col).Width(countW).SingleLine().TextAlign(ui.Center)
 			if a.iconButton(c, iconArrowUp, locales.FindPrevMatch(keyText("Shift+Enter")), false).Disabled(b.n == 0).Clicked() {
 				b.step(-1)
 			}

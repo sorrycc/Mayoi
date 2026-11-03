@@ -147,7 +147,7 @@ func (a *app) stepPreview(m *markdownPreview, by int) {
 	} else {
 		m.findCur = (m.findCur + by + len(m.found)) % len(m.found)
 	}
-	m.reveal, a.find.back = true, by < 0
+	m.reveal = true
 }
 
 // previewHits are the matches of find in the text of cell of block i of

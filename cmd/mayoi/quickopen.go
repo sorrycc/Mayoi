@@ -2,7 +2,9 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"path"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -10,13 +12,14 @@ import (
 
 	"github.com/egoist/mygo/ui"
 
+	"mayoi/internal/remote"
 	"mayoi/internal/symbols"
 	"mayoi/internal/workspace"
 	"mayoi/locales"
 )
 
-// quickOpen is the state of the quick open box: files by fuzzy name,
-// ":n" for a line of the document shown, or "@" for its symbols.
+// quickOpen is the state of the quick open box: files by fuzzy name or
+// by path, ":n" for a line of the document shown, or "@" for its symbols.
 type quickOpen struct {
 	syms    symbolCache
 	open    bool
@@ -24,6 +27,7 @@ type quickOpen struct {
 	results []workspace.Match
 	sel     int
 	shown   string // the query the results are of
+	path    string // the file the query shown names by its path, if any
 	stale   bool
 	moved   bool     // the choice moved by keys, to scroll into view
 	used    []string // the commands the palette ran last, the last first
@@ -62,6 +66,32 @@ func gotoLine(query string) (line, col int, ok bool) {
 	return n, col, true
 }
 
+// quickPath is the file of this machine that a query names by an
+// absolute or ~/ path, which quick open offers in place of the folder's
+// matches. It is "" for any other query, a path that is not a file, or a
+// folder on a host, whose paths are the host's.
+func quickPath(root, query string) string {
+	if remote.Is(root) {
+		return ""
+	}
+	name := strings.TrimSpace(query)
+	if rest, ok := strings.CutPrefix(name, "~"); ok && rest != "" && os.IsPathSeparator(rest[0]) {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return ""
+		}
+		name = filepath.Join(home, rest[1:])
+	}
+	if !filepath.IsAbs(name) {
+		return ""
+	}
+	name = filepath.Clean(name)
+	if info, err := os.Stat(name); err != nil || !info.Mode().IsRegular() {
+		return ""
+	}
+	return name
+}
+
 func (a *app) quickOpenView(c *ui.Context) {
 	q := &a.quick
 	if !q.open {
@@ -79,12 +109,22 @@ func (a *app) quickOpenView(c *ui.Context) {
 		return
 	}
 	if !isLine && (q.stale || q.shown != q.query) {
-		q.results = workspace.Fuzzy(a.index, q.query, 60)
-		if strings.TrimSpace(q.query) == "" {
-			q.results = a.recentFirst(q.results)
+		// Once a query, as the path is looked up on the disk.
+		q.path = quickPath(a.root, q.query)
+		if q.path != "" {
+			q.results = []workspace.Match{{Index: 0}}
+		} else {
+			q.results = workspace.Fuzzy(a.index, q.query, 60)
+			if strings.TrimSpace(q.query) == "" {
+				q.results = a.recentFirst(q.results)
+			}
 		}
 		q.shown, q.stale = q.query, false
 		q.sel = 0
+	}
+	files := a.index
+	if q.path != "" {
+		files = []string{filepath.ToSlash(q.path)}
 	}
 	// choose opens a file of the results, to the side with side.
 	choose := func(i int, side bool) {
@@ -92,12 +132,15 @@ func (a *app) quickOpenView(c *ui.Context) {
 			q.shook = c.Now()
 			return
 		}
-		rel := a.index[q.results[i].Index]
+		name := q.path
+		if name == "" {
+			name = inDir(a.root, files[q.results[i].Index])
+		}
 		q.open = false
 		if side {
-			a.openFileToSide(inDir(a.root, rel))
+			a.openFileToSide(name)
 		} else {
-			a.openFile(inDir(a.root, rel), true)
+			a.openFile(name, true)
 		}
 	}
 	ui.Overlay(c, func() {
@@ -139,7 +182,7 @@ func (a *app) quickOpenView(c *ui.Context) {
 						}
 					}
 				})
-				a.quickBody(c, isLine, line, col, choose)
+				a.quickBody(c, files, isLine, line, col, choose)
 				// The prefixes are of use before a query, the side after.
 				typed := strings.TrimSpace(q.query) != ""
 				a.quickFooter(c, isLine, locales.QuickOpenAction(), "", a.root != "" && !typed, typed && len(q.results) > 0)
@@ -154,7 +197,7 @@ func (a *app) quickOpenView(c *ui.Context) {
 
 // quickBody is what quick open lists: the files found, or what going to
 // a line does.
-func (a *app) quickBody(c *ui.Context, isLine bool, line, col int, choose func(int, bool)) {
+func (a *app) quickBody(c *ui.Context, files []string, isLine bool, line, col int, choose func(int, bool)) {
 	q := &a.quick
 	p := a.pal
 	if isLine {
@@ -185,7 +228,7 @@ func (a *app) quickBody(c *ui.Context, isLine bool, line, col int, choose func(i
 	}
 	ui.Scroll(c.Key("quick-results")).MaxHeight(380).Padding(6).Children(func() {
 		for i, m := range q.results {
-			rel := a.index[m.Index]
+			rel := files[m.Index]
 			row := ui.ButtonBase(c.Key(rel)).Padding(5, 10).Gap(10).Radius(6).Justify(ui.Start).AlignItems(ui.Center).Label(rel)
 			if i != q.sel && row.Hovered() {
 				row.Background(p.hover)

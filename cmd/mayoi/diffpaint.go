@@ -7,6 +7,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 	"unicode"
 	"unicode/utf8"
@@ -1342,14 +1343,58 @@ func paintInitials(pt *ui.Painter, b ui.Rect, who string, size float32, col ui.C
 // paintLabel paints s in the middle of b, as paintInitials paints
 // initials.
 func paintLabel(pt *ui.Painter, b ui.Rect, s string, size float32, col ui.Color) {
+	l := labelShape(s, size)
+	pt.Glyphs(l.glyphs, b.X+(b.W-l.w)/2, b.Y+b.H/2+l.mid, col)
+}
+
+// shapeLabel shapes the text of paintLabel; tests count its calls.
+var shapeLabel = ui.Shape
+
+type labelKey struct {
+	s    string
+	size float32
+}
+
+// shapedLabel is a label paintLabel shaped: its glyphs, their width, and
+// how far below the middle of its box its baseline sits.
+type shapedLabel struct {
+	glyphs []ui.Glyph
+	w, mid float32
+}
+
+// labels keeps the labels paintLabel shaped, which every frame paints
+// again, until the text system lets go of their fonts (labelsGen).
+// Windows may paint at once, so labelsMu guards them.
+var (
+	labelsMu  sync.Mutex
+	labels    = map[labelKey]shapedLabel{}
+	labelsGen uint64
+)
+
+// maxLabels bounds labels: past it, they are shaped anew.
+const maxLabels = 256
+
+// labelShape returns s shaped in a bold font of size, from labels.
+func labelShape(s string, size float32) shapedLabel {
+	labelsMu.Lock()
+	defer labelsMu.Unlock()
+	if gen := ui.TextGeneration(); gen != labelsGen || len(labels) >= maxLabels {
+		clear(labels)
+		labelsGen = gen
+	}
+	k := labelKey{s, size}
+	if l, ok := labels[k]; ok {
+		return l
+	}
 	f := ui.Font{Size: size, Weight: 700}
-	gs := ui.Shape(s, f)
-	var w float32
-	for _, g := range gs {
-		w += g.Advance
+	l := shapedLabel{glyphs: shapeLabel(s, f)}
+	for _, g := range l.glyphs {
+		l.w += g.Advance
 	}
 	m := f.Metrics()
-	pt.Glyphs(gs, b.X+(b.W-w)/2, b.Y+b.H/2+(m.Ascent-m.Descent)/2, col)
+	l.mid = (m.Ascent - m.Descent) / 2
+	labels[k] = l
+	return l
 }
 
 // initials returns the first letters of the first two words of a name.

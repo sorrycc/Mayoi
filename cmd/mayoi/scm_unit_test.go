@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/egoist/mygo/ui"
+
 	"mayoi/internal/git"
 	"mayoi/internal/linediff"
 )
@@ -66,6 +68,64 @@ func TestEllipsizeAndInitials(t *testing.T) {
 	}
 	if statusWord('R') != "Renamed" || statusWord('?') != "" {
 		t.Errorf("status words")
+	}
+}
+
+// An author's initials drawn again, as every frame draws them, are not
+// shaped again.
+func TestInitialsShapedOnce(t *testing.T) {
+	shaped := 0
+	defer func(f func(string, ui.Font) []ui.Glyph) { shapeLabel = f }(shapeLabel)
+	shapeLabel = func(s string, f ui.Font) []ui.Glyph {
+		shaped++
+		return ui.Shape(s, f)
+	}
+	view := func(c *ui.Context) {
+		ui.Box(c).Size(15, 15).Draw(func(pt *ui.Painter, b ui.Rect) {
+			paintInitials(pt, b, "Ada Lovelace", 7, ui.Color{A: 1})
+		})
+	}
+	for range 3 {
+		ui.Render(view, 40, 40, 2)
+	}
+	if shaped != 1 {
+		t.Errorf("initials shaped %d times over 3 frames, want 1", shaped)
+	}
+}
+
+// Initials kept are shaped again once the text system lets go of the
+// fonts of their glyphs, which would then draw nothing.
+func TestInitialsShapedAgainForNewFonts(t *testing.T) {
+	shaped := 0
+	defer func(f func(string, ui.Font) []ui.Glyph) { shapeLabel = f }(shapeLabel)
+	shapeLabel = func(s string, f ui.Font) []ui.Glyph {
+		shaped++
+		return ui.Shape(s, f)
+	}
+	view := func(c *ui.Context) {
+		ui.Box(c).Size(15, 15).Draw(func(pt *ui.Painter, b ui.Rect) {
+			paintInitials(pt, b, "Grace Hopper", 7, ui.Color{A: 1})
+		})
+	}
+	ui.Render(view, 40, 40, 2)
+	// Fonts of many sizes, which a frame lets go of past a bound.
+	gen := ui.TextGeneration()
+	for i := 0; ui.TextGeneration() == gen && i < 4000; i += 64 {
+		ui.Render(func(c *ui.Context) {
+			ui.Box(c).Size(10, 10).Draw(func(pt *ui.Painter, b ui.Rect) {
+				for j := range 64 {
+					ui.Shape("Hi", ui.Font{Size: 10 + float32(i+j)/10})
+				}
+			})
+		}, 10, 10, 1)
+	}
+	if ui.TextGeneration() == gen {
+		t.Fatal("the text system kept its fonts")
+	}
+	shaped = 0
+	ui.Render(view, 40, 40, 2)
+	if shaped != 1 {
+		t.Errorf("initials shaped %d times after the fonts changed, want 1", shaped)
 	}
 }
 

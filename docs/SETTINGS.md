@@ -223,8 +223,9 @@ differ in width lines them up only roughly.
   your account can use are listed at `https://mon.sorrycc.dev/api/v1/ai/v1/models`.
 - **`crashReports`** is what Mayoi does at launch with the crash logs of the last runs: `""` asks whether to send them
   to Mon, `"always"` sends them and `"never"` doesn't. A report is anonymous, never sent with your account's token,
-  and has your home folder taken out. **Show Report** in the question opens the logs as they would be sent. Only
-  releases send reports, and builds started with `MAYOI_MON_URL`.
+  and has your home folder taken out, but not other paths, such as `/Volumes/...` or `/opt/...`. **Show Report** in
+  the question opens the logs as they would be sent. Only releases send reports, and builds started with
+  `MAYOI_MON_URL`. Enter answers **Don't Send**.
 
 ### Example
 

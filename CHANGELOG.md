@@ -10,6 +10,7 @@ needs a `## <version>` section here, or its build fails.
 - With `terminalBackendHcPath` set, Mayoi no longer offers to install hc.
 - Rename a terminal from its tab's right-click menu or **View: Rename Terminal…** in the command palette.
 - A renamed terminal keeps its name when programs set a title; rename it to nothing to show theirs again.
+- Pressing Enter in the crash report question chooses **Don't Send** instead of sending the report.
 
 ## 0.17.0
 

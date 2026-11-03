@@ -17,6 +17,7 @@ needs a `## <version>` section here, or its build fails.
 - The Git commit list and project rail use less CPU redrawing author and project initials.
 - The host box of **Connect to Host…** has an **SSH Config** button that opens `~/.ssh/config` in a tab.
 - **File → Remote SSH → Open SSH Config** and the command palette open it too, creating it when missing.
+- Syntax highlighting does less work on each keystroke, so typing takes less CPU and memory.
 
 ## 0.17.0
 

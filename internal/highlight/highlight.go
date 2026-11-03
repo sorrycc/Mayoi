@@ -628,10 +628,22 @@ func relexPatch(l chroma.Lexer, r request, prev []Line) patch {
 	}
 	shift := n - len(prev)
 	const settle = 3 // the lines with tokens alike that end the lexing
-	for back := 16; ; back *= 4 {
+	for back := 4; ; back *= 4 {
 		s := max(0, a-back)
 		for s > 0 && prev[s-1].open {
 			s--
+		}
+		if s > 0 {
+			seen := 0
+			for i := s; i < a && seen < 2; i++ {
+				if len(prev[i].Tokens) > 0 {
+					seen++
+				}
+			}
+			// Such a prefix cannot pass the two-token-line check below.
+			if seen < 2 {
+				continue
+			}
 		}
 		lo := min(at[s], len(all))
 		var lines []Line

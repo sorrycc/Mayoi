@@ -274,6 +274,82 @@ func BenchmarkRelexTyping(b *testing.B) {
 	}
 }
 
+// Keep source construction outside the measurement, as the editor already
+// has immutable snapshots when it requests a pass.
+func BenchmarkRelexPatchTyping(b *testing.B) {
+	for _, sample := range []struct{ name, path, text string }{
+		{"ASCII", "x.go", relexSamples["x.go"]},
+		{"CJK", "x.go", strings.ReplaceAll(relexSamples["x.go"], "hi", "中文输入")},
+		{"Markdown", "x.md", "## 第一节\n\n长时间运行的终端任务会在自己干活、等用户和完成之间来回切换。\n"},
+		{"MarkdownSparse", "x.md", "## 第一节\n\n" + strings.Repeat("中文正文。\n\n", 12)},
+	} {
+		b.Run(sample.name, func(b *testing.B) {
+			lines := strings.Split(strings.Repeat(sample.text, 350), "\n")
+			sources := [2]fakeSource{newSource(lines, 1)}
+			next := slices.Clone(lines)
+			next[len(next)/2] += "x"
+			sources[1] = newSource(next, 2)
+			l := Lexer(sample.path)
+			prev := lexRange(l, sources[0], 0, len(lines))
+			b.ReportAllocs()
+			b.ResetTimer()
+			for i := range b.N {
+				p := relexPatch(l, request{src: sources[(i+1)%2], last: len(lines) - 1}, prev)
+				if p.inPlace() {
+					copy(prev[p.from:], p.lines)
+				} else if !p.same {
+					prev = p.apply(prev)
+				}
+			}
+		})
+	}
+}
+
+func TestRelexKeepsMultilineContext(t *testing.T) {
+	for _, delimiter := range []string{"`", "/*"} {
+		t.Run(delimiter, func(t *testing.T) {
+			close := delimiter
+			if delimiter == "/*" {
+				close = "*/"
+			}
+			text := "package main\nvar s = " + delimiter + "\n" + strings.Repeat("text\n", 250) + close + "\nvar n = 1\n"
+			l := Lexer("x.go")
+			src := newSource(strings.Split(text, "\n"), 1)
+			prev := lexRange(l, src, 0, len(src.lines))
+			for _, row := range []int{80, 252, 1} {
+				next := slices.Clone(src.lines)
+				next[row] = "var n = 2"
+				src = newSource(next, src.version+1)
+				got, _ := relex(l, request{src: src, last: len(next) - 1}, prev)
+				want := lexRange(l, src, 0, len(next))
+				for i := range want {
+					if got[i].Text != want[i].Text || got[i].open != want[i].open || !slices.Equal(got[i].Tokens, want[i].Tokens) {
+						t.Fatalf("edit at %d, line %d: got %+v, want %+v", row, i, got[i], want[i])
+					}
+				}
+				prev = got
+			}
+		})
+	}
+}
+
+func TestRelexSparseMarkdownContext(t *testing.T) {
+	l := Lexer("x.md")
+	sample := "# Heading\n\n" + strings.Repeat("中文段落。\n\n", 12)
+	src := newSource(strings.Split(strings.Repeat(sample, 10), "\n"), 1)
+	prev := lexRange(l, src, 0, len(src.lines))
+	next := slices.Clone(src.lines)
+	next[len(next)/2+2] += "修改"
+	src = newSource(next, 2)
+	got, _ := relex(l, request{src: src, last: len(next) - 1}, prev)
+	want := lexRange(l, src, 0, len(next))
+	for i := range want {
+		if got[i].Text != want[i].Text || got[i].open != want[i].open || !slices.Equal(got[i].Tokens, want[i].Tokens) {
+			t.Fatalf("line %d: got %+v, want %+v", i, got[i], want[i])
+		}
+	}
+}
+
 // A large file opened shows the colors of the lines in view first, then
 // those of the rest.
 func TestHighlighterLexesTheViewFirst(t *testing.T) {

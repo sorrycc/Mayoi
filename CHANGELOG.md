@@ -24,6 +24,11 @@ needs a `## <version>` section here, or its build fails.
 - Typing an absolute or `~/` path in Quick Open offers that file, even with no folder open.
 - A path in Quick Open can end in `:line` or `:line:column`, and opens the file at that spot.
 - Quoted or backslash-escaped paths pasted from a terminal open in Quick Open too.
+- A project whose program works shows a turning ring at the corner of its square on the rail.
+- When work finishes or fails while other work goes on, its dot shows inside the ring.
+- The rail marks a project amber while it waits for you, green when done and red when work failed.
+- A program waiting for you keeps its project's mark until it stops waiting, even after you look.
+- Hovering a project on the rail lists what its programs wait for and work at, with their progress.
 
 ## 0.17.0
 

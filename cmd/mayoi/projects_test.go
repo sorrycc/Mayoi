@@ -16,6 +16,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/egoist/mygo/plugins/terminal"
 	"github.com/egoist/mygo/ui"
 
 	"mayoi/internal/remote"
@@ -719,6 +720,35 @@ func TestRailMarksAttention(t *testing.T) {
 	step(tt)
 	if hs[1].a.alert != "" {
 		t.Error("the mark stays as the project shows")
+	}
+}
+
+// What the programs of a project out of sight wait for and work at show
+// in the tip of its square, the program that waits first, beside what was
+// asked attention for.
+func TestRailTipsWork(t *testing.T) {
+	root, other := workspaceFixture(t), workspaceFixture(t)
+	f, hs, tt := railFixture(t, root, other)
+	// Shown once, as a project with a terminal was.
+	f.active = hs[1]
+	step(tt)
+	f.active = hs[0]
+	step(tt)
+	hs[1].a.post(func() {
+		hs[1].a.terms = append(hs[1].a.terms, &session{status: terminal.ProgramStatus{Records: []terminal.StatusRecord{
+			{ID: "", State: terminal.StatusWorking, App: "cargo", Message: "Building", Progress: 42},
+			{ID: "deploy", State: terminal.StatusBlocked, App: "claude", Message: "Needs approval", Progress: -1},
+		}}})
+		hs[1].a.alert, hs[1].a.alertState = "codex: Done", terminal.StatusDone
+	})
+	step(tt)
+	r, _ := tt.Find(filepath.Base(other))
+	tt.Move(r.X+r.W/2, r.Y+r.H/2)
+	tt.Advance(time.Second)
+	for _, want := range []string{"claude: Needs approval", "cargo: Building 42%", "codex: Done"} {
+		if !tt.HasText(want) {
+			t.Errorf("the tip does not say %q: %v", want, tt.Texts())
+		}
 	}
 }
 

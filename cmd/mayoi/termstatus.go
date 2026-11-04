@@ -231,8 +231,9 @@ func (q *statusIn) take() (terminal.ProgramStatus, bool) {
 
 // programStatus takes what a terminal's programs say they do, unless the
 // terminal was replaced since. As the record most in need of the user
-// comes to wait, finish or fail, the project's square on the rail is
-// marked, with what it says.
+// comes to finish or fail, the project's square on the rail is marked,
+// with what it says; one that waits marks it for as long as it waits, as
+// projectWork tells.
 func (a *app) programStatus(s *session, term *terminal.Terminal, st terminal.ProgramStatus) {
 	if s.term != term {
 		return
@@ -251,13 +252,79 @@ func (a *app) programStatus(s *session, term *terminal.Terminal, st terminal.Pro
 	case terminal.StatusBlocked:
 		// The view again once the badge stops calling.
 		bg.AfterFunc(pulseFor, func() { a.post(func() {}) })
-		a.alert = progLine(r)
 	case terminal.StatusDone, terminal.StatusError:
 		if progShown(s.statusFrom) {
 			// The view again once the pill stops saying so.
 			bg.AfterFunc(progFlashFor, func() { a.post(func() {}) })
 		}
-		a.alert = progLine(r)
+		a.alert, a.alertState = progLine(r), r.State
+	}
+}
+
+// railWork is what the programs of a project's terminals do now, for its
+// square on the rail: the records that work, those that wait for the
+// user, and when the last terminal of those whose record most in need of
+// the user waits began to.
+type railWork struct {
+	working, blocked []terminal.StatusRecord
+	blockedSince     time.Time
+}
+
+// projectWork is what the programs of a's terminals do now, in the panel,
+// at a side or in tabs, but for those of terminals whose shell starts in
+// herdr-core or waits for its machine, which say what they did before.
+func projectWork(a *app) railWork {
+	var w railWork
+	for _, s := range a.terms {
+		if st := termStatus(s); st == termStarting || st == termWaiting {
+			continue
+		}
+		for _, r := range s.status.Records {
+			switch r.State {
+			case terminal.StatusWorking:
+				w.working = append(w.working, r)
+			case terminal.StatusBlocked:
+				w.blocked = append(w.blocked, r)
+			}
+		}
+		if r, ok := s.status.Top(); ok && r.State == terminal.StatusBlocked && s.statusSince.After(w.blockedSince) {
+			w.blockedSince = s.statusSince
+		}
+	}
+	return w
+}
+
+// workTurn is how long the ring of a project's square on the rail takes
+// to turn once while its programs work, and workSteps the steps it turns
+// by.
+const (
+	workTurn  = 1000
+	workSteps = 24
+)
+
+// workRing paints a ring of col of radius r around cx, cy: a faint track
+// and a quarter of it that turns, a step at a time, painted again for the
+// next step without building the view. It stays still for those who ask
+// for less motion.
+func workRing(pt *ui.Painter, cx, cy, r float32, col ui.Color, calm bool) {
+	var track ui.Path
+	track.Circle(cx, cy, r)
+	pt.StrokePath(&track, 2, col.Alpha(0.28))
+	from := float32(0.75)
+	if !calm {
+		ms := int(pt.Now().UnixMilli() % workTurn)
+		step := ms * workSteps / workTurn
+		pt.After(time.Duration((step+1)*workTurn/workSteps-ms) * time.Millisecond)
+		from = float32(step) / workSteps
+	}
+	// The quarter, in two where it goes past where the circle starts.
+	for _, span := range [][2]float32{{from, min(from+0.25, 1)}, {0, max(from-0.75, 0)}} {
+		if span[1] <= span[0] {
+			continue
+		}
+		var arc ui.Path
+		arc.Circle(cx, cy, r).Trim(span[0], span[1])
+		pt.StrokePath(&arc, 2, col)
 	}
 }
 

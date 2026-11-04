@@ -376,9 +376,12 @@ type app struct {
 	// none.
 	rail func(c *ui.Context)
 	// alert is what a terminal of the project last asked attention for,
-	// by its bell or a notification, until the project shows: the rail
-	// marks its square.
-	alert string
+	// by its bell, a notification or work that finished or failed, until
+	// the project shows: the rail marks its square, in the color of
+	// alertState, the state of that work, StatusIdle for a bell or a
+	// notification.
+	alert      string
+	alertState terminal.StatusState
 }
 
 type pane int

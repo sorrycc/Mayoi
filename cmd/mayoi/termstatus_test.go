@@ -3,6 +3,7 @@ package main
 import (
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/egoist/mygo/plugins/terminal"
 )
@@ -46,10 +47,46 @@ func TestProgramStatusAlert(t *testing.T) {
 	if a.alert != "" {
 		t.Fatalf("the same status alerted again: %q", a.alert)
 	}
+	if a.alertState != terminal.StatusDone {
+		t.Fatalf("alert state %v", a.alertState)
+	}
+	a.alert = ""
+	blocked := terminal.ProgramStatus{Records: []terminal.StatusRecord{{State: terminal.StatusBlocked, App: "codex"}}}
+	a.programStatus(s, nil, blocked)
+	if a.alert != "" {
+		t.Fatalf("a program that waits alerted %q: it marks the rail while it waits", a.alert)
+	}
 	idle := terminal.ProgramStatus{Records: []terminal.StatusRecord{{State: terminal.StatusIdle, App: "codex"}}}
 	a.programStatus(s, nil, idle)
 	if _, busy := progStatus(s); busy {
 		t.Fatal("an idle program shows a badge")
+	}
+}
+
+// TestProjectWork: every record that works or waits counts, in every
+// terminal of the project, but for those of a terminal whose shell waits
+// for its machine.
+func TestProjectWork(t *testing.T) {
+	rec := func(id string, st terminal.StatusState) terminal.StatusRecord {
+		return terminal.StatusRecord{ID: id, State: st, Progress: -1}
+	}
+	since := time.Now()
+	a := &app{terms: []*session{
+		{status: terminal.ProgramStatus{Records: []terminal.StatusRecord{rec("", terminal.StatusWorking), rec("a", terminal.StatusWorking)}}},
+		// Its record most in need of the user waits; one of its others works.
+		{status: terminal.ProgramStatus{Records: []terminal.StatusRecord{rec("", terminal.StatusBlocked), rec("b", terminal.StatusWorking)}}, statusSince: since},
+		{status: terminal.ProgramStatus{Records: []terminal.StatusRecord{rec("", terminal.StatusDone)}}},
+		{status: terminal.ProgramStatus{Records: []terminal.StatusRecord{rec("", terminal.StatusWorking)}}, hc: "vps/t1", lost: true},
+	}}
+	w := projectWork(a)
+	if len(w.working) != 3 || len(w.blocked) != 1 || !w.blockedSince.Equal(since) {
+		t.Fatalf("projectWork = %d working, %d blocked, since %v", len(w.working), len(w.blocked), w.blockedSince)
+	}
+	if got := w.records(); got[0].State != terminal.StatusBlocked {
+		t.Errorf("records start with %v, want the one that waits", got[0].State)
+	}
+	if w := projectWork(&app{}); len(w.working)+len(w.blocked) != 0 {
+		t.Errorf("a project without terminals works: %+v", w)
 	}
 }
 

@@ -247,11 +247,11 @@ func (a *app) spawnTerminal(s *session, dir string) (*terminal.Terminal, error) 
 		// A program done in a project out of sight, as a build or an
 		// agent, has the rail mark the project's square.
 		OnBell: func() {
-			a.post(func() { a.alert = locales.BellFrom(s.label()) })
+			a.post(func() { a.alert, a.alertState = locales.BellFrom(s.label()), terminal.StatusIdle })
 		},
 		OnNotify: func(title, body string) {
 			a.post(func() {
-				a.alert = strings.TrimSpace(title + " " + body)
+				a.alert, a.alertState = strings.TrimSpace(title+" "+body), terminal.StatusIdle
 				if a.alert == "" {
 					a.alert = locales.NotificationFrom(s.label())
 				}

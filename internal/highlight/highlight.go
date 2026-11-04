@@ -633,6 +633,18 @@ func relexPatch(l chroma.Lexer, r request, prev []Line) patch {
 		for s > 0 && prev[s-1].open {
 			s--
 		}
+		if s > 0 {
+			seen := 0
+			for i := s; i < a && seen < 2; i++ {
+				if len(prev[i].Tokens) > 0 {
+					seen++
+				}
+			}
+			// Such a prefix cannot pass the two-token-line check below.
+			if seen < 2 {
+				continue
+			}
+		}
 		lo := min(at[s], len(all))
 		var lines []Line
 		var wrong bool

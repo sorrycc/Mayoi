@@ -149,6 +149,8 @@ func (a *app) openRemoteFolder() {
 // openSSHConfig opens this machine's SSH config, whose hosts the box
 // lists, in a tab: in a remote window too, as it is this machine that
 // connects. A missing config is made, empty and private as ssh wants it.
+// A linked one, as dotfile managers make it, opens where it points, so
+// saving it keeps the link.
 func (a *app) openSSHConfig() {
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -159,6 +161,11 @@ func (a *app) openSSHConfig() {
 	if err := makeSSHConfig(path); err != nil {
 		a.fail("%s", locales.FailOpen(filepath.Base(path), err.Error()))
 		return
+	}
+	if info, err := os.Lstat(path); err == nil && info.Mode()&fs.ModeSymlink != 0 {
+		if real, err := filepath.EvalSymlinks(path); err == nil {
+			path = real
+		}
 	}
 	a.closeRemotePicker()
 	a.openFile(path, true)

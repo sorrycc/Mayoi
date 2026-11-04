@@ -595,7 +595,8 @@ not have it yet.
   says as whom, and after a few seconds for how long; Escape goes back to the hosts.
 - **SSH Config**, beside the box's field, **File → Remote SSH → Open SSH Config** or the command palette opens this
   machine's `~/.ssh/config` in a tab, in a remote window too. A missing one is made empty, for its owner alone to read
-  as ssh wants, and the box lists the hosts of the one saved the next time it opens.
+  as ssh wants, and the box lists the hosts of the one saved the next time it opens. A linked one, as dotfile managers
+  make it, opens where it points, so saving it keeps the link.
 - Once connected, the box lists the folders of the host, from the folder opened there last, or the home folder. Type a
   path (`~` for the home folder), ↑↓ choose a folder, ↵ or Tab goes into it, `..` goes up, and ↵ on the first row opens
   the folder typed. The folder opens as **Open Folder** opens one: in the window if it shows nothing, else in a window,

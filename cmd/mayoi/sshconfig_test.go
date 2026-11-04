@@ -25,8 +25,12 @@ func wantMode(t *testing.T, path string, want fs.FileMode) {
 	if runtime.GOOS == "windows" {
 		return
 	}
-	if info, err := os.Stat(path); err != nil || info.Mode().Perm() != want {
-		t.Fatalf("%s: mode %v, error %v; want %v", path, info.Mode().Perm(), err, want)
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if info.Mode().Perm() != want {
+		t.Fatalf("%s: mode %v; want %v", path, info.Mode().Perm(), want)
 	}
 }
 
@@ -47,8 +51,11 @@ func TestOpenSSHConfig(t *testing.T) {
 	home, config := sshHome(t)
 	const text = "Host dev\n  HostName 10.0.0.12\n"
 	writeFile(t, config, []byte(text))
-	os.Chmod(filepath.Join(home, ".ssh"), 0o755)
-	os.Chmod(config, 0o644)
+	for path, mode := range map[string]fs.FileMode{filepath.Join(home, ".ssh"): 0o755, config: 0o644} {
+		if err := os.Chmod(path, mode); err != nil {
+			t.Fatal(err)
+		}
+	}
 	hs := newHarness(t, true)
 	hs.a.openFile(hs.path("main.go"), true)
 	hs.a.openSSHConfig()
@@ -63,7 +70,9 @@ func TestOpenSSHConfigMakesIt(t *testing.T) {
 	for _, dir := range []fs.FileMode{0, 0o755} {
 		home, config := sshHome(t)
 		if dir != 0 {
-			os.Mkdir(filepath.Join(home, ".ssh"), dir)
+			if err := os.Mkdir(filepath.Join(home, ".ssh"), dir); err != nil {
+				t.Fatal(err)
+			}
 		} else {
 			dir = 0o700
 		}
@@ -73,6 +82,30 @@ func TestOpenSSHConfigMakesIt(t *testing.T) {
 		wantMode(t, filepath.Join(home, ".ssh"), dir)
 		wantMode(t, config, 0o600)
 	}
+}
+
+// A linked config opens where it points, so saving it keeps the link.
+func TestOpenSSHConfigLinked(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("links need privileges on Windows")
+	}
+	home, config := sshHome(t)
+	real := filepath.Join(home, "dotfiles", "ssh", "config")
+	const text = "Host dev\n"
+	writeFile(t, real, []byte(text))
+	if err := os.Mkdir(filepath.Dir(config), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(real, config); err != nil {
+		t.Fatal(err)
+	}
+	want, err := filepath.EvalSymlinks(real)
+	if err != nil {
+		t.Fatal(err)
+	}
+	hs := newHarness(t, true)
+	hs.a.openSSHConfig()
+	wantSSHConfigOpen(t, hs, want, text)
 }
 
 // A config that cannot be made says why and opens nothing.

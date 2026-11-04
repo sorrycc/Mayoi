@@ -38,6 +38,8 @@ func updateUserPath(dir string, add bool) error {
 			err = key.SetStringValue("Path", updated)
 		case registry.EXPAND_SZ:
 			err = key.SetExpandStringValue("Path", updated)
+		default:
+			err = fmt.Errorf("the user Path has registry type %d", typ)
 		}
 		if err != nil {
 			return fmt.Errorf("write the user Path: %w", err)
@@ -62,6 +64,10 @@ func editPath(value, dir string, add bool) string {
 			continue
 		}
 		kept = append(kept, entry)
+	}
+	// SplitList drops quotes, so a Path without dir is left as it was.
+	if !found && !add {
+		return value
 	}
 	if add {
 		if found {

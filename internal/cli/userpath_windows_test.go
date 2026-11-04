@@ -17,6 +17,7 @@ func TestEditPath(t *testing.T) {
 		{"append without expanding", `%USERPROFILE%\bin;C:\Tools`, true, `%USERPROFILE%\bin;C:\Tools;` + dir},
 		{"existing is unchanged", duplicate, true, duplicate},
 		{"remove ignores case", `C:\Tools;` + strings.ToUpper(dir) + `;%LOCALAPPDATA%\npm`, false, `C:\Tools;%LOCALAPPDATA%\npm`},
+		{"remove when absent keeps quotes", `"C:\A;B";C:\Tools`, false, `"C:\A;B";C:\Tools`},
 		{"remove every copy", dir + `;C:\Tools;` + dir, false, `C:\Tools`},
 	} {
 		t.Run(tt.name, func(t *testing.T) {

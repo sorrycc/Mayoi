@@ -263,11 +263,13 @@ func (a *app) programStatus(s *session, term *terminal.Terminal, st terminal.Pro
 
 // railWork is what the programs of a project's terminals do now, for its
 // square on the rail: the records that work, those that wait for the
-// user, and when the last terminal of those whose record most in need of
-// the user waits began to.
+// user, when the last terminal of those whose record most in need of
+// the user waits began to, and how far along the work is, from 0 to 1,
+// while each record that works says, -1 otherwise.
 type railWork struct {
 	working, blocked []terminal.StatusRecord
 	blockedSince     time.Time
+	progress         float32
 }
 
 // projectWork is what the programs of a's terminals do now, in the panel,
@@ -291,40 +293,78 @@ func projectWork(a *app) railWork {
 			w.blockedSince = s.statusSince
 		}
 	}
+	w.progress = workProgress(w.working)
 	return w
 }
 
+// workProgress is how far along the records that work are together, the
+// mean of what they say from 0 to 1, or -1 when there are none or one
+// does not say.
+func workProgress(rs []terminal.StatusRecord) float32 {
+	if len(rs) == 0 {
+		return -1
+	}
+	sum := 0
+	for _, r := range rs {
+		if r.Progress < 0 {
+			return -1
+		}
+		sum += min(r.Progress, 100)
+	}
+	return float32(sum) / float32(100*len(rs))
+}
+
 // workTurn is how long the ring of a project's square on the rail takes
-// to turn once while its programs work, and workSteps the steps it turns
-// by.
+// to turn once while its programs work, workBreath how long its arc takes
+// to grow and shrink again, and workFPS how often it is painted again,
+// without building the view, which is enough for a ring this small.
 const (
-	workTurn  = 1000
-	workSteps = 24
+	workTurn   = 1100 * time.Millisecond
+	workBreath = 1800 * time.Millisecond
+	workFPS    = 40
 )
 
 // workRing paints a ring of col of radius r around cx, cy: a faint track
-// and a quarter of it that turns, a step at a time, painted again for the
-// next step without building the view. It stays still for those who ask
-// for less motion.
-func workRing(pt *ui.Painter, cx, cy, r float32, col ui.Color, calm bool) {
+// and, from the top, done of it, while done says how far the work is, or
+// an arc that turns, growing and shrinking as it does. It stays still for
+// those who ask for less motion.
+func workRing(pt *ui.Painter, cx, cy, r float32, col ui.Color, done float32, calm bool) {
 	var track ui.Path
 	track.Circle(cx, cy, r)
-	pt.StrokePath(&track, 2, col.Alpha(0.28))
-	from := float32(0.75)
-	if !calm {
-		ms := int(pt.Now().UnixMilli() % workTurn)
-		step := ms * workSteps / workTurn
-		pt.After(time.Duration((step+1)*workTurn/workSteps-ms) * time.Millisecond)
-		from = float32(step) / workSteps
+	pt.StrokePath(&track, 1.75, col.Alpha(0.25))
+	// The circle starts at its right, a quarter past its top.
+	if done >= 0 {
+		workArc(pt, cx, cy, r, col, 0.75, done)
+		return
 	}
-	// The quarter, in two where it goes past where the circle starts.
-	for _, span := range [][2]float32{{from, min(from+0.25, 1)}, {0, max(from-0.75, 0)}} {
+	from, length := float32(0.75), float32(0.25)
+	if !calm {
+		now := pt.Now().UnixNano()
+		turn := float32(now%int64(workTurn)) / float32(workTurn)
+		breath := float64(now%int64(workBreath)) / float64(workBreath)
+		length = 0.18 + 0.14*float32(1-math.Cos(2*math.Pi*breath))
+		from = turn
+		pt.AnimationFrameRate(workFPS)
+	}
+	workArc(pt, cx, cy, r, col, from, length)
+}
+
+// workArc strokes length of the circle of radius r around cx, cy from
+// from, as fractions of it, in two where it goes past where the circle
+// starts.
+func workArc(pt *ui.Painter, cx, cy, r float32, col ui.Color, from, length float32) {
+	if length <= 0.005 {
+		return
+	}
+	from -= float32(math.Floor(float64(from)))
+	length = min(length, 1)
+	for _, span := range [][2]float32{{from, min(from+length, 1)}, {0, max(from+length-1, 0)}} {
 		if span[1] <= span[0] {
 			continue
 		}
 		var arc ui.Path
 		arc.Circle(cx, cy, r).Trim(span[0], span[1])
-		pt.StrokePath(&arc, 2, col)
+		pt.StrokePath(&arc, 1.75, col)
 	}
 }
 

@@ -29,6 +29,9 @@ needs a `## <version>` section here, or its build fails.
 - The rail marks a project amber while it waits for you, green when done and red when work failed.
 - A program waiting for you keeps its project's mark until it stops waiting, even after you look.
 - Hovering a project on the rail lists what its programs wait for and work at, with their progress.
+- The work ring on a rail square turns smoothly and fills to show progress when programs report it.
+- A rail square's ring and dot grow in and fade out, and the dot blends from one state's color to the next.
+- The rail tip marks waiting, finished and failed work with icons and shows progress as a small bar.
 
 ## 0.17.0
 

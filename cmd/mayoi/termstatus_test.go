@@ -171,3 +171,25 @@ func TestProgPilled(t *testing.T) {
 		t.Fatal("failed work never shown working is shown")
 	}
 }
+
+// The ring of a project's square shows how far its work is only while
+// every record that works says, and then their mean.
+func TestWorkProgress(t *testing.T) {
+	rec := func(n int) terminal.StatusRecord {
+		return terminal.StatusRecord{State: terminal.StatusWorking, Progress: n}
+	}
+	for _, tc := range []struct {
+		rs   []terminal.StatusRecord
+		want float32
+	}{
+		{nil, -1},
+		{[]terminal.StatusRecord{rec(40)}, 0.4},
+		{[]terminal.StatusRecord{rec(20), rec(80)}, 0.5},
+		{[]terminal.StatusRecord{rec(20), rec(-1)}, -1},
+		{[]terminal.StatusRecord{rec(150)}, 1},
+	} {
+		if got := workProgress(tc.rs); got != tc.want {
+			t.Errorf("workProgress(%v) = %v, want %v", tc.rs, got, tc.want)
+		}
+	}
+}

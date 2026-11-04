@@ -379,9 +379,14 @@ type app struct {
 	// by its bell, a notification or work that finished or failed, until
 	// the project shows: the rail marks its square, in the color of
 	// alertState, the state of that work, StatusIdle for a bell or a
-	// notification.
+	// notification, and alertAt when work set it, for the flash its dot
+	// sends out.
 	alert      string
 	alertState terminal.StatusState
+	alertAt    time.Time
+	// workDone is how far along the project's work last said it was, from
+	// 0 to 1, or -1, for its square's ring to keep as it fades out.
+	workDone float32
 }
 
 type pane int

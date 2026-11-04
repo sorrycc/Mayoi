@@ -32,6 +32,8 @@ needs a `## <version>` section here, or its build fails.
 - The work ring on a rail square turns smoothly and fills to show progress when programs report it.
 - A rail square's ring and dot grow in and fade out, and the dot blends from one state's color to the next.
 - The rail tip marks waiting, finished and failed work with icons and shows progress as a small bar.
+- A rail square's progress ring keeps its fill as it fades out, and completes when the work finishes.
+- A rail square's dot sends out one ring in its color when work finishes or fails.
 
 ## 0.17.0
 

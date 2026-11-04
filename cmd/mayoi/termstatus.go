@@ -257,7 +257,7 @@ func (a *app) programStatus(s *session, term *terminal.Terminal, st terminal.Pro
 			// The view again once the pill stops saying so.
 			bg.AfterFunc(progFlashFor, func() { a.post(func() {}) })
 		}
-		a.alert, a.alertState = progLine(r), r.State
+		a.alert, a.alertState, a.alertAt = progLine(r), r.State, time.Now()
 	}
 }
 

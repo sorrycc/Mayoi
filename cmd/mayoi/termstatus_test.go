@@ -193,3 +193,27 @@ func TestWorkProgress(t *testing.T) {
 		}
 	}
 }
+
+// The ring of a project's square keeps what its work last said as it
+// fades, filled when the work just finished.
+func TestRingDone(t *testing.T) {
+	now := time.Now()
+	a := &app{}
+	working := railWork{working: []terminal.StatusRecord{{State: terminal.StatusWorking, Progress: 40}}, progress: 0.4}
+	if got := ringDone(a, working, now); got != 0.4 {
+		t.Fatalf("working at 40%% fills %v", got)
+	}
+	if got := ringDone(a, railWork{progress: -1}, now); got != 0.4 {
+		t.Errorf("fading work fills %v, want what it last said", got)
+	}
+	a.alertState, a.alertAt = terminal.StatusDone, now
+	if got := ringDone(a, railWork{progress: -1}, now); got != 1 {
+		t.Errorf("work that just finished fills %v, want 1", got)
+	}
+	if got := ringDone(a, railWork{progress: -1}, now.Add(2*time.Second)); got != 0.4 {
+		t.Errorf("work that finished long ago fills %v", got)
+	}
+	if got := ringDone(a, railWork{working: []terminal.StatusRecord{{State: terminal.StatusWorking, Progress: -1}}, progress: -1}, now); got != -1 {
+		t.Errorf("work that says nothing fills %v, want a turning arc", got)
+	}
+}

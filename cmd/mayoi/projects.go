@@ -644,16 +644,27 @@ func (f *frame) railTab(c *ui.Context, a *app, h *desktop, i int, label string) 
 	}
 	pill = b.Animate("pill", pill, 160*time.Millisecond)
 	fill = b.Animate("fill", fill, 120*time.Millisecond)
-	ring := b.Animate("ring", unit(on), 160*time.Millisecond)
+	outline := b.Animate("ring", unit(on), 160*time.Millisecond)
 	drop := b.Animate("drop", unit(pic), 120*time.Millisecond)
 	sink := b.Animate("sink", unit(pressed && !dragged), 80*time.Millisecond)
 	// The ring grows in and out as work starts and stops, following how
 	// far along the work says it is; the dot pops in, fades out in the
 	// color it had, and turns from one state's color to another's.
-	busy := b.AnimateWith("work", unit(len(work.working) > 0), 240*time.Millisecond, ui.EaseInOut)
-	done := float32(-1)
-	if work.progress >= 0 {
-		done = b.Animate("done", work.progress, progBar)
+	// As it fades, it keeps what it last said, filled when the work
+	// finished; a ring it comes back as starts from what it says then.
+	working := len(work.working) > 0
+	busy := b.AnimateWith("work", unit(working), 240*time.Millisecond, ui.EaseInOut)
+	done := ringDone(h.a, work, time.Now())
+	if busy < 0.01 {
+		b.Jump("done", max(done, 0))
+	}
+	if done >= 0 {
+		done = b.Animate("done", done, progBar)
+	}
+	// The dot of work that just finished or failed sends out a ring.
+	var flash time.Time
+	if !calm && mark && len(work.blocked) == 0 && (h.a.alertState == terminal.StatusDone || h.a.alertState == terminal.StatusError) {
+		flash = h.a.alertAt
 	}
 	shown := b.AnimateTo("mark", unit(mark), ui.Snappy)
 	if !mark {
@@ -682,8 +693,8 @@ func (f *frame) railTab(c *ui.Context, a *app, h *desktop, i int, label string) 
 			alpha = 0.4
 		}
 		pt.Fill(sq, col.Alpha(fill*alpha), railRadius)
-		if ring > 0.01 {
-			pt.Stroke(sq, col.Alpha(0.75*ring*alpha), railRadius, 1.25)
+		if outline > 0.01 {
+			pt.Stroke(sq, col.Alpha(0.75*outline*alpha), railRadius, 1.25)
 		}
 		if drop > 0.01 {
 			// A picture dropped here would show in it.
@@ -717,8 +728,11 @@ func (f *frame) railTab(c *ui.Context, a *app, h *desktop, i int, label string) 
 			cx, cy := sq.X+sq.W-2, sq.Y+sq.H-2
 			r := (5 + busy) * max(dot, busy)
 			badge := ui.Rect{X: cx - r, Y: cy - r, W: 2 * r, H: 2 * r}
-			if mark {
-				beacon(pt, badge, dotCol, pulse, 0.9, 0.45)
+			if mark && !beacon(pt, badge, dotCol, pulse, 0.9, 0.45) {
+				if since := pt.Now().Sub(flash); !flash.IsZero() && since < hcBurst {
+					ring(pt, badge, dotCol, float32(since)/float32(hcBurst), 1.3, 0.6)
+					pt.AnimationFrameRate(60)
+				}
 			}
 			pt.Fill(ui.Rect{X: badge.X - 2, Y: badge.Y - 2, W: badge.W + 4, H: badge.H + 4}, ground, r+2)
 			if busy > 0.01 {
@@ -777,6 +791,20 @@ func (f *frame) railTab(c *ui.Context, a *app, h *desktop, i int, label string) 
 	if b.Clicked() {
 		f.activate(h)
 	}
+}
+
+// ringDone is how much of the ring of a's square is filled, from 0 to 1,
+// or -1 for an arc that turns: what its work says while it works, and
+// after what it last said, filled when the work just finished.
+func ringDone(a *app, work railWork, now time.Time) float32 {
+	if len(work.working) > 0 {
+		a.workDone = work.progress
+		return a.workDone
+	}
+	if a.workDone >= 0 && a.alertState == terminal.StatusDone && now.Sub(a.alertAt) < time.Second {
+		return 1
+	}
+	return a.workDone
 }
 
 // railTip is the tip of a project's square, to its right, where the

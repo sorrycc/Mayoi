@@ -16,6 +16,7 @@ needs a `## <version>` section here, or its build fails.
 - On Windows, files indented with tabs, like Go code, show their indentation again.
 - Find's match count changes instantly instead of rolling, in the editor, preview and terminal.
 - The Git commit list and project rail use less CPU redrawing author and project initials.
+- Windows can install `mayoi.cmd` from **File → Install 'mayoi' Command**, including user PATH setup.
 - The host box of **Connect to Host…** has an **SSH Config** button that opens `~/.ssh/config` in a tab.
 - **File → Remote SSH → Open SSH Config** and the command palette open it too, creating it when missing.
 - Typing in Markdown with blank lines between paragraphs takes less CPU to keep the colors up to date.

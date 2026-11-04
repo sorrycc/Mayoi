@@ -22,7 +22,11 @@ func SocketPath(dir string) string {
 		return p
 	}
 	sum := sha256.Sum256([]byte(dir))
-	file := "mayoi-" + strconv.Itoa(os.Getuid()) + "-" + hex.EncodeToString(sum[:6]) + ".sock"
+	uid := os.Getuid()
+	if uid < 0 { // Windows has no numeric user ID.
+		uid = 0
+	}
+	file := "mayoi-" + strconv.Itoa(uid) + "-" + hex.EncodeToString(sum[:6]) + ".sock"
 	return filepath.Join(os.TempDir(), file)
 }
 

@@ -16,10 +16,13 @@ import (
 // command.
 func commandLine() bool { return os.Getenv(cliEnv) != "" }
 
+// attachConsole does nothing: the shell script starts a console executable.
+func attachConsole() {}
+
 // startApp starts the app the command is in, opening paths, with open, as
 // the Finder would; a development build, in no app, runs itself again.
 func startApp(paths []string) error {
-	app := appBundle()
+	app := appLocation()
 	if app == "" {
 		return startDetached(paths)
 	}
@@ -32,7 +35,7 @@ func startApp(paths []string) error {
 // refreshCLI brings the mayoi command an older Mayoi installed up to
 // date, for the options it has now.
 func refreshCLI() {
-	app := appBundle()
+	app := appLocation()
 	if app == "" || !mygo.App.IsPackaged() {
 		return
 	}

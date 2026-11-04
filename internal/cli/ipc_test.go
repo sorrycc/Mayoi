@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -23,9 +22,6 @@ func TestSocketPath(t *testing.T) {
 // The command asks the app, prints its answer, and starts it when it is
 // not running.
 func TestClient(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("a Unix socket")
-	}
 	dir, err := os.MkdirTemp("", "cli")
 	if err != nil {
 		t.Fatal(err)

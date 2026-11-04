@@ -242,13 +242,21 @@ func (h *desktop) redrawWindows() {
 func (h *desktop) installCLI() {
 	go func() {
 		home, _ := os.UserHomeDir()
-		p, err := cli.Install(cli.Dirs(home, cli.LoginPath()), appBundle())
+		p, err := cli.Install(cli.Dirs(home, cli.LoginPath()), appLocation())
+		if err == nil {
+			err = cli.AddToUserPath(home)
+		}
 		switch {
 		case errors.Is(err, cli.ErrCanceled):
 		case err != nil:
 			h.tell(mygo.MessageWarning, locales.CliInstallFailed(), err.Error())
 		default:
-			h.tell(mygo.MessageInfo, locales.CliInstalled(shortenHome(filepath.Dir(p))), locales.CliInstalledDetail())
+			// Terminals that were open keep the PATH they started with.
+			detail := locales.CliInstalledDetail()
+			if runtime.GOOS == "windows" {
+				detail = locales.CliInstalledDetailWindows()
+			}
+			h.tell(mygo.MessageInfo, locales.CliInstalled(shortenHome(filepath.Dir(p))), detail)
 		}
 	}()
 }
@@ -258,6 +266,9 @@ func (h *desktop) uninstallCLI() {
 		home, _ := os.UserHomeDir()
 		// PATH is the login shell's already, as main set it at start.
 		removed, err := cli.Uninstall(cli.InstalledDirs(home, filepath.SplitList(os.Getenv("PATH"))))
+		if err == nil {
+			err = cli.RemoveFromUserPath(home)
+		}
 		switch {
 		case errors.Is(err, cli.ErrCanceled):
 		case err != nil:
@@ -920,12 +931,15 @@ func (a *app) anyDirty() bool {
 	return false
 }
 
-// appBundle is the .app the running executable is in, "" when it is in
-// none.
-func appBundle() string {
+// appLocation is the running executable on Windows, else the .app it is
+// in on macOS, "" when it is in none.
+func appLocation() string {
 	exe, err := os.Executable()
 	if err != nil {
 		return ""
+	}
+	if runtime.GOOS == "windows" {
+		return exe
 	}
 	if exe, err = filepath.EvalSymlinks(exe); err != nil {
 		return ""

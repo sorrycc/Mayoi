@@ -1,9 +1,9 @@
 cask "mayoi" do
   arch arm: "arm64", intel: "amd64"
 
-  version "0.17.0"
-  sha256 arm:   "e0e19cc03a4d25fa18d18ad82728713ec78b4ab48db16aab1fb0cf0bbbf676f3",
-         intel: "bfec5c0515fe754953a81156539a95202756fb2df89931a427c72f958a6e4e49"
+  version "0.18.0"
+  sha256 arm:   "100dbf6a4ea5ed3fae2bab7be99f325ecd5f4e4f11417d605365931de16144c3",
+         intel: "98b9fcbf193717c3f28bfe87c02ea2f5b2d6056630ef5b074ce56ff2e517ab67"
 
   url "https://github.com/sorrycc/Mayoi/releases/download/v#{version}/mayoi-#{version}-#{arch}.dmg"
   name "Mayoi"

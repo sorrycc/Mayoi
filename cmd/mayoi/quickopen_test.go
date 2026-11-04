@@ -16,21 +16,60 @@ func TestQuickPath(t *testing.T) {
 	t.Setenv("USERPROFILE", home)
 	config := filepath.Join(home, ".ssh", "config")
 	writeFile(t, config, nil)
-	for _, tc := range []struct{ root, query, want string }{
-		{"", config, config},
-		{"", "  " + config + "  ", config},
-		{"", "~/.ssh/config", config},
-		{t.TempDir(), "~/.ssh/../.ssh/config", config},
-		{"", "~/.ssh", ""},
-		{"", "~/", ""},
-		{"", "~/missing.txt", ""},
-		{"", ".ssh/config", ""},
-		{"", "~.ssh/config", ""},
-		{remote.Path("vps", "/srv/app"), config, ""},
+	spaced := filepath.Join(home, "my notes", "a.txt")
+	writeFile(t, spaced, nil)
+	for _, tc := range []struct {
+		root, query, want string
+		line, col         int
+	}{
+		{root: "", query: config, want: config},
+		{root: "", query: "  " + config + "  ", want: config},
+		{root: "", query: "~/.ssh/config", want: config},
+		{root: t.TempDir(), query: "~/.ssh/../.ssh/config", want: config},
+		{root: "", query: "~/.ssh/config:12", want: config, line: 12},
+		{root: "", query: config + ":12:7", want: config, line: 12, col: 7},
+		{root: "", query: config + ":0", want: ""},
+		{root: "", query: "'" + spaced + "'", want: spaced},
+		{root: "", query: `"~/my notes/a.txt"`, want: spaced},
+		{root: "", query: `~/my\ notes/a.txt`, want: spaced},
+		{root: "", query: "~/.ssh", want: ""},
+		{root: "", query: "~/", want: ""},
+		{root: "", query: "~/missing.txt", want: ""},
+		{root: "", query: ".ssh/config", want: ""},
+		{root: "", query: "~.ssh/config", want: ""},
+		{root: remote.Path("vps", "/srv/app"), query: config, want: ""},
 	} {
-		if got := quickPath(tc.root, tc.query); got != tc.want {
-			t.Errorf("quickPath(%q, %q) = %q, want %q", tc.root, tc.query, got, tc.want)
+		got, line, col := quickPath(tc.root, tc.query)
+		if got != tc.want || line != tc.line || col != tc.col {
+			t.Errorf("quickPath(%q, %q) = %q, %d, %d; want %q, %d, %d", tc.root, tc.query, got, line, col, tc.want, tc.line, tc.col)
 		}
+	}
+}
+
+// A path with a line opens the file at that line, and lists the file as
+// the query names it, with ~ for the home folder.
+func TestQuickOpenPathLine(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("USERPROFILE", home)
+	writeFile(t, filepath.Join(home, "a.txt"), []byte("one\ntwo\nthree\n"))
+	hs := newHarness(t, true)
+	a, tt := hs.a, hs.tt
+	a.openQuick("")
+	hs.settle()
+	tt.Type(filepath.Join(home, "a.txt") + ":3:2")
+	hs.settle()
+	if !tt.HasText("~" + string(filepath.Separator) + "a.txt") {
+		t.Fatalf("the path is not offered under ~: %q", tt.Texts())
+	}
+	hs.key(0, ui.KeyEnter)
+	d := a.activeEditor()
+	if d == nil || d.path != filepath.Join(home, "a.txt") {
+		t.Fatalf("editor = %v", d)
+	}
+	// "one\ntwo\n" and a character of "three".
+	if d.caret != 9 {
+		t.Fatalf("caret at %d, want 9", d.caret)
 	}
 }
 

@@ -28,6 +28,7 @@ type quickOpen struct {
 	sel     int
 	shown   string // the query the results are of
 	path    string // the file the query shown names by its path, if any
+	pathAt  [2]int // the line and column after that path, if any
 	stale   bool
 	moved   bool     // the choice moved by keys, to scroll into view
 	used    []string // the commands the palette ran last, the last first
@@ -68,28 +69,52 @@ func gotoLine(query string) (line, col int, ok bool) {
 
 // quickPath is the file of this machine that a query names by an
 // absolute or ~/ path, which quick open offers in place of the folder's
-// matches. It is "" for any other query, a path that is not a file, or a
-// folder on a host, whose paths are the host's.
-func quickPath(root, query string) string {
+// matches, with the line and column of a :line or :line:column after it.
+// The path may be quoted or shell-escaped, as pasted from a terminal. It
+// is "" for any other query, a path that is not a file, or a folder on a
+// host, whose paths are the host's.
+func quickPath(root, query string) (name string, line, col int) {
 	if remote.Is(root) {
-		return ""
+		return "", 0, 0
 	}
-	name := strings.TrimSpace(query)
+	name = strings.TrimSpace(query)
+	if len(name) >= 2 && (name[0] == '\'' || name[0] == '"') && name[len(name)-1] == name[0] {
+		name = name[1 : len(name)-1]
+	} else if hostOS != "windows" && strings.Contains(name, `\`) {
+		var b strings.Builder
+		for i := 0; i < len(name); i++ {
+			if name[i] == '\\' && i+1 < len(name) {
+				i++
+			}
+			b.WriteByte(name[i])
+		}
+		name = b.String()
+	}
 	if rest, ok := strings.CutPrefix(name, "~"); ok && rest != "" && os.IsPathSeparator(rest[0]) {
-		home, err := os.UserHomeDir()
-		if err != nil {
-			return ""
+		home := homeDir()
+		if home == "" {
+			return "", 0, 0
 		}
 		name = filepath.Join(home, rest[1:])
 	}
 	if !filepath.IsAbs(name) {
-		return ""
+		return "", 0, 0
+	}
+	// A path on a share that is gone can keep Stat a while; it runs once a
+	// query, as the query is typed.
+	file := func(name string) bool {
+		info, err := os.Stat(name)
+		return err == nil && info.Mode().IsRegular()
 	}
 	name = filepath.Clean(name)
-	if info, err := os.Stat(name); err != nil || !info.Mode().IsRegular() {
-		return ""
+	if file(name) {
+		return name, 0, 0
 	}
-	return name
+	// Otherwise it may be a path printed with a line, as compilers do.
+	if rest, line, col, ok := cutLineSuffix(name); ok && file(rest) {
+		return rest, line, col
+	}
+	return "", 0, 0
 }
 
 func (a *app) quickOpenView(c *ui.Context) {
@@ -110,8 +135,11 @@ func (a *app) quickOpenView(c *ui.Context) {
 	}
 	if !isLine && (q.stale || q.shown != q.query) {
 		// Once a query, as the path is looked up on the disk.
-		q.path = quickPath(a.root, q.query)
+		var line, col int
+		q.path, line, col = quickPath(a.root, q.query)
+		q.pathAt = [2]int{line, col}
 		if q.path != "" {
+			// The one result is the path, as files below lists it alone.
 			q.results = []workspace.Match{{Index: 0}}
 		} else {
 			q.results = workspace.Fuzzy(a.index, q.query, 60)
@@ -124,7 +152,7 @@ func (a *app) quickOpenView(c *ui.Context) {
 	}
 	files := a.index
 	if q.path != "" {
-		files = []string{filepath.ToSlash(q.path)}
+		files = []string{filepath.ToSlash(shortenIn(q.path, homeDir()))}
 	}
 	// choose opens a file of the results, to the side with side.
 	choose := func(i int, side bool) {
@@ -141,6 +169,11 @@ func (a *app) quickOpenView(c *ui.Context) {
 			a.openFileToSide(name)
 		} else {
 			a.openFile(name, true)
+		}
+		if line := q.pathAt[0]; q.path != "" && line > 0 {
+			if d := a.activeEditor(); d != nil && d.path == name {
+				a.goToLine(line, q.pathAt[1])
+			}
 		}
 	}
 	ui.Overlay(c, func() {

@@ -18,7 +18,7 @@ func TestQuickPath(t *testing.T) {
 	writeFile(t, config, nil)
 	spaced := filepath.Join(home, "my notes", "a.txt")
 	writeFile(t, spaced, nil)
-	for _, tc := range []struct {
+	cases := []struct {
 		root, query, want string
 		line, col         int
 	}{
@@ -31,14 +31,21 @@ func TestQuickPath(t *testing.T) {
 		{root: "", query: config + ":0", want: ""},
 		{root: "", query: "'" + spaced + "'", want: spaced},
 		{root: "", query: `"~/my notes/a.txt"`, want: spaced},
-		{root: "", query: `~/my\ notes/a.txt`, want: spaced},
 		{root: "", query: "~/.ssh", want: ""},
 		{root: "", query: "~/", want: ""},
 		{root: "", query: "~/missing.txt", want: ""},
 		{root: "", query: ".ssh/config", want: ""},
 		{root: "", query: "~.ssh/config", want: ""},
 		{root: remote.Path("vps", "/srv/app"), query: config, want: ""},
-	} {
+	}
+	// A backslash escapes as in a shell only where it isn't the separator.
+	if filepath.Separator != '\\' {
+		cases = append(cases, struct {
+			root, query, want string
+			line, col         int
+		}{root: "", query: `~/my\ notes/a.txt`, want: spaced})
+	}
+	for _, tc := range cases {
 		got, line, col := quickPath(tc.root, tc.query)
 		if got != tc.want || line != tc.line || col != tc.col {
 			t.Errorf("quickPath(%q, %q) = %q, %d, %d; want %q, %d, %d", tc.root, tc.query, got, line, col, tc.want, tc.line, tc.col)

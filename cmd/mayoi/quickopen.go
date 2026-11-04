@@ -80,7 +80,7 @@ func quickPath(root, query string) (name string, line, col int) {
 	name = strings.TrimSpace(query)
 	if len(name) >= 2 && (name[0] == '\'' || name[0] == '"') && name[len(name)-1] == name[0] {
 		name = name[1 : len(name)-1]
-	} else if hostOS != "windows" && strings.Contains(name, `\`) {
+	} else if filepath.Separator != '\\' && strings.Contains(name, `\`) {
 		var b strings.Builder
 		for i := 0; i < len(name); i++ {
 			if name[i] == '\\' && i+1 < len(name) {

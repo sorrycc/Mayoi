@@ -15,6 +15,8 @@ needs a `## <version>` section here, or its build fails.
 - Pressing Enter in the crash report question chooses **Don't Send** instead of sending the report.
 - Find's match count changes instantly instead of rolling, in the editor, preview and terminal.
 - The Git commit list and project rail use less CPU redrawing author and project initials.
+- The host box of **Connect to Host…** has an **SSH Config** button that opens `~/.ssh/config` in a tab.
+- **File → Remote SSH → Open SSH Config** and the command palette open it too, creating it when missing.
 
 ## 0.17.0
 

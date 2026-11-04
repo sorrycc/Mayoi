@@ -238,6 +238,7 @@
   "cmdRemoteConnect": "ホストに接続…",
   "cmdRemoteDisconnect": "ホストから切断",
   "cmdRemoteForwardPort": "ポートを転送…",
+  "cmdRemoteOpenConfig": "SSH 構成を開く",
   "cmdRemoteOpenFolder": "リモート フォルダーを開く…",
   "cmdRemoteReconnect": "ホストに再接続",
   "cmdReviewClear": "レビュー コメントをクリア",

@@ -504,6 +504,7 @@
   "cmdRemoteConnect": "Connect to Host…",
   "cmdRemoteDisconnect": "Disconnect from Host",
   "cmdRemoteForwardPort": "Forward a Port…",
+  "cmdRemoteOpenConfig": "Open SSH Config",
   "cmdRemoteOpenFolder": "Open Remote Folder…",
   "cmdRemoteReconnect": "Reconnect to Host",
   "cmdReviewClear": "Clear Review Comments",

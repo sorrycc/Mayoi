@@ -38,6 +38,7 @@ func (a *app) commandsIn(t locales.Messages) []command {
 		{"file.openRecent", t.CmdFileOpenRecent(), "", a.openRecentPicker},
 		{"file.clearRecent", t.CmdFileClearRecent(), "", a.clearRecent},
 		{"remote.connect", t.CmdRemoteConnect(), "", a.openRemotePicker},
+		{"remote.openConfig", t.CmdRemoteOpenConfig(), "", a.openSSHConfig},
 		{"remote.openFolder", t.CmdRemoteOpenFolder(), "", a.openRemoteFolder},
 		{"remote.reconnect", t.CmdRemoteReconnect(), "", a.reconnect},
 		{"remote.disconnect", t.CmdRemoteDisconnect(), "", a.disconnect},
@@ -524,7 +525,8 @@ func (a *app) menu(cli bool, run func(id string, win *mygo.Window)) *mygo.Menu {
 		reconnect, disconnect, forward := item("remote.reconnect"), item("remote.disconnect"), item("remote.forwardPort")
 		reconnect.Disabled, disconnect.Disabled, forward.Disabled = a.conn == nil, a.conn == nil, a.conn == nil
 		file = append(file, &mygo.MenuItem{Label: locales.MenuRemoteSSH(), Submenu: []*mygo.MenuItem{
-			item("remote.connect"), item("remote.openFolder"), mygo.Separator(), reconnect, disconnect, mygo.Separator(), forward,
+			item("remote.connect"), item("remote.openFolder"), item("remote.openConfig"),
+			mygo.Separator(), reconnect, disconnect, mygo.Separator(), forward,
 		}})
 	}
 	file = append(file, mygo.Separator(),

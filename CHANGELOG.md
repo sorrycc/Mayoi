@@ -16,6 +16,8 @@ needs a `## <version>` section here, or its build fails.
 - Find's match count changes instantly instead of rolling, in the editor, preview and terminal.
 - The Git commit list and project rail use less CPU redrawing author and project initials.
 - Windows can install `mayoi.cmd` from **File → Install 'mayoi' Command**, including user PATH setup.
+- The host box of **Connect to Host…** has an **SSH Config** button that opens `~/.ssh/config` in a tab.
+- **File → Remote SSH → Open SSH Config** and the command palette open it too, creating it when missing.
 
 ## 0.17.0
 

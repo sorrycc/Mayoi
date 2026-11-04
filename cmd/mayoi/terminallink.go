@@ -34,26 +34,11 @@ func (a *app) terminalFile(s *session, link string) bool {
 	line, col := 0, 0
 	if err != nil {
 		// Prefer a literal filename if it exists, even one ending in :12.
-		// Otherwise peel off :line or :line:column, both 1-based.
-		name := link
-		at := strings.LastIndexByte(name, ':')
-		if at < 0 {
+		name, l, c, ok := cutLineSuffix(link)
+		if !ok {
 			return false
 		}
-		line, err = strconv.Atoi(name[at+1:])
-		if err != nil || line < 0 {
-			return false
-		}
-		name = name[:at]
-		if at = strings.LastIndexByte(name, ':'); at >= 0 {
-			// A column of 0, which some tools print, opens the line.
-			if n, err := strconv.Atoi(name[at+1:]); err == nil && n > 0 {
-				line, col, name = n, line, name[:at]
-			}
-		}
-		if line < 1 {
-			return false
-		}
+		line, col = l, c
 		path = resolve(name)
 		info, err = os.Stat(path)
 	}
@@ -65,4 +50,24 @@ func (a *app) terminalFile(s *session, link string) bool {
 		a.goToLine(line, col)
 	}
 	return true
+}
+
+// cutLineSuffix peels :line or :line:column, both 1-based, off the end of
+// name. A column of 0, which some tools print, goes to the line.
+func cutLineSuffix(name string) (rest string, line, col int, ok bool) {
+	at := strings.LastIndexByte(name, ':')
+	if at < 0 {
+		return name, 0, 0, false
+	}
+	line, err := strconv.Atoi(name[at+1:])
+	if err != nil || line < 0 {
+		return name, 0, 0, false
+	}
+	rest = name[:at]
+	if at = strings.LastIndexByte(rest, ':'); at >= 0 {
+		if n, err := strconv.Atoi(rest[at+1:]); err == nil && n > 0 {
+			line, col, rest = n, line, rest[:at]
+		}
+	}
+	return rest, line, col, line >= 1
 }

@@ -16,6 +16,7 @@ import (
 
 	"mayoi/internal/mon"
 	"mayoi/internal/settings"
+	"mayoi/locales"
 )
 
 func TestKeepCrashes(t *testing.T) {
@@ -110,6 +111,18 @@ func TestCrashReport(t *testing.T) {
 	c = crashReport(crashLog{kind: crashFatal}, "SIGABRT: abort\n"+strings.Repeat("goroutine\n", maxCrashReport/10)+stderr)
 	if len(c.Log) > maxCrashReport || !strings.HasPrefix(c.Log, "SIGABRT: abort\n") || !strings.HasSuffix(c.Log, stderr) {
 		t.Errorf("long log with stderr: %d bytes, %q…%q", len(c.Log), c.Log[:20], c.Log[len(c.Log)-60:])
+	}
+}
+
+// TestCrashDialog asks with Don't Send on Enter, so that sending a report
+// is a choice made on purpose.
+func TestCrashDialog(t *testing.T) {
+	buttons := []string{locales.ButtonSendReport(), locales.ButtonDontSend(), locales.ButtonShowReport()}
+	for _, n := range []int{3, 2} {
+		o := crashDialog([]crashLog{{kind: crashFatal}}, buttons[:n])
+		if o.Buttons[o.DefaultButton] != locales.ButtonDontSend() || o.Buttons[o.CancelButton] != locales.ButtonDontSend() {
+			t.Errorf("%d buttons: Enter %q, Escape %q", n, o.Buttons[o.DefaultButton], o.Buttons[o.CancelButton])
+		}
 	}
 }
 

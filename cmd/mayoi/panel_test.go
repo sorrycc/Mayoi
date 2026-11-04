@@ -138,3 +138,28 @@ func TestPanelTerminalChipsStayClickable(t *testing.T) {
 		}
 	}
 }
+
+// A terminal renamed keeps its name over the titles its programs give
+// it, and an empty name shows those again.
+func TestRenameTerminal(t *testing.T) {
+	a := &app{}
+	s := &session{title: "zsh"}
+	a.askRenameTerminal(s)
+	if a.prompt == nil || a.prompt.value != "zsh" {
+		t.Fatalf("prompt = %+v", a.prompt)
+	}
+	if msg := a.prompt.done("  build  "); msg != "" {
+		t.Fatal(msg)
+	}
+	s.title = "vim main.go"
+	if got := s.label(); got != "build" {
+		t.Fatalf("label = %q, want build", got)
+	}
+	a.askRenameTerminal(s)
+	if msg := a.prompt.done(""); msg != "" {
+		t.Fatal(msg)
+	}
+	if got := s.label(); got != "vim main.go" {
+		t.Fatalf("label = %q, want vim main.go", got)
+	}
+}

@@ -37,7 +37,6 @@ func (a *app) termFindStep(s *session, by int) {
 	} else {
 		s.term.SearchPrevious()
 	}
-	s.findBack = by < 0
 }
 
 // closeTermFind closes the find bar of a terminal, ends its search, and
@@ -97,8 +96,7 @@ func (a *app) termFindView(c *ui.Context, s *session) {
 		if none {
 			col = p.dangerFg
 		}
-		ui.Text(c, count).FontSize(findCountSize).TextColor(col).Width(countW).SingleLine().TextAlign(ui.Center).
-			ContentTransition(ui.ContentTransition{Numeric: true, Down: s.findBack})
+		ui.Text(c, count).FontSize(findCountSize).TextColor(col).Width(countW).SingleLine().TextAlign(ui.Center)
 		// Older output is up the screen.
 		if a.iconButton(c, iconArrowUp, locales.FindNextMatch(), false).Disabled(st.Total == 0).Clicked() {
 			a.termFindStep(s, 1)

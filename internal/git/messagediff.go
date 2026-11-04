@@ -15,6 +15,24 @@ var lockfiles = []string{
 	"pubspec.lock", "Podfile.lock", "flake.lock",
 }
 
+// secretFiles are the patterns of the names of files that hold secrets, as
+// keys and .env files: a message diff names them when they are new, but
+// leaves their lines out, as these would leave the machine.
+var secretFiles = []string{
+	".env", ".env.*", "*.pem", "*.key", "*.p12", "*.pfx", "*.keystore", "*.jks",
+	"id_rsa*", "id_dsa*", "id_ecdsa*", "id_ed25519*", "*.secret", "credentials*.json",
+	".netrc", ".npmrc", ".pgpass",
+}
+
+// secret reports whether the file at name may hold secrets.
+func secret(name string) bool {
+	base := path.Base(name)
+	return slices.ContainsFunc(secretFiles, func(p string) bool {
+		ok, _ := path.Match(p, base)
+		return ok
+	})
+}
+
 // maxUntracked is how many new files a message diff shows the lines of.
 const maxUntracked = 20
 
@@ -22,7 +40,8 @@ const maxUntracked = 20
 // diff after a summary of its files: the staged changes, or every change
 // when none is staged, the new files' included; with amend, the last
 // commit's and the staged ones. staged reports whether it is what is
-// staged. The lines of lockfiles are left out, and the diff is cut to
+// staged. The lines of lockfiles and of new files that may hold secrets are
+// left out, and the diff is cut to
 // about max bytes. It is "" when nothing changed.
 func (r *Repo) MessageDiff(amend bool, max int) (diff string, staged bool, err error) {
 	base := "HEAD"
@@ -77,7 +96,8 @@ func (r *Repo) MessageDiff(amend bool, max int) (diff string, staged bool, err e
 }
 
 // writeUntracked writes the new files that Git does not ignore to b: their
-// names, and the lines of the first of them as a diff.
+// names, and the lines of the first of them as a diff, but of lockfiles and
+// of files that may hold secrets.
 func (r *Repo) writeUntracked(b *strings.Builder) {
 	out, err := r.run(nil, "ls-files", "--others", "--exclude-standard", "-z")
 	if err != nil || len(out) == 0 {
@@ -93,7 +113,7 @@ func (r *Repo) writeUntracked(b *strings.Builder) {
 		if shown == maxUntracked {
 			break
 		}
-		if slices.Contains(lockfiles, path.Base(n)) {
+		if slices.Contains(lockfiles, path.Base(n)) || secret(n) {
 			continue
 		}
 		// It exits with 1 as the files differ, which they always do.

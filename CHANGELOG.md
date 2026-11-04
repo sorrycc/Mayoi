@@ -5,9 +5,16 @@ needs a `## <version>` section here, or its build fails.
 
 ## Unreleased
 
+- AI commit messages no longer send the contents of new secret files like `.env` or keys, only their names.
 - With the `"hc"` backend, `terminalBackendHcPath` finds hc before `PATH` and `~/.local/bin`.
 - With the `"hc"` backend, `terminalBackendHcEnv` passes `KEY=value` variables to hc's commands.
 - With `terminalBackendHcPath` set, Mayoi no longer offers to install hc.
+- `terminalBackendHcPath` and `terminalBackendHcEnv` stay on each machine and never upload with settings sync.
+- Rename a terminal from its tab's right-click menu or **View: Rename Terminal…** in the command palette.
+- A renamed terminal keeps its name when programs set a title; rename it to nothing to show theirs again.
+- Pressing Enter in the crash report question chooses **Don't Send** instead of sending the report.
+- Find's match count changes instantly instead of rolling, in the editor, preview and terminal.
+- The Git commit list and project rail use less CPU redrawing author and project initials.
 - Windows can install `mayoi.cmd` from **File → Install 'mayoi' Command**, including user PATH setup.
 
 ## 0.17.0

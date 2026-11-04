@@ -223,8 +223,9 @@ differ in width lines them up only roughly.
   your account can use are listed at `https://mon.sorrycc.dev/api/v1/ai/v1/models`.
 - **`crashReports`** is what Mayoi does at launch with the crash logs of the last runs: `""` asks whether to send them
   to Mon, `"always"` sends them and `"never"` doesn't. A report is anonymous, never sent with your account's token,
-  and has your home folder taken out. **Show Report** in the question opens the logs as they would be sent. Only
-  releases send reports, and builds started with `MAYOI_MON_URL`.
+  and has your home folder taken out, but not other paths, such as `/Volumes/...` or `/opt/...`. **Show Report** in
+  the question opens the logs as they would be sent. Only releases send reports, and builds started with
+  `MAYOI_MON_URL`. Enter answers **Don't Send**.
 
 ### Example
 
@@ -302,14 +303,19 @@ code and approve it. The dialog counts down until the code expires.
 What syncs:
 
 - **`settings.json`**: every preference, except `scmRepositoryOpen` and `scmRemotes`, which remember Source Control's
-  panels on each machine, `projectTabStyle`, kept by this machine's folders, and `syncIgnored`. When two machines change different preferences, both changes stay. When
-  they change the same one, the machine that syncs last wins.
+  panels on each machine, `projectTabStyle`, kept by this machine's folders, `terminalBackendHcPath` and
+  `terminalBackendHcEnv`, which pick the program a terminal runs and may hold secrets, and `syncIgnored`. When two
+  machines change different preferences, both changes stay. When they change the same one, the machine that syncs last
+  wins.
 - **`keybindings.json`**, as text, comments and all. When it changed on this machine and on another since they last
   synced, this machine's stays and the other's is saved beside it as `keybindings.sync-conflict.json`. A toast and the
   account's panel offer **Compare**, which opens the two side by side to merge by hand, and **Keep Mine**, which
   deletes the other's.
 
 The windows, tabs and recent folders (`state.json`), window positions and update choices stay on each machine.
+
+Settings and `keybindings.json` are stored on mon.sorrycc.dev as they are, without end-to-end encryption, so keep
+tokens and other secrets out of them.
 
 ### The account's panel
 

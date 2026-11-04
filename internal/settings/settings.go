@@ -974,9 +974,11 @@ func (s *Settings) OnPrefsWritten(fn func()) {
 
 // unsynced are the preferences that stay on each machine: what the
 // windows remember of source control's panels rather than what a person
-// chooses, what the person keeps on the machine, and the looks of the
-// projects on the rail, by folders of this machine.
-var unsynced = []string{"scmRepositoryOpen", "scmRemotes", "syncIgnored", "projectTabStyle"}
+// chooses, what the person keeps on the machine, the looks of the
+// projects on the rail, by folders of this machine, and the hc to run
+// with its environment, which may hold secrets and runs as a terminal
+// opens.
+var unsynced = []string{"scmRepositoryOpen", "scmRemotes", "syncIgnored", "projectTabStyle", "terminalBackendHcPath", "terminalBackendHcEnv"}
 
 // PrefKeys are the keys of the preferences in the settings' file.
 var PrefKeys = func() []string {

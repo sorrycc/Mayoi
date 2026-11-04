@@ -155,16 +155,11 @@ func listQueued(logs []crashLog) []crashLog {
 // Again keeps the answer in the settings. Closing the dialog without
 // answering, as when quitting, asks at the next launch.
 func (m *mayoi) askCrashes(h *desktop, logs []crashLog) {
-	question := locales.CrashRecoveredQuestion()
-	if slices.ContainsFunc(logs, func(c crashLog) bool { return c.kind != crashRecovered }) {
-		question = locales.CrashQuestion()
-	}
 	buttons := []string{locales.ButtonSendReport(), locales.ButtonDontSend(), locales.ButtonShowReport()}
 	for {
-		res, err := mygo.Dialog.Message(mygo.MessageOptions{
-			Parent: h.f.win, Type: mygo.MessageWarning, Message: question, Detail: locales.CrashDetail(),
-			Buttons: buttons, DefaultButton: 0, CancelButton: 1, CheckboxLabel: locales.CrashDontAsk(),
-		})
+		opts := crashDialog(logs, buttons)
+		opts.Parent = h.f.win
+		res, err := mygo.Dialog.Message(opts)
 		if err != nil {
 			return
 		}
@@ -198,6 +193,20 @@ func (m *mayoi) askCrashes(h *desktop, logs []crashLog) {
 			})
 		}
 		return
+	}
+}
+
+// crashDialog is the question askCrashes asks about the logs, with
+// buttons Send Report, Don't Send and, until clicked, Show Report. Enter
+// doesn't send, as Escape doesn't: sending is chosen on purpose.
+func crashDialog(logs []crashLog, buttons []string) mygo.MessageOptions {
+	question := locales.CrashRecoveredQuestion()
+	if slices.ContainsFunc(logs, func(c crashLog) bool { return c.kind != crashRecovered }) {
+		question = locales.CrashQuestion()
+	}
+	return mygo.MessageOptions{
+		Type: mygo.MessageWarning, Message: question, Detail: locales.CrashDetail(),
+		Buttons: buttons, DefaultButton: 1, CancelButton: 1, CheckboxLabel: locales.CrashDontAsk(),
 	}
 }
 

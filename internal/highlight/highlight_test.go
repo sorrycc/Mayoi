@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/alecthomas/chroma/v2"
 )
 
 func TestLexSplitsTokensByLine(t *testing.T) {
@@ -308,11 +310,11 @@ func BenchmarkRelexPatchTyping(b *testing.B) {
 func TestRelexKeepsMultilineContext(t *testing.T) {
 	for _, delimiter := range []string{"`", "/*"} {
 		t.Run(delimiter, func(t *testing.T) {
-			close := delimiter
+			end := delimiter
 			if delimiter == "/*" {
-				close = "*/"
+				end = "*/"
 			}
-			text := "package main\nvar s = " + delimiter + "\n" + strings.Repeat("text\n", 250) + close + "\nvar n = 1\n"
+			text := "package main\nvar s = " + delimiter + "\n" + strings.Repeat("text\n", 250) + end + "\nvar n = 1\n"
 			l := Lexer("x.go")
 			src := newSource(strings.Split(text, "\n"), 1)
 			prev := lexRange(l, src, 0, len(src.lines))
@@ -320,14 +322,7 @@ func TestRelexKeepsMultilineContext(t *testing.T) {
 				next := slices.Clone(src.lines)
 				next[row] = "var n = 2"
 				src = newSource(next, src.version+1)
-				got, _ := relex(l, request{src: src, last: len(next) - 1}, prev)
-				want := lexRange(l, src, 0, len(next))
-				for i := range want {
-					if got[i].Text != want[i].Text || got[i].open != want[i].open || !slices.Equal(got[i].Tokens, want[i].Tokens) {
-						t.Fatalf("edit at %d, line %d: got %+v, want %+v", row, i, got[i], want[i])
-					}
-				}
-				prev = got
+				prev = relexLikeLexingAll(t, l, src, prev)
 			}
 		})
 	}
@@ -341,13 +336,21 @@ func TestRelexSparseMarkdownContext(t *testing.T) {
 	next := slices.Clone(src.lines)
 	next[len(next)/2+2] += "修改"
 	src = newSource(next, 2)
-	got, _ := relex(l, request{src: src, last: len(next) - 1}, prev)
-	want := lexRange(l, src, 0, len(next))
+	relexLikeLexingAll(t, l, src, prev)
+}
+
+// relexLikeLexingAll relexes src from prev, checks that it comes out as
+// lexing all of src does, and returns the lines.
+func relexLikeLexingAll(t *testing.T, l chroma.Lexer, src fakeSource, prev []Line) []Line {
+	t.Helper()
+	got, _ := relex(l, request{src: src, last: len(src.lines) - 1}, prev)
+	want := lexRange(l, src, 0, len(src.lines))
 	for i := range want {
 		if got[i].Text != want[i].Text || got[i].open != want[i].open || !slices.Equal(got[i].Tokens, want[i].Tokens) {
-			t.Fatalf("line %d: got %+v, want %+v", i, got[i], want[i])
+			t.Fatalf("version %d, line %d: got %+v, want %+v", src.version, i, got[i], want[i])
 		}
 	}
+	return got
 }
 
 // A large file opened shows the colors of the lines in view first, then

@@ -628,7 +628,7 @@ func relexPatch(l chroma.Lexer, r request, prev []Line) patch {
 	}
 	shift := n - len(prev)
 	const settle = 3 // the lines with tokens alike that end the lexing
-	for back := 4; ; back *= 4 {
+	for back := 16; ; back *= 4 {
 		s := max(0, a-back)
 		for s > 0 && prev[s-1].open {
 			s--

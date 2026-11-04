@@ -142,6 +142,7 @@
   "cliInstallFailed": "无法安装 “mayoi” 命令。",
   "cliInstalled": "“mayoi” 命令已安装到 {dir}。",
   "cliInstalledDetail": "在终端中，mayoi . 打开当前所在的文件夹，mayoi <file> 打开一个文件。",
+  "cliInstalledDetailWindows": "在新的终端中，mayoi . 打开当前所在的文件夹，mayoi <file> 打开一个文件。",
   "cliNotInstalled": "“mayoi” 命令尚未安装。",
   "cliUninstallFailed": "无法卸载 “mayoi” 命令。",
   "cliUninstalled": "“mayoi” 命令已卸载。",

@@ -142,6 +142,7 @@
   "cliInstallFailed": "'mayoi' コマンドをインストールできませんでした。",
   "cliInstalled": "'mayoi' コマンドを {dir} にインストールしました。",
   "cliInstalledDetail": "ターミナルで mayoi . を実行すると今いるフォルダーが、mayoi <file> でファイルが開きます。",
+  "cliInstalledDetailWindows": "新しいターミナルで mayoi . を実行すると今いるフォルダーが、mayoi <file> でファイルが開きます。",
   "cliNotInstalled": "'mayoi' コマンドはインストールされていません。",
   "cliUninstallFailed": "'mayoi' コマンドをアンインストールできませんでした。",
   "cliUninstalled": "'mayoi' コマンドをアンインストールしました。",

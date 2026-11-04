@@ -412,6 +412,7 @@
   "cliInstallFailed": "The 'mayoi' command could not be installed.",
   "cliInstalled": "The 'mayoi' command is installed in {dir}.",
   "cliInstalledDetail": "In a terminal, mayoi . opens the folder you are in, and mayoi <file> a file.",
+  "cliInstalledDetailWindows": "In a new terminal, mayoi . opens the folder you are in, and mayoi <file> a file.",
   "cliNotInstalled": "The 'mayoi' command is not installed.",
   "cliUninstallFailed": "The 'mayoi' command could not be uninstalled.",
   "cliUninstalled": "The 'mayoi' command is uninstalled.",

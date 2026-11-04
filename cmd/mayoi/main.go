@@ -251,7 +251,12 @@ func (h *desktop) installCLI() {
 		case err != nil:
 			h.tell(mygo.MessageWarning, locales.CliInstallFailed(), err.Error())
 		default:
-			h.tell(mygo.MessageInfo, locales.CliInstalled(shortenHome(filepath.Dir(p))), locales.CliInstalledDetail())
+			// Terminals that were open keep the PATH they started with.
+			detail := locales.CliInstalledDetail()
+			if runtime.GOOS == "windows" {
+				detail = locales.CliInstalledDetailWindows()
+			}
+			h.tell(mygo.MessageInfo, locales.CliInstalled(shortenHome(filepath.Dir(p))), detail)
 		}
 	}()
 }

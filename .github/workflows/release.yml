@@ -133,12 +133,22 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         working-directory: dist
         run: |
-          # GitHub fails an upload now and then, as with a 404; --clobber makes
-          # trying again harmless.
+          # GitHub fails a request now and then, with a 404 or a 5xx, and one
+          # gh release upload of every file, which clobbers them in parallel,
+          # failed each try of v0.18.0. Files go up one at a time, each tried
+          # three times, and a rerun skips those the release has already.
+          have="$(gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --json assets \
+            --jq '.assets[] | select(.state == "uploaded") | "\(.digest) \(.name)"')"
           upload() {
+            local sum
+            sum="sha256:$(sha256sum "$1" | cut -d' ' -f1)"
+            if grep -qxF "$sum $(basename "$1")" <<< "$have"; then
+              echo "$1 is uploaded"
+              return
+            fi
             for try in 1 2 3; do
-              gh release upload "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --clobber "$@" && return
-              test "$try" = 3 || sleep 10
+              gh release upload "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --clobber "$1" && return
+              test "$try" = 3 || sleep $((try * 15))
             done
             return 1
           }
@@ -152,8 +162,7 @@ jobs:
             test -n "$f" || { echo "::error::no build has $name of SHA256SUMS"; exit 1; }
             files+=("$f")
           done < SHA256SUMS
-          upload "${files[@]}"
-          upload */*/update-*.json
+          for f in "${files[@]}" */*/update-*.json; do upload "$f"; done
 
   publish:
     needs: upload

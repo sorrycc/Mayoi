@@ -19,6 +19,7 @@ needs a `## <version>` section here, or its build fails.
 - The host box of **Connect to Host…** has an **SSH Config** button that opens `~/.ssh/config` in a tab.
 - **File → Remote SSH → Open SSH Config** and the command palette open it too, creating it when missing.
 - Typing in Markdown with blank lines between paragraphs takes less CPU to keep the colors up to date.
+- Terminals in tabs you can't see no longer redraw the window as they print, which saves CPU.
 - Typing an absolute or `~/` path in Quick Open offers that file, even with no folder open.
 - A path in Quick Open can end in `:line` or `:line:column`, and opens the file at that spot.
 - Quoted or backslash-escaped paths pasted from a terminal open in Quick Open too.

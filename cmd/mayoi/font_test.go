@@ -2,7 +2,10 @@ package main
 
 import (
 	"slices"
+	"strings"
 	"testing"
+
+	"github.com/egoist/mygo/ui"
 
 	"mayoi/internal/settings"
 )
@@ -60,5 +63,32 @@ func TestMonoFallback(t *testing.T) {
 	}
 	if !a.font.is(a.settings.Prefs) {
 		t.Error("the font does not match the settings it was made from")
+	}
+}
+
+// A line indented with a tab keeps its indent where the text system lays
+// it out, as the editor draws it: in colored spans, the tab alone at the
+// start of the line too, not only after a space (#123).
+func TestTabsIndentTheCode(t *testing.T) {
+	hs := newHarness(t, false)
+	hs.settle()
+	f := hs.a.font
+	stop := f.afterTab(0)
+	for _, s := range []string{"\tcode", " \tcode", "\t\tcode"} {
+		g := ui.Shape(s, f.font())
+		var at []float32
+		for _, g := range g {
+			at = append(at, g.X)
+		}
+		want := stop * float32(strings.Count(s, "\t"))
+		if c := g[len(g)-4]; c.X != want {
+			t.Errorf("%q: c at %v, want %v; glyphs at %v", s, c.X, want, at)
+		}
+	}
+	p := hs.a.pal
+	spans := []ui.Span{f.span("\t", p.text), f.span("code", p.syntax[0]), f.span(", message", p.text)}
+	l := ui.ShapeRichText(spans, f.font(), 0)
+	if x := l.Caret(1).X; x != stop {
+		t.Errorf("in spans, code after a tab at %v, want %v", x, stop)
 	}
 }

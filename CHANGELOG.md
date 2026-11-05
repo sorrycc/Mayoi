@@ -3,6 +3,10 @@
 The update window shows the section of the version it offers. Every release
 needs a `## <version>` section here, or its build fails.
 
+## Unreleased
+
+- On Windows, lines starting with tabs, like Go code, keep their indent, at four columns a tab.
+
 ## 0.18.0
 
 - AI commit messages no longer send the contents of new secret files like `.env` or keys, only their names.

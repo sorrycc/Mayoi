@@ -1667,6 +1667,8 @@
   "prefDescScmAllBranches": "Shows the commits of every branch and tag, not only the branch checked out.",
   "prefTitleAiModel": "AI Model",
   "prefDescAiModel": "The model of Mon's AI gateway that writes commit messages.",
+  "prefTitleAiSecretFiles": "Secret Files for AI",
+  "prefDescAiSecretFiles": "Files whose lines AI commit messages leave out, as .gitignore patterns after Mayoi's own; \"!\" before one sends it.",
   "prefTitleVim": "Vim Mode",
   "prefDescVim": "Edits with vim's keys: the editors start in normal mode.",
   "prefTitleVimCtrlKeys": "Vim Control Keys",

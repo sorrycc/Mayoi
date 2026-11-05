@@ -223,6 +223,11 @@ type Prefs struct {
 	// AIModel is the model of Mon's AI gateway that writes commit
 	// messages, "" for Mayoi's choice.
 	AIModel string `json:"aiModel,omitempty"`
+	// AISecretFiles are patterns of files whose lines a commit message's
+	// AI never sees, after Mayoi's own, as ".gitignore" takes them: a
+	// name, or a path with "/", and "!" before one to send a file that
+	// matched before. Lines that look like keys stay out whatever it says.
+	AISecretFiles []string `json:"aiSecretFiles,omitempty"`
 	// CrashReports is what Mayoi does with the report of a crash at the
 	// next launch: "" asks whether to send it to Mon, "always" sends it
 	// and "never" doesn't.
@@ -536,6 +541,7 @@ func (p *Prefs) normalize() {
 	}
 	p.LineHeight = clamp(p.LineHeight, 1, 3)
 	p.FontFeatures = slices.DeleteFunc(p.FontFeatures, func(f string) bool { return strings.TrimSpace(f) == "" })
+	p.AISecretFiles = slices.DeleteFunc(p.AISecretFiles, func(f string) bool { return strings.TrimSpace(f) == "" })
 	if p.TerminalFontSize != 0 {
 		p.TerminalFontSize = clamp(p.TerminalFontSize, 9, 28)
 	}

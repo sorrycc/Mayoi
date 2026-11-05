@@ -66,7 +66,7 @@ func TestQuickOpenPathLine(t *testing.T) {
 	hs.settle()
 	tt.Type(filepath.Join(home, "a.txt") + ":3:2")
 	hs.settle()
-	if !tt.HasText("~" + string(filepath.Separator) + "a.txt") {
+	if !tt.HasText("~/a.txt") {
 		t.Fatalf("the path is not offered under ~: %q", tt.Texts())
 	}
 	hs.key(0, ui.KeyEnter)

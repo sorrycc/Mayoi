@@ -224,9 +224,11 @@ type Prefs struct {
 	// messages, "" for Mayoi's choice.
 	AIModel string `json:"aiModel,omitempty"`
 	// AISecretFiles are patterns of files whose lines a commit message's
-	// AI never sees, after Mayoi's own, as ".gitignore" takes them: a
-	// name, or a path with "/", and "!" before one to send a file that
-	// matched before. Lines that look like keys stay out whatever it says.
+	// AI never sees, after Mayoi's own: a name, or the end of a path with
+	// "/", its start with "/" first, "**" for any folders, "/" last for a
+	// folder, and "!" first to send a file that matched before. What looks
+	// like a key is left out whatever it says. A folder can't set it, so
+	// that a repository can't send what its cloner keeps out.
 	AISecretFiles []string `json:"aiSecretFiles,omitempty"`
 	// CrashReports is what Mayoi does with the report of a crash at the
 	// next launch: "" asks whether to send it to Mon, "always" sends it

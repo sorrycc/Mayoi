@@ -1440,7 +1440,7 @@
   "prefTitleAiModel": "AI モデル",
   "prefDescAiModel": "コミット メッセージを書く Mon の AI ゲートウェイのモデル。",
   "prefTitleAiSecretFiles": "AI に送らないファイル",
-  "prefDescAiSecretFiles": "AI コミット メッセージに行を送らないファイル。Mayoi 独自のものに続く .gitignore 形式のパターンで、先頭の「!」で送るようにします。",
+  "prefDescAiSecretFiles": "AI コミット メッセージに行を送らないファイル。Mayoi 独自のものの後に効きます: 名前、パス、「dir/」や「**」。先頭の「!」で送ります。",
   "prefTitleVim": "Vim モード",
   "prefDescVim": "vim のキーで編集します。エディターはノーマル モードで始まります。",
   "prefTitleVimCtrlKeys": "Vim の Ctrl キー",

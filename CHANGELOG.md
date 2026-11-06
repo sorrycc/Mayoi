@@ -3,6 +3,13 @@
 The update window shows the section of the version it offers. Every release
 needs a `## <version>` section here, or its build fails.
 
+## Unreleased
+
+- AI commit messages leave out the lines of more secret files, like `.envrc`, `*.tfvars` and `~/.aws` files.
+- A changed `.env` or key file that is already committed no longer has its lines sent to the AI either.
+- Keys, tokens and passwords in any changed line are swapped for `[left out]` before the diff goes to the AI.
+- New `aiSecretFiles` setting adds your own patterns of files whose lines AI commit messages leave out.
+
 ## 0.18.0
 
 - AI commit messages no longer send the contents of new secret files like `.env` or keys, only their names.

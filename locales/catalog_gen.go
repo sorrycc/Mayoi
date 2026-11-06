@@ -14560,6 +14560,26 @@ func (msgs Messages) PrefDescAiModel() string {
 	return Catalog.Format(msgs.locale, "prefDescAiModel", nil)
 }
 
+// PrefTitleAiSecretFiles says "Secret Files for AI"
+// in the language the app shows.
+func PrefTitleAiSecretFiles() string { return In(i18n.Locale()).PrefTitleAiSecretFiles() }
+
+// PrefTitleAiSecretFiles says "Secret Files for AI"
+// in the language of msgs.
+func (msgs Messages) PrefTitleAiSecretFiles() string {
+	return Catalog.Format(msgs.locale, "prefTitleAiSecretFiles", nil)
+}
+
+// PrefDescAiSecretFiles says "Files whose lines AI commit messages leave out, after Mayoi's own: a name, a path, \"dir/\" or \"**\"; \"!\" first sends one."
+// in the language the app shows.
+func PrefDescAiSecretFiles() string { return In(i18n.Locale()).PrefDescAiSecretFiles() }
+
+// PrefDescAiSecretFiles says "Files whose lines AI commit messages leave out, after Mayoi's own: a name, a path, \"dir/\" or \"**\"; \"!\" first sends one."
+// in the language of msgs.
+func (msgs Messages) PrefDescAiSecretFiles() string {
+	return Catalog.Format(msgs.locale, "prefDescAiSecretFiles", nil)
+}
+
 // PrefTitleVim says "Vim Mode"
 // in the language the app shows.
 func PrefTitleVim() string { return In(i18n.Locale()).PrefTitleVim() }

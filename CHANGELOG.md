@@ -6,6 +6,7 @@ needs a `## <version>` section here, or its build fails.
 ## Unreleased
 
 - On Windows, lines starting with tabs, like Go code, keep their indent, at four columns a tab.
+- On macOS, Mayoi appears in Finder's **Open With** menu for text, Markdown and source code files.
 
 ## 0.18.0
 

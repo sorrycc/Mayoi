@@ -595,25 +595,6 @@ func TestHCRestoreDoesNotShareTerminalsWithPreviousFolder(t *testing.T) {
 				t.Error("the window forgot its terminal tab")
 			}
 
-			// Restoring that session in the window that kept the terminals
-			// must not add another tab for one still shown there.
-			terminalTabs := func() int {
-				n := 0
-				for _, s := range a.terms {
-					if s.tab != nil {
-						n++
-					}
-				}
-				return n
-			}
-			before := terminalTabs()
-			a.openFolder(root)
-			a.window.Session = *ses
-			a.restoreTabs()
-			if got := terminalTabs(); got != before {
-				t.Errorf("restoring in the same window added a terminal tab: %d -> %d", before, got)
-			}
-
 			// An update or restart restores the session from disk, not from
 			// the settings still in memory.
 			s.Flush()

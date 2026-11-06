@@ -28,6 +28,8 @@ func (a *app) stash(ses settings.Session) {
 		tabs, active := col.Tabs, col.Active
 		col.Tabs, col.Active = nil, -1
 		for j, tab := range tabs {
+			// A terminal without an hc address starts a new shell on
+			// restore, so it cannot share one with this window.
 			if tab.Terminal && tab.HC != "" {
 				continue
 			}

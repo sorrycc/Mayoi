@@ -20,6 +20,25 @@ func (a *app) session() settings.Session {
 func (a *app) stash(ses settings.Session) {
 	w := *a.window
 	w.Session = ses
+	// Terminals stay in this window as its folder changes. Leave their hc
+	// addresses out of the old folder's session, so that opening it in
+	// another window does not attach to the shells this window still shows.
+	w.Columns = slices.Clone(w.Columns)
+	for i, col := range w.Columns {
+		tabs, active := col.Tabs, col.Active
+		col.Tabs, col.Active = nil, -1
+		for j, tab := range tabs {
+			if tab.Terminal && tab.HC != "" {
+				continue
+			}
+			if j == active {
+				col.Active = len(col.Tabs)
+			}
+			col.Tabs = append(col.Tabs, tab)
+		}
+		w.Columns[i] = col
+	}
+	w.PanelTerms, w.PanelTerm = nil, 0
 	a.settings.Stash(&w)
 }
 

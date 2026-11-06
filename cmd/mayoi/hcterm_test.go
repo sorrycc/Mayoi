@@ -519,6 +519,121 @@ func TestHCRestore(t *testing.T) {
 	}
 }
 
+// Switching or closing a folder leaves its terminals in the window. Its
+// saved session must not attach those shells again when the folder opens
+// in another window, while the window that kept them still remembers them.
+func TestHCRestoreDoesNotShareTerminalsWithPreviousFolder(t *testing.T) {
+	if testing.Short() {
+		t.Skip("starts a program")
+	}
+	for _, tc := range []struct {
+		name        string
+		closeFolder bool
+	}{
+		{name: "switch folder"},
+		{name: "close folder", closeFolder: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			root, other := workspaceFixture(t), workspaceFixture(t)
+			s := settings.Load(filepath.Join(t.TempDir(), "settings.json"))
+			w := s.NewWindow()
+			w.Folder = root
+			a := newApp(&fakeHost{}, s, w)
+			t.Cleanup(a.shutdown)
+			t.Cleanup(a.closeTerminals)
+			tt := ui.NewTester(a.view, 1200, 760)
+			step(tt)
+			useFakeHC(t, func(args []string) ([]byte, error) {
+				return []byte(`{"terminals":[{"address":"t-panel","state":"live"},{"address":"t-tab","state":"live"}]}`), nil
+			})
+			panel := hcSession(t, a, "t-panel")
+			tab := hcSession(t, a, "t-tab")
+			a.terminalToColumn(tab, a.column(), a.column().active+1)
+			a.openFile(filepath.Join(root, "main.go"), true)
+			a.panelTerm = panel
+			a.rememberTabs()
+
+			if tc.closeFolder {
+				a.closeFolder()
+			} else {
+				a.switchFolder(other)
+			}
+			step(tt)
+			for _, addr := range []string{"t-panel", "t-tab"} {
+				if !slices.ContainsFunc(a.terms, func(s *session) bool { return s.hc == addr }) {
+					t.Errorf("the window lost %s", addr)
+				}
+			}
+
+			ses := s.Sessions[root]
+			if ses == nil {
+				t.Fatal("the previous folder has no session")
+			}
+			if len(ses.PanelTerms) != 0 {
+				t.Errorf("the previous folder still restores panel terminals %q", ses.PanelTerms)
+			}
+			for _, col := range ses.Columns {
+				for _, tab := range col.Tabs {
+					if tab.HC != "" {
+						t.Errorf("the previous folder still restores %s in a tab", tab.HC)
+					}
+				}
+			}
+			if col := ses.Columns[0]; len(col.Tabs) != 1 || col.Active != 0 || col.Tabs[0].File != filepath.Join(root, "main.go") {
+				t.Errorf("the file tab after the removed terminal: %+v", col)
+			}
+
+			// Leaving the addresses out of the saved copy must not clear them
+			// from the window that kept the terminals.
+			a.rememberTabs()
+			if !slices.Equal(a.window.PanelTerms, []string{"t-panel"}) {
+				t.Errorf("the window forgot its panel terminal: %q", a.window.PanelTerms)
+			}
+			if !slices.ContainsFunc(a.window.Columns, func(col settings.Column) bool {
+				return slices.ContainsFunc(col.Tabs, func(tab settings.Tab) bool { return tab.HC == "t-tab" })
+			}) {
+				t.Error("the window forgot its terminal tab")
+			}
+
+			// Restoring that session in the window that kept the terminals
+			// must not add another tab for one still shown there.
+			terminalTabs := func() int {
+				n := 0
+				for _, s := range a.terms {
+					if s.tab != nil {
+						n++
+					}
+				}
+				return n
+			}
+			before := terminalTabs()
+			a.openFolder(root)
+			a.window.Session = *ses
+			a.restoreTabs()
+			if got := terminalTabs(); got != before {
+				t.Errorf("restoring in the same window added a terminal tab: %d -> %d", before, got)
+			}
+
+			// An update or restart restores the session from disk, not from
+			// the settings still in memory.
+			s.Flush()
+			s = settings.Load(s.Path())
+			t.Cleanup(s.Flush)
+			taken := s.TakeSession(root)
+			b := newApp(&fakeHost{}, s, s.NewWindow())
+			t.Cleanup(b.shutdown)
+			t.Cleanup(b.closeTerminals)
+			b.openFolder(root)
+			fakeAttach(t)
+			if b.restorePanel(taken.PanelTerms, taken.PanelTerm) || slices.ContainsFunc(b.terms, func(s *session) bool {
+				return s.hc == "t-panel" || s.hc == "t-tab"
+			}) {
+				t.Error("two windows attached to the same shell")
+			}
+		})
+	}
+}
+
 // What is typed while a shell starts in herdr-core is kept, up to a
 // limit, for the shell, and taken once.
 func TestHCWaitTyped(t *testing.T) {

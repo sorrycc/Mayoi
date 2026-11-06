@@ -5,6 +5,7 @@ needs a `## <version>` section here, or its build fails.
 
 ## Unreleased
 
+- Switching or closing a folder no longer lets another window attach to the hc terminals that stayed in the current window.
 - On Windows, lines starting with tabs, like Go code, keep their indent, at four columns a tab.
 - On macOS, Mayoi appears in Finder's **Open With** menu for text, Markdown and source code files.
 - AI commit messages leave out the lines of more secret files, like `.envrc`, `*.tfvars` and `~/.aws` files.

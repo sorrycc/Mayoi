@@ -3,7 +3,7 @@
 The update window shows the section of the version it offers. Every release
 needs a `## <version>` section here, or its build fails.
 
-## Unreleased
+## 0.18.1
 
 - Opening a folder you switched away from no longer shows the terminals another window kept from it.
 - On Windows, lines starting with tabs, like Go code, keep their indent, at four columns a tab.

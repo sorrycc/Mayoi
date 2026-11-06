@@ -136,8 +136,10 @@ func TestMatrixRainStopsWhenBlurred(t *testing.T) {
 		t.Error("the rain does not fall again with the keyboard back")
 	}
 	// Out of The Matrix, there is none.
-	a.setTheme("")
-	a.rain.moving = false
+	a.post(func() {
+		a.setTheme("")
+		a.rain.moving = false
+	})
 	hs.settle()
 	if a.rain.moving {
 		t.Error("the rain falls in a dark window")

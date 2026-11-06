@@ -1439,6 +1439,8 @@
   "prefDescScmAllBranches": "显示所有分支和标签的提交，而不只是当前分支。",
   "prefTitleAiModel": "AI 模型",
   "prefDescAiModel": "用于生成提交信息的 Mon AI 网关模型。",
+  "prefTitleAiSecretFiles": "AI 不发送的文件",
+  "prefDescAiSecretFiles": "AI 提交信息中不发送其内容的文件，在 Mayoi 自带规则之后生效：文件名、路径、“dir/”或“**”；以“!”开头则发送。",
   "prefTitleVim": "Vim 模式",
   "prefDescVim": "使用 vim 按键编辑：编辑器以普通模式启动。",
   "prefTitleVimCtrlKeys": "Vim Ctrl 键",

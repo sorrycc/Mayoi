@@ -7,6 +7,10 @@ needs a `## <version>` section here, or its build fails.
 
 - On Windows, lines starting with tabs, like Go code, keep their indent, at four columns a tab.
 - On macOS, Mayoi appears in Finder's **Open With** menu for text, Markdown and source code files.
+- AI commit messages leave out the lines of more secret files, like `.envrc`, `*.tfvars` and `~/.aws` files.
+- A changed `.env` or key file that is already committed no longer has its lines sent to the AI either.
+- Keys, tokens and passwords in any changed line are swapped for `[left out]` before the diff goes to the AI.
+- New `aiSecretFiles` setting adds your own patterns of files whose lines AI commit messages leave out.
 
 ## 0.18.0
 

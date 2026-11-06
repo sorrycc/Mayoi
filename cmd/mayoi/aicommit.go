@@ -74,12 +74,13 @@ func (a *gitContext) writeMessage() {
 	}
 	r, amend, notes, branch := g.repo, g.amend, strings.TrimSpace(g.message), a.branch()
 	model := cmp.Or(strings.TrimSpace(a.app.prefs().AIModel), aiModel)
+	secretFiles := a.app.prefs().AISecretFiles
 	ctx, cancel := context.WithTimeout(context.Background(), aiTimeout)
 	w := &aiWriting{cancel: cancel}
 	g.writing = w
 	go func() {
 		defer cancel()
-		diff, staged, err := r.MessageDiff(amend, aiDiffMax)
+		diff, staged, err := r.MessageDiff(amend, aiDiffMax, secretFiles)
 		if err == nil && diff == "" {
 			a.app.post(func() {
 				if g.writing == w {

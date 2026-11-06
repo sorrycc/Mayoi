@@ -99,6 +99,7 @@ takes its default.
 | `scmAllBranches`        | `false`       | `true`, `false`                                             | **Show All Branches** in Source Control's menu |
 | `syncIgnored`           | none          | Keys, `"settings.json"`, `"keybindings.json"`               | The [settings sync](#settings-sync) panel      |
 | `aiModel`               | `""`          | `""` (`deepseek-flash`), or a model of the AI gateway       | Only this file                                 |
+| `aiSecretFiles`         | none          | Patterns of files AI commit messages send by name only      | Only this file                                 |
 | `crashReports`          | `""`          | `""` (ask), `"always"`, `"never"`                           | **Don't ask again** when Mayoi asks           |
 
 ### Language
@@ -226,6 +227,12 @@ differ in width lines them up only roughly.
   and has your home folder taken out, but not other paths, such as `/Volumes/...` or `/opt/...`. **Show Report** in
   the question opens the logs as they would be sent. Only releases send reports, and builds started with
   `MAYOI_MON_URL`. Enter answers **Don't Send**.
+- **`aiSecretFiles`** adds patterns of files whose lines **Write Commit Message with AI** never sends, after
+  Mayoi's own list of `.env` files, keys and credentials. A name matches in any folder, a path such as
+  `config/prod.yml` matches the end of a file's path, and `/config/prod.yml` its start. `**` is any run of folders,
+  and `deploy/` is everything in a `deploy` folder. `!` first sends files a pattern before it left out, as in
+  `"!.env.local"`. Whatever the patterns say, keys and tokens in any file's lines are left out, line by line. A
+  folder's `.mayoi/settings.json` can't set it.
 
 ### Example
 

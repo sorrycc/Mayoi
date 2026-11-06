@@ -3,6 +3,10 @@
 The update window shows the section of the version it offers. Every release
 needs a `## <version>` section here, or its build fails.
 
+## Unreleased
+
+- On Windows, right-click menus no longer cut off the end of their labels, as in Chinese.
+
 ## 0.18.1
 
 - Opening a folder you switched away from no longer shows the terminals another window kept from it.

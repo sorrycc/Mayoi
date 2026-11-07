@@ -52,8 +52,10 @@ func TestParse(t *testing.T) {
 		{[]string{"settings", "set", "fontFeatures+=calt=0", "aiSecretFiles-=*.pem"}, Request{Settings: &Settings{Verb: "set",
 			Changes: []Change{{Op: OpAdd, Key: "fontFeatures", Item: "calt=0"},
 				{Op: OpRemove, Key: "aiSecretFiles", Item: "*.pem"}}}}},
-		{[]string{"settings", "set", `projectTabStyle.'/src/my.app'.label=MG`}, Request{Settings: &Settings{Verb: "set",
-			Changes: []Change{{Op: OpSet, Key: `projectTabStyle.'/src/my.app'.label`, Value: json.RawMessage(`"MG"`)}}}}},
+		// The folder of a look is the app's, whole: x is absolute on each
+		// system, as /src is not on Windows.
+		{[]string{"settings", "set", `projectTabStyle.'` + x + `'.label=MG`}, Request{Settings: &Settings{Verb: "set",
+			Changes: []Change{{Op: OpSet, Key: `projectTabStyle.'` + x + `'.label`, Value: json.RawMessage(`"MG"`)}}}}},
 		// The folder of a look is the app's, whole, from cwd or ~.
 		{[]string{"settings", "get", `projectTabStyle.'.'`, `projectTabStyle."~/my.app".label`, `projectTabStyle.'/ssh:box/srv'`}, Request{Settings: &Settings{Verb: "get",
 			Keys: []string{`projectTabStyle.'` + cwd + `'`, `projectTabStyle.'` + filepath.Join(home, "my.app") + `'.label`, `projectTabStyle.'/ssh:box/srv'`}}}},

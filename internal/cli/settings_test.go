@@ -406,9 +406,9 @@ func TestSettingsStyles(t *testing.T) {
 	if got, want := get(`projectTabStyle.'/src/my.app'.label`), "\"MG\"\n"; got != want {
 		t.Errorf("its label: %q, want %q", got, want)
 	}
-	// A field the look has not is null.
-	if got, want := get(`projectTabStyle.'/src/my.app'.icon`), "null\n"; got != want {
-		t.Errorf("its icon: %q, want %q", got, want)
+	// An icon is no field of a look the command knows.
+	if out, err := (Settings{Verb: "get", Keys: []string{`projectTabStyle.'/src/my.app'.icon`}}).Do(path); err == nil {
+		t.Errorf("reading an icon: %q", out)
 	}
 	// A field left empty takes the project's own, which is no look.
 	do("set", Change{Op: OpSet, Key: `projectTabStyle.'/src/my.app'.color`, Value: json.RawMessage(`""`)})
@@ -456,7 +456,7 @@ func TestSettingsStyles(t *testing.T) {
 }
 
 // A label counts the characters a person sees, as the rail does, and an
-// icon is only taken away here, not named.
+// icon is no part of a look the command sets or reads.
 func TestSettingsLookRules(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "settings.json")
 	do := func(c Change) error {
@@ -475,20 +475,31 @@ func TestSettingsLookRules(t *testing.T) {
 	if err := do(Change{Op: OpSet, Key: `projectTabStyle.'/a'.label`, Value: mustJSON("🚀xy")}); err == nil {
 		t.Error("three characters took a label")
 	}
-	// An icon is a name the app made, which only goes here.
+	// An icon is a name the app made, which the command leaves alone.
 	if err := do(Change{Op: OpSet, Key: `projectTabStyle.'/a'.icon`, Value: mustJSON("abc.png")}); err == nil {
 		t.Error("an icon took a name")
+	}
+	if err := do(Change{Op: OpUnset, Key: `projectTabStyle.'/a'.icon`}); err == nil {
+		t.Error("an icon was unset")
 	}
 	if err := do(Change{Op: OpSet, Key: `projectTabStyle.'/a'`, Value: json.RawMessage(`{"icon": "abc.png"}`)}); err == nil {
 		t.Error("a whole look took an icon's name")
 	}
-	// A label shows in place of the icon, which goes with it.
+	// The icon a look has stays, whichever field of it the command sets
+	// or takes away: only the rail's menu sets one.
 	putFile(t, path, `{"projectTabStyle": {"/a": {"icon": "abc.png"}}}`)
-	if err := do(Change{Op: OpSet, Key: `projectTabStyle.'/a'.label`, Value: mustJSON("MG")}); err != nil {
-		t.Fatal(err)
-	}
-	if out, err := (Settings{Verb: "get", Keys: []string{`projectTabStyle.'/a'`}}).Do(path); err != nil || out != "{\"label\":\"MG\"}\n" {
-		t.Errorf("after the label: %q, %v", out, err)
+	for _, c := range []Change{
+		{Op: OpSet, Key: `projectTabStyle.'/a'.label`, Value: mustJSON("MG")},
+		{Op: OpSet, Key: `projectTabStyle.'/a'`, Value: json.RawMessage(`{"color": "red"}`)},
+		{Op: OpUnset, Key: `projectTabStyle.'/a'`},
+	} {
+		putFile(t, path, `{"projectTabStyle": {"/a": {"icon": "abc.png"}}}`)
+		if err := do(c); err != nil {
+			t.Fatal(err)
+		}
+		if out, err := (Settings{Verb: "get", Keys: []string{`projectTabStyle.'/a'`}}).Do(path); err != nil || !strings.Contains(out, `"icon":"abc.png"`) {
+			t.Errorf("%s %s: the icon went: %q, %v", c.Op, c.Key, out, err)
+		}
 	}
 }
 

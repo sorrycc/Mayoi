@@ -687,10 +687,9 @@ otherwise into `/usr/local/bin`, which asks for your password. On Windows, it in
   `<key>-=<item>` takes one away, rather than a list being written out whole. The last item taken away leaves no list,
   and an item a list has already is no item more of it.
 - `mayoi settings set projectTabStyle.'<folder>'.label=MG` changes one field of a project's look on the rail, and
-  `.<folder>` alone the whole look; a field is `label`, `color` or `icon`, and leaving it empty takes it away. The
-  folder is quoted when it has dots of its own, and may be told from the current folder or from `~`. Setting a label
-  takes the icon away, as the rail's menu does, and an icon is only cleared here, since it names a picture the app
-  chose.
+  `.<folder>` alone the whole look; a field is `label` or `color`, and leaving it empty takes it away. The folder is
+  quoted when it has dots of its own, and may be told from the current folder or from `~`. An icon is chosen in the
+  rail's menu rather than from here, and the icon a look has stays as the command changes it.
 - `mayoi settings --folder ...` acts on the current folder's own `.mayoi/settings.json`, of the preferences a folder
   can choose, which it lists, and changes, as `mayoi settings --folder set autoSave=false`.
 - The `settings` commands change the files themselves, so they work while Mayoi isn't running; a Mayoi running reads

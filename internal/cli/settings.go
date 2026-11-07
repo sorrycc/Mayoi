@@ -65,7 +65,26 @@ func (s Settings) Do(path string) (string, error) {
 		// its keys in the order it has them.
 		return "", nil
 	}
-	return "", writePrefs(path, write)
+	return "", writePrefs(path, write, order(write))
+}
+
+// order is the order the keys of values take as the file is written: the
+// app's, so that its own save does not rewrite them, and a key it does
+// not know after them, by name.
+func order(values map[string]json.RawMessage) []string {
+	var keys, rest []string
+	for _, k := range settings.PrefKeys {
+		if _, ok := values[k]; ok {
+			keys = append(keys, k)
+		}
+	}
+	for k := range values {
+		if !slices.Contains(settings.PrefKeys, k) {
+			rest = append(rest, k)
+		}
+	}
+	slices.Sort(rest)
+	return append(keys, rest...)
 }
 
 // apply makes c as the command asks with the preferences of values.
@@ -85,8 +104,19 @@ func (c Change) apply(values map[string]json.RawMessage, folder bool) error {
 	case !bytes.Equal(raw, old):
 		values[t.key] = raw
 	}
+	if c.Op == OpUnset && t.key == "theme" {
+		// An older file kept a theme in appearance, which the app reads
+		// back as the theme, so the theme would not be gone: it goes too.
+		if legacyThemes[textValue(values["appearance"])] {
+			delete(values, "appearance")
+		}
+	}
 	return nil
 }
+
+// legacyThemes are the looks an older version kept as an appearance
+// rather than a theme, which Load turns into it as it reads them.
+var legacyThemes = map[string]bool{"matrix": true, "claude": true}
 
 // edit applies c to old, the value of the preference t names, and returns
 // the value that takes its place, nil for none.
@@ -105,7 +135,7 @@ func (c Change) edit(t prefTarget, old json.RawMessage) (json.RawMessage, error)
 			return nil, fmt.Errorf("%s is not a list, so %s%s= takes no item: %s takes %s", t.key, t.key, itemSign[c.Op], t.key, wants(f))
 		}
 		items := textList(old)
-		item := string(c.Value)
+		item := c.Item
 		if c.Op == OpAdd {
 			if !slices.Contains(items, item) {
 				items = append(items, item)
@@ -224,9 +254,15 @@ func (t prefTarget) update(old json.RawMessage, field string, st json.RawMessage
 		}
 	} else {
 		look := styleMap(styles[t.dir])
-		if st == nil {
+		switch {
+		case st == nil:
 			delete(look, field)
-		} else {
+		case field == "label":
+			// A label shows in place of the icon, which goes, as the rail's
+			// menu sets one.
+			delete(look, "icon")
+			fallthrough
+		default:
 			look[field] = st
 		}
 		switch raw, err := marshal(look); {
@@ -278,7 +314,7 @@ func styleValue(raw json.RawMessage) (json.RawMessage, error) {
 		}
 		v, err := styleFieldValue(f.name, mustJSON(*f.val))
 		if err != nil {
-			return nil, bad
+			return nil, err
 		}
 		json.Unmarshal(v, f.dst)
 	}
@@ -296,12 +332,20 @@ func styleFieldValue(field string, raw json.RawMessage) (json.RawMessage, error)
 	s := strings.TrimSpace(textValue(raw))
 	switch field {
 	case "label":
-		if len([]rune(s)) > 2 {
-			return nil, fmt.Errorf("the label of a look on the rail is up to two characters, not %s", short(raw))
+		// As many characters as a person sees, as the rail shows them.
+		if settings.LabelTooLong(s) {
+			return nil, fmt.Errorf("the label of a look on the rail is up to %d characters, not %s", settings.MaxLabel, short(raw))
 		}
 	case "color":
 		if !slices.Contains(railColors, s) {
 			return nil, fmt.Errorf("the color of a look on the rail is one of %s, not %s", joinOr(railColors[1:]), short(raw))
+		}
+	case "icon":
+		// The icon names a picture the app copied into a folder of its
+		// own, which a name typed here never is: it is chosen in the
+		// rail's menu, and only taken away here, with icon= or unset.
+		if s != "" {
+			return nil, errors.New("an icon is chosen in the rail's menu, not by its name: icon= takes it away")
 		}
 	}
 	if s == "" {
@@ -408,17 +452,48 @@ func readPrefs(path string) (map[string]json.RawMessage, error) {
 }
 
 // writePrefs writes the preferences of values to the file at path, a key
-// a line, in the order of their names, and makes the folder of the file
-// when it is not there.
-func writePrefs(path string, values map[string]json.RawMessage) error {
+// a line, in the order of keys, which the app leaves them in, and a key
+// it does not know last, as the file had it; the folder of the file is
+// made when it is not there.
+func writePrefs(path string, values map[string]json.RawMessage, keys []string) error {
 	if path == "" {
 		return errors.New("there is no settings file to write")
 	}
-	data, err := json.MarshalIndent(values, "", "  ")
+	data, err := json.Marshal(ordered{values, keys})
 	if err != nil {
 		return err
 	}
-	return settings.WriteFile(path, append(data, '\n'))
+	var out bytes.Buffer
+	if err := json.Indent(&out, data, "", "  "); err != nil {
+		return err
+	}
+	out.WriteByte('\n')
+	return settings.WriteFile(path, out.Bytes())
+}
+
+// ordered is values as JSON, in the order of keys and then the rest, as
+// a map writes its keys in the order it is given them.
+type ordered struct {
+	values map[string]json.RawMessage
+	keys   []string
+}
+
+func (o ordered) MarshalJSON() ([]byte, error) {
+	var b bytes.Buffer
+	b.WriteByte('{')
+	for i, k := range o.keys {
+		if _, ok := o.values[k]; !ok {
+			continue
+		}
+		if i > 0 && b.Len() > 1 {
+			b.WriteByte(',')
+		}
+		b.Write(mustJSON(k))
+		b.WriteByte(':')
+		b.Write(o.values[k])
+	}
+	b.WriteByte('}')
+	return b.Bytes(), nil
 }
 
 // samePrefs reports whether two sets of preferences, by their keys, are

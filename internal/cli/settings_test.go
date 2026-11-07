@@ -344,10 +344,10 @@ func TestSettingsListItems(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	do(Change{Op: OpAdd, Key: "fontFeatures", Value: json.RawMessage("calt=0")})
+	do(Change{Op: OpAdd, Key: "fontFeatures", Item: "calt=0"})
 	// An item a list has is no item more of it.
-	do(Change{Op: OpAdd, Key: "fontFeatures", Value: json.RawMessage("calt=0")})
-	do(Change{Op: OpAdd, Key: "aiSecretFiles", Value: json.RawMessage("*.pem")})
+	do(Change{Op: OpAdd, Key: "fontFeatures", Item: "calt=0"})
+	do(Change{Op: OpAdd, Key: "aiSecretFiles", Item: "*.pem"})
 	out, err := (Settings{Verb: "get", Keys: []string{"fontFeatures", "aiSecretFiles"}}).Do(path)
 	if err != nil {
 		t.Fatal(err)
@@ -355,9 +355,9 @@ func TestSettingsListItems(t *testing.T) {
 	if want := "[\"liga=0\",\"calt=0\"]\n[\"*.pem\"]\n"; out != want {
 		t.Errorf("got %q, want %q", out, want)
 	}
-	do(Change{Op: OpRemove, Key: "fontFeatures", Value: json.RawMessage("liga=0")})
+	do(Change{Op: OpRemove, Key: "fontFeatures", Item: "liga=0"})
 	// The last item of a list leaves no list behind.
-	do(Change{Op: OpRemove, Key: "aiSecretFiles", Value: json.RawMessage("*.pem")})
+	do(Change{Op: OpRemove, Key: "aiSecretFiles", Item: "*.pem"})
 	out, err = (Settings{Verb: "get", Keys: []string{"fontFeatures", "aiSecretFiles"}}).Do(path)
 	if err != nil {
 		t.Fatal(err)
@@ -452,5 +452,81 @@ func TestSettingsStyles(t *testing.T) {
 		if _, err := (Settings{Verb: "set", Changes: []Change{c}}).Do(path); err == nil {
 			t.Errorf("%s=%s took it", c.Key, c.Value)
 		}
+	}
+}
+
+// A label counts the characters a person sees, as the rail does, and an
+// icon is only taken away here, not named.
+func TestSettingsLookRules(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "settings.json")
+	do := func(c Change) error {
+		t.Helper()
+		_, err := (Settings{Verb: "set", Changes: []Change{c}}).Do(path)
+		return err
+	}
+	// A family emoji is one character, as the rail's own prompt counts it.
+	if err := do(Change{Op: OpSet, Key: `projectTabStyle.'/a'.label`, Value: mustJSON("👨‍👩‍👧")}); err != nil {
+		t.Errorf("a family emoji as a label: %v", err)
+	}
+	// The emoji and the x are the two characters, so it goes.
+	if err := do(Change{Op: OpSet, Key: `projectTabStyle.'/a'.label`, Value: mustJSON("👨‍👩‍👧x")}); err != nil {
+		t.Errorf("two characters as a label: %v", err)
+	}
+	if err := do(Change{Op: OpSet, Key: `projectTabStyle.'/a'.label`, Value: mustJSON("🚀xy")}); err == nil {
+		t.Error("three characters took a label")
+	}
+	// An icon is a name the app made, which only goes here.
+	if err := do(Change{Op: OpSet, Key: `projectTabStyle.'/a'.icon`, Value: mustJSON("abc.png")}); err == nil {
+		t.Error("an icon took a name")
+	}
+	if err := do(Change{Op: OpSet, Key: `projectTabStyle.'/a'`, Value: json.RawMessage(`{"icon": "abc.png"}`)}); err == nil {
+		t.Error("a whole look took an icon's name")
+	}
+	// A label shows in place of the icon, which goes with it.
+	putFile(t, path, `{"projectTabStyle": {"/a": {"icon": "abc.png"}}}`)
+	if err := do(Change{Op: OpSet, Key: `projectTabStyle.'/a'.label`, Value: mustJSON("MG")}); err != nil {
+		t.Fatal(err)
+	}
+	if out, err := (Settings{Verb: "get", Keys: []string{`projectTabStyle.'/a'`}}).Do(path); err != nil || out != "{\"label\":\"MG\"}\n" {
+		t.Errorf("after the label: %q, %v", out, err)
+	}
+}
+
+// The file keeps the keys in the app's order, so that its own save does
+// not rewrite them.
+func TestSettingsKeyOrder(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "settings.json")
+	putFile(t, path, `{"mine": 1, "vim": true}`)
+	if _, err := (Settings{Verb: "set", Changes: []Change{{Op: OpSet, Key: "fontSize", Value: json.RawMessage("16")}}}).Do(path); err != nil {
+		t.Fatal(err)
+	}
+	data, _ := os.ReadFile(path)
+	got := string(data)
+	// The app's keys in its order, a key it does not know after them.
+	font, vim, mine := strings.Index(got, `"fontSize"`), strings.Index(got, `"vim"`), strings.Index(got, `"mine"`)
+	if font < 0 || vim < 0 || mine < 0 || !(font < vim && vim < mine) {
+		t.Errorf("the order: %s", got)
+	}
+}
+
+// A theme an older file kept as an appearance goes with the theme it is.
+func TestSettingsLegacyAppearance(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "settings.json")
+	putFile(t, path, `{"appearance": "matrix", "fontSize": 15}`)
+	if _, err := (Settings{Verb: "unset", Changes: []Change{{Op: OpUnset, Key: "theme"}}}).Do(path); err != nil {
+		t.Fatal(err)
+	}
+	data, _ := os.ReadFile(path)
+	if strings.Contains(string(data), "matrix") {
+		t.Errorf("the old appearance stays: %s", data)
+	}
+	// An appearance of light or dark is no theme, and stays.
+	putFile(t, path, `{"appearance": "dark", "theme": "claude"}`)
+	if _, err := (Settings{Verb: "unset", Changes: []Change{{Op: OpUnset, Key: "theme"}}}).Do(path); err != nil {
+		t.Fatal(err)
+	}
+	data, _ = os.ReadFile(path)
+	if !strings.Contains(string(data), `"appearance": "dark"`) {
+		t.Errorf("the appearance of a light or dark window went: %s", data)
 	}
 }

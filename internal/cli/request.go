@@ -86,12 +86,14 @@ const (
 
 // Change is a preference to change: its key in the settings' file, which
 // for a look of a project on the rail is a field of it, as
-// projectTabStyle.'<folder>'.label, and the value it takes, which an item
-// of a list gives as its text.
+// projectTabStyle.'<folder>'.label, and the value it takes. Item is the
+// text of an item of a list, for add and remove, which is no JSON of
+// itself.
 type Change struct {
 	Op    string          `json:"op,omitempty"`
 	Key   string          `json:"key"`
 	Value json.RawMessage `json:"value,omitempty"`
+	Item  string          `json:"item,omitempty"`
 }
 
 // Reply is the app's answer: what to print, or what went wrong.
@@ -347,7 +349,7 @@ func (s *Settings) item(op, key, item string) error {
 	if item == "" {
 		return fmt.Errorf("%s%s= needs an item", key, itemSign[op])
 	}
-	s.Changes = append(s.Changes, Change{Op: op, Key: key, Value: json.RawMessage(item)})
+	s.Changes = append(s.Changes, Change{Op: op, Key: key, Item: item})
 	return nil
 }
 

@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"encoding/json"
 	"errors"
 	"path/filepath"
 	"reflect"
@@ -35,6 +36,24 @@ func TestParse(t *testing.T) {
 			{ID: "view.terminal"}, {ID: "file.openFolder", Arg: ".."},
 		}}},
 		{[]string{"commands"}, Request{List: true}},
+		{[]string{"settings"}, Request{Settings: &Settings{}}},
+		{[]string{"settings", "list"}, Request{Settings: &Settings{Verb: "list"}}},
+		{[]string{"settings", "get", "fontSize", "theme"}, Request{Settings: &Settings{Verb: "get", Keys: []string{"fontSize", "theme"}}}},
+		{[]string{"settings", "set", "fontSize=16", "fontFamily=A B", "theme="}, Request{Settings: &Settings{Verb: "set",
+			Changes: []Change{{Op: OpSet, Key: "fontSize", Value: json.RawMessage("16")}, {Op: OpSet, Key: "fontFamily", Value: json.RawMessage(`"A B"`)},
+				{Op: OpSet, Key: "theme", Value: json.RawMessage(`""`)}}}}},
+		{[]string{"settings", "--folder", "set", "autoSave=false"}, Request{Settings: &Settings{Verb: "set", Folder: true,
+			Changes: []Change{{Op: OpSet, Key: "autoSave", Value: json.RawMessage("false")}}}}},
+		{[]string{"settings", "unset", "theme"}, Request{Settings: &Settings{Verb: "unset", Changes: []Change{
+			{Op: OpUnset, Key: "theme"}}}}},
+		// An item of a list, and a field of a look on the rail.
+		{[]string{"settings", "set", "fontFeatures+=calt=0", "aiSecretFiles-=*.pem"}, Request{Settings: &Settings{Verb: "set",
+			Changes: []Change{{Op: OpAdd, Key: "fontFeatures", Value: json.RawMessage("calt=0")},
+				{Op: OpRemove, Key: "aiSecretFiles", Value: json.RawMessage("*.pem")}}}}},
+		{[]string{"settings", "set", `projectTabStyle.'/src/my.app'.label=MG`}, Request{Settings: &Settings{Verb: "set",
+			Changes: []Change{{Op: OpSet, Key: `projectTabStyle.'/src/my.app'.label`, Value: json.RawMessage(`"MG"`)}}}}},
+		// A folder called settings, not first.
+		{[]string{"-n", "settings"}, Request{NewWindow: true, Paths: []Target{{Path: abs("settings")}}}},
 		// A folder called run, not first.
 		{[]string{"-n", "run"}, Request{NewWindow: true, Paths: []Target{{Path: abs("run")}}}},
 	} {
@@ -47,6 +66,11 @@ func TestParse(t *testing.T) {
 	for _, args := range [][]string{
 		{"-x"}, {"-g"}, {"-d", "a"}, {"run"}, {"run", "=x"}, {"commands", "x"}, {"run", "a", "-n"},
 		{"-w"}, {"--remote", "box"}, {"--remote", "box:rel"}, {"-d", "a", "b", "c"},
+		{"settings", "gets"}, {"settings", "get"}, {"settings", "set"}, {"settings", "set", "fontSize"},
+		{"settings", "list", "theme"}, {"settings", "get", "theme", "-n"}, {"settings", "--window", "p"},
+		{"-f", "x"}, {"settings", "-g", "a.go"}, {"settings", "unset"}, {"settings", "list", "a=b"},
+		{"settings", "--add", "a=b"}, {"--add", "a=b"}, {"settings", "set", "fontFeatures+="}, {"settings", "set", "+=x"},
+		{"settings", "set", "-=x"},
 	} {
 		if _, err := Parse(args, cwd); err == nil {
 			t.Errorf("Parse(%q) took it", args)
@@ -67,6 +91,7 @@ func TestPlain(t *testing.T) {
 	for _, r := range []Request{
 		{Paths: []Target{{Path: "/a", Line: 1}}}, {Wait: true}, {NewWindow: true}, {List: true},
 		{Run: []Command{{ID: "x"}}}, {Diff: []string{"a", "b"}}, {Remote: "h:/"}, {Window: "/w"},
+		{Settings: &Settings{}},
 	} {
 		if r.Plain() {
 			t.Errorf("%+v is plain", r)

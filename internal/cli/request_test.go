@@ -50,8 +50,8 @@ func TestParse(t *testing.T) {
 			{Op: OpUnset, Key: "theme"}}}}},
 		// An item of a list, and a field of a look on the rail.
 		{[]string{"settings", "set", "fontFeatures+=calt=0", "aiSecretFiles-=*.pem"}, Request{Settings: &Settings{Verb: "set",
-			Changes: []Change{{Op: OpAdd, Key: "fontFeatures", Value: json.RawMessage("calt=0")},
-				{Op: OpRemove, Key: "aiSecretFiles", Value: json.RawMessage("*.pem")}}}}},
+			Changes: []Change{{Op: OpAdd, Key: "fontFeatures", Item: "calt=0"},
+				{Op: OpRemove, Key: "aiSecretFiles", Item: "*.pem"}}}}},
 		{[]string{"settings", "set", `projectTabStyle.'/src/my.app'.label=MG`}, Request{Settings: &Settings{Verb: "set",
 			Changes: []Change{{Op: OpSet, Key: `projectTabStyle.'/src/my.app'.label`, Value: json.RawMessage(`"MG"`)}}}}},
 		// The folder of a look is the app's, whole, from cwd or ~.

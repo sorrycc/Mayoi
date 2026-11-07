@@ -284,8 +284,10 @@ mayoi settings --folder set vim=true   # the current folder's own file
 - **A project's look on the rail is told a field at a time,** as `projectTabStyle.'<folder>'.label=MG`, or `.<folder>`
   for the whole of it, `{"label": "MG", "color": "cyan"}`. A field is `label` of up to two characters, `color` of
   `red`, `green`, `yellow`, `blue`, `magenta` or `cyan`, or `icon`; a field left empty takes it away, and a look left
-  with no field is the project's own. A folder with dots of its own goes in quotes, and one
-  told from the current folder or from `~`, as `'.'` or `'~/src/my.app'`, is the folder whole.
+  with no field is the project's own. A folder with dots of its own goes in quotes, and one told from the current
+  folder or from `~`, as `'.'` or `'~/src/my.app'`, is the folder whole. A label shows in place of the icon, so
+  setting one takes the icon away, and an icon is chosen in the rail's menu rather than named here: only clearing it
+  works.
 - **A value Mayoi has none of changes nothing,** and says what the preference takes instead: an unknown key, a value
   of the wrong type, a number out of its range or a choice that isn't one of its options exits with status 1.
 - **Only the preference you change is written,** the others stay as the file has them, a key a line in the order of

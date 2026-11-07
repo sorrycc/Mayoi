@@ -293,11 +293,7 @@ func styleValue(raw json.RawMessage) (json.RawMessage, error) {
 // color one of the terminal's. A field left empty is nil, which takes it
 // away from the look.
 func styleFieldValue(field string, raw json.RawMessage) (json.RawMessage, error) {
-	var s string
-	if json.Unmarshal(raw, &s) != nil {
-		return nil, fmt.Errorf(`the %s of a look on the rail is a text, as {"%s": "MG"}, not %s`, field, field, short(raw))
-	}
-	s = strings.TrimSpace(s)
+	s := strings.TrimSpace(textValue(raw))
 	switch field {
 	case "label":
 		if len([]rune(s)) > 2 {
@@ -357,6 +353,16 @@ func marshal(v any) (json.RawMessage, error) {
 	}
 	raw, err := json.Marshal(v)
 	return raw, err
+}
+
+// textValue is raw as the text a person gave: a text of JSON, else the
+// JSON as they typed it, so that label=12 is the text 12.
+func textValue(raw json.RawMessage) string {
+	var s string
+	if json.Unmarshal(raw, &s) != nil {
+		return string(raw)
+	}
+	return s
 }
 
 // mustJSON is s as a text of JSON.
@@ -534,6 +540,9 @@ func checked(f settings.Field, raw json.RawMessage) (json.RawMessage, error) {
 			}
 		}
 		return marshal(styles)
+	}
+	if f.Kind == settings.KindText {
+		raw = mustJSON(textValue(raw))
 	}
 	var p settings.Prefs
 	if err := p.Set(f.Key, raw); err != nil {

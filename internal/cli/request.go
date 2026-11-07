@@ -4,9 +4,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
+
+	"mayoi/internal/remote"
 )
 
 // Request is what the mayoi command asks the running app.
@@ -284,6 +287,7 @@ func Parse(args []string, cwd string) (Request, error) {
 		if err := r.Settings.check(); err != nil {
 			return r, err
 		}
+		r.Settings.resolve(abs)
 	case sub != "" && (r.Paths != nil || r.Diff != nil || r.Remote != "" || r.NewWindow || r.Wait):
 		return r, fmt.Errorf("%s takes only --window", sub)
 	case r.Wait && len(r.Paths) == 0:
@@ -367,6 +371,37 @@ func (s *Settings) check() error {
 		}
 	}
 	return nil
+}
+
+// resolve makes the folders of the looks on the rail that the keys name
+// the ones the app keeps them by: a folder of this machine whole, from
+// the current folder or from ~.
+func (s *Settings) resolve(abs func(string) string) {
+	for i, key := range s.Keys {
+		s.Keys[i] = folderKey(key, abs)
+	}
+	for i, c := range s.Changes {
+		s.Changes[i].Key = folderKey(c.Key, abs)
+	}
+}
+
+// folderKey is key with the folder of a look on the rail made whole, as
+// projectTabStyle.'~/src/my.app'.label, and any other key as it is.
+func folderKey(key string, abs func(string) string) string {
+	segs, err := splitKey(key)
+	if err != nil || len(segs) < 2 || segs[0] != "projectTabStyle" || remote.Is(segs[1]) {
+		return key
+	}
+	dir := segs[1]
+	if home, err := os.UserHomeDir(); err == nil && (dir == "~" || strings.HasPrefix(dir, "~/") || strings.HasPrefix(dir, `~\`)) {
+		dir = filepath.Join(home, dir[1:])
+	}
+	quote := "'"
+	if strings.Contains(dir, quote) {
+		quote = `"`
+	}
+	segs[1] = quote + abs(dir) + quote
+	return strings.Join(segs, ".")
 }
 
 // prefValue is the value of a preference as mayoi settings set gives it:

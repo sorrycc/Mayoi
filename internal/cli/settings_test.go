@@ -104,6 +104,8 @@ func TestSettingsSet(t *testing.T) {
 		{Op: OpSet, Key: "fontFamily", Value: json.RawMessage(`"Fira Code"`)},
 		{Op: OpSet, Key: "fontFeatures", Value: json.RawMessage(`["calt=0"]`)},
 		{Op: OpSet, Key: "appearance", Value: json.RawMessage(`""`)},
+		// A text that reads as JSON is the text.
+		{Op: OpSet, Key: "aiModel", Value: prefValue("123")},
 	}}
 	if _, err := s.Do(path); err != nil {
 		t.Fatal(err)
@@ -119,6 +121,7 @@ func TestSettingsSet(t *testing.T) {
 	want := map[string]any{
 		"theme": "claude", "mine": float64(1), "fontSize": float64(16), "vim": true,
 		"fontFamily": "Fira Code", "fontFeatures": []any{"calt=0"}, "appearance": "",
+		"aiModel": "123",
 	}
 	if len(got) != len(want) {
 		t.Errorf("got %v, want %v", got, want)
@@ -429,6 +432,11 @@ func TestSettingsStyles(t *testing.T) {
 	out := get("projectTabStyle")
 	if !strings.Contains(out, `"/a"`) || !strings.Contains(out, `"/src/my.app"`) || !strings.Contains(out, `"MG"`) {
 		t.Errorf("the looks: %q", out)
+	}
+	// A label that reads as JSON is its text.
+	do("set", Change{Op: OpSet, Key: `projectTabStyle.'/a'.label`, Value: prefValue("12")})
+	if got, want := get(`projectTabStyle.'/a'.label`), "\"12\"\n"; got != want {
+		t.Errorf("a label of digits: %q, want %q", got, want)
 	}
 	// What a look does not take.
 	for _, c := range []Change{

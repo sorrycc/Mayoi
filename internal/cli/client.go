@@ -12,8 +12,7 @@ type Client struct {
 	Socket  string
 	Version string
 	// SettingsPath is the file of the person's preferences, which
-	// `mayoi settings` changes itself, and workspace that of a folder's
-	// own, in its .mayoi/settings.json.
+	// `mayoi settings` changes itself.
 	SettingsPath string
 	// Start starts the app, which opens paths as it starts, nil for
 	// none.

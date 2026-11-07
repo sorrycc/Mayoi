@@ -8,6 +8,9 @@ needs a `## <version>` section here, or its build fails.
 - On Windows, right-click menus no longer cut off the end of their labels, as in Chinese.
 - The Markdown preview highlights `==text==` and `<mark>` text with a yellow background.
 - In Markdown, typing `=`, `*`, `_`, `~` or `$` over a selection wraps it; type it twice for `==` or `**`.
+- The Markdown editor highlights `==text==` with a yellow background, as Obsidian does.
+- The Markdown editor colors bold, italic and struck text between Chinese characters, as in `会**整体**线`.
+- The Markdown editor shows `**bold**` in bold and draws a line through `~~struck~~` text.
 
 ## 0.18.1
 

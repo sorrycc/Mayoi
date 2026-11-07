@@ -83,6 +83,9 @@ func (f codeFont) font() ui.Font {
 	return ui.Font{Family: f.family, Size: f.size, Weight: f.weight, Features: f.features}
 }
 
+// bold is the weight of bold text in the font: heavier than its own.
+func (f codeFont) bold() int { return min(900, max(f.weight, 400)+300) }
+
 // span is a run of code in the font.
 func (f codeFont) span(text string, col ui.Color) ui.Span {
 	return ui.Span{Text: text, Font: f.family, Size: f.size, Weight: f.weight, Features: f.features, Color: col}
@@ -455,9 +458,18 @@ func (a *app) editorView(c *ui.Context, d *editor) {
 			d.vscroll.Focus(c)
 		}
 
+		// The ==highlighted== and ~~struck~~ runs of Markdown in view.
+		var highlights, strikes []lineRun
 		if d.hl != nil && d.hl.Lexer() != nil {
 			d.hl.Request(snap, first, last)
-			area.TextRanges(d.colors.ranges(d.hl, p, snap, first, last)...)
+			area.TextRanges(d.colors.ranges(d.hl, p, snap, first, last, f.bold())...)
+			highlights, strikes = d.colors.marks, d.colors.strikes
+		}
+		// runX returns where a run of a line is, as x offsets from the start
+		// of the text.
+		runX := func(m lineRun) (float32, float32) {
+			s, _ := snap.LineRange(m.line)
+			return f.width(snap.Slice(s, s+m.start)), f.width(snap.Slice(s, s+m.end))
 		}
 
 		lineH, charW, size, family := f.lineH, f.charW, f.size, f.family
@@ -579,6 +591,13 @@ func (a *app) editorView(c *ui.Context, d *editor) {
 				pt.Fill(ui.Rect{X: r.X, Y: lineY(r, d.landLine), W: r.W, H: lineHeight(d.landLine)}, p.accent.Alpha(0.26*(1-t*t)), 0)
 				pt.AnimationFrame()
 			}
+			// Highlighted text is on a marker's yellow, as in the preview.
+			for _, m := range highlights {
+				x0, x1 := runX(m)
+				place(r, m.line, x0, x1, func(y, x0, x1 float32) {
+					pt.Fill(ui.Rect{X: x0, Y: y + 1, W: x1 - x0, H: lineH - 2}, p.modified.Alpha(0.3), 3)
+				})
+			}
 			shape.paint(pt, func(i int, x0, x1 float32, fn func(y, x0, x1 float32)) { place(r, i, x0, x1, fn) }, lineH, selCol)
 			for _, fl := range flash {
 				place(r, fl.line, fl.x0, fl.x1, func(y, x0, x1 float32) {
@@ -675,6 +694,13 @@ func (a *app) editorView(c *ui.Context, d *editor) {
 		area.DrawOver(func(pt *ui.Painter, r ui.Rect) {
 			if wr == nil {
 				rowsAt(r)
+			}
+			// Struck text has a line through it, over the text.
+			for _, m := range strikes {
+				x0, x1 := runX(m)
+				place(r, m.line, x0, x1, func(y, x0, x1 float32) {
+					pt.Fill(ui.Rect{X: x0, Y: y + float32(int(lineH/2)), W: x1 - x0, H: 1}, p.syntax[highlight.Deleted], 0)
+				})
 			}
 			x := r.X + d.hscroll.X
 			top := d.vscroll.Y
@@ -828,8 +854,16 @@ type colorCache struct {
 	version, gen uint64
 	first, last  int
 	pal          *palette
+	bold         int
 	out          []ui.TextRange
+	// marks and strikes are the ==highlighted== and ~~struck~~ runs of
+	// Markdown among the lines, which the editor paints a box behind and
+	// a line through.
+	marks, strikes []lineRun
 }
+
+// lineRun is a run of a line's runes.
+type lineRun struct{ line, start, end int }
 
 // ranges returns the colors of the tokens of lines first up to last. The
 // text area looks through all of them for each of its lines, and makes a
@@ -837,14 +871,16 @@ type colorCache struct {
 // same: a token in the color of the text is left out, and the blanks
 // after a token, which show no color, are part of it, so that tokens of
 // one color with only blanks between them are one range, and those of two
-// colors leave no gap.
-func (cc *colorCache) ranges(hl *highlight.Highlighter, p *palette, snap ui.TextSnapshot, first, last int) []ui.TextRange {
+// colors leave no gap. Bold text, as Markdown's, is in weight bold.
+func (cc *colorCache) ranges(hl *highlight.Highlighter, p *palette, snap ui.TextSnapshot, first, last, bold int) []ui.TextRange {
 	gen := hl.Gen()
-	if cc.out != nil && cc.version == snap.Version() && cc.gen == gen && cc.first == first && cc.last == last && cc.pal == p {
+	if cc.out != nil && cc.version == snap.Version() && cc.gen == gen && cc.first == first && cc.last == last && cc.pal == p && cc.bold == bold {
 		return cc.out
 	}
-	cc.version, cc.gen, cc.first, cc.last, cc.pal = snap.Version(), gen, first, last, p
+	cc.version, cc.gen, cc.first, cc.last, cc.pal, cc.bold = snap.Version(), gen, first, last, p, bold
 	out := cc.out[:0]
+	cc.marks, cc.strikes = cc.marks[:0], cc.strikes[:0]
+	markdown := highlight.Name(hl.Lexer()) == "markdown"
 	for i := first; i <= last; i++ {
 		s, e := snap.LineRange(i)
 		if e-s > highlight.MaxLineRunes {
@@ -854,18 +890,27 @@ func (cc *colorCache) ranges(hl *highlight.Highlighter, p *palette, snap ui.Text
 		ascii := isASCII(text) // a rune is a byte: the blanks are easy to find
 		from := len(out)
 		for _, tok := range hl.Line(i, text) {
+			if markdown && tok.Kind == highlight.Mark {
+				cc.marks = append(cc.marks, lineRun{i, tok.Start, tok.End})
+			} else if markdown && tok.Kind == highlight.Deleted {
+				cc.strikes = append(cc.strikes, lineRun{i, tok.Start, tok.End})
+			}
 			col := p.syntax[tok.Kind]
-			if col == p.text {
+			weight := 0
+			if tok.Kind == highlight.Strong {
+				weight = bold
+			}
+			if col == p.text && weight == 0 {
 				continue
 			}
 			if k := len(out) - 1; k >= from && ascii && out[k].End-s <= tok.Start && blank(text[out[k].End-s:tok.Start]) {
-				if out[k].Color == col {
+				if out[k].Color == col && out[k].Weight == weight {
 					out[k].End = s + tok.End
 					continue
 				}
 				out[k].End = s + tok.Start
 			}
-			out = append(out, ui.TextRange{Start: s + tok.Start, End: s + tok.End, Color: col})
+			out = append(out, ui.TextRange{Start: s + tok.Start, End: s + tok.End, Color: col, Weight: weight})
 		}
 	}
 	if out == nil {

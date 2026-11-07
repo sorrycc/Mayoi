@@ -41,6 +41,9 @@ const (
 	Heading
 	Deleted
 	Inserted
+	Strong // **bold** in Markdown
+	Emph   // *italic* in Markdown
+	Mark   // ==highlighted== in Markdown
 	kinds
 )
 
@@ -83,7 +86,8 @@ var vue = sync.OnceValue(func() chroma.Lexer {
 func Lexer(path string) chroma.Lexer {
 	name := filepath.Base(path)
 	// Names Chroma gets wrong, or does not know: go.mod is not AMPL, .sql
-	// is any SQL, not MySQL's, and .vue needs the fixed lexer above.
+	// is any SQL, not MySQL's, .vue needs the fixed lexer above, and
+	// Markdown the one with Mayoi's inline marks.
 	switch strings.ToLower(name) {
 	case "go.mod", "go.work", "go.sum":
 		return nil
@@ -97,6 +101,9 @@ func Lexer(path string) chroma.Lexer {
 		return chroma.Coalesce(lexers.Get("sql"))
 	case ".vue":
 		return vue()
+	}
+	if l := lexers.Match(name); l != nil && l.Config().Name == "markdown" {
+		return markdown()
 	}
 	l := lexers.Match(name)
 	if l == nil {
@@ -262,8 +269,12 @@ func classify(t chroma.TokenType) Kind {
 		return Deleted
 	case t == chroma.GenericInserted:
 		return Inserted
-	case t == chroma.GenericStrong || t == chroma.GenericEmph:
-		return Keyword
+	case t == chroma.GenericStrong:
+		return Strong
+	case t == chroma.GenericEmph:
+		return Emph
+	case t == markToken:
+		return Mark
 	}
 	return Plain
 }

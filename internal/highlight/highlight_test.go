@@ -51,6 +51,32 @@ func TestVueDirectiveOverLines(t *testing.T) {
 	}
 }
 
+// Markdown's marks count between CJK characters, with no space before
+// them, as the preview has them, and == highlights only as a pair.
+func TestMarkdownInlineMarks(t *testing.T) {
+	l := Lexer("x.md")
+	for _, c := range []struct {
+		src  string
+		want []Token
+	}{
+		{"Pages ==一个仓库只有==一个站点", []Token{{6, 16, Mark}}},
+		{"会**整体替换**线", []Token{{1, 9, Strong}}},
+		{"中文~~删除~~中文", []Token{{2, 8, Deleted}}},
+		{"中文*斜体*中文", []Token{{2, 6, Emph}}},
+		{"- [ ] ==录下视频==", []Token{{0, 5, Keyword}, {6, 14, Mark}}},
+		{"a ==x=y== b", []Token{{2, 9, Mark}}},
+		{"a = b, a == b, ===x===, == x ==, snake_case_name, 2 * 3", nil},
+	} {
+		if got := Lex(l, c.src+"\n")[0].Tokens; !slices.Equal(got, c.want) {
+			t.Errorf("%q: tokens %v, want %v", c.src, got, c.want)
+		}
+	}
+	// A front matter is still YAML.
+	if got := Lex(l, "---\ntitle: x\n---\n")[1].Tokens; len(got) == 0 || got[0].Kind != Tag {
+		t.Errorf("front matter tokens %v", got)
+	}
+}
+
 func TestPlainText(t *testing.T) {
 	if Lexer("notes.unknownext") != nil {
 		t.Error("lexer for an unknown extension")

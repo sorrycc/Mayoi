@@ -1404,6 +1404,10 @@ func (p *palette) derive() *palette {
 	p.selected = p.selection.Over(p.editor)
 	p.selectedDim = p.selection.Alpha(0.5).Over(p.editor)
 	p.cursor = p.accent.Alpha(0.5)
+	// Markdown's bold and italic are a keyword's color, and highlighted
+	// text the text's, on a box the editor paints.
+	p.syntax[highlight.Strong], p.syntax[highlight.Emph] = p.syntax[highlight.Keyword], p.syntax[highlight.Keyword]
+	p.syntax[highlight.Mark] = p.text
 	if p.strip.A == 0 {
 		p.strip = p.chrome
 	}

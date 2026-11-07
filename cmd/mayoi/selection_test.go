@@ -1,6 +1,7 @@
 package main
 
 import (
+	"slices"
 	"testing"
 	"time"
 
@@ -72,7 +73,7 @@ func TestColorRangesMerge(t *testing.T) {
 		time.Sleep(5 * time.Millisecond)
 	}
 	var cc colorCache
-	got := cc.ranges(hl, p, snap, 0, 0)
+	got := cc.ranges(hl, p, snap, 0, 0, 700)
 	if len(got) == 0 {
 		t.Fatal("no colors")
 	}
@@ -100,7 +101,34 @@ func TestColorRangesMerge(t *testing.T) {
 	if c := color(13); c != p.syntax[highlight.Comment] {
 		t.Errorf("the comment is %v", c)
 	}
-	if again := cc.ranges(hl, p, snap, 0, 0); &again[0] != &got[0] {
+	if again := cc.ranges(hl, p, snap, 0, 0, 700); &again[0] != &got[0] {
 		t.Error("the same view built its colors again")
+	}
+}
+
+// Markdown's bold is in weight bold, and its ==highlighted== and
+// ~~struck~~ runs are kept for the editor to paint.
+func TestColorRangesMarkdown(t *testing.T) {
+	p := darkPal
+	src := "会**整体**线 ==一个== ~~x~~\n"
+	hl := highlight.New(highlight.Lexer("a.md"), nil)
+	snap := ui.NewTextBuffer(src).Snapshot()
+	hl.Request(snap, 0, 0)
+	for range 400 {
+		if hl.Gen() > 0 {
+			break
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	var cc colorCache
+	got := cc.ranges(hl, p, snap, 0, 0, 700)
+	if len(got) == 0 || got[0].Start != 1 || got[0].End != 7 || got[0].Weight != 700 {
+		t.Errorf("bold range %+v, want 1 to 7 in weight 700", got)
+	}
+	if want := []lineRun{{0, 9, 15}}; !slices.Equal(cc.marks, want) {
+		t.Errorf("marks %v, want %v", cc.marks, want)
+	}
+	if want := []lineRun{{0, 16, 21}}; !slices.Equal(cc.strikes, want) {
+		t.Errorf("strikes %v, want %v", cc.strikes, want)
 	}
 }

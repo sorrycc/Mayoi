@@ -267,3 +267,23 @@ func TestFolderReloadDuringSet(t *testing.T) {
 		}
 	}
 }
+
+// A label on the rail counts the characters a person sees, as the app and
+// the CLI agree on them.
+func TestLabel(t *testing.T) {
+	for _, c := range []struct{ in, want string }{
+		{in: "", want: ""}, {in: " DL ", want: "DL"}, {in: "abc", want: "ab"}, {in: "🚀x", want: "🚀x"},
+		{in: "👍🏽👋🏻z", want: "👍🏽👋🏻"}, {in: "🇯🇵🇨🇳🇺🇸", want: "🇯🇵🇨🇳"}, {in: "👩‍💻!", want: "👩‍💻!"}, {in: "é1", want: "é1"},
+	} {
+		if got := RailLabel(c.in); got != c.want {
+			t.Errorf("RailLabel(%q) = %q, want %q", c.in, got, c.want)
+		}
+	}
+	for s, too := range map[string]bool{
+		"": false, "ab": false, "abc": true, "👨‍👩‍👧": false, "👨‍👩‍👧x": false, "🚀xy": true,
+	} {
+		if got := LabelTooLong(s); got != too {
+			t.Errorf("LabelTooLong(%q) = %v, want %v", s, got, too)
+		}
+	}
+}

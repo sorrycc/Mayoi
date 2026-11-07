@@ -218,6 +218,13 @@ func TestMarkdownCJKEmphasis(t *testing.T) {
 		{"snake_case_word", "snake_case_word"},
 		{"**bold** and ~~gone~~", "[b:bold] and [s:gone]"},
 		{"a ~~~b~~~ c", "a ~~~b~~~ c"},
+		{"these ==very important words==.", "these [m:very important words]."},
+		{"a == b and c = d", "a == b and c = d"},
+		{"a ===b=== c", "a ===b=== c"},
+		{"重要的==内容==吧", "重要的[m:内容]吧"},
+		{"==「重点」==后", "[m:「重点」]后"},
+		{"**==both==**", "[b:both]"},
+		{"<mark>marked</mark> text", "[m:marked] text"},
 	} {
 		var got strings.Builder
 		for _, r := range parseMarkdown([]byte(c.source), "", "", nil)[0].runs {
@@ -228,6 +235,8 @@ func TestMarkdownCJKEmphasis(t *testing.T) {
 				got.WriteString("[i:" + r.text + "]")
 			case r.strike:
 				got.WriteString("[s:" + r.text + "]")
+			case r.mark:
+				got.WriteString("[m:" + r.text + "]")
 			default:
 				got.WriteString(r.text)
 			}

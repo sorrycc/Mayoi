@@ -166,6 +166,8 @@ func markdownStyleTag(t markdownTag, style *markdownInline, open *[]markdownOpen
 		s.italic = true
 	case "s", "del", "strike":
 		s.strike = true
+	case "mark":
+		s.mark = true
 	case "code", "kbd", "samp", "tt":
 		s.code = true
 	case "a":

@@ -87,11 +87,11 @@ type markdownPreview struct {
 }
 
 type markdownInline struct {
-	text, link, image               string
-	bold, italic, strike, code, raw bool
-	bitmap                          ui.ImageSource
-	w, h                            float32
-	kind                            highlight.Kind
+	text, link, image                     string
+	bold, italic, strike, mark, code, raw bool
+	bitmap                                ui.ImageSource
+	w, h                                  float32
+	kind                                  highlight.Kind
 	// math is the formula the run draws, its text its source.
 	math *mathFormula
 }
@@ -388,7 +388,8 @@ func markdownFrontMatter(lines []string) bool {
 // parts of its GFM and footnote extensions that parse, without their HTML
 // renderers, which the preview has no use for and would make Mayoi
 // larger, with Obsidian's wiki links, and with its math when math is set.
-// Emphasis and strikethrough use the CJK-friendly flanking rule.
+// Emphasis, strikethrough and ==highlight== use the CJK-friendly flanking
+// rule.
 func markdownParser(math bool) parser.Parser {
 	var inlines []util.PrioritizedValue
 	for _, v := range parser.DefaultInlineParsers() {
@@ -399,6 +400,7 @@ func markdownParser(math bool) parser.Parser {
 	inlines = append(inlines,
 		util.Prioritized(cjkEmphasisParser{emphasisDelimiters}, 500),
 		util.Prioritized(cjkEmphasisParser{strikethroughDelimiters}, 500),
+		util.Prioritized(cjkEmphasisParser{highlightDelimiters}, 500),
 		util.Prioritized(extension.NewTaskCheckBoxParser(), 0),
 		util.Prioritized(extension.NewLinkifyParser(), 999),
 		util.Prioritized(extension.NewFootnoteParser(), 101),
@@ -716,6 +718,10 @@ func parseMarkdown(source []byte, path, root string, current func() bool, caches
 				continue
 			case *east.Strikethrough:
 				s.strike = true
+				out = append(out, inline(ch, s)...)
+				continue
+			case *markNode:
+				s.mark = true
 				out = append(out, inline(ch, s)...)
 				continue
 			case *ast.CodeSpan:
@@ -1174,7 +1180,7 @@ func markdownMerge(runs []markdownInline) []markdownInline {
 		if n := len(out); n > 0 {
 			l := &out[n-1]
 			if r.bitmap == nil && l.bitmap == nil && r.math == nil && l.math == nil && r.image == "" && l.image == "" && r.link == l.link && r.kind == l.kind &&
-				r.bold == l.bold && r.italic == l.italic && r.strike == l.strike && r.code == l.code && r.raw == l.raw {
+				r.bold == l.bold && r.italic == l.italic && r.strike == l.strike && r.mark == l.mark && r.code == l.code && r.raw == l.raw {
 				l.text += r.text
 				continue
 			}
@@ -1403,6 +1409,10 @@ func (a *app) markdownSpan(r markdownInline, color ui.Color, size float32, block
 	}
 	if r.strike {
 		span.DecorationColor = span.Color
+	}
+	if r.mark && !r.code {
+		// Highlighted text is on a marker's yellow, code keeping its chip.
+		span.Background, span.Radius = p.modified.Alpha(0.3), 3
 	}
 	if f := r.math; f != nil {
 		if f.err != "" {

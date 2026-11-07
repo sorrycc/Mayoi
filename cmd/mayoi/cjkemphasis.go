@@ -70,9 +70,19 @@ func (d cjkDelimiters) OnMatch(consumes int) ast.Node { return d.node(consumes) 
 var (
 	emphasisDelimiters      = cjkDelimiters{"*_", func(consumes int) ast.Node { return ast.NewEmphasis(consumes) }}
 	strikethroughDelimiters = cjkDelimiters{"~", func(int) ast.Node { return east.NewStrikethrough() }}
+	highlightDelimiters     = cjkDelimiters{"=", func(int) ast.Node { return &markNode{} }}
 )
 
-// cjkEmphasisParser parses *, _ and ~~ runs with scanCJKDelimiter, in
+// markNode is text highlighted between == and ==, as Obsidian marks it.
+type markNode struct{ ast.BaseInline }
+
+var kindMark = ast.NewNodeKind("Mark")
+
+func (n *markNode) Kind() ast.NodeKind { return kindMark }
+
+func (n *markNode) Dump(source []byte, level int) { ast.DumpHelper(n, source, level, nil, nil) }
+
+// cjkEmphasisParser parses *, _, ~~ and == runs with scanCJKDelimiter, in
 // place of goldmark's emphasis and strikethrough parsers.
 type cjkEmphasisParser struct{ delimiters cjkDelimiters }
 
@@ -87,6 +97,10 @@ func (p cjkEmphasisParser) Parse(parent ast.Node, block text.Reader, pc parser.C
 	}
 	// Like goldmark's strikethrough, only ~ and ~~ strike, not ~~~.
 	if p.delimiters.chars == "~" && (node.OriginalLength > 2 || before == '~') {
+		return nil
+	}
+	// Only == highlights, not = or ===, so a = b and a == b stay text.
+	if p.delimiters.chars == "=" && (node.OriginalLength != 2 || before == '=') {
 		return nil
 	}
 	node.Segment = segment.WithStop(segment.Start + node.OriginalLength)

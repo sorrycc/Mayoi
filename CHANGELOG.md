@@ -6,6 +6,7 @@ needs a `## <version>` section here, or its build fails.
 ## Unreleased
 
 - On Windows, right-click menus no longer cut off the end of their labels, as in Chinese.
+- The Markdown preview highlights `==text==` and `<mark>` text with a yellow background.
 
 ## 0.18.1
 

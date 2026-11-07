@@ -6,6 +6,7 @@ needs a `## <version>` section here, or its build fails.
 ## Unreleased
 
 - On Windows, right-click menus no longer cut off the end of their labels, as in Chinese.
+- `mayoi settings` reads and changes preferences, with Mayoi running or not.
 
 ## 0.18.1
 

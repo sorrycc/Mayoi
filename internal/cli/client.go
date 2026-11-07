@@ -11,6 +11,10 @@ import (
 type Client struct {
 	Socket  string
 	Version string
+	// SettingsPath is the file of the person's preferences, which
+	// `mayoi settings` changes itself, and workspace that of a folder's
+	// own, in its .mayoi/settings.json.
+	SettingsPath string
 	// Start starts the app, which opens paths as it starts, nil for
 	// none.
 	Start func(paths []string) error
@@ -37,6 +41,11 @@ func (c Client) Run(args []string, cwd string, stdout, stderr io.Writer) (status
 	case err != nil:
 		fmt.Fprintf(stderr, "mayoi: %v\nRun mayoi --help for the options.\n", err)
 		return 2, true
+	}
+	// The preferences are the command's own: it works with the app not
+	// running, which reads the file again as a Mayoi running does.
+	if req.Settings != nil {
+		return doSettings(c, req, stdout, stderr), true
 	}
 	reply, err := Ask(c.Socket, req)
 	if errors.Is(err, ErrNotRunning) {

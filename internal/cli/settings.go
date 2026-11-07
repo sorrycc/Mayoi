@@ -191,11 +191,13 @@ func parseTarget(key string, folder bool) (prefTarget, error) {
 	case f.Kind != settings.KindStyles:
 		return t, fmt.Errorf("%s has no fields: %s takes %s", f.Key, f.Key, wants(f))
 	case len(segs) > 3:
-		return t, fmt.Errorf("%s is too deep: a look on the rail has a label, a color and an icon, as %s.'<folder>'.label", key, f.Key)
+		return t, fmt.Errorf("%s is too deep: a look on the rail has a label and a color, as %s.'<folder>'.label", key, f.Key)
+	case len(segs) == 3 && segs[2] == "icon":
+		return t, errors.New("an icon is chosen in the rail's menu, and is no settings of the command: label and color are")
 	case len(segs) == 3 && !slices.Contains(styleFields, segs[2]):
 		return t, fmt.Errorf("no field %q of a look on the rail: it has %s", segs[2], joinOr(styleFields))
 	case len(segs) == 3:
-		// A field of a look: a text, its label, color or icon.
+		// A field of a look: a text, its label or color.
 		t.dir, t.field = segs[1], segs[2]
 	default:
 		// The look of a folder, in whole.
@@ -247,22 +249,30 @@ func splitKey(key string) ([]string, error) {
 func (t prefTarget) update(old json.RawMessage, field string, st json.RawMessage) (json.RawMessage, error) {
 	styles := styleMap(old)
 	if field == "" {
+		// The look in whole, whose icon stays: the command does not set
+		// or take away one, so unset leaves a look that is an icon alone.
+		look := styleMap(styles[t.dir])
 		if st == nil {
-			delete(styles, t.dir)
+			delete(look, "label")
+			delete(look, "color")
 		} else {
-			styles[t.dir] = st
+			for k, v := range styleMap(st) {
+				look[k] = v
+			}
+		}
+		switch raw, err := marshal(look); {
+		case err != nil:
+			return nil, err
+		case raw == nil:
+			delete(styles, t.dir)
+		default:
+			styles[t.dir] = raw
 		}
 	} else {
 		look := styleMap(styles[t.dir])
-		switch {
-		case st == nil:
+		if st == nil {
 			delete(look, field)
-		case field == "label":
-			// A label shows in place of the icon, which goes, as the rail's
-			// menu sets one.
-			delete(look, "icon")
-			fallthrough
-		default:
+		} else {
 			look[field] = st
 		}
 		switch raw, err := marshal(look); {
@@ -281,8 +291,11 @@ func (t prefTarget) update(old json.RawMessage, field string, st json.RawMessage
 // one away, as fontFeatures+=calt=0 and fontFeatures-=calt=0.
 var itemSign = map[string]string{OpAdd: "+", OpRemove: "-"}
 
-// styleFields are the fields of a project's look on the rail.
-var styleFields = []string{"label", "color", "icon"}
+// styleFields are the fields of a project's look on the rail that the
+// command changes or reads. An icon is no field of it here: it names a
+// picture the app copied into a folder of its own, which the rail's menu
+// chooses.
+var styleFields = []string{"label", "color"}
 
 // railColors are the names the terminal's colors go by in a project's
 // look on the rail, "" for the project's own.
@@ -290,13 +303,13 @@ var railColors = []string{"", "red", "green", "yellow", "blue", "magenta", "cyan
 
 // styleValue checks a look of a project on the rail as a person gives it,
 // and returns it as the settings' file keeps it, nil for the project's own
-// look.
+// look. An icon is no part of a look the command sets: the one the look
+// has stays.
 func styleValue(raw json.RawMessage) (json.RawMessage, error) {
-	bad := fmt.Errorf(`the look of a project on the rail takes "label" of up to two characters, "color" of %s, and "icon", as {"label": "MG", "color": "cyan"}, not %s`, joinOr(railColors[1:]), short(raw))
+	bad := fmt.Errorf(`the look of a project on the rail takes "label" of up to two characters and "color" of %s, as {"label": "MG", "color": "cyan"}, not %s`, joinOr(railColors[1:]), short(raw))
 	var in struct {
 		Label *string `json:"label"`
 		Color *string `json:"color"`
-		Icon  *string `json:"icon"`
 	}
 	dec := json.NewDecoder(bytes.NewReader(raw))
 	dec.DisallowUnknownFields()
@@ -308,7 +321,7 @@ func styleValue(raw json.RawMessage) (json.RawMessage, error) {
 		name string
 		val  *string
 		dst  *string
-	}{{"label", in.Label, &st.Label}, {"color", in.Color, &st.Color}, {"icon", in.Icon, &st.Icon}} {
+	}{{"label", in.Label, &st.Label}, {"color", in.Color, &st.Color}} {
 		if f.val == nil {
 			continue
 		}
@@ -339,13 +352,6 @@ func styleFieldValue(field string, raw json.RawMessage) (json.RawMessage, error)
 	case "color":
 		if !slices.Contains(railColors, s) {
 			return nil, fmt.Errorf("the color of a look on the rail is one of %s, not %s", joinOr(railColors[1:]), short(raw))
-		}
-	case "icon":
-		// The icon names a picture the app copied into a folder of its
-		// own, which a name typed here never is: it is chosen in the
-		// rail's menu, and only taken away here, with icon= or unset.
-		if s != "" {
-			return nil, errors.New("an icon is chosen in the rail's menu, not by its name: icon= takes it away")
 		}
 	}
 	if s == "" {

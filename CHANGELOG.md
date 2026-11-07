@@ -3,7 +3,7 @@
 The update window shows the section of the version it offers. Every release
 needs a `## <version>` section here, or its build fails.
 
-## Unreleased
+## 0.18.2
 
 - On Windows, right-click menus no longer cut off the end of their labels, as in Chinese.
 - The Markdown preview highlights `==text==` and `<mark>` text with a yellow background.

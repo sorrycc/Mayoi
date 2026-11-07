@@ -13,11 +13,16 @@ import (
 // The editor closes the brackets and quotes typed: an opening one puts
 // its closing one after the caret, which typing it again then steps over,
 // and deleting the opening one deletes too while nothing is between them.
-// Typed over a selection, they go around it. The text area takes the
+// Typed over a selection, they go around it, as in Markdown do the marks
+// of emphasis, highlight, strikethrough and math, which typed again make
+// the double ones, as ** and ==. The text area takes the
 // typing itself, so the editor finds what was typed in the edit it made
 // and adds to that edit, in the same step of undo.
 
 var autoPairs = map[rune]rune{'(': ')', '[': ']', '{': '}', '"': '"', '\'': '\'', '`': '`'}
+
+// markdownWraps are the marks that go around a selection in Markdown only.
+const markdownWraps = "=*_~$"
 
 // autoClose follows an edit of typing, from text old with selection sel
 // to text now, and reports whether it edited the text further.
@@ -53,6 +58,9 @@ func (d *editor) autoClose(old, now ui.TextSnapshot, sel [2]int) bool {
 		// One rune typed over a selection: an opening one goes around it.
 		r := runeAt(now, a)
 		c, ok := autoPairs[r]
+		if !ok && strings.ContainsRune(markdownWraps, r) && strings.EqualFold(highlight.Name(d.hl.Lexer()), "markdown") {
+			c, ok = r, true
+		}
 		if !ok || old.LineAt(a) != old.LineAt(b) && r != '(' && r != '[' && r != '{' {
 			break
 		}

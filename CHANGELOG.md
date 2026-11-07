@@ -7,6 +7,7 @@ needs a `## <version>` section here, or its build fails.
 
 - On Windows, right-click menus no longer cut off the end of their labels, as in Chinese.
 - The Markdown preview highlights `==text==` and `<mark>` text with a yellow background.
+- In Markdown, typing `=`, `*`, `_`, `~` or `$` over a selection wraps it; type it twice for `==` or `**`.
 
 ## 0.18.1
 

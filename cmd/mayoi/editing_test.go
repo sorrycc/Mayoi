@@ -453,6 +453,36 @@ func TestActiveGuide(t *testing.T) {
 	check(34, 1, 1, 4) // on func's }: the block it closes
 }
 
+// In Markdown, emphasis, highlight, strikethrough and math marks typed
+// over a selection go around it, and typed alone stay alone.
+func TestMarkdownWrap(t *testing.T) {
+	hs, d := editHarness(t, "a.md", "x y\n")
+	typ := func(s string) {
+		for _, r := range s {
+			hs.tt.Type(string(r))
+			hs.settle()
+		}
+	}
+	hs.place(d, 0, 1)
+	typ("==")
+	expectText(t, d, "==x== y\n")
+	expectSel(t, d, 2, 3)
+	hs.place(d, 6, 7)
+	typ("**")
+	expectText(t, d, "==x== **y**\n")
+	expectSel(t, d, 8, 9)
+	hs.place(d, 0, 0)
+	typ("*")
+	expectText(t, d, "*==x== **y**\n")
+
+	// Elsewhere, = replaces the selection.
+	hs, d = editHarness(t, "a.go", "x\n")
+	hs.place(d, 0, 1)
+	hs.tt.Type("=")
+	hs.settle()
+	expectText(t, d, "=\n")
+}
+
 // Deleting forward the bracket the editor put leaves typing one to type
 // it.
 func TestAutoCloseForgetsDeletedCloser(t *testing.T) {

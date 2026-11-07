@@ -3,6 +3,7 @@ package cli
 import (
 	"encoding/json"
 	"errors"
+	"os"
 	"path/filepath"
 	"reflect"
 	"runtime"
@@ -10,6 +11,7 @@ import (
 )
 
 func TestParse(t *testing.T) {
+	home, _ := os.UserHomeDir()
 	cwd := filepath.FromSlash("/w")
 	abs := func(p string) string { return filepath.Join(cwd, p) }
 	// A path absolute on this system: /x has no drive on Windows.
@@ -52,6 +54,9 @@ func TestParse(t *testing.T) {
 				{Op: OpRemove, Key: "aiSecretFiles", Value: json.RawMessage("*.pem")}}}}},
 		{[]string{"settings", "set", `projectTabStyle.'/src/my.app'.label=MG`}, Request{Settings: &Settings{Verb: "set",
 			Changes: []Change{{Op: OpSet, Key: `projectTabStyle.'/src/my.app'.label`, Value: json.RawMessage(`"MG"`)}}}}},
+		// The folder of a look is the app's, whole, from cwd or ~.
+		{[]string{"settings", "get", `projectTabStyle.'.'`, `projectTabStyle."~/my.app".label`, `projectTabStyle.'/ssh:box/srv'`}, Request{Settings: &Settings{Verb: "get",
+			Keys: []string{`projectTabStyle.'` + cwd + `'`, `projectTabStyle.'` + filepath.Join(home, "my.app") + `'.label`, `projectTabStyle.'/ssh:box/srv'`}}}},
 		// A folder called settings, not first.
 		{[]string{"-n", "settings"}, Request{NewWindow: true, Paths: []Target{{Path: abs("settings")}}}},
 		// A folder called run, not first.

@@ -688,7 +688,7 @@ otherwise into `/usr/local/bin`, which asks for your password. On Windows, it in
   and an item a list has already is no item more of it.
 - `mayoi settings set projectTabStyle.'<folder>'.label=MG` changes one field of a project's look on the rail, and
   `.<folder>` alone the whole look; a field is `label`, `color` or `icon`, and leaving it empty takes it away. The
-  folder is quoted when it has dots of its own.
+  folder is quoted when it has dots of its own, and may be told from the current folder or from `~`.
 - `mayoi settings --folder ...` acts on the current folder's own `.mayoi/settings.json`, of the preferences a folder
   can choose, which it lists, and changes, as `mayoi settings --folder set autoSave=false`.
 - The `settings` commands change the files themselves, so they work while Mayoi isn't running; a Mayoi running reads

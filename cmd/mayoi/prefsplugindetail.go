@@ -316,7 +316,7 @@ func (w *prefsWindow) pluginDetail(c *ui.Context, it *pluginItem) {
 		}
 	}
 	w.detailHead(c, pl)
-	ui.Scroll(c.Key("prefs-rows-plugin-"+pl.Name)).Grow(1).MinHeight(0).Children(func() {
+	ui.Scroll(c.Key("prefs-rows-plugin-" + pl.Name)).Grow(1).MinHeight(0).Children(func() {
 		slideIn(c, ui.Column(c.Key("prefs-page-plugin-"+pl.Name)).Padding(20, 28, 32, 28).Gap(10).AlignSelf(ui.Center).
 			WidthPercent(100).MaxWidth(prefsPageWidth), pageSlide).Children(func() {
 			w.detailCard(c, it)

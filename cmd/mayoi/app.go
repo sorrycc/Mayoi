@@ -117,6 +117,13 @@ type host interface {
 	showProject(i int)
 	closeProject()
 	projectTabsChanged()
+	// otherProjects are the other projects of the window's rail, which a
+	// tab moves to; projectOf is the one of them that has a tab, nil for
+	// none; carryTab moves a tab of this project to another, or copies
+	// it, and shows that project.
+	otherProjects() []*app
+	projectOf(t *colTab) *app
+	carryTab(t *colTab, to *app, copy bool)
 	// nativeDrags reports whether a drag can leave the app as a system
 	// drag other apps read. The headless test host has no system
 	// pasteboard, and says no, which keeps drags in-process value drags
@@ -314,6 +321,13 @@ type app struct {
 	builds int
 	// dragging is set while a tab is dragged, as the frame before found.
 	dragging, dragNow bool
+	// carried is a tab of another project dragged in over the rail, until
+	// the drag ends: the frame clears it once nothing here sees the drag,
+	// dragSeen, any more. copyDrop says Alt is held, which copies a tab
+	// dropped from another project rather than moves it.
+	carried  *colTab
+	dragSeen bool
+	copyDrop bool
 	// middle is the tab a middle press is on, until it is let go of: the
 	// press closes it rather than shows it.
 	middle *colTab
@@ -332,9 +346,14 @@ type app struct {
 	checks     checksPicker      // the box of the checks of the pull request
 	worktrees  worktreePicker    // the box that switches worktrees
 	recents    recentPicker      // the box of the recent folders
+	pluginPick pluginPicker      // the box of a plugin's window.pick
 	themes     themePicker       // the box of the color themes
 	remotePick remotePicker      // the box that connects to a host
 	conflicts  conflictsList     // the box of the files in conflict
+	// pluginSeen is what the plugins were last told of the documents:
+	// each one's version, and the editor in front.
+	pluginSeen pluginSeen
+	hover      *hoverCard // the card Show Hover shows
 	find       findState
 	inFiles    searchState // search in the files, of the sidebar
 	prompt     *prompt
@@ -605,6 +624,15 @@ func (a *app) saveDoc(d *document, then func()) {
 		})
 		return
 	}
+	// A plugin's formatter first, as formatOnSave asks, for so long.
+	if ed := a.docEditor(d); ed != nil && a.formatsOnSave(d) && !d.formatted {
+		d.formatted = true
+		a.format(ed, formatOnSaveLimit, true, func() {
+			a.saveDoc(d, then)
+			d.formatted = false
+		})
+		return
+	}
 	saved := func() {
 		d.diskGone, d.autoSave.failed = false, false
 		a.repositoryForPath(d.path).git.stale = true
@@ -624,6 +652,25 @@ func (a *app) saveDoc(d *document, then func()) {
 		return
 	}
 	saved()
+}
+
+// formatOnSaveLimit is how long saving waits for a formatter, which
+// saves without its changes past it.
+const formatOnSaveLimit = 1500 * time.Millisecond
+
+// docEditor is an editor of a document, the one shown first, nil for none.
+func (a *app) docEditor(d *document) *editor {
+	if t := a.activeTab(); t != nil && t.ed != nil && t.ed.document == d {
+		return t.ed
+	}
+	for _, col := range a.cols {
+		for _, t := range col.tabs {
+			if t.ed != nil && t.ed.document == d {
+				return t.ed
+			}
+		}
+	}
+	return nil
 }
 
 func (a *app) saveActive() {

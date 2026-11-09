@@ -41,15 +41,15 @@ func (w *prefsWindow) themeTiles(c *ui.Context, chosen string, apply func(any)) 
 		dark = true
 	}
 	sel := 0
-	for i, t := range themeChoices {
+	for i, t := range allThemes() {
 		if t.id == chosen {
 			sel = i
 		}
 	}
 	was := sel
-	tiles := ui.SegmentedBase(c.Key("prefs-themes"), &sel, len(themeChoices))
+	tiles := ui.SegmentedBase(c.Key("prefs-themes"), &sel, len(allThemes()))
 	tiles.Track.Wrap().Gap(10).Label(prefTitle("theme")).Children(func() {
-		for i, t := range themeChoices {
+		for i, t := range allThemes() {
 			on := i == sel
 			tile := tiles.Segment(i).Column().Width(themeTileW).Gap(7).AlignItems(ui.Center).Label(t.name()).
 				Tooltip(t.about()).FocusRing(false)
@@ -98,7 +98,7 @@ func (w *prefsWindow) themeTiles(c *ui.Context, chosen string, apply func(any)) 
 		}
 	})
 	if sel != was {
-		apply(themeChoices[sel].id)
+		apply(allThemes()[sel].id)
 	}
 }
 

@@ -25,6 +25,8 @@ All of Mayoi's files are in one data folder:
 | `crash.log`         | Mayoi         | Mayoi's version and system, then what ended it if it crashed, with every stack    |
 | `crashes/`          | Mayoi         | The last 10 crash logs, by time; `.sent` or `.unsent` once asked about            |
 
+Plugins, user scripts and what plugins store are in `~/.mayoi` instead: see [PLUGINS.md](PLUGINS.md#where-they-are).
+
 To keep the files somewhere else, start Mayoi with `MAYOI_DATA_DIR` set to a folder. Mayoi then reads and writes all
 of these files there instead, which is a way to try a setup without touching your own. Create the folder first, and
 quit Mayoi before, since a Mayoi already running takes over a second one. On macOS:
@@ -101,6 +103,9 @@ takes its default.
 | `aiModel`               | `""`          | `""` (`deepseek-flash`), or a model of the AI gateway       | Only this file                                 |
 | `aiSecretFiles`         | none          | Patterns of files AI commit messages send by name only      | Only this file                                 |
 | `crashReports`          | `""`          | `""` (ask), `"always"`, `"never"`                           | **Don't ask again** when Mayoi asks           |
+| `plugins`               | none          | Each plugin's own settings, and `"enabled": false` to turn it off | The **Plugins** page of the settings window |
+| `formatOnSave`          | none          | `true` for each language to format as it saves, or `"*"` for all | Only this file                          |
+| `formatters`            | none          | The formatter of each language, where plugins offer several | Only this file                                 |
 
 ### Language
 
@@ -234,6 +239,24 @@ differ in width lines them up only roughly.
   `"!.env.local"`. Whatever the patterns say, keys and tokens in any file's lines are left out, line by line. A
   folder's `.mayoi/settings.json` can't set it.
 
+### Plugins
+
+- **`plugins`** holds each plugin's settings under its name, as its `plugin.json` declares them, and `"enabled":
+  false` turns a plugin off. A folder can't set it, so that a repository can't turn on a plugin. See
+  [PLUGINS.md](PLUGINS.md).
+- **`formatOnSave`** formats a document with a plugin's formatter as it saves, by language, as `{"go": true}`, or
+  `{"*": true}` for every language that has a formatter.
+- **`formatters`** chooses the formatter of a language where plugins offer several, by the formatter's id or its
+  plugin's name, as `{"typescript": "prettier"}`.
+
+```json
+{
+  "plugins": { "word-count": { "wordsPerMinute": 200 }, "prettier": { "enabled": false } },
+  "formatOnSave": { "typescript": true },
+  "formatters": { "typescript": "biome" }
+}
+```
+
 ### Example
 
 ```json
@@ -307,7 +330,7 @@ beside one returns it to your setting.
 
 A folder can set these: `autoSave`, `wordWrap`, `markdownPreview`, `previewMermaid`, `previewMath`,
 `terminalCopyOnSelect`, `diffHighlight`, `diffWhitespace`, `diffContext`, `diffCrossFiles`, `mergeAutoApply`,
-`blame`, `aiModel`, `vim` and `vimCtrlKeys`.
+`blame`, `aiModel`, `vim`, `vimCtrlKeys`, `formatOnSave` and `formatters`.
 
 ```json
 {

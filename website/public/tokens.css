@@ -1,0 +1,609 @@
+/* Theme: cold-tool, retuned to Mayoi's icon (pixel gold on indigo night)
+   Fonts — put this in <head> before tokens.css:
+   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&family=Noto+Serif+JP:wght@600&display=swap">
+   Change values freely for the project. Keep the names. */
+:root {
+  color-scheme: light dark;
+
+  /* color roles — light: cool lavender paper, indigo ink, icon gold */
+  --bg: #f5f4f9;
+  --surface: #ffffff;
+  --surface-2: #ecebf4;
+  --text: #17132f;
+  --text-muted: #57536d;
+  --border: #d9d6e7;
+  --accent: #f5a614;
+  --accent-hover: #e89a06;
+  --accent-contrast: #1b1640;
+  --accent-subtle: #fdf0d2;
+  --link: #4b3bb0;
+  --success: #1a7f37;
+  --success-subtle: #dafbe1;
+  --warning: #8a5a00;
+  --warning-subtle: #fff4cc;
+  --danger: #c4232e;
+  --danger-subtle: #ffebe9;
+  --info: #4b3bb0;
+  --info-subtle: #ebe8fb;
+  --disabled-bg: #ecebf4;
+  --disabled-text: #8d8aa3;
+  --focus: #4b3bb0;
+
+  /* brand: the indigo night of the icon, used for the product stage in both modes */
+  --stage: #1c1648;
+  --stage-2: #261f5c;
+  --stage-dot: #33297a;
+  --on-stage: #f1eefc;
+  --on-stage-muted: #b9b2e0;
+  --gold: #ffb52e;
+
+  /* type */
+  --font-display: "IBM Plex Sans", system-ui, sans-serif;
+  --font-body: "IBM Plex Sans", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+  --font-jp: "Noto Serif JP", "Hiragino Mincho ProN", serif;
+  --fs-xs: 0.75rem; /* 12px */
+  --fs-sm: 0.8125rem; /* 13px */
+  --fs-base: 0.9375rem; /* 15px */
+  --fs-lg: 1.0625rem; /* 17px */
+  --fs-xl: 1.25rem; /* 20px */
+  --fs-2xl: 1.5rem; /* 24px */
+  --fs-3xl: 2rem; /* 32px */
+  --fs-4xl: 2.5rem; /* 40px */
+  --fs-5xl: 3.5rem; /* 56px */
+  --weight-display: 600;
+  --lh-tight: 1.1;
+  --lh-snug: 1.35;
+  --lh-body: 1.55;
+  --measure: 66ch;
+
+  /* space */
+  --space-1: 0.25rem; /* 4px */
+  --space-2: 0.5rem; /* 8px */
+  --space-3: 0.75rem; /* 12px */
+  --space-4: 1rem; /* 16px */
+  --space-5: 1.25rem; /* 20px */
+  --space-6: 1.5rem; /* 24px */
+  --space-7: 2rem; /* 32px */
+  --space-8: 3rem; /* 48px */
+  --space-9: 4rem; /* 64px */
+  --space-10: 6rem; /* 96px */
+
+  /* shape */
+  --control-h: 2.75rem; /* 44px */
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+  --radius-full: 9999px;
+  --shadow-1: 0 1px 2px rgb(23 19 47 / 0.06);
+  --shadow-2: 0 24px 60px rgb(10 7 32 / 0.45);
+
+  /* motion */
+  --dur-fast: 120ms;
+  --dur-base: 200ms;
+  --dur-slow: 320ms;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in: cubic-bezier(0.7, 0, 0.84, 0);
+  --ease-std: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@media (max-width: 600px) {
+  :root {
+    --fs-3xl: 1.625rem; /* 26px */
+    --fs-4xl: 2rem; /* 32px */
+    --fs-5xl: 2.375rem; /* 38px */
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f0c24;
+    --surface: #16122f;
+    --surface-2: #201a42;
+    --text: #ece9f8;
+    --text-muted: #a49fbf;
+    --border: #2f2856;
+    --accent: #ffb52e;
+    --accent-hover: #ffc557;
+    --accent-contrast: #17132f;
+    --accent-subtle: #2c2310;
+    --link: #c3b8ff;
+    --success: #3fb950;
+    --success-subtle: #12261a;
+    --warning: #e0a52e;
+    --warning-subtle: #2c2310;
+    --danger: #f85149;
+    --danger-subtle: #2d1517;
+    --info: #c3b8ff;
+    --info-subtle: #221c48;
+    --disabled-bg: #201a42;
+    --disabled-text: #625d80;
+    --focus: #ffb52e;
+    --stage: #17123a;
+    --stage-2: #211a4f;
+    --stage-dot: #2b2366;
+  }
+}
+
+:root[data-theme="dark"] {
+  --bg: #0f0c24;
+  --surface: #16122f;
+  --surface-2: #201a42;
+  --text: #ece9f8;
+  --text-muted: #a49fbf;
+  --border: #2f2856;
+  --accent: #ffb52e;
+  --accent-hover: #ffc557;
+  --accent-contrast: #17132f;
+  --accent-subtle: #2c2310;
+  --link: #c3b8ff;
+  --success: #3fb950;
+  --success-subtle: #12261a;
+  --warning: #e0a52e;
+  --warning-subtle: #2c2310;
+  --danger: #f85149;
+  --danger-subtle: #2d1517;
+  --info: #c3b8ff;
+  --info-subtle: #221c48;
+  --disabled-bg: #201a42;
+  --disabled-text: #625d80;
+  --focus: #ffb52e;
+  --stage: #17123a;
+  --stage-2: #211a4f;
+  --stage-dot: #2b2366;
+}
+
+/* Mayoi's own theme palettes, read from cmd/mayoi/theme.go, for the live theme preview.
+   --th-<palette>-<role>; translucent roles are flattened over the editor. */
+:root {
+  /* blood */
+  --th-blood-editor: #140e10;
+  --th-blood-chrome: #0d090a;
+  --th-blood-strip: #0d090a;
+  --th-blood-border: #2e1a1e;
+  --th-blood-text: #ecdfe0;
+  --th-blood-muted: #a68d91;
+  --th-blood-faint: #75595e;
+  --th-blood-accent: #f0435a;
+  --th-blood-active: #2f1216;
+  --th-blood-line: #1d1518;
+  --th-blood-selection: #571420;
+  --th-blood-gutter: #6e5559;
+  --th-blood-gutter-now: #ff8a9a;
+  --th-blood-status: #5c0f1d;
+  --th-blood-status-fg: #ffd0d6;
+  --th-blood-kw: #ff5470;
+  --th-blood-type: #c4a0f0;
+  --th-blood-fn: #ffb3a8;
+  --th-blood-str: #e8c48a;
+  --th-blood-num: #ff8a7a;
+  --th-blood-com: #7a5f64;
+  --th-blood-punc: #94797e;
+  --th-blood-plain: #ecdfe0;
+  --th-blood-ansi-green: #8fc49a;
+  --th-blood-ansi-yellow: #e8b04a;
+  --th-blood-ansi-blue: #9aa8e8;
+  --th-blood-ansi-red: #ff5470;
+  --th-blood-added: #7fb88a;
+  --th-blood-modified: #e8b04a;
+  /* claude-dark */
+  --th-claude-dark-editor: #1a1917;
+  --th-claude-dark-chrome: #141312;
+  --th-claude-dark-strip: #141312;
+  --th-claude-dark-border: #34322f;
+  --th-claude-dark-text: #ecebe6;
+  --th-claude-dark-muted: #9a9893;
+  --th-claude-dark-faint: #6b6964;
+  --th-claude-dark-accent: #d77757;
+  --th-claude-dark-active: #2a2a33;
+  --th-claude-dark-line: #22211e;
+  --th-claude-dark-selection: #3e3f4d;
+  --th-claude-dark-gutter: #5c5a55;
+  --th-claude-dark-gutter-now: #d77757;
+  --th-claude-dark-status: #141312;
+  --th-claude-dark-status-fg: #9a9893;
+  --th-claude-dark-kw: #b1b9f9;
+  --th-claude-dark-type: #5fb3a6;
+  --th-claude-dark-fn: #f0a585;
+  --th-claude-dark-str: #8fcf8f;
+  --th-claude-dark-num: #f2c55c;
+  --th-claude-dark-com: #7a7873;
+  --th-claude-dark-punc: #7f7d78;
+  --th-claude-dark-plain: #ecebe6;
+  --th-claude-dark-ansi-green: #4eba65;
+  --th-claude-dark-ansi-yellow: #f2c14e;
+  --th-claude-dark-ansi-blue: #6a9fe0;
+  --th-claude-dark-ansi-red: #ff6b80;
+  --th-claude-dark-added: #4eba65;
+  --th-claude-dark-modified: #f2c14e;
+  /* claude-light */
+  --th-claude-light-editor: #fdfcfa;
+  --th-claude-light-chrome: #f5f4f1;
+  --th-claude-light-strip: #f5f4f1;
+  --th-claude-light-border: #dcdad4;
+  --th-claude-light-text: #1a1918;
+  --th-claude-light-muted: #66645f;
+  --th-claude-light-faint: #8a8882;
+  --th-claude-light-accent: #c4613f;
+  --th-claude-light-active: #e4e5f2;
+  --th-claude-light-line: #f6f5f3;
+  --th-claude-light-selection: #e2e4fa;
+  --th-claude-light-gutter: #a9a7a1;
+  --th-claude-light-gutter-now: #b65a3c;
+  --th-claude-light-status: #f5f4f1;
+  --th-claude-light-status-fg: #66645f;
+  --th-claude-light-kw: #4c5ee0;
+  --th-claude-light-type: #0f6e6e;
+  --th-claude-light-fn: #b0532f;
+  --th-claude-light-str: #2c7a39;
+  --th-claude-light-num: #966c1e;
+  --th-claude-light-com: #87857f;
+  --th-claude-light-punc: #83817b;
+  --th-claude-light-plain: #1a1918;
+  --th-claude-light-ansi-green: #2c7a39;
+  --th-claude-light-ansi-yellow: #966c1e;
+  --th-claude-light-ansi-blue: #3a63c8;
+  --th-claude-light-ansi-red: #ab2b3f;
+  --th-claude-light-added: #2c7a39;
+  --th-claude-light-modified: #8f671d;
+  /* cursor-dark */
+  --th-cursor-dark-editor: #181818;
+  --th-cursor-dark-chrome: #141414;
+  --th-cursor-dark-strip: #141414;
+  --th-cursor-dark-border: #242424;
+  --th-cursor-dark-text: #f0f0f0;
+  --th-cursor-dark-muted: #989898;
+  --th-cursor-dark-faint: #636363;
+  --th-cursor-dark-accent: #81a1c1;
+  --th-cursor-dark-active: #2e2e2e;
+  --th-cursor-dark-line: #262626;
+  --th-cursor-dark-selection: #303030;
+  --th-cursor-dark-gutter: #666666;
+  --th-cursor-dark-gutter-now: #f0f0f0;
+  --th-cursor-dark-status: #141414;
+  --th-cursor-dark-status-fg: #989898;
+  --th-cursor-dark-kw: #82d2ce;
+  --th-cursor-dark-type: #87c3ff;
+  --th-cursor-dark-fn: #efb080;
+  --th-cursor-dark-str: #e394dc;
+  --th-cursor-dark-num: #ebc88d;
+  --th-cursor-dark-com: #9a9a9a;
+  --th-cursor-dark-punc: #a4a4a4;
+  --th-cursor-dark-plain: #d6d6dd;
+  --th-cursor-dark-ansi-green: #3fa266;
+  --th-cursor-dark-ansi-yellow: #d2943e;
+  --th-cursor-dark-ansi-blue: #81a1c1;
+  --th-cursor-dark-ansi-red: #fc6b83;
+  --th-cursor-dark-added: #3fa266;
+  --th-cursor-dark-modified: #f1b467;
+  /* cursor-light */
+  --th-cursor-light-editor: #fcfcfc;
+  --th-cursor-light-chrome: #f3f3f3;
+  --th-cursor-light-strip: #f3f3f3;
+  --th-cursor-light-border: #e2e2e2;
+  --th-cursor-light-text: #141414;
+  --th-cursor-light-muted: #6d6d6d;
+  --th-cursor-light-faint: #848484;
+  --th-cursor-light-accent: #2778c1;
+  --th-cursor-light-active: #d4d4d4;
+  --th-cursor-light-line: #eaeaea;
+  --th-cursor-light-selection: #e0e0e0;
+  --th-cursor-light-gutter: #a8a8a8;
+  --th-cursor-light-gutter-now: #505050;
+  --th-cursor-light-status: #f3f3f3;
+  --th-cursor-light-status-fg: #6d6d6d;
+  --th-cursor-light-kw: #a30034;
+  --th-cursor-light-type: #005293;
+  --th-cursor-light-fn: #cd4500;
+  --th-cursor-light-str: #7565cc;
+  --th-cursor-light-num: #92156a;
+  --th-cursor-light-com: #717171;
+  --th-cursor-light-punc: #505050;
+  --th-cursor-light-plain: #141414;
+  --th-cursor-light-ansi-green: #007041;
+  --th-cursor-light-ansi-yellow: #8b5700;
+  --th-cursor-light-ansi-blue: #0064b0;
+  --th-cursor-light-ansi-red: #be1744;
+  --th-cursor-light-added: #007041;
+  --th-cursor-light-modified: #9c6200;
+  /* grok-dark */
+  --th-grok-dark-editor: #161616;
+  --th-grok-dark-chrome: #0e0e0e;
+  --th-grok-dark-strip: #0e0e0e;
+  --th-grok-dark-border: #262626;
+  --th-grok-dark-text: #ededed;
+  --th-grok-dark-muted: #a9a9a9;
+  --th-grok-dark-faint: #737373;
+  --th-grok-dark-accent: #4d9bff;
+  --th-grok-dark-active: #242424;
+  --th-grok-dark-line: #1e1e1e;
+  --th-grok-dark-selection: #17375b;
+  --th-grok-dark-gutter: #5c5c5c;
+  --th-grok-dark-gutter-now: #c1c1c1;
+  --th-grok-dark-status: #0e0e0e;
+  --th-grok-dark-status-fg: #a9a9a9;
+  --th-grok-dark-kw: #bc97ff;
+  --th-grok-dark-type: #29c6be;
+  --th-grok-dark-fn: #93adff;
+  --th-grok-dark-str: #91c17a;
+  --th-grok-dark-num: #d59556;
+  --th-grok-dark-com: #8d867e;
+  --th-grok-dark-punc: #9a948c;
+  --th-grok-dark-plain: #d7d1c9;
+  --th-grok-dark-ansi-green: #91c17a;
+  --th-grok-dark-ansi-yellow: #cfb47c;
+  --th-grok-dark-ansi-blue: #93adff;
+  --th-grok-dark-ansi-red: #d7766c;
+  --th-grok-dark-added: #00ba69;
+  --th-grok-dark-modified: #e28600;
+  /* grok-light */
+  --th-grok-light-editor: #ffffff;
+  --th-grok-light-chrome: #f5f5f5;
+  --th-grok-light-strip: #f5f5f5;
+  --th-grok-light-border: #e5e5e5;
+  --th-grok-light-text: #1c1c1c;
+  --th-grok-light-muted: #656565;
+  --th-grok-light-faint: #808080;
+  --th-grok-light-accent: #1680f3;
+  --th-grok-light-active: #e4e4e4;
+  --th-grok-light-line: #f8f8f8;
+  --th-grok-light-selection: #d2e7fe;
+  --th-grok-light-gutter: #999999;
+  --th-grok-light-gutter-now: #3d3d3d;
+  --th-grok-light-status: #f5f5f5;
+  --th-grok-light-status-fg: #656565;
+  --th-grok-light-kw: #7547d0;
+  --th-grok-light-type: #008273;
+  --th-grok-light-fn: #0b6dd3;
+  --th-grok-light-str: #00854a;
+  --th-grok-light-num: #c14c00;
+  --th-grok-light-com: #878787;
+  --th-grok-light-punc: #6b6b6b;
+  --th-grok-light-plain: #1c1c1c;
+  --th-grok-light-ansi-green: #00854a;
+  --th-grok-light-ansi-yellow: #aa6300;
+  --th-grok-light-ansi-blue: #0b6dd3;
+  --th-grok-light-ansi-red: #cd2834;
+  --th-grok-light-added: #0c8049;
+  --th-grok-light-modified: #9e5f0a;
+  /* matrix */
+  --th-matrix-editor: #050d08;
+  --th-matrix-chrome: #0e1317;
+  --th-matrix-strip: #0e1317;
+  --th-matrix-border: #1f2930;
+  --th-matrix-text: #cdd7de;
+  --th-matrix-muted: #8a9ba7;
+  --th-matrix-faint: #66767f;
+  --th-matrix-accent: #22e06b;
+  --th-matrix-active: #16243c;
+  --th-matrix-line: #06180d;
+  --th-matrix-selection: #0b3b1e;
+  --th-matrix-gutter: #3f8a58;
+  --th-matrix-gutter-now: #b0f7c5;
+  --th-matrix-status: #0b1013;
+  --th-matrix-status-fg: #8a9ba7;
+  --th-matrix-kw: #e9fff0;
+  --th-matrix-type: #4fe0c8;
+  --th-matrix-fn: #5cff8a;
+  --th-matrix-str: #d2ec6a;
+  --th-matrix-num: #f0cc6a;
+  --th-matrix-com: #8a9ba7;
+  --th-matrix-punc: #56996a;
+  --th-matrix-plain: #b4ecc4;
+  --th-matrix-ansi-green: #22e06b;
+  --th-matrix-ansi-yellow: #e7b85a;
+  --th-matrix-ansi-blue: #4c8dff;
+  --th-matrix-ansi-red: #ff5b6b;
+  --th-matrix-added: #22e06b;
+  --th-matrix-modified: #e7b85a;
+  /* mayoi-dark */
+  --th-mayoi-dark-editor: #18181d;
+  --th-mayoi-dark-chrome: #131317;
+  --th-mayoi-dark-strip: #131317;
+  --th-mayoi-dark-border: #26262e;
+  --th-mayoi-dark-text: #d6d6de;
+  --th-mayoi-dark-muted: #8c8c99;
+  --th-mayoi-dark-faint: #666672;
+  --th-mayoi-dark-accent: #8b7cf6;
+  --th-mayoi-dark-active: #26243b;
+  --th-mayoi-dark-line: #202025;
+  --th-mayoi-dark-selection: #3b365f;
+  --th-mayoi-dark-gutter: #62626e;
+  --th-mayoi-dark-gutter-now: #b9b9c6;
+  --th-mayoi-dark-status: #131317;
+  --th-mayoi-dark-status-fg: #8c8c99;
+  --th-mayoi-dark-kw: #b99cf7;
+  --th-mayoi-dark-type: #7dcfe0;
+  --th-mayoi-dark-fn: #8fb4ff;
+  --th-mayoi-dark-str: #a9d48f;
+  --th-mayoi-dark-num: #f2a679;
+  --th-mayoi-dark-com: #747481;
+  --th-mayoi-dark-punc: #8a8e9e;
+  --th-mayoi-dark-plain: #d6d6de;
+  --th-mayoi-dark-ansi-green: #a9d48f;
+  --th-mayoi-dark-ansi-yellow: #e8c482;
+  --th-mayoi-dark-ansi-blue: #8fb4ff;
+  --th-mayoi-dark-ansi-red: #f0718b;
+  --th-mayoi-dark-added: #4fa86d;
+  --th-mayoi-dark-modified: #e8b86d;
+  /* mayoi-light */
+  --th-mayoi-light-editor: #fcfcfd;
+  --th-mayoi-light-chrome: #f4f4f7;
+  --th-mayoi-light-strip: #f4f4f7;
+  --th-mayoi-light-border: #e4e4ea;
+  --th-mayoi-light-text: #2a2a33;
+  --th-mayoi-light-muted: #6c6c79;
+  --th-mayoi-light-faint: #8e8e9a;
+  --th-mayoi-light-accent: #6d5bd0;
+  --th-mayoi-light-active: #e4e1f2;
+  --th-mayoi-light-line: #f4f4f5;
+  --th-mayoi-light-selection: #dfdcf4;
+  --th-mayoi-light-gutter: #93939f;
+  --th-mayoi-light-gutter-now: #4a4a55;
+  --th-mayoi-light-status: #f4f4f7;
+  --th-mayoi-light-status-fg: #6c6c79;
+  --th-mayoi-light-kw: #7c3bd6;
+  --th-mayoi-light-type: #0b7c99;
+  --th-mayoi-light-fn: #2a5bd7;
+  --th-mayoi-light-str: #3d8a28;
+  --th-mayoi-light-num: #c2571a;
+  --th-mayoi-light-com: #868692;
+  --th-mayoi-light-punc: #6c6f80;
+  --th-mayoi-light-plain: #2a2a33;
+  --th-mayoi-light-ansi-green: #3d8a28;
+  --th-mayoi-light-ansi-yellow: #a86a0c;
+  --th-mayoi-light-ansi-blue: #2a5bd7;
+  --th-mayoi-light-ansi-red: #c8264f;
+  --th-mayoi-light-added: #317e4d;
+  --th-mayoi-light-modified: #936520;
+  /* pumpkin */
+  --th-pumpkin-editor: #1a1512;
+  --th-pumpkin-chrome: #130f0d;
+  --th-pumpkin-strip: #130f0d;
+  --th-pumpkin-border: #2c231d;
+  --th-pumpkin-text: #efe2cf;
+  --th-pumpkin-muted: #a8927c;
+  --th-pumpkin-faint: #73624f;
+  --th-pumpkin-accent: #ff8a1f;
+  --th-pumpkin-active: #362110;
+  --th-pumpkin-line: #241d17;
+  --th-pumpkin-selection: #5a3616;
+  --th-pumpkin-gutter: #6b5a4c;
+  --th-pumpkin-gutter-now: #ffb066;
+  --th-pumpkin-status: #a04606;
+  --th-pumpkin-status-fg: #fff1e0;
+  --th-pumpkin-kw: #b88cf0;
+  --th-pumpkin-type: #ffc247;
+  --th-pumpkin-fn: #ff9e4a;
+  --th-pumpkin-str: #a8cf6a;
+  --th-pumpkin-num: #ff7a59;
+  --th-pumpkin-com: #7d6c5d;
+  --th-pumpkin-punc: #9a8470;
+  --th-pumpkin-plain: #efe2cf;
+  --th-pumpkin-ansi-green: #a8cf6a;
+  --th-pumpkin-ansi-yellow: #ffc247;
+  --th-pumpkin-ansi-blue: #8aa8e8;
+  --th-pumpkin-ansi-red: #ff5a4a;
+  --th-pumpkin-added: #8fbf4a;
+  --th-pumpkin-modified: #ffc247;
+  /* purple-gold */
+  --th-purple-gold-editor: #1b0f26;
+  --th-purple-gold-chrome: #12091a;
+  --th-purple-gold-strip: #12091a;
+  --th-purple-gold-border: #33204a;
+  --th-purple-gold-text: #f1e7d0;
+  --th-purple-gold-muted: #b6a5c4;
+  --th-purple-gold-faint: #7d6a93;
+  --th-purple-gold-accent: #e3b84a;
+  --th-purple-gold-active: #312321;
+  --th-purple-gold-line: #251828;
+  --th-purple-gold-selection: #512770;
+  --th-purple-gold-gutter: #5f4c78;
+  --th-purple-gold-gutter-now: #f0cc6a;
+  --th-purple-gold-status: #3e1058;
+  --th-purple-gold-status-fg: #f3d47c;
+  --th-purple-gold-kw: #d29bf5;
+  --th-purple-gold-type: #f0c75e;
+  --th-purple-gold-fn: #f6dcae;
+  --th-purple-gold-str: #eaa6c0;
+  --th-purple-gold-num: #e3b84a;
+  --th-purple-gold-com: #857199;
+  --th-purple-gold-punc: #9a82ab;
+  --th-purple-gold-plain: #e6dccb;
+  --th-purple-gold-ansi-green: #8fd3a3;
+  --th-purple-gold-ansi-yellow: #f0c46a;
+  --th-purple-gold-ansi-blue: #93acf0;
+  --th-purple-gold-ansi-red: #f07a86;
+  --th-purple-gold-added: #79c79a;
+  --th-purple-gold-modified: #f0c46a;
+  /* qoder-dark */
+  --th-qoder-dark-editor: #191b1a;
+  --th-qoder-dark-chrome: #242624;
+  --th-qoder-dark-strip: #191b1a;
+  --th-qoder-dark-border: #363c37;
+  --th-qoder-dark-text: #d9dcd9;
+  --th-qoder-dark-muted: #949d96;
+  --th-qoder-dark-faint: #6b736d;
+  --th-qoder-dark-accent: #8ee5a1;
+  --th-qoder-dark-active: #2c3e30;
+  --th-qoder-dark-line: #202321;
+  --th-qoder-dark-selection: #2a4431;
+  --th-qoder-dark-gutter: #646d66;
+  --th-qoder-dark-gutter-now: #b3bab4;
+  --th-qoder-dark-status: #242624;
+  --th-qoder-dark-status-fg: #949d96;
+  --th-qoder-dark-kw: #7cb196;
+  --th-qoder-dark-type: #c4a3dc;
+  --th-qoder-dark-fn: #7fb0e0;
+  --th-qoder-dark-str: #dcaa72;
+  --th-qoder-dark-num: #e095aa;
+  --th-qoder-dark-com: #758077;
+  --th-qoder-dark-punc: #8a948c;
+  --th-qoder-dark-plain: #d9dcd9;
+  --th-qoder-dark-ansi-green: #73cd94;
+  --th-qoder-dark-ansi-yellow: #ffd666;
+  --th-qoder-dark-ansi-blue: #75beff;
+  --th-qoder-dark-ansi-red: #ff6b70;
+  --th-qoder-dark-added: #73cd94;
+  --th-qoder-dark-modified: #faad14;
+  /* qoder-light */
+  --th-qoder-light-editor: #ffffff;
+  --th-qoder-light-chrome: #f2f4f2;
+  --th-qoder-light-strip: #ffffff;
+  --th-qoder-light-border: #e3e6e3;
+  --th-qoder-light-text: #141414;
+  --th-qoder-light-muted: #636261;
+  --th-qoder-light-faint: #838280;
+  --th-qoder-light-accent: #4b6f5a;
+  --th-qoder-light-active: #dee4e0;
+  --th-qoder-light-line: #f7f7f7;
+  --th-qoder-light-selection: #d7dfdb;
+  --th-qoder-light-gutter: #949391;
+  --th-qoder-light-gutter-now: #474645;
+  --th-qoder-light-status: #f2f4f2;
+  --th-qoder-light-status-fg: #636261;
+  --th-qoder-light-kw: #477a61;
+  --th-qoder-light-type: #8965a2;
+  --th-qoder-light-fn: #407ab0;
+  --th-qoder-light-str: #9e692f;
+  --th-qoder-light-num: #a95d72;
+  --th-qoder-light-com: #848c86;
+  --th-qoder-light-punc: #6c726d;
+  --th-qoder-light-plain: #141414;
+  --th-qoder-light-ansi-green: #2e7d4f;
+  --th-qoder-light-ansi-yellow: #8a5a00;
+  --th-qoder-light-ansi-blue: #0969a8;
+  --th-qoder-light-ansi-red: #c9363e;
+  --th-qoder-light-added: #437855;
+  --th-qoder-light-modified: #976508;
+  /* witch */
+  --th-witch-editor: #15111c;
+  --th-witch-chrome: #0f0b15;
+  --th-witch-strip: #0f0b15;
+  --th-witch-border: #2a2238;
+  --th-witch-text: #e4dcef;
+  --th-witch-muted: #9d90b3;
+  --th-witch-faint: #6c6082;
+  --th-witch-accent: #8ef04f;
+  --th-witch-active: #1f291d;
+  --th-witch-line: #1d1826;
+  --th-witch-selection: #4b306d;
+  --th-witch-gutter: #5c5070;
+  --th-witch-gutter-now: #8ef04f;
+  --th-witch-status: #3a1d63;
+  --th-witch-status-fg: #c8ff9a;
+  --th-witch-kw: #c18cff;
+  --th-witch-type: #6ef0c8;
+  --th-witch-fn: #a8ff6a;
+  --th-witch-str: #f0a6d8;
+  --th-witch-num: #f0c860;
+  --th-witch-com: #716588;
+  --th-witch-punc: #8b7fa0;
+  --th-witch-plain: #e4dcef;
+  --th-witch-ansi-green: #8ef04f;
+  --th-witch-ansi-yellow: #f0c860;
+  --th-witch-ansi-blue: #8aa0ff;
+  --th-witch-ansi-red: #ff5c8a;
+  --th-witch-added: #5fd08a;
+  --th-witch-modified: #f0c860;
+}

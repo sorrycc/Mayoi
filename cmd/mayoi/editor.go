@@ -465,6 +465,8 @@ func (a *app) editorView(c *ui.Context, d *editor) {
 			area.TextRanges(d.colors.ranges(d.hl, p, snap, first, last, f.bold())...)
 			highlights, strikes = d.colors.marks, d.colors.strikes
 		}
+		// The problems plugins found on the lines in view, underlined.
+		diags := diagRuns(d.document, snap, first, last)
 		// runX returns where a run of a line is, as x offsets from the start
 		// of the text.
 		runX := func(m lineRun) (float32, float32) {
@@ -701,6 +703,11 @@ func (a *app) editorView(c *ui.Context, d *editor) {
 				place(r, m.line, x0, x1, func(y, x0, x1 float32) {
 					pt.Fill(ui.Rect{X: x0, Y: y + float32(int(lineH/2)), W: x1 - x0, H: 1}, p.syntax[highlight.Deleted], 0)
 				})
+			}
+			for _, dg := range diags {
+				x0, x1 := runX(dg.lineRun)
+				col := p.diagColor(dg.severity)
+				place(r, dg.line, x0, x1, func(y, x0, x1 float32) { paintSquiggle(pt, x0, max(x1, x0+4), y+lineH-2, col) })
 			}
 			x := r.X + d.hscroll.X
 			top := d.vscroll.Y

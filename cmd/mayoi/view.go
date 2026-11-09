@@ -75,6 +75,7 @@ func (a *app) view(c *ui.Context) {
 		a.frame++
 		a.dragging, a.dragNow = a.dragNow, false
 	}
+	a.copyDrop = c.Modifiers()&ui.Alt != 0
 	a.shortcuts(c)
 	c.SetZoom(float32(math.Pow(1.2, float64(a.settings.ZoomLevel))))
 	// Which pane has the keyboard focus, as the frame before left it, and
@@ -177,6 +178,8 @@ func (a *app) view(c *ui.Context) {
 	a.worktreePickerView(c)
 	a.repositoryPickerView(c)
 	a.recentPickerView(c)
+	a.pluginPickerView(c)
+	a.hoverView(c)
 	a.themePickerView(c)
 	a.remotePickerView(c)
 	a.conflictsView(c)
@@ -205,6 +208,7 @@ func (a *app) view(c *ui.Context) {
 		}
 	}
 	a.notes = a.notes[:0]
+	a.pluginTick()
 	a.tick()
 }
 
@@ -727,9 +731,17 @@ func (a *app) owns(it dragItem) bool {
 	return false
 }
 
-// dropInColumn puts what was dragged at place at of a column.
+// dropInColumn puts what was dragged at place at of a column. A tab of
+// another project opens its file there.
 func (a *app) dropInColumn(it dragItem, col *column, at int) {
-	if slices.Index(a.cols, col) < 0 || !a.owns(it) {
+	if slices.Index(a.cols, col) < 0 {
+		return
+	}
+	if from := a.carrier(it); from != nil {
+		a.takeTab(from, it.tab, col, at, a.copyDrop)
+		return
+	}
+	if !a.owns(it) {
 		return
 	}
 	switch {
@@ -745,7 +757,19 @@ func (a *app) dropInColumn(it dragItem, col *column, at int) {
 // dropBeside puts what was dragged in a column of its own, before a
 // column or after it.
 func (a *app) dropBeside(it dragItem, col *column, after bool) {
-	if slices.Index(a.cols, col) < 0 || !a.owns(it) {
+	if slices.Index(a.cols, col) < 0 {
+		return
+	}
+	if from := a.carrier(it); from != nil {
+		nc := a.splitColumn(col, after)
+		a.takeTab(from, it.tab, nc, 0, a.copyDrop)
+		if len(nc.tabs) == 0 {
+			// It could not be opened.
+			a.removeColumn(nc)
+		}
+		return
+	}
+	if !a.owns(it) {
 		return
 	}
 	if it.file != nil {
@@ -770,18 +794,19 @@ func (a *app) takeFiles(body ui.Element, col *column) bool {
 
 // dropZones are where a tab or files dragged over a column are dropped:
 // on a side, for a column of their own there, or between them, in this
-// one. They are there only while something is dragged over the editor;
-// over says files are over the column's body.
+// one. They are there only while something is dragged over the editor,
+// a tab of another project too; over says files are over the column's
+// body.
 func (a *app) dropZones(c *ui.Context, col *column, over bool) {
 	files := over || col.filesOver
-	if !a.dragging && !files {
+	if !a.dragging && a.carried == nil && !files {
 		return
 	}
 	w := col.body.Bounds(c).W
 	side := min(w/4, 140)
 	zone := func(key string, left, width, markLeft, markW float32, drop func(it dragItem), dropFiles func([]string)) {
 		z := ui.Box(c.Key(key)).Absolute().Top(0).Bottom(0).Left(left).Width(width)
-		_, ok := ui.DragOver[dragItem](z)
+		_, ok := a.dragOver(z)
 		if files && z.FileDragOver() {
 			ok, over = true, true
 		}
@@ -1307,7 +1332,9 @@ func (a *app) statusBar(c *ui.Context) {
 			}
 		}
 		a.reviewStatus(c, text)
+		a.pluginStatusItems(c, false, item, text)
 		ui.Spacer(c)
+		a.pluginStatusItems(c, true, item, text)
 		// Settings sync is last, at the right, whatever shows before it,
 		// and a new version of Mayoi before it.
 		defer a.syncStatus(c)

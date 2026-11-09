@@ -1,0 +1,18 @@
+{
+  "name": "todos",
+  "displayName": "TODOs",
+  "version": "1.0.0",
+  "description": "The TODO, FIXME and HACK comments of the folder, in the sidebar",
+  "main": "main.ts",
+  "activation": ["onView:todos.list"],
+  "contributes": {
+    "commands": [
+      { "id": "todos.refresh", "title": "Find TODOs Again", "title:zh-Hans": "重新查找 TODO", "title:ja": "TODO を再検索" }
+    ],
+    "views": [{ "id": "todos.list", "title": "TODOs", "icon": "check" }],
+    "settings": {
+      "tags": { "type": "string", "default": "TODO,FIXME,HACK,XXX", "description": "The tags to find, separated by commas" },
+      "exclude": { "type": "string", "default": "node_modules,vendor,dist,build", "description": "Folders to leave out, separated by commas" }
+    }
+  }
+}

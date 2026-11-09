@@ -1,6 +1,6 @@
 # Architecture
 
-Mayoi is a single Go package (`main`) with three internal packages, drawn by [MyGo](https://github.com/egoist/mygo).
+Mayoi is a single Go package (`main`) with its internal packages, drawn by [MyGo](https://github.com/egoist/mygo).
 Chroma highlights code on a background goroutine, libghostty-vt runs the terminal, and fsnotify keeps the file tree and
 the quick-open index current. Undo history, editing commands and decorations belong to the app rather than the text
 area, so every column showing a file shares its text and history. This page walks through the source by area.
@@ -230,6 +230,40 @@ said of the file written, so that the change the watcher then reports costs a st
 the host is not connected, the documents are read-only and a banner offers to reconnect; reconnecting reads the tree,
 the open files and the status again. Search in files asks `rg`, or else `grep`, on the host for the files that may
 match, then reads those and matches them here, as it does local files, so that both find the same.
+
+## Plugins
+
+**`internal/plugin`.** A plugin is a folder with a `plugin.json` and an entry module, in `~/.mayoi/plugins`, in the
+app as a bundled one (`plugins/`, embedded), or a user script of `~/.mayoi/scripts`. The `Registry` reads their
+manifests, which say what each adds without running it, and starts a plugin only as something it names happens: a
+command of its, a document of a language, a view. Each running plugin has a [moejs](https://github.com/MoeForge/moejs)
+runtime and an event loop of its own, on a goroutine of its own (`runtime.go`, the only file of the package that
+imports moejs). `prelude.js` builds the `mayoi` module over a few host functions, and the app calls the plugin through
+a dispatch function the prelude binds, with JSON both ways. A watchdog stops JavaScript that runs 10 s without a break,
+moejs's limit stops a plugin that keeps 256 MiB, and a plugin that stops three times in a row stays off until reloaded.
+Imports are its own files and "mayoi"; `eval` is off. The folders are watched, and a plugin whose files changed starts
+anew as it is next needed. `install.go` clones, updates and removes plugins with `git` and keeps where each came from in
+`plugins.json`; `sync.go` agrees that file with settings sync three ways, against the last it agreed on; `pack.go`
+copies the npm packages a plugin imports into `vendor/`; `cli.go` is `mayoi plugin`.
+
+**`plugins.go`, `pluginapi.go`.** The app's side is a `pluginHost`, which the registry calls as its `Host`. A call of a
+plugin runs on a goroutine and reaches the window in front on the main thread through `a.post`, so a plugin never
+holds up a frame, and the main thread never waits for a plugin. A document's text is read as a snapshot, and an edit
+names the version it was worked out from: one of a document changed since is refused. Plugin commands join
+`commandsIn`, so the menus, the palette, the keymap and `mayoi run` have them; a plugin's shortcut takes a key only
+where Mayoi's commands and keybindings.json leave it free. `pluginevents.go` compares the documents with the last frame
+to tell plugins of what opened, changed, saved and closed, and to start those whose activation names it.
+
+**`pluginui.go`, `pluginviews.go`, `plugintheme.go`, `pluginsnippets.go`.** What plugins show: status items,
+diagnostics as underlines (`editor.go`) and in Show Problems, formatters (`saveDoc` waits for one, 1.5 s at most),
+views as trees of nodes drawn with MyGo's widgets in the sidebar, previews in the viewer's place, webviews through
+`ui.WebView` with a bridge of messages, themes as palettes over Mayoi's (or VS Code themes mapped to them), languages
+through `highlight.LexerName`, and snippets. `prefsplugins.go` is the Plugins page of the settings window.
+
+**`internal/lsp`, `lsp.go`.** A language server a plugin declares starts for a folder as a document of its languages
+opens, through `vfs.Command`, so on an SSH host it runs there, and URIs are of the host's paths. The client speaks
+JSON-RPC over the server's standard input and output, sends whole texts as documents change, and takes diagnostics,
+hovers, definitions, completions and formatting.
 
 ## Theme
 

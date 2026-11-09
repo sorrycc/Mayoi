@@ -77,7 +77,7 @@ func TestParse(t *testing.T) {
 		{"settings", "list", "theme"}, {"settings", "get", "theme", "-n"}, {"settings", "--window", "p"},
 		{"-f", "x"}, {"settings", "-g", "a.go"}, {"settings", "unset"}, {"settings", "list", "a=b"},
 		{"settings", "--add", "a=b"}, {"--add", "a=b"}, {"settings", "set", "fontFeatures+="}, {"settings", "set", "+=x"},
-		{"settings", "set", "-=x"},
+		{"settings", "set", "-=x"}, {"settings", "--disable-plugins"},
 	} {
 		if _, err := Parse(args, cwd); err == nil {
 			t.Errorf("Parse(%q) took it", args)

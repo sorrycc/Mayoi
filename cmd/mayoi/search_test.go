@@ -43,6 +43,18 @@ func resultFiles(s *searchState) []string {
 	return out
 }
 
+func TestSearchSelectsQuery(t *testing.T) {
+	hs := newHarness(t, true)
+	hs.searchFor("main")
+	hs.a.run("edit.findInFiles")
+	hs.settle()
+	hs.tt.Type("func")
+	hs.settle()
+	if got := hs.a.inFiles.query; got != "func" {
+		t.Fatalf("query %q; want func", got)
+	}
+}
+
 func TestSearchInFiles(t *testing.T) {
 	hs := newHarness(t, true)
 	a, tt := hs.a, hs.tt

@@ -58,6 +58,12 @@ type frame struct {
 	merged, closing bool
 	// shown is the project the window built last.
 	shown *desktop
+	// hoverOn is the project whose square a tab of another has been
+	// dragged over since hoverSince, which shows once it rests there for
+	// railHoverSwitch; hoverWake is set while a frame is asked for then.
+	hoverOn    *desktop
+	hoverSince time.Time
+	hoverWake  bool
 }
 
 // newFrame opens a window that shows h.
@@ -191,7 +197,17 @@ func (f *frame) view(c *ui.Context) {
 	}
 	// Each project's elements are its own, as its tabs are numbered as
 	// another's are.
-	ui.Column(c.Key(fmt.Sprintf("project-%d", h.a.window.ID))).Fill().Children(func() { h.a.view(c) })
+	a := h.a
+	a.dragSeen = false
+	root := ui.Column(c.Key(fmt.Sprintf("project-%d", a.window.ID))).Fill()
+	// A tab carried in from another project shows where it would drop
+	// until the drag ends, as nothing here sees it any more.
+	_, over := a.dragOver(root)
+	root.Children(func() { a.view(c) })
+	if a.carried != nil && !over && !a.dragSeen {
+		a.carried = nil
+		a.invalidate()
+	}
 }
 
 // add puts h at the end of the rail, without showing it.
@@ -317,6 +333,87 @@ func (h *desktop) closeProjectThen(done func()) {
 }
 
 func (h *desktop) projectTabsChanged() { h.m.projectTabsChanged() }
+
+func (h *desktop) otherProjects() []*app {
+	var out []*app
+	for _, d := range h.f.tabs {
+		if d != h {
+			out = append(out, d.a)
+		}
+	}
+	return out
+}
+
+func (h *desktop) projectOf(t *colTab) *app {
+	if d := h.f.owner(t); d != nil && d != h {
+		return d.a
+	}
+	return nil
+}
+
+func (h *desktop) carryTab(t *colTab, to *app, copy bool) {
+	for _, d := range h.f.tabs {
+		if d.a == to {
+			h.f.carryTab(t, d, copy)
+		}
+	}
+}
+
+// owner is the project of the window that has the tab t, nil for none.
+func (f *frame) owner(t *colTab) *desktop {
+	for _, d := range f.tabs {
+		if col, _ := d.a.locate(t); col != nil {
+			return d
+		}
+	}
+	return nil
+}
+
+// carryTab shows the project to and opens the file of t there, after
+// the tab it shows, moving t from its own project, or copying it.
+func (f *frame) carryTab(t *colTab, to *desktop, copy bool) {
+	from := f.owner(t)
+	if from == nil || !carriable(t) {
+		return
+	}
+	f.activate(to)
+	if from == to {
+		return
+	}
+	// Once it has started, which a project not shown yet does as it is
+	// built.
+	a := to.a
+	a.post(func() {
+		col := a.fileColumn()
+		a.takeTab(from.a, t, col, col.active+1, copy)
+	})
+}
+
+// railHoverSwitch is how long a tab dragged over the square of another
+// project rests there before that project shows, to drop the tab in it.
+const railHoverSwitch = 500 * time.Millisecond
+
+// hoverTab shows the project h once a tab t of another has been dragged
+// over its square for railHoverSwitch. a is the project shown.
+func (f *frame) hoverTab(a *app, h *desktop, t *colTab) {
+	now := time.Now()
+	if f.hoverOn != h {
+		f.hoverOn, f.hoverSince = h, now
+	}
+	if wait := railHoverSwitch - now.Sub(f.hoverSince); wait > 0 {
+		if !f.hoverWake {
+			f.hoverWake = true
+			time.AfterFunc(wait, func() {
+				a.post(func() { f.hoverWake = false })
+				a.invalidate()
+			})
+		}
+		return
+	}
+	f.hoverOn = nil
+	h.a.carried = t
+	a.post(func() { f.activate(h) })
+}
 
 // dropProject takes h off its window's rail, keeping its session for
 // the next time its folder opens, and shows its neighbor.
@@ -463,7 +560,11 @@ func (f *frame) railDrop(e ui.Element, a *app, before *desktop) {
 		case railDrag:
 			a.post(func() { f.move(it.h, before) })
 		case dragItem:
-			if it.file != nil && isIconFile(it.file.path) {
+			switch {
+			case carriable(it.tab):
+				h, copy := before, a.copyDrop
+				a.post(func() { f.carryTab(it.tab, h, copy) })
+			case it.file != nil && isIconFile(it.file.path):
 				a.post(func() { f.setProjectIcon(a, dir, it.file.path) })
 			}
 		}
@@ -627,12 +728,21 @@ func (f *frame) railTab(c *ui.Context, a *app, h *desktop, i int, label string) 
 	f.railDrop(b, a, h)
 	// Another square, or a picture dragged from the sidebar or anything
 	// from another app, which may be one: it would show on this square.
-	over, pic := false, b.FileDragOver() && f.canSetIcon(dir)
+	// A tab of another project would open in this one, which shows as
+	// the drag rests here.
+	over, pic, carry := false, b.FileDragOver() && f.canSetIcon(dir), false
 	switch it, _ := ui.DragOver[railTake](b); it := it.(type) {
 	case railDrag:
 		over = true
 	case dragItem:
+		a.dragSeen = true
 		pic = pic || it.file != nil && isIconFile(it.file.path) && f.canSetIcon(dir)
+		if carry = carriable(it.tab) && f.owner(it.tab) != h; carry && !on {
+			f.hoverTab(a, h, it.tab)
+		}
+	}
+	if !carry && f.hoverOn == h {
+		f.hoverOn = nil
 	}
 	hovered, pressed, dragged := b.Hovered(), b.Pressed(), b.Dragging()
 	pill, fill := float32(0), float32(0.14)
@@ -645,7 +755,7 @@ func (f *frame) railTab(c *ui.Context, a *app, h *desktop, i int, label string) 
 	pill = b.Animate("pill", pill, 160*time.Millisecond)
 	fill = b.Animate("fill", fill, 120*time.Millisecond)
 	outline := b.Animate("ring", unit(on), 160*time.Millisecond)
-	drop := b.Animate("drop", unit(pic), 120*time.Millisecond)
+	drop := b.Animate("drop", unit(pic || carry), 120*time.Millisecond)
 	sink := b.Animate("sink", unit(pressed && !dragged), 80*time.Millisecond)
 	// The ring grows in and out as work starts and stops, following how
 	// far along the work says it is; the dot pops in, fades out in the

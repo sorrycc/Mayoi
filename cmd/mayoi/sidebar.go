@@ -28,12 +28,14 @@ func (a *app) sidebar(c *ui.Context) {
 		view = ""
 	}
 	scm, search := view == "git", view == "search"
+	pluginView := a.root != "" && a.pluginSidebarView() != ""
 	sb.Children(func() {
 		ui.Row(c).Height(34).Padding(0, 6, 0, 8).Gap(2).AlignItems(ui.Center).Children(func() {
 			if a.root != "" {
-				a.sidebarSwitch(c, iconFiles, a.withKey(locales.SidebarExplorer(), "view.explorer"), !scm && !search, 0, a.showExplorer)
+				a.sidebarSwitch(c, iconFiles, a.withKey(locales.SidebarExplorer(), "view.explorer"), !scm && !search && !pluginView, 0, a.showExplorer)
 				a.sidebarSwitch(c, iconSearch, a.withKey(locales.SidebarSearch(), "edit.findInFiles"), search, 0, func() { a.showSearch(false) })
 				a.sidebarSwitch(c, iconBranch, a.withKey(locales.SidebarScm(), "view.scm"), scm, a.changeCount(), a.showSourceControl)
+				a.pluginSwitches(c)
 			}
 			title, short, actions := locales.SidebarTitleExplorer(), "", 0
 			switch {
@@ -47,12 +49,15 @@ func (a *app) sidebar(c *ui.Context) {
 				if hovered {
 					actions = 3
 				}
+			case pluginView:
+				title = a.pluginSidebarTitle()
 			}
 			// The switches, the gaps, the paddings and the actions' buttons
 			// take the rest of the row.
 			room := a.window.SidebarWidth - 1 - 14 - 6 - float32(actions)*28
 			if a.root != "" {
-				room -= 3*26 + 2*3
+				n := float32(3 + len(pluginSlots()))
+				room -= n*26 + (n-1)*3
 			}
 			size, spacing := p.titleLook(11, titleSpacing)
 			title = fitTitle(c, p.title(title), p.title(short), room, size, spacing)
@@ -78,6 +83,10 @@ func (a *app) sidebar(c *ui.Context) {
 			}
 			if search {
 				a.searchView(c)
+				return
+			}
+			if pluginView {
+				a.pluginSidebar(c)
 				return
 			}
 			// The folder's row, with the explorer's actions while the pointer
@@ -327,6 +336,7 @@ func (a *app) fileTree(c *ui.Context) {
 		}
 		row.ContextMenu(func(m *ui.Menu) {
 			a.filesMenuBelow = false
+			a.pluginMenuItems(m, "explorer/context", path)
 			dir := path
 			if !isDir {
 				dir = filepath.Dir(path)

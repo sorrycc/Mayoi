@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Bundles Pele, which draws Mermaid diagrams, into cmd/mayoi/pele.js.gz:
-# one ES2017 script, which goja runs, that sets the global Pele, with
+# one ES2017 script, which moejs runs, that sets the global Pele, with
 # Pele's license at its top. Needs Node's npx.
 # Usage: scripts/pele.sh [version, 1.9.0 by default]
 set -euo pipefail

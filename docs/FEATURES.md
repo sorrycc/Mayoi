@@ -698,6 +698,8 @@ otherwise into `/usr/local/bin`, which asks for your password. On Windows, it in
   the file again and applies the change at once. A preference it has none of, a value of the wrong type, a number
   out of its range or a choice that isn't one of its options says what it takes instead, changes nothing, and exits
   with status 1.
+- `mayoi plugin <command>` installs, updates, removes, writes and packs plugins; see [PLUGINS.md](PLUGINS.md).
+- `mayoi --disable-plugins` turns off every plugin but those Mayoi comes with, until Mayoi starts again.
 - `mayoi --help` lists the options, and `mayoi --version` prints the version.
 
 A command acts on the window whose folder contains the directory it runs in, else the one in front; `--window
@@ -763,6 +765,27 @@ and own word wrap, and the folders open in the Explorer. Started without a folde
 open when it quit.
 A recent folder closed, by closing its window, **File → Close Folder** or opening another folder in its window, opens
 again with its tabs, columns and Explorer as they were. Closing the last window quits the app.
+
+## Plugins
+
+Plugins are folders of JavaScript or TypeScript in `~/.mayoi/plugins`, which Mayoi runs in its own engine, each
+apart, with no Node and no build step. They add commands, keyboard shortcuts and menu items, status bar items, views in
+the sidebar, previews beside the source, formatters, diagnostics, themes (VS Code's too), languages, snippets and
+language servers, and they work on SSH folders with nothing installed on the host. See [PLUGINS.md](PLUGINS.md).
+
+- `mayoi plugin install <git-url or owner/repo>` installs one, and **Plugins → Manage Plugins…** opens the Plugins page
+  of the settings window: install, update, remove, turn each on and off, and change its settings.
+- **Plugins → Show Plugin Log** and **Show Running Plugins** tell what plugins logged and what they use.
+- **Selection → Format Document** (⇧⌥F) formats with a plugin, and `formatOnSave` formats as you save.
+- A language server a plugin declares underlines problems, and answers **Go → Go to Definition** (F12),
+  **Go → Show Hover** and **Selection → Complete Word** (⌃Space).
+- **Show Problems** lists every problem plugins found; the status bar counts them.
+- **Selection → Insert Snippet…** inserts a snippet of a plugin's.
+- A `.ts` file in `~/.mayoi/scripts` makes each function it exports a command; **Plugins → Run Selection as Script**
+  runs the selection once.
+- Signed in, the plugins you install from Git follow you to your other machines.
+- Mayoi comes with **Word Count**, the words of a Markdown file in the status bar, and **TODOs**, the folder's TODO
+  comments in the sidebar.
 
 ## Settings
 

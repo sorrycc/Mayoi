@@ -132,17 +132,20 @@ func (h *fakeHost) syncInfo() syncInfo {
 	si.name = h.signedIn
 	return si
 }
-func (h *fakeHost) syncPicture() *ui.Bitmap { return nil }
-func (h *fakeHost) syncConflictResolved()   { h.resolved++ }
-func (h *fakeHost) ai() *mon.Client         { return h.aiClient }
-func (h *fakeHost) aiSignedOut()            { h.aiSignOuts++ }
-func (h *fakeHost) update() string          { return h.newVersion }
-func (h *fakeHost) installUpdate()          { h.updateOpens++ }
-func (h *fakeHost) stepProject(int)         {}
-func (h *fakeHost) showProject(int)         {}
-func (h *fakeHost) closeProject()           {}
-func (h *fakeHost) projectTabsChanged()     {}
-func (h *fakeHost) nativeDrags() bool       { return false }
+func (h *fakeHost) syncPicture() *ui.Bitmap      { return nil }
+func (h *fakeHost) syncConflictResolved()        { h.resolved++ }
+func (h *fakeHost) ai() *mon.Client              { return h.aiClient }
+func (h *fakeHost) aiSignedOut()                 { h.aiSignOuts++ }
+func (h *fakeHost) update() string               { return h.newVersion }
+func (h *fakeHost) installUpdate()               { h.updateOpens++ }
+func (h *fakeHost) stepProject(int)              {}
+func (h *fakeHost) showProject(int)              {}
+func (h *fakeHost) closeProject()                {}
+func (h *fakeHost) projectTabsChanged()          {}
+func (h *fakeHost) nativeDrags() bool            { return false }
+func (h *fakeHost) otherProjects() []*app        { return nil }
+func (h *fakeHost) projectOf(*colTab) *app       { return nil }
+func (h *fakeHost) carryTab(*colTab, *app, bool) {}
 
 // Off screen, the pull request of the branch is not asked of gh.
 func (h *fakeHost) shown() bool { return false }

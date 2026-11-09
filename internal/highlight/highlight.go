@@ -82,8 +82,19 @@ var vue = sync.OnceValue(func() chroma.Lexer {
 	return chroma.Coalesce(chroma.MustNewXMLLexer(vueXML, "vue.xml"))
 })
 
+// LexerName, when set, names the lexer of a file before Mayoi's own
+// choice, "" to leave it to that: the languages plugins declare.
+var LexerName func(path string) string
+
 // Lexer returns the lexer of a file by its name, nil for plain text.
 func Lexer(path string) chroma.Lexer {
+	if LexerName != nil {
+		if name := LexerName(path); name != "" {
+			if l := lexers.Get(name); l != nil {
+				return chroma.Coalesce(l)
+			}
+		}
+	}
 	name := filepath.Base(path)
 	// Names Chroma gets wrong, or does not know: go.mod is not AMPL, .sql
 	// is any SQL, not MySQL's, .vue needs the fixed lexer above, and

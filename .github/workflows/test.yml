@@ -4,12 +4,15 @@
 # of what it had before. Each system's tests are shared out over five
 # runners, which take a fifth of cmd/mayoi's tests and of the other
 # packages each (see scripts/test.sh), and the first of them go vet.
+# Changes only to Markdown, docs, the license or the website run nothing.
 name: Test
 
 on:
   push:
     branches: [main]
+    paths-ignore: ['**.md', docs/**, LICENSE, website/**, .github/workflows/website.yml]
   pull_request:
+    paths-ignore: ['**.md', docs/**, LICENSE, website/**, .github/workflows/website.yml]
 
 permissions:
   contents: read
@@ -23,6 +26,7 @@ jobs:
   lint:
     name: Lint
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-go@v6
@@ -38,6 +42,7 @@ jobs:
   linux:
     name: Linux (${{ matrix.os }}, ${{ matrix.shard }}/5)
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
@@ -127,6 +132,7 @@ jobs:
   native:
     name: ${{ matrix.name }} (${{ matrix.shard }}/5)
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:

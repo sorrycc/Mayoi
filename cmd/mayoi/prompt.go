@@ -19,6 +19,18 @@ type prompt struct {
 	selected    bool
 	// optional lets the value be empty.
 	optional bool
+	// cancel runs as the prompt closes without a value, when set.
+	cancel func()
+}
+
+// cancelPrompt closes the prompt without a value.
+func (a *app) cancelPrompt() {
+	if pr := a.prompt; pr != nil {
+		a.prompt = nil
+		if pr.cancel != nil {
+			pr.cancel()
+		}
+	}
 }
 
 func (a *app) promptView(c *ui.Context) {
@@ -66,7 +78,7 @@ func (a *app) promptView(c *ui.Context) {
 				}
 				ui.Row(c).Gap(8).Justify(ui.End).Children(func() {
 					if ui.Button(c, locales.ButtonCancel()).Clicked() {
-						a.prompt = nil
+						a.cancelPrompt()
 					}
 					if ui.PrimaryButton(c, strings.TrimSuffix(pr.title, "…")).Disabled(!pr.optional && strings.TrimSpace(pr.value) == "").Clicked() {
 						submit()
@@ -74,7 +86,7 @@ func (a *app) promptView(c *ui.Context) {
 				})
 			})
 			if box.PressedOutside() || back.OverlayShortcut(0, ui.KeyEscape) {
-				a.prompt = nil
+				a.cancelPrompt()
 			}
 		})
 	})

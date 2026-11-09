@@ -19,7 +19,7 @@ type themeChoice struct {
 	about func() string
 }
 
-var themeChoices = []themeChoice{
+var builtinThemes = []themeChoice{
 	{"", func() string { return "Mayoi" }, locales.ThemeAboutMayoi},
 	{themeMatrix, locales.CmdViewThemeMatrix, locales.ThemeAboutMatrix},
 	{themeClaude, func() string { return "Claude" }, locales.ThemeAboutClaude},
@@ -93,7 +93,7 @@ func (a *app) previewChoice(i int) {
 	if i < 0 || i >= len(tp.results) {
 		return
 	}
-	a.previewTheme(themeChoices[tp.results[i].Index].id, a.settings.Appearance)
+	a.previewTheme(allThemes()[tp.results[i].Index].id, a.settings.Appearance)
 }
 
 // switchAppearance moves the appearance by by along the box's switch.
@@ -117,8 +117,8 @@ func (a *app) themePickerView(c *ui.Context) {
 	p := a.pal
 	if tp.stale || tp.shown != tp.query {
 		q := strings.TrimSpace(tp.query)
-		names := make([]string, len(themeChoices))
-		for i, t := range themeChoices {
+		names := make([]string, len(allThemes()))
+		for i, t := range allThemes() {
 			names[i] = t.name()
 		}
 		tp.results = workspace.Fuzzy(names, q, len(names))
@@ -132,7 +132,7 @@ func (a *app) themePickerView(c *ui.Context) {
 		// then shows.
 		sel := -1
 		for i, m := range tp.results {
-			if themeChoices[m.Index].id == a.settings.Theme {
+			if allThemes()[m.Index].id == a.settings.Theme {
 				sel = i
 			}
 		}
@@ -257,7 +257,7 @@ func (a *app) themeRow(c *ui.Context, i int) {
 	tp := &a.themes
 	p := a.pal
 	m := tp.results[i]
-	t := themeChoices[m.Index]
+	t := allThemes()[m.Index]
 	row := ui.ButtonBase(c.Key("theme:"+t.id)).Padding(6, 8).Gap(12).Radius(8).Justify(ui.Start).AlignItems(ui.Center).
 		Label(t.name())
 	if i != tp.sel && row.Hovered() {

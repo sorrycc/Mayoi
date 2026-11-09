@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Bundles MathJax, which draws TeX math, into cmd/mayoi/mathjax.js.gz:
-# one ES2017 script, which goja runs, that sets the global MayoiMath, its
+# one ES2017 script, which moejs runs, that sets the global MayoiMath, its
 # render(tex, display) drawing a formula as SVG, its glyphs paths, with
 # MathJax's license at its top. Needs Node's npx.
 # Usage: scripts/mathjax.sh [version, 3.2.2 by default]

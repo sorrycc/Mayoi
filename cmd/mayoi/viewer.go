@@ -95,6 +95,8 @@ type viewer struct {
 	diagram *mermaidDiagram
 	style   mermaidStyle
 	drawing bool
+	// plugin is the preview a plugin renders, of a file it declares.
+	plugin *pluginPreview
 }
 
 // newImageViewer makes the viewer of an image file, which load reads.
@@ -471,6 +473,11 @@ func (a *app) viewerView(c *ui.Context, v *viewer, name string) {
 	switch {
 	case v.doc != nil && isMermaid(v.doc):
 		a.followMermaid(v)
+	case v.doc != nil && !isSVG(v.doc):
+		a.followPluginPreview(v)
+		if a.pluginPreviewView(c, v, name) {
+			return
+		}
 	case v.doc != nil:
 		a.followSVG(v)
 	}

@@ -1336,6 +1336,9 @@ const (
 
 // alwaysDark is whether a theme is dark whatever the Appearance is.
 func alwaysDark(theme string) bool {
+	if pluginThemeDark(theme) {
+		return true
+	}
 	switch theme {
 	case themeMatrix, themePurpleGold, themePumpkin, themeWitchsBrew, themeBloodMoon:
 		return true
@@ -1346,6 +1349,9 @@ func alwaysDark(theme string) bool {
 // paletteFor returns the palette of a theme of the settings, in a window
 // that is dark or not.
 func paletteFor(theme string, dark bool) *palette {
+	if p := pluginPalette(theme, dark); p != nil {
+		return p
+	}
 	switch {
 	case theme == themeMatrix:
 		return matrixPal

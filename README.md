@@ -7,6 +7,8 @@
 <p align="center">迷い — a small, fast code editor written in Go. It draws a native UI on the GPU with
 <a href="https://github.com/egoist/mygo">MyGo</a>, with no webview and no Electron, and the packaged app is about 18 MB.</p>
 
+<p align="center"><a href="https://usemayoi.com">usemayoi.com</a></p>
+
 https://github.com/user-attachments/assets/673e7907-2b2c-4ed6-9093-1ba9633cd61c
 
 ## Features
@@ -41,6 +43,8 @@ https://github.com/user-attachments/assets/673e7907-2b2c-4ed6-9093-1ba9633cd61c
   format, and a folder's own settings in `.mayoi/settings.json` (see [docs/SETTINGS.md](docs/SETTINGS.md))
 - **AI commit messages:** signed in, write the commit message from the changes with Mon's AI gateway
 - **Settings sync:** sign in with GitHub or Google, and your settings and keyboard shortcuts follow you between machines
+- **Plugins:** JavaScript or TypeScript with no build step, run in Mayoi's own engine: commands, views, previews,
+  formatters, diagnostics, themes, snippets and language servers, on SSH folders too (see [docs/PLUGINS.md](docs/PLUGINS.md))
 
 See [docs/FEATURES.md](docs/FEATURES.md) for the details, [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for a tour of the
 source and how fast it runs, and [CONTRIBUTING.md](CONTRIBUTING.md) to build, test and release Mayoi.

@@ -2,6 +2,8 @@ package plugin
 
 import (
 	"context"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -98,6 +100,18 @@ func TestSyncAgreesBothWays(t *testing.T) {
 	_, _, removed, _ := Sync(ctx, there, account)
 	if len(removed) != 1 || removed[0] != "alpha" {
 		t.Fatalf("removed there: %v", removed)
+	}
+}
+
+func TestFetchIndexNotFound(t *testing.T) {
+	srv := httptest.NewServer(http.NotFoundHandler())
+	defer srv.Close()
+	old := IndexURL
+	IndexURL = srv.URL
+	defer func() { IndexURL = old }()
+	entries, err := FetchIndex(context.Background(), nil)
+	if err != nil || len(entries) != 0 {
+		t.Fatalf("FetchIndex = %v, %v; want no entries and no error", entries, err)
 	}
 }
 

@@ -18,6 +18,7 @@ needs a `## <version>` section here, or its build fails.
 - The **Plugins** menu, and the **Plugins** page of the settings window, install, update, remove and configure plugins.
 - **Plugins → Show Plugin Log** and **Show Running Plugins** show what plugins logged and how much they use.
 - A plugin that loops or keeps too much memory is stopped, and `mayoi --disable-plugins` turns plugins off.
+- The **Plugins** page shows no error while the plugin index isn't published yet.
 - **Selection → Format Document** (⇧⌥F) formats with a plugin, and the `formatOnSave` setting formats as you save.
 - Plugins underline problems in the editor; the status bar counts them, and **Show Problems** lists them.
 - Plugins can bring language servers, for **Go to Definition** (F12), **Show Hover** and **Complete Word** (⌃Space).

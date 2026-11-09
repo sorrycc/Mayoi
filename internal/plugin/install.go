@@ -77,6 +77,10 @@ func FetchIndex(ctx context.Context, client *http.Client) ([]IndexEntry, error) 
 		return nil, err
 	}
 	defer resp.Body.Close()
+	// No index is published yet: there are no plugins to list.
+	if resp.StatusCode == http.StatusNotFound {
+		return nil, nil
+	}
 	if resp.StatusCode != 200 {
 		return nil, fmt.Errorf("the index answered %s", resp.Status)
 	}

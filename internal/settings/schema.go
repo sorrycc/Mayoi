@@ -90,6 +90,7 @@ var Schema = []Field{
 	{Key: "terminalBackend", Category: CatTerminal, Kind: KindEnum, Options: []string{"", "hc"}},
 	{Key: "terminalBackendHcPath", Category: CatTerminal, Kind: KindText},
 	{Key: "terminalBackendHcEnv", Category: CatTerminal, Kind: KindList},
+	{Key: "terminalBackendHcShowInHerdr", Category: CatTerminal, Kind: KindBool},
 
 	{Key: "diffLayout", Category: CatDiff, Kind: KindEnum, Options: []string{"", "split", "inline"}},
 	{Key: "diffHighlight", Category: CatDiff, Kind: KindEnum, Options: []string{"", "line", "char"}, Folder: true},

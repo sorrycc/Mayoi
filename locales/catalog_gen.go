@@ -14352,6 +14352,30 @@ func (msgs Messages) PrefDescTerminalBackendHcEnv() string {
 	return Catalog.Format(msgs.locale, "prefDescTerminalBackendHcEnv", nil)
 }
 
+// PrefTitleTerminalBackendHcShowInHerdr says "Show in Herdr"
+// in the language the app shows.
+func PrefTitleTerminalBackendHcShowInHerdr() string {
+	return In(i18n.Locale()).PrefTitleTerminalBackendHcShowInHerdr()
+}
+
+// PrefTitleTerminalBackendHcShowInHerdr says "Show in Herdr"
+// in the language of msgs.
+func (msgs Messages) PrefTitleTerminalBackendHcShowInHerdr() string {
+	return Catalog.Format(msgs.locale, "prefTitleTerminalBackendHcShowInHerdr", nil)
+}
+
+// PrefDescTerminalBackendHcShowInHerdr says "Show terminals of herdr-core in the Herdr app, in a space for each folder. Terminals of a remote folder stay out of it."
+// in the language the app shows.
+func PrefDescTerminalBackendHcShowInHerdr() string {
+	return In(i18n.Locale()).PrefDescTerminalBackendHcShowInHerdr()
+}
+
+// PrefDescTerminalBackendHcShowInHerdr says "Show terminals of herdr-core in the Herdr app, in a space for each folder. Terminals of a remote folder stay out of it."
+// in the language of msgs.
+func (msgs Messages) PrefDescTerminalBackendHcShowInHerdr() string {
+	return Catalog.Format(msgs.locale, "prefDescTerminalBackendHcShowInHerdr", nil)
+}
+
 // PrefTitleDiffLayout says "Diff Layout"
 // in the language the app shows.
 func PrefTitleDiffLayout() string { return In(i18n.Locale()).PrefTitleDiffLayout() }

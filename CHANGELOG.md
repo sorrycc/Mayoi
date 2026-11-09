@@ -3,6 +3,12 @@
 The update window shows the section of the version it offers. Every release
 needs a `## <version>` section here, or its build fails.
 
+## Unreleased
+
+- With `terminalBackend` `"hc"`, terminals show up in the Herdr app, in a space for each folder.
+- Terminals already running in herdr-core show up in Herdr too once Mayoi attaches them again.
+- Set `terminalBackendHcShowInHerdr` to `false` to keep new terminals out of the Herdr app.
+
 ## 0.19.1
 
 - **Word Count** and **TODOs** come with Mayoi but start off; turn them on in **Settings → Plugins**.

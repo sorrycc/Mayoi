@@ -9,7 +9,9 @@ name: Test
 on:
   push:
     branches: [main]
+    paths-ignore: [website/**, .github/workflows/website.yml]
   pull_request:
+    paths-ignore: [website/**, .github/workflows/website.yml]
 
 permissions:
   contents: read

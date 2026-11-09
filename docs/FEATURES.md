@@ -691,7 +691,9 @@ otherwise into `/usr/local/bin`, which asks for your password. On Windows, it in
   quoted when it has dots of its own, and may be told from the current folder or from `~`. An icon is chosen in the
   rail's menu rather than from here, and the icon a look has stays as the command changes it.
 - `mayoi settings --folder ...` acts on the current folder's own `.mayoi/settings.json`, of the preferences a folder
-  can choose, which it lists, and changes, as `mayoi settings --folder set autoSave=false`.
+  can choose, which it lists, and changes, as `mayoi settings --folder set autoSave=false`. In a subfolder of a project
+  it acts on the nearest file up from it, the one the project reads, and `get` prints `null` of a preference the file
+  doesn't choose.
 - The `settings` commands change the files themselves, so they work while Mayoi isn't running; a Mayoi running reads
   the file again and applies the change at once. A preference it has none of, a value of the wrong type, a number
   out of its range or a choice that isn't one of its options says what it takes instead, changes nothing, and exits

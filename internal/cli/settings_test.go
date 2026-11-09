@@ -236,6 +236,32 @@ func TestSettingsBadFile(t *testing.T) {
 	if got, _ := os.ReadFile(path); string(got) != "{oops" {
 		t.Errorf("the file is %s", got)
 	}
+	// A file of JSON that is no object says so, not what Go reads it into.
+	putFile(t, path, "[1]")
+	if _, err := (Settings{}).Do(path); err == nil || !strings.Contains(err.Error(), "no object of preferences") {
+		t.Errorf("list on a list: %v", err)
+	}
+}
+
+// --folder in a project's subfolder acts on the project's file, the one
+// the app reads, rather than making one of the subfolder's.
+func TestFolderFile(t *testing.T) {
+	dir := t.TempDir()
+	sub := filepath.Join(dir, "src", "pkg")
+	if err := os.MkdirAll(sub, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if got, want := folderFile(sub), filepath.Join(sub, ".mayoi", "settings.json"); got != want {
+		t.Errorf("with no file: %s, want %s", got, want)
+	}
+	path := filepath.Join(dir, ".mayoi", "settings.json")
+	putFile(t, path, "{}")
+	if got := folderFile(sub); got != path {
+		t.Errorf("in a subfolder: %s, want %s", got, path)
+	}
+	if got := folderFile(dir); got != path {
+		t.Errorf("in the folder: %s, want %s", got, path)
+	}
 }
 
 // A folder's file holds the preferences it chooses, of those a folder may
@@ -268,11 +294,12 @@ func TestSettingsFolder(t *testing.T) {
 	if !jsonEqual(got["autoSave"], false) || !jsonEqual(got["vim"], true) || !jsonEqual(got["mine"], "kept") {
 		t.Errorf("got %s", data)
 	}
-	// A preference the folder does not choose prints nothing.
+	// A preference the folder does not choose prints null, so each line
+	// is still its key's.
 	if out, err := (Settings{Folder: true, Verb: "get", Keys: []string{"nope", "vim"}}).Do(path); err == nil {
 		t.Errorf("get of a key Mayoi has none of: %q", out)
 	}
-	if out, err := (Settings{Folder: true, Verb: "get", Keys: []string{"wordWrap"}}).Do(path); err != nil || out != "" {
+	if out, err := (Settings{Folder: true, Verb: "get", Keys: []string{"wordWrap", "vim"}}).Do(path); err != nil || out != "null\ntrue\n" {
 		t.Errorf("get of one the folder does not choose: %q, %v", out, err)
 	}
 	if _, err := (Settings{Folder: true, Verb: "unset", Changes: []Change{{Op: OpUnset, Key: "vim"}}}).Do(path); err != nil {

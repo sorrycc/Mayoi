@@ -295,7 +295,8 @@ mayoi settings --folder set vim=true   # the current folder's own file
 - **A Mayoi running reads the file again** and applies the change at once, as it does one you save in an editor, so
   the window and every other window change with it.
 - **`--folder` (`-f`) acts on the current folder's own `.mayoi/settings.json`,** of the preferences a folder can
-  choose, which `mayoi settings --folder` lists, and `get` prints nothing of one it doesn't choose.
+  choose, which `mayoi settings --folder` lists, and `get` prints `null` of one it doesn't choose. In a subfolder of a
+  project it acts on the nearest `.mayoi/settings.json` up from it, the one the project reads.
 
 ### Folder settings
 

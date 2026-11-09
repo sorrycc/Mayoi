@@ -8,6 +8,7 @@ import (
 	"io"
 	"maps"
 	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 
@@ -20,7 +21,7 @@ import (
 func doSettings(c Client, req Request, stdout, stderr io.Writer) int {
 	path := c.SettingsPath
 	if req.Settings.Folder {
-		path = settings.FolderPath(req.Cwd)
+		path = folderFile(req.Cwd)
 	}
 	out, err := req.Settings.Do(path)
 	if err != nil {
@@ -29,6 +30,23 @@ func doSettings(c Client, req Request, stdout, stderr io.Writer) int {
 	}
 	fmt.Fprint(stdout, out)
 	return 0
+}
+
+// folderFile is the folder's own settings' file that a mayoi settings
+// --folder run in cwd acts on: that of the nearest folder up from cwd
+// that has one, as a project's subfolder is in the project, else cwd's.
+func folderFile(cwd string) string {
+	for dir := cwd; ; {
+		path := settings.FolderPath(dir)
+		if info, err := os.Stat(path); err == nil && !info.IsDir() {
+			return path
+		}
+		up := filepath.Dir(dir)
+		if up == dir {
+			return settings.FolderPath(cwd)
+		}
+		dir = up
+	}
 }
 
 // Do does what a mayoi settings asks with the preferences kept in the
@@ -449,6 +467,10 @@ func readPrefs(path string) (map[string]json.RawMessage, error) {
 		return values, nil
 	}
 	if err := json.Unmarshal(data, &values); err != nil {
+		var typ *json.UnmarshalTypeError
+		if errors.As(err, &typ) {
+			return nil, fmt.Errorf("%s does not parse: it holds no object of preferences", path)
+		}
 		return nil, fmt.Errorf("%s does not parse: %v", path, err)
 	}
 	if values == nil {
@@ -534,9 +556,9 @@ func listPrefs(values map[string]json.RawMessage, folder bool) string {
 	return b.String()
 }
 
-// getPrefs prints the value of each of keys as JSON, a line each, and
-// nothing for a preference a folder's file does not choose. A field of a
-// look on the rail prints that field, null for one the look has not.
+// getPrefs prints the value of each of keys as JSON, a line each, so that
+// the lines are the keys': null for a preference a folder's file does not
+// choose, and for a field of a look on the rail that the look has not.
 func getPrefs(values map[string]json.RawMessage, keys []string, folder bool) (string, error) {
 	targets := make([]prefTarget, len(keys))
 	// Every key is known before any is printed, so that a wrong one
@@ -552,6 +574,7 @@ func getPrefs(values map[string]json.RawMessage, keys []string, folder bool) (st
 	var b strings.Builder
 	for _, t := range targets {
 		if folder && !hasPref(values, t.key) {
+			b.WriteString("null\n")
 			continue
 		}
 		raw := p.Raw(t.key)

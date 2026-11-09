@@ -3,6 +3,13 @@
 The update window shows the section of the version it offers. Every release
 needs a `## <version>` section here, or its build fails.
 
+## Unreleased
+
+- Drag a file's tab onto a project in the rail to move it there; hold `Option` to copy it instead.
+- Rest a dragged tab on a project in the rail to switch to it, then drop the tab where you want it.
+- Unsaved changes come along when a tab moves to another project.
+- Right-click a tab and choose **Move to Project** to send it to another project.
+
 ## 0.18.2
 
 - On Windows, right-click menus no longer cut off the end of their labels, as in Chinese.

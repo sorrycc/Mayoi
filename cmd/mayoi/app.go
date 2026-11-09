@@ -117,6 +117,13 @@ type host interface {
 	showProject(i int)
 	closeProject()
 	projectTabsChanged()
+	// otherProjects are the other projects of the window's rail, which a
+	// tab moves to; projectOf is the one of them that has a tab, nil for
+	// none; carryTab moves a tab of this project to another, or copies
+	// it, and shows that project.
+	otherProjects() []*app
+	projectOf(t *colTab) *app
+	carryTab(t *colTab, to *app, copy bool)
 	// nativeDrags reports whether a drag can leave the app as a system
 	// drag other apps read. The headless test host has no system
 	// pasteboard, and says no, which keeps drags in-process value drags
@@ -314,6 +321,13 @@ type app struct {
 	builds int
 	// dragging is set while a tab is dragged, as the frame before found.
 	dragging, dragNow bool
+	// carried is a tab of another project dragged in over the rail, until
+	// the drag ends: the frame clears it once nothing here sees the drag,
+	// dragSeen, any more. copyDrop says Alt is held, which copies a tab
+	// dropped from another project rather than moves it.
+	carried  *colTab
+	dragSeen bool
+	copyDrop bool
 	// middle is the tab a middle press is on, until it is let go of: the
 	// press closes it rather than shows it.
 	middle *colTab

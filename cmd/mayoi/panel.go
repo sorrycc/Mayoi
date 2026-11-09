@@ -504,7 +504,7 @@ func (a *app) panel(c *ui.Context) {
 			a.post(func() { a.pastePaths(s, []string{it.file.path}) })
 		}
 	}
-	over, _ := ui.DragOver[dragItem](box)
+	over, _ := a.dragOver(box)
 	// A panel at a side, dragged narrow, leaves out its title so that
 	// its terminals and its tools keep their room.
 	width := box.Bounds().W

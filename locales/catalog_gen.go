@@ -7310,6 +7310,16 @@ func (msgs Messages) MoveToPrevColumn() string {
 	return Catalog.Format(msgs.locale, "moveToPrevColumn", nil)
 }
 
+// MoveToProject says "Move to Project"
+// in the language the app shows.
+func MoveToProject() string { return In(i18n.Locale()).MoveToProject() }
+
+// MoveToProject says "Move to Project"
+// in the language of msgs.
+func (msgs Messages) MoveToProject() string {
+	return Catalog.Format(msgs.locale, "moveToProject", nil)
+}
+
 // MoveToTrashQuestion says "Move {name} to {trash}?"
 // in the language the app shows.
 func MoveToTrashQuestion(name string, trash string) string {
@@ -12180,6 +12190,18 @@ func TabCloseOthers() string { return In(i18n.Locale()).TabCloseOthers() }
 // in the language of msgs.
 func (msgs Messages) TabCloseOthers() string {
 	return Catalog.Format(msgs.locale, "tabCloseOthers", nil)
+}
+
+// TabEditsStay says "{name} was open here already, so its unsaved changes stay in {project}."
+// in the language the app shows.
+func TabEditsStay(name string, project string) string {
+	return In(i18n.Locale()).TabEditsStay(name, project)
+}
+
+// TabEditsStay says "{name} was open here already, so its unsaved changes stay in {project}."
+// in the language of msgs.
+func (msgs Messages) TabEditsStay(name string, project string) string {
+	return Catalog.Format(msgs.locale, "tabEditsStay", map[string]any{"name": name, "project": project})
 }
 
 // TabTerminal says "Terminal"

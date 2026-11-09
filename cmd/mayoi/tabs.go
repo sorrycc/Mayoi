@@ -61,7 +61,7 @@ func (a *app) tabStrip(c *ui.Context, col *column) {
 		strip = strip.HandleInput(func(ev ui.InputEvent) bool { return a.tabWheel(col, ev) })
 		// Past the last tab: there.
 		drop(strip, nil)
-		_, atEnd := ui.DragOver[dragItem](strip)
+		_, atEnd := a.dragOver(strip)
 		atEnd = atEnd || strip.FileDragOver()
 		strip.Children(func() {
 			ui.Row(c).Height(tabStripH).AlignItems(ui.Stretch).Children(func() {
@@ -83,7 +83,7 @@ func (a *app) tabStrip(c *ui.Context, col *column) {
 						a.dragNow = true
 					}
 					drop(tab, t)
-					_, over := ui.DragOver[dragItem](tab)
+					_, over := a.dragOver(tab)
 					over = over || tab.FileDragOver()
 					hovered := tab.Hovered()
 					under := p.strip
@@ -302,6 +302,7 @@ func (a *app) tabMenu(m *ui.Menu, col *column, t *colTab, closing **colTab) {
 	if m.Item(locales.MoveToPrevColumn()).Disabled(alone && at == 0).Chosen() {
 		show(func() { a.moveTabBy(-1) })
 	}
+	a.moveToProjectMenu(m, t)
 	if t.term != nil {
 		if m.Item(locales.TermMoveLockedRight()).Chosen() {
 			a.post(func() { a.terminalToLockedRight(t.term) })

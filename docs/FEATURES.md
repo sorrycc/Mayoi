@@ -676,6 +676,28 @@ otherwise into `/usr/local/bin`, which asks for your password. On Windows, it in
   argument one doesn't take, runs none of them.
 - `mayoi commands` lists the commands, a line for each, with its identifier, name, shortcut and argument, apart by
   tabs.
+- `mayoi settings` lists every preference of `settings.json`, a line for each, with its key, a tab, and its value as
+  JSON.
+- `mayoi settings get <key>...` prints the values of preferences, a line each.
+- `mayoi settings set <key>=<value>...` changes them, as `mayoi settings set fontSize=16 theme=claude vim=true`: a
+  value is JSON when it is JSON, and any other text is the text itself, so quotes are only for a text that is JSON
+  too, as `theme=""`.
+- `mayoi settings unset <key>...` gives them their value of a first launch again.
+- `mayoi settings set <key>+=<item>` adds an item to a list, as `mayoi settings set 'fontFeatures+=calt=0'`, and
+  `<key>-=<item>` takes one away, rather than a list being written out whole. The last item taken away leaves no list,
+  and an item a list has already is no item more of it.
+- `mayoi settings set projectTabStyle.'<folder>'.label=MG` changes one field of a project's look on the rail, and
+  `.<folder>` alone the whole look; a field is `label` or `color`, and leaving it empty takes it away. The folder
+  needs no quotes, though it may have dots of its own, and may be told from the current folder or from `~`. An icon is chosen in the
+  rail's menu rather than from here, and the icon a look has stays as the command changes it.
+- `mayoi settings --folder ...` acts on the current folder's own `.mayoi/settings.json`, of the preferences a folder
+  can choose, which it lists, and changes, as `mayoi settings --folder set autoSave=false`. In a subfolder of a project
+  it acts on the nearest file up from it, the one the project reads, and `get` prints `null` of a preference the file
+  doesn't choose.
+- The `settings` commands change the files themselves, so they work while Mayoi isn't running; a Mayoi running reads
+  the file again and applies the change at once. A preference it has none of, a value of the wrong type, a number
+  out of its range or a choice that isn't one of its options says what it takes instead, changes nothing, and exits
+  with status 1.
 - `mayoi plugin <command>` installs, updates, removes, writes and packs plugins; see [PLUGINS.md](PLUGINS.md).
 - `mayoi --disable-plugins` turns off every plugin but those Mayoi comes with, until Mayoi starts again.
 - `mayoi --help` lists the options, and `mayoi --version` prints the version.

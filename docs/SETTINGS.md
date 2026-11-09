@@ -289,6 +289,43 @@ differ in width lines them up only roughly.
 - **Older files still work.** Themes used to be appearances, so Mayoi reads `"appearance": "matrix"` or `"claude"`
   as that `theme`.
 
+### From the command line
+
+The `mayoi` command reads and changes the preferences itself, while Mayoi runs or not, as the [`mayoi`
+command](FEATURES.md#the-mayoi-command) of the app does:
+
+```sh
+mayoi settings                         # every preference, its key and its value
+mayoi settings get theme fontSize      # a value a line
+mayoi settings set theme=claude fontSize=16
+mayoi settings unset theme             # its value of a first launch again
+mayoi settings set fontFeatures+=ss01  # one item more of a list
+mayoi settings set 'aiSecretFiles-=*.pem'
+mayoi settings set projectTabStyle.'<folder>'.label=MG
+mayoi settings --folder set vim=true   # the current folder's own file
+```
+
+- **A value is JSON when it is JSON,** so `16`, `true` and `["calt=0"]` give a number, a switch and a list, and any
+  other text is the text itself, as `theme=claude` and `fontFamily=Fira Code`, `""` being the empty one.
+- **A list changes an item at a time with `+=` and `-=`,** so a long list needs no writing out: `fontFeatures+=calt=0`
+  appends one that isn't there already, and `fontFeatures-=calt=0` takes one away, the last leaving no list.
+- **A project's look on the rail is told a field at a time,** as `projectTabStyle.'<folder>'.label=MG`, or `.<folder>`
+  for the whole of it, `{"label": "MG", "color": "cyan"}`. A field is `label` of up to two characters as you see
+  them, or `color` of `red`, `green`, `yellow`, `blue`, `magenta` or `cyan`; a field left empty takes it away, and a
+  look left with no field is the project's own. A folder with dots of its own needs no quotes, as
+  `projectTabStyle.~/src/my.app.label`, and one told from the current folder or from `~` is the folder whole. An icon is no field here: it names a
+  picture the app copied into its own folder, which the rail's menu chooses, so a look the command changes keeps the
+  icon it has.
+- **A value Mayoi has none of changes nothing,** and says what the preference takes instead: an unknown key, a value
+  of the wrong type, a number out of its range or a choice that isn't one of its options exits with status 1.
+- **Only the preference you change is written,** the others stay as the file has them, a key a line in the order of
+  their names, and the folder is made when the file is new.
+- **A Mayoi running reads the file again** and applies the change at once, as it does one you save in an editor, so
+  the window and every other window change with it.
+- **`--folder` (`-f`) acts on the current folder's own `.mayoi/settings.json`,** of the preferences a folder can
+  choose, which `mayoi settings --folder` lists, and `get` prints `null` of one it doesn't choose. In a subfolder of a
+  project it acts on the nearest `.mayoi/settings.json` up from it, the one the project reads.
+
 ### Folder settings
 
 A folder can choose some preferences for itself in `.mayoi/settings.json`, which overrides yours in that folder's

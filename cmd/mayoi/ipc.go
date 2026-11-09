@@ -33,7 +33,7 @@ func commandLineClient() {
 	if err != nil {
 		return
 	}
-	c := cli.Client{Socket: cli.SocketPath(dir), Version: appVersion(), Start: startApp, Inline: runtime.GOOS == "linux"}
+	c := cli.Client{Socket: cli.SocketPath(dir), SettingsPath: settingsPath(), Version: appVersion(), Start: startApp, Inline: runtime.GOOS == "linux"}
 	status, handled := c.Run(os.Args[1:], workingDir(), os.Stdout, os.Stderr)
 	if handled {
 		os.Exit(status)

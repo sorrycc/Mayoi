@@ -3,6 +3,11 @@
 The update window shows the section of the version it offers. Every release
 needs a `## <version>` section here, or its build fails.
 
+## Unreleased
+
+- `mayoi settings` reads and changes preferences, with Mayoi running or not.
+- `mayoi settings --folder` in a project's subfolder changes the project's `.mayoi/settings.json`.
+
 ## 0.19.2
 
 - With `terminalBackend` `"hc"`, terminals show up in the Herdr app, in a space for each folder.

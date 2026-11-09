@@ -1074,7 +1074,7 @@ func (f *frame) setTabStyle(dir string, edit func(st *settings.TabStyle)) {
 func (f *frame) askRailLabel(a *app, dir, name string) {
 	a.prompt = &prompt{title: locales.RailRename(), hint: locales.RailRenameHint(name), value: f.m.s.ProjectTabStyle[dir].Label, done: func(v string) string {
 		v = strings.TrimSpace(v)
-		if len(labelChars(v)) > 2 {
+		if settings.LabelTooLong(v) {
 			return locales.RailRenameTooLong()
 		}
 		f.setTabStyle(dir, func(st *settings.TabStyle) {
@@ -1090,39 +1090,7 @@ func (f *frame) askRailLabel(a *app, dir, name string) {
 
 // railLabel is a project's own label as the rail shows it: its first two
 // characters, "" for none.
-func railLabel(s string) string {
-	cs := labelChars(strings.TrimSpace(s))
-	return strings.Join(cs[:min(len(cs), 2)], "")
-}
-
-// labelChars splits s into the characters a person sees: a letter with
-// its accents, an emoji with its modifiers and those it joins, a flag of
-// its two letters.
-func labelChars(s string) []string {
-	var out []string
-	var prev rune
-	start, flag := 0, false
-	for i, r := range s {
-		joined := i > 0 && (unicode.Is(unicode.Mn, r) || unicode.Is(unicode.Me, r) ||
-			r == 0x200d || prev == 0x200d || r == 0xfe0f || r == 0xfe0e ||
-			r >= 0x1f3fb && r <= 0x1f3ff || r >= 0xe0020 && r <= 0xe007f)
-		regional := r >= 0x1f1e6 && r <= 0x1f1ff
-		if regional && flag {
-			joined, flag = true, false
-		} else {
-			flag = regional
-		}
-		if i > 0 && !joined {
-			out = append(out, s[start:i])
-			start = i
-		}
-		prev = r
-	}
-	if start < len(s) {
-		out = append(out, s[start:])
-	}
-	return out
-}
+func railLabel(s string) string { return settings.RailLabel(s) }
 
 // railLabels are the labels of the projects named names on the rail, in
 // their order: the initials of a name of words, the first two letters of

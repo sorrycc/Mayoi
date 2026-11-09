@@ -15,7 +15,9 @@ wrong, and with `--wait` it comes once the files are closed. With no app running
 it asked once the app answers; folders and files alone go to the app as it starts, as the Finder's do. The Finder hands
 the app folders and files to open, and a second Mayoi started with paths passes them on and exits. Each folder goes to
 the window that already has it, or to a new one. A file goes to the window whose folder contains it, and a command to
-the project whose folder contains the directory it ran in.
+the project whose folder contains the directory it ran in. `mayoi settings` is the command's own work instead: it
+reads and writes the preferences' file, or a folder's own, and a running app reads it again as it does one a person
+saves, so that it works while the app isn't running.
 
 **`projects.go`.** A `frame` is a native window, and a `desktop` a project in it, with its own `app`. A window
 holds one project, or with project tabs every one, which a rail on its left chooses among. Only the project shown is

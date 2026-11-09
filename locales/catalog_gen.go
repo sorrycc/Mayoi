@@ -15746,6 +15746,246 @@ func (msgs Messages) PluginsUseShortcut() string {
 	return Catalog.Format(msgs.locale, "pluginsUseShortcut", nil)
 }
 
+// PluginLogOf says "Plugin Log: {name}"
+// in the language the app shows.
+func PluginLogOf(name string) string { return In(i18n.Locale()).PluginLogOf(name) }
+
+// PluginLogOf says "Plugin Log: {name}"
+// in the language of msgs.
+func (msgs Messages) PluginLogOf(name string) string {
+	return Catalog.Format(msgs.locale, "pluginLogOf", map[string]any{"name": name})
+}
+
+// PluginsDetails says "Details of {name}"
+// in the language the app shows.
+func PluginsDetails(name string) string { return In(i18n.Locale()).PluginsDetails(name) }
+
+// PluginsDetails says "Details of {name}"
+// in the language of msgs.
+func (msgs Messages) PluginsDetails(name string) string {
+	return Catalog.Format(msgs.locale, "pluginsDetails", map[string]any{"name": name})
+}
+
+// PluginsBack says "Back to Plugins"
+// in the language the app shows.
+func PluginsBack() string { return In(i18n.Locale()).PluginsBack() }
+
+// PluginsBack says "Back to Plugins"
+// in the language of msgs.
+func (msgs Messages) PluginsBack() string {
+	return Catalog.Format(msgs.locale, "pluginsBack", nil)
+}
+
+// PluginsHealth says "Health"
+// in the language the app shows.
+func PluginsHealth() string { return In(i18n.Locale()).PluginsHealth() }
+
+// PluginsHealth says "Health"
+// in the language of msgs.
+func (msgs Messages) PluginsHealth() string {
+	return Catalog.Format(msgs.locale, "pluginsHealth", nil)
+}
+
+// PluginsMemory says "Memory"
+// in the language the app shows.
+func PluginsMemory() string { return In(i18n.Locale()).PluginsMemory() }
+
+// PluginsMemory says "Memory"
+// in the language of msgs.
+func (msgs Messages) PluginsMemory() string {
+	return Catalog.Format(msgs.locale, "pluginsMemory", nil)
+}
+
+// PluginsCPU says "CPU time"
+// in the language the app shows.
+func PluginsCPU() string { return In(i18n.Locale()).PluginsCPU() }
+
+// PluginsCPU says "CPU time"
+// in the language of msgs.
+func (msgs Messages) PluginsCPU() string {
+	return Catalog.Format(msgs.locale, "pluginsCPU", nil)
+}
+
+// PluginsStartedIn says "Started in"
+// in the language the app shows.
+func PluginsStartedIn() string { return In(i18n.Locale()).PluginsStartedIn() }
+
+// PluginsStartedIn says "Started in"
+// in the language of msgs.
+func (msgs Messages) PluginsStartedIn() string {
+	return Catalog.Format(msgs.locale, "pluginsStartedIn", nil)
+}
+
+// PluginsCrashes says "Crashes"
+// in the language the app shows.
+func PluginsCrashes() string { return In(i18n.Locale()).PluginsCrashes() }
+
+// PluginsCrashes says "Crashes"
+// in the language of msgs.
+func (msgs Messages) PluginsCrashes() string {
+	return Catalog.Format(msgs.locale, "pluginsCrashes", nil)
+}
+
+// PluginsContributes says "Adds to Mayoi"
+// in the language the app shows.
+func PluginsContributes() string { return In(i18n.Locale()).PluginsContributes() }
+
+// PluginsContributes says "Adds to Mayoi"
+// in the language of msgs.
+func (msgs Messages) PluginsContributes() string {
+	return Catalog.Format(msgs.locale, "pluginsContributes", nil)
+}
+
+// PluginsContributesNone says "This plugin adds nothing Mayoi can list."
+// in the language the app shows.
+func PluginsContributesNone() string { return In(i18n.Locale()).PluginsContributesNone() }
+
+// PluginsContributesNone says "This plugin adds nothing Mayoi can list."
+// in the language of msgs.
+func (msgs Messages) PluginsContributesNone() string {
+	return Catalog.Format(msgs.locale, "pluginsContributesNone", nil)
+}
+
+// PluginsCommands says "Commands"
+// in the language the app shows.
+func PluginsCommands() string { return In(i18n.Locale()).PluginsCommands() }
+
+// PluginsCommands says "Commands"
+// in the language of msgs.
+func (msgs Messages) PluginsCommands() string {
+	return Catalog.Format(msgs.locale, "pluginsCommands", nil)
+}
+
+// PluginsMenus says "Menus"
+// in the language the app shows.
+func PluginsMenus() string { return In(i18n.Locale()).PluginsMenus() }
+
+// PluginsMenus says "Menus"
+// in the language of msgs.
+func (msgs Messages) PluginsMenus() string {
+	return Catalog.Format(msgs.locale, "pluginsMenus", nil)
+}
+
+// PluginsStatusItems says "Status bar items"
+// in the language the app shows.
+func PluginsStatusItems() string { return In(i18n.Locale()).PluginsStatusItems() }
+
+// PluginsStatusItems says "Status bar items"
+// in the language of msgs.
+func (msgs Messages) PluginsStatusItems() string {
+	return Catalog.Format(msgs.locale, "pluginsStatusItems", nil)
+}
+
+// PluginsViews says "Views"
+// in the language the app shows.
+func PluginsViews() string { return In(i18n.Locale()).PluginsViews() }
+
+// PluginsViews says "Views"
+// in the language of msgs.
+func (msgs Messages) PluginsViews() string {
+	return Catalog.Format(msgs.locale, "pluginsViews", nil)
+}
+
+// PluginsThemes says "Themes"
+// in the language the app shows.
+func PluginsThemes() string { return In(i18n.Locale()).PluginsThemes() }
+
+// PluginsThemes says "Themes"
+// in the language of msgs.
+func (msgs Messages) PluginsThemes() string {
+	return Catalog.Format(msgs.locale, "pluginsThemes", nil)
+}
+
+// PluginsLanguages says "Languages"
+// in the language the app shows.
+func PluginsLanguages() string { return In(i18n.Locale()).PluginsLanguages() }
+
+// PluginsLanguages says "Languages"
+// in the language of msgs.
+func (msgs Messages) PluginsLanguages() string {
+	return Catalog.Format(msgs.locale, "pluginsLanguages", nil)
+}
+
+// PluginsEveryLanguage says "Every language"
+// in the language the app shows.
+func PluginsEveryLanguage() string { return In(i18n.Locale()).PluginsEveryLanguage() }
+
+// PluginsEveryLanguage says "Every language"
+// in the language of msgs.
+func (msgs Messages) PluginsEveryLanguage() string {
+	return Catalog.Format(msgs.locale, "pluginsEveryLanguage", nil)
+}
+
+// PluginsSnippets says "Snippets"
+// in the language the app shows.
+func PluginsSnippets() string { return In(i18n.Locale()).PluginsSnippets() }
+
+// PluginsSnippets says "Snippets"
+// in the language of msgs.
+func (msgs Messages) PluginsSnippets() string {
+	return Catalog.Format(msgs.locale, "pluginsSnippets", nil)
+}
+
+// PluginsFormatters says "Formatters"
+// in the language the app shows.
+func PluginsFormatters() string { return In(i18n.Locale()).PluginsFormatters() }
+
+// PluginsFormatters says "Formatters"
+// in the language of msgs.
+func (msgs Messages) PluginsFormatters() string {
+	return Catalog.Format(msgs.locale, "pluginsFormatters", nil)
+}
+
+// PluginsLanguageServers says "Language servers"
+// in the language the app shows.
+func PluginsLanguageServers() string { return In(i18n.Locale()).PluginsLanguageServers() }
+
+// PluginsLanguageServers says "Language servers"
+// in the language of msgs.
+func (msgs Messages) PluginsLanguageServers() string {
+	return Catalog.Format(msgs.locale, "pluginsLanguageServers", nil)
+}
+
+// PluginsSettings says "Settings"
+// in the language the app shows.
+func PluginsSettings() string { return In(i18n.Locale()).PluginsSettings() }
+
+// PluginsSettings says "Settings"
+// in the language of msgs.
+func (msgs Messages) PluginsSettings() string {
+	return Catalog.Format(msgs.locale, "pluginsSettings", nil)
+}
+
+// PluginsLog says "Recent log"
+// in the language the app shows.
+func PluginsLog() string { return In(i18n.Locale()).PluginsLog() }
+
+// PluginsLog says "Recent log"
+// in the language of msgs.
+func (msgs Messages) PluginsLog() string {
+	return Catalog.Format(msgs.locale, "pluginsLog", nil)
+}
+
+// PluginsLogOpen says "Open Full Log"
+// in the language the app shows.
+func PluginsLogOpen() string { return In(i18n.Locale()).PluginsLogOpen() }
+
+// PluginsLogOpen says "Open Full Log"
+// in the language of msgs.
+func (msgs Messages) PluginsLogOpen() string {
+	return Catalog.Format(msgs.locale, "pluginsLogOpen", nil)
+}
+
+// PluginsLogNone says "Nothing logged yet."
+// in the language the app shows.
+func PluginsLogNone() string { return In(i18n.Locale()).PluginsLogNone() }
+
+// PluginsLogNone says "Nothing logged yet."
+// in the language of msgs.
+func (msgs Messages) PluginsLogNone() string {
+	return Catalog.Format(msgs.locale, "pluginsLogNone", nil)
+}
+
 // PrefsEditInJSON says "Edit in settings.json"
 // in the language the app shows.
 func PrefsEditInJSON() string { return In(i18n.Locale()).PrefsEditInJSON() }

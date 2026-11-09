@@ -37,6 +37,9 @@ type pluginHost struct {
 	onMain func(func())
 	prefs  func() *settings.Settings
 	menu   func()
+	// prefsWin draws the settings window anew, whose Plugins page shows
+	// how the plugins do; nil in the tests that have none.
+	prefsWin func()
 
 	// prefsSnap and folderSnap are the settings and the folder of the
 	// window in front as the main thread last saw them, for the plugins'
@@ -96,6 +99,7 @@ func (m *mayoi) startPlugins(safe bool) {
 			m.refreshMenu()
 		},
 	)
+	h.prefsWin = m.prefsChanged
 	dirs := plugin.UserDirs()
 	dirs.Bundled = bundled.FS
 	h.reg = plugin.New(dirs, h)
@@ -235,6 +239,7 @@ func (h *pluginHost) Changed() {
 			a.invalidate()
 		}
 		h.menu()
+		h.redrawPrefs()
 	})
 	h.recordsChanged()
 }
@@ -248,7 +253,18 @@ func (h *pluginHost) Logged(p *plugin.Plugin, line plugin.LogLine) {
 	}
 	h.mu.Unlock()
 	if line.Level == "error" {
-		h.onMain(h.redraw)
+		h.onMain(func() {
+			h.redraw()
+			h.redrawPrefs()
+		})
+	}
+}
+
+// redrawPrefs draws the settings window anew, if it is open; on the main
+// thread.
+func (h *pluginHost) redrawPrefs() {
+	if h.prefsWin != nil {
+		h.prefsWin()
 	}
 }
 
@@ -590,21 +606,37 @@ func truncate(s string, n int) string {
 }
 
 // showPluginLog opens the log of every plugin in a tab.
-func (a *app) showPluginLog() {
+func (a *app) showPluginLog() { a.showPluginLogOf(nil) }
+
+// showPluginLogOf opens the log of the plugin p in a tab, of every plugin
+// for nil.
+func (a *app) showPluginLogOf(p *plugin.Plugin) {
 	if plugins == nil {
 		return
 	}
 	plugins.mu.Lock()
 	lines := slices.Clone(plugins.logs)
 	plugins.mu.Unlock()
+	title := locales.PluginLogTitle()
+	if p != nil {
+		title = locales.PluginLogOf(p.Title())
+	}
 	var b strings.Builder
 	for _, l := range lines {
-		fmt.Fprintf(&b, "%s [%s] %s: %s\n", l.Time.Format("15:04:05.000"), l.Level, l.Plugin, l.Message)
+		if p == nil {
+			fmt.Fprintf(&b, "%s [%s] %s: %s\n", l.Time.Format("15:04:05.000"), l.Level, l.Plugin, l.Message)
+		} else if l.Plugin == p.Name {
+			fmt.Fprintf(&b, "%s [%s] %s\n", l.Time.Format("15:04:05.000"), l.Level, l.Message)
+		}
 	}
-	if b.Len() == 0 {
+	switch {
+	case b.Len() > 0:
+	case p != nil:
+		b.WriteString(locales.PluginsLogNone() + "\n")
+	default:
 		b.WriteString(locales.PluginLogEmpty() + "\n")
 	}
-	a.openGenerated(locales.PluginLogTitle(), b.String())
+	a.openGenerated(title, b.String())
 }
 
 // showRunningPlugins opens a report of the plugins: whether each runs,

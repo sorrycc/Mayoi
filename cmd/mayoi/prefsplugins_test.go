@@ -2,7 +2,10 @@ package main
 
 import (
 	"os"
+	"strings"
 	"testing"
+
+	"github.com/egoist/mygo/ui"
 
 	"mayoi/internal/plugin"
 	"mayoi/internal/settings"
@@ -14,10 +17,17 @@ const prettierManifest = `{
   "name": "prettier", "displayName": "Prettier", "version": "3.1.0", "author": "Mayoi Editor",
   "description": "Formats JavaScript, TypeScript, CSS and Markdown with Prettier",
   "main": "main.ts",
-  "contributes": {"settings": {
-    "printWidth": {"type": "number", "default": 100, "description": "The line length to wrap at"},
-    "semi": {"type": "boolean", "default": true, "description": "Semicolons at the ends of statements"}
-  }}
+  "contributes": {
+    "commands": [{"id": "prettier.format", "title": "Format with Prettier"}, {"id": "prettier.check", "title": "Check Formatting"}],
+    "keybindings": [{"key": "ctrl+alt+shift+p", "command": "prettier.format"}],
+    "menus": {"editor/context": [{"command": "prettier.format"}]},
+    "statusItems": [{"id": "prettier.status", "align": "left"}],
+    "formatters": [{"id": "prettier.code", "title": "Prettier", "languages": ["javascript", "typescript", "css", "markdown"]}],
+    "settings": {
+      "printWidth": {"type": "number", "default": 100, "description": "The line length to wrap at"},
+      "semi": {"type": "boolean", "default": true, "description": "Semicolons at the ends of statements"}
+    }
+  }
 }`
 
 // withPluginsPage opens the Plugins page of the settings window over
@@ -106,6 +116,91 @@ func TestPluginsPage(t *testing.T) {
 	}
 }
 
+// A row opens the details of its plugin, which list what it adds once,
+// read how it does only while they show, and go back to the list where
+// it was with Esc.
+func TestPluginDetail(t *testing.T) {
+	ph, h := withPluginsPage(t)
+	pg := &ph.w.plugins
+	redrawn := 0
+	h.prefsWin = func() { redrawn++ }
+
+	if err := ph.pt.Click(locales.PluginsRemove()); err != nil {
+		t.Fatal(err)
+	}
+	ph.frames()
+	if pg.detail != "" {
+		t.Fatalf("Remove opened the details of %s", pg.detail)
+	}
+	pg.confirm = ""
+	ph.pt.SetSize(940, 520)
+	ph.frames()
+	pg.listScroll.Y = 160
+	ph.frames()
+	scrolled := pg.listScroll.Y
+	if scrolled == 0 {
+		t.Fatal("the list does not scroll")
+	}
+
+	if err := ph.pt.Click("Rainbow Brackets"); err != nil {
+		t.Fatal(err)
+	}
+	ph.frames()
+	if pg.detail != "rainbow" || !ph.pt.HasText(locales.PluginsBack()) {
+		t.Fatalf("the row opened no details: %q", pg.detail)
+	}
+	ph.pt.Key(0, ui.KeyEscape)
+	ph.frames()
+	if pg.detail != "" {
+		t.Fatal("Esc left the details")
+	}
+	if pg.listScroll.Y != scrolled {
+		t.Errorf("the list came back scrolled to %v, not %v", pg.listScroll.Y, scrolled)
+	}
+
+	ph.w.openDetail("prettier")
+	ph.frames()
+	for _, want := range []string{strings.ToUpper(locales.PluginsHealth()), locales.PluginsMemory(), locales.PluginsCommands(), "Format with Prettier",
+		"prettier.check", locales.PluginsMenus(), "editor/context", locales.PluginsStatusItems(), locales.PluginsFormatters(),
+		"javascript, typescript, css, markdown", "printWidth", locales.PluginsLogOpen()} {
+		if !ph.pt.HasText(want) {
+			t.Errorf("the details show no %q", want)
+		}
+	}
+	for _, none := range []string{locales.PluginsThemes(), locales.PluginsLanguageServers(), locales.PluginsSnippets()} {
+		if ph.pt.HasText(none) {
+			t.Errorf("the details show the empty group %q", none)
+		}
+	}
+	d := &pg.info
+	groups, at := &d.groups[0], d.at
+	ph.frames()
+	if &d.groups[0] != groups {
+		t.Error("what the plugin adds was worked out anew without a change")
+	}
+	if d.at != at {
+		t.Error("the health was read again before its time")
+	}
+
+	pl := h.reg.Plugin("prettier")
+	pl.Log("error", "could not find prettier")
+	ph.settle()
+	ph.pt.Advance(pluginHealthEvery)
+	ph.frames()
+	if !ph.pt.HasText("could not find prettier") {
+		t.Errorf("the log shows no new line: %q", ph.pt.Texts())
+	}
+	if redrawn == 0 {
+		t.Error("an error logged did not draw the settings window")
+	}
+
+	ph.w.closeDetail()
+	ph.frames()
+	if pg.info.name != "" {
+		t.Error("the details kept what they read once closed")
+	}
+}
+
 func TestShotPluginsPage(t *testing.T) {
 	if os.Getenv("SHOTS") == "" {
 		t.Skip()
@@ -115,7 +210,7 @@ func TestShotPluginsPage(t *testing.T) {
 		if dark {
 			suffix = "-dark"
 		}
-		ph, _ := withPluginsPage(t)
+		ph, h := withPluginsPage(t)
 		ph.pt.SetDark(dark)
 		ph.pt.SetSize(940, 1500)
 		ph.frames()
@@ -141,5 +236,20 @@ func TestShotPluginsPage(t *testing.T) {
 		pg.indexErr, pg.index, pg.shown = "", nil, nil
 		ph.frames()
 		ph.shot("plugins-index-empty" + suffix)
+		pg.err = ""
+		pl := h.reg.Plugin("prettier")
+		pl.Log("info", "activated")
+		pl.Log("warn", "no .prettierrc found, using the defaults")
+		pl.Log("error", "could not parse src/app.ts: Unexpected token (12:4)")
+		ph.w.openDetail("prettier")
+		ph.pt.SetSize(940, 1500)
+		ph.frames()
+		ph.shot("plugin-detail" + suffix)
+		ph.w.openDetail("word-count")
+		ph.frames()
+		ph.shot("plugin-detail-bundled" + suffix)
+		ph.pt.Key(0, ui.KeyEscape)
+		ph.frames()
+		ph.shot("plugins-back" + suffix)
 	}
 }

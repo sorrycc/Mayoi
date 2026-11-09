@@ -331,19 +331,22 @@ func Scaffold(dir, name string) error {
 		return err
 	}
 	title := humanize(strings.ReplaceAll(name, "-", " "))
+	// The author is who Git says commits, as the plugin will be committed.
+	author, _ := git(context.Background(), dir, "config", "user.name")
 	files := map[string]string{
 		ManifestFile: fmt.Sprintf(`{
   "name": %q,
   "displayName": %q,
   "version": "0.1.0",
   "description": "",
+  "author": %q,
   "main": "main.ts",
   "activation": ["onCommand:%s.hello"],
   "contributes": {
     "commands": [{ "id": "%s.hello", "title": "Say Hello" }]
   }
 }
-`, name, title, name, name),
+`, name, title, author, name, name),
 		"main.ts": fmt.Sprintf(`import { commands, editor, window } from "mayoi";
 
 commands.register("%s.hello", async () => {

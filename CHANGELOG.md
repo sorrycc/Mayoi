@@ -5,6 +5,13 @@ needs a `## <version>` section here, or its build fails.
 
 ## Unreleased
 
+- Click a plugin on the **Settings → Plugins** page to open its details; `Esc` goes back to the list.
+- A plugin's details list its commands with their shortcuts, menus, status items, views, themes and more.
+- A plugin's details show its memory, CPU time and start time, refreshed every second while open.
+- A plugin's details show its recent log lines and its settings, with **Open Full Log** for the whole log.
+- Plugin errors now show on the Plugins page as soon as they happen.
+- The disabled **Install** button on the Plugins page now looks clearly disabled in dark themes.
+- `mayoi plugin new` fills in `author` from your Git user name.
 - **Find in Files** (`Shift+Cmd+F`) selects the previous query, so typing or pasting replaces it.
 - Drag a file's tab onto a project in the rail to move it there; hold `Option` to copy it instead.
 - Rest a dragged tab on a project in the rail to switch to it, then drop the tab where you want it.

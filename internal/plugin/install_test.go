@@ -134,6 +134,9 @@ func TestCLINewAndDev(t *testing.T) {
 	if code := RunCLI([]string{"new", "greet", work}, dirs, &out, &errb); code != 0 {
 		t.Fatalf("new: %s", errb.String())
 	}
+	if data, _ := os.ReadFile(filepath.Join(work, ManifestFile)); !strings.Contains(string(data), `"author":`) {
+		t.Errorf("the scaffold's manifest has no author: %s", data)
+	}
 	if code := RunCLI([]string{"dev", work}, dirs, &out, &errb); code != 0 {
 		t.Fatalf("dev: %s", errb.String())
 	}

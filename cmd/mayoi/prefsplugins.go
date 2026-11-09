@@ -50,6 +50,15 @@ type pluginsPage struct {
 	installed map[string]bool
 	gen       uint64
 	listed    bool
+
+	// detail is the plugin whose details show in place of the list, ""
+	// for the list, and info what they show of it. back is set as the
+	// list comes back from them, which slides it in from where they were;
+	// listScroll keeps where the list was scrolled to meanwhile.
+	detail     string
+	info       pluginInfo
+	back       bool
+	listScroll ui.ScrollState
 }
 
 // pluginItem is an installed plugin as its row shows it: what is told of
@@ -125,6 +134,18 @@ var pluginRowMotion = ui.ElementTransition{Duration: 160 * time.Millisecond, Col
 // could not take; and installing from the index or Git.
 func (w *prefsWindow) pluginsPane(c *ui.Context) {
 	p := w.pal
+	pg := &w.plugins
+	if pg.detail != "" && plugins != nil {
+		items := w.pluginItems()
+		for i := range items {
+			if items[i].Name == pg.detail {
+				w.pluginDetail(c, &items[i])
+				return
+			}
+		}
+		// Removed while its details showed.
+		w.closeDetail()
+	}
 	w.head(c, "prefs-head", iconPlug, prefSection(settings.CatPlugins), func() {
 		if ui.Button(c.Key("plugins-reload"), locales.CmdPluginsReload()).FontSize(12).Padding(3, 10).Clicked() && plugins != nil {
 			go plugins.reg.ReloadAll()
@@ -133,9 +154,15 @@ func (w *prefsWindow) pluginsPane(c *ui.Context) {
 			w.inFront(func(a *app) { a.openPluginsFolder() })
 		}
 	})
-	ui.Scroll(c.Key("prefs-rows-plugins")).Grow(1).MinHeight(0).Children(func() {
-		fadePage(ui.Column(c.Key("prefs-page-plugins")).Padding(20, 28, 32, 28).Gap(10).AlignSelf(ui.Center).
-			WidthPercent(100).MaxWidth(prefsPageWidth)).Children(func() {
+	ui.Scroll(c.Key("prefs-rows-plugins")).Grow(1).MinHeight(0).TrackScroll(&pg.listScroll).Children(func() {
+		page := ui.Column(c.Key("prefs-page-plugins")).Padding(20, 28, 32, 28).Gap(10).AlignSelf(ui.Center).
+			WidthPercent(100).MaxWidth(prefsPageWidth)
+		if pg.back {
+			slideIn(c, page, -pageSlide)
+		} else {
+			fadePage(page)
+		}
+		page.Children(func() {
 			if plugins == nil {
 				w.emptyState(c, "plugins-none", iconPlug, locales.PluginsNotStarted())
 				return
@@ -261,17 +288,24 @@ const tileIndent = 34 + 12
 // tile is the square of a plugin's initial at the start of its row, in
 // the accent while it is on.
 func (w *prefsWindow) tile(c *ui.Context, letter string, icon *ui.SVG, on bool) {
+	w.tileOf(c, letter, icon, on, 34)
+}
+
+// tileOf is a plugin's tile of side size, its corners and letter in
+// proportion.
+func (w *prefsWindow) tileOf(c *ui.Context, letter string, icon *ui.SVG, on bool, size float32) {
 	p := w.pal
 	bg, fg := p.accent.Alpha(0.13), p.accent
 	if !on {
 		bg, fg = p.text.Alpha(0.06), p.muted
 	}
-	ui.Box(c.Key("tile")).Size(34, 34).Radius(9).Shrink(0).Justify(ui.Center).AlignItems(ui.Center).Background(bg).
+	glyph := size * 0.44
+	ui.Box(c.Key("tile")).Size(size, size).Radius(size * 0.265).Shrink(0).Justify(ui.Center).AlignItems(ui.Center).Background(bg).
 		Transition(hoverFade).Children(func() {
 		if icon != nil {
-			ui.Icon(c.Key("glyph"), icon).FontSize(15).TextColor(fg).Transition(hoverFade)
+			ui.Icon(c.Key("glyph"), icon).FontSize(glyph).TextColor(fg).Transition(hoverFade)
 		} else {
-			ui.Text(c.Key("glyph"), letter).FontSize(15).FontWeight(600).TextColor(fg).Transition(hoverFade)
+			ui.Text(c.Key("glyph"), letter).FontSize(glyph).FontWeight(600).TextColor(fg).Transition(hoverFade)
 		}
 	})
 }
@@ -322,6 +356,18 @@ func (w *prefsWindow) iconButton(c *ui.Context, key string, icon *ui.SVG, label 
 	return b.Clicked() && !disabled
 }
 
+// primaryButton is a button in the accent, of what a card is for, as
+// Install: disabled, it lays its accent aside for a quiet face, rather
+// than show it dimmed, which reads as all but enabled on a dark window.
+func (w *prefsWindow) primaryButton(c *ui.Context, key, label string, disabled bool) ui.Element {
+	p := w.pal
+	b := ui.PrimaryButton(c.Key(key), label).FontSize(12).Disabled(disabled)
+	if disabled {
+		b.Background(p.text.Alpha(0.06)).TextColor(p.faint).Border(1, p.border)
+	}
+	return b.Transition(hoverFade)
+}
+
 // dangerButton is a button that loses something, as a removal's confirm.
 func (w *prefsWindow) dangerButton(c *ui.Context, key, label string) bool {
 	p := w.pal
@@ -369,7 +415,14 @@ func (w *prefsWindow) pluginRow(c *ui.Context, it *pluginItem, rule bool) {
 	row := ui.Column(c.Key("plugin-row-"+pl.Name)).Padding(14, 16).Gap(10).Transition(pluginRowMotion)
 	w.rowHover(row, rule)
 	row.Children(func() {
-		ui.Row(c).Gap(12).AlignItems(ui.Start).Children(func() {
+		// The head of the row opens the plugin's details; its buttons and
+		// switch take their own clicks.
+		head := ui.Row(c.Key("head")).Gap(12).AlignItems(ui.Start).Focusable().Label(locales.PluginsDetails(pl.Title()))
+		if head.Clicked() {
+			w.openDetail(pl.Name)
+		}
+		hovered := row.Hovered()
+		head.Children(func() {
 			var glyph *ui.SVG
 			if pl.Script {
 				glyph = iconFileCode
@@ -421,6 +474,14 @@ func (w *prefsWindow) pluginRow(c *ui.Context, it *pluginItem, rule bool) {
 				if w.toggle(c.Key("on"), &on).Label(pl.Title()).Changed() {
 					w.setPluginSetting(pl.Name, "enabled", on, true)
 				}
+				// The way into the details, which leans toward them under
+				// the pointer.
+				col, pose := p.faint, ui.Pose{}
+				if hovered {
+					col, pose.X = p.muted, 2
+				}
+				ui.Icon(c.Key("more"), iconChevronRight).FontSize(13).TextColor(col).Margin(0, 0, 0, 2).Transition(hoverFade).
+					AnimatePose(pose, ui.Snappy)
 			})
 		})
 		if st.Err != "" {
@@ -429,7 +490,7 @@ func (w *prefsWindow) pluginRow(c *ui.Context, it *pluginItem, rule bool) {
 		w.busyLine(c, pl.Name, tileIndent)
 		w.errNote(c, pl.Name, tileIndent)
 		if pg.confirm == pl.Name {
-			w.confirmRemove(c, pl)
+			w.confirmRemove(c, pl, tileIndent)
 		}
 		if len(pl.Contributes.Settings) > 0 && on {
 			w.pluginSettings(c, pl)
@@ -437,11 +498,12 @@ func (w *prefsWindow) pluginRow(c *ui.Context, it *pluginItem, rule bool) {
 	})
 }
 
-// confirmRemove asks to remove a plugin, as its button was clicked.
-func (w *prefsWindow) confirmRemove(c *ui.Context, pl *plugin.Plugin) {
+// confirmRemove asks to remove a plugin, as its button was clicked,
+// indent in from the start.
+func (w *prefsWindow) confirmRemove(c *ui.Context, pl *plugin.Plugin, indent float32) {
 	p := w.pal
 	pg := &w.plugins
-	ui.Row(c.Key("confirm-remove")).Padding(8, 8, 8, 12).Margin(0, 0, 0, tileIndent).Gap(8).Radius(8).AlignItems(ui.Center).
+	ui.Row(c.Key("confirm-remove")).Padding(8, 8, 8, 12).Margin(0, 0, 0, indent).Gap(8).Radius(8).AlignItems(ui.Center).
 		Background(p.dangerFg.Alpha(0.08)).Border(1, p.dangerFg.Alpha(0.28)).Transition(popIn).Children(func() {
 		ui.Icon(c, iconTrash).FontSize(13).TextColor(p.dangerFg).Shrink(0)
 		ui.Text(c, locales.PluginsRemoveAsk(pl.Title())).FontSize(12).TextColor(p.text).Grow(1).Shrink(1).MinWidth(0)
@@ -488,8 +550,7 @@ func (w *prefsWindow) installCard(c *ui.Context) {
 				ready := strings.TrimSpace(pg.source) != "" && pg.busy == ""
 				in := ui.TextInput(c.Key("plugins-source"), &pg.source).Grow(1).FontSize(12.5).
 					Placeholder(locales.PluginsInstallPlaceholder()).Label(locales.PluginsInstallTitle())
-				go_ := ui.PrimaryButton(c.Key("plugins-install-go"), locales.PluginsInstall()).FontSize(12).Padding(4, 12).
-					Disabled(!ready)
+				go_ := w.primaryButton(c, "plugins-install-go", locales.PluginsInstall(), !ready).Padding(4, 12)
 				pressPose(go_)
 				if (go_.Clicked() || in.Submitted()) && ready {
 					w.installPlugin(strings.TrimSpace(pg.source), "")

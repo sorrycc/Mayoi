@@ -268,6 +268,10 @@ func (w *prefsWindow) view(c *ui.Context) {
 		w.finding = true
 	}
 	w.focusSearch(c)
+	// The details of a plugin close as the Plugins page does.
+	if pg := &w.plugins; (pg.detail != "" || pg.back) && (w.section != settings.CatPlugins || w.query != "") {
+		pg.detail, pg.back, pg.info = "", false, pluginInfo{}
+	}
 	ui.Row(c).Fill().Background(p.editor).AlignItems(ui.Stretch).Children(func() {
 		w.sidebar(c)
 		ui.Column(c.Key("prefs-main")).Grow(1).MinWidth(0).Children(func() {

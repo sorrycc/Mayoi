@@ -26,7 +26,7 @@ events.on("editor.open", (e) => {
     { range: { start: { line: 2, character: 2 }, end: { line: 2, character: 7 } }, severity: "warning", message: "small is vague" },
   ]);
 });
-events.on("editor.didSave", (e) => views.render("lint.view", { type: "text", text: "saved " + e.path.split("/").pop() }));
+events.on("editor.didSave", (e) => views.render("lint.view", { type: "text", text: "saved " + e.path.split(/[\\/]/).pop() }));
 languages.registerFormatter("lint.shout", async (doc) => (await doc.text()).replace("editor", "EDITOR"));
 views.onShow("lint.view", () => views.render("lint.view", {
   type: "stack", children: [{ type: "text", text: "Hello view" }, { type: "list", items: [{ label: "one" }] }, { type: "markdown", text: "# Title\n\nSome *text*." }],

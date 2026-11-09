@@ -46,7 +46,7 @@ const upperPlugin = `{
   "name": "upper", "main": "main.ts",
   "contributes": {
     "commands": [{"id": "upper.selection", "title": "Upper Case Selection"}, {"id": "upper.taken", "title": "Taken"}],
-    "keybindings": [{"key": "ctrl+alt+u", "command": "upper.selection"}, {"key": "cmd+p", "mac": "cmd+p", "command": "upper.taken"}],
+    "keybindings": [{"key": "ctrl+alt+u", "command": "upper.selection"}, {"key": "ctrl+p", "mac": "cmd+p", "command": "upper.taken"}],
     "statusItems": [{"id": "upper.status"}]
   }
 }`

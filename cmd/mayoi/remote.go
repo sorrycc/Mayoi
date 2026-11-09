@@ -332,7 +332,8 @@ func (a *app) reloadRemote(d *document) {
 			return
 		}
 		a.post(func() {
-			if !slices.Contains(a.docs, d) || d.path != path || d.loading || d.saving || d.dirty() {
+			// A read or a save since, as an overwrite, has the newer text.
+			if !slices.Contains(a.docs, d) || d.path != path || d.loading || d.saving || d.dirty() || d.stamp != old {
 				return
 			}
 			d.takeText(data)

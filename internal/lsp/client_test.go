@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -53,7 +54,7 @@ func TestClient(t *testing.T) {
 	if h, err := c.HoverAt(ctx, uri, Position{0, 1}); err != nil || h != "**hello**" {
 		t.Fatalf("hover = %q, %v", h, err)
 	}
-	if locs, err := c.DefinitionAt(ctx, uri, Position{0, 1}); err != nil || len(locs) != 1 || Path(locs[0].URI) != "/tmp/def.fake" || locs[0].Range.Start.Line != 3 {
+	if locs, err := c.DefinitionAt(ctx, uri, Position{0, 1}); err != nil || len(locs) != 1 || Path(locs[0].URI) != filepath.FromSlash("/tmp/def.fake") || locs[0].Range.Start.Line != 3 {
 		t.Fatalf("definition = %+v, %v", locs, err)
 	}
 	if items, err := c.CompletionAt(ctx, uri, Position{0, 1}); err != nil || len(items) != 1 || items[0].InsertText != "println()" {
@@ -72,7 +73,7 @@ func TestURIs(t *testing.T) {
 	if u := URI("/a b/c.go"); u != "file:///a%20b/c.go" {
 		t.Fatalf("URI = %s", u)
 	}
-	if p := Path("file:///a%20b/c.go"); p != "/a b/c.go" {
+	if p := Path("file:///a%20b/c.go"); p != filepath.FromSlash("/a b/c.go") {
 		t.Fatalf("Path = %s", p)
 	}
 	if markupText(json.RawMessage(`[{"language":"go","value":"func f()"},"doc"]`)) != "```go\nfunc f()\n```\n\ndoc" {

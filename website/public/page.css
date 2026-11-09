@@ -1,0 +1,300 @@
+/* Mayoi landing — page styles. Every value comes from tokens.css. */
+
+html { scroll-behavior: smooth; scroll-padding-top: var(--space-10); }
+body { overflow-x: clip; }
+.small { font-size: var(--fs-sm); }
+.stack > p, .row-copy p { max-width: var(--measure); }
+kbd {
+  display: inline-block; padding: 0 var(--space-1); min-width: 1.6em; text-align: center;
+  border: 1px solid var(--border); border-bottom-width: 2px; border-radius: var(--radius-sm);
+  background: var(--surface); color: var(--text); font-size: var(--fs-xs); line-height: var(--lh-body);
+}
+.skip:focus { position: fixed; top: var(--space-2); left: var(--space-2); width: auto; height: auto; clip: auto;
+  padding: var(--space-2) var(--space-3); background: var(--surface); z-index: 20; }
+
+/* ---------- top bar ---------- */
+.topbar {
+  position: sticky; top: 0; z-index: 10;
+  background: var(--bg); border-bottom: 1px solid var(--border);
+}
+.topbar .nav { padding-block: 0; }
+.topbar .nav ul { align-items: center; gap: var(--space-2) var(--space-5); }
+.topbar .nav ul a { color: var(--text-muted); font-size: var(--fs-sm); font-weight: 500;
+  transition: color var(--dur-fast) var(--ease-std); }
+.topbar .nav ul a:hover { color: var(--text); }
+.brand { gap: var(--space-2); font-weight: 600; font-size: var(--fs-lg); }
+.brand img { width: 28px; height: 28px; image-rendering: pixelated; }
+.brand-jp { font-family: var(--font-jp); font-size: var(--fs-sm); color: var(--text-muted); }
+.theme-toggle {
+  display: inline-grid; place-items: center; width: var(--control-h); height: var(--control-h);
+  border-radius: var(--radius-md); color: var(--text-muted);
+  transition: color var(--dur-fast) var(--ease-std), background-color var(--dur-fast) var(--ease-std);
+}
+.theme-toggle:hover { color: var(--text); background: var(--surface-2); }
+.theme-toggle .i-sun { display: none; }
+:root[data-theme="dark"] .theme-toggle .i-sun { display: block; }
+:root[data-theme="dark"] .theme-toggle .i-moon { display: none; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .theme-toggle .i-sun { display: block; }
+  :root:not([data-theme="light"]) .theme-toggle .i-moon { display: none; }
+}
+
+/* ---------- hero ---------- */
+.hero { padding-top: var(--space-10); }
+.hero-copy { display: flex; flex-direction: column; align-items: flex-start; gap: var(--space-5); padding-bottom: var(--space-7); }
+.hero h1 { font-size: var(--fs-5xl); letter-spacing: -0.02em; max-width: 18ch; }
+.hero .lead { font-size: var(--fs-xl); line-height: var(--lh-snug); max-width: 40rem; }
+.kicker { display: inline-flex; align-items: center; gap: var(--space-2); font-size: var(--fs-sm); color: var(--text-muted); }
+.kicker .dot { width: 8px; height: 8px; background: var(--accent); }
+.hero-actions { gap: var(--space-3); margin-top: var(--space-2); }
+.btn-lg { min-height: 3rem; padding-inline: var(--space-6); font-size: var(--fs-lg); font-weight: 600; }
+.fineprint { font-size: var(--fs-sm); }
+
+/* The indigo "stage": the icon's pixel night, behind product shots, in both modes */
+.stage {
+  background-color: var(--stage);
+  background-image: radial-gradient(var(--stage-dot) 1.5px, transparent 1.6px);
+  background-size: 24px 24px;
+  color: var(--on-stage);
+}
+.hero .stage { position: relative; padding-bottom: var(--space-9); }
+.hero .stage::before { content: ""; position: absolute; inset: 0 0 55% 0; background: var(--bg); }
+.hero .stage > * { position: relative; }
+.shot img {
+  width: 100%; border-radius: var(--radius-lg); border: 1px solid var(--border);
+  background: var(--surface-2);
+}
+/* the hero capture carries its own window frame and shadow */
+.shot-hero img { border: 0; border-radius: 0; background: transparent; }
+.shot-on-stage img { border-color: var(--stage-2); box-shadow: var(--shadow-2); }
+.shot-hero figcaption { margin-top: var(--space-2); font-size: var(--fs-sm); color: var(--on-stage-muted); text-align: center; }
+.shot-hero kbd { background: var(--stage-2); border-color: var(--stage-dot); color: var(--on-stage); }
+
+/* ---------- speed ---------- */
+.speed { padding-block: var(--space-10); }
+.speed-grid { display: grid; gap: var(--space-8); grid-template-columns: minmax(0, 5fr) minmax(0, 6fr); align-items: center; }
+.label { font-size: var(--fs-sm); color: var(--link); }
+.speed h2 { font-size: var(--fs-4xl); letter-spacing: -0.015em; }
+.table-card { padding: var(--space-2) var(--space-4); }
+.speed .table { font-size: var(--fs-base); }
+.speed .table td, .speed .table th { padding: var(--space-3) var(--space-2); }
+.speed .table td.num { font-family: var(--font-mono); white-space: nowrap; }
+.speed .table tfoot td { border-bottom: 0; font-weight: 600; }
+.speed .table tfoot td.num { color: var(--text); }
+.speed .table tbody tr:first-child td.num { color: var(--link); font-weight: 500; }
+
+/* ---------- feature rows ---------- */
+.features { padding-top: 0; }
+.row {
+  display: grid; gap: var(--space-8); align-items: center;
+  grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+  padding-block: var(--space-9); border-top: 1px solid var(--border);
+}
+.row-flip { grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); }
+.row-flip .shot { order: 2; }
+.row h3 { font-size: var(--fs-2xl); line-height: var(--lh-tight); }
+.row-copy { max-width: 28rem; }
+.ticks { list-style: none; padding: 0; display: flex; flex-direction: column; gap: var(--space-2); }
+.ticks li { position: relative; padding-left: var(--space-5); }
+.ticks li::before {
+  content: ""; position: absolute; left: 0; top: 0.6em; width: 8px; height: 8px; background: var(--accent);
+}
+
+/* ---------- everything else ---------- */
+.more { background: var(--surface); border-block: 1px solid var(--border); padding-block: var(--space-10); }
+.more-grid { display: grid; gap: var(--space-8); grid-template-columns: minmax(0, 4fr) minmax(0, 7fr); align-items: start; }
+.more-head { position: sticky; top: var(--space-10); }
+.shot-small { margin-top: var(--space-4); }
+.specs { display: flex; flex-direction: column; }
+.specs > div {
+  display: grid; grid-template-columns: 9rem minmax(0, 1fr) auto; gap: var(--space-2) var(--space-5);
+  padding-block: var(--space-4); border-bottom: 1px solid var(--border); align-items: baseline;
+}
+.specs > div:first-child { border-top: 1px solid var(--border); }
+.specs dt { font-weight: 600; }
+.specs dd { color: var(--text-muted); margin: 0; }
+.specs .keys { text-align: right; }
+
+/* ---------- shell ---------- */
+.shell { padding-block: var(--space-10); }
+.term { border-radius: var(--radius-lg); background: var(--stage); border: 1px solid var(--stage-2); overflow: hidden; box-shadow: var(--shadow-1); }
+.term-bar { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-2) var(--space-4);
+  border-bottom: 1px solid var(--stage-2); font-size: var(--fs-xs); color: var(--on-stage-muted); }
+.term-bar span { width: 10px; height: 10px; border-radius: var(--radius-full); background: var(--stage-dot); }
+.term-bar span:nth-child(3) { margin-right: var(--space-2); }
+.term-body { background: transparent; color: var(--on-stage); padding: var(--space-5); font-size: var(--fs-sm); line-height: var(--lh-body); border-radius: 0; }
+.term-body .c { color: var(--on-stage-muted); }
+.term-body .p { color: var(--gold); }
+
+/* ---------- themes ---------- */
+.stage-themes { padding-block: var(--space-10); }
+.themes-grid { display: grid; gap: var(--space-8); grid-template-columns: minmax(0, 4fr) minmax(0, 7fr); align-items: center; }
+.themes h2 { color: var(--on-stage); font-size: var(--fs-3xl); }
+.themes p { color: var(--on-stage-muted); max-width: 34rem; }
+.chips { list-style: none; padding: 0; display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.chip {
+  display: inline-flex; align-items: center; gap: var(--space-2); min-height: var(--control-h);
+  padding: 0 var(--space-4); border: 1px solid var(--stage-dot); border-radius: var(--radius-full);
+  font-size: var(--fs-sm); color: var(--on-stage); background: var(--stage-2);
+  transition: border-color var(--dur-fast) var(--ease-std), color var(--dur-fast) var(--ease-std), transform var(--dur-fast) var(--ease-std);
+}
+.chip:hover { border-color: var(--on-stage-muted); }
+.chip:active { transform: scale(0.97); }
+.chip[aria-pressed="true"] { border-color: var(--gold); color: var(--gold); }
+.chip .sw { width: 10px; height: 10px; border-radius: var(--radius-full); }
+.appearance { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); }
+.appearance .seg:first-child { border-radius: var(--radius-md) 0 0 var(--radius-md); }
+.appearance .seg + .seg { margin-left: calc(-1 * var(--space-3)); border-radius: 0 var(--radius-md) var(--radius-md) 0; }
+.seg {
+  min-height: var(--control-h); padding: 0 var(--space-4); border: 1px solid var(--stage-dot);
+  background: transparent; color: var(--on-stage-muted); font-size: var(--fs-sm); font-weight: 500;
+  transition: background-color var(--dur-fast) var(--ease-std), color var(--dur-fast) var(--ease-std);
+}
+.seg[aria-pressed="true"] { background: var(--stage-2); color: var(--on-stage); }
+.seg:disabled { color: var(--on-stage-muted); cursor: not-allowed; }
+.appearance-note { font-size: var(--fs-sm); color: var(--on-stage-muted); }
+
+/* The live preview: a small Mayoi window drawn from the theme's own palette (--m-*). */
+.mock-wrap figcaption { margin-top: var(--space-3); font-size: var(--fs-sm); color: var(--on-stage-muted); text-align: center; }
+.mock {
+  --m-ui-font: var(--font-body);
+  display: flex; flex-direction: column; overflow: hidden;
+  border: 1px solid var(--m-border); border-radius: var(--radius-lg); box-shadow: var(--shadow-2);
+  background: var(--m-editor); color: var(--m-text); font-family: var(--m-ui-font); font-size: var(--fs-xs);
+}
+.mock, .mock * {
+  transition: background-color var(--dur-slow) var(--ease-std), color var(--dur-slow) var(--ease-std), border-color var(--dur-slow) var(--ease-std);
+}
+.mock pre { background: transparent; padding: 0; border-radius: 0; font-size: var(--fs-xs); line-height: var(--lh-body); white-space: pre; tab-size: 4; overflow: hidden; }
+.m-title { position: relative; display: flex; align-items: center; justify-content: center; height: var(--space-7);
+  background: var(--m-chrome); border-bottom: 1px solid var(--m-border); }
+.m-lights { position: absolute; left: var(--space-3); display: flex; gap: var(--space-2); }
+.m-lights i { width: 10px; height: 10px; border-radius: var(--radius-full); background: var(--m-ansi-red); }
+.m-lights i:nth-child(2) { background: var(--m-ansi-yellow); }
+.m-lights i:nth-child(3) { background: var(--m-ansi-green); }
+.m-search { width: min(50%, 18rem); padding: var(--space-1) var(--space-3); text-align: center; font-weight: 600;
+  border: 1px solid var(--m-border); border-radius: var(--radius-md); background: var(--m-editor); color: var(--m-text); }
+.m-search span { font-weight: 400; color: var(--m-muted); margin-left: var(--space-1); }
+.m-body { flex: 1; display: grid; grid-template-columns: 10rem minmax(0, 1fr); min-height: 0; }
+.m-side { background: var(--m-chrome); border-right: 1px solid var(--m-border); overflow: hidden; }
+.m-head { padding: var(--space-2) var(--space-3); font-size: var(--fs-xs); font-weight: 600; letter-spacing: 0.04em;
+  text-transform: uppercase; color: var(--m-muted); }
+.m-side ul { list-style: none; padding: 0 var(--space-1); }
+.m-side li { padding: var(--space-1) var(--space-3); border-radius: var(--radius-sm); color: var(--m-text); white-space: nowrap; }
+.m-side li.on { background: var(--m-active); }
+.m-main { display: flex; flex-direction: column; min-width: 0; }
+.m-tabs { display: flex; background: var(--m-strip); border-bottom: 1px solid var(--m-border); }
+.m-tab { padding: var(--space-2) var(--space-4); color: var(--m-muted); border-right: 1px solid var(--m-border); white-space: nowrap; }
+.m-tab.on { background: var(--m-editor); color: var(--m-text); box-shadow: inset 0 2px 0 var(--m-accent); }
+.mock .m-code { flex: 1; padding-block: var(--space-2); color: var(--m-plain); font-family: var(--font-mono); }
+.m-code .m-ln { display: block; padding-right: var(--space-3); }
+.m-code .m-ln.now { background: var(--m-line); }
+.m-code b { display: inline-block; width: 3.5rem; padding-right: var(--space-4); text-align: right; font-weight: 400; color: var(--m-gutter); }
+.m-code .now b { color: var(--m-gutter-now); }
+.m-code .kw { color: var(--m-kw); }
+.m-code .fn { color: var(--m-fn); }
+.m-code .ty { color: var(--m-type); }
+.m-code .com { color: var(--m-com); }
+.m-code .pu { color: var(--m-punc); }
+.m-code .sel { background: var(--m-selection); }
+.m-term { border-top: 1px solid var(--m-border); background: var(--m-editor); }
+.m-term .m-head { color: var(--m-text); }
+.m-term pre { padding: 0 var(--space-3) var(--space-2); color: var(--m-text); font-family: var(--font-mono); }
+.m-term .t-p { color: var(--m-ansi-blue); }
+.m-term .t-h { color: var(--m-ansi-yellow); }
+.m-term .t-r { color: var(--m-ansi-green); }
+.m-term .t-c { display: inline-block; width: 0.6em; height: 1.1em; vertical-align: text-bottom; background: var(--m-text); }
+.m-status { display: flex; gap: var(--space-4); padding: var(--space-1) var(--space-3); background: var(--m-status);
+  border-top: 1px solid var(--m-border); color: var(--m-status-fg); white-space: nowrap; overflow: hidden; }
+.m-status-r { flex: 1; text-align: right; }
+
+/* ---------- install ---------- */
+.install { padding-block: var(--space-10); }
+.install-wrap { display: grid; gap: var(--space-8); grid-template-columns: minmax(0, 4fr) minmax(0, 7fr); align-items: start; }
+.install-head h2 { font-size: var(--fs-3xl); }
+.install-card { padding: 0; overflow: hidden; }
+.install-card .tabs { padding-inline: var(--space-3); background: var(--surface-2); }
+.tab { font-weight: 500; transition: color var(--dur-fast) var(--ease-std), border-color var(--dur-fast) var(--ease-std); }
+.tab:hover { color: var(--text); }
+.tabpanel { padding: var(--space-6); }
+.tabpanel[hidden] { display: none; }
+.cmd { position: relative; }
+.cmd pre { padding-right: var(--space-10); white-space: pre-wrap; overflow-wrap: anywhere; line-height: var(--lh-body); color: var(--text); }
+.cmd .copy { position: absolute; top: var(--space-2); right: var(--space-2); font-size: var(--fs-sm); }
+.copy[data-done] { color: var(--success); border-color: var(--success); }
+
+/* ---------- final call ---------- */
+.final { padding-top: var(--space-8); padding-bottom: var(--space-10); }
+.final-inner { display: flex; flex-direction: column; align-items: center; text-align: center; gap: var(--space-4); }
+.final-inner img { image-rendering: pixelated; width: 96px; height: 96px; }
+.final h2 { font-size: var(--fs-4xl); letter-spacing: -0.015em; }
+.final .jp { font-family: var(--font-jp); color: var(--text); }
+.final-actions { justify-content: center; margin-top: var(--space-2); }
+
+/* ---------- footer ---------- */
+.footer-inner { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: var(--space-4); }
+.footer-links { list-style: none; padding: 0; gap: var(--space-1) var(--space-5); }
+.footer a { color: var(--text-muted); }
+.footer a:hover { color: var(--text); }
+.footer-links a { display: inline-flex; align-items: center; min-height: var(--control-h); }
+
+/* ---------- narrow screens ---------- */
+@media (max-width: 900px) {
+  .speed-grid, .more-grid, .themes-grid,
+  .row, .row-flip { grid-template-columns: minmax(0, 1fr); gap: var(--space-6); }
+  .row-flip .shot { order: 0; }
+  .row { padding-block: var(--space-8); }
+  .row-copy { max-width: none; }
+  .row-copy p, .speed .stack > p { max-width: 60ch; }
+  .more-head { position: static; }
+  .install-wrap { grid-template-columns: minmax(0, 1fr); gap: var(--space-6); }
+}
+@media (max-width: 600px) {
+  .hero { padding-top: var(--space-8); }
+  .hero .lead { font-size: var(--fs-lg); }
+  .topbar .nav ul li:nth-child(1), .topbar .nav ul li:nth-child(2) { display: none; }
+  .topbar .nav ul { gap: var(--space-3); }
+  .hero-actions { flex-direction: column; align-items: stretch; width: 100%; }
+  .specs > div { grid-template-columns: minmax(0, 1fr) auto; }
+  .specs dd:not(.keys) { grid-column: 1 / -1; grid-row: 2; }
+  .specs .keys { grid-column: 2; grid-row: 1; }
+  .cmd pre { padding-right: var(--space-4); white-space: pre-wrap; overflow-wrap: anywhere; }
+  .cmd .copy { position: static; margin-top: var(--space-2); width: 100%; }
+  .tabpanel { padding: var(--space-4); }
+  .footer-inner { flex-direction: column; align-items: flex-start; }
+  .m-body { grid-template-columns: minmax(0, 1fr); }
+  .m-side { display: none; }
+  .m-code b { width: 2.75rem; padding-right: var(--space-3); }
+  .m-status span:nth-child(2) { display: none; }
+}
+
+/* GENERATED: theme preview palettes */
+.mock[data-pal="blood"] { --m-editor: var(--th-blood-editor); --m-chrome: var(--th-blood-chrome); --m-strip: var(--th-blood-strip); --m-border: var(--th-blood-border); --m-text: var(--th-blood-text); --m-muted: var(--th-blood-muted); --m-faint: var(--th-blood-faint); --m-accent: var(--th-blood-accent); --m-active: var(--th-blood-active); --m-line: var(--th-blood-line); --m-selection: var(--th-blood-selection); --m-gutter: var(--th-blood-gutter); --m-gutter-now: var(--th-blood-gutter-now); --m-status: var(--th-blood-status); --m-status-fg: var(--th-blood-status-fg); --m-kw: var(--th-blood-kw); --m-type: var(--th-blood-type); --m-fn: var(--th-blood-fn); --m-str: var(--th-blood-str); --m-num: var(--th-blood-num); --m-com: var(--th-blood-com); --m-punc: var(--th-blood-punc); --m-plain: var(--th-blood-plain); --m-ansi-green: var(--th-blood-ansi-green); --m-ansi-yellow: var(--th-blood-ansi-yellow); --m-ansi-blue: var(--th-blood-ansi-blue); --m-ansi-red: var(--th-blood-ansi-red); --m-added: var(--th-blood-added); --m-modified: var(--th-blood-modified); }
+.mock[data-pal="claude-dark"] { --m-editor: var(--th-claude-dark-editor); --m-chrome: var(--th-claude-dark-chrome); --m-strip: var(--th-claude-dark-strip); --m-border: var(--th-claude-dark-border); --m-text: var(--th-claude-dark-text); --m-muted: var(--th-claude-dark-muted); --m-faint: var(--th-claude-dark-faint); --m-accent: var(--th-claude-dark-accent); --m-active: var(--th-claude-dark-active); --m-line: var(--th-claude-dark-line); --m-selection: var(--th-claude-dark-selection); --m-gutter: var(--th-claude-dark-gutter); --m-gutter-now: var(--th-claude-dark-gutter-now); --m-status: var(--th-claude-dark-status); --m-status-fg: var(--th-claude-dark-status-fg); --m-kw: var(--th-claude-dark-kw); --m-type: var(--th-claude-dark-type); --m-fn: var(--th-claude-dark-fn); --m-str: var(--th-claude-dark-str); --m-num: var(--th-claude-dark-num); --m-com: var(--th-claude-dark-com); --m-punc: var(--th-claude-dark-punc); --m-plain: var(--th-claude-dark-plain); --m-ansi-green: var(--th-claude-dark-ansi-green); --m-ansi-yellow: var(--th-claude-dark-ansi-yellow); --m-ansi-blue: var(--th-claude-dark-ansi-blue); --m-ansi-red: var(--th-claude-dark-ansi-red); --m-added: var(--th-claude-dark-added); --m-modified: var(--th-claude-dark-modified); }
+.mock[data-pal="claude-dark"] { --m-ui-font: var(--font-mono); }
+.mock[data-pal="claude-light"] { --m-editor: var(--th-claude-light-editor); --m-chrome: var(--th-claude-light-chrome); --m-strip: var(--th-claude-light-strip); --m-border: var(--th-claude-light-border); --m-text: var(--th-claude-light-text); --m-muted: var(--th-claude-light-muted); --m-faint: var(--th-claude-light-faint); --m-accent: var(--th-claude-light-accent); --m-active: var(--th-claude-light-active); --m-line: var(--th-claude-light-line); --m-selection: var(--th-claude-light-selection); --m-gutter: var(--th-claude-light-gutter); --m-gutter-now: var(--th-claude-light-gutter-now); --m-status: var(--th-claude-light-status); --m-status-fg: var(--th-claude-light-status-fg); --m-kw: var(--th-claude-light-kw); --m-type: var(--th-claude-light-type); --m-fn: var(--th-claude-light-fn); --m-str: var(--th-claude-light-str); --m-num: var(--th-claude-light-num); --m-com: var(--th-claude-light-com); --m-punc: var(--th-claude-light-punc); --m-plain: var(--th-claude-light-plain); --m-ansi-green: var(--th-claude-light-ansi-green); --m-ansi-yellow: var(--th-claude-light-ansi-yellow); --m-ansi-blue: var(--th-claude-light-ansi-blue); --m-ansi-red: var(--th-claude-light-ansi-red); --m-added: var(--th-claude-light-added); --m-modified: var(--th-claude-light-modified); }
+.mock[data-pal="claude-light"] { --m-ui-font: var(--font-mono); }
+.mock[data-pal="cursor-dark"] { --m-editor: var(--th-cursor-dark-editor); --m-chrome: var(--th-cursor-dark-chrome); --m-strip: var(--th-cursor-dark-strip); --m-border: var(--th-cursor-dark-border); --m-text: var(--th-cursor-dark-text); --m-muted: var(--th-cursor-dark-muted); --m-faint: var(--th-cursor-dark-faint); --m-accent: var(--th-cursor-dark-accent); --m-active: var(--th-cursor-dark-active); --m-line: var(--th-cursor-dark-line); --m-selection: var(--th-cursor-dark-selection); --m-gutter: var(--th-cursor-dark-gutter); --m-gutter-now: var(--th-cursor-dark-gutter-now); --m-status: var(--th-cursor-dark-status); --m-status-fg: var(--th-cursor-dark-status-fg); --m-kw: var(--th-cursor-dark-kw); --m-type: var(--th-cursor-dark-type); --m-fn: var(--th-cursor-dark-fn); --m-str: var(--th-cursor-dark-str); --m-num: var(--th-cursor-dark-num); --m-com: var(--th-cursor-dark-com); --m-punc: var(--th-cursor-dark-punc); --m-plain: var(--th-cursor-dark-plain); --m-ansi-green: var(--th-cursor-dark-ansi-green); --m-ansi-yellow: var(--th-cursor-dark-ansi-yellow); --m-ansi-blue: var(--th-cursor-dark-ansi-blue); --m-ansi-red: var(--th-cursor-dark-ansi-red); --m-added: var(--th-cursor-dark-added); --m-modified: var(--th-cursor-dark-modified); }
+.mock[data-pal="cursor-light"] { --m-editor: var(--th-cursor-light-editor); --m-chrome: var(--th-cursor-light-chrome); --m-strip: var(--th-cursor-light-strip); --m-border: var(--th-cursor-light-border); --m-text: var(--th-cursor-light-text); --m-muted: var(--th-cursor-light-muted); --m-faint: var(--th-cursor-light-faint); --m-accent: var(--th-cursor-light-accent); --m-active: var(--th-cursor-light-active); --m-line: var(--th-cursor-light-line); --m-selection: var(--th-cursor-light-selection); --m-gutter: var(--th-cursor-light-gutter); --m-gutter-now: var(--th-cursor-light-gutter-now); --m-status: var(--th-cursor-light-status); --m-status-fg: var(--th-cursor-light-status-fg); --m-kw: var(--th-cursor-light-kw); --m-type: var(--th-cursor-light-type); --m-fn: var(--th-cursor-light-fn); --m-str: var(--th-cursor-light-str); --m-num: var(--th-cursor-light-num); --m-com: var(--th-cursor-light-com); --m-punc: var(--th-cursor-light-punc); --m-plain: var(--th-cursor-light-plain); --m-ansi-green: var(--th-cursor-light-ansi-green); --m-ansi-yellow: var(--th-cursor-light-ansi-yellow); --m-ansi-blue: var(--th-cursor-light-ansi-blue); --m-ansi-red: var(--th-cursor-light-ansi-red); --m-added: var(--th-cursor-light-added); --m-modified: var(--th-cursor-light-modified); }
+.mock[data-pal="grok-dark"] { --m-editor: var(--th-grok-dark-editor); --m-chrome: var(--th-grok-dark-chrome); --m-strip: var(--th-grok-dark-strip); --m-border: var(--th-grok-dark-border); --m-text: var(--th-grok-dark-text); --m-muted: var(--th-grok-dark-muted); --m-faint: var(--th-grok-dark-faint); --m-accent: var(--th-grok-dark-accent); --m-active: var(--th-grok-dark-active); --m-line: var(--th-grok-dark-line); --m-selection: var(--th-grok-dark-selection); --m-gutter: var(--th-grok-dark-gutter); --m-gutter-now: var(--th-grok-dark-gutter-now); --m-status: var(--th-grok-dark-status); --m-status-fg: var(--th-grok-dark-status-fg); --m-kw: var(--th-grok-dark-kw); --m-type: var(--th-grok-dark-type); --m-fn: var(--th-grok-dark-fn); --m-str: var(--th-grok-dark-str); --m-num: var(--th-grok-dark-num); --m-com: var(--th-grok-dark-com); --m-punc: var(--th-grok-dark-punc); --m-plain: var(--th-grok-dark-plain); --m-ansi-green: var(--th-grok-dark-ansi-green); --m-ansi-yellow: var(--th-grok-dark-ansi-yellow); --m-ansi-blue: var(--th-grok-dark-ansi-blue); --m-ansi-red: var(--th-grok-dark-ansi-red); --m-added: var(--th-grok-dark-added); --m-modified: var(--th-grok-dark-modified); }
+.mock[data-pal="grok-light"] { --m-editor: var(--th-grok-light-editor); --m-chrome: var(--th-grok-light-chrome); --m-strip: var(--th-grok-light-strip); --m-border: var(--th-grok-light-border); --m-text: var(--th-grok-light-text); --m-muted: var(--th-grok-light-muted); --m-faint: var(--th-grok-light-faint); --m-accent: var(--th-grok-light-accent); --m-active: var(--th-grok-light-active); --m-line: var(--th-grok-light-line); --m-selection: var(--th-grok-light-selection); --m-gutter: var(--th-grok-light-gutter); --m-gutter-now: var(--th-grok-light-gutter-now); --m-status: var(--th-grok-light-status); --m-status-fg: var(--th-grok-light-status-fg); --m-kw: var(--th-grok-light-kw); --m-type: var(--th-grok-light-type); --m-fn: var(--th-grok-light-fn); --m-str: var(--th-grok-light-str); --m-num: var(--th-grok-light-num); --m-com: var(--th-grok-light-com); --m-punc: var(--th-grok-light-punc); --m-plain: var(--th-grok-light-plain); --m-ansi-green: var(--th-grok-light-ansi-green); --m-ansi-yellow: var(--th-grok-light-ansi-yellow); --m-ansi-blue: var(--th-grok-light-ansi-blue); --m-ansi-red: var(--th-grok-light-ansi-red); --m-added: var(--th-grok-light-added); --m-modified: var(--th-grok-light-modified); }
+.mock[data-pal="matrix"] { --m-editor: var(--th-matrix-editor); --m-chrome: var(--th-matrix-chrome); --m-strip: var(--th-matrix-strip); --m-border: var(--th-matrix-border); --m-text: var(--th-matrix-text); --m-muted: var(--th-matrix-muted); --m-faint: var(--th-matrix-faint); --m-accent: var(--th-matrix-accent); --m-active: var(--th-matrix-active); --m-line: var(--th-matrix-line); --m-selection: var(--th-matrix-selection); --m-gutter: var(--th-matrix-gutter); --m-gutter-now: var(--th-matrix-gutter-now); --m-status: var(--th-matrix-status); --m-status-fg: var(--th-matrix-status-fg); --m-kw: var(--th-matrix-kw); --m-type: var(--th-matrix-type); --m-fn: var(--th-matrix-fn); --m-str: var(--th-matrix-str); --m-num: var(--th-matrix-num); --m-com: var(--th-matrix-com); --m-punc: var(--th-matrix-punc); --m-plain: var(--th-matrix-plain); --m-ansi-green: var(--th-matrix-ansi-green); --m-ansi-yellow: var(--th-matrix-ansi-yellow); --m-ansi-blue: var(--th-matrix-ansi-blue); --m-ansi-red: var(--th-matrix-ansi-red); --m-added: var(--th-matrix-added); --m-modified: var(--th-matrix-modified); }
+.mock[data-pal="matrix"] { --m-ui-font: var(--font-mono); }
+.mock[data-pal="mayoi-dark"] { --m-editor: var(--th-mayoi-dark-editor); --m-chrome: var(--th-mayoi-dark-chrome); --m-strip: var(--th-mayoi-dark-strip); --m-border: var(--th-mayoi-dark-border); --m-text: var(--th-mayoi-dark-text); --m-muted: var(--th-mayoi-dark-muted); --m-faint: var(--th-mayoi-dark-faint); --m-accent: var(--th-mayoi-dark-accent); --m-active: var(--th-mayoi-dark-active); --m-line: var(--th-mayoi-dark-line); --m-selection: var(--th-mayoi-dark-selection); --m-gutter: var(--th-mayoi-dark-gutter); --m-gutter-now: var(--th-mayoi-dark-gutter-now); --m-status: var(--th-mayoi-dark-status); --m-status-fg: var(--th-mayoi-dark-status-fg); --m-kw: var(--th-mayoi-dark-kw); --m-type: var(--th-mayoi-dark-type); --m-fn: var(--th-mayoi-dark-fn); --m-str: var(--th-mayoi-dark-str); --m-num: var(--th-mayoi-dark-num); --m-com: var(--th-mayoi-dark-com); --m-punc: var(--th-mayoi-dark-punc); --m-plain: var(--th-mayoi-dark-plain); --m-ansi-green: var(--th-mayoi-dark-ansi-green); --m-ansi-yellow: var(--th-mayoi-dark-ansi-yellow); --m-ansi-blue: var(--th-mayoi-dark-ansi-blue); --m-ansi-red: var(--th-mayoi-dark-ansi-red); --m-added: var(--th-mayoi-dark-added); --m-modified: var(--th-mayoi-dark-modified); }
+.mock[data-pal="mayoi-light"] { --m-editor: var(--th-mayoi-light-editor); --m-chrome: var(--th-mayoi-light-chrome); --m-strip: var(--th-mayoi-light-strip); --m-border: var(--th-mayoi-light-border); --m-text: var(--th-mayoi-light-text); --m-muted: var(--th-mayoi-light-muted); --m-faint: var(--th-mayoi-light-faint); --m-accent: var(--th-mayoi-light-accent); --m-active: var(--th-mayoi-light-active); --m-line: var(--th-mayoi-light-line); --m-selection: var(--th-mayoi-light-selection); --m-gutter: var(--th-mayoi-light-gutter); --m-gutter-now: var(--th-mayoi-light-gutter-now); --m-status: var(--th-mayoi-light-status); --m-status-fg: var(--th-mayoi-light-status-fg); --m-kw: var(--th-mayoi-light-kw); --m-type: var(--th-mayoi-light-type); --m-fn: var(--th-mayoi-light-fn); --m-str: var(--th-mayoi-light-str); --m-num: var(--th-mayoi-light-num); --m-com: var(--th-mayoi-light-com); --m-punc: var(--th-mayoi-light-punc); --m-plain: var(--th-mayoi-light-plain); --m-ansi-green: var(--th-mayoi-light-ansi-green); --m-ansi-yellow: var(--th-mayoi-light-ansi-yellow); --m-ansi-blue: var(--th-mayoi-light-ansi-blue); --m-ansi-red: var(--th-mayoi-light-ansi-red); --m-added: var(--th-mayoi-light-added); --m-modified: var(--th-mayoi-light-modified); }
+.mock[data-pal="pumpkin"] { --m-editor: var(--th-pumpkin-editor); --m-chrome: var(--th-pumpkin-chrome); --m-strip: var(--th-pumpkin-strip); --m-border: var(--th-pumpkin-border); --m-text: var(--th-pumpkin-text); --m-muted: var(--th-pumpkin-muted); --m-faint: var(--th-pumpkin-faint); --m-accent: var(--th-pumpkin-accent); --m-active: var(--th-pumpkin-active); --m-line: var(--th-pumpkin-line); --m-selection: var(--th-pumpkin-selection); --m-gutter: var(--th-pumpkin-gutter); --m-gutter-now: var(--th-pumpkin-gutter-now); --m-status: var(--th-pumpkin-status); --m-status-fg: var(--th-pumpkin-status-fg); --m-kw: var(--th-pumpkin-kw); --m-type: var(--th-pumpkin-type); --m-fn: var(--th-pumpkin-fn); --m-str: var(--th-pumpkin-str); --m-num: var(--th-pumpkin-num); --m-com: var(--th-pumpkin-com); --m-punc: var(--th-pumpkin-punc); --m-plain: var(--th-pumpkin-plain); --m-ansi-green: var(--th-pumpkin-ansi-green); --m-ansi-yellow: var(--th-pumpkin-ansi-yellow); --m-ansi-blue: var(--th-pumpkin-ansi-blue); --m-ansi-red: var(--th-pumpkin-ansi-red); --m-added: var(--th-pumpkin-added); --m-modified: var(--th-pumpkin-modified); }
+.mock[data-pal="purple-gold"] { --m-editor: var(--th-purple-gold-editor); --m-chrome: var(--th-purple-gold-chrome); --m-strip: var(--th-purple-gold-strip); --m-border: var(--th-purple-gold-border); --m-text: var(--th-purple-gold-text); --m-muted: var(--th-purple-gold-muted); --m-faint: var(--th-purple-gold-faint); --m-accent: var(--th-purple-gold-accent); --m-active: var(--th-purple-gold-active); --m-line: var(--th-purple-gold-line); --m-selection: var(--th-purple-gold-selection); --m-gutter: var(--th-purple-gold-gutter); --m-gutter-now: var(--th-purple-gold-gutter-now); --m-status: var(--th-purple-gold-status); --m-status-fg: var(--th-purple-gold-status-fg); --m-kw: var(--th-purple-gold-kw); --m-type: var(--th-purple-gold-type); --m-fn: var(--th-purple-gold-fn); --m-str: var(--th-purple-gold-str); --m-num: var(--th-purple-gold-num); --m-com: var(--th-purple-gold-com); --m-punc: var(--th-purple-gold-punc); --m-plain: var(--th-purple-gold-plain); --m-ansi-green: var(--th-purple-gold-ansi-green); --m-ansi-yellow: var(--th-purple-gold-ansi-yellow); --m-ansi-blue: var(--th-purple-gold-ansi-blue); --m-ansi-red: var(--th-purple-gold-ansi-red); --m-added: var(--th-purple-gold-added); --m-modified: var(--th-purple-gold-modified); }
+.mock[data-pal="qoder-dark"] { --m-editor: var(--th-qoder-dark-editor); --m-chrome: var(--th-qoder-dark-chrome); --m-strip: var(--th-qoder-dark-strip); --m-border: var(--th-qoder-dark-border); --m-text: var(--th-qoder-dark-text); --m-muted: var(--th-qoder-dark-muted); --m-faint: var(--th-qoder-dark-faint); --m-accent: var(--th-qoder-dark-accent); --m-active: var(--th-qoder-dark-active); --m-line: var(--th-qoder-dark-line); --m-selection: var(--th-qoder-dark-selection); --m-gutter: var(--th-qoder-dark-gutter); --m-gutter-now: var(--th-qoder-dark-gutter-now); --m-status: var(--th-qoder-dark-status); --m-status-fg: var(--th-qoder-dark-status-fg); --m-kw: var(--th-qoder-dark-kw); --m-type: var(--th-qoder-dark-type); --m-fn: var(--th-qoder-dark-fn); --m-str: var(--th-qoder-dark-str); --m-num: var(--th-qoder-dark-num); --m-com: var(--th-qoder-dark-com); --m-punc: var(--th-qoder-dark-punc); --m-plain: var(--th-qoder-dark-plain); --m-ansi-green: var(--th-qoder-dark-ansi-green); --m-ansi-yellow: var(--th-qoder-dark-ansi-yellow); --m-ansi-blue: var(--th-qoder-dark-ansi-blue); --m-ansi-red: var(--th-qoder-dark-ansi-red); --m-added: var(--th-qoder-dark-added); --m-modified: var(--th-qoder-dark-modified); }
+.mock[data-pal="qoder-light"] { --m-editor: var(--th-qoder-light-editor); --m-chrome: var(--th-qoder-light-chrome); --m-strip: var(--th-qoder-light-strip); --m-border: var(--th-qoder-light-border); --m-text: var(--th-qoder-light-text); --m-muted: var(--th-qoder-light-muted); --m-faint: var(--th-qoder-light-faint); --m-accent: var(--th-qoder-light-accent); --m-active: var(--th-qoder-light-active); --m-line: var(--th-qoder-light-line); --m-selection: var(--th-qoder-light-selection); --m-gutter: var(--th-qoder-light-gutter); --m-gutter-now: var(--th-qoder-light-gutter-now); --m-status: var(--th-qoder-light-status); --m-status-fg: var(--th-qoder-light-status-fg); --m-kw: var(--th-qoder-light-kw); --m-type: var(--th-qoder-light-type); --m-fn: var(--th-qoder-light-fn); --m-str: var(--th-qoder-light-str); --m-num: var(--th-qoder-light-num); --m-com: var(--th-qoder-light-com); --m-punc: var(--th-qoder-light-punc); --m-plain: var(--th-qoder-light-plain); --m-ansi-green: var(--th-qoder-light-ansi-green); --m-ansi-yellow: var(--th-qoder-light-ansi-yellow); --m-ansi-blue: var(--th-qoder-light-ansi-blue); --m-ansi-red: var(--th-qoder-light-ansi-red); --m-added: var(--th-qoder-light-added); --m-modified: var(--th-qoder-light-modified); }
+.mock[data-pal="witch"] { --m-editor: var(--th-witch-editor); --m-chrome: var(--th-witch-chrome); --m-strip: var(--th-witch-strip); --m-border: var(--th-witch-border); --m-text: var(--th-witch-text); --m-muted: var(--th-witch-muted); --m-faint: var(--th-witch-faint); --m-accent: var(--th-witch-accent); --m-active: var(--th-witch-active); --m-line: var(--th-witch-line); --m-selection: var(--th-witch-selection); --m-gutter: var(--th-witch-gutter); --m-gutter-now: var(--th-witch-gutter-now); --m-status: var(--th-witch-status); --m-status-fg: var(--th-witch-status-fg); --m-kw: var(--th-witch-kw); --m-type: var(--th-witch-type); --m-fn: var(--th-witch-fn); --m-str: var(--th-witch-str); --m-num: var(--th-witch-num); --m-com: var(--th-witch-com); --m-punc: var(--th-witch-punc); --m-plain: var(--th-witch-plain); --m-ansi-green: var(--th-witch-ansi-green); --m-ansi-yellow: var(--th-witch-ansi-yellow); --m-ansi-blue: var(--th-witch-ansi-blue); --m-ansi-red: var(--th-witch-ansi-red); --m-added: var(--th-witch-added); --m-modified: var(--th-witch-modified); }
+.chip[data-theme-id="mayoi"] .sw { background: var(--th-mayoi-dark-accent); }
+.chip[data-theme-id="matrix"] .sw { background: var(--th-matrix-accent); }
+.chip[data-theme-id="purple-gold"] .sw { background: var(--th-purple-gold-accent); }
+.chip[data-theme-id="claude"] .sw { background: var(--th-claude-dark-accent); }
+.chip[data-theme-id="qoder"] .sw { background: var(--th-qoder-dark-accent); }
+.chip[data-theme-id="grok"] .sw { background: var(--th-grok-dark-accent); }
+.chip[data-theme-id="cursor"] .sw { background: var(--th-cursor-dark-accent); }
+.chip[data-theme-id="pumpkin"] .sw { background: var(--th-pumpkin-accent); }
+.chip[data-theme-id="witch"] .sw { background: var(--th-witch-accent); }
+.chip[data-theme-id="blood"] .sw { background: var(--th-blood-accent); }
+/* END GENERATED */

@@ -478,7 +478,7 @@ func (w *prefsWindow) pluginRow(c *ui.Context, it *pluginItem, rule bool) {
 					}
 				}
 				if w.toggle(c.Key("on"), &on).Label(pl.Title()).Changed() {
-					w.setPluginSetting(pl.Name, "enabled", on, true)
+					w.setPluginSetting(pl.Name, "enabled", on, pl.DefaultOn())
 				}
 				// The way into the details, which leans toward them under
 				// the pointer.
@@ -713,7 +713,7 @@ func (w *prefsWindow) pluginSettingControl(c *ui.Context, name, key string, def 
 }
 
 // setPluginSetting sets plugins.<name>.<key> in settings.json, or takes it
-// away when v is deflt, as "enabled": true is.
+// away when v is deflt, as "enabled" is when it matches the plugin's default.
 func (w *prefsWindow) setPluginSetting(name, key string, v, deflt any) {
 	w.set("plugins", withPluginSetting(w.m.s.Prefs.Plugins, name, key, v, deflt))
 	if plugins != nil {

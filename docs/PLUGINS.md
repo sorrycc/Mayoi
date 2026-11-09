@@ -40,8 +40,8 @@ plugins you know.
 On Windows, `~` is `%USERPROFILE%`. With `MAYOI_DATA_DIR` set, these folders are in that folder instead.
 
 Mayoi comes with two plugins of its own, **Word Count** (the words and reading time of a Markdown or text file, in the
-status bar) and **TODOs** (the folder's TODO, FIXME and HACK comments, in the sidebar). They can be turned off like any
-other.
+status bar) and **TODOs** (the folder's TODO, FIXME and HACK comments, in the sidebar). They start off; turn them on
+on the **Plugins** page of the settings window, or with `"enabled": true` in their settings.
 
 ### Settings sync
 
@@ -67,8 +67,8 @@ commits, and a plugin removed on one machine is removed on the others. A plugin 
 ```jsonc
 {
   "plugins": {
-    "word-count": { "wordsPerMinute": 200 },
-    "todos": { "enabled": false }
+    "word-count": { "enabled": true, "wordsPerMinute": 200 },
+    "prettier": { "enabled": false }
   },
   "formatOnSave": { "typescript": true },
   "formatters": { "typescript": "prettier" }
@@ -110,6 +110,7 @@ word-stats/
   "mayoi": ">=0.19.0",               // the versions of Mayoi it works with
   "main": "main.ts",                 // .ts, .js or .mjs
   "activation": ["onCommand:word-stats.count"],
+  "enabled": true,                   // optional: false starts it off, until its settings turn it on
   "contributes": {
     "commands": [{ "id": "word-stats.count", "title": "Count Words", "title:zh-Hans": "统计字数" }],
     "keybindings": [{ "key": "ctrl+alt+w", "mac": "cmd+alt+w", "command": "word-stats.count" }],

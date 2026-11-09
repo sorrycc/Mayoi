@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"io/fs"
 	"os"
 	"strings"
 	"testing"
@@ -16,6 +17,7 @@ func withBundled(hs *harness) *pluginHost {
 	os.WriteFile(hs.path("notes.go"), []byte("package main\n\n// HACK: until the API settles\n"), 0o644)
 	h := withPlugins(hs, nil)
 	h.reg.Dirs.Bundled = bundled.FS
+	turnOnBundled(hs, h)
 	h.reg.Load()
 	hs.a.indexStale = true
 	hs.a.openFile(hs.path("README.md"), true)
@@ -25,6 +27,17 @@ func withBundled(hs *harness) *pluginHost {
 		return strings.HasSuffix(h.status["word-count.status"].Text, " words")
 	})
 	return h
+}
+
+// turnOnBundled turns on the plugins Mayoi comes with, which start off.
+func turnOnBundled(hs *harness, h *pluginHost) {
+	entries, _ := fs.ReadDir(bundled.FS, ".")
+	all := map[string]json.RawMessage{}
+	for _, e := range entries {
+		all[e.Name()] = json.RawMessage(`{"enabled": true}`)
+	}
+	hs.a.settings.Prefs.Plugins = all
+	h.syncPrefs()
 }
 
 // A status item set again as it was draws nothing anew; what the frames

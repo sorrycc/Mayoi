@@ -441,7 +441,7 @@ func (w *prefsWindow) detailCard(c *ui.Context, it *pluginItem) {
 						}
 					}
 					if w.toggle(c.Key("on"), &on).Label(pl.Title()).Margin(0, 0, 0, 4).Changed() {
-						w.setPluginSetting(pl.Name, "enabled", on, true)
+						w.setPluginSetting(pl.Name, "enabled", on, pl.DefaultOn())
 					}
 				})
 			})

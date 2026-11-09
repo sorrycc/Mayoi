@@ -4,6 +4,7 @@
   "version": "1.0.0",
   "description": "The words of a Markdown or text file and the time to read them, in the status bar",
   "main": "main.ts",
+  "enabled": false,
   "activation": ["onLanguage:markdown", "onLanguage:plaintext"],
   "contributes": {
     "commands": [

@@ -217,26 +217,29 @@ func (r *Registry) locale() string {
 	return r.Locale()
 }
 
-// enabled reports whether the settings leave the plugin on, and safe mode
-// lets it run.
 // SetSafe runs no plugin but the bundled ones, or all of them again.
 func (r *Registry) SetSafe(on bool) { r.safe.Store(on) }
 
 // Safe reports whether only the bundled plugins run.
 func (r *Registry) Safe() bool { return r.safe.Load() }
 
+// enabled reports whether the settings, or else its manifest, leave the
+// plugin on, and safe mode lets it run.
 func (r *Registry) enabled(p *Plugin) bool {
 	if r.safe.Load() && !p.Bundled {
 		return false
 	}
 	if r.host == nil {
-		return true
+		return p.DefaultOn()
 	}
 	var s struct {
 		Enabled *bool `json:"enabled"`
 	}
 	json.Unmarshal(r.host.Settings(p.Name), &s)
-	return s.Enabled == nil || *s.Enabled
+	if s.Enabled == nil {
+		return p.DefaultOn()
+	}
+	return *s.Enabled
 }
 
 // Plugins are the plugins found, bundled first, then by name.

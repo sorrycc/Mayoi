@@ -205,16 +205,19 @@ func (h *pluginHost) syncPrefs() {
 // they turned on, from old to now, as they would start had Mayoi started
 // with them on.
 func (h *pluginHost) toggled(old, now map[string]json.RawMessage) {
-	on := func(all map[string]json.RawMessage, name string) bool {
+	on := func(all map[string]json.RawMessage, p *plugin.Plugin) bool {
 		var s struct {
 			Enabled *bool `json:"enabled"`
 		}
-		json.Unmarshal(all[name], &s)
-		return s.Enabled == nil || *s.Enabled
+		json.Unmarshal(all[p.Name], &s)
+		if s.Enabled == nil {
+			return p.DefaultOn()
+		}
+		return *s.Enabled
 	}
 	started := false
 	for _, p := range h.reg.Plugins() {
-		was, is := on(old, p.Name), on(now, p.Name)
+		was, is := on(old, p), on(now, p)
 		if was == is {
 			continue
 		}
@@ -252,7 +255,11 @@ func (h *pluginHost) setEnabled(name string, on bool) {
 	if h.setPrefs == nil || s == nil {
 		return
 	}
-	h.setPrefs("plugins", withPluginSetting(s.Prefs.Plugins, name, "enabled", on, true))
+	deflt := true
+	if p := h.reg.Plugin(name); p != nil {
+		deflt = p.DefaultOn()
+	}
+	h.setPrefs("plugins", withPluginSetting(s.Prefs.Plugins, name, "enabled", on, deflt))
 	h.Changed()
 }
 

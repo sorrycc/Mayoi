@@ -34,7 +34,10 @@ type Manifest struct {
 	// Activation are the events that start the plugin: onCommand:<id>,
 	// onLanguage:<lang>, onView:<id>, onPreview:<id>, workspaceContains:<glob>,
 	// onStartup, or * for any.
-	Activation  []string    `json:"activation,omitempty"`
+	Activation []string `json:"activation,omitempty"`
+	// Enabled is whether the plugin starts on, until its settings say;
+	// nil is on.
+	Enabled     *bool       `json:"enabled,omitempty"`
 	Contributes Contributes `json:"contributes"`
 }
 
@@ -354,6 +357,10 @@ func (m *Manifest) check() error {
 // HasCode reports whether the plugin runs code, rather than only
 // declaring themes, languages or snippets.
 func (m *Manifest) HasCode() bool { return m.Main != "" }
+
+// DefaultOn reports whether the plugin is on while its settings leave
+// "enabled" out.
+func (m *Manifest) DefaultOn() bool { return m.Enabled == nil || *m.Enabled }
 
 // versionRangeOK reports whether r is a range of versions this package
 // understands: comparisons of versions, separated by spaces.

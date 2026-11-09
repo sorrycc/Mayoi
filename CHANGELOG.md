@@ -3,7 +3,7 @@
 The update window shows the section of the version it offers. Every release
 needs a `## <version>` section here, or its build fails.
 
-## Unreleased
+## 0.19.1
 
 - **Word Count** and **TODOs** come with Mayoi but start off; turn them on in **Settings → Plugins**.
 - A plugin's `plugin.json` can say `"enabled": false` to start off until you turn it on.

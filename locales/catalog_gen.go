@@ -15276,6 +15276,366 @@ func (msgs Messages) PluginRunningTitle() string {
 	return Catalog.Format(msgs.locale, "pluginRunningTitle", nil)
 }
 
+// RunningColPlugin says "Plugin"
+// in the language the app shows.
+func RunningColPlugin() string { return In(i18n.Locale()).RunningColPlugin() }
+
+// RunningColPlugin says "Plugin"
+// in the language of msgs.
+func (msgs Messages) RunningColPlugin() string {
+	return Catalog.Format(msgs.locale, "runningColPlugin", nil)
+}
+
+// RunningColVersion says "Version"
+// in the language the app shows.
+func RunningColVersion() string { return In(i18n.Locale()).RunningColVersion() }
+
+// RunningColVersion says "Version"
+// in the language of msgs.
+func (msgs Messages) RunningColVersion() string {
+	return Catalog.Format(msgs.locale, "runningColVersion", nil)
+}
+
+// RunningColState says "State"
+// in the language the app shows.
+func RunningColState() string { return In(i18n.Locale()).RunningColState() }
+
+// RunningColState says "State"
+// in the language of msgs.
+func (msgs Messages) RunningColState() string {
+	return Catalog.Format(msgs.locale, "runningColState", nil)
+}
+
+// RunningColCPU says "CPU"
+// in the language the app shows.
+func RunningColCPU() string { return In(i18n.Locale()).RunningColCPU() }
+
+// RunningColCPU says "CPU"
+// in the language of msgs.
+func (msgs Messages) RunningColCPU() string {
+	return Catalog.Format(msgs.locale, "runningColCPU", nil)
+}
+
+// RunningColMemory says "Memory"
+// in the language the app shows.
+func RunningColMemory() string { return In(i18n.Locale()).RunningColMemory() }
+
+// RunningColMemory says "Memory"
+// in the language of msgs.
+func (msgs Messages) RunningColMemory() string {
+	return Catalog.Format(msgs.locale, "runningColMemory", nil)
+}
+
+// RunningColStarted says "Started"
+// in the language the app shows.
+func RunningColStarted() string { return In(i18n.Locale()).RunningColStarted() }
+
+// RunningColStarted says "Started"
+// in the language of msgs.
+func (msgs Messages) RunningColStarted() string {
+	return Catalog.Format(msgs.locale, "runningColStarted", nil)
+}
+
+// RunningColCrashes says "Crashes"
+// in the language the app shows.
+func RunningColCrashes() string { return In(i18n.Locale()).RunningColCrashes() }
+
+// RunningColCrashes says "Crashes"
+// in the language of msgs.
+func (msgs Messages) RunningColCrashes() string {
+	return Catalog.Format(msgs.locale, "runningColCrashes", nil)
+}
+
+// RunningColError says "Last error"
+// in the language the app shows.
+func RunningColError() string { return In(i18n.Locale()).RunningColError() }
+
+// RunningColError says "Last error"
+// in the language of msgs.
+func (msgs Messages) RunningColError() string {
+	return Catalog.Format(msgs.locale, "runningColError", nil)
+}
+
+// RunningStateRunning says "Running"
+// in the language the app shows.
+func RunningStateRunning() string { return In(i18n.Locale()).RunningStateRunning() }
+
+// RunningStateRunning says "Running"
+// in the language of msgs.
+func (msgs Messages) RunningStateRunning() string {
+	return Catalog.Format(msgs.locale, "runningStateRunning", nil)
+}
+
+// RunningStateCrashed says "Crashed"
+// in the language the app shows.
+func RunningStateCrashed() string { return In(i18n.Locale()).RunningStateCrashed() }
+
+// RunningStateCrashed says "Crashed"
+// in the language of msgs.
+func (msgs Messages) RunningStateCrashed() string {
+	return Catalog.Format(msgs.locale, "runningStateCrashed", nil)
+}
+
+// RunningStateStatic says "No code"
+// in the language the app shows.
+func RunningStateStatic() string { return In(i18n.Locale()).RunningStateStatic() }
+
+// RunningStateStatic says "No code"
+// in the language of msgs.
+func (msgs Messages) RunningStateStatic() string {
+	return Catalog.Format(msgs.locale, "runningStateStatic", nil)
+}
+
+// RunningCount says "{count, plural, one {# plugin} other {# plugins}}"
+// in the language the app shows.
+func RunningCount(count int) string { return In(i18n.Locale()).RunningCount(count) }
+
+// RunningCount says "{count, plural, one {# plugin} other {# plugins}}"
+// in the language of msgs.
+func (msgs Messages) RunningCount(count int) string {
+	return Catalog.Format(msgs.locale, "runningCount", map[string]any{"count": count})
+}
+
+// RunningActive says "{count} running"
+// in the language the app shows.
+func RunningActive(count string) string { return In(i18n.Locale()).RunningActive(count) }
+
+// RunningActive says "{count} running"
+// in the language of msgs.
+func (msgs Messages) RunningActive(count string) string {
+	return Catalog.Format(msgs.locale, "runningActive", map[string]any{"count": count})
+}
+
+// RunningMemoryTotal says "{size} in use"
+// in the language the app shows.
+func RunningMemoryTotal(size string) string { return In(i18n.Locale()).RunningMemoryTotal(size) }
+
+// RunningMemoryTotal says "{size} in use"
+// in the language of msgs.
+func (msgs Messages) RunningMemoryTotal(size string) string {
+	return Catalog.Format(msgs.locale, "runningMemoryTotal", map[string]any{"size": size})
+}
+
+// RunningRestart says "Restart"
+// in the language the app shows.
+func RunningRestart() string { return In(i18n.Locale()).RunningRestart() }
+
+// RunningRestart says "Restart"
+// in the language of msgs.
+func (msgs Messages) RunningRestart() string {
+	return Catalog.Format(msgs.locale, "runningRestart", nil)
+}
+
+// RunningTurnOff says "Turn Off"
+// in the language the app shows.
+func RunningTurnOff() string { return In(i18n.Locale()).RunningTurnOff() }
+
+// RunningTurnOff says "Turn Off"
+// in the language of msgs.
+func (msgs Messages) RunningTurnOff() string {
+	return Catalog.Format(msgs.locale, "runningTurnOff", nil)
+}
+
+// RunningTurnOn says "Turn On"
+// in the language the app shows.
+func RunningTurnOn() string { return In(i18n.Locale()).RunningTurnOn() }
+
+// RunningTurnOn says "Turn On"
+// in the language of msgs.
+func (msgs Messages) RunningTurnOn() string {
+	return Catalog.Format(msgs.locale, "runningTurnOn", nil)
+}
+
+// RunningDetails says "Open Details"
+// in the language the app shows.
+func RunningDetails() string { return In(i18n.Locale()).RunningDetails() }
+
+// RunningDetails says "Open Details"
+// in the language of msgs.
+func (msgs Messages) RunningDetails() string {
+	return Catalog.Format(msgs.locale, "runningDetails", nil)
+}
+
+// RunningShowLog says "Show Log"
+// in the language the app shows.
+func RunningShowLog() string { return In(i18n.Locale()).RunningShowLog() }
+
+// RunningShowLog says "Show Log"
+// in the language of msgs.
+func (msgs Messages) RunningShowLog() string {
+	return Catalog.Format(msgs.locale, "runningShowLog", nil)
+}
+
+// RunningNone says "No plugins yet. Install one from the Plugins page of the settings."
+// in the language the app shows.
+func RunningNone() string { return In(i18n.Locale()).RunningNone() }
+
+// RunningNone says "No plugins yet. Install one from the Plugins page of the settings."
+// in the language of msgs.
+func (msgs Messages) RunningNone() string {
+	return Catalog.Format(msgs.locale, "runningNone", nil)
+}
+
+// LogAllPlugins says "All plugins"
+// in the language the app shows.
+func LogAllPlugins() string { return In(i18n.Locale()).LogAllPlugins() }
+
+// LogAllPlugins says "All plugins"
+// in the language of msgs.
+func (msgs Messages) LogAllPlugins() string {
+	return Catalog.Format(msgs.locale, "logAllPlugins", nil)
+}
+
+// LogFilter says "Filter log"
+// in the language the app shows.
+func LogFilter() string { return In(i18n.Locale()).LogFilter() }
+
+// LogFilter says "Filter log"
+// in the language of msgs.
+func (msgs Messages) LogFilter() string {
+	return Catalog.Format(msgs.locale, "logFilter", nil)
+}
+
+// LogCopy says "Copy"
+// in the language the app shows.
+func LogCopy() string { return In(i18n.Locale()).LogCopy() }
+
+// LogCopy says "Copy"
+// in the language of msgs.
+func (msgs Messages) LogCopy() string {
+	return Catalog.Format(msgs.locale, "logCopy", nil)
+}
+
+// LogCopied says "Copied"
+// in the language the app shows.
+func LogCopied() string { return In(i18n.Locale()).LogCopied() }
+
+// LogCopied says "Copied"
+// in the language of msgs.
+func (msgs Messages) LogCopied() string {
+	return Catalog.Format(msgs.locale, "logCopied", nil)
+}
+
+// LogClear says "Clear"
+// in the language the app shows.
+func LogClear() string { return In(i18n.Locale()).LogClear() }
+
+// LogClear says "Clear"
+// in the language of msgs.
+func (msgs Messages) LogClear() string {
+	return Catalog.Format(msgs.locale, "logClear", nil)
+}
+
+// LogJump says "Jump to latest"
+// in the language the app shows.
+func LogJump() string { return In(i18n.Locale()).LogJump() }
+
+// LogJump says "Jump to latest"
+// in the language of msgs.
+func (msgs Messages) LogJump() string {
+	return Catalog.Format(msgs.locale, "logJump", nil)
+}
+
+// LogNewLines says "{count, plural, one {# new line} other {# new lines}}"
+// in the language the app shows.
+func LogNewLines(count int) string { return In(i18n.Locale()).LogNewLines(count) }
+
+// LogNewLines says "{count, plural, one {# new line} other {# new lines}}"
+// in the language of msgs.
+func (msgs Messages) LogNewLines(count int) string {
+	return Catalog.Format(msgs.locale, "logNewLines", map[string]any{"count": count})
+}
+
+// LogLines says "{count, plural, one {# line} other {# lines}}"
+// in the language the app shows.
+func LogLines(count int) string { return In(i18n.Locale()).LogLines(count) }
+
+// LogLines says "{count, plural, one {# line} other {# lines}}"
+// in the language of msgs.
+func (msgs Messages) LogLines(count int) string {
+	return Catalog.Format(msgs.locale, "logLines", map[string]any{"count": count})
+}
+
+// LogNoMatch says "No lines match the filters."
+// in the language the app shows.
+func LogNoMatch() string { return In(i18n.Locale()).LogNoMatch() }
+
+// LogNoMatch says "No lines match the filters."
+// in the language of msgs.
+func (msgs Messages) LogNoMatch() string {
+	return Catalog.Format(msgs.locale, "logNoMatch", nil)
+}
+
+// LogClearFilters says "Clear Filters"
+// in the language the app shows.
+func LogClearFilters() string { return In(i18n.Locale()).LogClearFilters() }
+
+// LogClearFilters says "Clear Filters"
+// in the language of msgs.
+func (msgs Messages) LogClearFilters() string {
+	return Catalog.Format(msgs.locale, "logClearFilters", nil)
+}
+
+// LogCopyLine says "Copy Line"
+// in the language the app shows.
+func LogCopyLine() string { return In(i18n.Locale()).LogCopyLine() }
+
+// LogCopyLine says "Copy Line"
+// in the language of msgs.
+func (msgs Messages) LogCopyLine() string {
+	return Catalog.Format(msgs.locale, "logCopyLine", nil)
+}
+
+// LogOnlyPlugin says "Show Only {name}"
+// in the language the app shows.
+func LogOnlyPlugin(name string) string { return In(i18n.Locale()).LogOnlyPlugin(name) }
+
+// LogOnlyPlugin says "Show Only {name}"
+// in the language of msgs.
+func (msgs Messages) LogOnlyPlugin(name string) string {
+	return Catalog.Format(msgs.locale, "logOnlyPlugin", map[string]any{"name": name})
+}
+
+// LogLevelError says "Errors"
+// in the language the app shows.
+func LogLevelError() string { return In(i18n.Locale()).LogLevelError() }
+
+// LogLevelError says "Errors"
+// in the language of msgs.
+func (msgs Messages) LogLevelError() string {
+	return Catalog.Format(msgs.locale, "logLevelError", nil)
+}
+
+// LogLevelWarn says "Warnings"
+// in the language the app shows.
+func LogLevelWarn() string { return In(i18n.Locale()).LogLevelWarn() }
+
+// LogLevelWarn says "Warnings"
+// in the language of msgs.
+func (msgs Messages) LogLevelWarn() string {
+	return Catalog.Format(msgs.locale, "logLevelWarn", nil)
+}
+
+// LogLevelInfo says "Info"
+// in the language the app shows.
+func LogLevelInfo() string { return In(i18n.Locale()).LogLevelInfo() }
+
+// LogLevelInfo says "Info"
+// in the language of msgs.
+func (msgs Messages) LogLevelInfo() string {
+	return Catalog.Format(msgs.locale, "logLevelInfo", nil)
+}
+
+// LogLevelDebug says "Debug"
+// in the language the app shows.
+func LogLevelDebug() string { return In(i18n.Locale()).LogLevelDebug() }
+
+// LogLevelDebug says "Debug"
+// in the language of msgs.
+func (msgs Messages) LogLevelDebug() string {
+	return Catalog.Format(msgs.locale, "logLevelDebug", nil)
+}
+
 // PluginScriptFailed says "The script failed: {err}"
 // in the language the app shows.
 func PluginScriptFailed(err string) string { return In(i18n.Locale()).PluginScriptFailed(err) }

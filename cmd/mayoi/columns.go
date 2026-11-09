@@ -51,6 +51,8 @@ type colTab struct {
 	diff  *diffView
 	merge *mergeView
 	term  *session
+	// tool is a tool of the plugins: Running Plugins, or the Plugin Log.
+	tool *toolView
 	// transient marks the preview tab of its column, as a file is chosen
 	// in the Explorer or in search's results, or a commit in source
 	// control: the next one chosen replaces it, until it is edited or
@@ -80,6 +82,8 @@ func (t *colTab) name() string {
 		return t.diff.name()
 	case t.merge != nil:
 		return t.merge.name()
+	case t.tool != nil:
+		return t.tool.name()
 	}
 	return t.ed.name()
 }
@@ -319,7 +323,7 @@ func (a *app) openFileIn(col *column, at int, path string, focus bool) {
 // file path, as text or as an image, -1 when none does.
 func (col *column) showingFile(path string) int {
 	return slices.IndexFunc(col.tabs, func(t *colTab) bool {
-		return t.term == nil && t.diff == nil && t.merge == nil && t.path() == path
+		return t.term == nil && t.diff == nil && t.merge == nil && t.tool == nil && t.path() == path
 	})
 }
 
@@ -470,6 +474,8 @@ func (a *app) focusTab(t *colTab) {
 		t.view.pane.Focus()
 	case t.diff != nil:
 		t.diff.pane.Focus()
+	case t.tool != nil:
+		t.tool.pane.Focus()
 	case t.merge != nil:
 		if t.merge.ed != nil {
 			t.merge.ed.focusNext = true
@@ -564,7 +570,7 @@ func (a *app) closeTab(t *colTab, then func()) {
 		}
 		done()
 	}
-	if t.view != nil || t.diff != nil {
+	if t.view != nil || t.diff != nil || t.tool != nil {
 		remove()
 		return
 	}
@@ -751,6 +757,10 @@ func (a *app) splitRight() {
 		a.addTab(nc, 0, &colTab{diff: v})
 		a.activate(nc, 0, true)
 		return
+	case t.tool != nil:
+		a.addTab(nc, 0, &colTab{tool: t.tool.clone()})
+		a.activate(nc, 0, true)
+		return
 	case t.merge != nil:
 		// The same merge, whose result the two views share.
 		v := &mergeView{path: t.merge.path, entry: t.merge.entry, op: t.merge.op, chosen: -1, current: -1,
@@ -842,6 +852,8 @@ func (a *app) moveTab(t *colTab, to *column, at int) {
 			j = to.showingDiff(t.diff)
 		case t.merge != nil:
 			j = to.showingMerge(t.merge.path)
+		case t.tool != nil:
+			j = slices.IndexFunc(to.tabs, func(o *colTab) bool { return o.tool != nil && o.tool.kind == t.tool.kind })
 		default:
 			j = to.showingImage(t.view.path)
 		}

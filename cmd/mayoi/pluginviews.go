@@ -56,6 +56,10 @@ type viewNode struct {
 	input  *string
 	blocks []markdownBlock
 	parsed bool
+	// path is where the node is in its tree, by places, as "/2/0": the
+	// rows of a list or a tree with no keys are kept under it, so that
+	// two lists of a view keep apart the rows at the same places.
+	path string
 }
 
 // viewItem is a row of a list or a tree node.
@@ -70,7 +74,8 @@ type viewItem struct {
 	Open        bool         `json:"open"`
 
 	// path is where the row is in its list or tree, which its state is
-	// kept by: its key, or its place, found as it first draws.
+	// kept by: its key, or its place under its list's, found as it first
+	// draws.
 	path string
 }
 
@@ -80,8 +85,8 @@ type viewAction struct {
 	OnClick *handlerRef `json:"onClick"`
 }
 
-// pluginView is a view a plugin rendered: its tree, and the plugin to
-// call back.
+// pluginView is a view a plugin rendered as a window draws it: its tree,
+// the plugin to call back, and the window's own state of it.
 type pluginView struct {
 	plugin *plugin.Plugin
 	tree   *viewNode
@@ -89,6 +94,13 @@ type pluginView struct {
 	// last clicked, by path.
 	open map[string]bool
 	sel  string
+}
+
+// renderedView is the tree a plugin rendered a view with last, which
+// every window draws.
+type renderedView struct {
+	plugin *plugin.Plugin
+	tree   *viewNode
 }
 
 var viewsMu sync.Mutex
@@ -115,19 +127,29 @@ func (h *pluginHost) renderView(p *plugin.Plugin, id string, raw json.RawMessage
 		keepInputs(old, &n)
 	}
 	viewsMu.Lock()
-	pv := pluginViews[id]
-	if pv == nil {
-		pv = &pluginView{open: map[string]bool{}}
-		pluginViews[id] = pv
-	}
-	pv.plugin, pv.tree = p, &n
+	pluginViews[id] = &renderedView{plugin: p, tree: &n}
 	viewsMu.Unlock()
 	h.redraw()
 	return nil
 }
 
 // pluginViews are the views rendered, by id.
-var pluginViews = map[string]*pluginView{}
+var pluginViews = map[string]*renderedView{}
+
+// viewState is this window's state of the plugin view of id, as the tree
+// the plugin rendered last.
+func (a *app) viewState(id string, rv *renderedView) *pluginView {
+	pv := a.viewStates[id]
+	if pv == nil {
+		if a.viewStates == nil {
+			a.viewStates = map[string]*pluginView{}
+		}
+		pv = &pluginView{open: map[string]bool{}}
+		a.viewStates[id] = pv
+	}
+	pv.plugin, pv.tree = rv.plugin, rv.tree
+	return pv
+}
 
 func keepInputs(old, n *viewNode) {
 	if old.Type == n.Type && old.input != nil && n.Type == "input" && old.Value == n.Value {
@@ -263,9 +285,9 @@ func (a *app) pluginSidebar(c *ui.Context) {
 		return
 	}
 	viewsMu.Lock()
-	pv := pluginViews[id]
+	rv := pluginViews[id]
 	viewsMu.Unlock()
-	if pv == nil || pv.tree == nil {
+	if rv == nil || rv.tree == nil {
 		// Until the plugin, which may be starting, renders the view.
 		ui.Column(c.Key("plugin-view-waits")).Padding(28, 20).Gap(10).AlignItems(ui.Center).Transition(revealFade).Children(func() {
 			ui.Spinner(c).Size(16, 16)
@@ -273,6 +295,7 @@ func (a *app) pluginSidebar(c *ui.Context) {
 		})
 		return
 	}
+	pv := a.viewState(id, rv)
 	ui.Scroll(c.Key("plugin-view:"+id)).Grow(1).MinHeight(0).Padding(4, 8, 8, 8).Children(func() {
 		// What the plugin renders first fades in, over what said it waits.
 		fadeIn(ui.Column(c.Key("body"))).Children(func() { a.drawViewNode(c, "root", pv.tree, pv) })
@@ -302,6 +325,9 @@ func (a *app) drawViewNode(c *ui.Context, key any, n *viewNode, pv *pluginView) 
 		}
 		el.Gap(gap).Padding(n.Padding, n.Padding).Children(func() {
 			for i, ch := range n.Children {
+				if ch.path == "" {
+					ch.path = n.path + "/" + strconv.Itoa(i)
+				}
 				a.drawViewNode(c, i, ch, pv)
 			}
 		})
@@ -348,13 +374,13 @@ func (a *app) drawViewNode(c *ui.Context, key any, n *viewNode, pv *pluginView) 
 				a.viewEmpty(c, "", n.Empty)
 			}
 			for i, it := range n.Items {
-				a.viewItemRow(c, "", i, it, pv)
+				a.viewItemRow(c, n.path, i, it, pv)
 			}
 		})
 	case "tree":
 		ui.Column(c.Key(key)).Gap(1).Children(func() {
 			for i, it := range n.Items {
-				a.viewTreeRow(c, "", i, it, 0, pv)
+				a.viewTreeRow(c, n.path, i, it, 0, pv)
 			}
 		})
 	case "input":

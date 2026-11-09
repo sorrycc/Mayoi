@@ -118,6 +118,11 @@ func (m *mayoi) showPrefs(section, key string, from *desktop) {
 	if section != "" {
 		w.section, w.query = section, ""
 	}
+	// The details of a plugin, on the Plugins page.
+	if name, ok := strings.CutPrefix(key, pluginDetailKey); ok {
+		w.section, w.query, key = prefsPlugins, "", ""
+		w.openDetail(name)
+	}
 	if key != "" {
 		if f, ok := settings.FieldOf(key); ok {
 			w.section, w.query = f.Category, ""

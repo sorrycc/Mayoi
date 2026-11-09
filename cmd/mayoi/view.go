@@ -92,6 +92,8 @@ func (a *app) view(c *ui.Context) {
 			a.focus, a.col = paneEditor, i
 		case t.diff != nil && t.diff.pane.FocusWithin(c):
 			a.focus, a.col = paneEditor, i
+		case t.tool != nil && t.tool.pane.FocusWithin(c):
+			a.focus, a.col = paneEditor, i
 		case t.ed != nil && t.ed.preview != nil && t.ed.preview.pane.FocusWithin(c):
 			a.focus, a.col = paneEditor, i
 		}
@@ -597,7 +599,7 @@ func (a *app) columnView(c *ui.Context, col *column) {
 	}
 	a.tabStrip(c, col)
 	shown := col.tab()
-	if shown != nil && shown.term == nil {
+	if shown != nil && shown.term == nil && shown.tool == nil {
 		a.breadcrumbs(c, col, shown)
 	}
 	for _, t := range col.tabs {
@@ -619,6 +621,8 @@ func (a *app) columnView(c *ui.Context, col *column) {
 					a.diffViewUI(c, shown.diff)
 				case shown.merge != nil:
 					a.mergeViewUI(c, shown.merge)
+				case shown.tool != nil:
+					a.toolViewUI(c, shown.tool)
 				case shown.ed.loading || shown.ed.loadErr != nil:
 					a.hideEditor(shown.ed)
 					a.loadingView(c, shown.ed)
@@ -1234,7 +1238,13 @@ func (a *app) statusBar(c *ui.Context) {
 		// item is a part of the bar, a button when it does something.
 		item := func(key, label, tip string, icon *ui.SVG, fn func()) {
 			if fn == nil {
-				ui.Row(c.Key("status:"+key)).Height(statusBarH).Padding(0, 6).Gap(5).AlignItems(ui.Center).Children(func() {
+				// It does nothing, but tells what it is under the pointer, as
+				// the plugins' items do.
+				r := ui.Row(c.Key("status:"+key)).Height(statusBarH).Padding(0, 6).Gap(5).AlignItems(ui.Center)
+				if tip != "" {
+					r.Label(tip).Tooltip(tip)
+				}
+				r.Children(func() {
 					if icon != nil {
 						ui.Icon(c, icon).FontSize(12).TextColor(p.statusFg)
 					}

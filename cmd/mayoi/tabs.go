@@ -68,7 +68,10 @@ func (a *app) tabStrip(c *ui.Context, col *column) {
 				for i, t := range col.tabs {
 					active := i == col.active
 					tip := locales.TabTerminal()
-					if t.term == nil {
+					switch {
+					case t.tool != nil:
+						tip = t.name()
+					case t.term == nil:
 						tip = a.relOrPath(t.path())
 					}
 					tab := ui.ButtonBase(c.Key(t.id)).Padding(0, 6, 0, 12).Gap(7).AlignItems(ui.Center).
@@ -139,6 +142,8 @@ func (a *app) tabStrip(c *ui.Context, col *column) {
 							icon, tint = iconCommit, p.accent
 						case t.diff != nil:
 							icon, tint = iconDiff, p.changed
+						case t.tool != nil:
+							icon, tint = t.tool.icon(), p.accent
 						case t.term == nil:
 							icon, tint = fileIcon(p, t.name())
 						}

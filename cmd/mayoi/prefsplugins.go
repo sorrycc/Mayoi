@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"math"
 	"os"
 	"slices"
@@ -386,7 +387,12 @@ func (w *prefsWindow) dangerButton(c *ui.Context, key, label string) bool {
 // pluginState is what a plugin's row says of how it is doing, and the
 // color of the dot before it.
 func (w *prefsWindow) pluginState(pl *plugin.Plugin, st plugin.Stats) (string, ui.Color) {
-	p := w.pal
+	return pluginStateOf(w.pal, pl, st)
+}
+
+// pluginStateOf is how a plugin is doing, in words, and the color of its
+// dot.
+func pluginStateOf(p *palette, pl *plugin.Plugin, st plugin.Stats) (string, ui.Color) {
 	switch {
 	case st.Disabled:
 		return locales.PluginsOff(), p.faint
@@ -709,10 +715,20 @@ func (w *prefsWindow) pluginSettingControl(c *ui.Context, name, key string, def 
 // setPluginSetting sets plugins.<name>.<key> in settings.json, or takes it
 // away when v is deflt, as "enabled": true is.
 func (w *prefsWindow) setPluginSetting(name, key string, v, deflt any) {
-	prefs := w.m.s.Prefs
-	all := map[string]json.RawMessage{}
-	for k, raw := range prefs.Plugins {
-		all[k] = raw
+	w.set("plugins", withPluginSetting(w.m.s.Prefs.Plugins, name, key, v, deflt))
+	if plugins != nil {
+		plugins.syncPrefs()
+		plugins.Changed()
+		plugins.reg.Emit("settings.changed", map[string]any{})
+	}
+}
+
+// withPluginSetting is the plugins' settings all, with the setting of key
+// of the plugin of name v, or left out as deflt.
+func withPluginSetting(all map[string]json.RawMessage, name, key string, v, deflt any) json.RawMessage {
+	all = maps.Clone(all)
+	if all == nil {
+		all = map[string]json.RawMessage{}
 	}
 	var obj map[string]json.RawMessage
 	json.Unmarshal(all[name], &obj)
@@ -732,12 +748,7 @@ func (w *prefsWindow) setPluginSetting(name, key string, v, deflt any) {
 		all[name] = data
 	}
 	data, _ := json.Marshal(all)
-	w.set("plugins", data)
-	if plugins != nil {
-		plugins.syncPrefs()
-		plugins.Changed()
-		plugins.reg.Emit("settings.changed", map[string]any{})
-	}
+	return data
 }
 
 // skippedPluginKeys are the shortcuts of plugins that keys Mayoi or the

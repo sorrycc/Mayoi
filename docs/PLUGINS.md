@@ -51,9 +51,13 @@ commits, and a plugin removed on one machine is removed on the others. A plugin 
 
 ### When something goes wrong
 
-- **Plugins → Show Plugin Log** opens what plugins logged and the errors they hit.
-- **Plugins → Show Running Plugins** lists each plugin: running or not, how long it took to start, the time its
-  JavaScript ran, the memory it keeps, and its last error.
+- **Plugins → Show Plugin Log** opens a tab of what plugins logged and the errors they hit, the newest at the bottom.
+  Filter it by plugin, by level and by text; it follows new lines while scrolled to the end. **Copy** copies the lines
+  shown, and **Clear** empties it. It keeps the last 10,000 lines.
+- **Plugins → Show Running Plugins** opens a table of the plugins: state, version, the time their JavaScript ran, the
+  memory they keep, when they started, how often they crashed, and their last error. Click a column's head to sort by
+  it. It refreshes every second while it shows. Each row can restart its plugin, turn it off, open its details, or
+  show its log.
 - A command's JavaScript that runs for 10 seconds without a break is stopped, and so is a plugin that keeps more than
   256 MiB. A plugin that stops 3 times in a row is off until **Plugins → Reload Plugins**.
 - `mayoi --disable-plugins` starts Mayoi with only the plugins it comes with.

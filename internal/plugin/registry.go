@@ -88,6 +88,7 @@ type Plugin struct {
 	lastErr     string
 	crashes     int
 	activatedIn time.Duration
+	startedAt   time.Time
 	dynamic     []CommandContrib
 	subs        map[string]bool
 	hovers      []string
@@ -109,6 +110,7 @@ type Stats struct {
 	Disabled    bool // by its settings
 	Crashed     bool // stopped too often, until reloaded
 	ActivatedIn time.Duration
+	StartedAt   time.Time // when it last started, zero while it does not run
 	CPU         time.Duration
 	Memory      int64
 	Crashes     int
@@ -134,6 +136,7 @@ func (p *Plugin) Stats() Stats {
 	}
 	if p.in != nil {
 		st.CPU, st.Memory = p.in.stats()
+		st.StartedAt = p.startedAt
 	}
 	return st
 }
@@ -481,6 +484,27 @@ func (r *Registry) Reload(name string) {
 	r.Load()
 }
 
+// Restart stops a plugin, clearing its crashes, and starts it again in
+// the background, unless it is off or has no code of its own to run.
+func (r *Registry) Restart(name string) {
+	p := r.Plugin(name)
+	if p == nil {
+		return
+	}
+	p.shutdown()
+	p.mu.Lock()
+	p.crashes, p.lastErr = 0, ""
+	p.mu.Unlock()
+	if !r.enabled(p) || !p.HasCode() || p.Script || p.loadErr != "" {
+		return
+	}
+	p.logf("info", "restarting")
+	p.launch()
+	if r.host != nil {
+		r.host.Changed()
+	}
+}
+
 // ReloadAll stops every plugin and finds them again.
 func (r *Registry) ReloadAll() {
 	for _, p := range r.Plugins() {
@@ -623,7 +647,7 @@ func (p *Plugin) ensure() (*instance, error) {
 		p.crashes++
 		p.lastErr = err.Error()
 	} else {
-		p.in, p.activatedIn = in, time.Since(began)
+		p.in, p.activatedIn, p.startedAt = in, time.Since(began), time.Now()
 	}
 	p.mu.Unlock()
 	close(ch)

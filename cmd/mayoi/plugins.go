@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -38,8 +37,10 @@ type pluginHost struct {
 	prefs  func() *settings.Settings
 	menu   func()
 	// prefsWin draws the settings window anew, whose Plugins page shows
-	// how the plugins do; nil in the tests that have none.
+	// how the plugins do; setPrefs sets the preference of key to raw, as
+	// the settings window does. Nil in the tests that have none.
 	prefsWin func()
+	setPrefs func(key string, raw json.RawMessage)
 
 	// prefsSnap and folderSnap are the settings and the folder of the
 	// window in front as the main thread last saw them, for the plugins'
@@ -47,8 +48,11 @@ type pluginHost struct {
 	prefsSnap  atomic.Pointer[settings.Prefs]
 	folderSnap atomic.Pointer[string]
 
-	mu   sync.Mutex
-	logs []plugin.LogLine // of every plugin, the last maxPluginLog
+	mu sync.Mutex
+	// log is what every plugin logged, its last maxPluginLog lines; a
+	// post of logShown is on its way to the windows while logPosted.
+	log       logRing
+	logPosted atomic.Bool
 	// status are the items of the status bar the plugins filled, by id,
 	// and statusList them sorted, nil once they change.
 	status     map[string]pluginStatus
@@ -92,7 +96,44 @@ type pluginHost struct {
 }
 
 // maxPluginLog is how many lines the log of every plugin keeps.
-const maxPluginLog = 2000
+const maxPluginLog = 10000
+
+// logRing is the log of every plugin: its lines in a ring of
+// maxPluginLog, made as the first comes, each line numbered from 0 as it
+// came. A line new to a full ring takes the place of the oldest, so that
+// a line costs no more than itself.
+type logRing struct {
+	lines []plugin.LogLine
+	// next is the number of the next line, and floor that of the first
+	// kept since the log was cleared.
+	next, floor uint64
+}
+
+// add puts a line at the end of the log.
+func (r *logRing) add(l plugin.LogLine) {
+	if r.lines == nil {
+		r.lines = make([]plugin.LogLine, maxPluginLog)
+	}
+	r.lines[r.next%maxPluginLog] = l
+	r.next++
+}
+
+// first is the number of the oldest line the log keeps.
+func (r *logRing) first() uint64 {
+	if r.next > maxPluginLog {
+		return max(r.floor, r.next-maxPluginLog)
+	}
+	return r.floor
+}
+
+// at is the line of number n, which the log keeps.
+func (r *logRing) at(n uint64) *plugin.LogLine { return &r.lines[n%maxPluginLog] }
+
+// clear empties the log; the lines that come after are numbered on.
+func (r *logRing) clear() {
+	r.floor = r.next
+	clear(r.lines)
+}
 
 // plugins is the app's plugins, nil until the app starts them (and in
 // most tests).
@@ -116,6 +157,14 @@ func (m *mayoi) startPlugins(safe bool) {
 		},
 	)
 	h.prefsWin = m.prefsChanged
+	h.setPrefs = func(key string, raw json.RawMessage) {
+		p := m.s.Prefs
+		if err := p.Set(key, raw); err != nil {
+			return
+		}
+		m.reload(p)
+		m.s.Changed()
+	}
 	dirs := plugin.UserDirs()
 	dirs.Bundled = bundled.FS
 	h.reg = plugin.New(dirs, h)
@@ -196,6 +245,17 @@ func (h *pluginHost) toggled(old, now map[string]json.RawMessage) {
 	}
 }
 
+// setEnabled turns the plugin of name on or off in the settings, as its
+// switch on the Plugins page does.
+func (h *pluginHost) setEnabled(name string, on bool) {
+	s := h.prefs()
+	if h.setPrefs == nil || s == nil {
+		return
+	}
+	h.setPrefs("plugins", withPluginSetting(s.Prefs.Plugins, name, "enabled", on, true))
+	h.Changed()
+}
+
 // front is the app of the window in front, nil for none.
 func (h *pluginHost) front() *app {
 	if apps := h.apps(); len(apps) > 0 {
@@ -264,15 +324,22 @@ func (h *pluginHost) Changed() {
 // Logged implements plugin.Host.
 func (h *pluginHost) Logged(p *plugin.Plugin, line plugin.LogLine) {
 	h.mu.Lock()
-	h.logs = append(h.logs, line)
-	if len(h.logs) > maxPluginLog {
-		h.logs = slices.Delete(h.logs, 0, len(h.logs)-maxPluginLog)
-	}
+	h.log.add(line)
 	h.mu.Unlock()
 	if line.Level == "error" {
 		h.onMain(func() {
 			h.redraw()
 			h.redrawPrefs()
+		})
+	}
+	// The windows showing the log draw it anew, once for however many
+	// lines come before the main thread gets to it.
+	if h.logPosted.CompareAndSwap(false, true) {
+		h.onMain(func() {
+			h.logPosted.Store(false)
+			for _, a := range h.apps() {
+				a.logShown()
+			}
 		})
 	}
 }
@@ -620,74 +687,6 @@ func truncate(s string, n int) string {
 		return string(r[:n]) + "…"
 	}
 	return s
-}
-
-// showPluginLog opens the log of every plugin in a tab.
-func (a *app) showPluginLog() { a.showPluginLogOf(nil) }
-
-// showPluginLogOf opens the log of the plugin p in a tab, of every plugin
-// for nil.
-func (a *app) showPluginLogOf(p *plugin.Plugin) {
-	if plugins == nil {
-		return
-	}
-	plugins.mu.Lock()
-	lines := slices.Clone(plugins.logs)
-	plugins.mu.Unlock()
-	title := locales.PluginLogTitle()
-	if p != nil {
-		title = locales.PluginLogOf(p.Title())
-	}
-	var b strings.Builder
-	for _, l := range lines {
-		if p == nil {
-			fmt.Fprintf(&b, "%s [%s] %s: %s\n", l.Time.Format("15:04:05.000"), l.Level, l.Plugin, l.Message)
-		} else if l.Plugin == p.Name {
-			fmt.Fprintf(&b, "%s [%s] %s\n", l.Time.Format("15:04:05.000"), l.Level, l.Message)
-		}
-	}
-	switch {
-	case b.Len() > 0:
-	case p != nil:
-		b.WriteString(locales.PluginsLogNone() + "\n")
-	default:
-		b.WriteString(locales.PluginLogEmpty() + "\n")
-	}
-	a.openGenerated(title, b.String())
-}
-
-// showRunningPlugins opens a report of the plugins: whether each runs,
-// how long it took to start, and what it used.
-func (a *app) showRunningPlugins() {
-	if plugins == nil {
-		return
-	}
-	var b strings.Builder
-	fmt.Fprintf(&b, "%-24s %-9s %10s %10s %10s  %s\n", "PLUGIN", "STATE", "STARTED IN", "CPU", "MEMORY", "LAST ERROR")
-	for _, p := range plugins.reg.Plugins() {
-		st := p.Stats()
-		state := "idle"
-		switch {
-		case st.Disabled:
-			state = "disabled"
-		case st.Crashed:
-			state = "stopped"
-		case st.Active:
-			state = "running"
-		case !p.HasCode():
-			state = "declares"
-		}
-		mem := "-"
-		if st.Memory > 0 {
-			mem = fmt.Sprintf("%.1f MiB", float64(st.Memory)/(1<<20))
-		}
-		started := "-"
-		if st.ActivatedIn > 0 {
-			started = st.ActivatedIn.Round(time.Millisecond).String()
-		}
-		fmt.Fprintf(&b, "%-24s %-9s %10s %10s %10s  %s\n", p.Name, state, started, st.CPU.Round(time.Millisecond), mem, firstLine(st.Err))
-	}
-	a.openGenerated(locales.PluginRunningTitle(), b.String())
 }
 
 // openGenerated opens text in an untitled tab, as a report.

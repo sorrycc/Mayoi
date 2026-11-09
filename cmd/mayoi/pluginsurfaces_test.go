@@ -103,9 +103,7 @@ func TestPluginViewRows(t *testing.T) {
 		t.Fatal(err)
 	}
 	hs.settle()
-	viewsMu.Lock()
-	pv := pluginViews["todos.list"]
-	viewsMu.Unlock()
+	pv := a.viewStates["todos.list"]
 	if pv.sel != "k:main.go" || pv.open["k:main.go"] {
 		t.Fatalf("the click chose %q, open %v", pv.sel, pv.open)
 	}

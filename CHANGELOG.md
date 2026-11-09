@@ -5,6 +5,15 @@ needs a `## <version>` section here, or its build fails.
 
 ## Unreleased
 
+- **Plugins → Show Running Plugins** opens a live table of each plugin's state, CPU time, memory and crashes.
+- Click a column head in **Running Plugins** to sort by it; values refresh every second while the tab shows.
+- Each row of **Running Plugins** can restart its plugin, turn it off, open its details, or show its log.
+- **Plugins → Show Plugin Log** opens a live log that follows new lines, with a **Jump to latest** pill.
+- Filter the **Plugin Log** by plugin, level and text, and use **Copy** and **Clear** in its bar.
+- The **Plugin Log** keeps the last 10,000 lines and stays fast however long it gets.
+- A plugin view's open folders and selection are now kept per window.
+- Two lists in the same plugin view no longer show the same row as selected.
+- Built-in status bar items that do nothing on click, such as the problem at the cursor, show their tooltip again.
 - A plugin's settings now live only in its details; its row on **Settings → Plugins** links to them.
 - Plugin sidebar views, such as **TODOs**, match the Explorer's rows, file icons, hover and selection.
 - Plugin sidebar views show a loading state, a clear empty state, and fade in when their content arrives.

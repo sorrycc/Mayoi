@@ -353,6 +353,9 @@ type app struct {
 	// pluginSeen is what the plugins were last told of the documents:
 	// each one's version, and the editor in front.
 	pluginSeen pluginSeen
+	// viewStates are the folders open and the row chosen in each plugin
+	// view the sidebar showed, by view id: this window's own.
+	viewStates map[string]*pluginView
 	hover      *hoverCard // the card Show Hover shows
 	find       findState
 	inFiles    searchState // search in the files, of the sidebar

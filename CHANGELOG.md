@@ -5,6 +5,7 @@ needs a `## <version>` section here, or its build fails.
 
 ## Unreleased
 
+- **Find in Files** (`Shift+Cmd+F`) selects the previous query, so typing or pasting replaces it.
 - Drag a file's tab onto a project in the rail to move it there; hold `Option` to copy it instead.
 - Rest a dragged tab on a project in the rail to switch to it, then drop the tab where you want it.
 - Unsaved changes come along when a tab moves to another project.

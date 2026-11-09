@@ -123,7 +123,8 @@ func (s *searchState) searchKey() string {
 func (s *searchState) changed() { s.version++ }
 
 // showSearch shows search in the sidebar, with the keyboard in its query,
-// which becomes the selection's text when it is on one line.
+// which becomes the selection's text when it is on one line, and selects
+// the query so typing or pasting replaces it.
 func (a *app) showSearch(replace bool) {
 	s := &a.inFiles
 	if d := a.activeEditor(); d != nil {
@@ -137,7 +138,7 @@ func (a *app) showSearch(replace bool) {
 	s.replacing = s.replacing || replace
 	a.window.SidebarClosed, a.window.SidebarView = false, "search"
 	a.settings.Changed()
-	s.input.Focus()
+	s.input.SelectAll()
 }
 
 // searchInFolder shows search with its files to include set to a folder,

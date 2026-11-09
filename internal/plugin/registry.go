@@ -678,6 +678,29 @@ func (r *Registry) Activate(event string) {
 	}
 }
 
+// Toggled follows the settings of the plugin of name as they turn it on or
+// off: it stops it when they turn it off, and starts it, as Mayoi starting
+// does, when they turn it on.
+func (r *Registry) Toggled(name string) {
+	p := r.Plugin(name)
+	if p == nil {
+		return
+	}
+	if !r.enabled(p) {
+		p.shutdown()
+		return
+	}
+	if !p.HasCode() || p.Script || p.loadErr != "" || p.Started() {
+		return
+	}
+	for _, a := range p.Activation {
+		if a == "onStartup" || a == "*" {
+			p.launch()
+			return
+		}
+	}
+}
+
 // launch starts the plugin in the background, holding the events sent
 // meanwhile, which it gets once it listens to them.
 func (p *Plugin) launch() {

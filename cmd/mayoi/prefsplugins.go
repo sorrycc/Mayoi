@@ -259,7 +259,7 @@ func (w *prefsWindow) pluginRow(c *ui.Context, pl *plugin.Plugin, recs plugin.Re
 			}
 			on := !st.Disabled
 			if ui.Switch(c.Key("on"), &on).Label(pl.Title()).Changed() {
-				w.setPluginSetting(pl.Name, "enabled", on, on)
+				w.setPluginSetting(pl.Name, "enabled", on, true)
 			}
 		})
 		if len(pl.Contributes.Settings) > 0 && !st.Disabled {

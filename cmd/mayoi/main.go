@@ -687,6 +687,7 @@ func (m *mayoi) reload(p settings.Prefs) {
 	m.prefsChanged()
 	if plugins != nil {
 		plugins.syncPrefs()
+		plugins.toggled(old.Plugins, p.Plugins)
 		if !maps.Equal(p.PluginSources, old.PluginSources) {
 			plugins.syncPlugins()
 		}

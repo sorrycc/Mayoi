@@ -132,6 +132,49 @@ func (h *pluginHost) syncPrefs() {
 	}
 }
 
+// toggled stops the plugins the settings turned off and starts those
+// they turned on, from old to now, as they would start had Mayoi started
+// with them on.
+func (h *pluginHost) toggled(old, now map[string]json.RawMessage) {
+	on := func(all map[string]json.RawMessage, name string) bool {
+		var s struct {
+			Enabled *bool `json:"enabled"`
+		}
+		json.Unmarshal(all[name], &s)
+		return s.Enabled == nil || *s.Enabled
+	}
+	started := false
+	for _, p := range h.reg.Plugins() {
+		was, is := on(old, p.Name), on(now, p.Name)
+		if was == is {
+			continue
+		}
+		if !is {
+			h.mu.Lock()
+			for id, st := range h.status {
+				if st.plugin == p {
+					delete(h.status, id)
+				}
+			}
+			h.mu.Unlock()
+		}
+		h.reg.Toggled(p.Name)
+		started = started || is
+	}
+	if !started {
+		return
+	}
+	// The plugins turned on start for the folders and files open, as
+	// those opening would start them.
+	for _, a := range h.apps() {
+		a.pluginSeen.indexed = false
+		for _, d := range a.docs {
+			h.reg.Activate("onLanguage:" + languageOf(d))
+		}
+		a.invalidate()
+	}
+}
+
 // front is the app of the window in front, nil for none.
 func (h *pluginHost) front() *app {
 	if apps := h.apps(); len(apps) > 0 {

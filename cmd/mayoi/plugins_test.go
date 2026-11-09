@@ -109,3 +109,42 @@ func TestPluginCommandEditsTheSelection(t *testing.T) {
 		t.Fatalf("skipped keys: %+v", skipped)
 	}
 }
+
+// The switch of the Plugins page turns a plugin off, which stops it and
+// takes its status item away, and on, which starts it again.
+func TestPluginSwitchStopsAndStarts(t *testing.T) {
+	hs := newHarness(t, false)
+	h := withPlugins(hs, map[string]map[string]string{"starter": {
+		"plugin.json": `{"name": "starter", "main": "main.ts", "activation": ["onStartup"], "contributes": {"statusItems": [{"id": "starter.status"}]}}`,
+		"main.ts":     `import { statusItem } from "mayoi"; statusItem("starter.status").set({ text: "on" });`,
+	}})
+	h.reg.Activate("onStartup")
+	p := h.reg.Plugin("starter")
+	status := func() (pluginStatus, bool) {
+		h.mu.Lock()
+		defer h.mu.Unlock()
+		st, ok := h.status["starter.status"]
+		return st, ok
+	}
+	running := func() bool { st, _ := status(); return p.Started() && st.Text == "on" }
+	hs.until("the plugin starting", running)
+	w := &prefsWindow{m: &mayoi{s: hs.a.settings}}
+	enabled := func() string { return string(hs.a.settings.Prefs.Plugins["starter"]) }
+
+	w.setPluginSetting("starter", "enabled", false, true)
+	if got := enabled(); got != `{"enabled":false}` {
+		t.Fatalf("turned off, the settings are %q", got)
+	}
+	if p.Started() || !p.Stats().Disabled {
+		t.Fatalf("turned off, started %v, stats %+v", p.Started(), p.Stats())
+	}
+	if _, ok := status(); ok {
+		t.Errorf("turned off, its status item stays")
+	}
+
+	w.setPluginSetting("starter", "enabled", true, true)
+	if got := enabled(); got != "" {
+		t.Fatalf("turned on, the settings are %q", got)
+	}
+	hs.until("the plugin starting again", running)
+}

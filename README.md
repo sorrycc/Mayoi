@@ -7,6 +7,8 @@
 <p align="center">迷い — a small, fast code editor written in Go. It draws a native UI on the GPU with
 <a href="https://github.com/egoist/mygo">MyGo</a>, with no webview and no Electron, and the packaged app is about 18 MB.</p>
 
+<p align="center"><a href="https://usemayoi.com">usemayoi.com</a></p>
+
 https://github.com/user-attachments/assets/673e7907-2b2c-4ed6-9093-1ba9633cd61c
 
 ## Features

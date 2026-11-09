@@ -76,6 +76,7 @@ takes its default.
 | `terminalBackend`       | `""`          | `""` (Mayoi), `"hc"` (herdr-core)                           |                                                |
 | `terminalBackendHcPath` | `""`          | A path to `hc`, a folder that has it, or a name on `PATH`   |                                                |
 | `terminalBackendHcEnv`  | none          | A list of `KEY=value` environment variables for `hc`        |                                                |
+| `terminalBackendHcShowInHerdr` | `true` | `true`, `false`                                      |                                                |
 | `projectTabs`           | `false`       | `true`, `false`                                             | **View → Project Tabs**                        |
 | `projectTabStyle`       | none          | A label, color and icon for each folder                     | A square's context menu on the rail            |
 | `locale`                | `""`          | `""` (follow the system), `"en"`, `"zh-Hans"`, `"ja"`       | **View → Language**                            |
@@ -181,6 +182,10 @@ differ in width lines them up only roughly.
   list of `KEY=value` strings, as `["HC_NO_UPDATE=1"]`. Strings without `=` or with a NUL are ignored. It reaches the
   commands Mayoi starts, not a terminal already attached; a server hc already has running keeps the environment it
   started with.
+- **`terminalBackendHcShowInHerdr`** shows Mayoi's terminals in the Herdr app when `terminalBackend` is `"hc"`, in a
+  space for each folder, a tab for each terminal. Terminals already running there show up as Mayoi attaches them again.
+  Turned off, new terminals stay out of Herdr, and those already there stay until closed. Closing one in either app
+  ends its shell, which closes it in the other. Terminals of a remote folder stay out of Herdr.
 - **`projectTabs`** keeps every folder open in one window, as project tabs on a rail on its left, rather than a
   window for each. Changing it gathers the windows into one, or parts them, at once.
 - **`projectTabStyle`** gives a project's square on the rail its own label, up to two characters, in place of its

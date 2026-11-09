@@ -283,6 +283,63 @@ func TestHCStart(t *testing.T) {
 	}
 }
 
+// With terminalBackendHcShowInHerdr, a new shell of this machine is
+// labeled with the Herdr space of the window's folder, and the shells it
+// attaches again that Herdr doesn't show yet are labeled so: none of
+// another machine, nor with the setting off.
+func TestHCShowInHerdr(t *testing.T) {
+	hs := newHarness(t, true)
+	a := hs.a
+	f := useFakeHC(t, func(args []string) ([]byte, error) {
+		if args[0] == "ls" {
+			return []byte(`{"terminals":[{"address":"t3","state":"live"},{"address":"t4","state":"live","where":"api / 1"},` +
+				`{"address":"t5","state":"live"},{"address":"t6","state":"finished"}]}`), nil
+		}
+		return []byte(`{"address":"t9","state":"live"}`), nil
+	})
+	t.Cleanup(func() { setHCConfig(settings.Prefs{}) })
+	a.settings.TerminalBackend = "hc"
+	if !a.settings.TerminalBackendHcShowInHerdr {
+		t.Fatal("terminalBackendHcShowInHerdr is off by default")
+	}
+	setHCConfig(a.settings.Prefs)
+	space := hcHerdrSpace(hs.root)
+	if len(space) != 34 || !strings.HasPrefix(space, "sp") || space != hcHerdrSpace(hs.root) || space == hcHerdrSpace(hs.path("web")) {
+		t.Errorf("space id %q", space)
+	}
+	hcStart(hs.root, hs.root, "")
+	hcStart(hs.root, hs.root, "vps")
+	run := f.ran("run")
+	if len(run) != 2 || !slices.Contains(run[0], "herdr.space="+space) || slices.ContainsFunc(run[1], func(a string) bool { return strings.HasPrefix(a, "herdr.") }) {
+		t.Errorf("ran %q", run)
+	}
+	a.hcTerms([]string{"t3", "t4", "t6", "vps/t2"})
+	label := f.ran("label")
+	if want := []string{"label", "--json", "t3", "herdr.space=" + space}; len(label) != 1 || !slices.Equal(label[0], want) {
+		t.Errorf("labeled %q, want %q", label, want)
+	}
+
+	a.settings.TerminalBackendHcShowInHerdr = false
+	setHCConfig(a.settings.Prefs)
+	f.mu.Lock()
+	f.calls = nil
+	f.mu.Unlock()
+	hcStart(hs.root, hs.root, "")
+	if run := f.ran("run"); len(run) != 1 || slices.ContainsFunc(run[0], func(a string) bool { return strings.HasPrefix(a, "herdr.") }) {
+		t.Errorf("ran %q with the setting off", run)
+	}
+	a.hcListed.out = nil
+	a.hcTerms([]string{"t3"})
+	time.Sleep(50 * time.Millisecond)
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	for _, c := range f.calls {
+		if c[0] == "label" {
+			t.Errorf("labeled %q with the setting off", c)
+		}
+	}
+}
+
 // A new terminal shows at once, saying that it starts, while its shell
 // starts in herdr-core in the background, and then attaches to it. One
 // closed before its shell started ends the shell.

@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"path"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -17,6 +18,7 @@ import (
 	"github.com/egoist/mygo/ui"
 
 	"mayoi/internal/plugin"
+	"mayoi/internal/settings"
 	"mayoi/locales"
 )
 
@@ -54,6 +56,10 @@ type viewNode struct {
 	input  *string
 	blocks []markdownBlock
 	parsed bool
+	// path is where the node is in its tree, by places, as "/2/0": the
+	// rows of a list or a tree with no keys are kept under it, so that
+	// two lists of a view keep apart the rows at the same places.
+	path string
 }
 
 // viewItem is a row of a list or a tree node.
@@ -66,6 +72,11 @@ type viewItem struct {
 	Actions     []viewAction `json:"actions"`
 	Children    []*viewItem  `json:"children"`
 	Open        bool         `json:"open"`
+
+	// path is where the row is in its list or tree, which its state is
+	// kept by: its key, or its place under its list's, found as it first
+	// draws.
+	path string
 }
 
 type viewAction struct {
@@ -74,13 +85,22 @@ type viewAction struct {
 	OnClick *handlerRef `json:"onClick"`
 }
 
-// pluginView is a view a plugin rendered: its tree, and the plugin to
-// call back.
+// pluginView is a view a plugin rendered as a window draws it: its tree,
+// the plugin to call back, and the window's own state of it.
 type pluginView struct {
 	plugin *plugin.Plugin
 	tree   *viewNode
-	// open are the tree nodes opened or closed by hand, by key.
+	// open are the tree nodes opened or closed by hand, and sel the row
+	// last clicked, by path.
 	open map[string]bool
+	sel  string
+}
+
+// renderedView is the tree a plugin rendered a view with last, which
+// every window draws.
+type renderedView struct {
+	plugin *plugin.Plugin
+	tree   *viewNode
 }
 
 var viewsMu sync.Mutex
@@ -107,19 +127,29 @@ func (h *pluginHost) renderView(p *plugin.Plugin, id string, raw json.RawMessage
 		keepInputs(old, &n)
 	}
 	viewsMu.Lock()
-	pv := pluginViews[id]
-	if pv == nil {
-		pv = &pluginView{open: map[string]bool{}}
-		pluginViews[id] = pv
-	}
-	pv.plugin, pv.tree = p, &n
+	pluginViews[id] = &renderedView{plugin: p, tree: &n}
 	viewsMu.Unlock()
 	h.redraw()
 	return nil
 }
 
 // pluginViews are the views rendered, by id.
-var pluginViews = map[string]*pluginView{}
+var pluginViews = map[string]*renderedView{}
+
+// viewState is this window's state of the plugin view of id, as the tree
+// the plugin rendered last.
+func (a *app) viewState(id string, rv *renderedView) *pluginView {
+	pv := a.viewStates[id]
+	if pv == nil {
+		if a.viewStates == nil {
+			a.viewStates = map[string]*pluginView{}
+		}
+		pv = &pluginView{open: map[string]bool{}}
+		a.viewStates[id] = pv
+	}
+	pv.plugin, pv.tree = rv.plugin, rv.tree
+	return pv
+}
 
 func keepInputs(old, n *viewNode) {
 	if old.Type == n.Type && old.input != nil && n.Type == "input" && old.Value == n.Value {
@@ -137,23 +167,44 @@ type pluginSlot struct {
 	webview         *plugin.WebviewContrib
 }
 
+// slotsKey is what the views the sidebar can show follow: the plugins,
+// the settings that turn them on and off, and the webviews open.
+type slotsKey struct {
+	gen      uint64
+	prefs    *settings.Prefs
+	webviews uint64
+}
+
 // pluginSlots are the views of the plugins that are on, and their
-// webviews that are open.
+// webviews that are open: listed anew as those change, not as each frame
+// draws the sidebar. On the main thread.
 func pluginSlots() []pluginSlot {
-	if plugins == nil {
+	h := plugins
+	if h == nil {
 		return nil
 	}
+	h.mu.Lock()
+	gen := h.gen
+	h.mu.Unlock()
+	webviews.Lock()
+	wv := webviews.gen
+	webviews.Unlock()
+	key := slotsKey{gen, h.prefsSnap.Load(), wv}
+	if h.slotsListed && h.slotsKey == key {
+		return h.slots
+	}
 	var out []pluginSlot
-	for _, p := range plugins.enabled() {
+	for _, p := range h.enabled() {
 		for _, v := range p.Contributes.Views {
 			out = append(out, pluginSlot{id: v.ID, title: v.Title, icon: v.Icon, plugin: p})
 		}
 		for i, w := range p.Contributes.Webviews {
-			if plugins.webviewOpen(w.ID) {
+			if h.webviewOpen(w.ID) {
 				out = append(out, pluginSlot{id: w.ID, title: w.Title, icon: "external", plugin: p, webview: &p.Contributes.Webviews[i]})
 			}
 		}
 	}
+	h.slots, h.slotsKey, h.slotsListed = out, key, true
 	return out
 }
 
@@ -234,22 +285,26 @@ func (a *app) pluginSidebar(c *ui.Context) {
 		return
 	}
 	viewsMu.Lock()
-	pv := pluginViews[id]
+	rv := pluginViews[id]
 	viewsMu.Unlock()
-	if pv == nil || pv.tree == nil {
-		ui.Row(c).Padding(12, 16).Gap(8).AlignItems(ui.Center).Children(func() {
-			ui.Spinner(c).Size(11, 11)
+	if rv == nil || rv.tree == nil {
+		// Until the plugin, which may be starting, renders the view.
+		ui.Column(c.Key("plugin-view-waits")).Padding(28, 20).Gap(10).AlignItems(ui.Center).Transition(revealFade).Children(func() {
+			ui.Spinner(c).Size(16, 16)
 			ui.Text(c, locales.PluginViewLoading()).FontSize(12).TextColor(p.muted)
 		})
 		return
 	}
-	ui.Scroll(c.Key("plugin-view:"+id)).Grow(1).MinHeight(0).Padding(6, 8).Children(func() {
-		a.drawViewNode(c, "pv:"+id, pv.tree, pv)
+	pv := a.viewState(id, rv)
+	ui.Scroll(c.Key("plugin-view:"+id)).Grow(1).MinHeight(0).Padding(4, 8, 8, 8).Children(func() {
+		// What the plugin renders first fades in, over what said it waits.
+		fadeIn(ui.Column(c.Key("body"))).Children(func() { a.drawViewNode(c, "root", pv.tree, pv) })
 	})
 }
 
-// drawViewNode draws a node of a plugin's tree.
-func (a *app) drawViewNode(c *ui.Context, key string, n *viewNode, pv *pluginView) {
+// drawViewNode draws a node of a plugin's tree, its element of key among
+// its siblings.
+func (a *app) drawViewNode(c *ui.Context, key any, n *viewNode, pv *pluginView) {
 	p := a.pal
 	call := func(ref *handlerRef, v any) {
 		if plugins != nil && pv != nil {
@@ -270,7 +325,10 @@ func (a *app) drawViewNode(c *ui.Context, key string, n *viewNode, pv *pluginVie
 		}
 		el.Gap(gap).Padding(n.Padding, n.Padding).Children(func() {
 			for i, ch := range n.Children {
-				a.drawViewNode(c, fmt.Sprintf("%s/%d", key, i), ch, pv)
+				if ch.path == "" {
+					ch.path = n.path + "/" + strconv.Itoa(i)
+				}
+				a.drawViewNode(c, i, ch, pv)
 			}
 		})
 	case "text":
@@ -311,18 +369,18 @@ func (a *app) drawViewNode(c *ui.Context, key string, n *viewNode, pv *pluginVie
 		}
 		ui.Image(c.Key(key), n.svg).Height(height).Width(height * w / max(h, 1)).MaxWidthPercent(100)
 	case "list":
-		if len(n.Items) == 0 && n.Empty != "" {
-			ui.Text(c.Key(key), n.Empty).FontSize(12).TextColor(p.muted).Padding(4, 6)
-		}
 		ui.Column(c.Key(key)).Gap(1).Children(func() {
+			if len(n.Items) == 0 && n.Empty != "" {
+				a.viewEmpty(c, "", n.Empty)
+			}
 			for i, it := range n.Items {
-				a.viewItemRow(c, fmt.Sprintf("%s/%d", key, i), it, 0, pv)
+				a.viewItemRow(c, n.path, i, it, pv)
 			}
 		})
 	case "tree":
 		ui.Column(c.Key(key)).Gap(1).Children(func() {
 			for i, it := range n.Items {
-				a.viewTreeRow(c, fmt.Sprintf("%s/%d", key, i), it, 0, pv)
+				a.viewTreeRow(c, n.path, i, it, 0, pv)
 			}
 		})
 	case "input":
@@ -368,6 +426,8 @@ func (a *app) drawViewNode(c *ui.Context, key string, n *viewNode, pv *pluginVie
 		} else {
 			b = ui.Button(c.Key(key), n.Label)
 		}
+		b.FontSize(12).Padding(3, 10)
+		pressPose(b)
 		if b.Clicked() {
 			call(n.OnClick, nil)
 		}
@@ -384,9 +444,7 @@ func (a *app) drawViewNode(c *ui.Context, key string, n *viewNode, pv *pluginVie
 	case "divider":
 		ui.Box(c.Key(key)).Height(1).Background(p.border).Margin(4, 0)
 	case "empty":
-		ui.Column(c.Key(key)).Padding(16, 8).Center().Children(func() {
-			ui.Text(c, n.Text).FontSize(12).TextColor(p.muted).TextAlign(ui.Center)
-		})
+		ui.Column(c.Key(key)).Children(func() { a.viewEmpty(c, n.Icon, n.Text) })
 	default:
 		ui.Text(c.Key(key), locales.PluginViewUnknown(n.Type)).FontSize(12).TextColor(p.muted)
 	}
@@ -394,7 +452,7 @@ func (a *app) drawViewNode(c *ui.Context, key string, n *viewNode, pv *pluginVie
 
 // viewMarkdown draws Markdown a plugin gave: its headings, paragraphs and
 // code, as the preview has them.
-func (a *app) viewMarkdown(c *ui.Context, key string, n *viewNode) {
+func (a *app) viewMarkdown(c *ui.Context, key any, n *viewNode) {
 	p := a.pal
 	if !n.parsed {
 		n.parsed = true
@@ -402,8 +460,7 @@ func (a *app) viewMarkdown(c *ui.Context, key string, n *viewNode) {
 	}
 	size := a.settings.FontSize
 	ui.Column(c.Key(key)).Gap(6).Children(func() {
-		for i, b := range n.blocks {
-			k := fmt.Sprintf("%s/%d", key, i)
+		for k, b := range n.blocks {
 			switch b.kind {
 			case markdownHeading:
 				sz := size * (1.5 - 0.12*float32(min(b.level, 4)))
@@ -438,88 +495,166 @@ func (a *app) viewMarkdown(c *ui.Context, key string, n *viewNode) {
 	})
 }
 
-// viewItemRow draws a row of a list.
-func (a *app) viewItemRow(c *ui.Context, key string, it *viewItem, depth int, pv *pluginView) {
-	p := a.pal
-	if it.Key != "" {
-		key = "k:" + it.Key
+// viewRowH is how tall a row of a plugin's list or tree is: as the
+// Explorer's, with a pixel more for the description's descenders.
+const viewRowH = explorerRowH + 1
+
+// viewRowStep is how far each level of a plugin's tree indents.
+const viewRowStep = 12
+
+// treeKids is how the rows of a node of a plugin's tree come and go as it
+// opens and closes: they unfold rather than jump.
+var treeKids = ui.ElementTransition{Duration: 140 * time.Millisecond, Enter: &ui.Motion{Collapse: true}, Exit: &ui.Motion{Collapse: true}}
+
+// rowPath is where a row of a plugin's list or tree is, under the path of
+// its parent, worked out once.
+func rowPath(it *viewItem, parent string, i int) string {
+	if it.path == "" {
+		if it.Key != "" {
+			it.path = "k:" + it.Key
+		} else {
+			it.path = parent + "/" + strconv.Itoa(i)
+		}
 	}
-	row := ui.ButtonBase(c.Key(key)).Padding(3, 6, 3, 6+float32(depth)*14).Gap(7).Radius(5).Justify(ui.Start).AlignItems(ui.Center).Label(it.Label)
-	if row.Hovered() {
+	return it.path
+}
+
+// viewRow is a row of a plugin's list or tree, as the Explorer's: in the
+// tint of the pointer, or of the choice once clicked.
+func (a *app) viewRow(c *ui.Context, key any, it *viewItem, indent float32, pv *pluginView) ui.Element {
+	p := a.pal
+	row := ui.ButtonBase(c.Key(key)).Height(viewRowH).Padding(0, 4, 0, indent).Gap(6).Radius(5).Justify(ui.Start).
+		AlignItems(ui.Center).Label(it.Label)
+	switch {
+	case pv.sel == it.path:
+		row.Background(p.active)
+	case row.Hovered():
 		row.Background(p.hover)
 	}
 	row.Transition(hoverFade)
-	if row.Clicked() && it.OnClick != nil {
-		plugins.callHandler(pv.plugin, it.OnClick, nil)
+	return row
+}
+
+// viewRowContent is what a row of a plugin's shows: its icon, a file's as
+// the Explorer has it, its label, and what it says beside it.
+func (a *app) viewRowContent(c *ui.Context, it *viewItem) {
+	p := a.pal
+	switch name := strings.ToLower(it.Icon); {
+	case name == "file":
+		icon, col := fileIcon(p, it.Label)
+		ui.Icon(c, icon).FontSize(14).TextColor(col).Shrink(0)
+	case name != "":
+		ui.Icon(c, namedIcon(name)).FontSize(14).TextColor(p.muted).Shrink(0)
+	}
+	// The description gives way first, then the label.
+	ui.Text(c, it.Label).FontSize(13).TextColor(p.text).SingleLine().Shrink(1).MinWidth(24)
+	if it.Description != "" {
+		ui.Text(c, it.Description).FontSize(11.5).TextColor(p.faint).SingleLine().Shrink(1000).MinWidth(0)
+	}
+}
+
+// viewRowActions are a row's buttons, while the pointer is over it.
+func (a *app) viewRowActions(c *ui.Context, it *viewItem, pv *pluginView) {
+	p := a.pal
+	ui.Spacer(c)
+	for j := range it.Actions {
+		ac := &it.Actions[j]
+		b := ui.ButtonBase(c.Key(j)).Size(20, 20).Radius(4).Justify(ui.Center).AlignItems(ui.Center).Shrink(0).
+			Label(ac.Tooltip).Tooltip(ac.Tooltip).Transition(revealFade)
+		col := p.muted
+		if b.Hovered() {
+			b.Background(p.hover)
+			col = p.text
+		}
+		pressPose(b)
+		b.Children(func() { ui.Icon(c, namedIcon(ac.Icon)).FontSize(13).TextColor(col) })
+		if b.Clicked() {
+			plugins.callHandler(pv.plugin, ac.OnClick, nil)
+		}
+	}
+}
+
+// viewItemRow draws a row of a list.
+func (a *app) viewItemRow(c *ui.Context, parent string, i int, it *viewItem, pv *pluginView) {
+	path := rowPath(it, parent, i)
+	var key any = i
+	if it.Key != "" {
+		key = it.Key
+	}
+	row := a.viewRow(c, key, it, 8, pv)
+	if row.Clicked() {
+		pv.sel = path
+		if it.OnClick != nil {
+			plugins.callHandler(pv.plugin, it.OnClick, nil)
+		}
 	}
 	hovered := row.Hovered()
 	row.Children(func() {
-		if it.Icon != "" {
-			ui.Icon(c, namedIcon(it.Icon)).FontSize(13).TextColor(p.muted)
-		}
-		ui.Text(c, it.Label).FontSize(12.5).TextColor(p.text).SingleLine().Shrink(0)
-		if it.Description != "" {
-			ui.Text(c, it.Description).FontSize(11.5).TextColor(p.faint).SingleLine().Shrink(1)
-		}
-		ui.Spacer(c)
+		a.viewRowContent(c, it)
 		if hovered {
-			for _, ac := range it.Actions {
-				ac := ac
-				if a.iconButton(c, namedIcon(ac.Icon), ac.Tooltip, false).Clicked() {
-					plugins.callHandler(pv.plugin, ac.OnClick, nil)
-				}
-			}
+			a.viewRowActions(c, it, pv)
 		}
 	})
 }
 
 // viewTreeRow draws a node of a tree and, open, its children.
-func (a *app) viewTreeRow(c *ui.Context, key string, it *viewItem, depth int, pv *pluginView) {
+func (a *app) viewTreeRow(c *ui.Context, parent string, i int, it *viewItem, depth int, pv *pluginView) {
 	p := a.pal
-	if it.Key != "" {
-		key = "k:" + it.Key
-	}
+	path := rowPath(it, parent, i)
 	open := it.Open
-	if o, ok := pv.open[key]; ok {
+	if o, ok := pv.open[path]; ok {
 		open = o
 	}
-	ui.Column(c.Key(key)).Children(func() {
-		row := ui.ButtonBase(c.Key("row")).Padding(3, 6, 3, 2+float32(depth)*14).Gap(4).Radius(5).Justify(ui.Start).AlignItems(ui.Center).Label(it.Label)
-		if row.Hovered() {
-			row.Background(p.hover)
-		}
-		row.Transition(hoverFade)
+	kids := len(it.Children) > 0
+	var key any = i
+	if it.Key != "" {
+		key = it.Key
+	}
+	ui.Column(c.Key(key)).Gap(1).Children(func() {
+		row := a.viewRow(c, "row", it, 2+float32(depth)*viewRowStep, pv)
 		if row.Clicked() {
-			if len(it.Children) > 0 {
-				pv.open[key] = !open
+			pv.sel = path
+			if kids {
+				pv.open[path] = !open
+				open = !open
 			}
 			if it.OnClick != nil {
 				plugins.callHandler(pv.plugin, it.OnClick, nil)
 			}
 		}
+		hovered := row.Hovered()
 		row.Children(func() {
-			chev := iconChevronRight
-			if open {
-				chev = iconChevronDown
-			}
-			if len(it.Children) > 0 {
-				ui.Icon(c, chev).FontSize(12).TextColor(p.muted)
+			if kids {
+				chevron(c, open).FontSize(12).TextColor(p.muted).Shrink(0)
 			} else {
-				ui.Box(c).Width(12)
+				ui.Box(c).Width(12).Shrink(0)
 			}
-			if it.Icon != "" {
-				ui.Icon(c, namedIcon(it.Icon)).FontSize(13).TextColor(p.muted)
-			}
-			ui.Text(c, it.Label).FontSize(12.5).TextColor(p.text).SingleLine().Shrink(0)
-			if it.Description != "" {
-				ui.Text(c, it.Description).FontSize(11.5).TextColor(p.faint).SingleLine().Shrink(1)
+			a.viewRowContent(c, it)
+			if hovered {
+				a.viewRowActions(c, it, pv)
 			}
 		})
-		if open {
-			for i, ch := range it.Children {
-				a.viewTreeRow(c, fmt.Sprintf("%d", i), ch, depth+1, pv)
-			}
+		if open && kids {
+			ui.Column(c.Key("kids")).Gap(1).Transition(treeKids).Clip().Children(func() {
+				for j, ch := range it.Children {
+					a.viewTreeRow(c, path, j, ch, depth+1, pv)
+				}
+			})
 		}
+	})
+}
+
+// viewEmpty is what a plugin's view shows of nothing to show, as the
+// Explorer does of an empty folder: a badge of icon, a plug for none,
+// over the text.
+func (a *app) viewEmpty(c *ui.Context, icon, text string) {
+	p := a.pal
+	ui.Column(c.Key("empty")).Padding(24, 16, 16, 16).Gap(10).AlignItems(ui.Center).Children(func() {
+		popUp(ui.Box(c.Key("badge")).Size(36, 36).Radius(18).Background(p.text.Alpha(0.06)).Justify(ui.Center).AlignItems(ui.Center)).
+			Children(func() {
+				ui.Icon(c, namedIcon(icon)).FontSize(16).TextColor(p.muted)
+			})
+		ui.Text(c, text).FontSize(12).LineHeight(1.45).TextColor(p.muted).TextAlign(ui.Center)
 	})
 }
 
@@ -689,6 +824,8 @@ type webviewState struct {
 var webviews = struct {
 	sync.Mutex
 	open map[string]*webviewState
+	// gen counts the webviews opened and closed.
+	gen uint64
 }{open: map[string]*webviewState{}}
 
 func (h *pluginHost) webviewOpen(id string) bool {
@@ -726,6 +863,7 @@ func (h *pluginHost) webviewCall(p *plugin.Plugin, method, id, title string, raw
 		if st == nil {
 			st = &webviewState{plugin: p, contrib: *contrib, pages: map[*mygo.Window]*mygo.WebView{}}
 			webviews.open[id] = st
+			webviews.gen++
 		}
 		if title != "" {
 			st.title = title
@@ -764,6 +902,7 @@ func (h *pluginHost) webviewCall(p *plugin.Plugin, method, id, title string, raw
 		webviews.Lock()
 		st := webviews.open[id]
 		delete(webviews.open, id)
+		webviews.gen++
 		webviews.Unlock()
 		if st != nil {
 			for _, wv := range st.pages {

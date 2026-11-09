@@ -577,8 +577,9 @@ func Path(uri string) string {
 		return ""
 	}
 	p := u.Path
-	if runtime.GOOS == "windows" {
-		p = strings.TrimPrefix(p, "/")
+	// "/C:/a" is C:\a on Windows.
+	if runtime.GOOS == "windows" && len(p) >= 3 && p[0] == '/' && p[2] == ':' {
+		p = p[1:]
 	}
 	return filepath.FromSlash(p)
 }

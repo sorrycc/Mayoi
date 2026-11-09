@@ -4,6 +4,7 @@
   "version": "1.0.0",
   "description": "The TODO, FIXME and HACK comments of the folder, in the sidebar",
   "main": "main.ts",
+  "enabled": false,
   "activation": ["onView:todos.list"],
   "contributes": {
     "commands": [

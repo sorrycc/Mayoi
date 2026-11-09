@@ -26,7 +26,7 @@ events.on("editor.open", (e) => {
     { range: { start: { line: 2, character: 2 }, end: { line: 2, character: 7 } }, severity: "warning", message: "small is vague" },
   ]);
 });
-events.on("editor.didSave", (e) => views.render("lint.view", { type: "text", text: "saved " + e.path.split("/").pop() }));
+events.on("editor.didSave", (e) => views.render("lint.view", { type: "text", text: "saved " + e.path.split(/[\\/]/).pop() }));
 languages.registerFormatter("lint.shout", async (doc) => (await doc.text()).replace("editor", "EDITOR"));
 views.onShow("lint.view", () => views.render("lint.view", {
   type: "stack", children: [{ type: "text", text: "Hello view" }, { type: "list", items: [{ label: "one" }] }, { type: "markdown", text: "# Title\n\nSome *text*." }],
@@ -106,6 +106,13 @@ func TestBundledPlugins(t *testing.T) {
 	h := withPlugins(hs, nil)
 	h.reg.Dirs.Bundled = bundled.FS
 	h.reg.Load()
+	// They start off, until the settings turn them on.
+	for _, p := range h.reg.Plugins() {
+		if p.Bundled && !p.Stats().Disabled {
+			t.Errorf("%s is on by default", p.Name)
+		}
+	}
+	turnOnBundled(hs, h)
 	names := []string{}
 	for _, p := range h.reg.Plugins() {
 		if !p.Bundled {

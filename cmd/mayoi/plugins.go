@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -37,6 +36,11 @@ type pluginHost struct {
 	onMain func(func())
 	prefs  func() *settings.Settings
 	menu   func()
+	// prefsWin draws the settings window anew, whose Plugins page shows
+	// how the plugins do; setPrefs sets the preference of key to raw, as
+	// the settings window does. Nil in the tests that have none.
+	prefsWin func()
+	setPrefs func(key string, raw json.RawMessage)
 
 	// prefsSnap and folderSnap are the settings and the folder of the
 	// window in front as the main thread last saw them, for the plugins'
@@ -44,17 +48,30 @@ type pluginHost struct {
 	prefsSnap  atomic.Pointer[settings.Prefs]
 	folderSnap atomic.Pointer[string]
 
-	mu   sync.Mutex
-	logs []plugin.LogLine // of every plugin, the last maxPluginLog
-	// status are the items of the status bar the plugins filled, by id.
-	status map[string]pluginStatus
+	mu sync.Mutex
+	// log is what every plugin logged, its last maxPluginLog lines; a
+	// post of logShown is on its way to the windows while logPosted.
+	log       logRing
+	logPosted atomic.Bool
+	// status are the items of the status bar the plugins filled, by id,
+	// and statusList them sorted, nil once they change.
+	status     map[string]pluginStatus
+	statusList []pluginStatus
 	// views are the trees the plugins rendered last, by view id.
 	views map[string]*viewNode
-	// progress are the titles of the work plugins said they do.
+	// progress are the titles of the work plugins said they do, made
+	// anew as they change, for the status bar to read as they are.
 	progress []string
 	// diags are the diagnostics of each file, by path, then plugin.
 	diags    map[string]map[string][]diagnostic
 	diagsGen uint64
+	// diagsSorted are each file's diagnostics, sorted as of diagsSortedGen;
+	// problems is their count as of problemsGen, once problemsCounted.
+	diagsSorted     map[string][]diagnostic
+	diagsSortedGen  uint64
+	problems        string
+	problemsGen     uint64
+	problemsCounted bool
 	// gen counts the changes of the plugins and their contributions,
 	// which the windows build their menus and palettes anew for.
 	gen uint64
@@ -67,13 +84,56 @@ type pluginHost struct {
 	// updates are the newer commits found of the plugins from Git.
 	updates map[string]string
 
+	// slots are the views the sidebar can show, as of slotsKey, once
+	// slotsListed; main thread only.
+	slots       []pluginSlot
+	slotsKey    slotsKey
+	slotsListed bool
+
 	// edIDs number the editors plugins were told of; main thread only.
 	edIDs  map[*editor]int
 	edNext int
 }
 
 // maxPluginLog is how many lines the log of every plugin keeps.
-const maxPluginLog = 2000
+const maxPluginLog = 10000
+
+// logRing is the log of every plugin: its lines in a ring of
+// maxPluginLog, made as the first comes, each line numbered from 0 as it
+// came. A line new to a full ring takes the place of the oldest, so that
+// a line costs no more than itself.
+type logRing struct {
+	lines []plugin.LogLine
+	// next is the number of the next line, and floor that of the first
+	// kept since the log was cleared.
+	next, floor uint64
+}
+
+// add puts a line at the end of the log.
+func (r *logRing) add(l plugin.LogLine) {
+	if r.lines == nil {
+		r.lines = make([]plugin.LogLine, maxPluginLog)
+	}
+	r.lines[r.next%maxPluginLog] = l
+	r.next++
+}
+
+// first is the number of the oldest line the log keeps.
+func (r *logRing) first() uint64 {
+	if r.next > maxPluginLog {
+		return max(r.floor, r.next-maxPluginLog)
+	}
+	return r.floor
+}
+
+// at is the line of number n, which the log keeps.
+func (r *logRing) at(n uint64) *plugin.LogLine { return &r.lines[n%maxPluginLog] }
+
+// clear empties the log; the lines that come after are numbered on.
+func (r *logRing) clear() {
+	r.floor = r.next
+	clear(r.lines)
+}
 
 // plugins is the app's plugins, nil until the app starts them (and in
 // most tests).
@@ -96,6 +156,15 @@ func (m *mayoi) startPlugins(safe bool) {
 			m.refreshMenu()
 		},
 	)
+	h.prefsWin = m.prefsChanged
+	h.setPrefs = func(key string, raw json.RawMessage) {
+		p := m.s.Prefs
+		if err := p.Set(key, raw); err != nil {
+			return
+		}
+		m.reload(p)
+		m.s.Changed()
+	}
 	dirs := plugin.UserDirs()
 	dirs.Bundled = bundled.FS
 	h.reg = plugin.New(dirs, h)
@@ -130,6 +199,68 @@ func (h *pluginHost) syncPrefs() {
 		p := s.Prefs
 		h.prefsSnap.Store(&p)
 	}
+}
+
+// toggled stops the plugins the settings turned off and starts those
+// they turned on, from old to now, as they would start had Mayoi started
+// with them on.
+func (h *pluginHost) toggled(old, now map[string]json.RawMessage) {
+	on := func(all map[string]json.RawMessage, p *plugin.Plugin) bool {
+		var s struct {
+			Enabled *bool `json:"enabled"`
+		}
+		json.Unmarshal(all[p.Name], &s)
+		if s.Enabled == nil {
+			return p.DefaultOn()
+		}
+		return *s.Enabled
+	}
+	started := false
+	for _, p := range h.reg.Plugins() {
+		was, is := on(old, p), on(now, p)
+		if was == is {
+			continue
+		}
+		if !is {
+			h.mu.Lock()
+			for id, st := range h.status {
+				if st.plugin == p {
+					delete(h.status, id)
+					h.statusList = nil
+				}
+			}
+			h.mu.Unlock()
+		}
+		h.reg.Toggled(p.Name)
+		started = started || is
+	}
+	if !started {
+		return
+	}
+	// The plugins turned on start for the folders and files open, as
+	// those opening would start them.
+	for _, a := range h.apps() {
+		a.pluginSeen.indexed = false
+		for _, d := range a.docs {
+			h.reg.Activate("onLanguage:" + languageOf(d))
+		}
+		a.invalidate()
+	}
+}
+
+// setEnabled turns the plugin of name on or off in the settings, as its
+// switch on the Plugins page does.
+func (h *pluginHost) setEnabled(name string, on bool) {
+	s := h.prefs()
+	if h.setPrefs == nil || s == nil {
+		return
+	}
+	deflt := true
+	if p := h.reg.Plugin(name); p != nil {
+		deflt = p.DefaultOn()
+	}
+	h.setPrefs("plugins", withPluginSetting(s.Prefs.Plugins, name, "enabled", on, deflt))
+	h.Changed()
 }
 
 // front is the app of the window in front, nil for none.
@@ -192,6 +323,7 @@ func (h *pluginHost) Changed() {
 			a.invalidate()
 		}
 		h.menu()
+		h.redrawPrefs()
 	})
 	h.recordsChanged()
 }
@@ -199,13 +331,31 @@ func (h *pluginHost) Changed() {
 // Logged implements plugin.Host.
 func (h *pluginHost) Logged(p *plugin.Plugin, line plugin.LogLine) {
 	h.mu.Lock()
-	h.logs = append(h.logs, line)
-	if len(h.logs) > maxPluginLog {
-		h.logs = slices.Delete(h.logs, 0, len(h.logs)-maxPluginLog)
-	}
+	h.log.add(line)
 	h.mu.Unlock()
 	if line.Level == "error" {
-		h.onMain(h.redraw)
+		h.onMain(func() {
+			h.redraw()
+			h.redrawPrefs()
+		})
+	}
+	// The windows showing the log draw it anew, once for however many
+	// lines come before the main thread gets to it.
+	if h.logPosted.CompareAndSwap(false, true) {
+		h.onMain(func() {
+			h.logPosted.Store(false)
+			for _, a := range h.apps() {
+				a.logShown()
+			}
+		})
+	}
+}
+
+// redrawPrefs draws the settings window anew, if it is open; on the main
+// thread.
+func (h *pluginHost) redrawPrefs() {
+	if h.prefsWin != nil {
+		h.prefsWin()
 	}
 }
 
@@ -544,58 +694,6 @@ func truncate(s string, n int) string {
 		return string(r[:n]) + "…"
 	}
 	return s
-}
-
-// showPluginLog opens the log of every plugin in a tab.
-func (a *app) showPluginLog() {
-	if plugins == nil {
-		return
-	}
-	plugins.mu.Lock()
-	lines := slices.Clone(plugins.logs)
-	plugins.mu.Unlock()
-	var b strings.Builder
-	for _, l := range lines {
-		fmt.Fprintf(&b, "%s [%s] %s: %s\n", l.Time.Format("15:04:05.000"), l.Level, l.Plugin, l.Message)
-	}
-	if b.Len() == 0 {
-		b.WriteString(locales.PluginLogEmpty() + "\n")
-	}
-	a.openGenerated(locales.PluginLogTitle(), b.String())
-}
-
-// showRunningPlugins opens a report of the plugins: whether each runs,
-// how long it took to start, and what it used.
-func (a *app) showRunningPlugins() {
-	if plugins == nil {
-		return
-	}
-	var b strings.Builder
-	fmt.Fprintf(&b, "%-24s %-9s %10s %10s %10s  %s\n", "PLUGIN", "STATE", "STARTED IN", "CPU", "MEMORY", "LAST ERROR")
-	for _, p := range plugins.reg.Plugins() {
-		st := p.Stats()
-		state := "idle"
-		switch {
-		case st.Disabled:
-			state = "disabled"
-		case st.Crashed:
-			state = "stopped"
-		case st.Active:
-			state = "running"
-		case !p.HasCode():
-			state = "declares"
-		}
-		mem := "-"
-		if st.Memory > 0 {
-			mem = fmt.Sprintf("%.1f MiB", float64(st.Memory)/(1<<20))
-		}
-		started := "-"
-		if st.ActivatedIn > 0 {
-			started = st.ActivatedIn.Round(time.Millisecond).String()
-		}
-		fmt.Fprintf(&b, "%-24s %-9s %10s %10s %10s  %s\n", p.Name, state, started, st.CPU.Round(time.Millisecond), mem, firstLine(st.Err))
-	}
-	a.openGenerated(locales.PluginRunningTitle(), b.String())
 }
 
 // openGenerated opens text in an untitled tab, as a report.

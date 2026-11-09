@@ -60,7 +60,7 @@ async function scan() {
 
 async function render(found: Todo[]) {
   if (found.length === 0) {
-    await views.render("todos.list", { type: "empty", text: "No TODOs in this folder." });
+    await views.render("todos.list", { type: "empty", icon: "check", text: "No TODOs in this folder." });
     return;
   }
   const byFile = new Map<string, Todo[]>();

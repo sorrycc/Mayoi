@@ -59,6 +59,7 @@ type IndexEntry struct {
 	Name        string   `json:"name"`
 	DisplayName string   `json:"displayName,omitempty"`
 	Description string   `json:"description"`
+	Author      string   `json:"author,omitempty"`
 	Repository  string   `json:"repository"`
 	Tags        []string `json:"tags,omitempty"`
 }
@@ -77,6 +78,10 @@ func FetchIndex(ctx context.Context, client *http.Client) ([]IndexEntry, error) 
 		return nil, err
 	}
 	defer resp.Body.Close()
+	// No index is published yet: there are no plugins to list.
+	if resp.StatusCode == http.StatusNotFound {
+		return nil, nil
+	}
 	if resp.StatusCode != 200 {
 		return nil, fmt.Errorf("the index answered %s", resp.Status)
 	}
@@ -326,19 +331,22 @@ func Scaffold(dir, name string) error {
 		return err
 	}
 	title := humanize(strings.ReplaceAll(name, "-", " "))
+	// The author is who Git says commits, as the plugin will be committed.
+	author, _ := git(context.Background(), dir, "config", "user.name")
 	files := map[string]string{
 		ManifestFile: fmt.Sprintf(`{
   "name": %q,
   "displayName": %q,
   "version": "0.1.0",
   "description": "",
+  "author": %q,
   "main": "main.ts",
   "activation": ["onCommand:%s.hello"],
   "contributes": {
     "commands": [{ "id": "%s.hello", "title": "Say Hello" }]
   }
 }
-`, name, title, name, name),
+`, name, title, author, name, name),
 		"main.ts": fmt.Sprintf(`import { commands, editor, window } from "mayoi";
 
 commands.register("%s.hello", async () => {

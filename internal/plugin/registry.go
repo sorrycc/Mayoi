@@ -88,6 +88,7 @@ type Plugin struct {
 	lastErr     string
 	crashes     int
 	activatedIn time.Duration
+	startedAt   time.Time
 	dynamic     []CommandContrib
 	subs        map[string]bool
 	hovers      []string
@@ -109,6 +110,7 @@ type Stats struct {
 	Disabled    bool // by its settings
 	Crashed     bool // stopped too often, until reloaded
 	ActivatedIn time.Duration
+	StartedAt   time.Time // when it last started, zero while it does not run
 	CPU         time.Duration
 	Memory      int64
 	Crashes     int
@@ -134,6 +136,7 @@ func (p *Plugin) Stats() Stats {
 	}
 	if p.in != nil {
 		st.CPU, st.Memory = p.in.stats()
+		st.StartedAt = p.startedAt
 	}
 	return st
 }
@@ -193,6 +196,9 @@ type Registry struct {
 	host Host
 	mu   sync.Mutex
 	list []*Plugin
+	// origins are where the plugins of the plugins folder came from, by
+	// name, as Load last read them.
+	origins map[string]Origin
 	// storage are the stores of the plugins loaded so far, by file.
 	storeMu sync.Mutex
 	stores  map[string]map[string]json.RawMessage
@@ -211,26 +217,29 @@ func (r *Registry) locale() string {
 	return r.Locale()
 }
 
-// enabled reports whether the settings leave the plugin on, and safe mode
-// lets it run.
 // SetSafe runs no plugin but the bundled ones, or all of them again.
 func (r *Registry) SetSafe(on bool) { r.safe.Store(on) }
 
 // Safe reports whether only the bundled plugins run.
 func (r *Registry) Safe() bool { return r.safe.Load() }
 
+// enabled reports whether the settings, or else its manifest, leave the
+// plugin on, and safe mode lets it run.
 func (r *Registry) enabled(p *Plugin) bool {
 	if r.safe.Load() && !p.Bundled {
 		return false
 	}
 	if r.host == nil {
-		return true
+		return p.DefaultOn()
 	}
 	var s struct {
 		Enabled *bool `json:"enabled"`
 	}
 	json.Unmarshal(r.host.Settings(p.Name), &s)
-	return s.Enabled == nil || *s.Enabled
+	if s.Enabled == nil {
+		return p.DefaultOn()
+	}
+	return *s.Enabled
 }
 
 // Plugins are the plugins found, bundled first, then by name.
@@ -261,10 +270,30 @@ func (r *Registry) Enabled() []*Plugin {
 	return out
 }
 
+// Origin is where an installed plugin came from.
+type Origin struct {
+	// Source is where one installed from Git came from, which FromGit
+	// says it was.
+	Source
+	FromGit bool
+	// Linked is set for a folder that is a link, as mayoi plugin dev
+	// makes.
+	Linked bool
+}
+
+// Origin is where the plugin of a name came from, as Load last read it:
+// the zero Origin for a bundled one, a script, or one copied in.
+func (r *Registry) Origin(name string) Origin {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.origins[name]
+}
+
 // Load finds the plugins again: those whose files did not change keep
 // running, the others stop and start anew as something asks for them.
 func (r *Registry) Load() {
 	var found []*Plugin
+	origins := map[string]Origin{}
 	if r.Dirs.Bundled != nil {
 		entries, _ := fs.ReadDir(r.Dirs.Bundled, ".")
 		for _, e := range entries {
@@ -286,7 +315,16 @@ func (r *Registry) Load() {
 			if st, err := os.Stat(dir); err != nil || !st.IsDir() {
 				continue
 			}
-			found = append(found, r.read(os.DirFS(dir), dir, false))
+			p := r.read(os.DirFS(dir), dir, false)
+			if fi, err := os.Lstat(dir); err == nil && fi.Mode()&os.ModeSymlink != 0 {
+				origins[p.Name] = Origin{Linked: true}
+			}
+			found = append(found, p)
+		}
+		for name, src := range ReadRecords(r.Dirs.Plugins) {
+			o := origins[name]
+			o.Source, o.FromGit = src, true
+			origins[name] = o
 		}
 	}
 	if r.Dirs.Scripts != "" {
@@ -319,6 +357,7 @@ func (r *Registry) Load() {
 		}
 	}
 	r.list = found
+	r.origins = origins
 	r.mu.Unlock()
 	for _, o := range old {
 		if !slices.Contains(found, o) {
@@ -446,6 +485,27 @@ func (r *Registry) Reload(name string) {
 		p.mu.Unlock()
 	}
 	r.Load()
+}
+
+// Restart stops a plugin, clearing its crashes, and starts it again in
+// the background, unless it is off or has no code of its own to run.
+func (r *Registry) Restart(name string) {
+	p := r.Plugin(name)
+	if p == nil {
+		return
+	}
+	p.shutdown()
+	p.mu.Lock()
+	p.crashes, p.lastErr = 0, ""
+	p.mu.Unlock()
+	if !r.enabled(p) || !p.HasCode() || p.Script || p.loadErr != "" {
+		return
+	}
+	p.logf("info", "restarting")
+	p.launch()
+	if r.host != nil {
+		r.host.Changed()
+	}
 }
 
 // ReloadAll stops every plugin and finds them again.
@@ -590,7 +650,7 @@ func (p *Plugin) ensure() (*instance, error) {
 		p.crashes++
 		p.lastErr = err.Error()
 	} else {
-		p.in, p.activatedIn = in, time.Since(began)
+		p.in, p.activatedIn, p.startedAt = in, time.Since(began), time.Now()
 	}
 	p.mu.Unlock()
 	close(ch)
@@ -674,6 +734,29 @@ func (r *Registry) Activate(event string) {
 				p.launch()
 				break
 			}
+		}
+	}
+}
+
+// Toggled follows the settings of the plugin of name as they turn it on or
+// off: it stops it when they turn it off, and starts it, as Mayoi starting
+// does, when they turn it on.
+func (r *Registry) Toggled(name string) {
+	p := r.Plugin(name)
+	if p == nil {
+		return
+	}
+	if !r.enabled(p) {
+		p.shutdown()
+		return
+	}
+	if !p.HasCode() || p.Script || p.loadErr != "" || p.Started() {
+		return
+	}
+	for _, a := range p.Activation {
+		if a == "onStartup" || a == "*" {
+			p.launch()
+			return
 		}
 	}
 }

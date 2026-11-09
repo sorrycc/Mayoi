@@ -2,6 +2,8 @@ package plugin
 
 import (
 	"context"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -101,6 +103,18 @@ func TestSyncAgreesBothWays(t *testing.T) {
 	}
 }
 
+func TestFetchIndexNotFound(t *testing.T) {
+	srv := httptest.NewServer(http.NotFoundHandler())
+	defer srv.Close()
+	old := IndexURL
+	IndexURL = srv.URL
+	defer func() { IndexURL = old }()
+	entries, err := FetchIndex(context.Background(), nil)
+	if err != nil || len(entries) != 0 {
+		t.Fatalf("FetchIndex = %v, %v; want no entries and no error", entries, err)
+	}
+}
+
 func TestSplitSpec(t *testing.T) {
 	if url, ref, byName := SplitSpec("me/thing@v2"); url != "https://github.com/me/thing" || ref != "v2" || byName {
 		t.Fatalf("SplitSpec = %s %s %v", url, ref, byName)
@@ -119,6 +133,9 @@ func TestCLINewAndDev(t *testing.T) {
 	var out, errb strings.Builder
 	if code := RunCLI([]string{"new", "greet", work}, dirs, &out, &errb); code != 0 {
 		t.Fatalf("new: %s", errb.String())
+	}
+	if data, _ := os.ReadFile(filepath.Join(work, ManifestFile)); !strings.Contains(string(data), `"author":`) {
+		t.Errorf("the scaffold's manifest has no author: %s", data)
 	}
 	if code := RunCLI([]string{"dev", work}, dirs, &out, &errb); code != 0 {
 		t.Fatalf("dev: %s", errb.String())

@@ -40,8 +40,8 @@ plugins you know.
 On Windows, `~` is `%USERPROFILE%`. With `MAYOI_DATA_DIR` set, these folders are in that folder instead.
 
 Mayoi comes with two plugins of its own, **Word Count** (the words and reading time of a Markdown or text file, in the
-status bar) and **TODOs** (the folder's TODO, FIXME and HACK comments, in the sidebar). They can be turned off like any
-other.
+status bar) and **TODOs** (the folder's TODO, FIXME and HACK comments, in the sidebar). They start off; turn them on
+on the **Plugins** page of the settings window, or with `"enabled": true` in their settings.
 
 ### Settings sync
 
@@ -51,9 +51,13 @@ commits, and a plugin removed on one machine is removed on the others. A plugin 
 
 ### When something goes wrong
 
-- **Plugins → Show Plugin Log** opens what plugins logged and the errors they hit.
-- **Plugins → Show Running Plugins** lists each plugin: running or not, how long it took to start, the time its
-  JavaScript ran, the memory it keeps, and its last error.
+- **Plugins → Show Plugin Log** opens a tab of what plugins logged and the errors they hit, the newest at the bottom.
+  Filter it by plugin, by level and by text; it follows new lines while scrolled to the end. **Copy** copies the lines
+  shown, and **Clear** empties it. It keeps the last 10,000 lines.
+- **Plugins → Show Running Plugins** opens a table of the plugins: state, version, the time their JavaScript ran, the
+  memory they keep, when they started, how often they crashed, and their last error. Click a column's head to sort by
+  it. It refreshes every second while it shows. Each row can restart its plugin, turn it off, open its details, or
+  show its log.
 - A command's JavaScript that runs for 10 seconds without a break is stopped, and so is a plugin that keeps more than
   256 MiB. A plugin that stops 3 times in a row is off until **Plugins → Reload Plugins**.
 - `mayoi --disable-plugins` starts Mayoi with only the plugins it comes with.
@@ -63,8 +67,8 @@ commits, and a plugin removed on one machine is removed on the others. A plugin 
 ```jsonc
 {
   "plugins": {
-    "word-count": { "wordsPerMinute": 200 },
-    "todos": { "enabled": false }
+    "word-count": { "enabled": true, "wordsPerMinute": 200 },
+    "prettier": { "enabled": false }
   },
   "formatOnSave": { "typescript": true },
   "formatters": { "typescript": "prettier" }
@@ -102,9 +106,11 @@ word-stats/
   "displayName": "Word Stats",
   "version": "0.1.0",
   "description": "Words of the selection",
+  "author": "Ann",                   // optional, shown on the Plugins page
   "mayoi": ">=0.19.0",               // the versions of Mayoi it works with
   "main": "main.ts",                 // .ts, .js or .mjs
   "activation": ["onCommand:word-stats.count"],
+  "enabled": true,                   // optional: false starts it off, until its settings turn it on
   "contributes": {
     "commands": [{ "id": "word-stats.count", "title": "Count Words", "title:zh-Hans": "统计字数" }],
     "keybindings": [{ "key": "ctrl+alt+w", "mac": "cmd+alt+w", "command": "word-stats.count" }],
@@ -293,7 +299,8 @@ views.onShow("todo.list", () =>
 
 Nodes: `stack` and `row` with `children`, `text`, `markdown`, `code`, `svg`, `list`, `tree` (items with `children`,
 `open` at first), `input` (`onChange`, `onSubmit`), `select`, `checkbox`, `button`, `progress` (a `value` from 0 to 1,
-or a spinner without one), `divider` and `empty`. A function in the tree, as `onClick`, is called back in the plugin.
+or a spinner without one), `divider` and `empty` (its `text` under an `icon`). A function in the tree, as `onClick`, is
+called back in the plugin.
 Icons are Mayoi's: `check`, `x`, `plus`, `file`, `folder`, `search`, `star`, `info`, `warning`, `error`, `trash`,
 `refresh`, `settings`, `terminal`, `branch`, `commit`, `tag`, `clock`, `lightbulb`, `sparkles`, `comment`, `copy`,
 `external`, `pencil`, `list`, `function`, `hash`, `lock`, `server`, `cloud`, `send`, `keyboard`, `box`, `braces`,
@@ -389,5 +396,5 @@ Push the folder to a Git repository: `mayoi plugin install owner/repo` installs 
 `index.json` of [mayoi-editor/plugins](https://github.com/mayoi-editor/plugins) by pull request:
 
 ```json
-{ "name": "word-stats", "description": "Words of the selection", "repository": "https://github.com/me/word-stats", "tags": ["text"] }
+{ "name": "word-stats", "description": "Words of the selection", "author": "Ann", "repository": "https://github.com/me/word-stats", "tags": ["text"] }
 ```

@@ -8782,6 +8782,16 @@ func (msgs Messages) QuickCommands() string {
 	return Catalog.Format(msgs.locale, "quickCommands", nil)
 }
 
+// QuickChooseAction says "choose"
+// in the language the app shows.
+func QuickChooseAction() string { return In(i18n.Locale()).QuickChooseAction() }
+
+// QuickChooseAction says "choose"
+// in the language of msgs.
+func (msgs Messages) QuickChooseAction() string {
+	return Catalog.Format(msgs.locale, "quickChooseAction", nil)
+}
+
 // QuickConnectAction says "connect"
 // in the language the app shows.
 func QuickConnectAction() string { return In(i18n.Locale()).QuickConnectAction() }
@@ -14342,6 +14352,30 @@ func (msgs Messages) PrefDescTerminalBackendHcEnv() string {
 	return Catalog.Format(msgs.locale, "prefDescTerminalBackendHcEnv", nil)
 }
 
+// PrefTitleTerminalBackendHcShowInHerdr says "Show in Herdr"
+// in the language the app shows.
+func PrefTitleTerminalBackendHcShowInHerdr() string {
+	return In(i18n.Locale()).PrefTitleTerminalBackendHcShowInHerdr()
+}
+
+// PrefTitleTerminalBackendHcShowInHerdr says "Show in Herdr"
+// in the language of msgs.
+func (msgs Messages) PrefTitleTerminalBackendHcShowInHerdr() string {
+	return Catalog.Format(msgs.locale, "prefTitleTerminalBackendHcShowInHerdr", nil)
+}
+
+// PrefDescTerminalBackendHcShowInHerdr says "Show terminals of herdr-core in the Herdr app, in a space for each folder. Terminals of a remote folder stay out of it."
+// in the language the app shows.
+func PrefDescTerminalBackendHcShowInHerdr() string {
+	return In(i18n.Locale()).PrefDescTerminalBackendHcShowInHerdr()
+}
+
+// PrefDescTerminalBackendHcShowInHerdr says "Show terminals of herdr-core in the Herdr app, in a space for each folder. Terminals of a remote folder stay out of it."
+// in the language of msgs.
+func (msgs Messages) PrefDescTerminalBackendHcShowInHerdr() string {
+	return Catalog.Format(msgs.locale, "prefDescTerminalBackendHcShowInHerdr", nil)
+}
+
 // PrefTitleDiffLayout says "Diff Layout"
 // in the language the app shows.
 func PrefTitleDiffLayout() string { return In(i18n.Locale()).PrefTitleDiffLayout() }
@@ -15266,6 +15300,366 @@ func (msgs Messages) PluginRunningTitle() string {
 	return Catalog.Format(msgs.locale, "pluginRunningTitle", nil)
 }
 
+// RunningColPlugin says "Plugin"
+// in the language the app shows.
+func RunningColPlugin() string { return In(i18n.Locale()).RunningColPlugin() }
+
+// RunningColPlugin says "Plugin"
+// in the language of msgs.
+func (msgs Messages) RunningColPlugin() string {
+	return Catalog.Format(msgs.locale, "runningColPlugin", nil)
+}
+
+// RunningColVersion says "Version"
+// in the language the app shows.
+func RunningColVersion() string { return In(i18n.Locale()).RunningColVersion() }
+
+// RunningColVersion says "Version"
+// in the language of msgs.
+func (msgs Messages) RunningColVersion() string {
+	return Catalog.Format(msgs.locale, "runningColVersion", nil)
+}
+
+// RunningColState says "State"
+// in the language the app shows.
+func RunningColState() string { return In(i18n.Locale()).RunningColState() }
+
+// RunningColState says "State"
+// in the language of msgs.
+func (msgs Messages) RunningColState() string {
+	return Catalog.Format(msgs.locale, "runningColState", nil)
+}
+
+// RunningColCPU says "CPU"
+// in the language the app shows.
+func RunningColCPU() string { return In(i18n.Locale()).RunningColCPU() }
+
+// RunningColCPU says "CPU"
+// in the language of msgs.
+func (msgs Messages) RunningColCPU() string {
+	return Catalog.Format(msgs.locale, "runningColCPU", nil)
+}
+
+// RunningColMemory says "Memory"
+// in the language the app shows.
+func RunningColMemory() string { return In(i18n.Locale()).RunningColMemory() }
+
+// RunningColMemory says "Memory"
+// in the language of msgs.
+func (msgs Messages) RunningColMemory() string {
+	return Catalog.Format(msgs.locale, "runningColMemory", nil)
+}
+
+// RunningColStarted says "Started"
+// in the language the app shows.
+func RunningColStarted() string { return In(i18n.Locale()).RunningColStarted() }
+
+// RunningColStarted says "Started"
+// in the language of msgs.
+func (msgs Messages) RunningColStarted() string {
+	return Catalog.Format(msgs.locale, "runningColStarted", nil)
+}
+
+// RunningColCrashes says "Crashes"
+// in the language the app shows.
+func RunningColCrashes() string { return In(i18n.Locale()).RunningColCrashes() }
+
+// RunningColCrashes says "Crashes"
+// in the language of msgs.
+func (msgs Messages) RunningColCrashes() string {
+	return Catalog.Format(msgs.locale, "runningColCrashes", nil)
+}
+
+// RunningColError says "Last error"
+// in the language the app shows.
+func RunningColError() string { return In(i18n.Locale()).RunningColError() }
+
+// RunningColError says "Last error"
+// in the language of msgs.
+func (msgs Messages) RunningColError() string {
+	return Catalog.Format(msgs.locale, "runningColError", nil)
+}
+
+// RunningStateRunning says "Running"
+// in the language the app shows.
+func RunningStateRunning() string { return In(i18n.Locale()).RunningStateRunning() }
+
+// RunningStateRunning says "Running"
+// in the language of msgs.
+func (msgs Messages) RunningStateRunning() string {
+	return Catalog.Format(msgs.locale, "runningStateRunning", nil)
+}
+
+// RunningStateCrashed says "Crashed"
+// in the language the app shows.
+func RunningStateCrashed() string { return In(i18n.Locale()).RunningStateCrashed() }
+
+// RunningStateCrashed says "Crashed"
+// in the language of msgs.
+func (msgs Messages) RunningStateCrashed() string {
+	return Catalog.Format(msgs.locale, "runningStateCrashed", nil)
+}
+
+// RunningStateStatic says "No code"
+// in the language the app shows.
+func RunningStateStatic() string { return In(i18n.Locale()).RunningStateStatic() }
+
+// RunningStateStatic says "No code"
+// in the language of msgs.
+func (msgs Messages) RunningStateStatic() string {
+	return Catalog.Format(msgs.locale, "runningStateStatic", nil)
+}
+
+// RunningCount says "{count, plural, one {# plugin} other {# plugins}}"
+// in the language the app shows.
+func RunningCount(count int) string { return In(i18n.Locale()).RunningCount(count) }
+
+// RunningCount says "{count, plural, one {# plugin} other {# plugins}}"
+// in the language of msgs.
+func (msgs Messages) RunningCount(count int) string {
+	return Catalog.Format(msgs.locale, "runningCount", map[string]any{"count": count})
+}
+
+// RunningActive says "{count} running"
+// in the language the app shows.
+func RunningActive(count string) string { return In(i18n.Locale()).RunningActive(count) }
+
+// RunningActive says "{count} running"
+// in the language of msgs.
+func (msgs Messages) RunningActive(count string) string {
+	return Catalog.Format(msgs.locale, "runningActive", map[string]any{"count": count})
+}
+
+// RunningMemoryTotal says "{size} in use"
+// in the language the app shows.
+func RunningMemoryTotal(size string) string { return In(i18n.Locale()).RunningMemoryTotal(size) }
+
+// RunningMemoryTotal says "{size} in use"
+// in the language of msgs.
+func (msgs Messages) RunningMemoryTotal(size string) string {
+	return Catalog.Format(msgs.locale, "runningMemoryTotal", map[string]any{"size": size})
+}
+
+// RunningRestart says "Restart"
+// in the language the app shows.
+func RunningRestart() string { return In(i18n.Locale()).RunningRestart() }
+
+// RunningRestart says "Restart"
+// in the language of msgs.
+func (msgs Messages) RunningRestart() string {
+	return Catalog.Format(msgs.locale, "runningRestart", nil)
+}
+
+// RunningTurnOff says "Turn Off"
+// in the language the app shows.
+func RunningTurnOff() string { return In(i18n.Locale()).RunningTurnOff() }
+
+// RunningTurnOff says "Turn Off"
+// in the language of msgs.
+func (msgs Messages) RunningTurnOff() string {
+	return Catalog.Format(msgs.locale, "runningTurnOff", nil)
+}
+
+// RunningTurnOn says "Turn On"
+// in the language the app shows.
+func RunningTurnOn() string { return In(i18n.Locale()).RunningTurnOn() }
+
+// RunningTurnOn says "Turn On"
+// in the language of msgs.
+func (msgs Messages) RunningTurnOn() string {
+	return Catalog.Format(msgs.locale, "runningTurnOn", nil)
+}
+
+// RunningDetails says "Open Details"
+// in the language the app shows.
+func RunningDetails() string { return In(i18n.Locale()).RunningDetails() }
+
+// RunningDetails says "Open Details"
+// in the language of msgs.
+func (msgs Messages) RunningDetails() string {
+	return Catalog.Format(msgs.locale, "runningDetails", nil)
+}
+
+// RunningShowLog says "Show Log"
+// in the language the app shows.
+func RunningShowLog() string { return In(i18n.Locale()).RunningShowLog() }
+
+// RunningShowLog says "Show Log"
+// in the language of msgs.
+func (msgs Messages) RunningShowLog() string {
+	return Catalog.Format(msgs.locale, "runningShowLog", nil)
+}
+
+// RunningNone says "No plugins yet. Install one from the Plugins page of the settings."
+// in the language the app shows.
+func RunningNone() string { return In(i18n.Locale()).RunningNone() }
+
+// RunningNone says "No plugins yet. Install one from the Plugins page of the settings."
+// in the language of msgs.
+func (msgs Messages) RunningNone() string {
+	return Catalog.Format(msgs.locale, "runningNone", nil)
+}
+
+// LogAllPlugins says "All plugins"
+// in the language the app shows.
+func LogAllPlugins() string { return In(i18n.Locale()).LogAllPlugins() }
+
+// LogAllPlugins says "All plugins"
+// in the language of msgs.
+func (msgs Messages) LogAllPlugins() string {
+	return Catalog.Format(msgs.locale, "logAllPlugins", nil)
+}
+
+// LogFilter says "Filter log"
+// in the language the app shows.
+func LogFilter() string { return In(i18n.Locale()).LogFilter() }
+
+// LogFilter says "Filter log"
+// in the language of msgs.
+func (msgs Messages) LogFilter() string {
+	return Catalog.Format(msgs.locale, "logFilter", nil)
+}
+
+// LogCopy says "Copy"
+// in the language the app shows.
+func LogCopy() string { return In(i18n.Locale()).LogCopy() }
+
+// LogCopy says "Copy"
+// in the language of msgs.
+func (msgs Messages) LogCopy() string {
+	return Catalog.Format(msgs.locale, "logCopy", nil)
+}
+
+// LogCopied says "Copied"
+// in the language the app shows.
+func LogCopied() string { return In(i18n.Locale()).LogCopied() }
+
+// LogCopied says "Copied"
+// in the language of msgs.
+func (msgs Messages) LogCopied() string {
+	return Catalog.Format(msgs.locale, "logCopied", nil)
+}
+
+// LogClear says "Clear"
+// in the language the app shows.
+func LogClear() string { return In(i18n.Locale()).LogClear() }
+
+// LogClear says "Clear"
+// in the language of msgs.
+func (msgs Messages) LogClear() string {
+	return Catalog.Format(msgs.locale, "logClear", nil)
+}
+
+// LogJump says "Jump to latest"
+// in the language the app shows.
+func LogJump() string { return In(i18n.Locale()).LogJump() }
+
+// LogJump says "Jump to latest"
+// in the language of msgs.
+func (msgs Messages) LogJump() string {
+	return Catalog.Format(msgs.locale, "logJump", nil)
+}
+
+// LogNewLines says "{count, plural, one {# new line} other {# new lines}}"
+// in the language the app shows.
+func LogNewLines(count int) string { return In(i18n.Locale()).LogNewLines(count) }
+
+// LogNewLines says "{count, plural, one {# new line} other {# new lines}}"
+// in the language of msgs.
+func (msgs Messages) LogNewLines(count int) string {
+	return Catalog.Format(msgs.locale, "logNewLines", map[string]any{"count": count})
+}
+
+// LogLines says "{count, plural, one {# line} other {# lines}}"
+// in the language the app shows.
+func LogLines(count int) string { return In(i18n.Locale()).LogLines(count) }
+
+// LogLines says "{count, plural, one {# line} other {# lines}}"
+// in the language of msgs.
+func (msgs Messages) LogLines(count int) string {
+	return Catalog.Format(msgs.locale, "logLines", map[string]any{"count": count})
+}
+
+// LogNoMatch says "No lines match the filters."
+// in the language the app shows.
+func LogNoMatch() string { return In(i18n.Locale()).LogNoMatch() }
+
+// LogNoMatch says "No lines match the filters."
+// in the language of msgs.
+func (msgs Messages) LogNoMatch() string {
+	return Catalog.Format(msgs.locale, "logNoMatch", nil)
+}
+
+// LogClearFilters says "Clear Filters"
+// in the language the app shows.
+func LogClearFilters() string { return In(i18n.Locale()).LogClearFilters() }
+
+// LogClearFilters says "Clear Filters"
+// in the language of msgs.
+func (msgs Messages) LogClearFilters() string {
+	return Catalog.Format(msgs.locale, "logClearFilters", nil)
+}
+
+// LogCopyLine says "Copy Line"
+// in the language the app shows.
+func LogCopyLine() string { return In(i18n.Locale()).LogCopyLine() }
+
+// LogCopyLine says "Copy Line"
+// in the language of msgs.
+func (msgs Messages) LogCopyLine() string {
+	return Catalog.Format(msgs.locale, "logCopyLine", nil)
+}
+
+// LogOnlyPlugin says "Show Only {name}"
+// in the language the app shows.
+func LogOnlyPlugin(name string) string { return In(i18n.Locale()).LogOnlyPlugin(name) }
+
+// LogOnlyPlugin says "Show Only {name}"
+// in the language of msgs.
+func (msgs Messages) LogOnlyPlugin(name string) string {
+	return Catalog.Format(msgs.locale, "logOnlyPlugin", map[string]any{"name": name})
+}
+
+// LogLevelError says "Errors"
+// in the language the app shows.
+func LogLevelError() string { return In(i18n.Locale()).LogLevelError() }
+
+// LogLevelError says "Errors"
+// in the language of msgs.
+func (msgs Messages) LogLevelError() string {
+	return Catalog.Format(msgs.locale, "logLevelError", nil)
+}
+
+// LogLevelWarn says "Warnings"
+// in the language the app shows.
+func LogLevelWarn() string { return In(i18n.Locale()).LogLevelWarn() }
+
+// LogLevelWarn says "Warnings"
+// in the language of msgs.
+func (msgs Messages) LogLevelWarn() string {
+	return Catalog.Format(msgs.locale, "logLevelWarn", nil)
+}
+
+// LogLevelInfo says "Info"
+// in the language the app shows.
+func LogLevelInfo() string { return In(i18n.Locale()).LogLevelInfo() }
+
+// LogLevelInfo says "Info"
+// in the language of msgs.
+func (msgs Messages) LogLevelInfo() string {
+	return Catalog.Format(msgs.locale, "logLevelInfo", nil)
+}
+
+// LogLevelDebug says "Debug"
+// in the language the app shows.
+func LogLevelDebug() string { return In(i18n.Locale()).LogLevelDebug() }
+
+// LogLevelDebug says "Debug"
+// in the language of msgs.
+func (msgs Messages) LogLevelDebug() string {
+	return Catalog.Format(msgs.locale, "logLevelDebug", nil)
+}
+
 // PluginScriptFailed says "The script failed: {err}"
 // in the language the app shows.
 func PluginScriptFailed(err string) string { return In(i18n.Locale()).PluginScriptFailed(err) }
@@ -15386,6 +15780,16 @@ func (msgs Messages) PluginsBundled() string {
 	return Catalog.Format(msgs.locale, "pluginsBundled", nil)
 }
 
+// PluginsBy says "by {author}"
+// in the language the app shows.
+func PluginsBy(author string) string { return In(i18n.Locale()).PluginsBy(author) }
+
+// PluginsBy says "by {author}"
+// in the language of msgs.
+func (msgs Messages) PluginsBy(author string) string {
+	return Catalog.Format(msgs.locale, "pluginsBy", map[string]any{"author": author})
+}
+
 // PluginsDeclares says "Adds themes, languages or snippets"
 // in the language the app shows.
 func PluginsDeclares() string { return In(i18n.Locale()).PluginsDeclares() }
@@ -15456,6 +15860,16 @@ func (msgs Messages) PluginsIndexFilter() string {
 	return Catalog.Format(msgs.locale, "pluginsIndexFilter", nil)
 }
 
+// PluginsIndexNoMatch says "No plugins match “{query}”"
+// in the language the app shows.
+func PluginsIndexNoMatch(query string) string { return In(i18n.Locale()).PluginsIndexNoMatch(query) }
+
+// PluginsIndexNoMatch says "No plugins match “{query}”"
+// in the language of msgs.
+func (msgs Messages) PluginsIndexNoMatch(query string) string {
+	return Catalog.Format(msgs.locale, "pluginsIndexNoMatch", map[string]any{"query": query})
+}
+
 // PluginsIndexReading says "Reading the index of plugins…"
 // in the language the app shows.
 func PluginsIndexReading() string { return In(i18n.Locale()).PluginsIndexReading() }
@@ -15464,6 +15878,16 @@ func PluginsIndexReading() string { return In(i18n.Locale()).PluginsIndexReading
 // in the language of msgs.
 func (msgs Messages) PluginsIndexReading() string {
 	return Catalog.Format(msgs.locale, "pluginsIndexReading", nil)
+}
+
+// PluginsIndexRetry says "Try Again"
+// in the language the app shows.
+func PluginsIndexRetry() string { return In(i18n.Locale()).PluginsIndexRetry() }
+
+// PluginsIndexRetry says "Try Again"
+// in the language of msgs.
+func (msgs Messages) PluginsIndexRetry() string {
+	return Catalog.Format(msgs.locale, "pluginsIndexRetry", nil)
 }
 
 // PluginsInstall says "Install"
@@ -15596,6 +16020,36 @@ func (msgs Messages) PluginsRemove() string {
 	return Catalog.Format(msgs.locale, "pluginsRemove", nil)
 }
 
+// PluginsRemoveAsk says "Remove {name}? Its folder is deleted."
+// in the language the app shows.
+func PluginsRemoveAsk(name string) string { return In(i18n.Locale()).PluginsRemoveAsk(name) }
+
+// PluginsRemoveAsk says "Remove {name}? Its folder is deleted."
+// in the language of msgs.
+func (msgs Messages) PluginsRemoveAsk(name string) string {
+	return Catalog.Format(msgs.locale, "pluginsRemoveAsk", map[string]any{"name": name})
+}
+
+// PluginsRemoved says "Removed {name}"
+// in the language the app shows.
+func PluginsRemoved(name string) string { return In(i18n.Locale()).PluginsRemoved(name) }
+
+// PluginsRemoved says "Removed {name}"
+// in the language of msgs.
+func (msgs Messages) PluginsRemoved(name string) string {
+	return Catalog.Format(msgs.locale, "pluginsRemoved", map[string]any{"name": name})
+}
+
+// PluginsRemoving says "Removing {name}…"
+// in the language the app shows.
+func PluginsRemoving(name string) string { return In(i18n.Locale()).PluginsRemoving(name) }
+
+// PluginsRemoving says "Removing {name}…"
+// in the language of msgs.
+func (msgs Messages) PluginsRemoving(name string) string {
+	return Catalog.Format(msgs.locale, "pluginsRemoving", map[string]any{"name": name})
+}
+
 // PluginsRunning says "Running, started in {time}"
 // in the language the app shows.
 func PluginsRunning(time_ string) string { return In(i18n.Locale()).PluginsRunning(time_) }
@@ -15684,6 +16138,256 @@ func PluginsUseShortcut() string { return In(i18n.Locale()).PluginsUseShortcut()
 // in the language of msgs.
 func (msgs Messages) PluginsUseShortcut() string {
 	return Catalog.Format(msgs.locale, "pluginsUseShortcut", nil)
+}
+
+// PluginLogOf says "Plugin Log: {name}"
+// in the language the app shows.
+func PluginLogOf(name string) string { return In(i18n.Locale()).PluginLogOf(name) }
+
+// PluginLogOf says "Plugin Log: {name}"
+// in the language of msgs.
+func (msgs Messages) PluginLogOf(name string) string {
+	return Catalog.Format(msgs.locale, "pluginLogOf", map[string]any{"name": name})
+}
+
+// PluginsDetails says "Details of {name}"
+// in the language the app shows.
+func PluginsDetails(name string) string { return In(i18n.Locale()).PluginsDetails(name) }
+
+// PluginsDetails says "Details of {name}"
+// in the language of msgs.
+func (msgs Messages) PluginsDetails(name string) string {
+	return Catalog.Format(msgs.locale, "pluginsDetails", map[string]any{"name": name})
+}
+
+// PluginsBack says "Back to Plugins"
+// in the language the app shows.
+func PluginsBack() string { return In(i18n.Locale()).PluginsBack() }
+
+// PluginsBack says "Back to Plugins"
+// in the language of msgs.
+func (msgs Messages) PluginsBack() string {
+	return Catalog.Format(msgs.locale, "pluginsBack", nil)
+}
+
+// PluginsHealth says "Health"
+// in the language the app shows.
+func PluginsHealth() string { return In(i18n.Locale()).PluginsHealth() }
+
+// PluginsHealth says "Health"
+// in the language of msgs.
+func (msgs Messages) PluginsHealth() string {
+	return Catalog.Format(msgs.locale, "pluginsHealth", nil)
+}
+
+// PluginsMemory says "Memory"
+// in the language the app shows.
+func PluginsMemory() string { return In(i18n.Locale()).PluginsMemory() }
+
+// PluginsMemory says "Memory"
+// in the language of msgs.
+func (msgs Messages) PluginsMemory() string {
+	return Catalog.Format(msgs.locale, "pluginsMemory", nil)
+}
+
+// PluginsCPU says "CPU time"
+// in the language the app shows.
+func PluginsCPU() string { return In(i18n.Locale()).PluginsCPU() }
+
+// PluginsCPU says "CPU time"
+// in the language of msgs.
+func (msgs Messages) PluginsCPU() string {
+	return Catalog.Format(msgs.locale, "pluginsCPU", nil)
+}
+
+// PluginsStartedIn says "Started in"
+// in the language the app shows.
+func PluginsStartedIn() string { return In(i18n.Locale()).PluginsStartedIn() }
+
+// PluginsStartedIn says "Started in"
+// in the language of msgs.
+func (msgs Messages) PluginsStartedIn() string {
+	return Catalog.Format(msgs.locale, "pluginsStartedIn", nil)
+}
+
+// PluginsCrashes says "Crashes"
+// in the language the app shows.
+func PluginsCrashes() string { return In(i18n.Locale()).PluginsCrashes() }
+
+// PluginsCrashes says "Crashes"
+// in the language of msgs.
+func (msgs Messages) PluginsCrashes() string {
+	return Catalog.Format(msgs.locale, "pluginsCrashes", nil)
+}
+
+// PluginsContributes says "Adds to Mayoi"
+// in the language the app shows.
+func PluginsContributes() string { return In(i18n.Locale()).PluginsContributes() }
+
+// PluginsContributes says "Adds to Mayoi"
+// in the language of msgs.
+func (msgs Messages) PluginsContributes() string {
+	return Catalog.Format(msgs.locale, "pluginsContributes", nil)
+}
+
+// PluginsContributesNone says "This plugin adds nothing Mayoi can list."
+// in the language the app shows.
+func PluginsContributesNone() string { return In(i18n.Locale()).PluginsContributesNone() }
+
+// PluginsContributesNone says "This plugin adds nothing Mayoi can list."
+// in the language of msgs.
+func (msgs Messages) PluginsContributesNone() string {
+	return Catalog.Format(msgs.locale, "pluginsContributesNone", nil)
+}
+
+// PluginsCommands says "Commands"
+// in the language the app shows.
+func PluginsCommands() string { return In(i18n.Locale()).PluginsCommands() }
+
+// PluginsCommands says "Commands"
+// in the language of msgs.
+func (msgs Messages) PluginsCommands() string {
+	return Catalog.Format(msgs.locale, "pluginsCommands", nil)
+}
+
+// PluginsMenus says "Menus"
+// in the language the app shows.
+func PluginsMenus() string { return In(i18n.Locale()).PluginsMenus() }
+
+// PluginsMenus says "Menus"
+// in the language of msgs.
+func (msgs Messages) PluginsMenus() string {
+	return Catalog.Format(msgs.locale, "pluginsMenus", nil)
+}
+
+// PluginsStatusItems says "Status bar items"
+// in the language the app shows.
+func PluginsStatusItems() string { return In(i18n.Locale()).PluginsStatusItems() }
+
+// PluginsStatusItems says "Status bar items"
+// in the language of msgs.
+func (msgs Messages) PluginsStatusItems() string {
+	return Catalog.Format(msgs.locale, "pluginsStatusItems", nil)
+}
+
+// PluginsViews says "Views"
+// in the language the app shows.
+func PluginsViews() string { return In(i18n.Locale()).PluginsViews() }
+
+// PluginsViews says "Views"
+// in the language of msgs.
+func (msgs Messages) PluginsViews() string {
+	return Catalog.Format(msgs.locale, "pluginsViews", nil)
+}
+
+// PluginsThemes says "Themes"
+// in the language the app shows.
+func PluginsThemes() string { return In(i18n.Locale()).PluginsThemes() }
+
+// PluginsThemes says "Themes"
+// in the language of msgs.
+func (msgs Messages) PluginsThemes() string {
+	return Catalog.Format(msgs.locale, "pluginsThemes", nil)
+}
+
+// PluginsLanguages says "Languages"
+// in the language the app shows.
+func PluginsLanguages() string { return In(i18n.Locale()).PluginsLanguages() }
+
+// PluginsLanguages says "Languages"
+// in the language of msgs.
+func (msgs Messages) PluginsLanguages() string {
+	return Catalog.Format(msgs.locale, "pluginsLanguages", nil)
+}
+
+// PluginsEveryLanguage says "Every language"
+// in the language the app shows.
+func PluginsEveryLanguage() string { return In(i18n.Locale()).PluginsEveryLanguage() }
+
+// PluginsEveryLanguage says "Every language"
+// in the language of msgs.
+func (msgs Messages) PluginsEveryLanguage() string {
+	return Catalog.Format(msgs.locale, "pluginsEveryLanguage", nil)
+}
+
+// PluginsSnippets says "Snippets"
+// in the language the app shows.
+func PluginsSnippets() string { return In(i18n.Locale()).PluginsSnippets() }
+
+// PluginsSnippets says "Snippets"
+// in the language of msgs.
+func (msgs Messages) PluginsSnippets() string {
+	return Catalog.Format(msgs.locale, "pluginsSnippets", nil)
+}
+
+// PluginsFormatters says "Formatters"
+// in the language the app shows.
+func PluginsFormatters() string { return In(i18n.Locale()).PluginsFormatters() }
+
+// PluginsFormatters says "Formatters"
+// in the language of msgs.
+func (msgs Messages) PluginsFormatters() string {
+	return Catalog.Format(msgs.locale, "pluginsFormatters", nil)
+}
+
+// PluginsLanguageServers says "Language servers"
+// in the language the app shows.
+func PluginsLanguageServers() string { return In(i18n.Locale()).PluginsLanguageServers() }
+
+// PluginsLanguageServers says "Language servers"
+// in the language of msgs.
+func (msgs Messages) PluginsLanguageServers() string {
+	return Catalog.Format(msgs.locale, "pluginsLanguageServers", nil)
+}
+
+// PluginsSettings says "Settings"
+// in the language the app shows.
+func PluginsSettings() string { return In(i18n.Locale()).PluginsSettings() }
+
+// PluginsSettings says "Settings"
+// in the language of msgs.
+func (msgs Messages) PluginsSettings() string {
+	return Catalog.Format(msgs.locale, "pluginsSettings", nil)
+}
+
+// PluginsSettingsCount says "{count, plural, one {# setting} other {# settings}}"
+// in the language the app shows.
+func PluginsSettingsCount(count int) string { return In(i18n.Locale()).PluginsSettingsCount(count) }
+
+// PluginsSettingsCount says "{count, plural, one {# setting} other {# settings}}"
+// in the language of msgs.
+func (msgs Messages) PluginsSettingsCount(count int) string {
+	return Catalog.Format(msgs.locale, "pluginsSettingsCount", map[string]any{"count": count})
+}
+
+// PluginsLog says "Recent log"
+// in the language the app shows.
+func PluginsLog() string { return In(i18n.Locale()).PluginsLog() }
+
+// PluginsLog says "Recent log"
+// in the language of msgs.
+func (msgs Messages) PluginsLog() string {
+	return Catalog.Format(msgs.locale, "pluginsLog", nil)
+}
+
+// PluginsLogOpen says "Open Full Log"
+// in the language the app shows.
+func PluginsLogOpen() string { return In(i18n.Locale()).PluginsLogOpen() }
+
+// PluginsLogOpen says "Open Full Log"
+// in the language of msgs.
+func (msgs Messages) PluginsLogOpen() string {
+	return Catalog.Format(msgs.locale, "pluginsLogOpen", nil)
+}
+
+// PluginsLogNone says "Nothing logged yet."
+// in the language the app shows.
+func PluginsLogNone() string { return In(i18n.Locale()).PluginsLogNone() }
+
+// PluginsLogNone says "Nothing logged yet."
+// in the language of msgs.
+func (msgs Messages) PluginsLogNone() string {
+	return Catalog.Format(msgs.locale, "pluginsLogNone", nil)
 }
 
 // PrefsEditInJSON says "Edit in settings.json"

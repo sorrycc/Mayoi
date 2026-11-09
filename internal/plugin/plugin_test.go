@@ -136,6 +136,28 @@ commands.register("word-count.count", async (arg?: string) => {
 	}
 }
 
+// A plugin whose manifest says "enabled": false starts off, and its
+// settings turn it on.
+func TestManifestStartsOff(t *testing.T) {
+	r, h, dirs := newRegistry(t)
+	writePlugin(t, dirs.Plugins, "quiet", map[string]string{
+		"plugin.json": `{"name": "quiet", "main": "main.js", "enabled": false, "contributes": {"commands": [{"id": "quiet.x", "title": "X"}]}}`,
+		"main.js":     `import { commands } from "mayoi"; commands.register("quiet.x", () => 1);`,
+	})
+	r.Load()
+	if _, err := r.Run("quiet.x", nil); err == nil {
+		t.Fatal("a plugin off by default ran")
+	}
+	h.settings["quiet"] = json.RawMessage(`{"enabled": true}`)
+	if _, err := r.Run("quiet.x", nil); err != nil {
+		t.Fatalf("turned on: %v", err)
+	}
+	delete(h.settings, "quiet")
+	if !r.Plugin("quiet").Stats().Disabled {
+		t.Fatal("without its setting, the plugin is on")
+	}
+}
+
 func TestImportsStayInFolder(t *testing.T) {
 	r, _, dirs := newRegistry(t)
 	writePlugin(t, dirs.Plugins, "bad", map[string]string{
@@ -326,5 +348,32 @@ func TestPack(t *testing.T) {
 	out, err := r.Run("packed.x", "hi")
 	if err != nil || string(out) != `">HI!"` {
 		t.Fatalf("run = %s, %v", out, err)
+	}
+}
+
+// Load notes where each plugin of the folder came from: Git, as
+// plugins.json says, or a link, as mayoi plugin dev makes.
+func TestOrigin(t *testing.T) {
+	r, _, dirs := newRegistry(t)
+	writePlugin(t, dirs.Plugins, "from-git", map[string]string{"plugin.json": `{"name": "from-git", "author": "Ann"}`})
+	writePlugin(t, dirs.Plugins, "copied", map[string]string{"plugin.json": `{"name": "copied"}`})
+	elsewhere := t.TempDir()
+	writePlugin(t, elsewhere, "linked", map[string]string{"plugin.json": `{"name": "linked"}`})
+	if err := os.Symlink(filepath.Join(elsewhere, "linked"), filepath.Join(dirs.Plugins, "linked")); err != nil {
+		t.Skip(err)
+	}
+	WriteRecords(dirs.Plugins, Records{"from-git": {URL: "https://github.com/ann/from-git", Commit: "abc"}})
+	r.Load()
+	if o := r.Origin("from-git"); !o.FromGit || o.URL != "https://github.com/ann/from-git" || o.Linked {
+		t.Errorf("from-git came from %+v", o)
+	}
+	if o := r.Origin("linked"); !o.Linked || o.FromGit {
+		t.Errorf("linked came from %+v", o)
+	}
+	if o := r.Origin("copied"); o != (Origin{}) {
+		t.Errorf("copied came from %+v", o)
+	}
+	if p := r.Plugin("from-git"); p == nil || p.Author != "Ann" {
+		t.Errorf("the author of from-git is not read: %+v", p)
 	}
 }

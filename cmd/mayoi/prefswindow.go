@@ -118,6 +118,11 @@ func (m *mayoi) showPrefs(section, key string, from *desktop) {
 	if section != "" {
 		w.section, w.query = section, ""
 	}
+	// The details of a plugin, on the Plugins page.
+	if name, ok := strings.CutPrefix(key, pluginDetailKey); ok {
+		w.section, w.query, key = prefsPlugins, "", ""
+		w.openDetail(name)
+	}
 	if key != "" {
 		if f, ok := settings.FieldOf(key); ok {
 			w.section, w.query = f.Category, ""
@@ -268,6 +273,10 @@ func (w *prefsWindow) view(c *ui.Context) {
 		w.finding = true
 	}
 	w.focusSearch(c)
+	// The details of a plugin close as the Plugins page does.
+	if pg := &w.plugins; (pg.detail != "" || pg.back) && (w.section != settings.CatPlugins || w.query != "") {
+		pg.detail, pg.back, pg.info = "", false, pluginInfo{}
+	}
 	ui.Row(c).Fill().Background(p.editor).AlignItems(ui.Stretch).Children(func() {
 		w.sidebar(c)
 		ui.Column(c.Key("prefs-main")).Grow(1).MinWidth(0).Children(func() {
@@ -762,7 +771,7 @@ func (w *prefsWindow) control(c *ui.Context, f settings.Field, raw json.RawMessa
 	case settings.KindBool:
 		var on bool
 		json.Unmarshal(raw, &on)
-		if w.first(ui.Switch(k, &on).Label(prefTitle(f.Key))).Changed() {
+		if w.first(w.toggle(k, &on).Label(prefTitle(f.Key))).Changed() {
 			apply(on)
 		}
 	case settings.KindEnum:

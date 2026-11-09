@@ -3,7 +3,7 @@
 The update window shows the section of the version it offers. Every release
 needs a `## <version>` section here, or its build fails.
 
-## Unreleased
+## 0.19.0
 
 - **Plugins → Show Running Plugins** opens a live table of each plugin's state, CPU time, memory and crashes.
 - Click a column head in **Running Plugins** to sort by it; values refresh every second while the tab shows.

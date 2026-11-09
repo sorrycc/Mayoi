@@ -218,6 +218,10 @@ type Prefs struct {
 	// TerminalBackend is "hc", as "KEY=value". A string without "=" or
 	// with a NUL is ignored.
 	TerminalBackendHcEnv []string `json:"terminalBackendHcEnv,omitempty"`
+	// TerminalBackendHcShowInHerdr shows a terminal of herdr-core in the
+	// Herdr app, in a space of the window's folder, when TerminalBackend
+	// is "hc". Those of a remote folder stay out of it.
+	TerminalBackendHcShowInHerdr bool `json:"terminalBackendHcShowInHerdr"`
 	// ProjectTabs keeps the folders open in one window, a rail on its left
 	// choosing which shows, rather than a window for each.
 	ProjectTabs bool `json:"projectTabs,omitempty"`
@@ -473,7 +477,7 @@ func Default() *Settings {
 	return &Settings{
 		Prefs: Prefs{
 			FontSize: 13, FontFamily: "monospace", FontWeight: 400, LineHeight: 1.55,
-			AutoSave: true, Blame: true, TerminalCopyOnSelect: true, PreviewMermaid: true, PreviewMath: true,
+			AutoSave: true, Blame: true, TerminalCopyOnSelect: true, TerminalBackendHcShowInHerdr: true, PreviewMermaid: true, PreviewMath: true,
 			DiffAlignedRows: true, DiffContext: 3, DiffSyncScroll: true, MergeAutoApply: true,
 		},
 	}

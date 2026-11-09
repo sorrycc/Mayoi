@@ -3,6 +3,8 @@ package main
 import (
 	"bytes"
 	"cmp"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"io"
@@ -29,13 +31,14 @@ import (
 // window. Closing a terminal ends it there; closing the window or
 // quitting only ends the attach, and the shell runs on.
 
-// hcConfig is what terminalBackendHcPath and terminalBackendHcEnv ask
-// of hc's commands, kept from the preferences as they change. It is empty
-// while the terminal backend isn't "hc", when hc runs as it did before
-// them.
+// hcConfig is what terminalBackendHcPath, terminalBackendHcEnv and
+// terminalBackendHcShowInHerdr ask of hc's commands, kept from the
+// preferences as they change. It is empty while the terminal backend
+// isn't "hc", when hc runs as it did before them.
 type hcConfig struct {
-	path string
-	env  []string
+	path  string
+	env   []string
+	herdr bool
 }
 
 // hcConfigNow is the hc config of the window, which the app sets.
@@ -45,7 +48,7 @@ var hcConfigNow atomic.Pointer[hcConfig]
 func setHCConfig(p settings.Prefs) {
 	c := &hcConfig{}
 	if p.TerminalBackend == "hc" {
-		c.path = p.TerminalBackendHcPath
+		c.path, c.herdr = p.TerminalBackendHcPath, p.TerminalBackendHcShowInHerdr
 		for _, kv := range p.TerminalBackendHcEnv {
 			if k, _, ok := strings.Cut(kv, "="); ok && k != "" && !strings.Contains(kv, "\x00") {
 				c.env = append(c.env, kv)
@@ -200,6 +203,26 @@ func hcEnv() []string {
 	return nil
 }
 
+// hcHerdr reports whether terminals of herdr-core show in the Herdr app.
+func hcHerdr() bool {
+	c := hcConfigNow.Load()
+	return c != nil && c.herdr
+}
+
+// hcHerdrSpace is the id of the space of the Herdr app that shows the
+// terminals of the window of folder root. Herdr makes a space of an id it
+// doesn't know, called after the folder its first terminal is in.
+func hcHerdrSpace(root string) string {
+	sum := sha256.Sum256([]byte(root))
+	return "sp" + hex.EncodeToString(sum[:16])
+}
+
+// hcHerdrLabel is the label that shows a terminal of herdr-core in the
+// space of the Herdr app of root: a tab of its own there.
+func hcHerdrLabel(root string) string {
+	return "herdr.space=" + hcHerdrSpace(root)
+}
+
 // hcBackend reports whether new terminals run in herdr-core: the
 // settings ask for it, and hc is there.
 func (a *app) hcBackend() bool {
@@ -208,12 +231,16 @@ func (a *app) hcBackend() bool {
 
 // hcStart starts a shell in dir in a terminal of herdr-core, on machine
 // unless it is "", labeled with root, the window's folder, and returns
-// its address. It is removed once its shell exits. It may take a while,
-// as for another machine: run it in the background.
+// its address. One of this machine shows in the Herdr app too, unless
+// terminalBackendHcShowInHerdr is off. It is removed once its shell
+// exits. It may take a while, as for another machine: run it in the
+// background.
 func hcStart(root, dir, machine string) (string, error) {
 	args := []string{"run", "--bg", "--json", "--no-parent", "--rm", "--cwd", dir, "--label", "mayoi.folder=" + root}
 	if machine != "" {
 		args = append(args, "--on", machine)
+	} else if hcHerdr() {
+		args = append(args, "--label", hcHerdrLabel(root))
 	}
 	out, err := hcRun(args...)
 	if err != nil {
@@ -472,21 +499,36 @@ func (a *app) hcGotThere(s *session) {
 
 // hcTerms returns those of the terminals of herdr-core at addrs that
 // run, by address, with the folder each is in, as a path of the window's
-// host for one of another machine: none when hc is not there.
+// host for one of another machine: none when hc is not there. Those of
+// this machine that the Herdr app doesn't show yet show there, as new ones
+// do.
 func (a *app) hcTerms(addrs []string) map[string]string {
 	if hcPath() == "" {
 		return nil
 	}
+	c, _, isRemote := remote.Lookup(a.root)
 	live := map[string]string{}
 	if out, err := a.hcList(); err == nil {
 		var l struct {
-			Terminals []struct{ Address, Cwd, State string }
+			Terminals []struct{ Address, Cwd, State, Where string }
 		}
 		if json.Unmarshal(out, &l) == nil {
+			var hidden []string
 			for _, t := range l.Terminals {
 				if t.State == "live" && !strings.Contains(t.Address, "/") {
 					live[t.Address] = t.Cwd
+					if t.Where == "" && slices.Contains(addrs, t.Address) {
+						hidden = append(hidden, t.Address)
+					}
 				}
+			}
+			if len(hidden) > 0 && !isRemote && hcHerdr() {
+				label := hcHerdrLabel(a.root)
+				bg.Go(func() {
+					for _, addr := range hidden {
+						hcRun("label", "--json", addr, label)
+					}
+				})
 			}
 		}
 	}
@@ -494,7 +536,6 @@ func (a *app) hcTerms(addrs []string) map[string]string {
 	// answer, their folders the host's. One whose machine hc can't reach,
 	// or that doesn't answer in hcLookFor, may run on there: it attaches
 	// in the window's folder, and waits for its machine.
-	c, _, isRemote := remote.Lookup(a.root)
 	type look struct {
 		addr, cwd string
 		live      bool

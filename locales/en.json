@@ -1646,6 +1646,8 @@
   "prefDescTerminalBackendHcPath": "The hc to run with herdr-core: a path to it, a folder that has it, or a name on the path. Found there first, then on the path and in ~/.local/bin.",
   "prefTitleTerminalBackendHcEnv": "hc Environment",
   "prefDescTerminalBackendHcEnv": "Environment variables for hc's commands, as KEY=value. Entries without an equals sign or with a NUL are ignored.",
+  "prefTitleTerminalBackendHcShowInHerdr": "Show in Herdr",
+  "prefDescTerminalBackendHcShowInHerdr": "Show terminals of herdr-core in the Herdr app, in a space for each folder. Terminals of a remote folder stay out of it.",
   "prefTitleDiffLayout": "Diff Layout",
   "prefDescDiffLayout": "Side by side, in one column, or side by side when wide enough.",
   "prefTitleDiffHighlight": "Diff Highlight",

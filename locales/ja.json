@@ -1418,6 +1418,8 @@
   "prefDescTerminalBackendHcPath": "herdr-core で使う hc。プログラムのパス、それが入ったフォルダー、または PATH 上の名前です。ここで見つからなければ PATH と ~/.local/bin を探します。",
   "prefTitleTerminalBackendHcEnv": "hc の環境変数",
   "prefDescTerminalBackendHcEnv": "hc のコマンドに渡す環境変数。KEY=value の形式で、等号のない項目や NUL を含む項目は無視されます。",
+  "prefTitleTerminalBackendHcShowInHerdr": "Herdr に表示",
+  "prefDescTerminalBackendHcShowInHerdr": "herdr-core のターミナルを Herdr アプリにフォルダごとのスペースで表示します。リモートフォルダのターミナルは表示されません。",
   "prefTitleDiffLayout": "差分のレイアウト",
   "prefDescDiffLayout": "横並び、1 列、または十分な幅があれば横並び。",
   "prefTitleDiffHighlight": "差分のハイライト",

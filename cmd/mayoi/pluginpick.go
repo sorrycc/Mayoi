@@ -1,8 +1,8 @@
 package main
 
 import (
-	"strconv"
 	"strings"
+	"time"
 
 	"github.com/egoist/mygo/ui"
 
@@ -16,6 +16,9 @@ type pickItem struct {
 	Description string `json:"description,omitempty"`
 	Detail      string `json:"detail,omitempty"`
 	Icon        string `json:"icon,omitempty"`
+
+	// icon is the icon Icon names, found as the box opens.
+	icon *ui.SVG
 }
 
 // pluginPicker is the box a plugin's window.pick shows, found by label as
@@ -31,6 +34,7 @@ type pluginPicker struct {
 	results     []workspace.Match
 	shown       string
 	stale       bool
+	shook       time.Time
 	done        func(i int) // the item's index, -1 for none
 }
 
@@ -42,6 +46,9 @@ func (a *app) openPluginPicker(items []pickItem, placeholder string, done func(i
 	}
 	labels := make([]string, len(items))
 	for i, it := range items {
+		if it.Icon != "" {
+			items[i].icon = namedIcon(it.Icon)
+		}
 		labels[i] = it.Label
 		if it.Description != "" {
 			labels[i] += " " + it.Description
@@ -83,16 +90,21 @@ func (a *app) pluginPickerView(c *ui.Context) {
 		}
 		pk.shown, pk.stale, pk.sel = pk.query, false, 0
 	}
+	// Return on nothing found shakes the box, as the palette does.
 	choose := func(i int) {
-		if i >= 0 && i < len(pk.results) {
-			a.closePluginPicker(pk.results[i].Index)
+		if i < 0 || i >= len(pk.results) {
+			pk.shook = c.Now()
+			return
 		}
+		a.closePluginPicker(pk.results[i].Index)
 	}
+	// As the command palette, whose look it has.
 	ui.Overlay(c, func() {
 		back := a.dialogBack(c)
 		back.Children(func() {
-			box := a.floating(c, ui.Column(c).Width(560).MaxWidthPercent(92).Margin(titleBarH+8, 0, 0, 0).Radius(10), true).Clip().
-				Role(ui.RoleDialog).Label(pk.placeholder)
+			box := a.floating(c, ui.Column(c).Width(600).MaxWidthPercent(92).Margin(titleBarH+8, 0, 0, 0).Radius(10), true).Clip()
+			shake(c, box, pk.shook)
+			box.Role(ui.RoleDialog).Label(pk.placeholder)
 			box.Children(func() {
 				ui.Row(c).Padding(10, 14).Gap(10).AlignItems(ui.Center).BorderWidth(0, 0, 1, 0).BorderColor(p.border).Children(func() {
 					ui.Icon(c, iconPlug).FontSize(15).TextColor(p.muted)
@@ -109,49 +121,59 @@ func (a *app) pluginPickerView(c *ui.Context) {
 						a.post(func() { choose(sel) })
 					}
 				})
-				if len(pk.results) > 0 {
+				if len(pk.results) == 0 {
+					ui.Text(c, locales.PluginPickNoMatches()).FontSize(13).TextColor(p.muted).Padding(12, 16)
+				} else {
 					ui.Scroll(c.Key("plugin-pick-results")).MaxHeight(380).Padding(6).Children(func() {
 						for i, m := range pk.results {
-							it := pk.items[m.Index]
-							row := ui.ButtonBase(c.Key("plugin-pick:"+strconv.Itoa(m.Index))).Padding(5, 10).Gap(10).Radius(6).
-								Justify(ui.Start).AlignItems(ui.Center).Label(it.Label)
-							if i != pk.sel && row.Hovered() {
-								row.Background(p.hover)
-							}
-							if i == pk.sel && pk.moved {
-								row.ScrollIntoView()
-							}
-							if row.Clicked() {
-								at := i
-								a.post(func() { choose(at) })
-							}
-							row.Transition(hoverFade)
-							row.Children(func() {
-								a.pickMark(c, i == pk.sel)
-								if it.Icon != "" {
-									ui.Icon(c, namedIcon(it.Icon)).FontSize(14).TextColor(p.accent)
-								}
-								ui.Column(c).Gap(1).Shrink(1).Children(func() {
-									ui.Row(c).Gap(8).AlignItems(ui.Baseline).Children(func() {
-										ui.RichText(c, a.matchSpans(it.Label, 0, m.Positions, p.text)...).FontSize(13).SingleLine().Shrink(0)
-										if it.Description != "" {
-											ui.Text(c, it.Description).FontSize(12).TextColor(p.faint).SingleLine().Shrink(1)
-										}
-									})
-									if it.Detail != "" {
-										ui.Text(c, it.Detail).FontSize(11.5).TextColor(p.muted).SingleLine()
-									}
-								})
-							})
+							a.pluginPickRow(c, i, m)
 						}
 					})
-				} else {
-					ui.Text(c, locales.PluginPickNoMatches()).FontSize(13).TextColor(p.muted).Padding(12, 16)
 				}
 				pk.moved = false
+				a.quickFooter(c, false, locales.QuickChooseAction(), "", false, false)
 			})
 			if box.PressedOutside() || back.OverlayShortcut(0, ui.KeyEscape) {
 				a.closePluginPicker(-1)
+			}
+		})
+	})
+}
+
+// pluginPickRow is an item of a plugin's pick box, the i-th found, as a
+// command of the palette is: its icon, its label with the characters the
+// query matched in the accent color, what it says beside it, and its
+// detail below.
+func (a *app) pluginPickRow(c *ui.Context, i int, m workspace.Match) {
+	p := a.pal
+	pk := &a.pluginPick
+	it := &pk.items[m.Index]
+	row := ui.ButtonBase(c.Key(m.Index)).MinHeight(30).Padding(5, 10).Gap(10).Radius(6).
+		Justify(ui.Start).AlignItems(ui.Center).Label(it.Label)
+	if i != pk.sel && row.Hovered() {
+		row.Background(p.hover)
+	}
+	if i == pk.sel && pk.moved {
+		row.ScrollIntoView()
+	}
+	if row.Clicked() {
+		a.post(func() { a.closePluginPicker(m.Index) })
+	}
+	row.Transition(hoverFade)
+	row.Children(func() {
+		a.pickMark(c, i == pk.sel)
+		if it.icon != nil {
+			ui.Icon(c, it.icon).FontSize(14).TextColor(p.muted).Shrink(0)
+		}
+		ui.Column(c).Gap(1).Grow(1).Shrink(1).MinWidth(0).Children(func() {
+			ui.Row(c).Gap(8).AlignItems(ui.Baseline).Children(func() {
+				ui.RichText(c, a.matchSpans(it.Label, 0, m.Positions, p.text)...).FontSize(13).SingleLine().Shrink(0)
+				if it.Description != "" {
+					ui.Text(c, it.Description).FontSize(12).TextColor(p.faint).SingleLine().Shrink(1).MinWidth(0)
+				}
+			})
+			if it.Detail != "" {
+				ui.Text(c, it.Detail).FontSize(11.5).TextColor(p.muted).SingleLine()
 			}
 		})
 	})

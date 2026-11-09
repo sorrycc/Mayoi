@@ -294,7 +294,8 @@ views.onShow("todo.list", () =>
 
 Nodes: `stack` and `row` with `children`, `text`, `markdown`, `code`, `svg`, `list`, `tree` (items with `children`,
 `open` at first), `input` (`onChange`, `onSubmit`), `select`, `checkbox`, `button`, `progress` (a `value` from 0 to 1,
-or a spinner without one), `divider` and `empty`. A function in the tree, as `onClick`, is called back in the plugin.
+or a spinner without one), `divider` and `empty` (its `text` under an `icon`). A function in the tree, as `onClick`, is
+called back in the plugin.
 Icons are Mayoi's: `check`, `x`, `plus`, `file`, `folder`, `search`, `star`, `info`, `warning`, `error`, `trash`,
 `refresh`, `settings`, `terminal`, `branch`, `commit`, `tag`, `clock`, `lightbulb`, `sparkles`, `comment`, `copy`,
 `external`, `pencil`, `list`, `function`, `hash`, `lock`, `server`, `cloud`, `send`, `keyboard`, `box`, `braces`,

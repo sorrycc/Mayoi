@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"slices"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -44,6 +45,11 @@ type pluginStatus struct {
 	id       string
 	right    bool
 	priority int
+	// raw is what the plugin set it with, which the same again leaves as
+	// it is; key and icon are its element's key and its icon, found once.
+	raw  string
+	key  string
+	icon *ui.SVG
 
 	Text    string      `json:"text"`
 	Tooltip string      `json:"tooltip"`
@@ -53,74 +59,131 @@ type pluginStatus struct {
 }
 
 // setStatus fills an item of the status bar a plugin declares, or hides it
-// for null.
+// for null. The same item again, as a plugin sends on each key, draws
+// nothing anew.
 func (h *pluginHost) setStatus(p *plugin.Plugin, id string, raw json.RawMessage) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
-	defer h.redraw()
 	if len(raw) == 0 || string(raw) == "null" {
-		delete(h.status, id)
+		if _, ok := h.status[id]; ok {
+			delete(h.status, id)
+			h.statusList = nil
+			h.redraw()
+		}
+		return
+	}
+	if old, ok := h.status[id]; ok && old.plugin == p && old.raw == string(raw) {
 		return
 	}
 	var st pluginStatus
 	if json.Unmarshal(raw, &st) != nil {
 		return
 	}
-	st.plugin, st.id, st.right = p, id, true
+	st.plugin, st.id, st.right, st.raw, st.key = p, id, true, string(raw), "status:plugin:"+id
+	if st.Icon != "" {
+		st.icon = namedIcon(st.Icon)
+	}
 	for _, c := range p.Contributes.StatusItems {
 		if c.ID == id {
 			st.right, st.priority = c.Align != "left", c.Priority
 		}
 	}
 	h.status[id] = st
+	h.statusList = nil
+	h.redraw()
 }
 
+// sortedStatus are the items of the status bar the plugins filled, the
+// higher priority first, sorted as they change, not as each frame draws;
+// with h.mu held.
+func (h *pluginHost) sortedStatus() []pluginStatus {
+	if h.statusList != nil || len(h.status) == 0 {
+		return h.statusList
+	}
+	list := make([]pluginStatus, 0, len(h.status))
+	for _, st := range h.status {
+		list = append(list, st)
+	}
+	sort.Slice(list, func(i, j int) bool {
+		if list[i].priority != list[j].priority {
+			return list[i].priority > list[j].priority
+		}
+		return list[i].id < list[j].id
+	})
+	h.statusList = list
+	return list
+}
+
+// statusMotion is how a plugin's item of the status bar follows its
+// text: it widens and narrows to it, rather than pushing its neighbours
+// along at once, and fades in and out as it comes and goes.
+var statusMotion = ui.ElementTransition{Duration: 160 * time.Millisecond, Size: true, Colors: true,
+	Enter: &ui.Motion{}, Exit: &ui.Motion{}}
+
 // pluginStatusItems puts the plugins' items of one side in the status bar,
-// with item, and the work they said they do.
+// and the work they said they do.
 func (a *app) pluginStatusItems(c *ui.Context, right bool, item func(key, label, tip string, icon *ui.SVG, fn func()), text func(string) ui.Element) {
 	h := plugins
 	if h == nil {
 		return
 	}
+	// Both lists are made anew as they change, never changed in place:
+	// they are read here as they are.
 	h.mu.Lock()
-	var items []pluginStatus
-	for _, st := range h.status {
-		if st.right == right && st.plugin.Started() {
-			items = append(items, st)
-		}
-	}
-	progress := slices.Clone(h.progress)
+	items, progress := h.sortedStatus(), h.progress
 	h.mu.Unlock()
-	sort.Slice(items, func(i, j int) bool {
-		if items[i].priority != items[j].priority {
-			return items[i].priority > items[j].priority
-		}
-		return items[i].id < items[j].id
-	})
 	if !right {
 		for i, title := range progress {
-			ui.Row(c.Key("status:plugin-progress:"+fmt.Sprint(i))).Height(statusBarH).Padding(0, 6).Gap(5).AlignItems(ui.Center).Children(func() {
+			ui.Row(c.Key("status:plugin-progress:"+strconv.Itoa(i))).Height(statusBarH).Padding(0, 6).Gap(5).AlignItems(ui.Center).
+				Transition(revealFade).Children(func() {
 				ui.Spinner(c).Size(11, 11)
 				text(title)
 			})
 		}
 		a.diagnosticsStatus(item)
 	}
-	for _, st := range items {
-		var icon *ui.SVG
-		if st.Icon != "" {
-			icon = namedIcon(st.Icon)
+	for i := range items {
+		if st := &items[i]; st.right == right && st.plugin.Started() {
+			a.pluginStatusItem(c, st, text)
 		}
-		var fn func()
-		switch {
-		case st.OnClick != nil:
-			fn = func() { h.callHandler(st.plugin, st.OnClick, nil) }
-		case st.Command != "":
-			cmd := st.Command
-			fn = func() { a.runAny(cmd) }
-		}
-		item("plugin:"+st.id, st.Text, st.Tooltip, icon, fn)
 	}
+}
+
+// pluginStatusItem is an item of the status bar a plugin filled: a button
+// that sinks as it is pressed when it does something, its tooltip under
+// the pointer either way. Its digits keep their widths, and it eases to a
+// new width, so that a count that changes as one types does not jog the
+// items beside it.
+func (a *app) pluginStatusItem(c *ui.Context, st *pluginStatus, text func(string) ui.Element) {
+	p := a.pal
+	acts := st.OnClick != nil || st.Command != ""
+	var b ui.Element
+	if acts {
+		b = ui.ButtonBase(c.Key(st.key)).Label(st.Text)
+		if b.Hovered() {
+			b.Background(p.hover)
+		}
+		pressPose(b)
+		if b.Clicked() {
+			if st.OnClick != nil {
+				plugins.callHandler(st.plugin, st.OnClick, nil)
+			} else {
+				a.runAny(st.Command)
+			}
+		}
+	} else {
+		b = ui.Row(c.Key(st.key))
+	}
+	b.Height(statusBarH-6).Padding(0, 6).Gap(5).Radius(4).AlignItems(ui.Center).Transition(statusMotion)
+	if st.Tooltip != "" {
+		b.Tooltip(st.Tooltip)
+	}
+	b.Children(func() {
+		if st.icon != nil {
+			ui.Icon(c, st.icon).FontSize(12).TextColor(p.statusFg)
+		}
+		text(st.Text).FontFeatures("tnum").Shrink(0).ContentTransition(ui.ContentTransition{Numeric: true})
+	})
 }
 
 // runAny runs a command of Mayoi's or of a plugin's by its id.
@@ -198,23 +261,31 @@ func (h *pluginHost) setDiagnosticList(owner, path, source string, clear bool, l
 }
 
 // diagnosticsOf are the diagnostics of a file, of every plugin, the worst
-// first, then by place.
+// first, then by place: sorted once as they change, not as each frame
+// draws them, and not to be changed.
 func (h *pluginHost) diagnosticsOf(path string) []diagnostic {
 	if h == nil || path == "" {
 		return nil
 	}
 	h.mu.Lock()
+	defer h.mu.Unlock()
+	if h.diagsSortedGen != h.diagsGen || h.diagsSorted == nil {
+		h.diagsSorted, h.diagsSortedGen = map[string][]diagnostic{}, h.diagsGen
+	}
+	if out, ok := h.diagsSorted[path]; ok {
+		return out
+	}
 	var out []diagnostic
 	for _, list := range h.diags[path] {
 		out = append(out, list...)
 	}
-	h.mu.Unlock()
 	sort.SliceStable(out, func(i, j int) bool {
 		if a, b := out[i].Range.Start, out[j].Range.Start; a.Line != b.Line {
 			return a.Line < b.Line
 		}
 		return severityRank(out[i].Severity) < severityRank(out[j].Severity)
 	})
+	h.diagsSorted[path] = out
 	return out
 }
 
@@ -315,8 +386,30 @@ func (a *app) diagnosticsStatus(item func(key, label, tip string, icon *ui.SVG, 
 	if h == nil {
 		return
 	}
-	errs, warns := 0, 0
+	if count := h.problemCount(); count != "" {
+		item("problems", count, a.withKey(locales.ProblemsShow(), "plugins.problems"), iconTriangleAlert, a.showProblems)
+	}
+	if d := a.activeEditor(); d != nil {
+		snap := d.buf.Snapshot()
+		caretLine := snap.LineAt(min(d.caret, snap.Len()))
+		for _, dg := range h.diagnosticsOf(d.path) {
+			if caretLine >= dg.Range.Start.Line && caretLine <= dg.Range.End.Line {
+				item("problem-here", truncate(firstLine(dg.Message), 90), dg.source+": "+dg.Message, nil, nil)
+				break
+			}
+		}
+	}
+}
+
+// problemCount is the status bar's count of the errors and warnings of
+// every file, "" for none: counted once as they change.
+func (h *pluginHost) problemCount() string {
 	h.mu.Lock()
+	defer h.mu.Unlock()
+	if h.problemsGen == h.diagsGen && h.problemsCounted {
+		return h.problems
+	}
+	errs, warns := 0, 0
 	for _, by := range h.diags {
 		for _, list := range by {
 			for _, dg := range list {
@@ -329,20 +422,11 @@ func (a *app) diagnosticsStatus(item func(key, label, tip string, icon *ui.SVG, 
 			}
 		}
 	}
-	h.mu.Unlock()
+	h.problems, h.problemsGen, h.problemsCounted = "", h.diagsGen, true
 	if errs+warns > 0 {
-		item("problems", fmt.Sprintf("%d  %d", errs, warns), a.withKey(locales.ProblemsShow(), "plugins.problems"), iconTriangleAlert, a.showProblems)
+		h.problems = fmt.Sprintf("%d  %d", errs, warns)
 	}
-	if d := a.activeEditor(); d != nil {
-		snap := d.buf.Snapshot()
-		caretLine := snap.LineAt(min(d.caret, snap.Len()))
-		for _, dg := range h.diagnosticsOf(d.path) {
-			if caretLine >= dg.Range.Start.Line && caretLine <= dg.Range.End.Line {
-				item("problem-here", truncate(firstLine(dg.Message), 90), dg.source+": "+dg.Message, nil, nil)
-				break
-			}
-		}
-	}
+	return h.problems
 }
 
 // showProblems lists the problems of every file in a box, to go to one.

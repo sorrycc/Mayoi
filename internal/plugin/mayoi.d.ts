@@ -219,7 +219,7 @@ declare module "mayoi" {
     | { type: "button"; label: string; icon?: string; primary?: boolean; onClick?: () => unknown }
     | { type: "progress"; value?: number }
     | { type: "divider" }
-    | { type: "empty"; text: string };
+    | { type: "empty"; text: string; icon?: string };
   export interface ViewAction {
     icon: string;
     tooltip: string;

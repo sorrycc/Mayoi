@@ -104,6 +104,20 @@ func TestPluginsPage(t *testing.T) {
 		t.Errorf("the plugin is gone: %v", err)
 	}
 
+	// The settings show in the details, which the row's link opens.
+	if ph.pt.HasText("printWidth") {
+		t.Error("the row shows the plugin's settings")
+	}
+	if err := ph.pt.Click(locales.PluginsSettingsCount(1)); err != nil {
+		t.Fatal(err)
+	}
+	ph.frames()
+	if pg.detail != "word-count" {
+		t.Fatalf("the settings link opened %q", pg.detail)
+	}
+	ph.w.closeDetail()
+	ph.frames()
+
 	pg.filter = "LINT"
 	ph.frames()
 	if got := ph.w.indexShown(); len(got) != 1 || pg.index[got[0]].Name != "eslint" {

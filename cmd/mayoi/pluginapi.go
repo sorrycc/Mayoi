@@ -496,10 +496,10 @@ func (h *pluginHost) Call(p *plugin.Plugin, method string, raw json.RawMessage) 
 		h.mu.Lock()
 		if args.Done {
 			if i := slices.Index(h.progress, args.Title); i >= 0 {
-				h.progress = slices.Delete(h.progress, i, i+1)
+				h.progress = slices.Delete(slices.Clone(h.progress), i, i+1)
 			}
 		} else {
-			h.progress = append(h.progress, args.Title)
+			h.progress = append(slices.Clip(h.progress), args.Title)
 		}
 		h.mu.Unlock()
 		h.redraw()

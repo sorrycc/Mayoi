@@ -5,6 +5,13 @@ needs a `## <version>` section here, or its build fails.
 
 ## Unreleased
 
+- A plugin's settings now live only in its details; its row on **Settings → Plugins** links to them.
+- Plugin sidebar views, such as **TODOs**, match the Explorer's rows, file icons, hover and selection.
+- Plugin sidebar views show a loading state, a clear empty state, and fade in when their content arrives.
+- Plugin status bar items, such as the word count, glide to a new width instead of shifting their neighbours.
+- Plugin status bar items sink when pressed and show their tooltip even when they have no command.
+- Plugin pick boxes look like the command palette, with its key hints and a shake when nothing matches.
+- The command palette, pickers and prompts fade and scale in as they open, unless Reduce Motion is on.
 - Click a plugin on the **Settings → Plugins** page to open its details; `Esc` goes back to the list.
 - A plugin's details list its commands with their shortcuts, menus, status items, views, themes and more.
 - A plugin's details show its memory, CPU time and start time, refreshed every second while open.

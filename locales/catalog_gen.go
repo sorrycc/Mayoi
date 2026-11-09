@@ -8782,6 +8782,16 @@ func (msgs Messages) QuickCommands() string {
 	return Catalog.Format(msgs.locale, "quickCommands", nil)
 }
 
+// QuickChooseAction says "choose"
+// in the language the app shows.
+func QuickChooseAction() string { return In(i18n.Locale()).QuickChooseAction() }
+
+// QuickChooseAction says "choose"
+// in the language of msgs.
+func (msgs Messages) QuickChooseAction() string {
+	return Catalog.Format(msgs.locale, "quickChooseAction", nil)
+}
+
 // QuickConnectAction says "connect"
 // in the language the app shows.
 func QuickConnectAction() string { return In(i18n.Locale()).QuickConnectAction() }
@@ -15954,6 +15964,16 @@ func PluginsSettings() string { return In(i18n.Locale()).PluginsSettings() }
 // in the language of msgs.
 func (msgs Messages) PluginsSettings() string {
 	return Catalog.Format(msgs.locale, "pluginsSettings", nil)
+}
+
+// PluginsSettingsCount says "{count, plural, one {# setting} other {# settings}}"
+// in the language the app shows.
+func PluginsSettingsCount(count int) string { return In(i18n.Locale()).PluginsSettingsCount(count) }
+
+// PluginsSettingsCount says "{count, plural, one {# setting} other {# settings}}"
+// in the language of msgs.
+func (msgs Messages) PluginsSettingsCount(count int) string {
+	return Catalog.Format(msgs.locale, "pluginsSettingsCount", map[string]any{"count": count})
 }
 
 // PluginsLog says "Recent log"

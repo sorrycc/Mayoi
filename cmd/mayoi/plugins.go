@@ -49,15 +49,25 @@ type pluginHost struct {
 
 	mu   sync.Mutex
 	logs []plugin.LogLine // of every plugin, the last maxPluginLog
-	// status are the items of the status bar the plugins filled, by id.
-	status map[string]pluginStatus
+	// status are the items of the status bar the plugins filled, by id,
+	// and statusList them sorted, nil once they change.
+	status     map[string]pluginStatus
+	statusList []pluginStatus
 	// views are the trees the plugins rendered last, by view id.
 	views map[string]*viewNode
-	// progress are the titles of the work plugins said they do.
+	// progress are the titles of the work plugins said they do, made
+	// anew as they change, for the status bar to read as they are.
 	progress []string
 	// diags are the diagnostics of each file, by path, then plugin.
 	diags    map[string]map[string][]diagnostic
 	diagsGen uint64
+	// diagsSorted are each file's diagnostics, sorted as of diagsSortedGen;
+	// problems is their count as of problemsGen, once problemsCounted.
+	diagsSorted     map[string][]diagnostic
+	diagsSortedGen  uint64
+	problems        string
+	problemsGen     uint64
+	problemsCounted bool
 	// gen counts the changes of the plugins and their contributions,
 	// which the windows build their menus and palettes anew for.
 	gen uint64
@@ -69,6 +79,12 @@ type pluginHost struct {
 	records                      plugin.Records
 	// updates are the newer commits found of the plugins from Git.
 	updates map[string]string
+
+	// slots are the views the sidebar can show, as of slotsKey, once
+	// slotsListed; main thread only.
+	slots       []pluginSlot
+	slotsKey    slotsKey
+	slotsListed bool
 
 	// edIDs number the editors plugins were told of; main thread only.
 	edIDs  map[*editor]int
@@ -158,6 +174,7 @@ func (h *pluginHost) toggled(old, now map[string]json.RawMessage) {
 			for id, st := range h.status {
 				if st.plugin == p {
 					delete(h.status, id)
+					h.statusList = nil
 				}
 			}
 			h.mu.Unlock()

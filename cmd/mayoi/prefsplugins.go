@@ -130,8 +130,8 @@ var pluginRowMotion = ui.ElementTransition{Duration: 160 * time.Millisecond, Col
 	Enter: &ui.Motion{Collapse: true}, Exit: &ui.Motion{Collapse: true}}
 
 // pluginsPane is the Plugins page: the plugins installed, bundled and
-// scripts, each with its switch and its settings; the shortcuts plugins
-// could not take; and installing from the index or Git.
+// scripts, each with its switch and the way to its details; the
+// shortcuts plugins could not take; and installing from the index or Git.
 func (w *prefsWindow) pluginsPane(c *ui.Context) {
 	p := w.pal
 	pg := &w.plugins
@@ -404,7 +404,7 @@ func (w *prefsWindow) pluginState(pl *plugin.Plugin, st plugin.Stats) (string, u
 
 // pluginRow is a plugin of the list: its tile, name, version and what it
 // is; how it is doing and where it came from; its buttons and switch; and
-// its settings while it is on. rule draws the line above it.
+// the way to its settings. rule draws the line above it.
 func (w *prefsWindow) pluginRow(c *ui.Context, it *pluginItem, rule bool) {
 	p := w.pal
 	pg := &w.plugins
@@ -492,10 +492,33 @@ func (w *prefsWindow) pluginRow(c *ui.Context, it *pluginItem, rule bool) {
 		if pg.confirm == pl.Name {
 			w.confirmRemove(c, pl, tileIndent)
 		}
-		if len(pl.Contributes.Settings) > 0 && on {
-			w.pluginSettings(c, pl)
+		if n := len(pl.Contributes.Settings); n > 0 {
+			w.settingsLink(c, pl, n)
 		}
 	})
+}
+
+// settingsLink says how many settings a plugin has, under its row, and
+// opens its details, where they are set.
+func (w *prefsWindow) settingsLink(c *ui.Context, pl *plugin.Plugin, n int) {
+	p := w.pal
+	b := ui.ButtonBase(c.Key("settings-link")).Margin(0, 0, 0, tileIndent-6).Padding(3, 6).Gap(6).Radius(6).AlignSelf(ui.Start).
+		AlignItems(ui.Center).Label(locales.PluginsDetails(pl.Title()))
+	col, pose := p.muted, ui.Pose{}
+	if b.Hovered() {
+		b.Background(p.hover)
+		col, pose.X = p.text, 2
+	}
+	b.Transition(hoverFade)
+	pressPose(b)
+	b.Children(func() {
+		ui.Icon(c, iconSettings).FontSize(12).TextColor(p.faint)
+		ui.Text(c.Key("label"), locales.PluginsSettingsCount(n)).FontSize(11.5).TextColor(col).SingleLine().Transition(hoverFade)
+		ui.Icon(c.Key("go"), iconChevronRight).FontSize(10.5).TextColor(p.faint).AnimatePose(pose, ui.Snappy)
+	})
+	if b.Clicked() {
+		w.openDetail(pl.Name)
+	}
 }
 
 // confirmRemove asks to remove a plugin, as its button was clicked,
@@ -642,33 +665,6 @@ func (w *prefsWindow) updatePlugin(name string) {
 			}
 		})
 	}()
-}
-
-// pluginSettings are the controls of a plugin's own settings.
-func (w *prefsWindow) pluginSettings(c *ui.Context, pl *plugin.Plugin) {
-	p := w.pal
-	values := plugins.reg.Settings(pl)
-	keys := make([]string, 0, len(pl.Contributes.Settings))
-	for k := range pl.Contributes.Settings {
-		keys = append(keys, k)
-	}
-	slices.Sort(keys)
-	ui.Column(c.Key("settings")).Gap(10).Padding(2, 0, 2, 12).Margin(0, 0, 0, tileIndent).BorderWidth(0, 0, 0, 2).BorderColor(p.border).
-		Transition(pluginRowMotion).Children(func() {
-		for _, k := range keys {
-			def := pl.Contributes.Settings[k]
-			raw := values[k]
-			ui.Row(c.Key("set-" + k)).Gap(10).AlignItems(ui.Center).Children(func() {
-				ui.Column(c).Gap(2).Grow(1).Shrink(1).MinWidth(0).Children(func() {
-					ui.Text(c, k).Font(w.monoFont()).FontSize(11.5).TextColor(p.text)
-					if def.Description != "" {
-						ui.Text(c, def.Description).FontSize(11.5).TextColor(p.muted)
-					}
-				})
-				w.pluginSettingControl(c, pl.Name, k, def, raw)
-			})
-		}
-	})
 }
 
 // pluginSettingControl edits a setting of a plugin by its type.

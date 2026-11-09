@@ -25,6 +25,8 @@ type Manifest struct {
 	DisplayName string `json:"displayName,omitempty"`
 	Version     string `json:"version,omitempty"`
 	Description string `json:"description,omitempty"`
+	// Author is who wrote the plugin, as the Plugins page shows it.
+	Author string `json:"author,omitempty"`
 	// Mayoi is the versions of Mayoi the plugin works with, as ">=0.20.0".
 	Mayoi string `json:"mayoi,omitempty"`
 	// Main is the entry module, relative to the folder: .ts, .js or .mjs.

@@ -59,6 +59,7 @@ type IndexEntry struct {
 	Name        string   `json:"name"`
 	DisplayName string   `json:"displayName,omitempty"`
 	Description string   `json:"description"`
+	Author      string   `json:"author,omitempty"`
 	Repository  string   `json:"repository"`
 	Tags        []string `json:"tags,omitempty"`
 }

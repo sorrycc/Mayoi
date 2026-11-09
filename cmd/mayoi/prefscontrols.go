@@ -102,6 +102,39 @@ func (w *prefsWindow) themeTiles(c *ui.Context, chosen string, apply func(any)) 
 	}
 }
 
+// toggle is a switch of the window, as the theme's but that answers the
+// pointer: its track darkens under it, and its knob stretches toward
+// where it goes while held, as UISwitch's does. The knob slides, and the
+// track fills with the accent, as it turns on.
+func (w *prefsWindow) toggle(c *ui.Context, on *bool) ui.Element {
+	p := w.pal
+	t := c.Theme()
+	rtl := c.Direction() == ui.RightToLeft
+	sw := ui.SwitchBase(c, on).Size(t.Space(9), t.Space(5)).Radius(t.Space(2.5))
+	pos := sw.Animate("knob", unit(*on), 160*time.Millisecond)
+	hover := sw.Animate("hover", unit(sw.Hovered()), 110*time.Millisecond)
+	hold := sw.Animate("hold", unit(sw.Pressed()), 120*time.Millisecond)
+	off := p.text.Alpha(0.16).Mix(p.text.Alpha(0.26), hover)
+	lit := p.fill.Mix(p.fillHover, hover)
+	sw.Background(off.Mix(lit, pos))
+	shadow := ui.RGBA(0, 0, 0, 0.25)
+	sw.Draw(func(pt *ui.Painter, r ui.Rect) {
+		in := t.Space(0.5)
+		d := r.H - 2*in
+		// Held, the knob grows by a fifth, from its end on the side it
+		// came from: it reaches for the other.
+		kw := d * (1 + 0.2*hold)
+		at := pos
+		if rtl {
+			at = 1 - pos
+		}
+		knob := ui.Rect{X: r.X + in + at*(r.W-2*in-kw), Y: r.Y + in, W: kw, H: d}
+		pt.Shadow(knob, d/2, 0, 1, 3, 0, shadow)
+		pt.Fill(knob, ui.RGB(255, 255, 255), d/2)
+	})
+	return sw
+}
+
 // segmentThumb is the identity of the face under the option chosen of a
 // switch of options, which slides to the one clicked.
 type segmentThumb struct{ key string }

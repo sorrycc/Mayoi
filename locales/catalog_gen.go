@@ -15386,6 +15386,16 @@ func (msgs Messages) PluginsBundled() string {
 	return Catalog.Format(msgs.locale, "pluginsBundled", nil)
 }
 
+// PluginsBy says "by {author}"
+// in the language the app shows.
+func PluginsBy(author string) string { return In(i18n.Locale()).PluginsBy(author) }
+
+// PluginsBy says "by {author}"
+// in the language of msgs.
+func (msgs Messages) PluginsBy(author string) string {
+	return Catalog.Format(msgs.locale, "pluginsBy", map[string]any{"author": author})
+}
+
 // PluginsDeclares says "Adds themes, languages or snippets"
 // in the language the app shows.
 func PluginsDeclares() string { return In(i18n.Locale()).PluginsDeclares() }
@@ -15456,6 +15466,16 @@ func (msgs Messages) PluginsIndexFilter() string {
 	return Catalog.Format(msgs.locale, "pluginsIndexFilter", nil)
 }
 
+// PluginsIndexNoMatch says "No plugins match “{query}”"
+// in the language the app shows.
+func PluginsIndexNoMatch(query string) string { return In(i18n.Locale()).PluginsIndexNoMatch(query) }
+
+// PluginsIndexNoMatch says "No plugins match “{query}”"
+// in the language of msgs.
+func (msgs Messages) PluginsIndexNoMatch(query string) string {
+	return Catalog.Format(msgs.locale, "pluginsIndexNoMatch", map[string]any{"query": query})
+}
+
 // PluginsIndexReading says "Reading the index of plugins…"
 // in the language the app shows.
 func PluginsIndexReading() string { return In(i18n.Locale()).PluginsIndexReading() }
@@ -15464,6 +15484,16 @@ func PluginsIndexReading() string { return In(i18n.Locale()).PluginsIndexReading
 // in the language of msgs.
 func (msgs Messages) PluginsIndexReading() string {
 	return Catalog.Format(msgs.locale, "pluginsIndexReading", nil)
+}
+
+// PluginsIndexRetry says "Try Again"
+// in the language the app shows.
+func PluginsIndexRetry() string { return In(i18n.Locale()).PluginsIndexRetry() }
+
+// PluginsIndexRetry says "Try Again"
+// in the language of msgs.
+func (msgs Messages) PluginsIndexRetry() string {
+	return Catalog.Format(msgs.locale, "pluginsIndexRetry", nil)
 }
 
 // PluginsInstall says "Install"
@@ -15594,6 +15624,36 @@ func PluginsRemove() string { return In(i18n.Locale()).PluginsRemove() }
 // in the language of msgs.
 func (msgs Messages) PluginsRemove() string {
 	return Catalog.Format(msgs.locale, "pluginsRemove", nil)
+}
+
+// PluginsRemoveAsk says "Remove {name}? Its folder is deleted."
+// in the language the app shows.
+func PluginsRemoveAsk(name string) string { return In(i18n.Locale()).PluginsRemoveAsk(name) }
+
+// PluginsRemoveAsk says "Remove {name}? Its folder is deleted."
+// in the language of msgs.
+func (msgs Messages) PluginsRemoveAsk(name string) string {
+	return Catalog.Format(msgs.locale, "pluginsRemoveAsk", map[string]any{"name": name})
+}
+
+// PluginsRemoved says "Removed {name}"
+// in the language the app shows.
+func PluginsRemoved(name string) string { return In(i18n.Locale()).PluginsRemoved(name) }
+
+// PluginsRemoved says "Removed {name}"
+// in the language of msgs.
+func (msgs Messages) PluginsRemoved(name string) string {
+	return Catalog.Format(msgs.locale, "pluginsRemoved", map[string]any{"name": name})
+}
+
+// PluginsRemoving says "Removing {name}…"
+// in the language the app shows.
+func PluginsRemoving(name string) string { return In(i18n.Locale()).PluginsRemoving(name) }
+
+// PluginsRemoving says "Removing {name}…"
+// in the language of msgs.
+func (msgs Messages) PluginsRemoving(name string) string {
+	return Catalog.Format(msgs.locale, "pluginsRemoving", map[string]any{"name": name})
 }
 
 // PluginsRunning says "Running, started in {time}"

@@ -762,7 +762,7 @@ func (w *prefsWindow) control(c *ui.Context, f settings.Field, raw json.RawMessa
 	case settings.KindBool:
 		var on bool
 		json.Unmarshal(raw, &on)
-		if w.first(ui.Switch(k, &on).Label(prefTitle(f.Key))).Changed() {
+		if w.first(w.toggle(k, &on).Label(prefTitle(f.Key))).Changed() {
 			apply(on)
 		}
 	case settings.KindEnum:

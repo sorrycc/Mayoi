@@ -193,6 +193,9 @@ type Registry struct {
 	host Host
 	mu   sync.Mutex
 	list []*Plugin
+	// origins are where the plugins of the plugins folder came from, by
+	// name, as Load last read them.
+	origins map[string]Origin
 	// storage are the stores of the plugins loaded so far, by file.
 	storeMu sync.Mutex
 	stores  map[string]map[string]json.RawMessage
@@ -261,10 +264,30 @@ func (r *Registry) Enabled() []*Plugin {
 	return out
 }
 
+// Origin is where an installed plugin came from.
+type Origin struct {
+	// Source is where one installed from Git came from, which FromGit
+	// says it was.
+	Source
+	FromGit bool
+	// Linked is set for a folder that is a link, as mayoi plugin dev
+	// makes.
+	Linked bool
+}
+
+// Origin is where the plugin of a name came from, as Load last read it:
+// the zero Origin for a bundled one, a script, or one copied in.
+func (r *Registry) Origin(name string) Origin {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.origins[name]
+}
+
 // Load finds the plugins again: those whose files did not change keep
 // running, the others stop and start anew as something asks for them.
 func (r *Registry) Load() {
 	var found []*Plugin
+	origins := map[string]Origin{}
 	if r.Dirs.Bundled != nil {
 		entries, _ := fs.ReadDir(r.Dirs.Bundled, ".")
 		for _, e := range entries {
@@ -286,7 +309,16 @@ func (r *Registry) Load() {
 			if st, err := os.Stat(dir); err != nil || !st.IsDir() {
 				continue
 			}
-			found = append(found, r.read(os.DirFS(dir), dir, false))
+			p := r.read(os.DirFS(dir), dir, false)
+			if fi, err := os.Lstat(dir); err == nil && fi.Mode()&os.ModeSymlink != 0 {
+				origins[p.Name] = Origin{Linked: true}
+			}
+			found = append(found, p)
+		}
+		for name, src := range ReadRecords(r.Dirs.Plugins) {
+			o := origins[name]
+			o.Source, o.FromGit = src, true
+			origins[name] = o
 		}
 	}
 	if r.Dirs.Scripts != "" {
@@ -319,6 +351,7 @@ func (r *Registry) Load() {
 		}
 	}
 	r.list = found
+	r.origins = origins
 	r.mu.Unlock()
 	for _, o := range old {
 		if !slices.Contains(found, o) {

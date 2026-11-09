@@ -102,6 +102,7 @@ word-stats/
   "displayName": "Word Stats",
   "version": "0.1.0",
   "description": "Words of the selection",
+  "author": "Ann",                   // optional, shown on the Plugins page
   "mayoi": ">=0.19.0",               // the versions of Mayoi it works with
   "main": "main.ts",                 // .ts, .js or .mjs
   "activation": ["onCommand:word-stats.count"],
@@ -389,5 +390,5 @@ Push the folder to a Git repository: `mayoi plugin install owner/repo` installs 
 `index.json` of [mayoi-editor/plugins](https://github.com/mayoi-editor/plugins) by pull request:
 
 ```json
-{ "name": "word-stats", "description": "Words of the selection", "repository": "https://github.com/me/word-stats", "tags": ["text"] }
+{ "name": "word-stats", "description": "Words of the selection", "author": "Ann", "repository": "https://github.com/me/word-stats", "tags": ["text"] }
 ```

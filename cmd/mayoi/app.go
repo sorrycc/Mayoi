@@ -346,9 +346,14 @@ type app struct {
 	checks     checksPicker      // the box of the checks of the pull request
 	worktrees  worktreePicker    // the box that switches worktrees
 	recents    recentPicker      // the box of the recent folders
+	pluginPick pluginPicker      // the box of a plugin's window.pick
 	themes     themePicker       // the box of the color themes
 	remotePick remotePicker      // the box that connects to a host
 	conflicts  conflictsList     // the box of the files in conflict
+	// pluginSeen is what the plugins were last told of the documents:
+	// each one's version, and the editor in front.
+	pluginSeen pluginSeen
+	hover      *hoverCard // the card Show Hover shows
 	find       findState
 	inFiles    searchState // search in the files, of the sidebar
 	prompt     *prompt
@@ -619,6 +624,15 @@ func (a *app) saveDoc(d *document, then func()) {
 		})
 		return
 	}
+	// A plugin's formatter first, as formatOnSave asks, for so long.
+	if ed := a.docEditor(d); ed != nil && a.formatsOnSave(d) && !d.formatted {
+		d.formatted = true
+		a.format(ed, formatOnSaveLimit, true, func() {
+			a.saveDoc(d, then)
+			d.formatted = false
+		})
+		return
+	}
 	saved := func() {
 		d.diskGone, d.autoSave.failed = false, false
 		a.repositoryForPath(d.path).git.stale = true
@@ -638,6 +652,25 @@ func (a *app) saveDoc(d *document, then func()) {
 		return
 	}
 	saved()
+}
+
+// formatOnSaveLimit is how long saving waits for a formatter, which
+// saves without its changes past it.
+const formatOnSaveLimit = 1500 * time.Millisecond
+
+// docEditor is an editor of a document, the one shown first, nil for none.
+func (a *app) docEditor(d *document) *editor {
+	if t := a.activeTab(); t != nil && t.ed != nil && t.ed.document == d {
+		return t.ed
+	}
+	for _, col := range a.cols {
+		for _, t := range col.tabs {
+			if t.ed != nil && t.ed.document == d {
+				return t.ed
+			}
+		}
+	}
+	return nil
 }
 
 func (a *app) saveActive() {

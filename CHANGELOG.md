@@ -10,6 +10,23 @@ needs a `## <version>` section here, or its build fails.
 - Rest a dragged tab on a project in the rail to switch to it, then drop the tab where you want it.
 - Unsaved changes come along when a tab moves to another project.
 - Right-click a tab and choose **Move to Project** to send it to another project.
+- New plugins: folders of JavaScript or TypeScript in `~/.mayoi/plugins`, which Mayoi runs with no Node or build step.
+- Plugins add commands, shortcuts, menu items, status bar items, sidebar views, previews, themes, languages and snippets.
+- `mayoi plugin install <git-url>` installs a plugin, and `list`, `update` and `remove` manage them.
+- `mayoi plugin new <name>` writes a new plugin, and `mayoi plugin dev` reloads it each time you save.
+- `mayoi plugin pack` copies the npm packages a plugin imports into it.
+- The **Plugins** menu, and the **Plugins** page of the settings window, install, update, remove and configure plugins.
+- **Plugins → Show Plugin Log** and **Show Running Plugins** show what plugins logged and how much they use.
+- A plugin that loops or keeps too much memory is stopped, and `mayoi --disable-plugins` turns plugins off.
+- **Selection → Format Document** (⇧⌥F) formats with a plugin, and the `formatOnSave` setting formats as you save.
+- Plugins underline problems in the editor; the status bar counts them, and **Show Problems** lists them.
+- Plugins can bring language servers, for **Go to Definition** (F12), **Show Hover** and **Complete Word** (⌃Space).
+- Plugins can add themes, including VS Code color themes as they are.
+- **Selection → Insert Snippet…** inserts snippets that plugins bring, in VS Code's format.
+- Each function a `.ts` file in `~/.mayoi/scripts` exports is a command; **Run Selection as Script** runs code once.
+- Signed in, the plugins you installed from Git follow you to your other machines.
+- New **Word Count** plugin shows the words of a Markdown file and its reading time in the status bar.
+- New **TODOs** plugin lists the folder's TODO, FIXME and HACK comments in the sidebar.
 
 ## 0.18.2
 

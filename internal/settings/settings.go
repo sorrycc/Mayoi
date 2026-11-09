@@ -92,6 +92,13 @@ type legacy struct {
 	ActiveFile   string   `json:"activeFile"`
 }
 
+// PluginSource is where a plugin installed from Git came from.
+type PluginSource struct {
+	URL    string `json:"url"`
+	Ref    string `json:"ref,omitempty"`
+	Commit string `json:"commit,omitempty"`
+}
+
 // Prefs are the settings a person chooses, which an edit of the file
 // applies as Mayoi runs: not the windows and the layout it keeps itself.
 type Prefs struct {
@@ -238,6 +245,20 @@ type Prefs struct {
 	// the preferences, "settings.json" for all of them, and
 	// "keybindings.json" for the keyboard shortcuts.
 	SyncIgnored []string `json:"syncIgnored,omitempty"`
+	// Plugins are the plugins' own settings, by plugin name: each an
+	// object of the settings its plugin.json declares, and "enabled":
+	// false to turn the plugin off.
+	Plugins map[string]json.RawMessage `json:"plugins,omitempty"`
+	// FormatOnSave formats a document with a plugin's formatter as it
+	// saves, by language, as "go", or "*" for every language.
+	FormatOnSave map[string]bool `json:"formatOnSave,omitempty"`
+	// Formatters chooses the formatter of a language where plugins offer
+	// several: the formatter's id, or its plugin's name.
+	Formatters map[string]string `json:"formatters,omitempty"`
+	// PluginSources are the plugins installed from Git and where each came
+	// from, as ~/.mayoi/plugins/plugins.json has them, which Mayoi keeps
+	// here for settings sync to bring to the person's other machines.
+	PluginSources map[string]PluginSource `json:"pluginSources,omitempty"`
 }
 
 // TabStyle is a project's own look on the rail: Label, up to two

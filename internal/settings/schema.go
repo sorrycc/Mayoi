@@ -18,6 +18,7 @@ const (
 	KindText        // a line of text
 	KindList        // a list of strings
 	KindStyles      // the looks of the projects on the rail, by folder
+	KindJSON        // an object, edited in settings.json
 )
 
 // The categories of the preferences, in the order the settings window
@@ -31,11 +32,12 @@ const (
 	CatDiff       = "diff"
 	CatGit        = "git"
 	CatVim        = "vim"
+	CatPlugins    = "plugins"
 	CatGeneral    = "general"
 )
 
 // Categories are the categories of the preferences, in order.
-var Categories = []string{CatAppearance, CatFonts, CatEditor, CatMarkdown, CatTerminal, CatDiff, CatGit, CatVim, CatGeneral}
+var Categories = []string{CatAppearance, CatFonts, CatEditor, CatMarkdown, CatTerminal, CatDiff, CatGit, CatVim, CatPlugins, CatGeneral}
 
 // Field is a preference as the settings window shows it: its key in the
 // settings' file, its category, and what it may be.
@@ -108,6 +110,11 @@ var Schema = []Field{
 
 	{Key: "vim", Category: CatVim, Kind: KindBool, Folder: true},
 	{Key: "vimCtrlKeys", Category: CatVim, Kind: KindBool, Folder: true},
+
+	{Key: "plugins", Category: CatPlugins, Kind: KindJSON},
+	{Key: "formatOnSave", Category: CatPlugins, Kind: KindJSON, Folder: true},
+	{Key: "formatters", Category: CatPlugins, Kind: KindJSON, Folder: true},
+	{Key: "pluginSources", Category: CatPlugins, Kind: KindJSON, Memory: true},
 
 	{Key: "locale", Category: CatGeneral, Kind: KindEnum, Options: []string{"", "en", "zh-Hans", "ja"}},
 	{Key: "crashReports", Category: CatGeneral, Kind: KindEnum, Options: []string{"", "always", "never"}},

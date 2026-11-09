@@ -68,6 +68,8 @@ type document struct {
 	widestVersion uint64
 	diskGone      bool // the file was removed from the disk
 	autoSave      autoSave
+	// formatted is set while saving waits for a plugin's formatter.
+	formatted bool
 
 	// A remote file is read in the background: loading is set until it
 	// is, and loadErr says why it could not be, which reading it again may

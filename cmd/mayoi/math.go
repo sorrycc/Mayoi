@@ -14,7 +14,7 @@ import (
 	"time"
 	"unicode/utf16"
 
-	"github.com/dop251/goja"
+	"github.com/MoeForge/moejs"
 	"github.com/egoist/mygo/ui"
 	"github.com/yuin/goldmark/ast"
 	"github.com/yuin/goldmark/parser"
@@ -60,8 +60,8 @@ const mathTimeout = 5 * time.Second
 // first formula is drawn, one formula at a time.
 var mathjax struct {
 	sync.Mutex
-	vm     *goja.Runtime
-	render goja.Callable
+	js     *jsEngine
+	render moejs.Value
 	err    error
 }
 
@@ -74,43 +74,40 @@ func mathStart() error {
 	if err != nil {
 		return err
 	}
-	vm := goja.New()
-	if _, err := vm.RunScript("mathjax.js", string(script)); err != nil {
+	js, err := newJSEngine("mathjax.js", string(script), nil)
+	if err != nil {
 		return err
 	}
-	render, ok := goja.AssertFunction(vm.Get("MayoiMath").ToObject(vm).Get("render"))
-	if !ok {
+	fn, err := js.eval("mathjax-render.js", "MayoiMath.render")
+	if err != nil {
+		return err
+	}
+	if !fn.IsObject() || !fn.AsObject().IsCallable() {
 		return errors.New("mathjax: no render")
 	}
-	mathjax.vm, mathjax.render = vm, render
+	mathjax.js, mathjax.render = js, fn
 	return nil
 }
-
-var errMathTimeout = errors.New("timeout")
 
 // mathSVG draws tex as SVG, in display style or within text.
 func mathSVG(tex string, display bool) (string, error) {
 	mathjax.Lock()
 	defer mathjax.Unlock()
-	if mathjax.vm == nil && mathjax.err == nil {
+	if mathjax.js == nil && mathjax.err == nil {
 		mathjax.err = mathStart()
 	}
 	if mathjax.err != nil {
 		return "", mathjax.err
 	}
-	vm := mathjax.vm
-	stop := time.AfterFunc(mathTimeout, func() { vm.Interrupt(errMathTimeout) })
-	v, err := mathjax.render(goja.Undefined(), vm.ToValue(tex), vm.ToValue(display))
-	stop.Stop()
-	vm.ClearInterrupt()
+	out, err := mathjax.js.callString(mathjax.render, mathTimeout, tex, display)
 	if err != nil {
-		var interrupted *goja.InterruptedError
-		if errors.As(err, &interrupted) {
+		if timedOut(err) {
 			return "", errors.New(locales.ErrMathTimeout())
 		}
-		return "", err
+		msg, _ := mathjax.js.thrown(err)
+		return "", errors.New(msg)
 	}
-	return v.String(), nil
+	return out, nil
 }
 
 var (

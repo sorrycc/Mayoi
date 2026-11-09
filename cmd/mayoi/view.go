@@ -178,6 +178,8 @@ func (a *app) view(c *ui.Context) {
 	a.worktreePickerView(c)
 	a.repositoryPickerView(c)
 	a.recentPickerView(c)
+	a.pluginPickerView(c)
+	a.hoverView(c)
 	a.themePickerView(c)
 	a.remotePickerView(c)
 	a.conflictsView(c)
@@ -206,6 +208,7 @@ func (a *app) view(c *ui.Context) {
 		}
 	}
 	a.notes = a.notes[:0]
+	a.pluginTick()
 	a.tick()
 }
 
@@ -1329,7 +1332,9 @@ func (a *app) statusBar(c *ui.Context) {
 			}
 		}
 		a.reviewStatus(c, text)
+		a.pluginStatusItems(c, false, item, text)
 		ui.Spacer(c)
+		a.pluginStatusItems(c, true, item, text)
 		// Settings sync is last, at the right, whatever shows before it,
 		// and a new version of Mayoi before it.
 		defer a.syncStatus(c)

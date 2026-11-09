@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"maps"
 	"mayoi/internal/cli"
 	"mayoi/internal/keymap"
 	"mayoi/internal/remote"
@@ -430,6 +431,9 @@ func main() {
 			<-shellPathReady
 			refreshCLI()
 		}()
+		m.startPlugins(slices.Contains(os.Args[1:], "--disable-plugins"))
+		// A plugin's theme may be dark, which its plugin tells.
+		setThemeSource(themeSource(m.s.Theme, m.s.Appearance))
 		m.startCloud()
 		m.startUpdates()
 		if len(m.wins) == 0 {
@@ -681,6 +685,16 @@ func (m *mayoi) reload(p settings.Prefs) {
 	}
 	m.refreshMenu()
 	m.prefsChanged()
+	if plugins != nil {
+		plugins.syncPrefs()
+		if !maps.Equal(p.PluginSources, old.PluginSources) {
+			plugins.syncPlugins()
+		}
+		plugins.reg.Emit("settings.changed", map[string]any{})
+		if p.Theme != old.Theme || p.Appearance != old.Appearance {
+			plugins.reg.Emit("theme.changed", map[string]any{"theme": p.Theme, "appearance": p.Appearance})
+		}
+	}
 }
 
 // reloadKeys applies the shortcuts of keybindings.json, which a person

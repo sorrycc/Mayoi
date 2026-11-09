@@ -30,6 +30,9 @@ type Request struct {
 	Run []Command `json:"run,omitempty"`
 	// List asks for the commands.
 	List bool `json:"list,omitempty"`
+	// DisablePlugins turns off the plugins but those Mayoi comes with,
+	// until the app starts again.
+	DisablePlugins bool `json:"disablePlugins,omitempty"`
 }
 
 // Target is a folder or file, and with -g a line and column of it,
@@ -56,7 +59,7 @@ type Reply struct {
 // Plain reports whether the request only opens folders and files, which
 // starting the app with them does as well.
 func (r Request) Plain() bool {
-	if r.Window != "" || r.NewWindow || r.Wait || r.Diff != nil || r.Remote != "" || r.Run != nil || r.List {
+	if r.Window != "" || r.NewWindow || r.Wait || r.Diff != nil || r.Remote != "" || r.Run != nil || r.List || r.DisablePlugins {
 		return false
 	}
 	for _, t := range r.Paths {
@@ -87,6 +90,7 @@ Options:
   -w, --wait                       Wait for the files to be closed
       --remote <host:/path>        Open a folder on an SSH host
       --window <folder>            Act on the window that has the folder open
+      --disable-plugins            Turn off the plugins until Mayoi starts again
   -h, --help                       Print this help
   -v, --version                    Print the version
 
@@ -96,6 +100,8 @@ Commands:
                     one in front. Some take an argument after =, as
                     file.openFolder=<folder> or go.line=<line[:column]>.
   commands          List the commands, their names, shortcuts and arguments
+  plugin <command>  Install, update, remove, write and pack plugins: see
+                    mayoi plugin --help
 
 Examples:
   mayoi .
@@ -192,6 +198,8 @@ func Parse(args []string, cwd string) (Request, error) {
 			if v := get(); err == nil {
 				r.Window = abs(v)
 			}
+		case "--disable-plugins":
+			r.DisablePlugins = true
 		default:
 			return r, fmt.Errorf("unknown option %s", name)
 		}

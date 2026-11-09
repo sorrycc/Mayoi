@@ -27,6 +27,8 @@ func commandLineClient() {
 	}
 	attachConsole()
 	os.Unsetenv(cliEnv)
+	// mayoi plugin works on the plugins folder, without the app.
+	pluginCLI(os.Args[1:])
 	dir, err := mygo.App.Path(mygo.PathUserData)
 	if err != nil {
 		return
@@ -80,6 +82,14 @@ func (m *mayoi) listenCLI() {
 // serve does what the mayoi command asks, on the main thread.
 func (m *mayoi) serve(req cli.Request, reply func(cli.Reply)) {
 	fail := func(format string, args ...any) { reply(cli.Reply{Error: fmt.Sprintf(format, args...)}) }
+	if req.DisablePlugins && plugins != nil {
+		plugins.reg.SetSafe(true)
+		go plugins.reg.ReloadAll()
+		if len(req.Paths) == 0 && req.Run == nil && !req.List && req.Diff == nil && req.Remote == "" {
+			reply(cli.Reply{Output: "Plugins are off until Mayoi starts again.\n"})
+			return
+		}
+	}
 	switch {
 	case req.Remote != "":
 		if !remoteSupported {
@@ -246,7 +256,15 @@ func (a *app) commandList() string {
 		if g := commandGroup(locales.In(i18n.Locale()), cmd.id); g != "" {
 			label = g + ": " + label
 		}
-		fmt.Fprintf(&b, "%s\t%s\t%s\t%s\n", cmd.id, label, strings.Join(a.commandCaps(cmd), sep), commandArgs[cmd.id].hint)
+		hint := commandArgs[cmd.id].hint
+		if hint == "" && plugins != nil {
+			for _, pc := range plugins.reg.Commands("") {
+				if pc.ID == cmd.id {
+					hint = pc.Arg
+				}
+			}
+		}
+		fmt.Fprintf(&b, "%s\t%s\t%s\t%s\n", cmd.id, label, strings.Join(a.commandCaps(cmd), sep), hint)
 	}
 	return b.String()
 }
@@ -265,6 +283,10 @@ func (a *app) cliCommands(want []cli.Command, cwd string) ([]func(), error) {
 		switch {
 		case c.Arg == "":
 			runs = append(runs, cmds[i].run)
+		case plugins != nil && plugins.reg.CommandPlugin(c.ID) != nil:
+			// A plugin's command takes what it is given.
+			id, v := c.ID, c.Arg
+			runs = append(runs, func() { plugins.runCommand(a, id, v) })
 		case !takes:
 			return nil, fmt.Errorf("%s takes no argument", c.ID)
 		default:

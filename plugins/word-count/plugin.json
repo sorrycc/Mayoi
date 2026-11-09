@@ -1,0 +1,17 @@
+{
+  "name": "word-count",
+  "displayName": "Word Count",
+  "version": "1.0.0",
+  "description": "The words of a Markdown or text file and the time to read them, in the status bar",
+  "main": "main.ts",
+  "activation": ["onLanguage:markdown", "onLanguage:plaintext"],
+  "contributes": {
+    "commands": [
+      { "id": "word-count.show", "title": "Count Words", "title:zh-Hans": "统计字数", "title:ja": "単語数を数える" }
+    ],
+    "statusItems": [{ "id": "word-count.status", "align": "right", "priority": -10 }],
+    "settings": {
+      "wordsPerMinute": { "type": "number", "default": 230, "description": "How many words a minute you read" }
+    }
+  }
+}

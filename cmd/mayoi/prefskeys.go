@@ -77,8 +77,12 @@ var keyGroups = []struct {
 	{locales.MenuView, []string{"view.", "editor.", "image.", "mermaid."}},
 	{locales.MenuGo, []string{"go."}},
 	{locales.MenuGit, []string{"git.", "review."}},
+	{locales.MenuPlugins, []string{"plugins.", "script."}},
 	{locales.MenuAccount, []string{"account."}},
 }
+
+// pluginsKeyGroup is the group of the commands of plugins, in keyGroups.
+const pluginsKeyGroup = 6
 
 // keyGroup is the group of the command of id, of keyGroups: the last for
 // one of no menu.
@@ -87,6 +91,9 @@ func keyGroup(id string) int {
 		if slices.ContainsFunc(g.prefixes, func(p string) bool { return strings.HasPrefix(id, p) }) {
 			return i
 		}
+	}
+	if plugins != nil && plugins.reg.CommandPlugin(id) != nil {
+		return pluginsKeyGroup
 	}
 	return len(keyGroups) - 1
 }

@@ -16,7 +16,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/dop251/goja"
+	"github.com/MoeForge/moejs"
 	"github.com/egoist/mygo/ui"
 
 	"mayoi/locales"
@@ -174,8 +174,8 @@ const mermaidTimeout = 5 * time.Second
 // diagram is drawn, one diagram at a time.
 var pele struct {
 	sync.Mutex
-	vm     *goja.Runtime
-	render goja.Callable
+	js     *jsEngine
+	render moejs.Value
 	err    error
 	// style is the style of the diagram being drawn, whose fonts measure
 	// its text, and measured that of the widths Pele keeps.
@@ -194,16 +194,20 @@ func peleStart() error {
 	if err != nil {
 		return err
 	}
-	vm := goja.New()
-	vm.Set("mayoiMeasure", func(text string, size float64, style int) float64 {
-		w, _ := ui.ShapeText(text, pele.style.font(float32(size), style), 0).Size()
-		return float64(w)
+	measure := moejs.NativeFunc(func(r *moejs.Realm, this moejs.Value, args []moejs.Value) (moejs.Value, error) {
+		text, _ := pele.js.rt.ToGo(moejs.Arg(args, 0))
+		s, _ := text.(string)
+		size, style := moejs.Arg(args, 1).AsNumber(), int(moejs.Arg(args, 2).AsNumber())
+		w, _ := ui.ShapeText(s, pele.style.font(float32(size), style), 0).Size()
+		return pele.js.rt.FromGo(float64(w))
 	})
-	if _, err := vm.RunScript("pele.js", string(script)); err != nil {
+	js, err := newJSEngine("pele.js", string(script), map[string]any{"mayoiMeasure": measure})
+	if err != nil {
 		return err
 	}
-	fn, err := vm.RunString(`(function () {
-	var measurer = {width: function (text, size, style) { return mayoiMeasure(text, size, style) }};
+	pele.js = js
+	fn, err := js.eval("pele-render.js", `(function () {
+	var measurer = {width: function (text, size, style) { return mayoiMeasure(String(text), Number(size), Number(style) || 0) }};
 	return function (source, fresh) {
 		if (fresh) Pele.forgetTextWidths();
 		return Pele.render(source, {measurer: measurer}).svg;
@@ -212,11 +216,10 @@ func peleStart() error {
 	if err != nil {
 		return err
 	}
-	render, ok := goja.AssertFunction(fn)
-	if !ok {
+	if !fn.IsObject() || !fn.AsObject().IsCallable() {
 		return errors.New("pele: no render")
 	}
-	pele.vm, pele.render = vm, render
+	pele.render = fn
 	return nil
 }
 
@@ -225,7 +228,7 @@ func peleStart() error {
 func peleRender(source string, st mermaidStyle) (svg string, err error) {
 	pele.Lock()
 	defer pele.Unlock()
-	if pele.vm == nil && pele.err == nil {
+	if pele.js == nil && pele.err == nil {
 		pele.err = peleStart()
 	}
 	if pele.err != nil {
@@ -234,40 +237,24 @@ func peleRender(source string, st mermaidStyle) (svg string, err error) {
 	pele.style = st
 	fresh := st.sans != pele.measured.sans || st.mono != pele.measured.mono || st.monoWeight != pele.measured.monoWeight
 	pele.measured = st
-	vm := pele.vm
-	stop := time.AfterFunc(mermaidTimeout, func() { vm.Interrupt(errMermaidTimeout) })
-	v, err := pele.render(goja.Undefined(), vm.ToValue(source), vm.ToValue(fresh))
-	stop.Stop()
-	vm.ClearInterrupt()
+	out, err := pele.js.callString(pele.render, mermaidTimeout, source, fresh)
 	if err != nil {
-		return "", peleError(vm, err)
+		return "", peleError(pele.js, err)
 	}
-	return v.String(), nil
+	return out, nil
 }
-
-var errMermaidTimeout = errors.New("timeout")
 
 // peleError is what Pele threw, as one line: its message without the
 // snippet of the source that shows where.
-func peleError(vm *goja.Runtime, err error) error {
-	var interrupted *goja.InterruptedError
-	if errors.As(err, &interrupted) {
+func peleError(js *jsEngine, err error) error {
+	if timedOut(err) {
 		return errors.New(locales.ErrMermaidTimeout())
 	}
-	var ex *goja.Exception
-	if !errors.As(err, &ex) {
-		return err
+	msg, snippet := js.thrown(err)
+	if snippet != "" {
+		msg = strings.Replace(msg, snippet, " ", 1)
 	}
-	msg := ex.Error()
-	if o, ok := ex.Value().(*goja.Object); ok {
-		if m := o.Get("message"); m != nil && !goja.IsUndefined(m) {
-			msg = m.String()
-		}
-		if s := o.Get("snippet"); s != nil && !goja.IsUndefined(s) && s.String() != "" {
-			msg = strings.Replace(msg, s.String(), " ", 1)
-		}
-	}
-	return errors.New(strings.Join(strings.Fields(msg), " "))
+	return errors.New(oneLine(msg))
 }
 
 // renderMermaid draws the diagram of source in st.

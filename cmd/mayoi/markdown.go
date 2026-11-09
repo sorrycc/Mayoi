@@ -203,7 +203,13 @@ func isMarkdownPath(path string) bool {
 	return strings.EqualFold(ext, ".md") || strings.EqualFold(ext, ".markdown") || strings.EqualFold(ext, ".mdx")
 }
 
-func canPreview(d *document) bool { return isSVG(d) || isMarkdown(d) || isMermaid(d) }
+func canPreview(d *document) bool {
+	if isSVG(d) || isMarkdown(d) || isMermaid(d) {
+		return true
+	}
+	p, _ := previewOf(d)
+	return p != nil
+}
 
 // markdownMdx blanks top-level MDX import/export blocks until a blank
 // line, preserving line endings and code fences.

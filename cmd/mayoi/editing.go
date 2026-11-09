@@ -110,6 +110,9 @@ var lineComments = map[string]string{
 // commentFor returns the line comment of a document's language, "" when
 // it has none.
 func commentFor(d *document) string {
+	if c := pluginComment(d.path); c != "" {
+		return c
+	}
 	if d.hl == nil {
 		return ""
 	}
@@ -543,6 +546,10 @@ func (a *app) editorKey(d *editor, ev ui.InputEvent) bool {
 	}
 	if ev.Key == ui.KeyEscape && ev.Mods == 0 && d.peek >= 0 {
 		d.peek = -1
+		return true
+	}
+	if ev.Key == ui.KeySpace && ev.Mods == ui.Ctrl && !a.keyBound(ui.Ctrl, ui.KeySpace) {
+		a.post(a.complete)
 		return true
 	}
 	if a.prefs().Vim && a.vimKey(d, ev) {

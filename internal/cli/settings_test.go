@@ -150,6 +150,8 @@ func TestSettingsSetWrong(t *testing.T) {
 		{"theme", "nope", `"", "matrix", "claude", "qoder", "grokbot", "cursor", "purplegold", "pumpkin", "witchsbrew" or "bloodmoon"`},
 		{"fontFeatures", "calt=0", `a list of text`},
 		{"projectTabStyle", "[]", "the looks of the projects on the rail"},
+		{"vim", "null", "mayoi settings unset vim"},
+		{"fontFamily", "null", "mayoi settings unset fontFamily"},
 	} {
 		dir := t.TempDir()
 		path := filepath.Join(dir, "settings.json")
@@ -459,6 +461,11 @@ func TestSettingsStyles(t *testing.T) {
 	out := get("projectTabStyle")
 	if !strings.Contains(out, `"/a"`) || !strings.Contains(out, `"/src/my.app"`) || !strings.Contains(out, `"MG"`) {
 		t.Errorf("the looks: %q", out)
+	}
+	// The shell takes quotes away: a folder with dots needs none.
+	do("set", Change{Op: OpSet, Key: "projectTabStyle./src/my.app.color", Value: json.RawMessage(`"cyan"`)})
+	if got, want := get("projectTabStyle./src/my.app"), "{\"label\":\"MG\",\"color\":\"cyan\"}\n"; got != want {
+		t.Errorf("a folder with dots and no quotes: %q, want %q", got, want)
 	}
 	// A label that reads as JSON is its text.
 	do("set", Change{Op: OpSet, Key: `projectTabStyle.'/a'.label`, Value: prefValue("12")})

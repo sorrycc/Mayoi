@@ -234,6 +234,7 @@ func splitKey(key string) ([]string, error) {
 	var segs []string
 	var b strings.Builder
 	var quote rune
+	quoted := false
 	for _, r := range key {
 		switch {
 		case quote != 0:
@@ -243,7 +244,7 @@ func splitKey(key string) ([]string, error) {
 				b.WriteRune(r)
 			}
 		case r == '\'' || r == '"':
-			quote = r
+			quote, quoted = r, true
 		case r == '.':
 			segs = append(segs, b.String())
 			b.Reset()
@@ -257,6 +258,15 @@ func splitKey(key string) ([]string, error) {
 	segs = append(segs, b.String())
 	if slices.Contains(segs, "") {
 		return nil, fmt.Errorf("%s has a part with no name", key)
+	}
+	// A shell takes the quotes away, so a folder with dots of its own and
+	// no quotes is all between the preference and a field of its look.
+	if !quoted && len(segs) > 2 && segs[0] == "projectTabStyle" {
+		end := len(segs)
+		if last := segs[end-1]; slices.Contains(styleFields, last) || last == "icon" {
+			end--
+		}
+		segs = append([]string{segs[0], strings.Join(segs[1:end], ".")}, segs[end:]...)
 	}
 	return segs, nil
 }
@@ -607,6 +617,11 @@ func checked(f settings.Field, raw json.RawMessage) (json.RawMessage, error) {
 		raw = json.RawMessage(`""`)
 	}
 	bad := fmt.Errorf("%s takes %s, not %s", f.Key, wants(f), short(raw))
+	// null is no value of a preference, which would be written as its
+	// default: unset is what takes it away.
+	if string(bytes.TrimSpace(raw)) == "null" {
+		return nil, fmt.Errorf("%s takes %s, not null: mayoi settings unset %s gives it its value of a first launch", f.Key, wants(f), f.Key)
+	}
 	// The value is checked as given: a number out of its bounds is no
 	// value of it, rather than the bound it would be kept to.
 	switch f.Kind {

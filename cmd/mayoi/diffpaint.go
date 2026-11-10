@@ -391,6 +391,8 @@ func (a *app) diffPaneUI(c *ui.Context, v *diffView) {
 				}
 			}
 		})
+		v.controls = append(v.controls[:0], buttons, hunkButtons, cardRect, commentButton)
+		v.controls = append(append(v.controls, arrowRects...), viewedRects...)
 		// Dragging from a row chooses the rows to the one under the pointer.
 		if box.Pressed() {
 			if _, y, ok := box.PointerPosition(); ok && len(rows) > 0 && !onSticky(y) {
@@ -433,6 +435,9 @@ func (a *app) diffPaneUI(c *ui.Context, v *diffView) {
 						return
 					}
 					v.pane.Focus()
+					if !shift {
+						v.clearTextSel()
+					}
 					if dragged {
 						return
 					}
@@ -583,7 +588,10 @@ func (a *app) diffPaneUI(c *ui.Context, v *diffView) {
 									}
 								}
 								pt.Clip(ui.Rect{X: x0 + l.textX - 4, Y: vy, W: w - l.textX + 4, H: view.H}, 0, func() {
-									a.paintDiffLine(pt, file, side == 1, n, peer, r.X+float32(side)*l.right()+l.textX, ys, tint, l.cols[side], wrap)
+									tx := r.X + float32(side)*l.right() + l.textX
+									a.paintDiffSel(pt, v, i, side, tx, ys, l.cols[side], focused)
+									a.paintDiffHits(pt, v, file, row, side, tx, ys, l.cols[side])
+									a.paintDiffLine(pt, file, side == 1, n, peer, tx, ys, tint, l.cols[side], wrap)
 								})
 								numCol := p.gutter
 								switch {
@@ -620,6 +628,8 @@ func (a *app) diffPaneUI(c *ui.Context, v *diffView) {
 					}
 					n, newSide := row.line()
 					pt.Clip(ui.Rect{X: vx + l.textX - 4, Y: vy, W: view.W - l.textX + 4, H: view.H}, 0, func() {
+						a.paintDiffSel(pt, v, i, -1, r.X+l.textX, y, l.cols[0], focused)
+						a.paintDiffHits(pt, v, file, row, -1, r.X+l.textX, y, l.cols[0])
 						a.paintDiffLine(pt, file, newSide, n, row.peer, r.X+l.textX, y, tint, l.cols[0], wrap)
 					})
 					// The gutter, which stays as the text scrolls sideways.

@@ -409,6 +409,15 @@ type diffView struct {
 	// while the diff reads as a pager.
 	edits   []*diffEdit
 	editing *diffEdit
+	// textSel is the text selected, nil for none, and textDrag is set
+	// while the pointer pressed on the text extends it. controls are the
+	// buttons over the rows as the last frame had them, in the content,
+	// which a press on the text leaves to them.
+	textSel  *diffTextSel
+	textDrag bool
+	controls []ui.Rect
+	// find is what find found in the lines the diff shows.
+	find diffFind
 }
 
 // diffBoundary is where the navigation of a diff stopped: the step that
@@ -968,6 +977,14 @@ func (a *app) refreshDiff(v *diffView) {
 	if lo < hi {
 		order = append(order, v.files[lo:hi]...)
 	}
+	// Find looks in every file, which it reads after those in view.
+	if v.find.on {
+		for _, f := range v.files {
+			if !f.loaded {
+				order = append(order, f)
+			}
+		}
+	}
 	for _, f := range order {
 		if reading >= diffReads {
 			break
@@ -1226,6 +1243,14 @@ func (a *app) layoutRows(v *diffView, l diffGeometry) {
 	if v.anchor >= 0 && v.anchor < len(v.rows) && v.tops != nil {
 		held = v.anchorOf(v.anchor)
 	}
+	// The text selected stays on its lines, unless the layout changes
+	// what its side is.
+	var selFrom, selTo diffAnchor
+	if s := v.textSel; s != nil && (s.side < 0) != b.split {
+		selFrom, selTo = v.anchorOf(s.from.row), v.anchorOf(s.to.row)
+	} else {
+		v.clearTextSel()
+	}
 	// The file to reveal shows its lines.
 	var target *diffFile
 	t := v.reveal
@@ -1438,6 +1463,7 @@ func (a *app) layoutRows(v *diffView, l diffGeometry) {
 			}
 		}
 	}
+	v.remapTextSel(selFrom, selTo)
 	v.anchor = -1
 	if held.file != nil {
 		for i := range v.rows {
@@ -2097,9 +2123,15 @@ func (a *app) diffInput(v *diffView, ev ui.InputEvent) bool {
 			return true
 		}
 	}
-	// A line of the diff copies as it is, of the side the chosen row
-	// shows, while the diff reads as a pager; rows that hold a review
-	// note copy as an excerpt.
+	// The text selected copies as it is; else a line of the diff, of the
+	// side the chosen row shows, while the diff reads as a pager; rows
+	// that hold a review note copy as an excerpt.
+	if ev.Kind == ui.InputCommand && ev.Text == "copy" {
+		if s := v.selectedText(); s != "" {
+			a.services.WriteClipboard(s)
+			return true
+		}
+	}
 	if ev.Kind == ui.InputCommand && ev.Text == "copy" && v.editing == nil {
 		if s := v.diffChosenText(); s != "" {
 			a.services.WriteClipboard(s)
@@ -2121,6 +2153,9 @@ func (a *app) diffInput(v *diffView, ev ui.InputEvent) bool {
 			return true
 		}
 	}
+	if a.diffTextInput(v, ev) {
+		return true
+	}
 	if ev.Kind != ui.InputKeyDown || ev.Mods&^ui.Shift != 0 {
 		return false
 	}
@@ -2140,9 +2175,10 @@ func (a *app) diffInput(v *diffView, ev ui.InputEvent) bool {
 			v.moveCursor(-1)
 		}
 	case ui.KeyEscape:
-		if v.anchor < 0 {
+		if v.anchor < 0 && v.textSel == nil {
 			return false
 		}
+		v.clearTextSel()
 		v.anchor = -1
 	case ui.KeyC:
 		a.commentDiff(v)

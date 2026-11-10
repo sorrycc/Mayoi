@@ -434,6 +434,7 @@ func (a *app) diffEditPointerDown(v *diffView, e *diffEdit, ev ui.InputEvent) bo
 	if !a.diffCaretAtPoint(v, e, ev.X, ev.Y, ev.Mods&ui.Shift != 0) {
 		return false
 	}
+	v.clearTextSel()
 	e.drag = true
 	a.invalidate()
 	return true

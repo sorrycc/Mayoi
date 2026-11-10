@@ -119,44 +119,7 @@ func foldRows(out []diffRow, f *diffFile, file int, all []diffRow, full bool, co
 		}
 		return out
 	}
-	// How many lines of each side come before each row.
-	oldAt, newAt := make([]int, len(all)+1), make([]int, len(all)+1)
-	for i, r := range all {
-		oldAt[i+1], newAt[i+1] = oldAt[i], newAt[i]
-		if r.old >= 0 {
-			oldAt[i+1]++
-		}
-		if r.new >= 0 {
-			newAt[i+1]++
-		}
-	}
-	// The runs of unchanged lines that fold, and those open.
-	var folds, opens []span
-	for i := 0; i < len(all); {
-		if all[i].hunk >= 0 {
-			i++
-			continue
-		}
-		j := i
-		for j < len(all) && all[j].hunk < 0 {
-			j++
-		}
-		from, to := i, j
-		if i > 0 {
-			from += context
-		}
-		if j < len(all) {
-			to -= context
-		}
-		if to-from >= 2 {
-			if f.open[newAt[from]] {
-				opens = append(opens, span{from, to})
-			} else {
-				folds = append(folds, span{from, to})
-			}
-		}
-		i = j
-	}
+	oldAt, newAt, folds, opens := foldSpans(all, f.open, context)
 	section := func(from, to int) {
 		if from >= to {
 			return
@@ -189,6 +152,49 @@ func foldRows(out []diffRow, f *diffFile, file int, all []diffRow, full bool, co
 	}
 	section(at, len(all))
 	return out
+}
+
+// foldSpans returns how many lines of each side come before each of all
+// the line rows of a file, and after the last, and the runs of unchanged
+// lines more than context away from a change that fold, and those of
+// them that open says are open.
+func foldSpans(all []diffRow, open map[int]bool, context int) (oldAt, newAt []int, folds, opens []span) {
+	oldAt, newAt = make([]int, len(all)+1), make([]int, len(all)+1)
+	for i, r := range all {
+		oldAt[i+1], newAt[i+1] = oldAt[i], newAt[i]
+		if r.old >= 0 {
+			oldAt[i+1]++
+		}
+		if r.new >= 0 {
+			newAt[i+1]++
+		}
+	}
+	for i := 0; i < len(all); {
+		if all[i].hunk >= 0 {
+			i++
+			continue
+		}
+		j := i
+		for j < len(all) && all[j].hunk < 0 {
+			j++
+		}
+		from, to := i, j
+		if i > 0 {
+			from += context
+		}
+		if j < len(all) {
+			to -= context
+		}
+		if to-from >= 2 {
+			if open[newAt[from]] {
+				opens = append(opens, span{from, to})
+			} else {
+				folds = append(folds, span{from, to})
+			}
+		}
+		i = j
+	}
+	return oldAt, newAt, folds, opens
 }
 
 // hunkHeader is the header of a run of lines of each side, from line

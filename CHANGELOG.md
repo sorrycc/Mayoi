@@ -5,6 +5,12 @@ needs a `## <version>` section here, or its build fails.
 
 ## Unreleased
 
+- Dragging over code in a diff selects text across lines; dragging on the line numbers still selects rows.
+- Double-clicking a word in a diff selects it, and a triple click selects the line; `E` opens the file.
+- `Cmd+C` in a diff copies the selected code with its indent, without line numbers or `+`/`-` marks.
+- Side by side, a selection stays on the side where it started.
+- `Cmd+F` in a diff tab finds in the lines it shows on both sides, in every file, with a match count.
+- `Enter` and `Shift+Enter` in a diff's Find go to each match, unfolding a collapsed file to show it.
 - **Git → Collapse All Files in Diff** and **Expand All Files in Diff** fold the current diff's files.
 - On macOS, `Option+Cmd+[` collapses all diff files and `Option+Cmd+]` expands them.
 - `mayoi settings` reads and changes preferences, with Mayoi running or not.

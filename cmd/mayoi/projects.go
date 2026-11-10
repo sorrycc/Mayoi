@@ -670,14 +670,14 @@ func (f *frame) railTab(c *ui.Context, a *app, h *desktop, i int, label string) 
 	var conn string
 	var connCol ui.Color
 	if host := remote.HostOf(dir); host != "" {
-		state := remote.Offline
+		l := link{}
 		if h.a.conn != nil {
-			state = h.a.connState
+			l = h.a.link
 		}
-		switch state {
-		case remote.Connected:
+		switch {
+		case l.kind == linkOnline:
 			conn, connCol = locales.RemoteConnectedTo(host), p.muted
-		case remote.Connecting:
+		case l.dialing():
 			conn, connCol = locales.RemoteConnectingTip(host), p.modifiedFg
 		default:
 			conn, connCol = locales.RemoteDisconnectedTip(host), p.dangerFg

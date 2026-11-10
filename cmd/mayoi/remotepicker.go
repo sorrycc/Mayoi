@@ -138,7 +138,7 @@ func (a *app) openRemotePicker() {
 // openRemoteFolder shows the box of the folders of the folder's host, or
 // of the hosts for a folder of this machine.
 func (a *app) openRemoteFolder() {
-	if a.conn == nil || a.connState != remote.Connected {
+	if a.conn == nil || a.link.kind != linkOnline {
 		a.openRemotePicker()
 		return
 	}

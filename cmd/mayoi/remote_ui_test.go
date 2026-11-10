@@ -56,20 +56,20 @@ func TestRemoteReconnectsByItself(t *testing.T) {
 	if out, err := exec.Command("pkill", "-P", strconv.Itoa(os.Getpid()), "-f", pattern).CombinedOutput(); err != nil {
 		t.Fatalf("could not stop the fake ssh master: %v: %s", err, out)
 	}
-	hs.untilLong("the loss", func() bool { return a.connState == remote.Offline && a.retry != nil })
+	hs.untilLong("the loss", func() bool { return a.link.kind == linkBackoff })
 	if !hs.tt.HasText("Reconnect Now") {
 		t.Errorf("the banner does not offer to reconnect: %q", hs.tt.Texts())
 	}
 	hs.shot("remote-05-lost")
-	hs.untilLong("the connection again", func() bool { return a.connState == remote.Connected })
-	if a.retry != nil || a.retries != 0 {
-		t.Errorf("still retrying: %v, %d", a.retry, a.retries)
+	hs.untilLong("the connection again", func() bool { return a.link.kind == linkOnline })
+	if a.link.timer != nil || a.link.n != 0 {
+		t.Errorf("still retrying: %+v", a.link)
 	}
 	// Disconnected on purpose: no retry.
 	a.disconnect()
-	hs.untilLong("the disconnection", func() bool { return a.connState == remote.Offline })
+	hs.untilLong("the disconnection", func() bool { return a.link.kind == linkStopped })
 	hs.settle()
-	if a.retry != nil {
+	if a.link.timer != nil {
 		t.Error("a connection ended on purpose is retried")
 	}
 }
@@ -186,7 +186,7 @@ func TestShotRemoteWindow(t *testing.T) {
 		t.Cleanup(a.shutdown)
 		hs.settle()
 		if host == "refused.invalid" {
-			hs.untilLong("the refusal", func() bool { return a.connErr != nil })
+			hs.untilLong("the refusal", func() bool { return a.link.why != nil })
 			hs.settle()
 		}
 		hs.shot("remote-window-" + strings.TrimSuffix(host, ".invalid"))

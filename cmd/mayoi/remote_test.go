@@ -337,14 +337,14 @@ func TestRemoteFolder(t *testing.T) {
 	})
 	// Disconnected, the file is read-only and the banner says so.
 	a.disconnect()
-	hs.untilLong("the disconnection", func() bool { return a.connState == remote.Offline })
+	hs.untilLong("the disconnection", func() bool { return a.link.kind == linkStopped })
 	if !hs.tt.HasText("Reconnect") || !d.locked() {
 		t.Fatalf("offline: banner %v, locked %v", hs.tt.HasText("Reconnect"), d.locked())
 	}
 	hs.shot("remote-03-offline")
 	// The box of the folders of the host.
 	a.reconnect()
-	hs.untilLong("the connection", func() bool { return a.connState == remote.Connected })
+	hs.untilLong("the connection", func() bool { return a.link.kind == linkOnline })
 	a.openRemoteFolder()
 	hs.untilLong("the box of the folders", func() bool { return a.remotePick.stage == pickFolder })
 	if a.remotePick.query != c.Info().Home+"/" {
@@ -355,7 +355,7 @@ func TestRemoteFolder(t *testing.T) {
 	hs.untilLong("the folders of the host", func() bool { return slices.Contains(a.pickRows(), filepath.Base(dir)) })
 	hs.shot("remote-04-folders")
 	a.closeRemotePicker()
-	hs.untilLong("the connection again", func() bool { return a.connState == remote.Connected && !d.locked() })
+	hs.untilLong("the connection again", func() bool { return a.link.kind == linkOnline && !d.locked() })
 	// New files and folders go to the host.
 	a.newRemoteEntry(a.root, hs.path("made/by/mayoi.txt"), false)
 	hs.untilLong("the new file to open", func() bool {

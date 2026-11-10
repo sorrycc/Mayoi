@@ -9,8 +9,6 @@ import (
 	"slices"
 	"strings"
 	"testing"
-
-	"mayoi/internal/remote"
 )
 
 // TestRemotePaste: files of the Finder paste into a remote folder, a
@@ -239,7 +237,7 @@ func TestRemoteTerminalComesBack(t *testing.T) {
 	}
 	first.Feed([]byte("MARKER\r\n"))
 	a.disconnect()
-	hs.untilLong("the disconnection", func() bool { return a.connState == remote.Offline })
+	hs.untilLong("the disconnection", func() bool { return a.link.kind == linkStopped })
 	// ssh ends as the connection does: on a real host by itself, as its
 	// session went through the connection; the fake one's is a shell here.
 	if os.Getenv("MAYOI_SSH_TEST_HOST") != "" {

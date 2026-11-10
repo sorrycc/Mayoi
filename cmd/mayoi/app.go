@@ -193,18 +193,11 @@ type app struct {
 	root string
 	tree *workspace.Tree
 	// conn is the connection to the host of a remote folder, nil for one
-	// of this machine, connState and connErr how it was last seen, and
-	// connUnsub stops following it.
+	// of this machine, link how it goes as last seen, and connUnsub stops
+	// following it.
 	conn      *remote.Conn
-	connState remote.State
-	connErr   error
+	link      link
 	connUnsub func()
-	// retry is the reconnection due while a connection lost waits for the
-	// host to come back: retries counts those that failed in a row, and
-	// retryAt is when the next starts.
-	retry   *time.Timer
-	retries int
-	retryAt time.Time
 	// indexed is when the files of a remote folder were last listed,
 	// which is done again at most every remoteIndexEvery.
 	indexed  time.Time

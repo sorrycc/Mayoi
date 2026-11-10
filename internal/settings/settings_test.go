@@ -744,10 +744,6 @@ func TestPanelsLayout(t *testing.T) {
 	if p := w.Panels.Get(SideLeft); !p.Visible() {
 		t.Errorf("the left panel %+v does not show", p)
 	}
-	w.Panels.Get(SideLeft).Open = false
-	if w.Panels.Get(SideLeft).Visible() {
-		t.Error("a closed panel shows")
-	}
 }
 
 // A window is laid out as the one in front, with a copy of the views its
@@ -824,5 +820,52 @@ func TestPanelPositionMovesTheTerminal(t *testing.T) {
 	_, state := s.Encode()
 	if strings.Contains(string(state), "panelPosition") {
 		t.Errorf("settings %s", state)
+	}
+}
+
+// A window of the version before the views moved between the panels keeps
+// the sidebar it had, as the panel of the left, and its panel at a side.
+func TestMigrateTheWindowsSidebar(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "state.json")
+	os.WriteFile(path, []byte(`{"windows":[{"id":0,"folder":"/tmp/x","sidebarWidth":300,
+		"sidebarView":"search","sidebarClosed":true,"panelWidth":400}]}`), 0o644)
+	s := Load(filepath.Join(filepath.Dir(path), "settings.json"))
+	w := s.Windows[0]
+	left := w.Panels.Get(SideLeft)
+	if !slices.Equal(left.Views, SidebarViews) || left.Shown() != ViewSearch || left.Size != 300 {
+		t.Errorf("the left panel %+v", left)
+	}
+	if left.Open {
+		t.Error("the left panel is open, was closed")
+	}
+	if p := w.Panels.Get(SideRight); p == nil || p.Size != 400 {
+		t.Errorf("the right panel %+v", p)
+	}
+	_, state := s.Encode()
+	if strings.Contains(string(state), "sidebarView") {
+		t.Errorf("state %s", state)
+	}
+}
+
+// A sidebar that showed a plugin's view keeps it, as a view of the panel
+// on the left.
+func TestMigrateThePluginView(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "state.json")
+	os.WriteFile(path, []byte(`{"windows":[{"id":0,"folder":"/tmp/x","sidebarView":"plugin:todos.list"}]}`), 0o644)
+	s := Load(filepath.Join(filepath.Dir(path), "settings.json"))
+	left := s.Windows[0].Panels.Get(SideLeft)
+	if left.Shown() != "plugin:todos.list" || !slices.Contains(left.Views, "plugin:todos.list") {
+		t.Errorf("the left panel %+v", left)
+	}
+}
+
+// A session whose panel was open with no terminal in it opens its panel
+// still.
+func TestMigrateASessionPanelWithNoTerminal(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "state.json")
+	os.WriteFile(path, []byte(`{"windows":[{"id":0,"folder":"/tmp/x","panelOpen":true,"terminalOpen":false}]}`), 0o644)
+	s := Load(filepath.Join(filepath.Dir(path), "settings.json"))
+	if p := s.Windows[0].Panels.Get(SideBottom); !p.Open {
+		t.Errorf("the bottom panel %+v is closed", p)
 	}
 }

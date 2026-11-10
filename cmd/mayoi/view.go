@@ -36,9 +36,6 @@ const (
 	// termStripH is the row of a terminal's sessions, under the panel's
 	// views.
 	termStripH = 28
-	// panelTitleW is the least width of a panel at a side that still
-	// shows its title, past the room its terminals and tools need.
-	panelTitleW = 300
 )
 
 // view builds the window: a title bar, the explorer beside the editor
@@ -113,19 +110,16 @@ func (a *app) view(c *ui.Context) {
 	ui.Column(c).Fill().Background(p.chrome).Children(func() {
 		a.titleBar(c)
 		// The panes keep their places in the tree, by keys, as the panels
-		// and the panel come and go, so that the editors keep their state.
+		// come and go, so that the editors keep their state.
 		ui.Row(c).Grow(1).MinHeight(0).AlignItems(ui.Stretch).Children(func() {
 			if a.rail != nil {
 				a.rail(c)
 			}
-			s, w := a.settings, a.window
+			w := a.window
 			// The panels show on the sides the layout gives them: a
 			// layout that runs right to left shows the panel of its left
 			// on the right of the window.
-			left, right := settings.SideLeft, settings.SideRight
-			if s.SidebarRight {
-				left, right = right, left
-			}
+			left, right := a.sideOn(settings.SideLeft), a.sideOn(settings.SideRight)
 			a.panelColumn(c, left, edgeRight)
 			main := ui.Column(c.Key("main")).MinWidth(0)
 			if a.panelMax != "" && a.panelMax != settings.SideBottom && w.Panels.Get(a.panelMax).Visible() {
@@ -370,8 +364,11 @@ func (a *app) titleBar(c *ui.Context) {
 // square with a bar on the side the panel shows on. A panel with no view
 // has nothing to show: its button is faint, and does nothing.
 func (a *app) panelToggle(c *ui.Context, s settings.Side) {
+	// The icon is the panel's own, as its label names it: mirrored, the
+	// panel of the left shows on the right, and its button keeps the bar
+	// on the left.
 	icon := iconPanel
-	switch a.sideOn(s) {
+	switch s {
 	case settings.SideLeft:
 		icon = iconSidebar
 	case settings.SideRight:
@@ -396,7 +393,7 @@ func (a *app) panelToggle(c *ui.Context, s settings.Side) {
 }
 
 // togglePanelAt shows or hides the panel on a side, and the keyboard with
-// it.
+// it when it hides the one it is in.
 func (a *app) togglePanelAt(s settings.Side) {
 	p := a.window.Panels.Get(s)
 	// A panel with no view of its own has nothing to show, and is not
@@ -404,6 +401,7 @@ func (a *app) togglePanelAt(s settings.Side) {
 	if p == nil || len(p.Views) == 0 {
 		return
 	}
+	holds := a.panelHoldsKeys(s)
 	p.Open = !p.Open
 	a.settings.Changed()
 	if p.Open {
@@ -412,7 +410,9 @@ func (a *app) togglePanelAt(s settings.Side) {
 	if a.panelMax == s {
 		a.panelMax = ""
 	}
-	a.focusColumn()
+	if holds {
+		a.focusColumn()
+	}
 }
 
 // toggleSidebar shows or hides the panel on the layout's left, which the

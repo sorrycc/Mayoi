@@ -93,6 +93,10 @@ func (r *scmRow) choice() string {
 // scmState is the source control view's: its list, the row chosen, and
 // the groups closed.
 type scmState struct {
+	// width is how wide the view was drawn, which its badges measure
+	// against: the panel's own width on a side, the editors' at the
+	// bottom, and the room it took maximized.
+	width       float32
 	section     scmSection
 	rowsSection scmSection
 	list        ui.ListState
@@ -398,6 +402,7 @@ func (a *gitContext) changeCount() int {
 func (a *gitContext) scmView(c *ui.Context) {
 	g := a.git
 	a.scmActivity(c)
+	a.scm.width = a.app.scmViewWidth(c)
 	if g.repo == nil {
 		if g.looked {
 			a.app.scmNoRepo(c)
@@ -453,7 +458,7 @@ func (a *gitContext) scmCommitControls(c *ui.Context) {
 				// wraps, sets the height too, so a long branch name shows whole.
 				width := box.Bounds().W
 				if width <= 0 {
-					width = a.app.panelWidth(settings.SideLeft) - 24
+					width = a.app.scmWidthFor() - 24
 				}
 				inset := float32(8 + 8 + 2) // the padding and the border
 				if button {
@@ -1336,13 +1341,34 @@ const (
 	graphMaxLanes = 6
 )
 
-// scmWidthFor is how wide the view is: the panel that holds it, or the
-// one on the layout's left when it is not in one.
+// scmWidthFor is how wide the view is, as the frame that drew it made it;
+// before it was drawn, the width of the panel that holds it.
 func (a *app) scmWidthFor() float32 {
-	if side, ok := a.viewSide(settings.ViewSCM); ok {
-		return a.panelWidth(side)
+	if a.scm.width > 0 {
+		return a.scm.width
 	}
 	return a.panelWidth(settings.SideLeft)
+}
+
+// scmViewWidth is how wide the panel that holds the view makes it: its own
+// width on a side, the editors' column at the bottom, and the room it
+// takes when it is maximized.
+func (a *app) scmViewWidth(c *ui.Context) float32 {
+	side, ok := a.viewSide(settings.ViewSCM)
+	if !ok {
+		return a.panelWidth(settings.SideLeft)
+	}
+	if side == settings.SideBottom || a.panelMax == side {
+		// The bottom panel is as wide as the editors' column; one
+		// maximized at a side takes the row, the editors' room with it.
+		if w := a.colsView.Bounds(c).W; w > 0 && side == settings.SideBottom {
+			return w
+		}
+		if w, _ := c.Size(); w > 0 {
+			return w
+		}
+	}
+	return a.panelWidth(side)
 }
 
 // badgeRoom is how many of n badges a commit's row shows, and how wide

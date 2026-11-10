@@ -6350,16 +6350,6 @@ func (msgs Messages) MenuOpenRecentMore() string {
 	return Catalog.Format(msgs.locale, "menuOpenRecentMore", nil)
 }
 
-// MenuPanelPosition says "Panel Position"
-// in the language the app shows.
-func MenuPanelPosition() string { return In(i18n.Locale()).MenuPanelPosition() }
-
-// MenuPanelPosition says "Panel Position"
-// in the language of msgs.
-func (msgs Messages) MenuPanelPosition() string {
-	return Catalog.Format(msgs.locale, "menuPanelPosition", nil)
-}
-
 // MenuRemoteSSH says "Remote SSH"
 // in the language the app shows.
 func MenuRemoteSSH() string { return In(i18n.Locale()).MenuRemoteSSH() }
@@ -16752,4 +16742,14 @@ func PanelMoveTo() string { return In(i18n.Locale()).PanelMoveTo() }
 // in the language of msgs.
 func (msgs Messages) PanelMoveTo() string {
 	return Catalog.Format(msgs.locale, "panelMoveTo", nil)
+}
+
+// PanelMoveViewTo says "Move View to Panel"
+// in the language the app shows.
+func PanelMoveViewTo() string { return In(i18n.Locale()).PanelMoveViewTo() }
+
+// PanelMoveViewTo says "Move View to Panel"
+// in the language of msgs.
+func (msgs Messages) PanelMoveViewTo() string {
+	return Catalog.Format(msgs.locale, "panelMoveViewTo", nil)
 }

@@ -417,8 +417,11 @@ type Layout struct {
 	SidebarView   string  `json:"sidebarView,omitempty"`
 	SidebarClosed bool    `json:"sidebarClosed,omitempty"`
 	SidebarWidth  float32 `json:"sidebarWidth,omitempty"`
-	PanelHeight   float32 `json:"panelHeight,omitempty"`
-	PanelWidth    float32 `json:"panelWidth,omitempty"`
+	// PanelHeight is a window's, and PanelWidth the panel at a side's;
+	// a session keeps its own PanelHeight, which Normalize reads in its
+	// place.
+	PanelHeight float32 `json:"panelHeight,omitempty"`
+	PanelWidth  float32 `json:"panelWidth,omitempty"`
 }
 
 // DefaultLayout is the layout of a first launch.
@@ -497,8 +500,10 @@ func (p *Panel) Activate(v string) {
 	p.Active, p.Open = v, true
 }
 
-// Panels are a window's panels, by side: a side no panel shows on is not
-// in the map.
+// Panels are a window's panels, by side. A panel is in the map from the
+// first view placed on it, and stays after its last view leaves, keeping
+// its size for the view that comes back; a panel with no view shows
+// nothing.
 type Panels map[Side]*Panel
 
 // DefaultPanelSize is how big a panel starts: wide on a side of the
@@ -561,6 +566,9 @@ func (ps *Panels) Place(v string, s Side) *Panel {
 // that comes, and shows nothing.
 func (ps *Panels) Detach(v string) {
 	for _, p := range *ps {
+		if p == nil {
+			continue
+		}
 		i := slices.Index(p.Views, v)
 		if i < 0 {
 			continue
@@ -585,6 +593,9 @@ func (ps Panels) Copy() Panels {
 	}
 	out := make(Panels, len(ps))
 	for s, p := range ps {
+		if p == nil {
+			continue
+		}
 		c := *p
 		c.Views = slices.Clone(p.Views)
 		out[s] = &c
@@ -596,8 +607,8 @@ func (ps Panels) Copy() Panels {
 // its own, the panels on the sides there are and in their bounds, and a
 // view no panel has on the side it starts on.
 func (ps Panels) Normalize() {
-	for s := range ps {
-		if !slices.Contains(Sides, s) {
+	for s, p := range ps {
+		if !slices.Contains(Sides, s) || p == nil {
 			delete(ps, s)
 		}
 	}
@@ -675,6 +686,10 @@ func (l *Layout) Normalize(base Layout) {
 			l.SidebarView = ViewSCM
 		}
 		p.Active, p.Open = l.SidebarView, !l.SidebarClosed
+		// A plugin's view was in the sidebar too, as a view of its own.
+		if strings.HasPrefix(l.SidebarView, "plugin:") {
+			p.Views = append(slices.Clone(p.Views), l.SidebarView)
+		}
 		if l.SidebarWidth != 0 {
 			p.Size = clamp(l.SidebarWidth, 160, 600)
 		}
@@ -706,7 +721,10 @@ func (s *Session) Normalize(base Layout) {
 	p := s.Panels.On(SideBottom)
 	if terminal {
 		p.Views = append(slices.Clone(p.Views), ViewTerminal)
-		p.Active, p.Open = ViewTerminal, p.Open || open
+		p.Active = ViewTerminal
+	}
+	if open {
+		p.Open = true
 	}
 	if height != 0 {
 		p.Size = height
@@ -808,7 +826,9 @@ func Load(path string) *Settings {
 	if moved {
 		s.migrate(old)
 	}
-	s.layOut(layout)
+	if s.layOut(layout) {
+		moved = true
+	}
 	if moved {
 		s.Flush()
 	}
@@ -817,7 +837,7 @@ func Load(path string) *Settings {
 
 // layOut gives the windows and the sessions an older version kept the
 // layout it kept for them all, and keeps each in its bounds.
-func (s *Settings) layOut(old oldLayout) {
+func (s *Settings) layOut(old oldLayout) bool {
 	base := DefaultLayout.Copy()
 	left := base.Panels.Get(SideLeft)
 	if old.SidebarWidth != 0 {
@@ -847,7 +867,11 @@ func (s *Settings) layOut(old oldLayout) {
 	}
 	// The layout takes the position from here: a pref that stays would
 	// move the terminal back on every start.
-	s.PanelPosition = ""
+	if s.PanelPosition != "" {
+		s.PanelPosition = ""
+		return true
+	}
+	return false
 }
 
 // placePanel puts the terminal where the version before the views moved

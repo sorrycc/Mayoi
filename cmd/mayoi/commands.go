@@ -188,6 +188,8 @@ func (a *app) commandsIn(t locales.Messages) []command {
 		{"view.panelPosition.bottom", t.CmdViewPanelBottom(), "", func() { a.setPanelPosition("") }},
 		{"view.panelPosition.left", t.CmdViewPanelLeft(), "", func() { a.setPanelPosition("left") }},
 		{"view.panelPosition.right", t.CmdViewPanelRight(), "", func() { a.setPanelPosition("right") }},
+		{"view.panelBottom", t.CmdViewLayoutBottom(), "", func() { a.togglePanelAt(settings.SideBottom) }},
+		{"view.panelRight", t.CmdViewLayoutRight(), "", func() { a.togglePanelAt(settings.SideRight) }},
 		{"view.lockColumn", t.CmdViewLockColumn(), "", func() { a.toggleColumnLock(a.column()) }},
 		{"view.splitRight", t.CmdViewSplitRight(), "CmdOrCtrl+\\", a.splitRight},
 		{"view.nextColumn", t.CmdViewNextColumn(), "Alt+CmdOrCtrl+Right", func() { a.focusColumnBy(1) }},
@@ -506,6 +508,23 @@ func (a *app) menu(cli bool, run func(id string, win *mygo.Window)) *mygo.Menu {
 		return it
 	}
 	theme := func(id, th string) *mygo.MenuItem { return radio(id, a.settings.Theme == th) }
+	// moveViews is a view's place, for each view: the panel of the left,
+	// of the right or of the bottom, the one it is in checked.
+	moveViews := func() []*mygo.MenuItem {
+		views := append(slices.Clone(settings.SidebarViews), settings.ViewTerminal)
+		out := make([]*mygo.MenuItem, 0, len(views))
+		for _, v := range views {
+			at, _ := a.viewSide(v)
+			var sides []*mygo.MenuItem
+			for _, s := range settings.Sides {
+				side, view := s, v
+				sides = append(sides, &mygo.MenuItem{Label: sideLabel(side), Type: mygo.MenuItemRadio, Checked: at == side,
+					Click: func(_ *mygo.MenuItem, _ *mygo.Window) { a.post(func() { a.moveView(view, side) }) }})
+			}
+			out = append(out, &mygo.MenuItem{Label: viewLabel(v), Submenu: sides})
+		}
+		return out
+	}
 	// The system's language, then each of the app's.
 	languages := []*mygo.MenuItem{radio(localeCommand+"system", a.localeOn("system")), mygo.Separator()}
 	for _, tag := range mygo.App.Languages() {
@@ -632,11 +651,7 @@ func (a *app) menu(cli bool, run func(id string, win *mygo.Window)) *mygo.Menu {
 			item("view.moveTabNext"), item("view.moveTabPrev"), mygo.Separator(),
 			item("view.terminal"), item("view.newTerminal"), item("view.terminalTab"), item("view.terminalMove"), installHC,
 			checkbox("view.terminalLocation", a.settings.TerminalLocation == "editor"),
-			{Label: locales.MenuPanelPosition(), Submenu: []*mygo.MenuItem{
-				radio("view.panelPosition.bottom", a.panelAt(settings.SideBottom)),
-				radio("view.panelPosition.left", a.panelAt(settings.SideLeft)),
-				radio("view.panelPosition.right", a.panelAt(settings.SideRight)),
-			}}, mygo.Separator(),
+			{Label: locales.PanelMoveViewTo(), Submenu: moveViews()}, mygo.Separator(),
 			item("view.zoomIn"), item("view.zoomOut"), item("view.zoomReset"), mygo.Separator(),
 			{Label: locales.MenuTheme(), Submenu: []*mygo.MenuItem{
 				item("view.selectTheme"), mygo.Separator(),

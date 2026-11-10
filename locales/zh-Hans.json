@@ -593,7 +593,6 @@
   "menuLanguage": "语言",
   "menuOpenRecent": "打开最近的文件夹",
   "menuOpenRecentMore": "更多…",
-  "menuPanelPosition": "面板位置",
   "menuRemoteSSH": "远程 SSH",
   "menuReview": "审阅",
   "menuSelection": "选择",
@@ -1656,5 +1655,6 @@
   "cmdViewLayoutLeft": "切换左面板",
   "cmdViewLayoutBottom": "切换下面板",
   "cmdViewLayoutRight": "切换右面板",
-  "panelMoveTo": "移到"
+  "panelMoveTo": "移到",
+  "panelMoveViewTo": "移动视图到面板"
 }

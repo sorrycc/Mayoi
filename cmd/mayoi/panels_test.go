@@ -1,8 +1,12 @@
 package main
 
 import (
+	"encoding/json"
 	"slices"
+	"strings"
 	"testing"
+
+	"github.com/egoist/mygo/ui"
 
 	"mayoi/internal/settings"
 )
@@ -169,14 +173,18 @@ func TestViewsInPanels(t *testing.T) {
 	size := a.rightPanel().Size
 	a.moveView(settings.ViewSCM, settings.SideLeft)
 	hs.settle()
-	if got := a.leftPanel().Size; got != settings.DefaultPanelSize(settings.SideLeft) {
-		t.Errorf("the left panel is %v wide, not its default", got)
-	}
 	if got := a.rightPanel().Size; got != size {
 		t.Errorf("the right panel is %v wide, was %v", got, size)
 	}
 	if hs.shown(settings.ViewSCM) != settings.ViewSCM {
 		t.Errorf("the left panel shows %q", hs.shown(settings.ViewSCM))
+	}
+	a.leftPanel().Size = 400
+	a.moveView(settings.ViewSCM, settings.SideBottom)
+	a.moveView(settings.ViewSCM, settings.SideLeft)
+	hs.settle()
+	if got := a.leftPanel().Size; got != 400 {
+		t.Errorf("the left panel is %v wide, was 400 when its last view left", got)
 	}
 }
 
@@ -297,16 +305,21 @@ func TestLayoutControls(t *testing.T) {
 	if !a.rightPanel().Open {
 		t.Error("the right panel stays closed")
 	}
-	// A panel with no view of its own is not made one by its button.
-	a.run("view.panelRight")
+	// A panel with no view of its own is not made one by its button: the
+	// bottom panel, emptied, keeps its size and shows nothing.
+	a.moveView(panelTerminal, settings.SideLeft)
+	a.moveView(settings.ViewSearch, settings.SideLeft)
 	hs.settle()
+	if a.bottomPanel().Visible() {
+		t.Fatalf("the bottom panel %+v shows, with no view", a.bottomPanel())
+	}
 	before := len(a.window.Panels)
 	if err := tt.Click(a.withKey("Toggle Bottom Panel", "view.panelBottom")); err != nil {
 		t.Fatal(err)
 	}
 	hs.settle()
-	if len(a.window.Panels) != before {
-		t.Errorf("the buttons made a panel: %d, was %d", len(a.window.Panels), before)
+	if a.bottomPanel().Open || len(a.window.Panels) != before {
+		t.Errorf("the button made a panel of the bottom one: open %v, %d panels, was %d", a.bottomPanel().Open, len(a.window.Panels), before)
 	}
 }
 
@@ -403,5 +416,160 @@ func TestSideBarConditions(t *testing.T) {
 		if when(name) {
 			t.Errorf("%s holds with the left panel closed", name)
 		}
+	}
+}
+
+// A plugin's view is a view of any panel: moved out of the left panel, it
+// draws its rows there.
+func TestPluginViewMovesBetweenPanels(t *testing.T) {
+	hs := newHarness(t, false)
+	h := withBundled(hs)
+	a, tt := hs.a, hs.tt
+	a.showPluginView("todos.list")
+	hs.until("the TODOs", func() bool {
+		h.mu.Lock()
+		defer h.mu.Unlock()
+		data, _ := json.Marshal(h.views["todos.list"])
+		return strings.Contains(string(data), "say more")
+	})
+	a.moveView("plugin:todos.list", settings.SideRight)
+	hs.settle()
+	if at, _ := a.viewSide("plugin:todos.list"); at != settings.SideRight {
+		t.Fatalf("the plugin's view is on %q", at)
+	}
+	if !tt.HasText("TODOS") {
+		t.Errorf("the right panel has no tab for the plugin's view: %q", tt.Texts())
+	}
+	if tt.HasText("This plugin's view is gone.") {
+		t.Fatalf("the plugin's view is gone: %q", tt.Texts())
+	}
+	if !tt.HasText("say more") || !tt.HasText("main.go") {
+		t.Errorf("the panel has no TODO rows: %q", tt.Texts())
+	}
+}
+
+// A terminal shown from a command opens the panel that holds it, with
+// the keyboard in the terminal.
+func TestShowingATerminalOpensItsPanel(t *testing.T) {
+	hs := newHarness(t, true)
+	a, tt := hs.a, hs.tt
+	t.Cleanup(a.closeTerminals)
+	a.run("view.terminal")
+	hs.settle()
+	s := a.panelTerm
+	if s == nil {
+		t.Fatalf("no terminal: %q", tt.Texts())
+	}
+	a.hidePanel(settings.SideBottom)
+	hs.settle()
+	if a.bottomPanel().Open {
+		t.Fatal("the panel stays open after hiding it")
+	}
+	a.showTerminal(s)
+	hs.settle()
+	if !a.bottomPanel().Open || !a.terminalShown() {
+		t.Fatalf("the panel: open %v, terminal shown %v", a.bottomPanel().Open, a.terminalShown())
+	}
+	if a.focus != paneTerminal {
+		t.Errorf("the keyboard is in %v, not in the terminal", a.focus)
+	}
+}
+
+// A window that quits with the terminal in an open panel starts a
+// terminal again, as a local terminal is not attached to.
+func TestTerminalComesBackWithThePanel(t *testing.T) {
+	root := workspaceFixture(t)
+	s := settings.Default()
+	w := s.NewWindow()
+	w.Folder = root
+	w.Panels.Get(settings.SideBottom).Open = true
+	a := newApp(&fakeHost{folder: root}, s, w)
+	t.Cleanup(a.shutdown)
+	tt := ui.NewTester(a.view, 1200, 760)
+	for range 3 {
+		step(tt)
+	}
+	if len(a.terms) != 1 {
+		t.Fatalf("%d terminals, want one in the panel the window kept open", len(a.terms))
+	}
+	if !a.terminalShown() {
+		t.Error("the panel does not show the terminal")
+	}
+}
+
+// The View menu moves any view to any panel, the one it is in checked, and
+// the menu names the views as their tabs do.
+func TestViewMenuMovesViews(t *testing.T) {
+	onOS(t, "linux")
+	hs := newHarness(t, true)
+	a, tt := hs.a, hs.tt
+	a.openFile(hs.path("main.go"), true)
+	hs.settle()
+	if err := tt.Click("Menu"); err != nil {
+		t.Fatal(err)
+	}
+	if err := tt.ChooseMenuItem("View", "Move View to Panel", "Search", "Bottom"); err != nil {
+		t.Fatal(err)
+	}
+	hs.settle()
+	if at, _ := a.viewSide(settings.ViewSearch); at != settings.SideBottom {
+		t.Fatalf("search is on %q", at)
+	}
+	if !a.bottomPanel().Open || hs.shown(settings.ViewSearch) != settings.ViewSearch {
+		t.Errorf("the bottom panel: open %v, showing %q", a.bottomPanel().Open, hs.shown(settings.ViewSearch))
+	}
+}
+
+// Hiding a panel the keyboard is not in leaves the keyboard where it is:
+// in search's query, typing goes on.
+func TestHidingAPanelKeepsTheKeyboard(t *testing.T) {
+	hs := newHarness(t, true)
+	a, tt := hs.a, hs.tt
+	a.openFile(hs.path("main.go"), true)
+	hs.settle()
+	a.moveView(settings.ViewSearch, settings.SideRight)
+	hs.settle()
+	a.run("edit.findInFiles")
+	hs.settle()
+	if !tt.Focused("Search") {
+		t.Fatalf("the keyboard is not in search: %q", tt.Texts())
+	}
+	a.hidePanel(settings.SideLeft)
+	hs.settle()
+	if !tt.Focused("Search") {
+		t.Errorf("hiding the left panel took the keyboard out of search")
+	}
+	// The panel the keyboard is in takes it back to the editors.
+	a.hidePanel(settings.SideRight)
+	hs.settle()
+	if tt.Focused("Search") || a.focus != paneEditor {
+		t.Errorf("hiding search's panel left the keyboard in %v", a.focus)
+	}
+}
+
+// A panel whose last terminal goes stops being maximized: the panel that
+// shows the terminal again takes its own room.
+func TestPanelStopsMaximizedWhenItsLastTerminalGoes(t *testing.T) {
+	hs := newHarness(t, true)
+	a := hs.a
+	t.Cleanup(a.closeTerminals)
+	a.run("view.terminal")
+	hs.settle()
+	a.togglePanelMax(settings.SideBottom)
+	hs.settle()
+	if a.panelMax != settings.SideBottom {
+		t.Fatalf("the panel is %q, not maximized", a.panelMax)
+	}
+	for _, s := range slices.Clone(a.terms) {
+		a.removeTerminal(s)
+	}
+	hs.settle()
+	if a.bottomPanel().Open || a.panelMax != "" {
+		t.Fatalf("after the last terminal: open %v, maximized %q", a.bottomPanel().Open, a.panelMax)
+	}
+	a.run("view.terminal")
+	hs.settle()
+	if a.panelMax != "" || !a.bottomPanel().Open {
+		t.Errorf("the panel came back: maximized %q, open %v", a.panelMax, a.bottomPanel().Open)
 	}
 }

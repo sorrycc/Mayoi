@@ -497,8 +497,8 @@ The file views start on the left, in that order, and the terminal under the edit
 it goes to staying as they were; **Move View to Panel** in the **View** menu does the same for any view, and the command
 palette's **Move Panel to Left**, **Right** and **Bottom** for the terminal's. A view shows where it was put: with the
 terminal and search in the bottom panel, **Move Terminal to → Left** moves the terminal, and search stays where it was.
-A panel on a side is as wide as its handle is dragged, the bottom one as tall; a narrow panel names its tabs in short
-(EXPLORER, SEARCH, GIT) and gives the view's tools and the panel's buttons a row of their own. The terminal's own tabs
+A panel on a side is as wide as its handle is dragged, the bottom one as tall; a narrow panel shortens a long tab's name
+(SOURCE CONTROL becomes GIT) and gives the view's tools and the panel's buttons a row of their own. The terminal's own tabs
 sit under its view's, with **+** to start one and the buttons that move it to the editor area or kill it. ⌃` shows the
 terminal, starting one the first time, ⇧⌘E, ⇧⌘F and ⌃⇧G show their views wherever they are, and each project remembers
 which panel holds each view.

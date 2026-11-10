@@ -135,7 +135,7 @@ func (a *app) showPanelView(v string) {
 // viewBody is what a view shows, in the panel that holds it.
 func (a *app) viewBody(c *ui.Context, v string, hovered bool) {
 	if _, ok := strings.CutPrefix(v, "plugin:"); ok {
-		a.pluginSidebar(c)
+		a.pluginSidebar(c, v)
 		return
 	}
 	if a.root == "" && v != settings.ViewTerminal {

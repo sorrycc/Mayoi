@@ -855,7 +855,6 @@
   "menuLanguage": "Language",
   "menuOpenRecent": "Open Recent",
   "menuOpenRecentMore": "More…",
-  "menuPanelPosition": "Panel Position",
   "menuRemoteSSH": "Remote SSH",
   "menuReview": "Review",
   "menuSelection": "Selection",
@@ -1884,5 +1883,6 @@
   "cmdViewLayoutLeft": "Toggle Left Panel",
   "cmdViewLayoutBottom": "Toggle Bottom Panel",
   "cmdViewLayoutRight": "Toggle Right Panel",
-  "panelMoveTo": "Move to"
+  "panelMoveTo": "Move to",
+  "panelMoveViewTo": "Move View to Panel"
 }

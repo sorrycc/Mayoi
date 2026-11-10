@@ -208,17 +208,6 @@ func pluginSlots() []pluginSlot {
 	return out
 }
 
-// pluginSidebarView is the id of the plugin view the sidebar shows, ""
-// for one of Mayoi's.
-func (a *app) pluginSidebarView() string {
-	shown := a.window.Panels.Get(settings.SideLeft).Shown()
-	id, _ := strings.CutPrefix(shown, "plugin:")
-	if id == shown {
-		return ""
-	}
-	return id
-}
-
 // showPluginView shows a plugin's view in its panel, starting the
 // plugin, which renders it.
 func (a *app) showPluginView(id string) {
@@ -244,29 +233,9 @@ func (a *app) showPluginView(id string) {
 	}
 }
 
-// pluginSwitches are the title's buttons of the plugins' views.
-func (a *app) pluginSwitches(c *ui.Context) {
-	shown := a.pluginSidebarView()
-	for _, s := range pluginSlots() {
-		id := s.id
-		a.sidebarSwitch(c, namedIcon(s.icon), s.title, shown == id, 0, func() { a.showPluginView(id) })
-	}
-}
-
-// pluginSidebarTitle is the title of the plugin view shown.
-func (a *app) pluginSidebarTitle() string {
-	id := a.pluginSidebarView()
-	for _, s := range pluginSlots() {
-		if s.id == id {
-			return s.title
-		}
-	}
-	return ""
-}
-
-// pluginSidebar draws the plugin view the panel shows.
-func (a *app) pluginSidebar(c *ui.Context) {
-	id := a.pluginSidebarView()
+// pluginSidebar draws a plugin's view, from the view's id.
+func (a *app) pluginSidebar(c *ui.Context, v string) {
+	id, _ := strings.CutPrefix(v, "plugin:")
 	var slot *pluginSlot
 	for _, s := range pluginSlots() {
 		if s.id == id {
@@ -909,7 +878,8 @@ func (h *pluginHost) webviewCall(p *plugin.Plugin, method, id, title string, raw
 		}
 		h.main(func(a *app) (any, error) {
 			for _, a := range h.apps() {
-				if a.pluginSidebarView() == id {
+				if a.viewInPanel("plugin:" + id) {
+					a.window.Panels.Detach("plugin:" + id)
 					a.showExplorer()
 				}
 			}

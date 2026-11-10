@@ -2,7 +2,6 @@ package main
 
 import (
 	"errors"
-	"fmt"
 	"os"
 	"path/filepath"
 	"slices"
@@ -17,8 +16,6 @@ import (
 	"mayoi/locales"
 )
 
-// sidebar is a view of a panel: the explorer, the workspace's files in a tree, or the
-// changes to commit, as the switch at its top chooses.
 // explorerView is the explorer: the folder's row, with its actions, and
 // the files in a tree, in the panel that holds it.
 func (a *app) explorerView(c *ui.Context, hovered bool) {
@@ -86,67 +83,13 @@ func (a *app) emptyFolder(c *ui.Context) {
 	})
 }
 
-// titleSpacing is the letter spacing of a panel's title; treeStep is
-// how far each level of a tree indents, the Explorer's and Source
-// Control's, as tight as VS Code's.
+// explorerRowH is how tall a row of the Explorer is; treeStep is how far
+// each level of a tree indents, the Explorer's and Source Control's, as
+// tight as VS Code's.
 const (
-	titleSpacing = 0.6
 	explorerRowH = 21
 	treeStep     = 8
 )
-
-// fitTitle returns a view's title, or its short form when the title
-// would not fit in room, as the panel is narrow or the buttons beside it
-// are many: cut short, it would read as neither. It is of a size and a
-// letter spacing.
-func fitTitle(c *ui.Context, title, short string, room, size, spacing float32) string {
-	if short == "" {
-		return title
-	}
-	w, _ := c.MeasureText(0, ui.Span{Text: title, Size: size, Weight: 600})
-	if w+spacing*float32(len(title)) <= room {
-		return title
-	}
-	return short
-}
-
-// sidebarSwitch is a button at the top of a panel that shows a view
-// of it, with a count of what it has when count is more than 0.
-func (a *app) sidebarSwitch(c *ui.Context, icon *ui.SVG, label string, on bool, count int, show func()) {
-	p := a.pal
-	// No tooltip: it would show over the title bar, and the title beside
-	// the buttons names the view.
-	b := ui.ButtonBase(c.Key(label)).Size(26, 24).Radius(5).Justify(ui.Center).AlignItems(ui.Center).Label(label)
-	col := p.muted
-	if on {
-		col = p.text
-	} else if b.Hovered() {
-		b.Background(p.hover)
-		col = p.text
-	}
-	b.Transition(hoverFade)
-	pressPose(b)
-	b.Children(func() {
-		if on {
-			// The mark of the view shown.
-			ui.Box(c.Key("on")).Absolute().Left(0).Right(0).Top(0).Bottom(0).Radius(5).Background(p.active)
-		}
-		ui.Icon(c, icon).FontSize(14).TextColor(col)
-		if count > 0 {
-			label := fmt.Sprint(count)
-			if count > 99 {
-				label = "99+"
-			}
-			// The count rolls to a new one, as a counter's digits do.
-			ui.Text(c.Key("count"), label).Absolute().Top(-2).Right(-3).FontSize(9).FontWeight(600).Padding(0, 3).Radius(6).
-				MinWidth(13).TextAlign(ui.Center).Background(p.fill).TextColor(p.fillText).
-				ContentTransition(ui.ContentTransition{Numeric: true}).Transition(dotPop)
-		}
-	})
-	if b.Clicked() {
-		show()
-	}
-}
 
 func (a *app) noFolder(c *ui.Context) {
 	p := a.pal

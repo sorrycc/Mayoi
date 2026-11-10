@@ -16,8 +16,8 @@ needs a `## <version>` section here, or its build fails.
   its panel's, and **Move Panel to Left**, **Right** and **Bottom** in the
   command palette move it there.
 - A panel on a side is as wide as its handle is dragged, the bottom one as
-  tall; a narrow one names its tabs in short and gives the view's tools and
-  the panel's buttons a row of their own. **View → Sidebar on Right**
+  tall; a narrow one shortens a long tab's name and gives the view's tools
+  and the panel's buttons a row of their own. **View → Sidebar on Right**
   mirrors the layout: the panel of the left then shows on the right, and
   each view keeps its side.
 - The three buttons at the end of the title bar show and hide the panels of

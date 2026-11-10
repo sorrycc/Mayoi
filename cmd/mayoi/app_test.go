@@ -940,8 +940,8 @@ func TestLayoutButtonsFollowTheLayout(t *testing.T) {
 	a, tt := hs.a, hs.tt
 	a.openFile(hs.path("main.go"), true)
 	hs.settle()
-	// A panel with no view has nothing to show, so its button names its
-	// command alone; one with a view adds its keys.
+	// The left panel's button adds its keys, as ⌘B has them; the others
+	// have none.
 	at := func(label, cmd string) ui.Rect {
 		box, ok := tt.Find(a.withKey(label, cmd))
 		if !ok {
@@ -949,11 +949,7 @@ func TestLayoutButtonsFollowTheLayout(t *testing.T) {
 		}
 		return box
 	}
-	left, bottom := at("Toggle Left Panel", "view.sidebar"), at("Toggle Bottom Panel", "view.panelBottom")
-	right, ok := tt.Find("Toggle Right Panel")
-	if !ok {
-		t.Fatalf("the right panel's button is not shown: %q", tt.Texts())
-	}
+	left, bottom, right := at("Toggle Left Panel", "view.sidebar"), at("Toggle Bottom Panel", "view.panelBottom"), at("Toggle Right Panel", "view.panelRight")
 	if !(left.X < bottom.X && bottom.X < right.X) {
 		t.Fatalf("the buttons: left %v, bottom %v, right %v", left, bottom, right)
 	}

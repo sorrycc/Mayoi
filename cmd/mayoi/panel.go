@@ -387,6 +387,9 @@ func (a *app) leavePanel(s *session) {
 		if side, ok := a.viewSide(panelTerminal); ok {
 			if p := a.window.Panels.Get(side); len(p.Views) == 1 {
 				p.Open = false
+				if a.panelMax == side {
+					a.panelMax = ""
+				}
 			}
 		}
 		a.settings.Changed()
@@ -464,8 +467,10 @@ func (a *app) closeTerminals() {
 	a.terms, a.panelTerm = nil, nil
 }
 
-// hidePanel hides the panel, and gives the keyboard back to the column.
+// hidePanel hides the panel on a side, and gives the keyboard back to the
+// column when it was in that panel.
 func (a *app) hidePanel(s settings.Side) {
+	holds := a.panelHoldsKeys(s)
 	if p := a.window.Panels.Get(s); p != nil {
 		p.Open = false
 		a.settings.Changed()
@@ -473,7 +478,27 @@ func (a *app) hidePanel(s settings.Side) {
 	if a.panelMax == s {
 		a.panelMax = ""
 	}
-	a.focusColumn()
+	if holds {
+		a.focusColumn()
+	}
+}
+
+// panelHoldsKeys reports whether the keyboard is in the panel on a side:
+// in its terminal, its tree or one of its fields.
+func (a *app) panelHoldsKeys(s settings.Side) bool {
+	p := a.window.Panels.Get(s)
+	if !p.Visible() {
+		return false
+	}
+	switch p.Shown() {
+	case panelTerminal:
+		return a.focus == paneTerminal || a.keyFocus == placeTerminal
+	case settings.ViewExplorer:
+		return a.keyFocus == placeExplorer
+	case settings.ViewSearch, settings.ViewSCM:
+		return a.keyFocus == placeInput
+	}
+	return false
 }
 
 // panel is the panel on a side: its views' tabs, the tools of the view
@@ -515,10 +540,6 @@ func (a *app) panelHeader(c *ui.Context, side settings.Side) {
 	// The bottom panel is as wide as the editors.
 	wide := side == settings.SideBottom || a.panelWidth(side) >= panelWide
 	ui.Row(c).Height(panelHeadH).Padding(0, 8, 0, 14).Gap(4).AlignItems(ui.Center).Children(func() {
-		// A plugin's views keep their switches here.
-		if side == settings.SideLeft && a.pluginSidebarView() != "" {
-			a.pluginSwitches(c)
-		}
 		ui.Row(c.Key("panel-tabs:" + string(side))).Grow(1).MinWidth(0).Gap(4).AlignItems(ui.Center).Children(func() {
 			for _, v := range panel.Views {
 				label := a.viewTitle(v)

@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -109,7 +108,7 @@ func TestResolverFailures(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
 		defer cancel()
 		started := time.Now()
-		if _, err := s.resolve(ctx); !errors.Is(err, context.DeadlineExceeded) {
+		if _, err := s.resolve(ctx); err == nil || !strings.Contains(err.Error(), "did not finish in time") {
 			t.Fatalf("resolve: %v", err)
 		}
 		if time.Since(started) > 3*time.Second {

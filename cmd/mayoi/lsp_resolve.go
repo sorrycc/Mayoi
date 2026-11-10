@@ -113,10 +113,13 @@ func (s *lspServer) resolve(ctx context.Context) (serverLaunch, error) {
 	err = cmd.Wait()
 	stop()
 	if ctx.Err() != nil {
-		return launch, ctx.Err()
+		return launch, fmt.Errorf("%s did not finish in time", command)
 	}
 	if err != nil {
-		return launch, fmt.Errorf("%s: %w: %s", command, err, strings.TrimSpace(stderr.String()))
+		if msg := strings.TrimSpace(stderr.String()); msg != "" {
+			return launch, fmt.Errorf("%s: %w: %s", command, err, msg)
+		}
+		return launch, fmt.Errorf("%s: %w", command, err)
 	}
 	if stdout.overflow {
 		return launch, fmt.Errorf("%s: resolver output exceeds 4 MiB", command)

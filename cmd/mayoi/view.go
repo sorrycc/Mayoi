@@ -1043,7 +1043,7 @@ func (a *app) statusFit(c *ui.Context, width float32) statusVisibility {
 		w, _ := m.size(1)
 		used += w + 12 + 2
 	}
-	if busy := a.repository().git.busy; busy != "" {
+	if busy := a.repository().git.label(); busy != "" {
 		used += measure(busy, true)
 	}
 	if a.conn != nil {
@@ -1161,11 +1161,11 @@ func (a *gitContext) gitSyncStatus(c *ui.Context, showCounts bool) {
 	if g.status.Upstream == "" {
 		label, tip, icon = locales.ScmPublishBranch(), locales.ScmPublishBranch(), iconPush
 	}
-	if g.busy != "" {
-		tip = g.busy
+	if busy := g.label(); busy != "" {
+		tip = busy
 	}
 	b := ui.ButtonBase(c.Key("status:git-sync")).Height(statusBarH-6).Padding(0, 6).Gap(5).Radius(4).
-		AlignItems(ui.Center).Label(label).Tooltip(tip).Disabled(g.busy != "")
+		AlignItems(ui.Center).Label(label).Tooltip(tip).Disabled(!g.canMutate())
 	if b.Hovered() {
 		b.Background(p.hover)
 	}
@@ -1293,7 +1293,7 @@ func (a *app) statusBar(c *ui.Context) {
 		a.portsStatus(c, text)
 		if b := repo.branch(); b != "" {
 			bb := ui.ButtonBase(c.Key("status:branch")).Height(statusBarH-6).Padding(0, 6).Gap(5).Radius(4).
-				AlignItems(ui.Center).Label(locales.BranchLabel(b)).Tooltip(locales.BranchStatusTip(b)).Disabled(repo.git.busy != "")
+				AlignItems(ui.Center).Label(locales.BranchLabel(b)).Tooltip(locales.BranchStatusTip(b)).Disabled(!repo.git.canMutate())
 			if bb.Hovered() {
 				bb.Background(p.hover)
 			}
@@ -1318,7 +1318,7 @@ func (a *app) statusBar(c *ui.Context) {
 				text(busy)
 			})
 		}
-		if busy := repo.git.busy; busy != "" && a.settings.Theme == themeClaude {
+		if busy := repo.git.label(); busy != "" && a.settings.Theme == themeClaude {
 			a.claudeSpinner(c, busy)
 		} else if busy != "" {
 			ui.Row(c.Key("status:busy")).Height(statusBarH).Padding(0, 6).Gap(5).AlignItems(ui.Center).Children(func() {

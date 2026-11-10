@@ -47,7 +47,7 @@ func worktreeName(t git.Worktree) string { return filepath.Base(t.Path) }
 // openWorktreePicker shows the box of the worktrees, reading them and the
 // commit HEAD is at in the background.
 func (a *gitContext) openWorktreePicker() {
-	if !a.live() || a.git.busy != "" {
+	if !a.live() || !a.git.canMutate() {
 		return
 	}
 	r := a.git.repo
@@ -140,7 +140,7 @@ func (a *gitContext) worktreeTaken(name string) bool {
 // worktree, or creates the worktree typed from the commit HEAD is at.
 func (a *gitContext) chooseWorktree(ch worktreeChoice) {
 	w := &a.app.worktrees
-	if !a.live() || a.git.busy != "" || !w.open || w.repoRoot != a.git.repo.Root {
+	if !a.live() || !a.git.canMutate() || !w.open || w.repoRoot != a.git.repo.Root {
 		return
 	}
 	if ch.create != "" {
@@ -250,7 +250,7 @@ func (a *gitContext) worktreePickerView(c *ui.Context) {
 			box.Children(func() {
 				ui.Row(c).Padding(10, 14).Gap(10).AlignItems(ui.Center).BorderWidth(0, 0, 1, 0).BorderColor(p.border).Children(func() {
 					ui.Icon(c, iconFolderGit).FontSize(15).TextColor(p.muted)
-					in := a.app.textKeys(ui.TextInputBase(c.Key("worktree-input"), &w.query)).Grow(1).FontSize(14).AutoFocus().Disabled(a.git.busy != "").
+					in := a.app.textKeys(ui.TextInputBase(c.Key("worktree-input"), &w.query)).Grow(1).FontSize(14).AutoFocus().Disabled(!a.git.canMutate()).
 						Placeholder(locales.WorktreePlaceholder()).Label(locales.WorktreeSwitchLabel())
 					if in.Shortcut(0, ui.KeyDown) {
 						w.sel, w.moved = max(min(w.sel+1, len(choices)-1), 0), true
@@ -309,7 +309,7 @@ func (a *gitContext) worktreeRow(c *ui.Context, ch worktreeChoice, i int) {
 	p := a.app.pal
 	if ch.create != "" {
 		row := ui.ButtonBase(c.Key("create")).Padding(5, 10).Gap(10).Radius(6).Justify(ui.Start).AlignItems(ui.Center).
-			Label(locales.WorktreeCreateLabel(ch.create)).Disabled(a.git.busy != "")
+			Label(locales.WorktreeCreateLabel(ch.create)).Disabled(!a.git.canMutate())
 		if i != w.sel && row.Hovered() {
 			row.Background(p.hover)
 		}
@@ -333,7 +333,7 @@ func (a *gitContext) worktreeRow(c *ui.Context, ch worktreeChoice, i int) {
 	t := w.trees[w.results[ch.at].Index]
 	name := worktreeName(t)
 	row := ui.ButtonBase(c.Key("worktree:"+t.Path)).Padding(5, 10).Gap(10).Radius(6).Justify(ui.Start).AlignItems(ui.Center).
-		Label(name).Tooltip(shortenHome(t.Path)).Disabled(a.git.busy != "")
+		Label(name).Tooltip(shortenHome(t.Path)).Disabled(!a.git.canMutate())
 	if i != w.sel && row.Hovered() {
 		row.Background(p.hover)
 	}

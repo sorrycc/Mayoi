@@ -53,7 +53,7 @@ func (b *branchPicker) hasBranch(name string) bool {
 // openBranchPicker shows the box of the branches, reading them in the
 // background.
 func (a *gitContext) openBranchPicker() {
-	if !a.live() || a.git.busy != "" {
+	if !a.live() || !a.git.canMutate() {
 		return
 	}
 	r := a.git.repo
@@ -165,7 +165,7 @@ func validBranch(name string) bool {
 // or creates the branch typed from the one checked out.
 func (a *gitContext) chooseBranch(ch branchChoice) {
 	b := &a.app.branches
-	if !a.live() || a.git.busy != "" || !b.open || b.repoRoot != a.git.repo.Root {
+	if !a.live() || !a.git.canMutate() || !b.open || b.repoRoot != a.git.repo.Root {
 		return
 	}
 	if ch.prompt {
@@ -226,7 +226,7 @@ func (a *gitContext) branchPickerView(c *ui.Context) {
 			box.Children(func() {
 				ui.Row(c).Padding(10, 14).Gap(10).AlignItems(ui.Center).BorderWidth(0, 0, 1, 0).BorderColor(p.border).Children(func() {
 					ui.Icon(c, iconBranch).FontSize(15).TextColor(p.muted)
-					in := a.app.textKeys(ui.TextInputBase(c.Key("branch-input"), &b.query)).Grow(1).FontSize(14).AutoFocus().Disabled(a.git.busy != "").
+					in := a.app.textKeys(ui.TextInputBase(c.Key("branch-input"), &b.query)).Grow(1).FontSize(14).AutoFocus().Disabled(!a.git.canMutate()).
 						Placeholder(locales.BranchPlaceholder()).Label(locales.BranchSwitchLabel())
 					if in.Shortcut(0, ui.KeyDown) {
 						b.sel, b.moved = max(min(b.sel+1, len(choices)-1), 0), true
@@ -337,7 +337,7 @@ func (a *gitContext) branchRow(c *ui.Context, ch branchChoice, i int) {
 		br, positions = b.branches[m.Index], m.Positions
 		key, label = "branch:"+br.Name, br.Name
 	}
-	row := ui.ButtonBase(c.Key(key)).Padding(5, 10).Gap(10).Radius(6).Justify(ui.Start).AlignItems(ui.Center).Label(label).Disabled(a.git.busy != "")
+	row := ui.ButtonBase(c.Key(key)).Padding(5, 10).Gap(10).Radius(6).Justify(ui.Start).AlignItems(ui.Center).Label(label).Disabled(!a.git.canMutate())
 	if i != b.sel && row.Hovered() {
 		row.Background(p.hover)
 	}

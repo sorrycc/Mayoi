@@ -127,6 +127,45 @@ type gitState struct {
 	prHeadsWake    *time.Timer
 }
 
+// gitActivity is what Git is doing in a work tree in the background.
+type gitActivity int
+
+const (
+	activityIdle    gitActivity = iota
+	activityCommand             // a command runs
+	activityReading             // the status is read, or is to be
+)
+
+// activity is what Git is doing in the work tree, worked out from the
+// commands pending and the status read. A command wins over a read.
+func (g *gitState) activity() gitActivity {
+	switch {
+	case g.busy != "" || g.pending > 0:
+		return activityCommand
+	case g.statusRead.Running() || g.statusRead.Stale():
+		return activityReading
+	}
+	return activityIdle
+}
+
+// quiet reports whether Git does nothing in the work tree: no command
+// runs and the status read is up to date, as for the next of a chain.
+func (g *gitState) quiet() bool { return g.repo == nil || g.activity() == activityIdle }
+
+// commanding reports whether a named command runs, which the controls
+// that end a merge, rebase or cherry-pick wait for.
+func (g *gitState) commanding() bool { return g.busy != "" }
+
+// canMutate reports whether a command may change the work tree: none
+// runs and no merge, rebase or cherry-pick is in progress, which only
+// committing, continuing or aborting ends.
+func (g *gitState) canMutate() bool {
+	return g.busy == "" && (g.status == nil || g.status.Op == "")
+}
+
+// label names the command running, as "Pushing…", "" while none does.
+func (g *gitState) label() string { return g.busy }
+
 // historyPage is how many commits the history reads at first, and more
 // each time more are asked for.
 const historyPage = 50
@@ -831,7 +870,7 @@ func (a *gitContext) resetTo(cm git.Commit) {
 // message written, when one is.
 func (a *gitContext) continueOp() {
 	g := a.git
-	if g.status == nil || g.status.Op == "" || g.busy != "" {
+	if g.status == nil || g.status.Op == "" || g.commanding() {
 		return
 	}
 	op := g.status.Op
@@ -926,13 +965,13 @@ func (a *gitContext) askRefAt(cm git.Commit, tag bool) {
 
 // askNewBranch asks for the name of a branch to make and check out.
 func (a *gitContext) askNewBranch() {
-	if !a.live() || a.git.busy != "" {
+	if !a.live() || !a.git.canMutate() {
 		return
 	}
 	defer a.bindPanelDialogs(a.git.repo)
 	a.app.prompt = &prompt{title: locales.CreateBranchEllipsis(), hint: locales.BranchFrom(a.branch()), done: func(name string) string {
-		if a.git.busy != "" {
-			return a.git.busy
+		if busy := a.git.label(); busy != "" {
+			return busy
 		}
 		name = strings.TrimSpace(name)
 		if !validBranch(name) {

@@ -578,7 +578,7 @@ func (a *gitContext) scmPanelRowView(c *ui.Context, r scmRow, action *func()) {
 		if q.branch != nil {
 			b := *q.branch
 			visible := hovered || row.FocusWithin()
-			moving := a.git.busy != "" || a.git.status != nil && a.git.status.Op != ""
+			moving := !a.git.canMutate()
 			button := func(icon *ui.SVG, label string, disabled bool, run func()) {
 				btn := ui.ButtonBase(c.Key(label)).Size(20, 20).Radius(4).Justify(ui.Center).AlignItems(ui.Center).
 					Label(label + " " + b.Name).Tooltip(label).Disabled(disabled)
@@ -602,7 +602,7 @@ func (a *gitContext) scmPanelRowView(c *ui.Context, r scmRow, action *func()) {
 			}
 			button(iconCheckout, locales.PanelCheckOutBranch(), moving || b.Current, func() { a.checkoutPanelBranch(b) })
 			if b.Remote {
-				button(iconFetch, locales.PanelFetchRemote(), a.git.busy != "" || q.remote == nil, func() {
+				button(iconFetch, locales.PanelFetchRemote(), !a.git.canMutate() || q.remote == nil, func() {
 					if q.remote != nil {
 						name := q.remote.Name
 						a.gitDo(locales.BusyFetchingRemote(name), func(repo *git.Repo) error { return repo.FetchRemote(name, false) }, nil)
@@ -645,18 +645,17 @@ func (a *gitContext) scmPanelMenu(m *ui.Menu, r scmRow, action *func()) {
 		}
 	}()
 	q := r.panel
-	busy := a.git.busy != ""
-	moving := busy || a.git.status != nil && a.git.status.Op != ""
+	moving := !a.git.canMutate()
 	if q.branch != nil {
 		b := *q.branch
 		if m.Item(locales.PanelCheckOutBranch()).Disabled(moving || b.Current).Chosen() {
 			*action = func() { a.checkoutPanelBranch(b) }
 		}
-		if m.Item(locales.ScmCreateBranchHere()).Disabled(busy).Chosen() {
+		if m.Item(locales.ScmCreateBranchHere()).Disabled(moving).Chosen() {
 			*action = func() { a.askRefAt(git.Commit{Hash: b.Hash, Subject: b.Subject}, false) }
 		}
 		if !b.Remote {
-			if m.Item(locales.PanelRenameBranch()).Disabled(busy).Chosen() {
+			if m.Item(locales.PanelRenameBranch()).Disabled(moving).Chosen() {
 				*action = func() { a.askRenamePanelBranch(b) }
 			}
 			if m.Item(locales.PanelDeleteBranch()).Disabled(moving || b.Current).Chosen() {
@@ -681,17 +680,17 @@ func (a *gitContext) scmPanelMenu(m *ui.Menu, r scmRow, action *func()) {
 	}
 	if q.remote != nil {
 		remote := *q.remote
-		if m.Item(locales.CmdGitFetch()).Disabled(busy).Chosen() {
+		if m.Item(locales.CmdGitFetch()).Disabled(moving).Chosen() {
 			*action = func() {
 				a.gitDo(locales.BusyFetching(), func(repo *git.Repo) error { return repo.FetchRemote(remote.Name, false) }, nil)
 			}
 		}
-		if m.Item(locales.PanelFetchAndPrune()).Disabled(busy).Chosen() {
+		if m.Item(locales.PanelFetchAndPrune()).Disabled(moving).Chosen() {
 			*action = func() {
 				a.askPrunePanelRemote(remote.Name, true)
 			}
 		}
-		if m.Item(locales.PanelPruneRemote()).Disabled(busy).Chosen() {
+		if m.Item(locales.PanelPruneRemote()).Disabled(moving).Chosen() {
 			*action = func() {
 				a.app.present(&confirm{title: locales.PanelPruneQuestion(remote.Name), ok: locales.PanelPrune(), message: locales.PanelPruneDetail(), run: func() {
 					a.gitDo(locales.BusyPruning(), func(repo *git.Repo) error { return repo.PruneRemote(remote.Name) }, nil)
@@ -699,13 +698,13 @@ func (a *gitContext) scmPanelMenu(m *ui.Menu, r scmRow, action *func()) {
 			}
 		}
 		m.Separator()
-		if m.Item(locales.PanelEditFetchURL()).Disabled(busy).Chosen() {
+		if m.Item(locales.PanelEditFetchURL()).Disabled(moving).Chosen() {
 			*action = func() { a.editPanelRemote(remote.Name, false) }
 		}
-		if m.Item(locales.PanelEditPushURL()).Disabled(busy).Chosen() {
+		if m.Item(locales.PanelEditPushURL()).Disabled(moving).Chosen() {
 			*action = func() { a.editPanelRemote(remote.Name, true) }
 		}
-		if m.Item(locales.PanelRemoveRemote()).Disabled(busy).Chosen() {
+		if m.Item(locales.PanelRemoveRemote()).Disabled(moving).Chosen() {
 			*action = func() {
 				a.app.present(&confirm{title: locales.PanelRemoveRemoteQuestion(remote.Name), ok: locales.PanelRemove(), danger: true, message: locales.PanelRemoveRemoteDetail(), run: func() {
 					a.gitDo(locales.BusyRemovingRemote(), func(repo *git.Repo) error { return repo.RemoveRemote(remote.Name) }, nil)
@@ -725,11 +724,11 @@ func (a *gitContext) scmPanelMenu(m *ui.Menu, r scmRow, action *func()) {
 		}
 	}
 	if q.kind == "section" && r.key == "panel:branches" {
-		if m.Item(locales.CreateBranchEllipsis()).Disabled(busy).Chosen() {
+		if m.Item(locales.CreateBranchEllipsis()).Disabled(moving).Chosen() {
 			*action = a.askPanelNewBranch
 		}
 	} else if q.kind == "remote" || q.kind == "url" || q.kind == "addRemote" || q.kind == "section" && r.key == "panel:remotes" {
-		if m.Item(locales.PanelAddRemote()).Disabled(busy).Chosen() {
+		if m.Item(locales.PanelAddRemote()).Disabled(moving).Chosen() {
 			*action = func() { a.askPanelRemote(nil, false) }
 		}
 	}
@@ -862,7 +861,7 @@ func (a *gitContext) askPrunePanelRemote(name string, fetch bool) {
 }
 
 func (a *gitContext) checkoutPanelBranch(b git.Branch) {
-	if a.git.busy != "" || b.Current || a.git.status != nil && a.git.status.Op != "" {
+	if !a.git.canMutate() || b.Current {
 		return
 	}
 	if !b.Remote {
@@ -881,7 +880,7 @@ func (a *gitContext) checkoutPanelBranch(b git.Branch) {
 }
 
 func (a *gitContext) pullPanelBranch(b git.Branch) {
-	if a.git.busy != "" || b.Remote || b.UpstreamRef == "" || b.Gone || a.git.status != nil && a.git.status.Op != "" {
+	if !a.git.canMutate() || b.Remote || b.UpstreamRef == "" || b.Gone {
 		return
 	}
 	if b.Current && !a.docsSaved(locales.BeforePullingBranch()) {

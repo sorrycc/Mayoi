@@ -43,7 +43,7 @@ func (a *gitContext) canStash(untracked bool) bool {
 	if untracked {
 		n += len(groups[groupUntracked])
 	}
-	return a.git.busy == "" && n > 0
+	return a.git.canMutate() && n > 0
 }
 
 // askStash asks for the message of a stash of the changes, and of the
@@ -64,8 +64,8 @@ func (a *gitContext) askStash(untracked bool) {
 	}
 	defer a.bindPanelDialogs(a.git.repo)
 	a.app.prompt = &prompt{title: title, hint: hint, optional: true, done: func(msg string) string {
-		if a.git.busy != "" {
-			return a.git.busy
+		if busy := a.git.label(); busy != "" {
+			return busy
 		}
 		a.stash(msg, untracked)
 		return ""
@@ -120,7 +120,7 @@ func (a *gitContext) stashMenu(m *ui.Menu) {
 	stashes := a.git.stashes
 	for _, s := range stashes[:min(len(stashes), stashMenuN)] {
 		m.Submenu(stashLabel(s), func(m *ui.Menu) {
-			busy := a.git.busy != ""
+			busy := !a.git.canMutate()
 			if m.Item(locales.StashApply()).Disabled(busy).Chosen() {
 				a.app.post(func() { a.applyStash(s.Hash) })
 			}
@@ -208,7 +208,7 @@ func (a *app) stashPickerView(c *ui.Context) {
 						pick.sel = max(pick.sel-1, 0)
 						pick.moved = true
 					}
-					if pick.sel < len(stashes) && g.git.busy == "" {
+					if pick.sel < len(stashes) && g.git.canMutate() {
 						s := stashes[pick.sel]
 						switch {
 						case in.Shortcut(ui.Cmd, ui.KeyEnter):
@@ -241,7 +241,7 @@ func (a *app) stashPickerView(c *ui.Context) {
 							if !s.When.IsZero() {
 								ui.Text(c, shortAgo(s.When, time.Now())).FontSize(11.5).TextColor(p.faint).SingleLine().Shrink(0)
 							}
-							if g.git.busy != "" || i != pick.sel && !row.Hovered() {
+							if !g.git.canMutate() || i != pick.sel && !row.Hovered() {
 								return
 							}
 							if a.smallButton(c, iconCheck, locales.StashApply()) {
@@ -254,7 +254,7 @@ func (a *app) stashPickerView(c *ui.Context) {
 								run(s, g.dropStash)
 							}
 						})
-						if row.Clicked() && g.git.busy == "" {
+						if row.Clicked() && g.git.canMutate() {
 							pick.sel = i
 						}
 					}

@@ -690,7 +690,7 @@ func (a *gitContext) scmOpBanner(c *ui.Context, op git.Op) {
 		ui.Icon(c, iconBranch).FontSize(12).TextColor(tint)
 		ui.Text(c, label).FontSize(11.5).TextColor(p.text).Grow(1).SingleLine().Shrink(1)
 		button := func(key, text, tip string) bool {
-			b := ui.ButtonBase(c.Key(key)).Padding(1, 6).Radius(4).Label(tip).Disabled(g.busy != "")
+			b := ui.ButtonBase(c.Key(key)).Padding(1, 6).Radius(4).Label(tip).Disabled(g.commanding())
 			if b.Hovered() {
 				b.Background(p.hover)
 			}
@@ -711,7 +711,7 @@ func (a *gitContext) scmOpBanner(c *ui.Context, op git.Op) {
 // Git command runs in the background, and is empty room while none does.
 func (a *gitContext) scmActivity(c *ui.Context) {
 	g := a.git
-	if g.busy == "" && g.pending == 0 {
+	if g.activity() != activityCommand {
 		ui.Box(c.Key("scm-activity")).Height(2)
 		return
 	}
@@ -768,8 +768,8 @@ func (a *gitContext) commitButton(c *ui.Context) {
 		tip = locales.ScmCommitAllTip()
 	}
 	tip += " (" + keyText("CmdOrCtrl+Enter") + ")"
-	committing := g.busy == locales.BusyCommitting()
-	idle := g.busy == "" && (g.amend || staged+others > 0)
+	committing := g.label() == locales.BusyCommitting()
+	idle := !g.commanding() && (g.amend || staged+others > 0)
 	// In the accent color while it commits, or can; gray while there is
 	// nothing to commit or another command runs, its menu still there.
 	bg, hover, pressed, fg := t.Accent, t.AccentHover, t.AccentPressed, t.AccentText
@@ -820,7 +820,7 @@ func (a *gitContext) commitButton(c *ui.Context) {
 func (a *gitContext) commitMenu(m *ui.Menu) {
 	g := a.git
 	st := g.status
-	busy := g.busy != ""
+	busy, moving := g.commanding(), !g.canMutate()
 	none := st == nil || len(st.Entries) == 0 && !g.amend
 	if m.Item(locales.CmdGitCommit()).Shortcut(ui.Cmd, ui.KeyEnter).Disabled(busy || none).Chosen() {
 		a.app.post(func() { a.commit(false) })
@@ -829,7 +829,7 @@ func (a *gitContext) commitMenu(m *ui.Menu) {
 		a.app.post(func() { a.commit(true) })
 	}
 	m.Separator()
-	if m.Item(locales.CmdGitAmend()).Checked(g.amend).Disabled(busy || st == nil || st.Head == "").Chosen() {
+	if m.Item(locales.CmdGitAmend()).Checked(g.amend).Disabled(moving || st == nil || st.Head == "").Chosen() {
 		a.app.post(func() {
 			if g.amend {
 				g.amend, g.message = false, ""
@@ -838,7 +838,7 @@ func (a *gitContext) commitMenu(m *ui.Menu) {
 			a.startAmend()
 		})
 	}
-	if m.Item(locales.CmdGitUndoCommit()).Disabled(busy || st == nil || st.Head == "").Chosen() {
+	if m.Item(locales.CmdGitUndoCommit()).Disabled(moving || st == nil || st.Head == "").Chosen() {
 		a.app.post(a.undoCommit)
 	}
 }
@@ -890,7 +890,7 @@ func (a *gitContext) scmClean(c *ui.Context) {
 			note = locales.ScmBranchUpToDate(st.Branch, st.Upstream)
 		}
 		ui.Text(c, note).FontSize(12).TextColor(p.muted).TextAlign(ui.Center).LineHeight(1.45)
-		busy := g.busy != ""
+		busy := !g.canMutate()
 		button := func(icon *ui.SVG, label string, primary bool, fn func()) {
 			ui.Box(c).Height(4)
 			var b ui.Element
@@ -1520,13 +1520,13 @@ func (a *app) refBadge(c *ui.Context, b refBadge, lane ui.Color, maxW float32) {
 // conflicts, then copying.
 func (a *gitContext) scmCommitMenu(m *ui.Menu, cm *git.Commit, head bool, action *func()) {
 	g := a.git
-	busy := g.busy != ""
+	busy := g.commanding()
 	var op git.Op
 	if g.status != nil {
 		op = g.status.Op
 	}
-	// The commands that move HEAD by commits wait for one stopped.
-	moving := busy || op != ""
+	// The commands that change the work tree wait for one running or stopped.
+	moving := !g.canMutate()
 	branch := a.branch()
 	in := a.inHead(cm.Hash)
 	if m.Item(locales.CmdGitOpenChanges()).Chosen() {
@@ -1543,10 +1543,10 @@ func (a *gitContext) scmCommitMenu(m *ui.Menu, cm *git.Commit, head bool, action
 		*action = func() { a.rebaseOnto(*cm) }
 	}
 	m.Separator()
-	if m.Item(locales.ScmCreateTagHere()).Disabled(busy).Chosen() {
+	if m.Item(locales.ScmCreateTagHere()).Disabled(moving).Chosen() {
 		*action = func() { a.askRefAt(*cm, true) }
 	}
-	if m.Item(locales.ScmCreateBranchHere()).Disabled(busy).Chosen() {
+	if m.Item(locales.ScmCreateBranchHere()).Disabled(moving).Chosen() {
 		*action = func() { a.askRefAt(*cm, false) }
 	}
 	m.Separator()
@@ -1756,16 +1756,16 @@ func (a *gitContext) scmTitleActions(c *ui.Context) {
 func (a *gitContext) scmMenu(m *ui.Menu) {
 	g := a.git
 	st := g.status
-	if m.Item(locales.CmdGitCommit()).Disabled(g.busy != "").Chosen() {
+	if m.Item(locales.CmdGitCommit()).Disabled(g.commanding()).Chosen() {
 		a.app.post(func() { a.commit(false) })
 	}
-	if m.Item(locales.CmdGitCommitPush()).Disabled(g.busy != "").Chosen() {
+	if m.Item(locales.CmdGitCommitPush()).Disabled(g.commanding()).Chosen() {
 		a.app.post(func() { a.commit(true) })
 	}
 	if m.Item(locales.CmdGitAmend()).Disabled(st == nil || st.Head == "").Chosen() {
 		a.app.post(a.startAmend)
 	}
-	if m.Item(locales.CmdGitUndoCommit()).Disabled(g.busy != "" || st == nil || st.Head == "").Chosen() {
+	if m.Item(locales.CmdGitUndoCommit()).Disabled(!g.canMutate() || st == nil || st.Head == "").Chosen() {
 		a.app.post(a.undoCommit)
 	}
 	m.Separator()
@@ -1810,13 +1810,13 @@ func (a *gitContext) scmMenu(m *ui.Menu) {
 		}
 		m.Separator()
 	}
-	if m.Item(locales.CmdGitFetch()).Disabled(g.busy != "").Chosen() {
+	if m.Item(locales.CmdGitFetch()).Disabled(!g.canMutate()).Chosen() {
 		a.app.post(a.fetch)
 	}
-	if m.Item(locales.CmdGitPull()).Disabled(g.busy != "").Chosen() {
+	if m.Item(locales.CmdGitPull()).Disabled(!g.canMutate()).Chosen() {
 		a.app.post(a.pull)
 	}
-	if m.Item(locales.CmdGitPush()).Disabled(g.busy != "").Chosen() {
+	if m.Item(locales.CmdGitPush()).Disabled(!g.canMutate()).Chosen() {
 		a.app.post(a.push)
 	}
 	m.Separator()
@@ -2140,7 +2140,7 @@ func (a *gitContext) commit(push bool) {
 		return
 	}
 	g := a.git
-	if g.repo == nil || g.busy != "" || g.writing != nil {
+	if g.repo == nil || g.commanding() || g.writing != nil {
 		return
 	}
 	msg := strings.TrimSpace(g.message)
@@ -2331,7 +2331,7 @@ func (a *gitContext) scmBranchButton(c *ui.Context, compact bool) {
 		branch = locales.NoBranch()
 	}
 	b := ui.ButtonBase(c.Key("scm-branch")).Height(24).Padding(0, 6).Gap(5).Radius(5).AlignItems(ui.Center).
-		Shrink(1).Label(locales.BranchLabel(branch)).Tooltip(locales.CmdGitSwitchBranch()).Disabled(a.git.busy != "")
+		Shrink(1).Label(locales.BranchLabel(branch)).Tooltip(locales.CmdGitSwitchBranch()).Disabled(!a.git.canMutate())
 	size := float32(12.5)
 	if compact {
 		b.MaxWidth(100).Shrink(2)
@@ -2361,7 +2361,7 @@ func (a *gitContext) scmWorktreeButton(c *ui.Context, compact bool) {
 	name := filepath.Base(a.git.repo.Root)
 	tip := locales.WorktreeStatusTip(name)
 	b := ui.ButtonBase(c.Key("scm-worktree")).Height(24).Padding(0, 6).Gap(5).Radius(5).AlignItems(ui.Center).
-		Shrink(1).Label(tip).Tooltip(tip).Disabled(a.git.busy != "")
+		Shrink(1).Label(tip).Tooltip(tip).Disabled(!a.git.canMutate())
 	if b.Hovered() || b.Pressed() {
 		b.Background(p.hover)
 	}
@@ -2384,7 +2384,7 @@ func (a *gitContext) scmWorktreeButton(c *ui.Context, compact bool) {
 func (a *gitContext) scmActions(c *ui.Context) {
 	g := a.git
 	st := g.status
-	busy := g.busy != ""
+	busy := !g.canMutate()
 	if len(g.remotes) == 0 {
 		return
 	}

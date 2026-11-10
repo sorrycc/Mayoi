@@ -124,7 +124,7 @@ func (a *app) mascotPropAt(now time.Time) (mascotProp, time.Duration) {
 		return propSearch, 0
 	case a.git.writing != nil:
 		return propAI, 0
-	case a.git.busy != "":
+	case a.repository().git.label() != "":
 		return propGit, 0
 	}
 	if left := a.toldAt.Add(mascotNews).Sub(now); !a.toldAt.IsZero() && left > 0 {
@@ -178,7 +178,7 @@ func poseAt(now time.Time, busy bool) (mascotPose, time.Duration) {
 // mascotBusy reports whether there is work for the character to hop to:
 // a Git command or a search of the files running.
 func (a *app) mascotBusy() bool {
-	return a.git.busy != "" || a.inFiles.running
+	return a.repository().git.label() != "" || a.inFiles.running
 }
 
 // drawMascot paints m in r, centered, in cells of a width, on bg, with
@@ -213,8 +213,8 @@ func (a *app) mascotStill(c *ui.Context) bool {
 // mascotTip says what the character is doing, under the pointer.
 func (a *app) mascotTip(m *mascot) string {
 	switch {
-	case a.git.busy != "":
-		return m.name + " · " + a.git.busy
+	case a.repository().git.label() != "":
+		return m.name + " · " + a.repository().git.label()
 	case a.inFiles.running:
 		return m.name + " · Searching…"
 	}

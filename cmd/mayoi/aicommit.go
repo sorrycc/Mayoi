@@ -205,7 +205,7 @@ func (a *gitContext) writeButton(c *ui.Context) {
 		label = locales.ScmStopWriting()
 	}
 	b := ui.ButtonBase(c.Key("write-message")).Absolute().Right(4).Top(3).Size(22, 22).Radius(5).
-		Justify(ui.Center).AlignItems(ui.Center).Label(label).Tooltip(label).Disabled(g.writing == nil && g.busy != "")
+		Justify(ui.Center).AlignItems(ui.Center).Label(label).Tooltip(label).Disabled(g.writing == nil && g.commanding())
 	if b.Hovered() {
 		b.Background(p.hover)
 	}

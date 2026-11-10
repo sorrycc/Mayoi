@@ -17,6 +17,9 @@ needs a `## <version>` section here, or its build fails.
 - **Revert** or `Escape` on the "changed on host" question keeps the tab open instead of dropping the save.
 - Autosave no longer writes to the host while the "changed on host" question waits for an answer.
 - With format on save, saving twice in a row waits for the formatter instead of writing unformatted text.
+- Chained shortcuts from `runCommands` wait for Git commands in a selected submodule or nested repository.
+- During a merge, rebase or cherry-pick, branch switching, stash, fetch, pull and push stay disabled.
+- The mascot hops for Git commands in the selected repository, not only the folder's own.
 
 ## 0.19.2
 

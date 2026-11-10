@@ -407,7 +407,7 @@ func (a *app) pumpChain() {
 			a.chain = nil
 			return
 		}
-		if g := &a.git; g.repo != nil && (g.busy != "" || g.pending > 0 || g.statusRead.Running() || g.statusRead.Stale()) || a.confirm != nil || a.prompt != nil {
+		if !a.gitQuiet() || a.confirm != nil || a.prompt != nil {
 			return
 		}
 		if d := a.activeEditor(); d != nil && len(d.cmds) > 0 {
@@ -419,6 +419,21 @@ func (a *app) pumpChain() {
 		a.chain = a.chain[1:]
 		a.runBinding(step.name, step.args, step.where)
 	}
+}
+
+// gitQuiet reports whether Git does nothing in any work tree of the
+// folder: a step may select another, and a command in a submodule has
+// its parent read again.
+func (a *app) gitQuiet() bool {
+	if !a.git.quiet() {
+		return false
+	}
+	for _, ctx := range a.repositories.contexts {
+		if !ctx.git.quiet() {
+			return false
+		}
+	}
+	return true
 }
 
 // typeText types text into the editor or the terminal that took the keys.

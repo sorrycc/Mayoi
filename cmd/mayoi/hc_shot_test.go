@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
+
+	"mayoi/internal/settings"
 )
 
 // TestShotHC shoots the terminals of herdr-core in each state: kept,
@@ -31,7 +33,7 @@ func TestShotHC(t *testing.T) {
 		waiting.term.Feed([]byte("$ tail -f deploy.log\r\nbuild ok\r\n" + lostNote("vps")))
 		a.terminalToColumn(kept, a.column(), 0)
 		a.panelTerm = waiting
-		a.window.PanelOpen = true
+		a.window.Panels.On(settings.SideBottom).Open = true
 		hs.tt.SetScale(2)
 		hs.settle()
 		for range 20 {
@@ -80,7 +82,7 @@ func TestShotHCMotion(t *testing.T) {
 	useFakeHC(t, nil)
 	s := hcSession(t, a, "")
 	s.title, s.hcStarting, s.waitSince = "zsh", true, time.Now()
-	a.window.PanelOpen = true
+	a.window.Panels.On(settings.SideBottom).Open = true
 	hs.tt.SetScale(2)
 	hs.settle()
 	chip, pill := image.Rect(248, 480, 420, 510), image.Rect(980, 516, 1200, 550)

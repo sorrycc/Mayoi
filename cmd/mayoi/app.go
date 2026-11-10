@@ -301,7 +301,7 @@ type app struct {
 	// transfers are the copies to and from hosts running.
 	transfers []*transfer
 
-	panelMax    bool // the panel takes the editor's room
+	panelMax    settings.Side // the panel that takes the editor's room
 	welcomeView ui.Handle
 	rain        rainState   // The Matrix's, behind the welcome page
 	mascot      mascotState // the theme's character, Claude's or Qoder's
@@ -353,11 +353,11 @@ type app struct {
 	// each one's version, and the editor in front.
 	pluginSeen pluginSeen
 	// viewStates are the folders open and the row chosen in each plugin
-	// view the sidebar showed, by view id: this window's own.
+	// view the left panel showed, by view id: this window's own.
 	viewStates map[string]*pluginView
 	hover      *hoverCard // the card Show Hover shows
 	find       findState
-	inFiles    searchState // search in the files, of the sidebar
+	inFiles    searchState // search in the files, of the left panel
 	prompt     *prompt
 	confirm    *confirm
 	asks       []*confirm // the questions asked in the background, waiting their turn
@@ -394,7 +394,7 @@ type app struct {
 	// kept is the session the window had before its documents closed as it
 	// closes, which it keeps for its next start, nil until then.
 	kept *settings.Session
-	// rail builds the rail of project tabs left of the sidebar, nil for
+	// rail builds the rail of project tabs left of the left panel, nil for
 	// none.
 	rail func(c *ui.Context)
 	// alert is what a terminal of the project last asked attention for,

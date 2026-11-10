@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"github.com/egoist/mygo/plugins/terminal"
+
+	"mayoi/internal/settings"
 )
 
 // TestShotProgramStatus shoots the pill over a terminal whose programs
@@ -37,7 +39,7 @@ func TestShotProgramStatus(t *testing.T) {
 			a := hs.a
 			s := hcSession(t, a, "")
 			s.title = "zsh"
-			a.window.PanelOpen = true
+			a.window.Panels.On(settings.SideBottom).Open = true
 			a.programStatus(s, s.term, terminal.ProgramStatus{Records: []terminal.StatusRecord{{State: terminal.StatusWorking, App: "x", Progress: -1}}})
 			a.programStatus(s, s.term, terminal.ProgramStatus{Records: tc.recs})
 			hs.tt.SetScale(2)

@@ -62,7 +62,7 @@ func TestShotSourceControl(t *testing.T) {
 		for i, r := range v.rows {
 			if r.changed() && v.files[r.file].path == hs.path("main.go") {
 				y := titleBarH + tabStripH + crumbsH + editorPadY + float32(v.tops[i])*a.font.lineH - v.scroll.Y + a.font.lineH/2
-				hs.tt.Move(a.window.SidebarWidth+300, y)
+				hs.tt.Move(a.leftPanel().Size+300, y)
 				break
 			}
 		}

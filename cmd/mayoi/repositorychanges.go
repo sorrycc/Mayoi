@@ -88,7 +88,7 @@ func (a *app) scmView(c *ui.Context) {
 			changes.Height(clamp(height*ratio, minimum, height-minimum))
 		} else {
 			// Until dragged, fit the list's content, leaving at least half
-			// the sidebar to history when most repositories are clean.
+			// the panel to history when most repositories are clean.
 			changes.MaxHeight(height / 2)
 		}
 		changes.Children(func() {
@@ -337,7 +337,7 @@ func (a *gitContext) repositoryHeader(c *ui.Context) {
 		}
 		a.scmWorktreeButton(c, true)
 		a.scmBranchButton(c, true)
-		// The menu keeps every remote action available in a narrow sidebar.
+		// The menu keeps every remote action available in a narrow panel.
 		if width >= 360 {
 			a.scmActions(c)
 		}

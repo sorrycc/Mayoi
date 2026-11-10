@@ -13,6 +13,8 @@ import (
 	"github.com/egoist/mygo/plugins/terminal"
 	"github.com/egoist/mygo/ui"
 
+	"mayoi/internal/settings"
+
 	"mayoi/locales"
 )
 
@@ -23,7 +25,7 @@ func TestPanelTerminalChipsStayClickable(t *testing.T) {
 		t.Skip("loads libghostty-vt")
 	}
 	for _, dark := range []bool{false, true} {
-		for _, width := range []int{1000, 640} {
+		for _, width := range []int{1000, 400} {
 			t.Run(fmt.Sprintf("dark=%v/width=%d", dark, width), func(t *testing.T) {
 				hs := newHarness(t, dark)
 				a := hs.a
@@ -48,7 +50,7 @@ func TestPanelTerminalChipsStayClickable(t *testing.T) {
 				var terminalBox ui.Rect
 				tt := ui.NewTester(func(c *ui.Context) {
 					a.pal = a.applyTheme(c)
-					a.panel(c)
+					a.panel(c, settings.SideBottom)
 					terminalBox = a.panelTerm.view.Bounds(c)
 				}, width, 280)
 				tt.SetDark(dark)
@@ -56,8 +58,10 @@ func TestPanelTerminalChipsStayClickable(t *testing.T) {
 				for range 5 {
 					step(tt)
 				}
-				wantY := float32(panelHeadH + 2)
-				if width == 640 {
+				// The panel's views' tabs, the terminal's sessions, then
+				// the terminal.
+				wantY := float32(panelHeadH + termStripH + 2)
+				if width == 400 {
 					wantY += 14
 				}
 				if terminalBox.Y != wantY {
@@ -93,7 +97,7 @@ func TestPanelTerminalChipsStayClickable(t *testing.T) {
 				step(tt)
 				after := chip(first)
 				hs.shot(fmt.Sprintf("terminal-chips-%v-%d", dark, width))
-				if width == 640 {
+				if width == 400 {
 					if chip(second).X >= secondX {
 						t.Fatal("overflowing chips did not scroll horizontally")
 					}
@@ -103,7 +107,7 @@ func TestPanelTerminalChipsStayClickable(t *testing.T) {
 					step(tt)
 					before = chip(first)
 					secondX = chip(second).X
-					barY := float32(panelHeadH) + 7
+					barY := float32(panelHeadH + termStripH + 7)
 					tt.Press(before.X+30, barY)
 					tt.Move(before.X+90, barY)
 					tt.Release(before.X+90, barY)
@@ -120,16 +124,16 @@ func TestPanelTerminalChipsStayClickable(t *testing.T) {
 					step(tt)
 				}
 				click(first, second, 0.9)
-				if terminalBox.Y != panelHeadH+2 {
+				if terminalBox.Y != panelHeadH+termStripH+2 {
 					t.Errorf("widening the panel left an empty scroll bar lane: terminal starts at %v", terminalBox.Y)
 				}
 				// Narrowing it again restores the lane before a click; titles
 				// becoming shorter remove it without another window resize.
-				tt.SetSize(640, 280)
+				tt.SetSize(400, 280)
 				for range 3 {
 					step(tt)
 				}
-				if terminalBox.Y != panelHeadH+14+2 {
+				if terminalBox.Y != panelHeadH+termStripH+14+2 {
 					t.Errorf("narrowing the panel did not reserve the scroll bar lane: terminal starts at %v", terminalBox.Y)
 				}
 				click(first, second, 0.9)
@@ -137,7 +141,7 @@ func TestPanelTerminalChipsStayClickable(t *testing.T) {
 				for range 3 {
 					step(tt)
 				}
-				if terminalBox.Y != panelHeadH+2 {
+				if terminalBox.Y != panelHeadH+termStripH+2 {
 					t.Errorf("shorter titles left an empty scroll bar lane: terminal starts at %v", terminalBox.Y)
 				}
 				click(first, second, 0.9)

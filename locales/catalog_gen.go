@@ -16713,3 +16713,43 @@ func CompletionPlaceholder() string { return In(i18n.Locale()).CompletionPlaceho
 func (msgs Messages) CompletionPlaceholder() string {
 	return Catalog.Format(msgs.locale, "completionPlaceholder", nil)
 }
+
+// CmdViewLayoutLeft says "Toggle Left Panel"
+// in the language the app shows.
+func CmdViewLayoutLeft() string { return In(i18n.Locale()).CmdViewLayoutLeft() }
+
+// CmdViewLayoutLeft says "Toggle Left Panel"
+// in the language of msgs.
+func (msgs Messages) CmdViewLayoutLeft() string {
+	return Catalog.Format(msgs.locale, "cmdViewLayoutLeft", nil)
+}
+
+// CmdViewLayoutBottom says "Toggle Bottom Panel"
+// in the language the app shows.
+func CmdViewLayoutBottom() string { return In(i18n.Locale()).CmdViewLayoutBottom() }
+
+// CmdViewLayoutBottom says "Toggle Bottom Panel"
+// in the language of msgs.
+func (msgs Messages) CmdViewLayoutBottom() string {
+	return Catalog.Format(msgs.locale, "cmdViewLayoutBottom", nil)
+}
+
+// CmdViewLayoutRight says "Toggle Right Panel"
+// in the language the app shows.
+func CmdViewLayoutRight() string { return In(i18n.Locale()).CmdViewLayoutRight() }
+
+// CmdViewLayoutRight says "Toggle Right Panel"
+// in the language of msgs.
+func (msgs Messages) CmdViewLayoutRight() string {
+	return Catalog.Format(msgs.locale, "cmdViewLayoutRight", nil)
+}
+
+// PanelMoveTo says "Move to"
+// in the language the app shows.
+func PanelMoveTo() string { return In(i18n.Locale()).PanelMoveTo() }
+
+// PanelMoveTo says "Move to"
+// in the language of msgs.
+func (msgs Messages) PanelMoveTo() string {
+	return Catalog.Format(msgs.locale, "panelMoveTo", nil)
+}

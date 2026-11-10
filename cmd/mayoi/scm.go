@@ -14,6 +14,7 @@ import (
 
 	"mayoi/internal/bg"
 	"mayoi/internal/git"
+	"mayoi/internal/settings"
 	"mayoi/internal/vfs"
 	"mayoi/locales"
 )
@@ -392,7 +393,7 @@ func (a *gitContext) changeCount() int {
 	return len(a.git.status.Entries)
 }
 
-// scmView is the sidebar's source control view: the branch, the commit
+// scmView is the source control view: the branch, the commit
 // message, and the files changed, staged and not.
 func (a *gitContext) scmView(c *ui.Context) {
 	g := a.git
@@ -452,7 +453,7 @@ func (a *gitContext) scmCommitControls(c *ui.Context) {
 				// wraps, sets the height too, so a long branch name shows whole.
 				width := box.Bounds().W
 				if width <= 0 {
-					width = a.app.window.SidebarWidth - 24
+					width = a.app.panelWidth(settings.SideLeft) - 24
 				}
 				inset := float32(8 + 8 + 2) // the padding and the border
 				if button {
@@ -1335,13 +1336,22 @@ const (
 	graphMaxLanes = 6
 )
 
+// scmWidthFor is how wide the view is: the panel that holds it, or the
+// one on the layout's left when it is not in one.
+func (a *app) scmWidthFor() float32 {
+	if side, ok := a.viewSide(settings.ViewSCM); ok {
+		return a.panelWidth(side)
+	}
+	return a.panelWidth(settings.SideLeft)
+}
+
 // badgeRoom is how many of n badges a commit's row shows, and how wide
 // each is at most: those that fit beside the start of its subject and its
 // time, past its lead, sharing the room, none narrower than a few letters.
 func (a *app) badgeRoom(n int, indented, lead float32) (shown int, w float32) {
 	const gap, more, least, widest = 6, 30, 48, 110
 	shown = min(a.badgesShown(indented), n)
-	room := a.window.SidebarWidth - lead - 110
+	room := a.scmWidthFor() - lead - 110
 	for ; shown > 0; shown-- {
 		r := room
 		if shown < n {
@@ -1355,10 +1365,10 @@ func (a *app) badgeRoom(n int, indented, lead float32) (shown int, w float32) {
 }
 
 // badgesShown is how many branches and tags a commit's row shows before
-// it counts the rest: more as the sidebar widens, fewer as the row is
+// it counts the rest: more as the panel widens, fewer as the row is
 // indented past the history's, so its subject and time keep their room.
 func (a *app) badgesShown(indented float32) int {
-	return min(max(1+int((a.window.SidebarWidth-indented-240)/90), 1), 3)
+	return min(max(1+int((a.scmWidthFor()-indented-240)/90), 1), 3)
 }
 
 // historyGraph returns the lanes of the history, laid out once for each
@@ -2231,20 +2241,16 @@ func (a *app) initRepo() {
 	})
 }
 
-// showExplorer shows the files in the sidebar.
+// showExplorer shows the files, wherever they are.
 func (a *app) showExplorer() {
-	a.window.SidebarClosed, a.window.SidebarView = false, ""
-	a.settings.Changed()
+	a.showView(settings.ViewExplorer)
 	// The files take the keyboard, as in VS Code: arrows choose, and ⌘V
 	// pastes into the folder chosen.
 	a.focusFiles = true
 }
 
-// showSourceControl shows the changes in the sidebar.
-func (a *app) showSourceControl() {
-	a.window.SidebarClosed, a.window.SidebarView = false, "git"
-	a.settings.Changed()
-}
+// showSourceControl shows the changes, wherever they are.
+func (a *app) showSourceControl() { a.showView(settings.ViewSCM) }
 
 // activePaths returns the file of the tab shown, to stage or unstage.
 func (a *app) activePaths() []string {

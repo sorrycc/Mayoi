@@ -1652,5 +1652,9 @@
   "lspDown": "言語サーバーは動いていません",
   "definitionNone": "定義が見つかりません",
   "completionNone": "ここに補完候補はありません",
-  "completionPlaceholder": "補完"
+  "completionPlaceholder": "補完",
+  "cmdViewLayoutLeft": "左パネルの表示切替",
+  "cmdViewLayoutBottom": "下パネルの表示切替",
+  "cmdViewLayoutRight": "右パネルの表示切替",
+  "panelMoveTo": "移動"
 }

@@ -506,7 +506,7 @@ func (m *mayoi) projectTabsChanged() {
 	m.refreshMenu()
 }
 
-// railView is the rail of project tabs, left of the sidebar: a square of
+// railView is the rail of project tabs, left of the left panel: a square of
 // each project's logo or initials, the one shown marked, and after them a
 // button that opens another folder. It shows with Project Tabs on, a
 // window of one project too. a is the project it is built in, which the
@@ -545,7 +545,7 @@ func (f *frame) railView(c *ui.Context, a *app) {
 	})
 }
 
-// railGround is the rail's background: a shade off the sidebar's, as an
+// railGround is the rail's background: a shade off the panel's, as an
 // activity bar is.
 func railGround(p *palette) ui.Color {
 	if p.dark {
@@ -558,7 +558,7 @@ func railGround(p *palette) ui.Color {
 type railDrag struct{ h *desktop }
 
 // railTake is what a square takes: another square, or a picture dragged
-// from the sidebar. An element takes one type of value, the one it asked
+// from a panel. An element takes one type of value, the one it asked
 // for last, so a square asks for both as one.
 type railTake interface{ railTake() }
 
@@ -568,7 +568,7 @@ func (dragItem) railTake() {}
 // railDrop moves the square dropped on e before the project before, at
 // the end for nil, and opens the folders dropped there from another app.
 // A picture dropped on the square of before, from another app or the
-// sidebar, shows in it.
+// panel, shows in it.
 func (f *frame) railDrop(e ui.Element, a *app, before *desktop) {
 	var dir string
 	if before == nil {
@@ -747,7 +747,7 @@ func (f *frame) railTab(c *ui.Context, a *app, h *desktop, i int, label string) 
 		Label(name).Description(railDescription(where, work)).Drag(railDrag{h})
 	f.railTip(c, a, b, name, where, keys, dirty, work, alert, h.a.alertState, alertCol, conn, connCol)
 	f.railDrop(b, a, h)
-	// Another square, or a picture dragged from the sidebar or anything
+	// Another square, or a picture dragged from a panel or anything
 	// from another app, which may be one: it would show on this square.
 	// A tab of another project would open in this one, which shows as
 	// the drag rests here.

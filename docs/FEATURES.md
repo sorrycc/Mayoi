@@ -4,7 +4,7 @@
 
 A lazy file tree that follows the disk, with Git-ignored files shown faint. You can create, rename, trash and reveal files
 from it. In a Git work tree, a changed file shows its letter (M, A, D, U for untracked, C for a conflict) and its name in a
-color, and a folder with changes inside gets a dot. While the pointer is over the sidebar, the folder's row at the top
+color, and a folder with changes inside gets a dot. While the pointer is over the panel, the folder's row at the top
 has New File, New Folder, Refresh and Collapse Folders.
 
 A click on the space below the files, or Escape, unselects the file or folder chosen, so new files go in the workspace's
@@ -99,7 +99,7 @@ Esc, ⌃[ or ⌃C leaves insert mode. A change and the text typed after it undo 
 use the system clipboard unless a register is named, and a yank of whole lines pastes as lines. Where Control is not
 the key of shortcuts, ⌃W and ⌃U delete the word and the line before the caret in insert mode. In normal mode, ⌃R redoes rather than opening
 recent folders. ⌘ shortcuts work as usual in every mode. Punctuation keys are read as a US keyboard types them. On
-Windows and Linux, ⌃F, ⌃B, ⌃R and ⌃O stay Find, Toggle Sidebar, Open Recent and Open in normal mode, and ⌃A and ⌃X
+Windows and Linux, ⌃F, ⌃B, ⌃R and ⌃O stay Find, Toggle Left Panel, Open Recent and Open in normal mode, and ⌃A and ⌃X
 Select All and Cut, unless `vimCtrlKeys` is on.
 
 ### Undo
@@ -138,11 +138,11 @@ which link the whole file. The remote is the upstream's, else origin, else the f
 
 ## Source control
 
-The button beside **EXPLORER** at the top of the sidebar (⌃⇧G) switches it to the changes of the folder's Git work
-tree, with a count of them. Files are grouped as merge changes, staged changes, changes and untracked files.
+The **SOURCE CONTROL** tab (⌃⇧G) shows the changes of the folder's Git work tree, with a count of them. Files are
+grouped as merge changes, staged changes, changes and untracked files.
 
 - The row at the top has two buttons: the folder of this work tree, which opens **Switch Worktree…**, and the branch,
-  which opens **Switch Branch…**. The folder names a linked worktree, and the name shortens as the sidebar narrows;
+  which opens **Switch Branch…**. The folder names a linked worktree, and the name shortens as the panel narrows;
   the main one shows its icon alone. Beside the branch, fetch, pull and push, which show how many commits they would
   bring down or send up; a branch with no upstream gets **Publish Branch** instead. With an upstream, a row too narrow
   for its buttons, counts included, moves fetch, pull and push into the **⋯** menu; without one, fetch and publish stay
@@ -190,7 +190,7 @@ current repository's header stays at the top while its changes scroll beneath
 it. The current change group (such as Staged Changes or Changes) stays directly
 beneath that header, with its counts and actions, until the next group or
 repository pushes it away. Headers combine the repository name, branch or
-detached HEAD, and repository actions; a narrow sidebar keeps remote actions in
+detached HEAD, and repository actions; a narrow panel keeps remote actions in
 each repository's **⋯** menu. Each header's folder icon opens **Switch Worktree…** for its repository.
 Repositories with changes start expanded; clean repositories start collapsed and
 can be expanded to show their retained commit draft and a disabled commit button.
@@ -227,7 +227,7 @@ Under the changes, **COMMITS** lists the last 50 commits of the branch, newest f
 branch merged in runs in a lane and color of its own beside the one it joined. Each commit shows its author's initials,
 its branches and tags, and how long ago it was made. A ring marks HEAD, a small hollow dot a merge, and an arrow the
 commits not pushed yet. A local branch and its remote's at the same commit share one badge, as `main ⇄ origin`; badges
-that do not fit the sidebar's width fold into a count. **Show More Commits** reads 50 more. Point at a commit to see its
+that do not fit the panel's width fold into a count. **Show More Commits** reads 50 more. Point at a commit to see its
 author, hash and every branch and tag.
 
 The branch button in the COMMITS header, or **Show All Branches** in the **⋯** menu, shows every branch, of the remotes
@@ -422,7 +422,7 @@ PNG, JPEG, GIF, WebP and BMP files open in a viewer, fitted to the view on a che
 
 - Scroll with `⌘` (macOS) or `Ctrl` (Windows/Linux) held to zoom the image, or use **Zoom In Image / Zoom Out Image** in the command palette.
 - Click the status bar's zoom percentage or run **Fit Image to View** to fit the image again.
-- `⌘=`, `⌘-` and `⌘0` (macOS), or `Ctrl+=`, `Ctrl+-` and `Ctrl+0` (Windows/Linux), zoom or reset the whole window, including the sidebar.
+- `⌘=`, `⌘-` and `⌘0` (macOS), or `Ctrl+=`, `Ctrl+-` and `Ctrl+0` (Windows/Linux), zoom or reset the whole window, including the panels.
 - Double-click toggles between fitted and actual size.
 - Drag or scroll to pan an image larger than the view.
 - The image reloads when the file changes.
@@ -457,14 +457,10 @@ search match opens with the match selected.
 
 ## Terminal
 
-Ghostty's emulator (libghostty-vt), in the panel or in a column tab. The panel is below the editors; **View → Panel
-Position**, the command palette's **Move Panel to Left**, **Right** and **Bottom**, and `keybindings.json`'s
-`workbench.action.positionPanelLeft` and its neighbours, and **Panel Position** in the menu of the panel's header, put
-it at a side of the window. There it sits past the sidebar,
-so with the sidebar on the same side the panel is the outer one, and dragging its inner edge sizes it. The title bar's
-terminal button is on the panel's side too: left of the sidebar's button when both are on the left, at the right of the
-bar otherwise. You can run several terminals, move one between the panel and a column by dragging it or from its menu,
-and maximize the panel. **View → New Terminals in Editor Area**, `terminalLocation` in `settings.json`, has New Terminal
+Ghostty's emulator (libghostty-vt), in a panel or in a column tab. The terminal starts in the bottom panel, and
+**Move Terminal to** in its tab's menu moves it to a side, as any view moves (see [Panel](#panel)). You can run several
+terminals, move one between a panel and a column by dragging it or from its menu, and maximize the panel it is in.
+**View → New Terminals in Editor Area**, `terminalLocation` in `settings.json`, has New Terminal
 and the Explorer's **Open in Terminal** open a tab of the editor area rather than the panel; Toggle Terminal and the
 panel's **+** still use the panel. Terminal colors follow the theme. With `terminalBackend` set to `"hc"`, shells run in
 herdr-core and keep running after Mayoi quits, and the next start attaches to them again. A dot on such a terminal's
@@ -488,8 +484,30 @@ match above, in older output, and Shift+Return and the down arrow to the one bel
 closes it and gives the terminal back the keyboard.
 
 On Windows and Linux the shell has the keys with Ctrl, which edit its line, except the workbench's: Quick Open, the
-Command Palette, Find, the terminal and the sidebar toggles, Next and Previous Tab, Alt+1 to Alt+9 and zoom, and every
+Command Palette, Find, the panels' and the terminal's toggles, Next and Previous Tab, Alt+1 to Alt+9 and zoom, and every
 Ctrl+Shift shortcut but Ctrl+Shift+C and Ctrl+Shift+V, the terminal's copy and paste, and those of the function keys.
+
+## Panel
+
+The window has three panels: one on the left, one on the right, and one under the editors. A panel holds views as tabs,
+and every view is in one of them: **TERMINAL**, **EXPLORER**, **SEARCH**, **SOURCE CONTROL** and the views plugins add.
+The file views start on the left, in that order, and the terminal under the editors.
+
+**Move … to** in a tab's menu moves that view alone to the left, to the right or to the bottom, the views of the panel
+it goes to staying as they were; **Move View to Panel** in the **View** menu does the same for any view, and the command
+palette's **Move Panel to Left**, **Right** and **Bottom** for the terminal's. A view shows where it was put: with the
+terminal and search in the bottom panel, **Move Terminal to → Left** moves the terminal, and search stays where it was.
+A panel on a side is as wide as its handle is dragged, the bottom one as tall; a narrow panel names its tabs in short
+(EXPLORER, SEARCH, GIT) and gives the view's tools and the panel's buttons a row of their own. The terminal's own tabs
+sit under its view's, with **+** to start one and the buttons that move it to the editor area or kill it. ⌃` shows the
+terminal, starting one the first time, ⇧⌘E, ⇧⌘F and ⌃⇧G show their views wherever they are, and each project remembers
+which panel holds each view.
+
+The three buttons at the end of the title bar show and hide the panels of the layout's left, of the bottom and of the
+right, as VS Code's layout controls do, each a square with a bar on the side its panel shows on. **View → Sidebar on
+Right** mirrors the layout: the window runs right to left, and the panel of the left shows on the right. Each view keeps
+its side in that layout, so a view moved to the left is on the right of the window when the layout is mirrored, and back
+on the left when it is not.
 
 ## Quick open
 
@@ -573,8 +591,8 @@ Each folder gets its own window.
   own take each other's place.
 - Drag a square along the rail to reorder the projects, and drop a folder from the Finder on the rail to add it.
 - Clicking a square shows that project, with its tabs, columns, terminals, Explorer and source control as it left
-  them, each editor with its caret and scroll position. Each project keeps its own layout: what its sidebar shows,
-  whether it is open and how wide, and the panel's height. A new project starts with the layout of the one shown. ⇧⌘] and ⇧⌘[ (**Go → Next Project** and **Previous
+  them, each editor with its caret and scroll position. Each project keeps its own layout: its panels, what each
+  shows and how big it is. A new project starts with the layout of the one shown. ⇧⌘] and ⇧⌘[ (**Go → Next Project** and **Previous
   Project**) step along the rail, and ⌃⌘1…9 (Ctrl+Alt+1…9 on Windows and Linux) show one by its place.
 - Opening a folder, with ⌘O, ⌥⌘O, Open Recent, the welcome page or `mayoi <dir>`, adds it to the rail, or shows
   it if it is there already. The `+` after the squares opens one too.
@@ -763,9 +781,9 @@ carved pumpkin whose face glows, a cauldron whose brew bubbles, and a bat that f
 Theme…** on the welcome page, opens a box of the themes, each with a little window in its colors and its character: the
 window takes each theme as ↑ and ↓ move to it, and ← and → switch the appearance; Return keeps them, and Escape goes
 back to those the box opened on. From one theme or appearance to another, every color of the window fades to the new
-one's, at once when the system asks for reduced motion. **View → Sidebar on Right**
-moves the sidebar to the right of the editors. It remembers the sidebar's and the panel's sides, the sidebar and panel
-sizes, and every window with its folder, frame, columns and tabs, each tab with its caret, selection, scroll position
+one's, at once when the system asks for reduced motion. **View → Sidebar on Right** mirrors the layout, so the panel
+of the left shows on the right. It remembers the layout's direction, each panel's side and size and the views it
+holds, and every window with its folder, frame, columns and tabs, each tab with its caret, selection, scroll position
 and own word wrap, and the folders open in the Explorer. Started without a folder, Mayoi reopens the windows that were
 open when it quit.
 A recent folder closed, by closing its window, **File → Close Folder** or opening another folder in its window, opens
@@ -775,7 +793,7 @@ again with its tabs, columns and Explorer as they were. Closing the last window 
 
 Plugins are folders of JavaScript or TypeScript in `~/.mayoi/plugins`, which Mayoi runs in its own engine, each
 apart, with no Node and no build step. They add commands, keyboard shortcuts and menu items, status bar items, views in
-the sidebar, previews beside the source, formatters, diagnostics, themes (VS Code's too), languages, snippets and
+the panels, previews beside the source, formatters, diagnostics, themes (VS Code's too), languages, snippets and
 language servers, and they work on SSH folders with nothing installed on the host. See [PLUGINS.md](PLUGINS.md).
 
 - `mayoi plugin install <git-url or owner/repo>` installs one, and **Plugins → Manage Plugins…** opens the Plugins page
@@ -790,7 +808,7 @@ language servers, and they work on SSH folders with nothing installed on the hos
   runs the selection once.
 - Signed in, the plugins you install from Git follow you to your other machines.
 - Mayoi comes with **Word Count**, the words of a Markdown file in the status bar, and **TODOs**, the folder's TODO
-  comments in the sidebar.
+  comments in a panel.
 
 ## Settings
 

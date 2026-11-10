@@ -3,6 +3,28 @@
 The update window shows the section of the version it offers. Every release
 needs a `## <version>` section here, or its build fails.
 
+## Unreleased
+
+- The window is panels all the way down: one on the left, one on the right
+  and one at the bottom, each holding views as tabs, and every view — the
+  terminal, the Explorer, Search, Source Control and the views plugins add
+  — in one of them. **Move … to** in a tab's menu puts that view alone on
+  the left, on the right or at the bottom, **Move View to Panel** in the
+  View menu does the same for any view, and each project remembers where it
+  put them. This takes the place of **View → Panel Position**, which put
+  the terminal panel at a side of the window: the terminal's side is now
+  its panel's, and **Move Panel to Left**, **Right** and **Bottom** in the
+  command palette move it there.
+- A panel on a side is as wide as its handle is dragged, the bottom one as
+  tall; a narrow one names its tabs in short and gives the view's tools and
+  the panel's buttons a row of their own. **View → Sidebar on Right**
+  mirrors the layout: the panel of the left then shows on the right, and
+  each view keeps its side.
+- The three buttons at the end of the title bar show and hide the panels of
+  the left, the bottom and the right, as VS Code's layout controls do.
+  ⌃` shows the terminal, ⇧⌘E, ⇧⌘F and ⌃⇧G show their views wherever they
+  are, and a panel with no view does nothing.
+
 ## 0.19.3
 
 - Language server plugins can run a `resolve` command that sets the server's arguments, environment and settings.

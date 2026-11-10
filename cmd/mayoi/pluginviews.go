@@ -160,14 +160,14 @@ func keepInputs(old, n *viewNode) {
 	}
 }
 
-// pluginSlot is a view or a webview the sidebar can show.
+// pluginSlot is a view or a webview a panel can show.
 type pluginSlot struct {
 	id, title, icon string
 	plugin          *plugin.Plugin
 	webview         *plugin.WebviewContrib
 }
 
-// slotsKey is what the views the sidebar can show follow: the plugins,
+// slotsKey is what the views a panel can show follow: the plugins,
 // the settings that turn them on and off, and the webviews open.
 type slotsKey struct {
 	gen      uint64
@@ -177,7 +177,7 @@ type slotsKey struct {
 
 // pluginSlots are the views of the plugins that are on, and their
 // webviews that are open: listed anew as those change, not as each frame
-// draws the sidebar. On the main thread.
+// draws the panel. On the main thread.
 func pluginSlots() []pluginSlot {
 	h := plugins
 	if h == nil {
@@ -211,14 +211,15 @@ func pluginSlots() []pluginSlot {
 // pluginSidebarView is the id of the plugin view the sidebar shows, ""
 // for one of Mayoi's.
 func (a *app) pluginSidebarView() string {
-	id, _ := strings.CutPrefix(a.window.SidebarView, "plugin:")
-	if id == a.window.SidebarView {
+	shown := a.window.Panels.Get(settings.SideLeft).Shown()
+	id, _ := strings.CutPrefix(shown, "plugin:")
+	if id == shown {
 		return ""
 	}
 	return id
 }
 
-// showPluginView shows a plugin's view in the sidebar, starting the
+// showPluginView shows a plugin's view in its panel, starting the
 // plugin, which renders it.
 func (a *app) showPluginView(id string) {
 	var slot *pluginSlot
@@ -230,10 +231,7 @@ func (a *app) showPluginView(id string) {
 	if slot == nil {
 		return
 	}
-	a.window.SidebarView = "plugin:" + id
-	if a.window.SidebarClosed {
-		a.toggleSidebar()
-	}
+	a.moveView("plugin:"+id, settings.SideLeft)
 	a.settings.Changed()
 	if slot.webview == nil {
 		p := slot.plugin
@@ -246,7 +244,7 @@ func (a *app) showPluginView(id string) {
 	}
 }
 
-// pluginSwitches are the sidebar's buttons of the plugins' views.
+// pluginSwitches are the title's buttons of the plugins' views.
 func (a *app) pluginSwitches(c *ui.Context) {
 	shown := a.pluginSidebarView()
 	for _, s := range pluginSlots() {
@@ -266,7 +264,7 @@ func (a *app) pluginSidebarTitle() string {
 	return ""
 }
 
-// pluginSidebar draws the plugin view the sidebar shows.
+// pluginSidebar draws the plugin view the panel shows.
 func (a *app) pluginSidebar(c *ui.Context) {
 	id := a.pluginSidebarView()
 	var slot *pluginSlot
@@ -922,7 +920,7 @@ func (h *pluginHost) webviewCall(p *plugin.Plugin, method, id, title string, raw
 	return nil, nil
 }
 
-// webviewSlot draws a webview in the sidebar, making its page in the
+// webviewSlot draws a webview in a panel, making its page in the
 // window first.
 func (a *app) webviewSlot(c *ui.Context, slot *pluginSlot) {
 	p := a.pal

@@ -142,10 +142,10 @@ func TestWindowsMenuKeys(t *testing.T) {
 	onOS(t, "windows")
 	hs := newHarness(t, false)
 	a, tt := hs.a, hs.tt
-	closed := a.window.SidebarClosed
+	closed := !a.leftPanel().Open
 	tt.Key(ui.Ctrl, ui.KeyB)
 	hs.settle()
-	if a.window.SidebarClosed == closed {
+	if !a.leftPanel().Open == closed {
 		t.Error("Ctrl+B did not toggle the sidebar")
 	}
 	tt.Key(ui.Ctrl, ui.KeyP)

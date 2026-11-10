@@ -150,7 +150,7 @@ func TestProjectKeepsItsLayout(t *testing.T) {
 	f, hs, tt := railFixture(t, root, other)
 	a, b := hs[0].a, hs[1].a
 	a.showSourceControl()
-	a.window.SidebarWidth, a.window.PanelHeight = 320, 400
+	a.leftPanel().Size, a.bottomPanel().Size = 320, 400
 	step(tt)
 	if !tt.HasText("SOURCE CONTROL") {
 		t.Fatalf("A's sidebar: %v", tt.Texts())
@@ -165,7 +165,7 @@ func TestProjectKeepsItsLayout(t *testing.T) {
 	f.active = hs[0]
 	step(tt)
 	step(tt)
-	if !tt.HasText("SOURCE CONTROL") || a.window.SidebarClosed || a.window.SidebarWidth != 320 || a.window.PanelHeight != 400 {
+	if !tt.HasText("SOURCE CONTROL") || !a.leftPanel().Open || a.leftPanel().Size != 320 || a.bottomPanel().Size != 400 {
 		t.Fatalf("A's sidebar again: %+v, %v", a.window.Layout, tt.Texts())
 	}
 }

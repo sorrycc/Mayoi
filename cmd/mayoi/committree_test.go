@@ -32,7 +32,9 @@ func TestCommitFilesPanel(t *testing.T) {
 	hs.gitRepo()
 	a, tt := hs.a, hs.tt
 	a.settings.ScmTree = true
-	a.window.SidebarClosed = true // the Explorer's folders are named as the panel's
+	// The Explorer's tree names the same folders: out of the way, the one
+	// the commit's files are in is the only one to click.
+	a.leftPanel().Open = false
 	a.showCommit(a.git.history[0], true)
 	hs.settleGit()
 	hs.settle()

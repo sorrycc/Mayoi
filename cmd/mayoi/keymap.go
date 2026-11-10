@@ -160,9 +160,9 @@ func (a *app) whenContext(where keyPlace) func(string) bool {
 		case "terminalHasBeenCreated", "terminalProcessSupported":
 			return len(a.terms) > 0 || name == "terminalProcessSupported"
 		case "terminalIsOpen":
-			return a.window.PanelOpen
+			return a.terminalShown()
 		case "sideBarVisible", "explorerViewletVisible":
-			return !a.window.SidebarClosed
+			return a.sidebarShown()
 		case "editorHasSelection":
 			d := a.activeEditor()
 			return where == placeEditor && d != nil && d.sel[0] != d.sel[1]

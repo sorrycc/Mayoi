@@ -177,7 +177,7 @@ func (a *app) commandsIn(t locales.Messages) []command {
 		{"review.copy", a.reviewLabel(t.CmdReviewCopy(), t.CmdReviewCopyItems()), "", a.copyReview},
 		{"review.send", a.reviewLabel(t.CmdReviewSend(), t.CmdReviewSendItems()), "", a.sendReview},
 		{"review.clear", a.reviewLabel(t.CmdReviewClear(), t.CmdReviewClearItems()), "", a.clearReview},
-		{"view.terminal", t.CmdViewTerminal(), "Ctrl+`", a.togglePanel},
+		{"view.terminal", t.CmdViewTerminal(), "Ctrl+`", a.toggleTerminal},
 		{"view.newTerminal", t.CmdViewNewTerminal(), "Ctrl+Shift+`", func() { a.openTerminal(a.workDir()) }},
 		{"view.terminalTab", t.CmdViewTerminalTab(), "", func() { a.newTerminalTab(a.fileColumn(), a.workDir(), true) }},
 		{"view.terminalMove", t.CmdViewTerminalMove(), "", a.moveTerminal},
@@ -633,9 +633,9 @@ func (a *app) menu(cli bool, run func(id string, win *mygo.Window)) *mygo.Menu {
 			item("view.terminal"), item("view.newTerminal"), item("view.terminalTab"), item("view.terminalMove"), installHC,
 			checkbox("view.terminalLocation", a.settings.TerminalLocation == "editor"),
 			{Label: locales.MenuPanelPosition(), Submenu: []*mygo.MenuItem{
-				radio("view.panelPosition.bottom", a.panelSide() == "bottom"),
-				radio("view.panelPosition.left", a.panelSide() == "left"),
-				radio("view.panelPosition.right", a.panelSide() == "right"),
+				radio("view.panelPosition.bottom", a.panelAt(settings.SideBottom)),
+				radio("view.panelPosition.left", a.panelAt(settings.SideLeft)),
+				radio("view.panelPosition.right", a.panelAt(settings.SideRight)),
 			}}, mygo.Separator(),
 			item("view.zoomIn"), item("view.zoomOut"), item("view.zoomReset"), mygo.Separator(),
 			{Label: locales.MenuTheme(), Submenu: []*mygo.MenuItem{

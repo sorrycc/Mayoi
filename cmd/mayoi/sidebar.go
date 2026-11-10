@@ -17,120 +17,52 @@ import (
 	"mayoi/locales"
 )
 
-// sidebar is the explorer, the workspace's files in a tree, or the
+// sidebar is a view of a panel: the explorer, the workspace's files in a tree, or the
 // changes to commit, as the switch at its top chooses.
-func (a *app) sidebar(c *ui.Context) {
+// explorerView is the explorer: the folder's row, with its actions, and
+// the files in a tree, in the panel that holds it.
+func (a *app) explorerView(c *ui.Context, hovered bool) {
 	p := a.pal
-	sb := ui.Column(c).Fill().Background(p.chrome)
-	hovered := sb.Hovered()
-	view := a.window.SidebarView
-	if a.root == "" {
-		view = ""
-	}
-	scm, search := view == "git", view == "search"
-	pluginView := a.root != "" && a.pluginSidebarView() != ""
-	sb.Children(func() {
-		ui.Row(c).Height(34).Padding(0, 6, 0, 8).Gap(2).AlignItems(ui.Center).Children(func() {
-			if a.root != "" {
-				a.sidebarSwitch(c, iconFiles, a.withKey(locales.SidebarExplorer(), "view.explorer"), !scm && !search && !pluginView, 0, a.showExplorer)
-				a.sidebarSwitch(c, iconSearch, a.withKey(locales.SidebarSearch(), "edit.findInFiles"), search, 0, func() { a.showSearch(false) })
-				a.sidebarSwitch(c, iconBranch, a.withKey(locales.SidebarScm(), "view.scm"), scm, a.changeCount(), a.showSourceControl)
-				a.pluginSwitches(c)
-			}
-			title, short, actions := locales.SidebarTitleExplorer(), "", 0
-			switch {
-			case scm:
-				title, short = locales.SidebarTitleScm(), locales.SidebarTitleScmShort()
-				if a.repository().git.repo != nil {
-					actions = 1
-				}
-			case search:
-				title = locales.SidebarTitleSearch()
-				if hovered {
-					actions = 3
-				}
-			case pluginView:
-				title = a.pluginSidebarTitle()
-			}
-			// The switches, the gaps, the paddings and the actions' buttons
-			// take the rest of the row.
-			room := a.window.SidebarWidth - 1 - 14 - 6 - float32(actions)*28
-			if a.root != "" {
-				n := float32(3 + len(pluginSlots()))
-				room -= n*26 + (n-1)*3
-			}
-			size, spacing := p.titleLook(11, titleSpacing)
-			title = fitTitle(c, p.title(title), p.title(short), room, size, spacing)
-			ui.Text(c, title).FontSize(size).FontWeight(600).LetterSpacing(spacing).TextColor(p.muted).Grow(1).
-				Padding(0, 0, 0, 6).SingleLine()
-			if scm {
-				a.scmTitleActions(c)
-				return
-			}
-			if search {
-				a.searchTitleActions(c, hovered)
-				return
-			}
-		})
-		ui.Column(c.Key("view:" + view)).Grow(1).MinHeight(0).Children(func() {
-			if a.root == "" {
-				a.noFolder(c)
-				return
-			}
-			if scm {
-				a.scmView(c)
-				return
-			}
-			if search {
-				a.searchView(c)
-				return
-			}
-			if pluginView {
-				a.pluginSidebar(c)
-				return
-			}
-			// The folder's row, with the explorer's actions while the pointer
-			// is over the sidebar or the tree has the keyboard: on the title's
-			// row, they would leave the title no room.
-			ui.Row(c).Height(24).Padding(0, 6, 0, 16).Gap(2).AlignItems(ui.Center).ContextMenu(func(m *ui.Menu) {
-				if m.Item(locales.CmdViewCompactFolders()).Checked(a.settings.ExplorerCompactFolders).Chosen() {
-					a.toggleCompactFolders()
-				}
-			}).Children(func() {
-				// The folder's own name in sentence case, not recased.
-				name, size, spacing := strings.ToUpper(filepath.Base(a.root)), float32(11), float32(0.4)
-				if p.sentence {
-					name, size, spacing = filepath.Base(a.root), 12, 0
-				}
-				ui.Text(c, name).FontSize(size).FontWeight(700).LetterSpacing(spacing).
-					TextColor(p.text).SingleLine().Grow(1)
-				if !hovered && !a.files.List.FocusWithin(c) {
-					return
-				}
-				if a.iconButton(c, iconFilePlus, locales.NewFileEllipsis(), false).Clicked() {
-					a.askNewEntry(a.targetDir(), false)
-				}
-				if a.iconButton(c, iconFolderPlus, locales.NewFolderEllipsis(), false).Clicked() {
-					a.askNewEntry(a.targetDir(), true)
-				}
-				if a.iconButton(c, iconRefresh, locales.RefreshExplorer(), false).Clicked() {
-					a.tree.Refresh()
-					a.indexRead.Invalidate()
-				}
-				if a.iconButton(c, iconCollapse, locales.CollapseFolders(), false).Clicked() {
-					a.files.Open.Clear()
-				}
-			})
-			if t := a.tree; t.Loaded(a.root) && len(t.Children(a.root)) == 0 {
-				a.emptyFolder(c)
-			}
-			if a.conn != nil && !a.tree.Loaded(a.root) {
-				a.remoteTreeWaits(c)
-				return
-			}
-			a.fileTree(c)
-		})
+	// The folder's row, with the explorer's actions while the pointer
+	// is over the panel or the tree has the keyboard: on the title's
+	// row, they would leave the title no room.
+	ui.Row(c).Height(24).Padding(0, 6, 0, 16).Gap(2).AlignItems(ui.Center).ContextMenu(func(m *ui.Menu) {
+		if m.Item(locales.CmdViewCompactFolders()).Checked(a.settings.ExplorerCompactFolders).Chosen() {
+			a.toggleCompactFolders()
+		}
+	}).Children(func() {
+		// The folder's own name in sentence case, not recased.
+		name, size, spacing := strings.ToUpper(filepath.Base(a.root)), float32(11), float32(0.4)
+		if p.sentence {
+			name, size, spacing = filepath.Base(a.root), 12, 0
+		}
+		ui.Text(c, name).FontSize(size).FontWeight(700).LetterSpacing(spacing).
+			TextColor(p.text).SingleLine().Grow(1)
+		if !hovered && !a.files.List.FocusWithin(c) {
+			return
+		}
+		if a.iconButton(c, iconFilePlus, locales.NewFileEllipsis(), false).Clicked() {
+			a.askNewEntry(a.targetDir(), false)
+		}
+		if a.iconButton(c, iconFolderPlus, locales.NewFolderEllipsis(), false).Clicked() {
+			a.askNewEntry(a.targetDir(), true)
+		}
+		if a.iconButton(c, iconRefresh, locales.RefreshExplorer(), false).Clicked() {
+			a.tree.Refresh()
+			a.indexRead.Invalidate()
+		}
+		if a.iconButton(c, iconCollapse, locales.CollapseFolders(), false).Clicked() {
+			a.files.Open.Clear()
+		}
 	})
+	if t := a.tree; t.Loaded(a.root) && len(t.Children(a.root)) == 0 {
+		a.emptyFolder(c)
+	}
+	if a.conn != nil && !a.tree.Loaded(a.root) {
+		a.remoteTreeWaits(c)
+		return
+	}
+	a.fileTree(c)
 }
 
 // emptyFolder is what the explorer shows of a folder with no files yet,
@@ -154,7 +86,7 @@ func (a *app) emptyFolder(c *ui.Context) {
 	})
 }
 
-// titleSpacing is the letter spacing of the sidebar's title; treeStep is
+// titleSpacing is the letter spacing of a panel's title; treeStep is
 // how far each level of a tree indents, the Explorer's and Source
 // Control's, as tight as VS Code's.
 const (
@@ -163,8 +95,8 @@ const (
 	treeStep     = 8
 )
 
-// fitTitle returns the sidebar's title, or its short form when the title
-// would not fit in room, as the sidebar is narrow or the buttons beside it
+// fitTitle returns a view's title, or its short form when the title
+// would not fit in room, as the panel is narrow or the buttons beside it
 // are many: cut short, it would read as neither. It is of a size and a
 // letter spacing.
 func fitTitle(c *ui.Context, title, short string, room, size, spacing float32) string {
@@ -178,7 +110,7 @@ func fitTitle(c *ui.Context, title, short string, room, size, spacing float32) s
 	return short
 }
 
-// sidebarSwitch is a button at the top of the sidebar that shows a view
+// sidebarSwitch is a button at the top of a panel that shows a view
 // of it, with a count of what it has when count is more than 0.
 func (a *app) sidebarSwitch(c *ui.Context, icon *ui.SVG, label string, on bool, count int, show func()) {
 	p := a.pal
@@ -286,7 +218,7 @@ func (a *app) fileTree(c *ui.Context) {
 		name := entry.name
 		row := ui.Row(c).Grow(1).Gap(6).AlignItems(ui.Center).Height(explorerRowH)
 		if entry.first != path {
-			// A long chain is cut off at the sidebar's edge.
+			// A long chain is cut off at the panel's edge.
 			row.Tooltip(t.Rel(path))
 		}
 		if n := a.files.Rows(); n > 0 && a.files.Item(n-1) == path {

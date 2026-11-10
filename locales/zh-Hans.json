@@ -1652,5 +1652,9 @@
   "lspDown": "语言服务器未在运行",
   "definitionNone": "未找到定义",
   "completionNone": "此处没有补全",
-  "completionPlaceholder": "补全为"
+  "completionPlaceholder": "补全为",
+  "cmdViewLayoutLeft": "切换左面板",
+  "cmdViewLayoutBottom": "切换下面板",
+  "cmdViewLayoutRight": "切换右面板",
+  "panelMoveTo": "移到"
 }

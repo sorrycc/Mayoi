@@ -1880,5 +1880,9 @@
   "lspDown": "The language server isn't running",
   "definitionNone": "No definition found",
   "completionNone": "No completions here",
-  "completionPlaceholder": "Complete with"
+  "completionPlaceholder": "Complete with",
+  "cmdViewLayoutLeft": "Toggle Left Panel",
+  "cmdViewLayoutBottom": "Toggle Bottom Panel",
+  "cmdViewLayoutRight": "Toggle Right Panel",
+  "panelMoveTo": "Move to"
 }

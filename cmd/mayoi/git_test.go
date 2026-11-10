@@ -314,7 +314,7 @@ func TestGutterHunkActions(t *testing.T) {
 		t.Fatalf("hunks %v", hs)
 	}
 	// A click on the mark of line 7 shows what it was.
-	x := a.window.SidebarWidth + d.gutterW - 5
+	x := a.leftPanel().Size + d.gutterW - 5
 	y := titleBarH + tabStripH + crumbsH + editorPadY + 6.5*a.font.lineH
 	hs.tt.ClickAt(x, y)
 	hs.settle()
@@ -1230,7 +1230,7 @@ func TestDiffStickyHeader(t *testing.T) {
 	// A click on it folds the file, and shows its header.
 	v.scroll.Y = editorPadY + float32(v.tops[head]+10)*lineH
 	hs.settle()
-	x := a.window.SidebarWidth + 200
+	x := a.leftPanel().Size + 200
 	y := titleBarH + tabStripH + crumbsH + lineH/2
 	hs.tt.ClickAt(x, y)
 	hs.settle()

@@ -648,9 +648,11 @@ func (ps Panels) Normalize() {
 	}
 }
 
-// isView reports whether v names a view a panel may hold.
+// isView reports whether v names a view a panel may hold: one of the
+// window's, or a plugin's.
 func isView(v string) bool {
-	return v == ViewExplorer || v == ViewSearch || v == ViewSCM || v == ViewTerminal
+	return v == ViewExplorer || v == ViewSearch || v == ViewSCM || v == ViewTerminal ||
+		strings.HasPrefix(v, "plugin:")
 }
 
 // Normalize keeps the layout in its bounds, as base has it where it has

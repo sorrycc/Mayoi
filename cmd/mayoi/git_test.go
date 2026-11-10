@@ -405,7 +405,7 @@ func TestBranchesAndBlame(t *testing.T) {
 	hs.settle()
 	hs.until("the line is blamed", func() bool {
 		step(hs.tt)
-		return d.blame.done
+		return d.blame.phase == blameRead
 	})
 	if !strings.HasPrefix(d.blame.text, "t, just now · first") {
 		t.Errorf("blame %q", d.blame.text)
@@ -416,7 +416,7 @@ func TestBranchesAndBlame(t *testing.T) {
 	hs.settle()
 	hs.until("the new line is blamed", func() bool {
 		step(hs.tt)
-		return d.blame.done
+		return d.blame.phase == blameRead
 	})
 	if d.blame.text != "" {
 		t.Errorf("blame of a new line %q", d.blame.text)

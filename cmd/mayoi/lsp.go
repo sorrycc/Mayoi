@@ -37,6 +37,35 @@ type lspServer struct {
 	starts  int
 }
 
+// lspState is where a language server is in its life.
+type lspState int
+
+const (
+	lspStarting lspState = iota // its command starts, and it is greeted
+	lspRunning                  // client talks to it
+	lspFailed                   // it could not start, as err says
+	lspStopped                  // it ran, and its command ended
+)
+
+// state works out the server's state from ready and its client, which
+// start writes before it closes ready.
+func (s *lspServer) state() lspState {
+	select {
+	case <-s.ready:
+	default:
+		return lspStarting
+	}
+	if s.client == nil {
+		return lspFailed
+	}
+	select {
+	case <-s.client.Done():
+		return lspStopped
+	default:
+		return lspRunning
+	}
+}
+
 var lspServers = struct {
 	sync.Mutex
 	m map[string]*lspServer // by folder and server id
@@ -96,25 +125,10 @@ func (a *app) lspFor(d *document) *lspServer {
 	lspServers.Lock()
 	defer lspServers.Unlock()
 	s := lspServers.m[key]
-	if s != nil {
-		select {
-		case <-s.ready:
-			if s.client != nil {
-				select {
-				case <-s.client.Done():
-					// It stopped: start it again, a few times.
-					if s.starts >= maxServerStarts {
-						return s
-					}
-				default:
-					return s
-				}
-			} else {
-				return s
-			}
-		default:
-			return s
-		}
+	// One that stopped is started again, a few times; one that could not
+	// start stays so.
+	if s != nil && (s.state() != lspStopped || s.starts >= maxServerStarts) {
+		return s
 	}
 	starts := 0
 	if s != nil {
@@ -189,21 +203,8 @@ func fromLSP(p lsp.Position) position { return position(p) }
 
 // client is the server's client once it runs, nil before or after.
 func (s *lspServer) live() *lsp.Client {
-	if s == nil {
+	if s == nil || s.state() != lspRunning {
 		return nil
-	}
-	select {
-	case <-s.ready:
-	default:
-		return nil
-	}
-	if s.client == nil {
-		return nil
-	}
-	select {
-	case <-s.client.Done():
-		return nil
-	default:
 	}
 	return s.client
 }

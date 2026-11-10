@@ -79,6 +79,7 @@ var keyGroups = []struct {
 	{locales.MenuGit, []string{"git.", "review."}},
 	{locales.MenuPlugins, []string{"plugins.", "script."}},
 	{locales.MenuAccount, []string{"account."}},
+	{locales.MenuHelp, []string{"help."}},
 }
 
 // pluginsKeyGroup is the group of the commands of plugins, in keyGroups.

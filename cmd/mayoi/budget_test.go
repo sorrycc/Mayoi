@@ -123,7 +123,13 @@ func TestBudgets(t *testing.T) {
 				step(hs.tt)
 			}
 			t.Cleanup(func() { hs.tt.Key(ui.Ctrl, ui.KeyC) })
-			return func() { step(hs.tt) }
+			// The terminal asks for a frame after each, so step's Frame
+			// draws up to 20 of them: a refresh draws the one a window
+			// would.
+			if !hs.tt.FramePending() {
+				t.Fatal("the terminal does not ask for frames")
+			}
+			return func() { hs.tt.Advance(time.Second / 60) }
 		}},
 	}
 	var report strings.Builder

@@ -5,6 +5,8 @@ needs a `## <version>` section here, or its build fails.
 
 ## Unreleased
 
+- **Git → Collapse All Files in Diff** and **Expand All Files in Diff** fold the current diff's files.
+- On macOS, `Option+Cmd+[` collapses all diff files and `Option+Cmd+]` expands them.
 - `mayoi settings` reads and changes preferences, with Mayoi running or not.
 - `mayoi settings --folder` in a project's subfolder changes the project's `.mayoi/settings.json`.
 

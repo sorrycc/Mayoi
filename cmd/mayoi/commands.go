@@ -134,6 +134,8 @@ func (a *app) commandsIn(t locales.Messages) []command {
 		{"git.prevChange", t.CmdGitPrevChange(), "Shift+Alt+F5", func() { a.stepChange(-1) }},
 		{"git.nextFile", t.CmdGitNextFile(), "", func() { a.stepDiffFile(1) }},
 		{"git.prevFile", t.CmdGitPrevFile(), "", func() { a.stepDiffFile(-1) }},
+		{"git.collapseAllFiles", t.CmdGitCollapseAllFiles(), "Alt+CmdOrCtrl+[", func() { a.foldDiffFiles(true) }},
+		{"git.expandAllFiles", t.CmdGitExpandAllFiles(), "Alt+CmdOrCtrl+]", func() { a.foldDiffFiles(false) }},
 		{"git.toggleCommitFiles", t.CmdGitToggleCommitFiles(), "", a.toggleCommitFiles},
 		{"git.appendChange", t.CmdGitAppendChange(), "", a.appendAtCursor},
 		{"git.showChange", t.CmdGitShowChange(), "", a.editActive(func(d *editor) { d.peekHunk(caretLine(d)) })},
@@ -652,7 +654,7 @@ func (a *app) menu(cli bool, run func(id string, win *mygo.Window)) *mygo.Menu {
 		{Label: locales.MenuGit(), Submenu: []*mygo.MenuItem{
 			item("git.commit"), item("git.commitPush"), item("git.amend"), item("git.undoCommit"), mygo.Separator(),
 			item("git.openChanges"), item("git.openAllChanges"), item("git.compareFiles"), item("git.nextChange"), item("git.prevChange"), item("git.nextFile"), item("git.prevFile"),
-			checkbox("git.toggleCommitFiles", a.window.CommitFilesOpen), mygo.Separator(),
+			item("git.collapseAllFiles"), item("git.expandAllFiles"), checkbox("git.toggleCommitFiles", a.window.CommitFilesOpen), mygo.Separator(),
 			item("git.showChange"), item("git.revertChange"), item("git.appendChange"), item("git.stageChange"), mygo.Separator(),
 			item("git.stageFile"), item("git.unstageFile"), item("git.stageAll"), mygo.Separator(),
 			item("git.switchBranch"), item("git.switchWorktree"), item("git.createBranch"), item("git.fetch"), item("git.pull"), item("git.push"), mygo.Separator(),

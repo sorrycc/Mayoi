@@ -30,6 +30,8 @@ var otherAccels = map[string]string{
 	"file.openFolderWindow": "",
 	"view.nextColumn":       "",
 	"view.prevColumn":       "",
+	"git.collapseAllFiles":  "",
+	"git.expandAllFiles":    "",
 }
 
 // platformAccel is a command's accelerator on the system: on Windows and

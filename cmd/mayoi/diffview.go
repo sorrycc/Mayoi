@@ -321,6 +321,9 @@ type diffView struct {
 	wrapGen  int
 
 	files []*diffFile
+	// foldFiles is the last bulk choice, including files not yet listed.
+	// Once chosen, it also replaces automatic folding of large files.
+	foldFiles *bool
 	// status is the status of the repository the files were listed from.
 	status *git.Status
 	// commit is the commit whose changes the tab shows, from its first
@@ -857,6 +860,9 @@ func (a *app) listDiffFiles(v *diffView) {
 		if !ok {
 			f := newDiffFile(l.e, l.group)
 			f.repoRoot = v.repoRoot
+			if v.foldFiles != nil {
+				f.folded = *v.foldFiles
+			}
 			v.files = append(v.files, f)
 			continue
 		}
@@ -910,6 +916,9 @@ func (a *app) listCommitFiles(v *diffView) {
 				if cm.pr != nil {
 					f.prPath = r.Rel(e.Path)
 					f.folded = cm.pr.viewed[f.prPath]
+				}
+				if v.foldFiles != nil {
+					f.folded = *v.foldFiles
 				}
 				v.files = append(v.files, f)
 			}
@@ -1112,7 +1121,7 @@ func (a *app) refreshDiffFile(v *diffView, f *diffFile) bool {
 			f.spans = nil
 			setDiffSide(&f.old, old, oldLines)
 			setDiffSide(&f.new, new, newLines)
-			if add, del := f.counts(); first && add+del > foldedLines {
+			if add, del := f.counts(); first && v.foldFiles == nil && add+del > foldedLines {
 				f.folded = true
 			}
 			v.changed()
@@ -1976,6 +1985,32 @@ func (a *app) activateRow(v *diffView, i int, open bool) {
 			a.editNote(n, nil)
 		}
 	}
+}
+
+// foldDiffFiles changes only the active diff's file headers. File contents
+// keep loading on demand, and a bulk fold leaves its current file in view.
+func (a *app) foldDiffFiles(folded bool) {
+	t := a.activeTab()
+	if t == nil || t.diff == nil {
+		return
+	}
+	v := t.diff
+	if folded {
+		a.endDiffEdit(v)
+	}
+	v.place, v.reveal, v.boundary = nil, nil, nil
+	if at := v.focusRowAt(v.focusRow()); folded && at >= 0 {
+		if p := v.anchorOf(at); p.file != nil && p.kind != rowCommit {
+			v.place = &diffAnchor{kind: rowFile, file: p.file}
+			v.jump = -1
+		}
+	}
+	a.keepTopRow(v, func() {
+		v.foldFiles = &folded
+		for _, f := range v.files {
+			f.folded = folded
+		}
+	})
 }
 
 // toggleGap opens the gap of row i, or folds again the gap its line is in.

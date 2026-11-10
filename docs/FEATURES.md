@@ -260,6 +260,11 @@ changed lines starts folded. Point at a header, or choose
 it, for buttons that open the file, stage or unstage it, and discard its changes. Files are read as they come near the
 view, so a long list of changes opens at once.
 
+**Git → Collapse All Files in Diff** and **Expand All Files in Diff** fold or unfold every file in the current diff
+tab, including a commit's changes. On macOS, use ⌥⌘[ to collapse and ⌥⌘] to expand. Both commands can be assigned keys
+in **Settings → Keyboard Shortcuts** (`git.collapseAllFiles` and `git.expandAllFiles`); Windows and Linux have no
+default keys for them. Folding keeps the current file's header in view. Expanding still reads files on demand.
+
 Only three unchanged lines show around each change. The rest fold into a row that says how many lines it hides, and a
 click opens it. Each run of changes starts with an `@@` header naming the lines and the block it is in, as Git writes
 it. **Show Full Files** in the breadcrumbs shows every line.

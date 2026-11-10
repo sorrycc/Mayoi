@@ -2396,6 +2396,16 @@ func (msgs Messages) CmdGitBlame() string {
 	return Catalog.Format(msgs.locale, "cmdGitBlame", nil)
 }
 
+// CmdGitCollapseAllFiles says "Collapse All Files in Diff"
+// in the language the app shows.
+func CmdGitCollapseAllFiles() string { return In(i18n.Locale()).CmdGitCollapseAllFiles() }
+
+// CmdGitCollapseAllFiles says "Collapse All Files in Diff"
+// in the language of msgs.
+func (msgs Messages) CmdGitCollapseAllFiles() string {
+	return Catalog.Format(msgs.locale, "cmdGitCollapseAllFiles", nil)
+}
+
 // CmdGitCommit says "Commit"
 // in the language the app shows.
 func CmdGitCommit() string { return In(i18n.Locale()).CmdGitCommit() }
@@ -2474,6 +2484,16 @@ func CmdGitFetch() string { return In(i18n.Locale()).CmdGitFetch() }
 // in the language of msgs.
 func (msgs Messages) CmdGitFetch() string {
 	return Catalog.Format(msgs.locale, "cmdGitFetch", nil)
+}
+
+// CmdGitExpandAllFiles says "Expand All Files in Diff"
+// in the language the app shows.
+func CmdGitExpandAllFiles() string { return In(i18n.Locale()).CmdGitExpandAllFiles() }
+
+// CmdGitExpandAllFiles says "Expand All Files in Diff"
+// in the language of msgs.
+func (msgs Messages) CmdGitExpandAllFiles() string {
+	return Catalog.Format(msgs.locale, "cmdGitExpandAllFiles", nil)
 }
 
 // CmdGitNextChange says "Next Change"

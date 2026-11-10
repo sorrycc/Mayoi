@@ -24,6 +24,9 @@ needs a `## <version>` section here, or its build fails.
 - Files Git ignores show faint right after switching folders, without waiting for the old folder's read.
 - Submodules and nested repositories are still found when **Initialize Repository** runs during a scan for them.
 - **Running Plugins** and the **Plugins** settings page agree on the state of a plugin that is off or can't load.
+- A language server that failed to start tries again when you open a file of its language 30 seconds later.
+- Reloading, restarting or turning on a plugin starts again its language servers that failed to start.
+- A language server that fails to start shows its error once, when it fails, instead of on every completion.
 
 ## 0.19.2
 

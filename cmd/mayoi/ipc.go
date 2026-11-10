@@ -84,7 +84,7 @@ func (m *mayoi) serve(req cli.Request, reply func(cli.Reply)) {
 	fail := func(format string, args ...any) { reply(cli.Reply{Error: fmt.Sprintf(format, args...)}) }
 	if req.DisablePlugins && plugins != nil {
 		plugins.reg.SetSafe(true)
-		go plugins.reg.ReloadAll()
+		go plugins.reloadAll()
 		if len(req.Paths) == 0 && req.Run == nil && !req.List && req.Diff == nil && req.Remote == "" {
 			reply(cli.Reply{Output: "Plugins are off until Mayoi starts again.\n"})
 			return

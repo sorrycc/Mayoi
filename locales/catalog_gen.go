@@ -16650,6 +16650,16 @@ func (msgs Messages) LspNotReady() string {
 	return Catalog.Format(msgs.locale, "lspNotReady", nil)
 }
 
+// LspDown says "The language server isn't running"
+// in the language the app shows.
+func LspDown() string { return In(i18n.Locale()).LspDown() }
+
+// LspDown says "The language server isn't running"
+// in the language of msgs.
+func (msgs Messages) LspDown() string {
+	return Catalog.Format(msgs.locale, "lspDown", nil)
+}
+
 // DefinitionNone says "No definition found"
 // in the language the app shows.
 func DefinitionNone() string { return In(i18n.Locale()).DefinitionNone() }

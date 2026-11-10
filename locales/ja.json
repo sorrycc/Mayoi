@@ -1647,6 +1647,7 @@
   "lspNone": "{language} の言語サーバーを持つプラグインはありません",
   "lspFailed": "言語サーバーが失敗しました: {err}",
   "lspNotReady": "言語サーバーはまだ起動中です",
+  "lspDown": "言語サーバーは動いていません",
   "definitionNone": "定義が見つかりません",
   "completionNone": "ここに補完候補はありません",
   "completionPlaceholder": "補完"

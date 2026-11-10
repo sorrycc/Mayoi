@@ -28,13 +28,14 @@ import (
 
 // lspServer is a language server of a folder.
 type lspServer struct {
-	plugin  *plugin.Plugin
-	contrib plugin.ServerContrib
-	root    string
-	client  *lsp.Client
-	ready   chan struct{} // closed once started, or failed to
-	err     error
-	starts  int
+	plugin   *plugin.Plugin
+	contrib  plugin.ServerContrib
+	root     string
+	client   *lsp.Client
+	ready    chan struct{} // closed once started, or failed to
+	err      error
+	failedAt time.Time // when it could not start
+	starts   int       // since its plugin was last loaded or turned on
 }
 
 // lspState is where a language server is in its life.
@@ -71,8 +72,13 @@ var lspServers = struct {
 	m map[string]*lspServer // by folder and server id
 }{m: map[string]*lspServer{}}
 
-// maxServerStarts is how many times a server that stops is started again.
+// maxServerStarts is how many times a server is started, after it stops
+// or fails to start, until its plugin is reloaded or turned on again.
 const maxServerStarts = 3
+
+// lspRetryPause is how long after a server fails to start a document of
+// its language opening starts it again.
+var lspRetryPause = 30 * time.Second
 
 // serverContrib is the server a plugin declares for a language, nil for
 // none.
@@ -113,7 +119,9 @@ func serverPath(root, uri string) string {
 
 // lspFor is the server of a document's language in the folder, started
 // in the background the first time; nil when no plugin declares one.
-func (a *app) lspFor(d *document) *lspServer {
+// opening is whether the document is opening, which starts again one that
+// failed to start a while ago.
+func (a *app) lspFor(d *document, opening bool) *lspServer {
 	if a.root == "" || d.path == "" {
 		return nil
 	}
@@ -125,10 +133,15 @@ func (a *app) lspFor(d *document) *lspServer {
 	lspServers.Lock()
 	defer lspServers.Unlock()
 	s := lspServers.m[key]
-	// One that stopped is started again, a few times; one that could not
-	// start stays so.
-	if s != nil && (s.state() != lspStopped || s.starts >= maxServerStarts) {
-		return s
+	// One that stopped is started again, a few times, and one that could
+	// not start as well, as a document opens a while after.
+	if s != nil {
+		switch st := s.state(); {
+		case s.starts >= maxServerStarts, st == lspStarting, st == lspRunning:
+			return s
+		case st == lspFailed && (!opening || time.Since(s.failedAt) < lspRetryPause):
+			return s
+		}
 	}
 	starts := 0
 	if s != nil {
@@ -142,7 +155,16 @@ func (a *app) lspFor(d *document) *lspServer {
 
 // start starts the server on the folder's machine.
 func (s *lspServer) start(a *app) {
-	defer close(s.ready)
+	defer func() {
+		// One that could not start is told of once, in the window that
+		// started it.
+		if s.client == nil {
+			s.failedAt = time.Now()
+			msg := locales.LspFailed(firstLine(s.err.Error()))
+			a.post(func() { a.fail("%s", msg) })
+		}
+		close(s.ready)
+	}()
 	pr, pw := io.Pipe()
 	cmd, err := vfs.Command(s.root, nil, pr, s.contrib.Command, s.contrib.Args...)
 	if err != nil {
@@ -198,6 +220,29 @@ func (s *lspServer) start(a *app) {
 	}()
 }
 
+// forgetFailedServers forgets the servers of the plugins of names, or of
+// every plugin for none, that could not start, so that a document of their
+// languages opening starts them afresh.
+func forgetFailedServers(names ...string) {
+	lspServers.Lock()
+	defer lspServers.Unlock()
+	for key, s := range lspServers.m {
+		if s.state() == lspFailed && (len(names) == 0 || slices.Contains(names, s.plugin.Name)) {
+			delete(lspServers.m, key)
+		}
+	}
+}
+
+// startServers starts the servers of the documents open, those that
+// failed forgotten.
+func (h *pluginHost) startServers() {
+	for _, a := range h.apps() {
+		for _, d := range a.docs {
+			a.lspFor(d, true)
+		}
+	}
+}
+
 // fromLSP is a position of LSP's as plugins have it, the same.
 func fromLSP(p lsp.Position) position { return position(p) }
 
@@ -238,7 +283,7 @@ func (a *app) lspDoc(event string, d *document) {
 		}
 		return
 	}
-	s := a.lspFor(d)
+	s := a.lspFor(d, event == "open")
 	c := s.live()
 	if c == nil {
 		return // the server opens it as it starts
@@ -294,7 +339,7 @@ func (a *app) showHover() {
 		return
 	}
 	pos := caretPosition(d)
-	s := a.lspFor(d.document)
+	s := a.lspFor(d.document, false)
 	doc := docJSON(d.document)
 	lang := languageOf(d.document)
 	uri := serverURI(d.path)
@@ -363,7 +408,7 @@ func (a *app) goToDefinition() {
 	if d == nil {
 		return
 	}
-	s := a.lspFor(d.document)
+	s := a.lspFor(d.document, false)
 	if s == nil {
 		a.tell(note{message: locales.LspNone(languageOf(d.document))})
 		return
@@ -396,10 +441,11 @@ func (a *app) goToDefinition() {
 	}()
 }
 
-// lspFailed tells why a language server did not answer.
+// lspFailed tells why a language server did not answer: one that could
+// not start was told of as it failed.
 func (a *app) lspFailed(s *lspServer) {
-	if s != nil && s.err != nil {
-		a.fail("%s", locales.LspFailed(firstLine(s.err.Error())))
+	if s != nil && (s.state() == lspFailed || s.state() == lspStopped) {
+		a.tell(note{message: locales.LspDown()})
 		return
 	}
 	a.tell(note{message: locales.LspNotReady()})
@@ -413,7 +459,7 @@ func (a *app) complete() {
 	if d == nil {
 		return
 	}
-	s := a.lspFor(d.document)
+	s := a.lspFor(d.document, false)
 	if s == nil {
 		a.tell(note{message: locales.LspNone(languageOf(d.document))})
 		return
@@ -525,7 +571,7 @@ func completionIcon(kind int) string {
 // lspFormat formats a document with its language server, when it has one
 // that formats, within limit; it reports false when there is none.
 func (a *app) lspFormat(d *editor, limit time.Duration, then func()) bool {
-	s := a.lspFor(d.document)
+	s := a.lspFor(d.document, false)
 	c := s.live()
 	if c == nil || !c.Formatting() {
 		return false

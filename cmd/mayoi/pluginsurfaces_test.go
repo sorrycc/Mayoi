@@ -19,7 +19,7 @@ func withBundled(hs *harness) *pluginHost {
 	h.reg.Dirs.Bundled = bundled.FS
 	turnOnBundled(hs, h)
 	h.reg.Load()
-	hs.a.indexStale = true
+	hs.a.indexRead.Invalidate()
 	hs.a.openFile(hs.path("README.md"), true)
 	hs.until("word count", func() bool {
 		h.mu.Lock()

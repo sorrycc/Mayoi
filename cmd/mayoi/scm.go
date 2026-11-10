@@ -2042,7 +2042,7 @@ func (a *gitContext) discard(es ...git.Entry) {
 				return nil
 			}, func() {
 				a.app.tree.Refresh()
-				a.app.indexStale = true
+				a.app.indexRead.Invalidate()
 			})
 			untracked = nil
 		}
@@ -2053,7 +2053,7 @@ func (a *gitContext) discard(es ...git.Entry) {
 		}
 		if a.app.tree != nil && len(untracked) > 0 {
 			a.app.tree.Refresh()
-			a.app.indexStale = true
+			a.app.indexRead.Invalidate()
 		}
 		if len(tracked) > 0 {
 			a.gitDo("", func(r *git.Repo) error { return r.Discard(tracked...) }, func() {
@@ -2225,7 +2225,7 @@ func (a *app) initRepo() {
 			}
 			if a.root == root {
 				a.git = gitState{}
-				a.ignoredStale = true
+				a.ignoredRead.Invalidate()
 			}
 		})
 	})

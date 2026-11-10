@@ -29,14 +29,21 @@ type checksPicker struct {
 	query    string
 	sel      int
 	moved    bool
-	// checks are those gh listed, read when, loading set while it runs,
-	// and err why it failed.
-	checks  []git.Check
-	read    time.Time
-	loading bool
-	err     string
-	wake    *time.Timer
+	// checks are those gh listed, and err why it could not; poll asks gh
+	// again while one of them runs.
+	checks []git.Check
+	poll   bg.Poller[checksAsked]
+	err    string
 }
+
+// checksAsked is what gh was asked the checks of: a pull request of a
+// work tree.
+type checksAsked struct {
+	repoRoot string
+	number   int
+}
+
+func (p *checksPicker) asked() checksAsked { return checksAsked{p.repoRoot, p.number} }
 
 // openChecks shows the box of the checks of the branch's pull request.
 func (a *gitContext) openChecks() {
@@ -60,19 +67,19 @@ func (a *gitContext) openChecks() {
 // again a while later when one still runs.
 func (a *gitContext) readChecks() {
 	pick := &a.app.checks
-	if pick.loading {
+	// Asked for, they are read whatever their age.
+	key := pick.asked()
+	if !pick.poll.Start(key, 0) {
 		return
 	}
-	pick.loading = true
 	r, g, number := a.git.repo, a.git, pick.number
 	bg.Go(func() {
 		defer recoverCrash()
 		checks, err := r.PRChecks(number)
 		a.app.post(func() {
-			if pick.repoRoot != r.Root || pick.number != number {
+			if !pick.poll.Done(key) {
 				return
 			}
-			pick.loading, pick.read = false, time.Now()
 			switch {
 			case err == nil:
 				pick.checks, pick.err, g.ghOK = checks, "", true
@@ -82,10 +89,7 @@ func (a *gitContext) readChecks() {
 			default:
 				pick.err = err.Error()
 			}
-			if pick.wake != nil {
-				pick.wake.Stop()
-			}
-			pick.wake = time.AfterFunc(checksEvery, a.app.invalidate)
+			pick.poll.Keep(key, checksEvery, a.app.invalidate)
 		})
 	})
 }
@@ -182,7 +186,7 @@ func (a *gitContext) rerunCheck(ch git.Check) {
 			}
 			a.app.tell(note{message: locales.ChecksRerunning(ch.Title())})
 			if g.repo == r {
-				g.prRead = time.Time{}
+				g.prPoll.Expire()
 			}
 			if pick := &a.app.checks; pick.open && pick.repoRoot == r.Root {
 				a.readChecks()
@@ -217,7 +221,7 @@ func (a *app) prChecksView(c *ui.Context) {
 		pick.open = false
 		return
 	}
-	if !pick.loading && pick.checksRunning() && time.Since(pick.read) >= checksEvery {
+	if pick.checksRunning() && pick.poll.Due(pick.asked(), checksEvery) {
 		g.readChecks()
 	}
 	choices := a.checkChoices()
@@ -269,7 +273,7 @@ func (a *app) prChecksView(c *ui.Context) {
 				})
 				ui.Scroll(c.Key("checks-results")).MaxHeight(380).Padding(6).Children(func() {
 					switch {
-					case pick.loading && len(pick.checks) == 0:
+					case pick.poll.Running() && len(pick.checks) == 0:
 						ui.Text(c, locales.ChecksLoading()).FontSize(13).TextColor(p.muted).Padding(7, 10)
 					case pick.err != "" && len(pick.checks) == 0:
 						ui.Text(c, pick.err).FontSize(13).TextColor(p.muted).Padding(7, 10)

@@ -38,7 +38,7 @@ func submoduleHarness(t *testing.T) (*harness, *gitContext, func(...string) stri
 	// commits run through the application, without gitIn's per-command -c flags.
 	gitIn(t, subroot, "config", "user.name", "t")
 	gitIn(t, subroot, "config", "user.email", "t@t")
-	hs.a.repositories.dirty = true
+	hs.a.repositories.scan.Invalidate()
 	hs.a.showSourceControl()
 	settleRepositories(t, hs, 2)
 	return hs, hs.a.repositoryForRoot(subroot), parent
@@ -50,7 +50,7 @@ func settleRepositories(t *testing.T, hs *harness, count int) {
 	for time.Now().Before(deadline) {
 		hs.settle()
 		contexts := hs.a.repositories.contexts
-		ready := len(contexts) == count && !hs.a.repositories.scanning
+		ready := len(contexts) == count && !hs.a.repositories.scan.Running()
 		for _, ctx := range contexts {
 			g := ctx.git
 			ready = ready && !g.statusRead.Running() && !g.statusRead.Stale() && g.pending == 0 && g.busy == "" && g.status != nil && !g.loadingHistory && g.historyOf == ctx.historyKey()
@@ -205,7 +205,7 @@ func TestNestedSubmoduleDiscoveryAndRemoval(t *testing.T) {
 	gitIn(t, source, "commit", "-q", "-m", "nested first")
 	gitIn(t, root, "-c", "protocol.file.allow=always", "submodule", "add", "-q", source, "nested")
 	gitIn(t, root, "commit", "-q", "-am", "add nested module")
-	a.repositories.dirty = true
+	a.repositories.scan.Invalidate()
 	a.gitChanged()
 	settleRepositories(t, hs, 3)
 	nested := a.repositoryForPath(filepath.Join(root, "nested", "nested.txt"))
@@ -213,14 +213,14 @@ func TestNestedSubmoduleDiscoveryAndRemoval(t *testing.T) {
 		t.Fatal("nested file did not use innermost repo")
 	}
 	sub.git.message = "keep this message"
-	a.repositories.dirty = true
+	a.repositories.scan.Invalidate()
 	settleRepositories(t, hs, 3)
 	if a.repositoryForRoot(root) != sub || sub.git.message != "keep this message" {
 		t.Fatal("discovery replaced module state")
 	}
 	a.selectRepository(root)
 	parent("submodule", "deinit", "-f", "--", "packages/module")
-	a.repositories.dirty = true
+	a.repositories.scan.Invalidate()
 	a.gitChanged()
 	settleRepositories(t, hs, 1)
 	if a.repositories.selected != "" || sub.git.repo != nil {
@@ -399,7 +399,7 @@ func TestCleanSubmodulesOnlyShowHeaders(t *testing.T) {
 func TestRepositoryDiscoveryOnlyOnMetadataChanges(t *testing.T) {
 	hs, sub, parent := submoduleHarness(t)
 	a := hs.a
-	token := a.repositories.token
+	scans := a.repositories.scans
 	for _, ctx := range a.repositories.contexts {
 		ctx.git.checked = ctx.app.gitNow().Add(time.Hour)
 		ctx.git.read = ctx.app.gitNow().Add(-2 * statusEvery)
@@ -407,7 +407,7 @@ func TestRepositoryDiscoveryOnlyOnMetadataChanges(t *testing.T) {
 	// A status interval is not a reason to enumerate any repository's index.
 	a.refreshGit()
 	settleRepositories(t, hs, 2)
-	if a.repositories.token != token {
+	if a.repositories.scans != scans {
 		t.Fatal("status timer rescanned module indexes")
 	}
 	// An unstaged .gitmodules edit and index updates both invalidate discovery.
@@ -417,15 +417,15 @@ func TestRepositoryDiscoveryOnlyOnMetadataChanges(t *testing.T) {
 	a.rootRepository().tookGitMeta(gitMeta(a.git.repo))
 	a.discoverRepositories()
 	settleRepositories(t, hs, 2)
-	if a.repositories.token == token {
+	if a.repositories.scans == scans {
 		t.Fatal(".gitmodules edit did not rescan")
 	}
-	token = a.repositories.token
+	scans = a.repositories.scans
 	parent("add", ".gitmodules")
 	a.rootRepository().tookGitMeta(gitMeta(a.git.repo))
 	a.discoverRepositories()
 	settleRepositories(t, hs, 2)
-	if a.repositories.token == token {
+	if a.repositories.scans == scans {
 		t.Fatal("index update did not rescan")
 	}
 	// Deinit updates Git config even when the gitlink and index are unchanged.

@@ -20,6 +20,10 @@ needs a `## <version>` section here, or its build fails.
 - Chained shortcuts from `runCommands` wait for Git commands in a selected submodule or nested repository.
 - During a merge, rebase or cherry-pick, branch switching, stash, fetch, pull and push stay disabled.
 - The mascot hops for Git commands in the selected repository, not only the folder's own.
+- After switching folders, **Quick Open** lists the new folder's files without waiting for the old folder's listing.
+- Files Git ignores show faint right after switching folders, without waiting for the old folder's read.
+- Submodules and nested repositories are still found when **Initialize Repository** runs during a scan for them.
+- **Running Plugins** and the **Plugins** settings page agree on the state of a plugin that is off or can't load.
 
 ## 0.19.2
 

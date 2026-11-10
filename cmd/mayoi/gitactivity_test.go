@@ -49,7 +49,7 @@ func TestChainWaitsInFolderOfRepositories(t *testing.T) {
 	os.MkdirAll(root, 0o755)
 	gitIn(t, root, "init", "-q", "-b", "main")
 	os.WriteFile(filepath.Join(root, "f.txt"), []byte("one\n"), 0o644)
-	a.repositories.dirty = true
+	a.repositories.scan.Invalidate()
 	a.showSourceControl()
 	settleNested(t, hs, 1)
 	if a.git.repo != nil {

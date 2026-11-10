@@ -97,34 +97,41 @@ type gitState struct {
 	reachOf string
 
 	// pr is the pull request of prBranch of prRepo, as gh last told, nil
-	// for none; prRead is when it was asked last, of the state prOf names.
-	// prRunning is set while gh runs, prOff once gh could not tell, and
-	// prWake draws a frame when it is time to ask again. ghOK is set once
-	// gh answered, which it does only when installed and signed in, and
-	// ghProbed once it was asked so without a branch checked out.
-	pr        *git.PR
-	prRepo    *git.Repo
-	prBranch  string
-	prOf      string
-	prRead    time.Time
-	prRunning bool
-	prOff     bool
-	prWake    *time.Timer
-	ghOK      bool
-	ghProbed  bool
+	// for none; prPoll asks gh again as the branch, its commit or its
+	// upstream changes, or the answer gets old, and prOff is set once gh
+	// could not tell. ghOK is set once gh answered, which it does only
+	// when installed and signed in, and ghProbed once it was asked so
+	// without a branch checked out.
+	pr       *git.PR
+	prRepo   *git.Repo
+	prBranch string
+	prPoll   bg.Poller[prAsked]
+	prOff    bool
+	ghOK     bool
+	ghProbed bool
 
 	// prHeads is the pull requests open of prHeadsRepo by the commit at
-	// their head, as gh last told, which the history marks; prHeadsRead
-	// is when it was asked last, of the refs prHeadsOf counts. As for pr,
-	// prHeadsRunning is set while gh runs, prHeadsOff once gh could not
-	// tell, and prHeadsWake draws a frame when it is time to ask again.
-	prHeads        map[string][]git.PRHead
-	prHeadsRepo    *git.Repo
-	prHeadsOf      int
-	prHeadsRead    time.Time
-	prHeadsRunning bool
-	prHeadsOff     bool
-	prHeadsWake    *time.Timer
+	// their head, as gh last told, which the history marks; prHeadsPoll
+	// asks gh again as the refs change, or the answer gets old, and
+	// prHeadsOff is set once gh could not tell.
+	prHeads     map[string][]git.PRHead
+	prHeadsRepo *git.Repo
+	prHeadsPoll bg.Poller[prHeadsAsked]
+	prHeadsOff  bool
+}
+
+// prAsked is what gh was asked the pull request of: a work tree, and its
+// branch, the commit at its head and its upstream.
+type prAsked struct {
+	repo *git.Repo
+	of   string
+}
+
+// prHeadsAsked is what gh was asked the open pull requests of: a work
+// tree, as of the count of its refs' changes.
+type prHeadsAsked struct {
+	repo *git.Repo
+	refs int
 }
 
 // gitActivity is what Git is doing in a work tree in the background.
@@ -359,7 +366,7 @@ func (a *gitContext) refreshHistory() {
 func (a *gitContext) tookGitMeta(t, refs time.Time) {
 	g := a.git
 	if !t.Equal(g.meta) {
-		a.app.repositories.dirty = true
+		a.app.repositories.scan.Invalidate()
 		if !g.meta.IsZero() {
 			a.gitChanged()
 		}

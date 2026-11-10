@@ -38,7 +38,7 @@ func TestSearchPreviewTab(t *testing.T) {
 	for i := range 3 {
 		os.WriteFile(hs.path(fmt.Sprintf("n%d.txt", i)), []byte("line 0 needle\nline 1 needle\n"), 0o644)
 	}
-	a.indexStale = true
+	a.indexRead.Invalidate()
 	a.openFile(hs.path("README.md"), true)
 	hs.settle()
 	hs.searchFor("needle")

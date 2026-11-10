@@ -20,10 +20,18 @@ type blameState struct {
 	line    int
 	version uint64
 	since   time.Time
-	running bool
-	done    bool
+	phase   blamePhase
 	text    string // "" for a line not committed, or none read yet
 }
+
+// blamePhase is how far the blame of the caret's line is.
+type blamePhase int
+
+const (
+	blameResting blamePhase = iota // the caret has to rest there first
+	blameReading                   // Git is asked, in the background
+	blameRead                      // text says it, or Git could not
+)
 
 // maxBlameAfter is the longest line, in runes, after which the blame
 // shows: past it, the line is measured only so far.
@@ -50,13 +58,13 @@ func (a *app) blameLine(d *editor, line int, version uint64, focused bool) strin
 		bg.AfterFunc(blamePause, a.invalidate)
 		return ""
 	}
-	if b.done || b.running {
+	if b.phase != blameResting {
 		return b.text
 	}
 	if time.Since(b.since) < blamePause {
 		return ""
 	}
-	b.running = true
+	b.phase = blameReading
 	path, text := d.path, d.buf.Snapshot().String()
 	bg.Go(func() {
 		defer recoverCrash()
@@ -65,7 +73,7 @@ func (a *app) blameLine(d *editor, line int, version uint64, focused bool) strin
 			if d.blame.line != line || d.blame.version != version {
 				return
 			}
-			d.blame.running, d.blame.done = false, true
+			d.blame.phase = blameRead
 			if err == nil {
 				d.blame.text = blameText(bl, time.Now())
 			}

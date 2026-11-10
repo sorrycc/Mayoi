@@ -386,24 +386,27 @@ func (w *prefsWindow) dangerButton(c *ui.Context, key, label string) bool {
 
 // pluginState is what a plugin's row says of how it is doing, and the
 // color of the dot before it.
-func (w *prefsWindow) pluginState(pl *plugin.Plugin, st plugin.Stats) (string, ui.Color) {
-	return pluginStateOf(w.pal, pl, st)
+func (w *prefsWindow) pluginState(st plugin.Stats) (string, ui.Color) {
+	return pluginStateOf(w.pal, st)
 }
 
 // pluginStateOf is how a plugin is doing, in words, and the color of its
 // dot.
-func pluginStateOf(p *palette, pl *plugin.Plugin, st plugin.Stats) (string, ui.Color) {
-	switch {
-	case st.Disabled:
+func pluginStateOf(p *palette, st plugin.Stats) (string, ui.Color) {
+	switch st.State {
+	case plugin.StateOff:
 		return locales.PluginsOff(), p.faint
-	case st.Crashed:
+	case plugin.StateCrashed:
 		return locales.PluginsStopped(), p.dangerFg
-	case st.Active:
+	case plugin.StateRunning:
 		return locales.PluginsRunning(st.ActivatedIn.Round(time.Millisecond).String()), p.addedFg
-	case st.Err != "":
-		return locales.PluginsIdle(), p.dangerFg
-	case !pl.HasCode() && !pl.Script:
+	case plugin.StateStatic:
 		return locales.PluginsDeclares(), p.accent
+	}
+	// Starting, or waiting for its first call: in trouble when it has
+	// failed, or cannot be read.
+	if st.Err != "" {
+		return locales.PluginsIdle(), p.dangerFg
 	}
 	return locales.PluginsIdle(), p.faint
 }
@@ -452,7 +455,7 @@ func (w *prefsWindow) pluginRow(c *ui.Context, it *pluginItem, rule bool) {
 				if pl.Description != "" {
 					ui.Text(c, pl.Description).FontSize(12).LineHeight(1.4).TextColor(p.muted)
 				}
-				state, dot := w.pluginState(pl, st)
+				state, dot := w.pluginState(st)
 				ui.Row(c).Gap(6).AlignItems(ui.Center).Padding(1, 0, 0, 0).Children(func() {
 					ui.Box(c.Key("dot")).Size(6, 6).Radius(3).Shrink(0).Background(dot).Transition(hoverFade)
 					ui.Text(c, state).FontSize(11).TextColor(p.muted).SingleLine().Shrink(0)

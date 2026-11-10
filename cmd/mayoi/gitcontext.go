@@ -25,22 +25,30 @@ type gitContext struct {
 type repositoryState struct {
 	contexts []*gitContext
 	selected string // empty follows the active editor
-	scanning bool
-	dirty    bool
-	token    *int
-	picker   repositoryPicker
-	changes  ui.ListState
-	row      int
-	cursor   string // pending row key when a diff chooses a changed file
+	// scan looks for the work trees again when Git metadata, .gitmodules
+	// or the folder's own work tree changed; scans counts the looks.
+	scan    bg.Refresher[repoScan]
+	scans   int
+	picker  repositoryPicker
+	changes ui.ListState
+	row     int
+	cursor  string // pending row key when a diff chooses a changed file
+}
+
+// repoScan is what a look for the work trees is of: the folder as opened,
+// and its own work tree.
+type repoScan struct {
+	folder folderKey
+	root   *git.Repo
 }
 
 func (a *app) rootRepository() *gitContext {
 	if len(a.repositories.contexts) == 0 {
-		a.repositories.dirty = true
+		a.repositories.scan.Invalidate()
 		a.repositories.contexts = []*gitContext{{app: a, git: &a.git, scm: &a.scm, identity: a.git.repo}}
 	}
 	if ctx := a.repositories.contexts[0]; ctx.identity != a.git.repo {
-		a.repositories.dirty = true
+		a.repositories.scan.Invalidate()
 		a.repositories.contexts[0] = &gitContext{app: a, git: &a.git, scm: &a.scm, identity: a.git.repo}
 	}
 	return a.repositories.contexts[0]
@@ -143,22 +151,18 @@ func (a *app) refreshGit() {
 // walking the workspace; initialized modules remain visible even when clean.
 func (a *app) discoverRepositories() {
 	state := &a.repositories
-	if state.scanning || !state.dirty {
+	// A scan of the folder or work tree before does not hold this one up:
+	// it is dropped as it ends.
+	key := repoScan{a.folderKey(), a.git.repo}
+	if !state.scan.Start(key) {
 		return
 	}
-	root, folder := a.git.repo, a.root
-	token := new(int)
-	state.token, state.scanning, state.dirty = token, true, false
+	state.scans++
+	root, folder := key.root, key.folder.root
 	bg.Go(func() {
 		defer recoverCrash()
 		// An incomplete scan must not drop live contexts and their messages.
-		failed := func() {
-			a.post(func() {
-				if state.token == token {
-					state.scanning = false
-				}
-			})
-		}
+		failed := func() { a.post(func() { state.scan.Done(key) }) }
 		// repos[0] is the folder's own work tree, nil when it is none: then
 		// the work trees in the folders under it come after.
 		repos := []*git.Repo{root}
@@ -193,7 +197,7 @@ func (a *app) discoverRepositories() {
 			}
 		}
 		a.post(func() {
-			if a.git.repo != root || a.root != folder || state.token != token {
+			if !state.scan.Done(key) || a.git.repo != root || a.folderKey() != key.folder {
 				return
 			}
 			old := state.contexts
@@ -225,7 +229,6 @@ func (a *app) discoverRepositories() {
 			if state.selected != "" && !seen[state.selected] {
 				state.selected = ""
 			}
-			state.scanning = false
 		})
 	})
 }

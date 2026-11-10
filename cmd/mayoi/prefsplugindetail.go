@@ -408,7 +408,7 @@ func (w *prefsWindow) detailCard(c *ui.Context, it *pluginItem) {
 					if pl.Description != "" {
 						ui.Text(c, pl.Description).FontSize(12.5).LineHeight(1.45).TextColor(p.muted).Selectable()
 					}
-					state, dot := w.pluginState(pl, st)
+					state, dot := w.pluginState(st)
 					ui.Row(c).Gap(6).AlignItems(ui.Center).Padding(2, 0, 0, 0).Wrap().Children(func() {
 						ui.Box(c.Key("dot")).Size(6, 6).Radius(3).Shrink(0).Background(dot).Transition(hoverFade)
 						ui.Text(c, state).FontSize(11.5).TextColor(p.muted).SingleLine().Shrink(0)

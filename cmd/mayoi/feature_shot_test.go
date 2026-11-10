@@ -335,7 +335,7 @@ func TestFeatGutter(t *testing.T) {
 		hs.settleGit()
 		d := a.activeEditor()
 		hs.caretAt(d, "return a.settings.WordWrap", 0, 0)
-		hs.until("blame", func() bool { step(hs.tt); return d.blame.done })
+		hs.until("blame", func() bool { step(hs.tt); return d.blame.phase == blameRead })
 		hs.settle()
 		hs.fshot("07-blame-gutter", dark)
 		s := d.buf.String()

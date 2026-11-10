@@ -18,7 +18,7 @@ func settleNested(t *testing.T, hs *harness, count int) {
 	for time.Now().Before(deadline) {
 		hs.settle()
 		contexts := hs.a.repositories.contexts
-		ready := len(contexts) == count+1 && !hs.a.repositories.scanning
+		ready := len(contexts) == count+1 && !hs.a.repositories.scan.Running()
 		for _, ctx := range contexts[min(1, len(contexts)):] {
 			g := ctx.git
 			ready = ready && !g.statusRead.Running() && !g.statusRead.Stale() && g.pending == 0 && g.busy == "" && g.status != nil
@@ -49,7 +49,7 @@ func TestNestedRepositories(t *testing.T) {
 		gitIn(t, root, "commit", "-q", "-m", "first")
 		roots = append(roots, root)
 	}
-	a.repositories.dirty = true
+	a.repositories.scan.Invalidate()
 	a.showSourceControl()
 	settleNested(t, hs, 2)
 	if a.git.repo != nil {
@@ -83,7 +83,7 @@ func TestNestedRepositories(t *testing.T) {
 	}
 	// Saving a file in a project does not look for work trees again.
 	a.diskChanged([]string{file}, nil)
-	if a.repositories.dirty {
+	if a.repositories.scan.Stale() {
 		t.Fatal("a file saved in a project rescans")
 	}
 	// A project cloned later is found: the watcher reports its folder,
@@ -92,14 +92,14 @@ func TestNestedRepositories(t *testing.T) {
 	os.MkdirAll(c, 0o755)
 	gitIn(t, c, "init", "-q")
 	a.diskChanged([]string{c}, nil)
-	if !a.repositories.dirty {
+	if !a.repositories.scan.Stale() {
 		t.Fatal("a project cloned does not rescan")
 	}
 	settleNested(t, hs, 3)
 	// One removed is dropped.
 	os.RemoveAll(c)
 	a.diskChanged(nil, []string{c})
-	if !a.repositories.dirty {
+	if !a.repositories.scan.Stale() {
 		t.Fatal("a project removed does not rescan")
 	}
 	settleNested(t, hs, 2)

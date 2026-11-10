@@ -39,7 +39,9 @@ type quickOpen struct {
 func (a *app) openQuick(query string) {
 	q := &a.quick
 	q.open, q.query, q.sel, q.stale = true, query, 0, true
-	a.indexStale = a.indexStale || a.index == nil
+	if a.index == nil {
+		a.indexRead.Invalidate()
+	}
 	a.refreshIndex()
 }
 
@@ -253,7 +255,7 @@ func (a *app) quickBody(c *ui.Context, files []string, isLine bool, line, col in
 		switch {
 		case a.root == "":
 			msg = locales.QuickNoFolder()
-		case a.indexing && a.index == nil:
+		case a.indexRead.Running() && a.index == nil:
 			msg = locales.QuickIndexing()
 		}
 		ui.Text(c, msg).FontSize(13).TextColor(p.muted).Padding(12, 16)

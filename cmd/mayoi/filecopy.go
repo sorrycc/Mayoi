@@ -129,7 +129,8 @@ func (a *app) pasted(dir, first string) {
 		a.files.Open.Add(dir)
 	}
 	a.tree.Refresh()
-	a.indexStale, a.indexed = true, time.Time{}
+	a.indexRead.Invalidate()
+	a.indexed = time.Time{}
 	a.selectInTree = first
 }
 

@@ -17,6 +17,7 @@ import (
 	"github.com/egoist/mygo/i18n"
 	"github.com/egoist/mygo/ui"
 
+	"mayoi/internal/bg"
 	"mayoi/internal/highlight"
 	"mayoi/internal/keymap"
 	"mayoi/internal/plugin"
@@ -77,10 +78,12 @@ type pluginHost struct {
 	gen uint64
 
 	// syncing has the plugins follow settings sync, as the app does but
-	// the tests don't; syncBusy and syncAgain run one sync at a time, and
-	// records are plugins.json as the last agreed it.
-	syncing, syncBusy, syncAgain bool
-	records                      plugin.Records
+	// the tests don't; syncRun runs one sync at a time, and again when one
+	// was asked for meanwhile, and records are plugins.json as the last
+	// agreed it.
+	syncing bool
+	syncRun bg.Refresher[struct{}]
+	records plugin.Records
 	// updates are the newer commits found of the plugins from Git.
 	updates map[string]string
 

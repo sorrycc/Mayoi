@@ -176,7 +176,7 @@ func TestBundledPlugins(t *testing.T) {
 	})
 	// A TODO, saved, is found.
 	os.WriteFile(hs.path("main.go"), []byte("package main\n\n// TODO: say more\nfunc main() {}\n"), 0o644)
-	a.indexStale = true
+	a.indexRead.Invalidate()
 	hs.settle()
 	go h.reg.Run("todos.refresh", nil)
 	hs.until("the TODO", func() bool {

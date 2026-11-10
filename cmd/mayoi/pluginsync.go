@@ -45,13 +45,12 @@ func (h *pluginHost) syncPlugins() {
 		return
 	}
 	h.mu.Lock()
-	if h.syncBusy {
-		h.syncAgain = true
-		h.mu.Unlock()
+	h.syncRun.Invalidate()
+	start := h.syncRun.Start(struct{}{})
+	h.mu.Unlock()
+	if !start {
 		return
 	}
-	h.syncBusy = true
-	h.mu.Unlock()
 	var want plugin.Records
 	if p := h.prefsSnap.Load(); p != nil {
 		want = recordsOf(p.PluginSources)
@@ -83,9 +82,8 @@ func (h *pluginHost) syncPlugins() {
 				}
 			}
 			h.mu.Lock()
-			h.syncBusy = false
-			again := h.syncAgain
-			h.syncAgain = false
+			h.syncRun.Done(struct{}{})
+			again := h.syncRun.Stale()
 			h.mu.Unlock()
 			if again {
 				h.syncPlugins()

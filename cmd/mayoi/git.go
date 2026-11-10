@@ -359,7 +359,7 @@ func (a *gitContext) refreshHistory() {
 func (a *gitContext) tookGitMeta(t, refs time.Time) {
 	g := a.git
 	if !t.Equal(g.meta) {
-		a.app.repositories.dirty = true
+		a.app.repositories.scan.Invalidate()
 		if !g.meta.IsZero() {
 			a.gitChanged()
 		}

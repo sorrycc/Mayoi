@@ -228,13 +228,14 @@ type app struct {
 
 	// ignored is what Git ignores in the workspace, which the tree shows
 	// faint.
-	ignored                map[string]bool
-	ignoring, ignoredStale bool
+	ignored     map[string]bool
+	ignoredRead bg.Refresher[folderKey]
 
-	index      []string
-	recent     []string // the files shown last, latest first
-	indexing   bool
-	indexStale bool
+	// index is the workspace's files, for quick open, which indexRead
+	// lists again when they may have changed.
+	index     []string
+	recent    []string // the files shown last, latest first
+	indexRead bg.Refresher[folderKey]
 	// opening is set while a file opens as a preview tab.
 	opening bool
 	// openingText is set while a file opens for its text — a search
@@ -543,8 +544,9 @@ func (a *app) openFolder(dir string) {
 	a.explorer = explorerTree{}
 	a.fileRow = -1
 	a.files.List.Selected = &a.fileRow
-	a.index, a.indexStale = nil, true
-	a.ignored, a.ignoredStale = nil, true
+	a.index, a.ignored = nil, nil
+	a.indexRead.Invalidate()
+	a.ignoredRead.Invalidate()
 	a.resetRepositories()
 	a.git = gitState{}
 	a.resetSearch()
@@ -707,10 +709,11 @@ func (a *app) saveAll() {
 func (a *app) diskChanged(changed, removed []string) {
 	for _, path := range append(slices.Clone(changed), removed...) {
 		if filepath.Base(path) == ".gitmodules" || a.git.repo == nil && a.mayHoldWorkTree(path) {
-			a.repositories.dirty = true
+			a.repositories.scan.Invalidate()
 		}
 	}
-	a.indexStale, a.ignoredStale = true, true
+	a.indexRead.Invalidate()
+	a.ignoredRead.Invalidate()
 	a.diffsOnDisk(append(changed, removed...))
 	a.searchAgain(append(changed, removed...))
 	// An image shows the file's new picture, or that it is gone.
@@ -854,7 +857,7 @@ func (a *app) imageViewers() []*viewer {
 // refreshIndex lists the workspace's files again in the background, for
 // quick open, when they may have changed.
 func (a *app) refreshIndex() {
-	if a.root == "" || a.indexing || !a.indexStale || !a.online() {
+	if a.root == "" || !a.indexRead.Stale() || !a.online() {
 		return
 	}
 	// A remote folder's files are listed on its host, which a busy folder
@@ -862,15 +865,18 @@ func (a *app) refreshIndex() {
 	if a.conn != nil && a.index != nil && time.Since(a.indexed) < remoteIndexEvery {
 		return
 	}
+	// A folder opened meanwhile is listed at once: the listing of the one
+	// before is dropped as it ends.
+	key := a.folderKey()
+	if !a.indexRead.Start(key) {
+		return
+	}
 	a.indexed = time.Now()
-	a.indexing, a.indexStale = true, false
-	root := a.root
 	bg.Go(func() {
 		defer recoverCrash()
-		files := workspace.Index(root)
+		files := workspace.Index(key.root)
 		a.post(func() {
-			a.indexing = false
-			if a.root == root {
+			if a.indexRead.Done(key) && a.folderKey() == key {
 				a.index = files
 				a.quick.stale = true
 			}
@@ -881,25 +887,35 @@ func (a *app) refreshIndex() {
 // refreshIgnored asks Git again in the background what it ignores, when
 // the files may have changed.
 func (a *app) refreshIgnored() {
-	if a.root == "" || a.ignoring || !a.ignoredStale || !a.online() {
+	if a.root == "" || !a.ignoredRead.Stale() || !a.online() {
 		return
 	}
 	if a.conn != nil && a.ignored != nil && time.Since(a.indexed) < remoteIndexEvery {
 		return
 	}
-	a.ignoring, a.ignoredStale = true, false
-	root := a.root
+	key := a.folderKey()
+	if !a.ignoredRead.Start(key) {
+		return
+	}
 	bg.Go(func() {
 		defer recoverCrash()
-		ignored := workspace.Ignored(root)
+		ignored := workspace.Ignored(key.root)
 		a.post(func() {
-			a.ignoring = false
-			if a.root == root {
+			if a.ignoredRead.Done(key) && a.folderKey() == key {
 				a.ignored = ignored
 			}
 		})
 	})
 }
+
+// folderKey names the folder as it was opened: opened again, it is
+// another, so what was read of it before is not taken for the new one's.
+type folderKey struct {
+	root string
+	tree *workspace.Tree
+}
+
+func (a *app) folderKey() folderKey { return folderKey{a.root, a.tree} }
 
 // isIgnored reports whether Git ignores path, or a folder above it.
 func (a *app) isIgnored(path string) bool {

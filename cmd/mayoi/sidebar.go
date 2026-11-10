@@ -115,7 +115,7 @@ func (a *app) sidebar(c *ui.Context) {
 				}
 				if a.iconButton(c, iconRefresh, locales.RefreshExplorer(), false).Clicked() {
 					a.tree.Refresh()
-					a.indexStale = true
+					a.indexRead.Invalidate()
 				}
 				if a.iconButton(c, iconCollapse, locales.CollapseFolders(), false).Clicked() {
 					a.files.Open.Clear()
@@ -731,7 +731,7 @@ func (a *app) askNewEntry(dir string, folder bool) {
 		}
 		a.files.Open.Add(dir)
 		a.tree.Refresh()
-		a.indexStale = true
+		a.indexRead.Invalidate()
 		if !folder {
 			// A file made anew opens as its source, to edit.
 			a.openText(func() { a.openFile(path, true) })
@@ -797,7 +797,8 @@ func (a *app) renamed(path, to string) {
 	if a.tree != nil {
 		a.tree.Refresh()
 	}
-	a.indexStale, a.indexed = true, time.Time{}
+	a.indexRead.Invalidate()
+	a.indexed = time.Time{}
 	a.rememberTabs()
 }
 
@@ -822,7 +823,8 @@ func (a *app) newRemoteEntry(dir, path string, folder bool) {
 			}
 			a.files.Open.Add(dir)
 			a.tree.Refresh()
-			a.indexStale, a.indexed = true, time.Time{}
+			a.indexRead.Invalidate()
+			a.indexed = time.Time{}
 			if !folder {
 				// A file made anew opens as its source, to edit.
 				a.openText(func() { a.openFile(path, true) })
@@ -853,7 +855,8 @@ func (a *app) trash(path string) {
 							return
 						}
 						a.tree.Refresh()
-						a.indexStale, a.indexed = true, time.Time{}
+						a.indexRead.Invalidate()
+						a.indexed = time.Time{}
 					})
 				}()
 			}})
@@ -864,7 +867,7 @@ func (a *app) trash(path string) {
 		return
 	}
 	a.tree.Refresh()
-	a.indexStale = true
+	a.indexRead.Invalidate()
 }
 
 func (a *app) relOrPath(path string) string {

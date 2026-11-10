@@ -175,7 +175,7 @@ func TestSearchFilesAndEdits(t *testing.T) {
 
 	// Binary files are passed by.
 	os.WriteFile(hs.path("blob.bin"), []byte("Mayoi\x00\x01"), 0o644)
-	a.indexStale = true
+	a.indexRead.Invalidate()
 	a.refreshIndex()
 	hs.settle()
 	a.startSearch()
@@ -339,7 +339,7 @@ func TestSearchViewWalkResults(t *testing.T) {
 		}
 		os.WriteFile(hs.path(fmt.Sprintf("n%d.txt", i)), []byte(b.String()), 0o644)
 	}
-	a.indexStale = true
+	a.indexRead.Invalidate()
 	hs.searchFor("needle")
 	s := &a.inFiles
 	rows := a.searchRows()
@@ -399,7 +399,7 @@ func TestSearchQueryShiftEnterGoesBack(t *testing.T) {
 	a, tt := hs.a, hs.tt
 	os.WriteFile(hs.path("n0.txt"), []byte("needle 1\nneedle 2\n"), 0o644)
 	os.WriteFile(hs.path("n1.txt"), []byte("needle 3\n"), 0o644)
-	a.indexStale = true
+	a.indexRead.Invalidate()
 	hs.searchFor("needle")
 	s := &a.inFiles
 	rows := a.searchRows()
@@ -463,7 +463,7 @@ func TestSearchStopsAtMost(t *testing.T) {
 	for i := range 30 {
 		os.WriteFile(hs.path(fmt.Sprintf("n%02d.txt", i)), []byte(strings.Repeat(line, 100)), 0o644)
 	}
-	hs.a.indexStale = true
+	hs.a.indexRead.Invalidate()
 	hs.searchFor("needle")
 	s := &hs.a.inFiles
 	n := 0

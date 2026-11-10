@@ -414,7 +414,7 @@ func (h *pluginHost) Call(p *plugin.Plugin, method string, raw json.RawMessage) 
 					return true, nil
 				}
 				a.refreshIndex()
-				return a.index != nil && !a.indexing, nil
+				return a.index != nil && !a.indexRead.Running(), nil
 			})
 			if err != nil {
 				return nil, err

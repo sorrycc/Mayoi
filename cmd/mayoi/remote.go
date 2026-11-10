@@ -251,8 +251,9 @@ func (a *app) reconnected() {
 	for _, ctx := range a.rootRepositoryList() {
 		ctx.git.meta, ctx.git.refsMeta = time.Time{}, time.Time{}
 	}
-	a.repositories.dirty = true
-	a.indexStale, a.ignoredStale = true, true
+	a.repositories.scan.Invalidate()
+	a.indexRead.Invalidate()
+	a.ignoredRead.Invalidate()
 	a.gitChanged()
 	a.restartTerminals()
 }

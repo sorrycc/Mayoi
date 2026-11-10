@@ -184,7 +184,9 @@ func (a *app) startSearch() {
 		s.err = locales.FindInvalid()
 		return
 	}
-	a.indexStale = a.indexStale || a.index == nil
+	if a.index == nil {
+		a.indexRead.Invalidate()
+	}
 	a.refreshIndex()
 	if a.index == nil {
 		// Once the files are listed.

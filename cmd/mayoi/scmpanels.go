@@ -661,9 +661,9 @@ func (a *gitContext) scmPanelMenu(m *ui.Menu, r scmRow, action *func()) {
 			}
 			if m.Item(locales.PanelDeleteBranch()).Disabled(moving || b.Current).Chosen() {
 				*action = func() {
-					a.app.confirm = &confirm{title: locales.PanelDeleteBranchQuestion(b.Name), ok: locales.ButtonDelete(), danger: true, message: locales.PanelDeleteBranchDetail(), run: func() {
+					a.app.present(&confirm{title: locales.PanelDeleteBranchQuestion(b.Name), ok: locales.ButtonDelete(), danger: true, message: locales.PanelDeleteBranchDetail(), run: func() {
 						a.gitDo(locales.BusyDeletingBranch(), func(repo *git.Repo) error { return repo.DeleteBranch(b.Name, false) }, nil)
-					}}
+					}})
 				}
 			}
 		}
@@ -693,9 +693,9 @@ func (a *gitContext) scmPanelMenu(m *ui.Menu, r scmRow, action *func()) {
 		}
 		if m.Item(locales.PanelPruneRemote()).Disabled(busy).Chosen() {
 			*action = func() {
-				a.app.confirm = &confirm{title: locales.PanelPruneQuestion(remote.Name), ok: locales.PanelPrune(), message: locales.PanelPruneDetail(), run: func() {
+				a.app.present(&confirm{title: locales.PanelPruneQuestion(remote.Name), ok: locales.PanelPrune(), message: locales.PanelPruneDetail(), run: func() {
 					a.gitDo(locales.BusyPruning(), func(repo *git.Repo) error { return repo.PruneRemote(remote.Name) }, nil)
-				}}
+				}})
 			}
 		}
 		m.Separator()
@@ -707,9 +707,9 @@ func (a *gitContext) scmPanelMenu(m *ui.Menu, r scmRow, action *func()) {
 		}
 		if m.Item(locales.PanelRemoveRemote()).Disabled(busy).Chosen() {
 			*action = func() {
-				a.app.confirm = &confirm{title: locales.PanelRemoveRemoteQuestion(remote.Name), ok: locales.PanelRemove(), danger: true, message: locales.PanelRemoveRemoteDetail(), run: func() {
+				a.app.present(&confirm{title: locales.PanelRemoveRemoteQuestion(remote.Name), ok: locales.PanelRemove(), danger: true, message: locales.PanelRemoveRemoteDetail(), run: func() {
 					a.gitDo(locales.BusyRemovingRemote(), func(repo *git.Repo) error { return repo.RemoveRemote(remote.Name) }, nil)
-				}}
+				}})
 			}
 		}
 		if q.kind == "url" {
@@ -851,14 +851,14 @@ func (a *gitContext) askPrunePanelRemote(name string, fetch bool) {
 	if fetch {
 		title, ok = locales.PanelFetchPruneQuestion(name), locales.PanelFetchAndPruneButton()
 	}
-	a.app.confirm = &confirm{title: title, ok: ok, message: locales.PanelPruneDetail(), run: func() {
+	a.app.present(&confirm{title: title, ok: ok, message: locales.PanelPruneDetail(), run: func() {
 		a.gitDo(locales.BusyPruning(), func(repo *git.Repo) error {
 			if fetch {
 				return repo.FetchRemote(name, true)
 			}
 			return repo.PruneRemote(name)
 		}, nil)
-	}}
+	}})
 }
 
 func (a *gitContext) checkoutPanelBranch(b git.Branch) {

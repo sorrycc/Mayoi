@@ -292,10 +292,10 @@ func (a *app) confirmSignOut() {
 	if a.host.account() == "" {
 		return
 	}
-	a.confirm = &confirm{
+	a.present(&confirm{
 		title: locales.SyncSignOutTitle(a.host.account()), message: locales.SyncSignOutMessage(),
 		ok: locales.SyncSignOut(), run: func() { a.host.signOut() },
-	}
+	})
 }
 
 // compareKeybindings shows this machine's keybindings.json and the one

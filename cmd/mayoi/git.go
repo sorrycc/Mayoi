@@ -643,7 +643,7 @@ func (a *gitContext) checkOutCommit(cm git.Commit) {
 		a.switchBranch(b, false)
 		return
 	}
-	a.app.confirm = &confirm{title: locales.CheckOutQuestion(cm.Short()), ok: locales.CheckOutButton(),
+	a.app.present(&confirm{title: locales.CheckOutQuestion(cm.Short()), ok: locales.CheckOutButton(),
 		message: locales.CheckOutDetached(),
 		run: func() {
 			if !a.docsSaved(locales.BeforeCheckout()) {
@@ -651,7 +651,7 @@ func (a *gitContext) checkOutCommit(cm git.Commit) {
 			}
 			hash := cm.Hash
 			a.gitDo(locales.BusyCheckingOut(cm.Short()), func(r *git.Repo) error { return r.Checkout(hash) }, nil)
-		}}
+		}})
 }
 
 // localBranch is the one local branch at a commit, "" when it has none
@@ -751,24 +751,24 @@ func (a *gitContext) runOp(op git.Op, busy, done string, fn func(r *git.Repo) er
 // out, once asked.
 func (a *gitContext) mergeCommit(cm git.Commit) {
 	rev, into := revOf(cm), a.branch()
-	a.app.confirm = &confirm{title: locales.MergeQuestion(cmp.Or(localBranch(cm), cm.Short()), into), ok: locales.MergeButton(),
+	a.app.present(&confirm{title: locales.MergeQuestion(cmp.Or(localBranch(cm), cm.Short()), into), ok: locales.MergeButton(),
 		message: ellipsize(cm.Subject, 80),
 		run: func() {
 			a.runOp(git.OpMerge, locales.BusyMerging(), locales.MergedInto(cmp.Or(localBranch(cm), cm.Short()), into),
 				func(r *git.Repo) error { return r.Merge(rev) })
-		}}
+		}})
 }
 
 // rebaseOnto moves the commits of the branch checked out that a commit
 // of the history lacks on top of it, once asked.
 func (a *gitContext) rebaseOnto(cm git.Commit) {
 	rev, branch, onto := revOf(cm), a.branch(), cmp.Or(localBranch(cm), cm.Short())
-	a.app.confirm = &confirm{title: locales.RebaseQuestion(branch, onto), ok: locales.RebaseButton(),
+	a.app.present(&confirm{title: locales.RebaseQuestion(branch, onto), ok: locales.RebaseButton(),
 		message: locales.RebaseDetail(branch, onto),
 		run: func() {
 			a.runOp(git.OpRebase, locales.BusyRebasing(), locales.RebasedOnto(branch, onto),
 				func(r *git.Repo) error { return r.Rebase(rev) })
-		}}
+		}})
 }
 
 // cherryPick makes a commit of a commit's changes on the branch checked
@@ -787,10 +787,10 @@ func (a *gitContext) revertCommit(cm git.Commit) {
 	if merge {
 		msg += " " + locales.RevertMergeDetail()
 	}
-	a.app.confirm = &confirm{title: locales.RevertQuestion(cm.Short()), ok: locales.RevertButton(), message: msg, run: func() {
+	a.app.present(&confirm{title: locales.RevertQuestion(cm.Short()), ok: locales.RevertButton(), message: msg, run: func() {
 		a.runOp(git.OpRevert, locales.BusyReverting(), locales.Reverted(ellipsize(cm.Subject, 48)),
 			func(r *git.Repo) error { return r.Revert(hash, merge) })
-	}}
+	}})
 }
 
 // resetModes are the ways a reset may go, in the order resetChoices offers
@@ -823,7 +823,7 @@ func (a *gitContext) resetTo(cm git.Commit) {
 			a.app.tell(note{message: locales.ResetDone(branch, git.ShortHash(hash), strings.ToLower(choices[cf.choice].label))})
 		})
 	}
-	a.app.confirm = cf
+	a.app.present(cf)
 }
 
 // continueOp goes on with the command stopped for conflicts, once they
@@ -878,7 +878,7 @@ func (a *gitContext) abortOp() {
 // abortOpOf undoes op, stopped for conflicts, once asked.
 func (a *gitContext) abortOpOf(op git.Op) {
 	g := a.git
-	a.app.confirm = &confirm{title: locales.AbortQuestion(opNoun(op)), ok: locales.ButtonAbort(), danger: true,
+	a.app.present(&confirm{title: locales.AbortQuestion(opNoun(op)), ok: locales.ButtonAbort(), danger: true,
 		message: locales.AbortDetail(),
 		run: func() {
 			a.gitDo(locales.BusyAborting(), func(r *git.Repo) error { return r.Abort(op) }, func() {
@@ -887,7 +887,7 @@ func (a *gitContext) abortOpOf(op git.Op) {
 					g.message = ""
 				}
 			})
-		}}
+		}})
 }
 
 // askRefAt asks for the name of a branch, or a tag, to make at a commit

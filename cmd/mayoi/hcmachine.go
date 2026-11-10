@@ -80,14 +80,14 @@ func hcAddMachine(host string) error {
 // hcOffer asks, once for a host as Mayoi runs, whether to add a host hc
 // doesn't know as one of its machines: its terminals use ssh until then.
 func (a *app) hcOffer(host string) {
-	if hcAsked[host] || a.confirm != nil {
+	if hcAsked[host] {
 		return
 	}
 	hcAsked[host] = true
-	a.confirm = &confirm{
+	a.ask(&confirm{
 		title: locales.HcAddTitle(host), message: locales.HcAddDetail(host), ok: locales.HcAdd(),
 		run: func() { a.hcAdd(host) },
-	}
+	})
 }
 
 // hcAdding is the host being added to hc, which the status bar shows,

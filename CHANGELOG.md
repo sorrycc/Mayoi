@@ -11,6 +11,8 @@ needs a `## <version>` section here, or its build fails.
 - `mayoi settings --folder` in a project's subfolder changes the project's `.mayoi/settings.json`.
 - Choosing **Overwrite** for a remote file that changed on its host no longer asks again while an autosave runs.
 - After a remote connection is lost, the banner shows its first try to reconnect as attempt 1.
+- A question that comes up in the background now waits instead of replacing the dialog you're answering.
+- Questions that come up in the background, as a remote file's conflict, wait for an open picker to close.
 
 ## 0.19.2
 

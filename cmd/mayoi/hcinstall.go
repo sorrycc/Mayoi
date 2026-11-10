@@ -76,12 +76,12 @@ func (a *app) installHC() {
 // asks only without terminalBackendHcPath, as a path set is the person's
 // choice, not a missing install.
 func (a *app) offerHC() {
-	if a.settings.TerminalBackend != "hc" || hcOffered || hcInstalling || a.confirm != nil || !hcInstallable() || hcConfiguredPath() != "" || hcPath() != "" {
+	if a.settings.TerminalBackend != "hc" || hcOffered || hcInstalling || !hcInstallable() || hcConfiguredPath() != "" || hcPath() != "" {
 		return
 	}
 	hcOffered = true
-	a.confirm = &confirm{
+	a.ask(&confirm{
 		title: locales.HcInstallTitle(), message: locales.HcInstallDetail(), ok: locales.HcInstall(),
 		run: a.installHC,
-	}
+	})
 }

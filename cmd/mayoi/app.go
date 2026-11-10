@@ -354,6 +354,7 @@ type app struct {
 	inFiles    searchState // search in the files, of the sidebar
 	prompt     *prompt
 	confirm    *confirm
+	asks       []*confirm // the questions asked in the background, waiting their turn
 	signin     *signin
 	diagram    *diagramOverlay // a preview's diagram shown over the window
 	// syncOpen shows the account's panel above its part of the status

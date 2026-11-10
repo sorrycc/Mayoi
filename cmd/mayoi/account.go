@@ -335,12 +335,12 @@ func (c *cloud) done(res cloudsync.Result, err error, manual bool) {
 		}
 		c.asked = true
 		m.inFront(func(a *app) {
-			a.confirm = &confirm{
+			a.ask(&confirm{
 				title: locales.SyncChooseTitle(), message: locales.SyncChooseMessage(),
 				ok: locales.SyncUseAccount(), run: func() { c.sync(cloudsync.UseAccount, true) },
 				alternate: locales.SyncUseLocal(), runAlternate: func() { c.sync(cloudsync.UseLocal, true) },
 				okShort: locales.SyncUseAccountShort(), alternateShort: locales.SyncUseLocalShort(),
-			}
+			})
 		})
 	case errors.Is(err, mon.ErrUnauthorized):
 		// Signed out elsewhere, as from the account page.

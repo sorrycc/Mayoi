@@ -108,10 +108,10 @@ func (a *gitContext) dropStash(s git.Stash) {
 		return
 	}
 	defer a.bindPanelDialogs(a.git.repo)
-	a.app.confirm = &confirm{title: a.repositoryQuestion(locales.StashDropQuestion(s.Message)), message: locales.StashDropDetail(),
+	a.app.present(&confirm{title: a.repositoryQuestion(locales.StashDropQuestion(s.Message)), message: locales.StashDropDetail(),
 		ok: locales.StashDrop(), danger: true, run: func() {
 			a.gitDo(locales.BusyDroppingStash(), func(r *git.Repo) error { return r.StashDrop(s.Hash) }, nil)
-		}}
+		}})
 }
 
 // stashMenu lists the newest stashes, each with what can be done with it,

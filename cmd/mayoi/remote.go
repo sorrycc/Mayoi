@@ -721,7 +721,7 @@ func (a *app) saveConflict(d *document, done func(), failed func(error)) {
 	}
 	d.conflict = true
 	host := remote.HostOf(d.path)
-	a.confirm = &confirm{
+	a.ask(&confirm{
 		title:   locales.RemoteChangedOn(d.name(), host),
 		message: locales.RemoteChangedDetail(host),
 		ok:      locales.RemoteOverwrite(), danger: true, okShort: locales.RemoteOverwrite(),
@@ -734,7 +734,7 @@ func (a *app) saveConflict(d *document, done func(), failed func(error)) {
 			d.conflict = false
 			a.revertRemote(d)
 		},
-	}
+	})
 }
 
 // revertRemote makes a remote document's text the file's, changes and

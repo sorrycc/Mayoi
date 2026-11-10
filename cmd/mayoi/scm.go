@@ -2026,7 +2026,7 @@ func (a *gitContext) discard(es ...git.Entry) {
 			msg = locales.UntrackedDeleted()
 		}
 	}
-	a.app.confirm = &confirm{title: a.repositoryQuestion(title), message: msg, ok: locales.ButtonDiscard(), danger: true, run: func() {
+	a.app.present(&confirm{title: a.repositoryQuestion(title), message: msg, ok: locales.ButtonDiscard(), danger: true, run: func() {
 		if !a.live() {
 			return
 		}
@@ -2068,7 +2068,7 @@ func (a *gitContext) discard(es ...git.Entry) {
 		} else {
 			a.gitChanged()
 		}
-	}}
+	}})
 }
 
 // startAmend has the next commit amend the last, its message the last
@@ -2103,8 +2103,8 @@ func (a *gitContext) undoCommit() {
 		a.undoCommitOf("")
 		return
 	}
-	a.app.confirm = &confirm{title: a.repositoryQuestion(locales.CmdGitUndoCommit()), ok: locales.ButtonUndo(),
-		run: func() { a.undoCommitOf("") }}
+	a.app.present(&confirm{title: a.repositoryQuestion(locales.CmdGitUndoCommit()), ok: locales.ButtonUndo(),
+		run: func() { a.undoCommitOf("") }})
 }
 
 // undoCommitOf takes back the last commit when it is hash, or whatever it
@@ -2195,8 +2195,8 @@ func (a *gitContext) commit(push bool) {
 		len(groups[groupChanges])+len(groups[groupUntracked]) == 0:
 		run(false) // ends the merge, though its changes are all HEAD's
 	case len(groups[groupChanges])+len(groups[groupUntracked]) > 0:
-		a.app.confirm = &confirm{title: locales.StageAllQuestion(), ok: locales.StageAllCommit(),
-			message: locales.NoStagedChanges(), run: func() { run(true) }}
+		a.app.present(&confirm{title: locales.StageAllQuestion(), ok: locales.StageAllCommit(),
+			message: locales.NoStagedChanges(), run: func() { run(true) }})
 	default:
 		a.app.fail("%s", locales.NoChangesToCommit())
 	}

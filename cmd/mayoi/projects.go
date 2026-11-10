@@ -1186,10 +1186,10 @@ func (f *frame) railAdd(c *ui.Context, a *app, folders bool) {
 // confirmCloseOthers asks in a, the app shown, before closing the
 // projects of the window but h.
 func (f *frame) confirmCloseOthers(a *app, h *desktop) {
-	a.confirm = &confirm{
+	a.present(&confirm{
 		title: locales.CloseOtherProjectsQuestion(len(f.tabs) - 1), message: locales.CloseOtherProjectsDetail(),
 		ok: locales.TabClose(), danger: true, run: func() { f.closeOthers(h) },
-	}
+	})
 }
 
 // closeOthers closes the projects of the window but h, one after the

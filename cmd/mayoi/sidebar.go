@@ -842,7 +842,7 @@ func (a *app) trashLabel() string {
 
 func (a *app) trash(path string) {
 	if remote.Is(path) {
-		a.confirm = &confirm{title: locales.DeleteQuestion(filepath.Base(path)),
+		a.present(&confirm{title: locales.DeleteQuestion(filepath.Base(path)),
 			message: locales.DeleteRemoteDetail(remote.HostOf(path)),
 			ok:      locales.ButtonDelete(), danger: true, run: func() {
 				go func() {
@@ -856,7 +856,7 @@ func (a *app) trash(path string) {
 						a.indexStale, a.indexed = true, time.Time{}
 					})
 				}()
-			}}
+			}})
 		return
 	}
 	if err := a.host.trash(path); err != nil {

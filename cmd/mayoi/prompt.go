@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"mayoi/locales"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/egoist/mygo/ui"
@@ -117,7 +118,50 @@ type confirmChoice struct {
 	danger         bool
 }
 
+// present shows a question the person asked for, as with a command: one
+// shown already waits its turn again, first.
+func (a *app) present(cf *confirm) {
+	if a.confirm != nil {
+		a.asks = slices.Insert(a.asks, 0, a.confirm)
+	}
+	a.confirm = cf
+	a.invalidate()
+}
+
+// ask asks a question in the background, as a save's conflict: it waits
+// for the box shown, if any, to close.
+func (a *app) ask(cf *confirm) {
+	a.asks = append(a.asks, cf)
+	a.nextAsk()
+}
+
+// dismiss closes the question shown without going on.
+func (a *app) dismiss() {
+	a.confirm = nil
+	a.nextAsk()
+}
+
+// nextAsk shows the question waiting first once no box is shown.
+func (a *app) nextAsk() {
+	if len(a.asks) == 0 || a.overlaid() {
+		return
+	}
+	a.confirm, a.asks = a.asks[0], a.asks[1:]
+	a.invalidate()
+}
+
+// overlaid tells whether a box is shown over the window: a question, a
+// prompt or a picker.
+func (a *app) overlaid() bool {
+	return a.confirm != nil || a.prompt != nil || a.signin != nil || a.diagram != nil ||
+		a.quick.open || a.branches.open || a.stashes.open || a.prs.open || a.checks.open ||
+		a.worktrees.open || a.repositories.picker.open || a.recents.open || a.pluginPick.open ||
+		a.themes.open || a.remotePick.open || a.conflicts.open
+}
+
 func (a *app) confirmView(c *ui.Context) {
+	// A box closed since, as a picker, makes way for the question waiting.
+	a.nextAsk()
 	cf := a.confirm
 	if cf == nil {
 		return
@@ -164,7 +208,7 @@ func (a *app) confirmView(c *ui.Context) {
 						cancel.FontSize(12).Padding(6, 8)
 					}
 					if cancel.Clicked() {
-						a.confirm = nil
+						a.dismiss()
 					}
 					if alternate != "" {
 						button := ui.Button(c, alternate)
@@ -197,7 +241,7 @@ func (a *app) confirmView(c *ui.Context) {
 				})
 			})
 			if box.PressedOutside() || back.OverlayShortcut(0, ui.KeyEscape) {
-				a.confirm = nil
+				a.dismiss()
 			}
 		})
 	})

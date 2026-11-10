@@ -923,8 +923,8 @@ func (a *app) markMergeResolved(v *mergeView, done func()) {
 	// A conflict left as the base has neither side's lines: staging it
 	// drops both sides' changes there, so it is asked first.
 	if n := v.unresolved(); n > 0 {
-		a.confirm = &confirm{title: locales.MergeUnresolvedTitle(v.name()), ok: locales.MergeMarkResolved(),
-			message: locales.MergeUnresolvedDetail(n), run: func() { a.stageMergeResult(v, done) }}
+		a.present(&confirm{title: locales.MergeUnresolvedTitle(v.name()), ok: locales.MergeMarkResolved(),
+			message: locales.MergeUnresolvedDetail(n), run: func() { a.stageMergeResult(v, done) }})
 		a.invalidate()
 		return
 	}
@@ -962,7 +962,7 @@ func (a *app) restoreMerge(v *mergeView) {
 // command stopped for them has them. A merge view of the file starts its
 // result over at the base.
 func (a *app) revertMergeConflict(path string) {
-	a.confirm = &confirm{title: locales.MergeRestoreTitle(filepath.Base(path)), ok: locales.MergeRestoreOk(), danger: true,
+	a.present(&confirm{title: locales.MergeRestoreTitle(filepath.Base(path)), ok: locales.MergeRestoreOk(), danger: true,
 		message: locales.MergeRestoreDetail(),
 		run: func() {
 			a.gitDo("", func(r *git.Repo) error { return r.RestoreConflict(path) }, func() {
@@ -973,7 +973,7 @@ func (a *app) revertMergeConflict(path string) {
 					}
 				}
 			})
-		}}
+		}})
 }
 
 // stepMergeRegion goes to the next region of a merge, or the previous

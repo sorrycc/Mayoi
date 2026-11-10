@@ -809,11 +809,11 @@ func (a *app) replaceAllInFiles() {
 	if closed > 0 {
 		msg = locales.SearchClosedWritten(closed)
 	}
-	a.confirm = &confirm{
+	a.present(&confirm{
 		title:   locales.SearchReplaceQuestion(s.count, len(files), with),
 		message: msg, ok: locales.FindReplaceAll(), danger: closed > 0,
 		run: func() { a.replaceMatches(files, nil) },
-	}
+	})
 }
 
 // searchView is the search view of the sidebar: the query and its

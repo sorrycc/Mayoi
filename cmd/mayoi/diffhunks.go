@@ -304,7 +304,7 @@ func (a *app) appendHunks(v *diffView, f *diffFile, hs []linediff.Hunk) {
 		return
 	}
 	name := filepath.Base(f.path)
-	a.confirm = &confirm{title: locales.DiffAppendTitle(name), message: locales.DiffAppendDetail(), ok: locales.HunkAppend(), run: func() {
+	a.present(&confirm{title: locales.DiffAppendTitle(name), message: locales.DiffAppendDetail(), ok: locales.HunkAppend(), run: func() {
 		a.openText(func() { a.openFile(f.path, false) })
 		d, _ := a.editorOf(a.diffDoc(f))
 		if d == nil || d.loading || d.loadErr != nil || d.offline {
@@ -317,7 +317,7 @@ func (a *app) appendHunks(v *diffView, f *diffFile, hs []linediff.Hunk) {
 			return
 		}
 		a.appendInto(v, d, f, hs)
-	}}
+	}})
 }
 
 func (a *app) appendInto(v *diffView, d *editor, f *diffFile, hs []linediff.Hunk) {
@@ -358,7 +358,7 @@ func (a *app) restoreDeletedFile(e git.Entry) {
 	if e.Path == "" || e.Untracked() || e.Submodule() {
 		return
 	}
-	a.confirm = &confirm{
+	a.present(&confirm{
 		title:   locales.DiffRestoreTitle(filepath.Base(e.Path)),
 		message: locales.DiffRestoreDetail(),
 		ok:      locales.DiffRestoreFile(),
@@ -371,7 +371,7 @@ func (a *app) restoreDeletedFile(e git.Entry) {
 				}
 			})
 		},
-	}
+	})
 }
 
 // hunkArrowW is the side of the round button of the arrow of a change of
@@ -623,10 +623,10 @@ func (a *app) revertInto(v *diffView, f *diffFile, hs []linediff.Hunk, ok string
 	if len(hs) > 1 {
 		title = locales.DiffRevertChangesTo(ok, name)
 	}
-	a.confirm = &confirm{title: title, message: locales.DiffRevertDetail(),
+	a.present(&confirm{title: title, message: locales.DiffRevertDetail(),
 		ok: ok, danger: true, run: func() {
 			a.intoByOpening(v, f, hs)
-		}}
+		}})
 }
 
 // intoByOpening opens a file that no editor has, checks that its text

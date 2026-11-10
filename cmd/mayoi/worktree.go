@@ -37,7 +37,7 @@ func (a *gitContext) askOpenWorktree(branch, path string) {
 			}
 		})
 	}
-	a.app.confirm = &confirm{
+	a.app.present(&confirm{
 		title:          locales.WorktreeOpenTitle(),
 		message:        locales.WorktreeOpenDetail(branch, shortenHome(path)),
 		ok:             locales.WorktreeOpenCurrent(),
@@ -46,14 +46,14 @@ func (a *gitContext) askOpenWorktree(branch, path string) {
 		alternate:      locales.WorktreeOpenNew(),
 		alternateShort: locales.WorktreeNewWindow(),
 		runAlternate:   func() { open(true) },
-	}
+	})
 }
 
 // askPruneWorktree offers to forget a worktree whose folder was deleted
 // without git knowing, which still holds the branch, and to switch to it.
 func (a *gitContext) askPruneWorktree(branch, path string) {
 	r := a.git.repo
-	a.app.confirm = &confirm{
+	a.app.present(&confirm{
 		title:   locales.WorktreeMissingTitle(),
 		message: locales.WorktreeMissingDetail(branch, shortenHome(path)),
 		ok:      locales.WorktreePruneSwitch(),
@@ -73,5 +73,5 @@ func (a *gitContext) askPruneWorktree(branch, path string) {
 				return err
 			}, nil)
 		},
-	}
+	})
 }

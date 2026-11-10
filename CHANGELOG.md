@@ -6,6 +6,7 @@ needs a `## <version>` section here, or its build fails.
 ## Unreleased
 
 - Clicking a repository's name or row background in source control expands or collapses its changes.
+- **Settings > Shortcuts** lists **Report a Problem** under Help instead of Account.
 
 ## 0.19.3
 

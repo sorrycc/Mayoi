@@ -68,26 +68,20 @@ type document struct {
 	widestVersion uint64
 	diskGone      bool // the file was removed from the disk
 	autoSave      autoSave
-	// formatted is set while saving waits for a plugin's formatter.
-	formatted bool
 
-	// A remote file is read in the background: loading is set until it
-	// is, and loadErr says why it could not be, which reading it again may
-	// mend. offline is set while its host is not connected. Until then the
-	// document is read-only. stamp is what stat said of the file as it was
-	// last read or written, and restored is set for a tab of the last
-	// session.
-	loading, offline, restored bool
-	loadErr                    error
-	stamp                      *fileStamp
-	// conflict is set while a save of a remote file that changed on its
-	// host waits to be told what to do.
-	conflict bool
-	// saving is set while a remote file is written; resave saves it again
-	// then, calling resaveDone or resaveFailed.
-	saving, resave bool
-	resaveDone     func()
-	resaveFailed   func(error)
+	// sync is where the document is in reading and writing its file, and
+	// loadErr why a remote one could not be read. Until it is read the
+	// document is read-only, as while offline, while its host is not
+	// connected. stamp is what stat said of the file as it was last read
+	// or written, and restored is set for a tab of the last session.
+	sync              syncState
+	loadErr           error
+	stamp             *fileStamp
+	offline, restored bool
+	// waiters are the saves the write under way answers, or the question
+	// of a conflict; queued those asked for since, which the next write
+	// answers.
+	waiters, queued []saveWaiter
 
 	// views are the editors that show the document, and typist the one
 	// that has the keyboard, or had it last, whose typing its is.
@@ -271,9 +265,13 @@ func (d *document) name() string {
 
 func (d *document) dirty() bool { return d.buf.Version() != d.saved || d.crlf != d.diskCRLF }
 
+// unread reports whether the text of a remote document is not read yet,
+// or could not be.
+func (d *document) unread() bool { return d.sync == syncLoading || d.sync == syncLoadFailed }
+
 // locked reports whether the document cannot be edited: its remote file
 // is not read, or its host not connected.
-func (d *document) locked() bool { return d.loading || d.loadErr != nil || d.offline }
+func (d *document) locked() bool { return d.unread() || d.offline }
 
 // readDocument reads a file into a document.
 func readDocument(id int, path string, notify func()) (*document, error) {

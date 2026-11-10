@@ -16,7 +16,7 @@ func TestConfirmQueuesBehindOpenOne(t *testing.T) {
 	ran := false
 	a.present(&confirm{title: "First?", ok: "Go On Now", run: func() { ran = true }})
 	hs.settle()
-	a.saveConflict(a.activeEditor().document, nil, func(error) {})
+	a.saveConflict(a.activeEditor().document)
 	hs.settle()
 	if a.confirm == nil || a.confirm.title != "First?" {
 		t.Fatalf("the question shown is %+v", a.confirm)
@@ -48,7 +48,7 @@ func TestBackgroundConfirmWaitsForPicker(t *testing.T) {
 	hs.settle()
 	a.openQuick("")
 	hs.settle()
-	a.saveConflict(a.activeEditor().document, nil, func(error) {})
+	a.saveConflict(a.activeEditor().document)
 	hs.settle()
 	if a.confirm != nil {
 		t.Fatalf("asked over quick open: %+v", a.confirm)

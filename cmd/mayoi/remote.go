@@ -234,9 +234,9 @@ func (a *app) reconnected() {
 			continue
 		}
 		switch {
-		case d.loadErr != nil:
+		case d.sync == syncLoadFailed:
 			a.loadRemote(d)
-		case !d.loading && !d.dirty():
+		case d.sync != syncLoading && !d.dirty():
 			a.reloadDoc(d)
 		}
 	}
@@ -293,10 +293,10 @@ func (a *app) markOffline() {
 // document is empty and read-only until it is read, or says why it could
 // not be.
 func (a *app) loadRemote(d *document) {
-	d.loading, d.loadErr = true, nil
+	d.sync, d.loadErr = syncLoading, nil
 	path := d.path
 	if !remote.IsConnected(path) {
-		d.loading, d.loadErr = false, remote.ErrOffline
+		d.sync, d.loadErr = syncLoadFailed, remote.ErrOffline
 		return
 	}
 	go func() {
@@ -313,13 +313,13 @@ func (a *app) remoteLoaded(d *document, path string, info fs.FileInfo, data []by
 	if !slices.Contains(a.docs, d) || d.path != path {
 		return
 	}
-	d.loading = false
 	if err == nil && isBinary(data) {
 		err = errBinary
 	} else if err == nil && hasLongLine(data) {
 		err = errLongLine
 	}
 	if err != nil {
+		d.sync, d.loadErr = syncLoadFailed, err
 		if errors.Is(err, remote.ErrOffline) || !remote.IsConnected(path) {
 			d.loadErr = remote.ErrOffline
 			return
@@ -327,7 +327,6 @@ func (a *app) remoteLoaded(d *document, path string, info fs.FileInfo, data []by
 		var re *remote.Error
 		if errors.As(err, &re) && !errors.Is(err, fs.ErrNotExist) {
 			// The host said something else went wrong: it may be tried again.
-			d.loadErr = err
 			return
 		}
 		switch {
@@ -341,7 +340,7 @@ func (a *app) remoteLoaded(d *document, path string, info fs.FileInfo, data []by
 		a.dropDocTabs(d)
 		return
 	}
-	d.loadErr = nil
+	d.sync, d.loadErr = syncIdle, nil
 	crlf := bytes.Contains(data, []byte("\r\n"))
 	if crlf {
 		data = bytes.ReplaceAll(data, []byte("\r\n"), []byte("\n"))
@@ -378,11 +377,15 @@ func (a *app) dropDocTabs(d *document) {
 // does, unless the file is as the document last read or wrote it: that
 // costs a stat, not the file.
 func (a *app) reloadRemote(d *document) {
-	if d.loading || d.saving || !remote.IsConnected(d.path) {
+	if !remote.IsConnected(d.path) {
 		return
 	}
-	if d.loadErr != nil {
+	switch d.sync {
+	case syncLoadFailed:
 		a.loadRemote(d)
+		return
+	case syncIdle, syncConflict:
+	default:
 		return
 	}
 	path, old := d.path, d.stamp
@@ -400,11 +403,16 @@ func (a *app) reloadRemote(d *document) {
 		}
 		a.post(func() {
 			// A read or a save since, as an overwrite, has the newer text.
-			if !slices.Contains(a.docs, d) || d.path != path || d.loading || d.saving || d.dirty() || d.stamp != old {
+			if !slices.Contains(a.docs, d) || d.path != path || d.sync != syncIdle && d.sync != syncConflict || d.dirty() || d.stamp != old {
 				return
 			}
 			d.takeText(data)
 			d.stamp = stampOf(info)
+			// The file's text, unchanged here, settles a conflict.
+			if d.sync == syncConflict {
+				d.sync = syncIdle
+				a.answerSaves(d, errNotSaved)
+			}
 		})
 	}()
 }
@@ -413,15 +421,17 @@ func (a *app) reloadRemote(d *document) {
 // or failed with why it could not. A save asked for while one runs
 // follows it.
 func (a *app) saveRemote(d *document, done func(), failed func(error)) {
-	if d.saving {
-		d.resave, d.resaveDone, d.resaveFailed = true, done, failed
-		return
-	}
+	a.requestSave(d, saveWaiter{done: done, failed: failed})
+}
+
+// writeRemote writes a remote document in the background, for the saves
+// waiting, which it answers.
+func (a *app) writeRemote(d *document) {
 	if !remote.IsConnected(d.path) {
-		failed(errors.New(locales.ErrNotConnectedTo(remote.HostOf(d.path))))
+		a.answerSaves(d, errors.New(locales.ErrNotConnectedTo(remote.HostOf(d.path))))
 		return
 	}
-	d.saving = true
+	d.sync = syncSaving
 	snap, data := d.encode()
 	crlf, path := d.crlf, d.path
 	// The file as it was read, unless it changed on the host since.
@@ -437,15 +447,20 @@ func (a *app) saveRemote(d *document, done func(), failed func(error)) {
 			info = ri
 		}
 		a.post(func() {
-			d.saving = false
-			if errors.Is(err, remote.ErrChanged) && d.path == path {
-				// A save asked for since, as an overwrite, has the last word.
-				if !d.resave {
-					a.saveConflict(d, done, failed)
+			d.sync = syncIdle
+			switch {
+			case errors.Is(err, remote.ErrChanged) && d.path == path:
+				if len(d.queued) > 0 {
+					// A save asked for since, as an overwrite, has the last
+					// word, for these saves too.
+					d.queued = append(d.waiters, d.queued...)
+					d.waiters = nil
+				} else {
+					a.saveConflict(d)
 				}
-			} else if err != nil {
-				failed(err)
-			} else {
+			case err != nil:
+				a.answerSaves(d, err)
+			default:
 				if d.path == path {
 					d.wrote(snap, crlf)
 					d.stamp = stampOf(info)
@@ -453,17 +468,9 @@ func (a *app) saveRemote(d *document, done func(), failed func(error)) {
 				if a.tree != nil {
 					a.tree.Stamp(path, info)
 				}
-				if done != nil {
-					done()
-				}
+				a.answerSaves(d, nil)
 			}
-			if d.resave {
-				next, nextFailed := d.resaveDone, d.resaveFailed
-				d.resave, d.resaveDone, d.resaveFailed = false, nil, nil
-				if d.dirty() || next != nil {
-					a.saveRemote(d, next, nextFailed)
-				}
-			}
+			a.nextSave(d)
 		})
 	}()
 }
@@ -682,7 +689,7 @@ func (a *app) remoteStatus(c *ui.Context, text func(string) ui.Element) {
 func (a *app) loadingView(c *ui.Context, d *editor) {
 	p := a.pal
 	ui.Column(c).Fill().Center().Gap(10).Background(p.editor).Padding(24).Children(func() {
-		if d.loading {
+		if d.sync == syncLoading {
 			ui.Spinner(c).Size(16, 16)
 			ui.Text(c, locales.RemoteReading(d.name())).FontSize(13).TextColor(p.muted)
 			return
@@ -713,26 +720,38 @@ func (a *app) shutdown() {
 
 // saveConflict asks what to do with a remote document whose file changed
 // on the host since it was read: write it over the file, or take the
-// file's text, as a step that undo takes back. An autosave asks once,
-// until the document is saved by hand.
-func (a *app) saveConflict(d *document, done func(), failed func(error)) {
-	if d.conflict {
-		return
-	}
-	d.conflict = true
+// file's text, as a step that undo takes back. The saves waiting wait for
+// the answer; put off, they are not made, and autosave waits until the
+// document is saved by hand, which asks again.
+func (a *app) saveConflict(d *document) {
+	d.sync = syncConflict
 	host := remote.HostOf(d.path)
 	a.ask(&confirm{
 		title:   locales.RemoteChangedOn(d.name(), host),
 		message: locales.RemoteChangedDetail(host),
 		ok:      locales.RemoteOverwrite(), danger: true, okShort: locales.RemoteOverwrite(),
 		run: func() {
-			d.conflict, d.stamp = false, nil
-			a.saveRemote(d, done, failed)
+			if d.sync != syncConflict {
+				return
+			}
+			d.sync, d.stamp = syncIdle, nil
+			d.queued = append(d.waiters, d.queued...)
+			d.waiters = nil
+			a.nextSave(d)
 		},
 		alternate: locales.RemoteRevertToFile(), alternateShort: locales.RemoteRevert(),
 		runAlternate: func() {
-			d.conflict = false
+			if d.sync != syncConflict {
+				return
+			}
+			d.sync = syncIdle
+			a.answerSaves(d, errNotSaved)
 			a.revertRemote(d)
+		},
+		cancel: func() {
+			if d.sync == syncConflict {
+				a.answerSaves(d, errNotSaved)
+			}
 		},
 	})
 }

@@ -623,7 +623,7 @@ func (a *app) columnView(c *ui.Context, col *column) {
 					a.mergeViewUI(c, shown.merge)
 				case shown.tool != nil:
 					a.toolViewUI(c, shown.tool)
-				case shown.ed.loading || shown.ed.loadErr != nil:
+				case shown.ed.unread():
 					a.hideEditor(shown.ed)
 					a.loadingView(c, shown.ed)
 				case shown.ed.preview != nil:

@@ -752,7 +752,7 @@ func TestFeatRemoteWindow(t *testing.T) {
 		t.Cleanup(a.shutdown)
 		hs.untilLong("the tree", func() bool { return tt.HasText("go.mod") })
 		a.openFile(hs.path("internal/remote/conn.go"), true)
-		hs.untilLong("the file", func() bool { d := a.activeEditor(); return d != nil && !d.loading })
+		hs.untilLong("the file", func() bool { d := a.activeEditor(); return d != nil && d.sync != syncLoading })
 		a.run("view.terminal")
 		hs.settle()
 		hs.termRun(a.panelTerm, "ls ~/projects", "website")

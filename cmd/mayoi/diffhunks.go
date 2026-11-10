@@ -307,7 +307,7 @@ func (a *app) appendHunks(v *diffView, f *diffFile, hs []linediff.Hunk) {
 	a.present(&confirm{title: locales.DiffAppendTitle(name), message: locales.DiffAppendDetail(), ok: locales.HunkAppend(), run: func() {
 		a.openText(func() { a.openFile(f.path, false) })
 		d, _ := a.editorOf(a.diffDoc(f))
-		if d == nil || d.loading || d.loadErr != nil || d.offline {
+		if d == nil || d.locked() {
 			a.fail("%s", locales.DiffOpenFailAppend(name))
 			return
 		}
@@ -641,11 +641,11 @@ func (a *app) intoByOpening(v *diffView, f *diffFile, hs []linediff.Hunk) {
 	}
 	a.openText(func() { a.openFile(f.path, false) })
 	d, _ := a.editorOf(a.diffDoc(f))
-	if d == nil || d.loadErr != nil || d.offline {
+	if d == nil || d.sync == syncLoadFailed || d.offline {
 		a.fail("%s", locales.DiffOpenFailRevert(filepath.Base(f.path)))
 		return
 	}
-	if d.loading {
+	if d.sync == syncLoading {
 		a.fail("%s", locales.DiffStillReading())
 		return
 	}

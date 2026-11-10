@@ -129,7 +129,7 @@ func TestCutKeepsSelectionAndReadOnlyBehavior(t *testing.T) {
 				hs, d := editHarness(t, "cut.txt", tc.text)
 				hs.place(d, tc.selection[0], tc.selection[1])
 				if tc.locked {
-					d.loadErr = fmt.Errorf("read-only test document")
+					d.sync, d.loadErr = syncLoadFailed, fmt.Errorf("read-only test document")
 				}
 				hs.settle()
 				hs.tt.SetClipboard("keep")

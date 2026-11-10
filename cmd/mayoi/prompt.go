@@ -103,8 +103,11 @@ type confirm struct {
 	run                func()
 	alternate          string
 	runAlternate       func()
-	okShort            string
-	alternateShort     string
+	// cancel runs as the dialog is put off, by Cancel, Escape or a click
+	// outside it.
+	cancel         func()
+	okShort        string
+	alternateShort string
 	// choices are the ways to go on that the dialog offers, choice the
 	// one chosen, whose message it shows: a danger one makes the button
 	// red.
@@ -135,9 +138,14 @@ func (a *app) ask(cf *confirm) {
 	a.nextAsk()
 }
 
-// dismiss closes the question shown without going on.
+// dismiss closes the question shown without going on, telling whoever
+// asked.
 func (a *app) dismiss() {
+	cf := a.confirm
 	a.confirm = nil
+	if cf != nil && cf.cancel != nil {
+		cf.cancel()
+	}
 	a.nextAsk()
 }
 

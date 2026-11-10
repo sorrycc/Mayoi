@@ -9,6 +9,8 @@ import (
 	"slices"
 	"strings"
 	"testing"
+
+	"github.com/egoist/mygo/ui"
 )
 
 // TestRemotePaste: files of the Finder paste into a remote folder, a
@@ -272,7 +274,7 @@ func TestRemoteSaveConflict(t *testing.T) {
 	a.openFile(hs.path("main.go"), true)
 	hs.untilLong("main.go to be read", func() bool {
 		d := a.activeEditor()
-		return d != nil && !d.loading && d.stamp != nil
+		return d != nil && d.sync != syncLoading && d.stamp != nil
 	})
 	d := a.activeEditor()
 	change := func(text string) {
@@ -311,7 +313,7 @@ func TestRemoteSaveConflict(t *testing.T) {
 	cf = a.confirm
 	a.confirm = nil
 	cf.run()
-	hs.untilLong("the overwrite", func() bool { return !d.saving && !d.dirty() })
+	hs.untilLong("the overwrite", func() bool { return d.sync != syncSaving && !d.dirty() })
 	host, _ = c.ReadFile(dir+"/main.go", 0)
 	if !strings.HasPrefix(string(host), "// mine again\n") {
 		t.Fatalf("on the host: %q", host)
@@ -319,9 +321,137 @@ func TestRemoteSaveConflict(t *testing.T) {
 	// Saved since, it saves without asking.
 	d.edit(d.sel, textEdit{0, 0, "// once more\n"})
 	a.saveDoc(d.document, nil)
-	hs.untilLong("a plain save", func() bool { return !d.saving && !d.dirty() })
+	hs.untilLong("a plain save", func() bool { return d.sync != syncSaving && !d.dirty() })
 	if a.confirm != nil {
 		t.Fatal("asked again")
+	}
+}
+
+// readRemote opens a file of the remote harness and waits for its text.
+func readRemote(hs *harness, name string) *editor {
+	hs.t.Helper()
+	hs.a.openFile(hs.path(name), true)
+	hs.untilLong(name+" to be read", func() bool {
+		d := hs.a.activeEditor()
+		return d != nil && d.sync != syncLoading && d.stamp != nil
+	})
+	return hs.a.activeEditor()
+}
+
+// TestRemoteSaveQueueKeepsWaiters: every save asked for while one is
+// written is answered, as a save and close waits to close.
+func TestRemoteSaveQueueKeepsWaiters(t *testing.T) {
+	hs, _, _ := remoteHarness(t)
+	a := hs.a
+	a.settings.AutoSave = false // the saves are the test's own
+	d := readRemote(hs, "main.go")
+	d.edit(d.sel, textEdit{0, 0, "// one\n"})
+	var done []string
+	save := func(name string) {
+		a.saveRemote(d.document, func() { done = append(done, name) }, func(err error) { t.Errorf("%s failed: %v", name, err) })
+	}
+	save("first")
+	save("second")
+	save("third")
+	hs.untilLong("the last save", func() bool { return slices.Contains(done, "third") })
+	if !slices.Equal(done, []string{"first", "second", "third"}) {
+		t.Fatalf("answered %q", done)
+	}
+}
+
+// TestRemoteSaveConflictKeepsWaiters: the saves waiting on a file that
+// changed on its host are answered by the question: written over it, or
+// not saved as its text is taken.
+func TestRemoteSaveConflictKeepsWaiters(t *testing.T) {
+	hs, c, dir := remoteHarness(t)
+	a := hs.a
+	a.settings.AutoSave = false // the saves are the test's own
+	d := readRemote(hs, "main.go")
+	change := func(text string) {
+		t.Helper()
+		if _, err := c.Run(nil, `printf '%s' "$2" > "$1/main.go"`, dir, text); err != nil {
+			t.Fatal(err)
+		}
+	}
+	var done, failed []string
+	save := func(name string) {
+		a.saveRemote(d.document, func() { done = append(done, name) }, func(error) { failed = append(failed, name) })
+	}
+	d.edit(d.sel, textEdit{0, 0, "// mine\n"})
+	change("theirs\n")
+	save("first")
+	save("second")
+	hs.untilLong("the question", func() bool { return a.confirm != nil })
+	cf := a.confirm
+	a.confirm = nil
+	cf.run()
+	hs.untilLong("the overwrite", func() bool { return slices.Contains(done, "second") })
+	if !slices.Equal(done, []string{"first", "second"}) || failed != nil {
+		t.Fatalf("done %q, failed %q", done, failed)
+	}
+
+	done = nil
+	d.edit(d.sel, textEdit{0, 0, "// mine again\n"})
+	change("theirs again\n")
+	save("third")
+	save("fourth")
+	hs.untilLong("the question again", func() bool { return a.confirm != nil })
+	cf = a.confirm
+	a.confirm = nil
+	cf.runAlternate()
+	hs.untilLong("the revert", func() bool { return d.buf.String() == "theirs again\n" })
+	if !slices.Equal(failed, []string{"third", "fourth"}) || done != nil {
+		t.Fatalf("done %q, failed %q", done, failed)
+	}
+}
+
+// TestRemoteSaveDuringConflict: a save asked for while the question is
+// open waits for its answer, and once put off the question is not asked
+// again until the file is saved by hand.
+func TestRemoteSaveDuringConflict(t *testing.T) {
+	hs, c, dir := remoteHarness(t)
+	a := hs.a
+	a.settings.AutoSave = false // the saves are the test's own
+	d := readRemote(hs, "main.go")
+	change := func(text string) {
+		t.Helper()
+		if _, err := c.Run(nil, `printf '%s' "$2" > "$1/main.go"`, dir, text); err != nil {
+			t.Fatal(err)
+		}
+	}
+	d.edit(d.sel, textEdit{0, 0, "// mine\n"})
+	change("theirs\n")
+	a.saveDoc(d.document, nil)
+	hs.untilLong("the question", func() bool { return a.confirm != nil })
+	answered := ""
+	a.saveRemote(d.document, func() { answered = "done" }, func(error) { answered = "failed" })
+	hs.settle()
+	cf := a.confirm
+	a.confirm = nil
+	cf.run()
+	hs.untilLong("the overwrite", func() bool { return answered != "" })
+	if answered != "done" {
+		t.Fatalf("the save waiting %s", answered)
+	}
+
+	// Put off, it says the save did not happen, and autosave asks no more.
+	answered = ""
+	d.edit(d.sel, textEdit{0, 0, "// later\n"})
+	change("theirs later\n")
+	a.saveRemote(d.document, func() { answered = "done" }, func(error) { answered = "failed" })
+	hs.untilLong("the question again", func() bool { return a.confirm != nil })
+	hs.key(0, ui.KeyEscape)
+	if a.confirm != nil || answered != "failed" {
+		t.Fatalf("confirm %v, the save %q", a.confirm != nil, answered)
+	}
+	a.settings.AutoSave = true
+	d.edit(d.sel, textEdit{0, 0, "// and more\n"})
+	a.autoSaveDoc(d.document)
+	for range 20 {
+		hs.settle()
+	}
+	if a.confirm != nil {
+		t.Fatal("autosave asked again")
 	}
 }
 

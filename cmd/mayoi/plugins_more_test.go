@@ -101,6 +101,30 @@ func TestPluginDiagnosticsFormatViewsAndPreviews(t *testing.T) {
 	}
 }
 
+// TestFormatOnSaveJoins: a save asked for while the formatter runs waits
+// for it, so that the file is written once, formatted.
+func TestFormatOnSaveJoins(t *testing.T) {
+	hs := newHarness(t, false)
+	withPlugins(hs, map[string]map[string]string{"lint": {"plugin.json": lintPlugin, "main.ts": lintMain}})
+	a := hs.a
+	readme := hs.path("README.md")
+	a.openFile(readme, true)
+	hs.settle()
+	d := a.activeEditor()
+	a.settings.FormatOnSave = map[string]bool{"markdown": true}
+	d.edit(d.sel, textEdit{0, 0, "editor note\n"})
+	saved := 0
+	a.saveDoc(d.document, func() { saved++ })
+	a.saveDoc(d.document, func() { saved++ })
+	if data, _ := os.ReadFile(readme); strings.Contains(string(data), "editor note") {
+		t.Fatal("written before the formatter")
+	}
+	hs.until("the formatted save", func() bool { return saved == 2 })
+	if data, _ := os.ReadFile(readme); !strings.HasPrefix(string(data), "EDITOR note\n") {
+		t.Fatalf("on disk: %q", data)
+	}
+}
+
 func TestBundledPlugins(t *testing.T) {
 	hs := newHarness(t, false)
 	h := withPlugins(hs, nil)

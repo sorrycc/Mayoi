@@ -13,6 +13,10 @@ needs a `## <version>` section here, or its build fails.
 - After a remote connection is lost, the banner shows its first try to reconnect as attempt 1.
 - A question that comes up in the background now waits instead of replacing the dialog you're answering.
 - Questions that come up in the background, as a remote file's conflict, wait for an open picker to close.
+- Saving a remote file while another save is under way no longer loses a pending save and close.
+- **Revert** or `Escape` on the "changed on host" question keeps the tab open instead of dropping the save.
+- Autosave no longer writes to the host while the "changed on host" question waits for an answer.
+- With format on save, saving twice in a row waits for the formatter instead of writing unformatted text.
 
 ## 0.19.2
 

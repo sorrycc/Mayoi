@@ -1025,7 +1025,7 @@ func (a *app) restoreTab(t *colTab, ts settings.Tab) {
 		}
 	}
 	if ed := t.ed; ed != nil {
-		if ed.loading || ed.loadErr != nil {
+		if ed.unread() {
 			// Once it is read.
 			ed.restored = true
 			ed.restoreTab = &ts

@@ -37,7 +37,7 @@ func wantMode(t *testing.T, path string, want fs.FileMode) {
 func wantSSHConfigOpen(t *testing.T, hs *harness, config, text string) {
 	t.Helper()
 	a := hs.a
-	hs.until("the config", func() bool { d := a.activeEditor(); return d != nil && !d.loading })
+	hs.until("the config", func() bool { d := a.activeEditor(); return d != nil && d.sync != syncLoading })
 	if d := a.activeEditor(); d.path != config || d.buf.String() != text {
 		t.Fatalf("editor = %s with %q; want %s with %q", d.path, d.buf.String(), config, text)
 	}

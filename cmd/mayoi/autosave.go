@@ -1,10 +1,10 @@
 package main
 
 import (
+	"errors"
 	"slices"
 	"time"
 
-	"mayoi/internal/remote"
 	"mayoi/internal/settings"
 	"mayoi/locales"
 )
@@ -23,9 +23,10 @@ type autoSave struct {
 }
 
 // autoSaves reports whether a document saves itself: a file still on
-// disk, while the setting is on.
+// disk, while the setting is on, unless it changed on its host and waits
+// to be saved by hand.
 func (a *app) autoSaves(d *document) bool {
-	return a.prefs().AutoSave && d.path != "" && !d.diskGone && !d.locked()
+	return a.prefs().AutoSave && d.path != "" && !d.diskGone && !d.locked() && d.sync != syncConflict
 }
 
 // autoSaveTick follows the documents each frame: a changed one saves a
@@ -74,20 +75,12 @@ func (a *app) autoSaveDoc(d *document) {
 		return
 	}
 	failed := func(err error) {
-		if !d.autoSave.failed {
+		if !d.autoSave.failed && !errors.Is(err, errNotSaved) {
 			d.autoSave.failed = true
 			a.fail("%s", locales.FailSave(d.name(), err.Error()))
 		}
 	}
-	if remote.Is(d.path) {
-		a.saveRemote(d, func() { d.autoSave.failed = false }, failed)
-		return
-	}
-	if err := d.save(); err != nil {
-		failed(err)
-		return
-	}
-	d.autoSave.failed = false
+	a.requestSave(d, saveWaiter{done: func() { d.autoSave.failed = false }, failed: failed})
 }
 
 // autoSaveAll saves every changed document that saves itself, as the

@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -621,15 +622,6 @@ func (a *app) saveDoc(d *document, then func()) {
 		})
 		return
 	}
-	// A plugin's formatter first, as formatOnSave asks, for so long.
-	if ed := a.docEditor(d); ed != nil && a.formatsOnSave(d) && !d.formatted {
-		d.formatted = true
-		a.format(ed, formatOnSaveLimit, true, func() {
-			a.saveDoc(d, then)
-			d.formatted = false
-		})
-		return
-	}
 	saved := func() {
 		d.diskGone, d.autoSave.failed = false, false
 		a.repositoryForPath(d.path).git.statusRead.Invalidate()
@@ -638,17 +630,19 @@ func (a *app) saveDoc(d *document, then func()) {
 			then()
 		}
 	}
-	if remote.Is(d.path) {
-		// Saved by hand, a file that changed on its host asks again.
-		d.conflict = false
-		a.saveRemote(d, saved, func(err error) { a.fail("%s", locales.FailSave(d.name(), err.Error())) })
-		return
+	failed := func(err error) {
+		if !errors.Is(err, errNotSaved) {
+			a.fail("%s", locales.FailSave(d.name(), err.Error()))
+		}
 	}
-	if err := d.save(); err != nil {
-		a.fail("%s", locales.FailSave(d.name(), err.Error()))
-		return
+	// Saved by hand, a file that changed on its host asks again, unless
+	// its question is still waiting for an answer, as a save waits on it.
+	asked := d.sync == syncConflict && len(d.waiters) > 0
+	// A plugin's formatter first, as formatOnSave asks, for so long.
+	a.requestSave(d, saveWaiter{done: saved, failed: failed, format: a.formatsOnSave(d)})
+	if d.sync == syncConflict && !asked {
+		a.saveConflict(d)
 	}
-	saved()
 }
 
 // formatOnSaveLimit is how long saving waits for a formatter, which

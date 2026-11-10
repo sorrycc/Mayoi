@@ -1647,6 +1647,7 @@
   "lspNone": "没有插件为 {language} 提供语言服务器",
   "lspFailed": "语言服务器出错：{err}",
   "lspNotReady": "语言服务器仍在启动",
+  "lspDown": "语言服务器未在运行",
   "definitionNone": "未找到定义",
   "completionNone": "此处没有补全",
   "completionPlaceholder": "补全为"

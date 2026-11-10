@@ -749,10 +749,10 @@ func TestCloseLastTabOfColumn(t *testing.T) {
 		// main.go shows in the first column only once its copies are gone.
 		left, mid := a.cols[0], a.cols[1]
 		for len(left.tabs) > 1 {
-			a.closeTab(left.tabs[1], nil)
+			a.closeTab(left.tabs[1], nil, nil)
 		}
 		for len(mid.tabs) > 1 {
-			a.closeTab(mid.tabs[0], nil)
+			a.closeTab(mid.tabs[0], nil, nil)
 		}
 		hs.settle()
 		name := mid.tab().name()

@@ -1454,3 +1454,75 @@ func TestRailScansProjectsNotShown(t *testing.T) {
 		step(tt)
 	}
 }
+
+// settleFixture is a window of one project with a changed file, whose
+// question about it stays open until answered.
+func settleFixture(t *testing.T) (*frame, *fakeHost, *ui.Tester) {
+	t.Helper()
+	root := workspaceFixture(t)
+	f, hs, tt := railFixture(t, root)
+	// As the app keeps the windows it opens.
+	f.m.frames = []*frame{f}
+	f.m.s.AutoSave = false
+	a := hs[0].a
+	a.openFile(filepath.Join(root, "main.go"), true)
+	step(tt)
+	ed := a.activeEditor()
+	ed.edit(ed.sel, textEdit{0, 0, "// changed\n"})
+	step(tt)
+	host := a.host.(*fakeHost)
+	host.holdClose = true
+	return f, host, tt
+}
+
+// Quitting again while the question about a change shows asks it once,
+// so that one Cancel puts the quit off, and the next quit asks again.
+func TestQuitTwiceAsksOnce(t *testing.T) {
+	f, host, tt := settleFixture(t)
+	m := f.m
+	for range 2 {
+		if m.beforeQuit() {
+			t.Fatal("quit with a change not asked about")
+		}
+		step(tt)
+	}
+	if len(host.asked) != 1 || len(host.held) != 1 {
+		t.Fatalf("asked %v", host.asked)
+	}
+	host.held[0](2)
+	step(tt)
+	if m.life != lifeOpen {
+		t.Errorf("after Cancel the app is %v", m.life)
+	}
+	if m.beforeQuit() {
+		t.Fatal("quit with a change not asked about")
+	}
+	step(tt)
+	if len(host.asked) != 2 {
+		t.Errorf("quitting after Cancel asked %v", host.asked)
+	}
+}
+
+// Closing the window again while the question about a change shows asks
+// it once, as does quitting meanwhile.
+func TestCloseTwiceAsksOnce(t *testing.T) {
+	f, host, tt := settleFixture(t)
+	for range 2 {
+		if f.beforeClose() {
+			t.Fatal("closed with a change not asked about")
+		}
+		step(tt)
+	}
+	if f.m.beforeQuit() {
+		t.Fatal("quit with a change not asked about")
+	}
+	step(tt)
+	if len(host.asked) != 1 || len(host.held) != 1 {
+		t.Fatalf("asked %v", host.asked)
+	}
+	host.held[0](2)
+	step(tt)
+	if f.life != lifeOpen || f.m.life != lifeOpen {
+		t.Errorf("after Cancel the window is %v, the app %v", f.life, f.m.life)
+	}
+}

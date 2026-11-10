@@ -65,6 +65,15 @@ func (a *app) openFind(replace bool) {
 		return
 	}
 	f := &a.find
+	if v := a.activeDiff(); v != nil {
+		// A diff finds in the lines it shows, which it cannot replace.
+		if text := v.selectedText(); text != "" && !strings.Contains(text, "\n") && len(text) < 200 {
+			f.query = text
+		}
+		f.open, f.replacing = true, false
+		f.input.SelectAll()
+		return
+	}
 	if v := a.activeMarkdown(); v != nil && !replace {
 		// A preview finds in its rendered text, which it cannot replace.
 		a.findPreview = v.markdown
@@ -96,6 +105,10 @@ func (a *app) findStep(by int) {
 		return
 	}
 	a.find.open = true
+	if v := a.activeDiff(); v != nil {
+		a.stepDiff(v, by)
+		return
+	}
 	if v := a.activeMarkdown(); v != nil {
 		a.findPreview = v.markdown
 		a.stepPreview(v.markdown, by)

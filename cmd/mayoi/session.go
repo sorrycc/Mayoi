@@ -77,30 +77,30 @@ func (a *app) switchTo(dir string) {
 		// The comments are the folder's: kept with its session.
 		a.restoreReview(nil)
 		a.openSession(dir)
-	})
+	}, nil)
 }
 
 // closeKeeping closes every document as the window closes, keeping the
-// session it had before for the window's next start, then calls then
-// unless one stayed open.
-func (a *app) closeKeeping(then func()) {
+// session it had before for the window's next start, then calls then,
+// or cancelled when one stayed open.
+func (a *app) closeKeeping(then, cancelled func()) {
 	ses := a.session()
 	a.closeAll(func() {
 		a.kept = &ses
 		then()
-	})
+	}, cancelled)
 }
 
 // closeQuitting closes the documents as the app quits, as closeKeeping
 // does, but for the untitled ones whose text is kept, which the next
 // start opens again.
-func (a *app) closeQuitting(then func()) {
+func (a *app) closeQuitting(then, cancelled func()) {
 	ses := a.session()
 	tabs := slices.DeleteFunc(a.editorTabs(), func(t *colTab) bool { return t.ed != nil && t.ed.keptNow() })
 	a.closeTabs(tabs, func() {
 		a.kept = &ses
 		then()
-	})
+	}, cancelled)
 }
 
 // keepSession keeps what the window shows as it closes: what it showed

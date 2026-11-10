@@ -7,7 +7,12 @@ needs a `## <version>` section here, or its build fails.
 
 - Language plugins can prepare server settings and preserve workspace paths across symlinks.
 - Closing a stopped language server no longer waits on its input pipe.
-
+- Dragging over code in a diff selects text across lines; dragging on the line numbers still selects rows.
+- Double-clicking a word in a diff selects it, and a triple click selects the line; `E` opens the file.
+- `Cmd+C` in a diff copies the selected code with its indent, without line numbers or `+`/`-` marks.
+- Side by side, a selection stays on the side where it started.
+- `Cmd+F` in a diff tab finds in the lines it shows on both sides, in every file, with a match count.
+- `Enter` and `Shift+Enter` in a diff's Find go to each match, unfolding a collapsed file to show it.
 - **Git → Collapse All Files in Diff** and **Expand All Files in Diff** fold the current diff's files.
 - On macOS, `Option+Cmd+[` collapses all diff files and `Option+Cmd+]` expands them.
 - `mayoi settings` reads and changes preferences, with Mayoi running or not.
@@ -16,6 +21,7 @@ needs a `## <version>` section here, or its build fails.
 - After a remote connection is lost, the banner shows its first try to reconnect as attempt 1.
 - A question that comes up in the background now waits instead of replacing the dialog you're answering.
 - Questions that come up in the background, as a remote file's conflict, wait for an open picker to close.
+- Pressing `Cmd+Q` or a window's close button again while the unsaved-changes question shows brings it forward.
 - Saving a remote file while another save is under way no longer loses a pending save and close.
 - **Revert** or `Escape` on the "changed on host" question keeps the tab open instead of dropping the save.
 - Autosave no longer writes to the host while the "changed on host" question waits for an answer.
@@ -27,6 +33,9 @@ needs a `## <version>` section here, or its build fails.
 - Files Git ignores show faint right after switching folders, without waiting for the old folder's read.
 - Submodules and nested repositories are still found when **Initialize Repository** runs during a scan for them.
 - **Running Plugins** and the **Plugins** settings page agree on the state of a plugin that is off or can't load.
+- A language server that failed to start tries again when you open a file of its language 30 seconds later.
+- Reloading, restarting or turning on a plugin starts again its language servers that failed to start.
+- A language server that fails to start shows its error once, when it fails, instead of on every completion.
 
 ## 0.19.2
 

@@ -209,7 +209,7 @@ func (a *app) tabStrip(c *ui.Context, col *column) {
 	if closing != nil {
 		// After the frame, which is still drawing the columns: the column
 		// may go with its last tab.
-		a.post(func() { a.closeTab(closing, nil) })
+		a.post(func() { a.closeTab(closing, nil, nil) })
 	}
 }
 
@@ -239,7 +239,7 @@ func (a *app) tabMiddle(t *colTab, ev ui.InputEvent, box ui.Rect) bool {
 	case ui.InputPointerUp:
 		on := box.W == 0 || ev.X >= 0 && ev.Y >= 0 && ev.X < box.W && ev.Y < box.H
 		if a.middle == t && on {
-			a.post(func() { a.closeTab(t, nil) })
+			a.post(func() { a.closeTab(t, nil, nil) })
 		}
 		a.middle = nil
 		return true
@@ -292,7 +292,7 @@ func (a *app) tabMenu(m *ui.Menu, col *column, t *colTab, closing **colTab) {
 		a.post(func() { a.closeOthers(col, t) })
 	}
 	if m.Item(locales.TabCloseAll()).Chosen() {
-		a.post(func() { a.closeTabs(slices.Clone(col.tabs), nil) })
+		a.post(func() { a.closeTabs(slices.Clone(col.tabs), nil, nil) })
 	}
 	m.Separator()
 	a.pluginMenuItems(m, "tab/context", t.path())

@@ -2476,16 +2476,6 @@ func (msgs Messages) CmdGitCreateBranch() string {
 	return Catalog.Format(msgs.locale, "cmdGitCreateBranch", nil)
 }
 
-// CmdGitFetch says "Fetch"
-// in the language the app shows.
-func CmdGitFetch() string { return In(i18n.Locale()).CmdGitFetch() }
-
-// CmdGitFetch says "Fetch"
-// in the language of msgs.
-func (msgs Messages) CmdGitFetch() string {
-	return Catalog.Format(msgs.locale, "cmdGitFetch", nil)
-}
-
 // CmdGitExpandAllFiles says "Expand All Files in Diff"
 // in the language the app shows.
 func CmdGitExpandAllFiles() string { return In(i18n.Locale()).CmdGitExpandAllFiles() }
@@ -2494,6 +2484,16 @@ func CmdGitExpandAllFiles() string { return In(i18n.Locale()).CmdGitExpandAllFil
 // in the language of msgs.
 func (msgs Messages) CmdGitExpandAllFiles() string {
 	return Catalog.Format(msgs.locale, "cmdGitExpandAllFiles", nil)
+}
+
+// CmdGitFetch says "Fetch"
+// in the language the app shows.
+func CmdGitFetch() string { return In(i18n.Locale()).CmdGitFetch() }
+
+// CmdGitFetch says "Fetch"
+// in the language of msgs.
+func (msgs Messages) CmdGitFetch() string {
+	return Catalog.Format(msgs.locale, "cmdGitFetch", nil)
 }
 
 // CmdGitNextChange says "Next Change"
@@ -16648,6 +16648,16 @@ func LspNotReady() string { return In(i18n.Locale()).LspNotReady() }
 // in the language of msgs.
 func (msgs Messages) LspNotReady() string {
 	return Catalog.Format(msgs.locale, "lspNotReady", nil)
+}
+
+// LspDown says "The language server isn't running"
+// in the language the app shows.
+func LspDown() string { return In(i18n.Locale()).LspDown() }
+
+// LspDown says "The language server isn't running"
+// in the language of msgs.
+func (msgs Messages) LspDown() string {
+	return Catalog.Format(msgs.locale, "lspDown", nil)
 }
 
 // DefinitionNone says "No definition found"

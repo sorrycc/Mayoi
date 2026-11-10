@@ -34,6 +34,8 @@ const remoteIndexEvery = 30 * time.Second
 // Its functions return at once and call back on the main thread.
 type host interface {
 	openFolder(done func(path string))
+	// saveAs asks where to save a file, calling done with "" when the
+	// person puts it off.
 	saveAs(name string, done func(path string))
 	// confirmClose asks whether to save a changed document before closing
 	// it: 0 saves, 1 discards the changes, 2 keeps it open.
@@ -603,21 +605,31 @@ func (a *app) closeFolder() {
 		a.closed = nil
 		a.window.Folder = ""
 		a.settings.Changed()
-	})
+	}, nil)
 }
 
 // saveDoc saves a document, asking where an untitled one goes.
-func (a *app) saveDoc(d *document, then func()) {
+func (a *app) saveDoc(d *document, then func()) { a.saveDocElse(d, then, nil) }
+
+// saveDocElse saves a document as saveDoc does, then calls then, or
+// cancelled when it was not saved: no path chosen, or the save failed.
+func (a *app) saveDocElse(d *document, then, cancelled func()) {
+	stop := func() {
+		if cancelled != nil {
+			cancelled()
+		}
+	}
 	if d.path == "" {
 		a.askSavePath(d.name(), func(path string) {
 			if path == "" {
+				stop()
 				return
 			}
 			a.dropKept(d)
 			d.path = path
 			d.hl.Close()
 			d.hl = highlight.New(highlight.Lexer(path), a.invalidate)
-			a.saveDoc(d, then)
+			a.saveDocElse(d, then, cancelled)
 			if a.tree != nil {
 				a.tree.Watch(path)
 			}
@@ -636,6 +648,7 @@ func (a *app) saveDoc(d *document, then func()) {
 		if !errors.Is(err, errNotSaved) {
 			a.fail("%s", locales.FailSave(d.name(), err.Error()))
 		}
+		stop()
 	}
 	// Saved by hand, a file that changed on its host asks again, unless
 	// its question is still waiting for an answer, as a save waits on it.

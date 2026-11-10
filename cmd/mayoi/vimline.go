@@ -790,10 +790,10 @@ func (a *app) vimEx(d *editor, text string) {
 	case is("wq", "x", "xi", "xit", "exi", "exit"):
 		a.saveDoc(d.document, func() { a.closeEditor(d) })
 	case is("qa", "qall", "quita", "quitall"):
-		a.closeAll(nil)
+		a.closeAll(nil, nil)
 	case is("wqa", "wqall", "xa", "xall"):
 		a.saveAll()
-		a.closeAll(nil)
+		a.closeAll(nil, nil)
 	case is("noh", "nohl", "nohlsearch"):
 		a.vimSearch.show = false
 	case is("s", "su", "substitute"):
@@ -863,7 +863,7 @@ func (a *app) closeEditor(d *editor) {
 	for _, col := range a.cols {
 		for _, t := range col.tabs {
 			if t.ed == d {
-				a.closeTab(t, nil)
+				a.closeTab(t, nil, nil)
 				return
 			}
 		}

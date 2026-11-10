@@ -149,7 +149,7 @@ func (w *prefsWindow) pluginsPane(c *ui.Context) {
 	}
 	w.head(c, "prefs-head", iconPlug, prefSection(settings.CatPlugins), func() {
 		if ui.Button(c.Key("plugins-reload"), locales.CmdPluginsReload()).FontSize(12).Padding(3, 10).Clicked() && plugins != nil {
-			go plugins.reg.ReloadAll()
+			go plugins.reloadAll()
 		}
 		if ui.Button(c.Key("plugins-folder"), locales.CmdPluginsOpenFolder()).FontSize(12).Padding(3, 10).Clicked() {
 			w.inFront(func(a *app) { a.openPluginsFolder() })

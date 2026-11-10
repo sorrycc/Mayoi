@@ -36,7 +36,7 @@ func TestMenuUpdateDeferredAndLatestWins(t *testing.T) {
 		t.Fatal("latest menu was not applied")
 	}
 	applySecond = m.menuUpdate(second)
-	m.quitting = true
+	m.life = lifeClosing
 	applySecond()
 	if mygo.App.Menu() != first {
 		t.Fatal("deferred menu applied while quitting")

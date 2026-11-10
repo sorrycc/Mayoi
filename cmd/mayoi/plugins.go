@@ -219,11 +219,13 @@ func (h *pluginHost) toggled(old, now map[string]json.RawMessage) {
 		return *s.Enabled
 	}
 	started := false
+	var names []string
 	for _, p := range h.reg.Plugins() {
 		was, is := on(old, p), on(now, p)
 		if was == is {
 			continue
 		}
+		names = append(names, p.Name)
 		if !is {
 			h.mu.Lock()
 			for id, st := range h.status {
@@ -237,6 +239,9 @@ func (h *pluginHost) toggled(old, now map[string]json.RawMessage) {
 		h.reg.Toggled(p.Name)
 		started = started || is
 	}
+	if len(names) > 0 {
+		forgetFailedServers(names...)
+	}
 	if !started {
 		return
 	}
@@ -249,6 +254,23 @@ func (h *pluginHost) toggled(old, now map[string]json.RawMessage) {
 		}
 		a.invalidate()
 	}
+	h.startServers()
+}
+
+// reloadAll reads every plugin anew, and starts again the language
+// servers that could not start.
+func (h *pluginHost) reloadAll() {
+	h.reg.ReloadAll()
+	forgetFailedServers()
+	h.onMain(h.startServers)
+}
+
+// restart restarts the plugin of name, and starts again its language
+// servers that could not start.
+func (h *pluginHost) restart(name string) {
+	h.reg.Restart(name)
+	forgetFailedServers(name)
+	h.onMain(h.startServers)
 }
 
 // setEnabled turns the plugin of name on or off in the settings, as its
@@ -432,7 +454,7 @@ func (a *app) pluginCommands(t locales.Messages, own []command) []command {
 		cmds = append(cmds, command{"view.theme." + id, th.contrib.Label, "", func() { a.setTheme(id) }})
 	}
 	cmds = append(cmds,
-		command{"plugins.reload", t.CmdPluginsReload(), "", func() { plugins.reg.ReloadAll() }},
+		command{"plugins.reload", t.CmdPluginsReload(), "", func() { plugins.reloadAll() }},
 		command{"plugins.log", t.CmdPluginsLog(), "", a.showPluginLog},
 		command{"plugins.running", t.CmdPluginsRunning(), "", a.showRunningPlugins},
 		command{"plugins.openFolder", t.CmdPluginsOpenFolder(), "", a.openPluginsFolder},

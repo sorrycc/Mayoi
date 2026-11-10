@@ -619,6 +619,11 @@ func (a *app) columnView(c *ui.Context, col *column) {
 					a.viewerView(c, shown.view, shown.name())
 				case shown.diff != nil:
 					a.diffViewUI(c, shown.diff)
+					if col == a.findCol {
+						a.diffFindView(c, shown.diff)
+					} else {
+						shown.diff.find.on = false
+					}
 				case shown.merge != nil:
 					a.mergeViewUI(c, shown.merge)
 				case shown.tool != nil:

@@ -185,7 +185,7 @@ func TestReviewDiff(t *testing.T) {
 	if strings.Contains(kinds(v), "c") {
 		t.Errorf("cleared: %s", kinds(v))
 	}
-	// A drag chooses the rows from where it started.
+	// A drag on the line numbers chooses the rows from where it started.
 	pane, ok := tt.Find("Diff of the Changes")
 	if !ok {
 		t.Fatal("no diff")
@@ -194,7 +194,7 @@ func TestReviewDiff(t *testing.T) {
 	hs.settle()
 	rowY := func(i int) float32 { return pane.Y + editorPadY + (float32(v.tops[i])+0.5)*a.font.lineH }
 	first := slices.IndexFunc(v.rows, func(r diffRow) bool { return r.kind == rowLine })
-	hs.drag(pane.X+120, rowY(first), pane.X+120, rowY(first+3))
+	hs.drag(pane.X+20, rowY(first), pane.X+20, rowY(first+3))
 	if lo, hi := v.selection(); lo != first || hi != first+3 {
 		t.Errorf("dragged %d-%d, want %d-%d", lo, hi, first, first+3)
 	}

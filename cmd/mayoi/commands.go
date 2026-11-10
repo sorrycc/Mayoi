@@ -327,7 +327,7 @@ func (a *app) closeActive() {
 		a.host.closeWindow()
 		return
 	}
-	a.closeTab(t, nil)
+	a.closeTab(t, nil, nil)
 }
 
 // moveTerminal moves the terminal that has the keyboard, or had it last,

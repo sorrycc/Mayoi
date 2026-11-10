@@ -434,7 +434,7 @@ func (a *app) runningViewUI(c *ui.Context, v *toolView) {
 		}
 		ui.Spacer(c)
 		if a.toolButton(c, "reload", iconRefresh, locales.CmdPluginsReload()).Clicked() {
-			go plugins.reg.ReloadAll()
+			go plugins.reloadAll()
 		}
 		if a.toolButton(c, "manage", iconSettings, strings.TrimSuffix(locales.CmdPluginsManage(), "…")).Clicked() {
 			a.post(func() { a.host.showSettings(prefsPlugins, "") })
@@ -607,7 +607,7 @@ func (a *app) runningRow(c *ui.Context, r *runningView, row *runRow, width float
 			acts := pl.HasCode() && !pl.Script
 			off := row.st.Disabled
 			if acts && !off && a.rowAction(c, "restart", iconRefresh, locales.RunningRestart()).Clicked() {
-				go plugins.reg.Restart(pl.Name)
+				go plugins.restart(pl.Name)
 			}
 			if !pl.Script {
 				label := locales.RunningTurnOff()
@@ -632,7 +632,7 @@ func (a *app) runningRow(c *ui.Context, r *runningView, row *runRow, width float
 func (a *app) runningMenu(m *ui.Menu, row *runRow) {
 	pl, off := row.pl, row.st.Disabled
 	if m.Item(locales.RunningRestart()).Disabled(!pl.HasCode() || pl.Script || off).Chosen() {
-		go plugins.reg.Restart(pl.Name)
+		go plugins.restart(pl.Name)
 	}
 	if !pl.Script {
 		label := locales.RunningTurnOff()

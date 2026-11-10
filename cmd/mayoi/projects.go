@@ -53,9 +53,9 @@ type frame struct {
 	// to, once it has drawn.
 	services    ui.Services
 	hasServices bool
-	// merged is set as the window closes once its projects moved to
-	// another, and closing once the changes of its projects are settled.
-	merged, closing bool
+	// life is how far the window is along closing: closing once the
+	// changes of its projects are settled, or once they moved to another.
+	life lifecycle
 	// shown is the project the window built last.
 	shown *desktop
 	// hoverOn is the project whose square a tab of another has been
@@ -101,14 +101,9 @@ func (m *mayoi) newFrame(h *desktop) *frame {
 	// Closing the window saves the files that save themselves, and with
 	// other unsaved changes asks about each first.
 	win.OnClose(func(e *mygo.CloseEvent) {
-		if f.merged || f.closing || m.quitting || !slices.ContainsFunc(f.tabs, func(d *desktop) bool { return d.a.anyDirty() }) {
-			return
+		if !f.beforeClose() {
+			e.PreventDefault()
 		}
-		e.PreventDefault()
-		m.settle(slices.Clone(f.tabs), false, func() {
-			f.closing = true
-			win.Close()
-		})
 	})
 	// Back from another app, which may have committed.
 	win.OnFocus(func() {
@@ -149,16 +144,14 @@ func (m *mayoi) newFrame(h *desktop) *frame {
 	// their folders' sessions.
 	win.OnClosed(func() {
 		m.frames = slices.DeleteFunc(m.frames, func(o *frame) bool { return o == f })
-		if f.merged {
-			return
-		}
+		// A window whose projects moved to another has none left here.
 		for _, h := range f.tabs {
 			h.a.keepSession()
 			h.a.closeTerminals()
 			h.a.shutdown()
 			m.wins = slices.DeleteFunc(m.wins, func(w *desktop) bool { return w == h })
 		}
-		if !m.quitting && len(m.wins) > 0 {
+		if m.life != lifeClosing && len(m.wins) > 0 {
 			for _, h := range f.tabs {
 				m.s.Forget(h.a.window)
 			}
@@ -170,6 +163,30 @@ func (m *mayoi) newFrame(h *desktop) *frame {
 		}
 	})
 	return f
+}
+
+// beforeClose tells whether the window may close now. With changes of
+// its projects to ask about, it asks first, then closes again. Asked
+// again meanwhile, or while the app settles its changes to quit, it
+// brings the question shown to the front.
+func (f *frame) beforeClose() bool {
+	m := f.m
+	switch {
+	case f.life == lifeClosing || m.life == lifeClosing:
+		return true
+	case m.settling():
+		m.frontAsking()
+		return false
+	case !slices.ContainsFunc(f.tabs, func(d *desktop) bool { return d.a.anyDirty() }):
+		f.life = lifeClosing
+		return true
+	}
+	f.life = lifeSettling
+	m.settle(slices.Clone(f.tabs), false, func() {
+		f.life = lifeClosing
+		f.win.Close()
+	}, func() { f.life = lifeOpen })
+	return false
 }
 
 // view builds the project the window shows. Those it does not show run
@@ -266,6 +283,10 @@ func (f *frame) activate(h *desktop) {
 
 // show brings the window to the front.
 func (f *frame) show() {
+	if f.win == nil {
+		// A tester's, which has no window.
+		return
+	}
 	if f.win.IsMinimized() {
 		f.win.Restore()
 	}
@@ -328,7 +349,7 @@ func (h *desktop) closeProjectThen(done func()) {
 			return
 		}
 		h.show()
-		a.closeKeeping(drop)
+		a.closeKeeping(drop, nil)
 	})
 }
 
@@ -461,7 +482,7 @@ func (m *mayoi) projectTabsChanged() {
 			h.a.park()
 			into.add(h)
 			if len(from.tabs) == 0 {
-				from.merged = true
+				from.life = lifeClosing
 				from.win.Close()
 			}
 		}

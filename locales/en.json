@@ -1875,6 +1875,7 @@
   "lspNone": "No plugin has a language server for {language}",
   "lspFailed": "The language server failed: {err}",
   "lspNotReady": "The language server is still starting",
+  "lspDown": "The language server isn't running",
   "definitionNone": "No definition found",
   "completionNone": "No completions here",
   "completionPlaceholder": "Complete with"

@@ -93,7 +93,7 @@ func TestLockedColumnKeepsWorkspaceAndWidth(t *testing.T) {
 	if !ok {
 		t.Fatal("no right editor")
 	}
-	a.closeTab(left.tab(), nil)
+	a.closeTab(left.tab(), nil, nil)
 	hs.settle()
 	after, ok := hs.tt.Find("Editor README.md")
 	if !ok || len(a.cols) != 2 || left.tab() != nil || math.Abs(float64(before.W-after.W)) > 1 || before.X != after.X {
@@ -113,7 +113,7 @@ func TestLockedColumnKeepsWorkspaceAndWidth(t *testing.T) {
 	// another file column, preserving the locked column's fraction.
 	mid := a.splitColumn(left, true)
 	a.openFileIn(mid, 0, hs.path("main.go"), true)
-	a.closeTab(mid.tab(), nil)
+	a.closeTab(mid.tab(), nil, nil)
 	if len(a.cols) != 2 || left.weight != 3 || right.weight != 2 {
 		t.Fatalf("after closing another column: %d columns, weights %v and %v", len(a.cols), left.weight, right.weight)
 	}
@@ -151,7 +151,7 @@ func TestLockedColumnMenuAndEmptyView(t *testing.T) {
 		t.Fatal("locking the only column did not create a left file workspace")
 	}
 	right := a.cols[1]
-	a.closeTab(right.tab(), nil)
+	a.closeTab(right.tab(), nil, nil)
 	hs.settle()
 	if !tt.HasText("Locked Column") {
 		t.Fatal("the empty locked column disappeared")
@@ -229,7 +229,7 @@ func TestLockedColumnRestoresEmptyWorkspace(t *testing.T) {
 	for _, lockedTabs := range [][]settings.Tab{nil, {{File: "README.md"}}} {
 		hs, left, _ := lockedHarness(t)
 		a := hs.a
-		a.closeTab(left.tab(), nil)
+		a.closeTab(left.tab(), nil, nil)
 		w := a.settings.NewWindow()
 		w.Folder = hs.root
 		w.Columns = []settings.Column{
@@ -313,7 +313,7 @@ func TestCloseEmptyColumn(t *testing.T) {
 					t.Fatal("closing the empty locked column removed or resized it")
 				}
 			}
-			a.closeTab(left.tab(), nil)
+			a.closeTab(left.tab(), nil, nil)
 			a.col = slices.Index(a.cols, left)
 			a.run("file.close")
 			if withLock {
@@ -439,7 +439,7 @@ func TestTerminalMovesToLockedRightColumn(t *testing.T) {
 	if !strings.Contains(s.term.Text(), "locked-42") {
 		t.Fatalf("the moved terminal no longer accepts input: column %d, focus %d, text %q", a.col, a.focus, s.term.Text())
 	}
-	a.closeTab(a.cols[0].tab(), nil)
+	a.closeTab(a.cols[0].tab(), nil, nil)
 	hs.settle()
 	if len(a.cols) != 2 || a.cols[0].tab() != nil {
 		t.Fatal("closing the last file expanded the terminal")

@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -67,4 +68,113 @@ func TestLanguageServer(t *testing.T) {
 	// Format Document, with no plugin formatter, asks the server.
 	a.formatActive()
 	hs.until("the formatting", func() bool { return strings.HasPrefix(d.buf.String(), "// formatted\n") })
+}
+
+// A server whose command is missing starts once it is installed, as a
+// document of its language opens a while after; it tries only so often,
+// until its plugin is reloaded, and tells of each failure once.
+func TestLanguageServerRetry(t *testing.T) {
+	bin := t.TempDir()
+	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
+	t.Setenv("MAYOI_FAKE_LSP", "1")
+	old := lspRetryPause
+	lspRetryPause = 0
+	t.Cleanup(func() { lspRetryPause = old })
+	manifest, _ := json.Marshal(map[string]any{
+		"name": "fake",
+		"contributes": map[string]any{
+			"languages":       []any{map[string]any{"id": "fake", "extensions": []string{".fake"}}},
+			"languageServers": []any{map[string]any{"id": "fake.server", "languages": []string{"fake"}, "command": "mayoi-fake-lsp", "args": []string{"-test.run=^$"}}},
+		},
+	})
+	hs := newHarness(t, false)
+	h := withPlugins(hs, map[string]map[string]string{"fake": {"plugin.json": string(manifest)}})
+	t.Cleanup(stopServers)
+	a := hs.a
+	server := func() *lspServer {
+		lspServers.Lock()
+		defer lspServers.Unlock()
+		return lspServers.m[a.root+"\x00fake.server"]
+	}
+	failed := func(starts int) {
+		t.Helper()
+		hs.untilLong("the failed start", func() bool {
+			s := server()
+			return s != nil && s.starts == starts && s.state() == lspFailed
+		})
+		hs.settle()
+		if a.fails != starts {
+			t.Fatalf("after %d failed starts, %d failures told", starts, a.fails)
+		}
+	}
+	open := func(name string) string {
+		path := hs.path(name)
+		os.WriteFile(path, []byte("so bad\n"), 0o644)
+		a.openFile(path, true)
+		hs.settle()
+		return path
+	}
+	open("a.fake")
+	failed(1)
+	// Editing does not start it again, nor does asking it for completions.
+	d := a.activeEditor()
+	a.queueEdit(d, func(d *editor) { d.edit([2]int{0, 0}, textEdit{0, 0, "x"}) })
+	a.complete()
+	hs.settle()
+	if s := server(); s.starts != 1 {
+		t.Fatalf("starts after an edit = %d", s.starts)
+	}
+	open("b.fake")
+	failed(2)
+	open("c.fake")
+	failed(3)
+	// No more, however many open.
+	open("d.fake")
+	hs.settle()
+	if s := server(); s.starts != maxServerStarts || a.fails != maxServerStarts {
+		t.Fatalf("past the cap: starts %d, failures told %d", s.starts, a.fails)
+	}
+
+	// Installed, then the plugin reloaded: the open documents' server starts.
+	if err := os.Symlink(os.Args[0], filepath.Join(bin, "mayoi-fake-lsp")); err != nil {
+		t.Fatal(err)
+	}
+	h.reloadAll()
+	path := hs.path("a.fake")
+	hs.untilLong("the server's diagnostics", func() bool { return len(h.diagnosticsOf(path)) == 1 })
+	if s := server(); s.starts != 1 || s.state() != lspRunning {
+		t.Fatalf("after the reload: starts %d, state %d", s.starts, s.state())
+	}
+}
+
+// A failed server starts again as a document of its language opens, the
+// command installed meanwhile, without a reload.
+func TestLanguageServerRetryOnOpen(t *testing.T) {
+	bin := t.TempDir()
+	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
+	t.Setenv("MAYOI_FAKE_LSP", "1")
+	old := lspRetryPause
+	lspRetryPause = 0
+	t.Cleanup(func() { lspRetryPause = old })
+	manifest, _ := json.Marshal(map[string]any{
+		"name": "fake",
+		"contributes": map[string]any{
+			"languages":       []any{map[string]any{"id": "fake", "extensions": []string{".fake"}}},
+			"languageServers": []any{map[string]any{"id": "fake.server", "languages": []string{"fake"}, "command": "mayoi-fake-lsp", "args": []string{"-test.run=^$"}}},
+		},
+	})
+	hs := newHarness(t, false)
+	h := withPlugins(hs, map[string]map[string]string{"fake": {"plugin.json": string(manifest)}})
+	t.Cleanup(stopServers)
+	a := hs.a
+	os.WriteFile(hs.path("a.fake"), []byte("so bad\n"), 0o644)
+	a.openFile(hs.path("a.fake"), true)
+	hs.untilLong("the failed start", func() bool { return a.fails == 1 })
+	if err := os.Symlink(os.Args[0], filepath.Join(bin, "mayoi-fake-lsp")); err != nil {
+		t.Fatal(err)
+	}
+	path := hs.path("b.fake")
+	os.WriteFile(path, []byte("so bad\n"), 0o644)
+	a.openFile(path, true)
+	hs.untilLong("the server's diagnostics", func() bool { return len(h.diagnosticsOf(path)) == 1 })
 }

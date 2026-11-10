@@ -10,6 +10,21 @@ import (
 	"time"
 )
 
+// samePanels reports whether two sets of panels hold the same views, on
+// the same sides.
+func samePanels(x, y Panels) bool {
+	if len(x) != len(y) {
+		return false
+	}
+	for s, p := range x {
+		q := y[s]
+		if q == nil || p.Active != q.Active || p.Open != q.Open || p.Size != q.Size || !slices.Equal(p.Views, q.Views) {
+			return false
+		}
+	}
+	return true
+}
+
 func TestRoundTrip(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "s.json")
 	s := Load(path)
@@ -27,8 +42,10 @@ func TestRoundTrip(t *testing.T) {
 		got.Windows[1].Folder != "/tmp/x" || len(got.Windows[1].Columns) != 1 {
 		t.Errorf("loaded %+v", got)
 	}
-	if x, y := got.Windows[1].Layout, got.Windows[0].Layout; x.SidebarWidth != 300 || x.SidebarView != "" || x.ScmChangesRatio != 0.65 ||
-		y.SidebarWidth != 300 || y.SidebarView != "git" || y.PanelHeight != DefaultLayout.PanelHeight {
+	if x, y := got.Windows[1].Layout, got.Windows[0].Layout; x.Panels.Get(SideLeft).Size != 300 ||
+		x.Panels.Get(SideLeft).Active != ViewExplorer || x.ScmChangesRatio != 0.65 ||
+		y.Panels.Get(SideLeft).Size != 300 || y.Panels.Get(SideLeft).Active != ViewSCM ||
+		y.Panels.Get(SideBottom).Size != DefaultPanelSize(SideBottom) {
 		t.Errorf("layouts %+v and %+v", x, y)
 	}
 }
@@ -78,11 +95,15 @@ func TestMigrateTheLayout(t *testing.T) {
 		"windows": [{"id": 0, "folder": "/tmp/x"}],
 		"sessions": {"/tmp/y": {"expanded": ["src"]}}}`), 0o644)
 	s := Load(path)
-	// The panel's own width is new here, so it takes the default.
-	want := DefaultLayout
-	want.SidebarView, want.SidebarClosed, want.SidebarWidth, want.PanelHeight = "git", true, 320, 400
-	if len(s.Windows) != 1 || s.Windows[0].Layout != want || s.Sessions["/tmp/y"] == nil || s.Sessions["/tmp/y"].Layout != want {
-		t.Fatalf("windows %+v, sessions %+v", s.Windows, s.Sessions)
+	// The layout kept one sidebar for every window: its views, the one it
+	// showed, and its width make the panel on the left.
+	want := Panels{
+		SideLeft:   {Views: SidebarViews, Active: ViewSCM, Size: 320},
+		SideBottom: {Views: []string{ViewTerminal}, Active: ViewTerminal, Size: 400},
+	}
+	if len(s.Windows) != 1 || !samePanels(s.Windows[0].Panels, want) || s.Sessions["/tmp/y"] == nil ||
+		!samePanels(s.Sessions["/tmp/y"].Panels, want) {
+		t.Fatalf("window %+v, session %+v, want %+v", s.Windows[0].Panels, s.Sessions["/tmp/y"].Panels, want)
 	}
 	_, state := s.Encode()
 	if strings.Contains(string(state), `"sidebarOpen"`) {
@@ -101,13 +122,17 @@ func TestMigrateTheWindow(t *testing.T) {
 	data, _ := json.Marshal(old)
 	os.WriteFile(path, data, 0o644)
 	s := Load(path)
-	if len(s.Windows) != 1 || s.Windows[0].SidebarWidth != 300 {
+	if len(s.Windows) != 1 || s.Windows[0].Panels.Get(SideLeft).Size != 300 {
 		t.Fatalf("windows %+v", s.Windows)
 	}
 	w := s.Windows[0]
-	if w.ID != 0 || w.Folder != "/tmp/x" || !w.PanelOpen || !w.TerminalOpen || len(w.Columns) != 1 ||
+	if w.ID != 0 || w.Folder != "/tmp/x" || len(w.Columns) != 1 ||
 		len(w.Columns[0].Tabs) != 2 || w.Columns[0].Active != 1 {
 		t.Fatalf("window %+v", w)
+	}
+	// The panel it kept apart shows the terminal, open.
+	if p := w.Panels.Get(SideBottom); !p.Open || !slices.Equal(p.Views, []string{ViewTerminal}) {
+		t.Fatalf("the bottom panel %+v", p)
 	}
 	data, _ = os.ReadFile(path)
 	for _, key := range []string{`"folder"`, `"openFiles"`, `"sidebarWidth"`} {
@@ -115,7 +140,7 @@ func TestMigrateTheWindow(t *testing.T) {
 			t.Errorf("%s still kept in the settings", key)
 		}
 	}
-	if got := Load(path); len(got.Windows) != 1 || got.Windows[0].SidebarWidth != 300 {
+	if got := Load(path); len(got.Windows) != 1 || got.Windows[0].Panels.Get(SideLeft).Size != 300 {
 		t.Errorf("loaded again: windows %+v", got.Windows)
 	}
 }
@@ -129,7 +154,7 @@ func TestStateMovesToItsFile(t *testing.T) {
 	os.WriteFile(path, []byte(`{"fontSize": 15, "sidebarWidth": 320, "recent": ["/tmp/x"],
 		"windows": [{"id": 0, "folder": "/tmp/x", "columns": [{"tabs": [{"file": "/tmp/x/a.go"}], "active": 0, "weight": 1}]}]}`), 0o644)
 	s := Load(path)
-	if s.FontSize != 15 || len(s.Windows) != 1 || s.Windows[0].SidebarWidth != 320 || len(s.Recent) != 1 {
+	if s.FontSize != 15 || len(s.Windows) != 1 || s.Windows[0].Panels.Get(SideLeft).Size != 320 || len(s.Recent) != 1 {
 		t.Fatalf("loaded %+v", s)
 	}
 	prefs, _ := os.ReadFile(path)

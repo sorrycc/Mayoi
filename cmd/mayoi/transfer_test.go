@@ -307,6 +307,9 @@ func TestRemoteSaveConflict(t *testing.T) {
 	change("theirs again, and longer still\n")
 	a.saveDoc(d.document, nil)
 	hs.untilLong("the question again", func() bool { return a.confirm != nil })
+	// An autosave under way, of the file as it was read, does not ask
+	// again once the overwrite is chosen.
+	a.saveRemote(d.document, nil, func(error) {})
 	cf = a.confirm
 	a.confirm = nil
 	cf.run()

@@ -7,6 +7,7 @@ needs a `## <version>` section here, or its build fails.
 
 - `mayoi settings` reads and changes preferences, with Mayoi running or not.
 - `mayoi settings --folder` in a project's subfolder changes the project's `.mayoi/settings.json`.
+- Choosing **Overwrite** for a remote file that changed on its host no longer asks again while an autosave runs.
 
 ## 0.19.2
 

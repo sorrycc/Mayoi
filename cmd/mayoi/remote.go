@@ -372,7 +372,10 @@ func (a *app) saveRemote(d *document, done func(), failed func(error)) {
 		a.post(func() {
 			d.saving = false
 			if errors.Is(err, remote.ErrChanged) && d.path == path {
-				a.saveConflict(d, done, failed)
+				// A save asked for since, as an overwrite, has the last word.
+				if !d.resave {
+					a.saveConflict(d, done, failed)
+				}
 			} else if err != nil {
 				failed(err)
 			} else {

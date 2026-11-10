@@ -5,11 +5,9 @@ needs a `## <version>` section here, or its build fails.
 
 ## Unreleased
 
-- Cancelling a queued language-server request keeps other requests connected.
-- Workspace path mappings preserve hover text, extension data and large numbers.
-
-- Language plugins can prepare server settings and preserve workspace paths across symlinks.
-- Closing a stopped language server no longer waits on its input pipe.
+- Language server plugins can run a `resolve` command that sets the server's arguments, environment and settings.
+- Language server plugins can map paths so definitions and diagnostics keep the workspace's symlinked paths.
+- Mayoi no longer waits on a language server that has already stopped.
 - Inline blame now shows with **View → Word Wrap** on, after the caret line's last row.
 - When a wrapped line's last row is too full, its inline blame is cut short with `…`.
 - Dragging over code in a diff selects text across lines; dragging on the line numbers still selects rows.

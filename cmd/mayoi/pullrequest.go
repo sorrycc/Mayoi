@@ -43,28 +43,26 @@ func (a *gitContext) refreshPR() {
 			})
 		})
 	}
-	if !a.live() || st == nil || st.Branch == "" || g.prRunning || !a.app.online() || !a.app.host.shown() {
+	if !a.live() || st == nil || st.Branch == "" || !a.app.online() || !a.app.host.shown() {
 		return
 	}
-	key := st.Branch + "\x00" + st.Head + "\x00" + st.Upstream
-	if g.prRepo == g.repo && key == g.prOf && time.Since(g.prRead) < a.prEvery() {
-		return
-	}
-	g.prRunning = true
 	r, branch := g.repo, st.Branch
+	key := prAsked{r, st.Branch + "\x00" + st.Head + "\x00" + st.Upstream}
+	if !g.prPoll.Start(key, a.prEvery()) {
+		return
+	}
 	bg.Go(func() {
 		defer recoverCrash()
 		pr, err := r.PullRequest()
 		a.app.post(func() {
-			if g.repo != r {
+			if !g.prPoll.Done(key) || g.repo != r {
 				return
 			}
-			g.prRunning = false
 			if g.status == nil || g.status.Branch != branch {
 				// Switched meanwhile: the next frame asks for the new one.
 				return
 			}
-			g.prRepo, g.prBranch, g.prOf, g.prRead = r, branch, key, time.Now()
+			g.prRepo, g.prBranch = r, branch
 			switch {
 			case err == nil:
 				g.pr, g.prOff, g.ghOK = pr, false, true
@@ -75,10 +73,7 @@ func (a *gitContext) refreshPR() {
 			default:
 				g.pr, g.prOff, g.ghOK = nil, true, false
 			}
-			if g.prWake != nil {
-				g.prWake.Stop()
-			}
-			g.prWake = time.AfterFunc(a.prEvery(), a.app.invalidate)
+			g.prPoll.Keep(key, a.prEvery(), a.app.invalidate)
 		})
 	})
 }
@@ -89,30 +84,27 @@ func (a *gitContext) refreshPR() {
 // shows the project. The history never waits for it.
 func (a *gitContext) refreshPRHeads() {
 	g := a.git
-	if !a.live() || len(g.history) == 0 || g.prHeadsRunning || !a.app.online() || !a.app.host.shown() {
+	if !a.live() || len(g.history) == 0 || !a.app.online() || !a.app.host.shown() {
 		return
 	}
-	every := prHeadsEvery
-	if g.prHeadsOff {
-		every = prOffEvery
-	}
-	if g.prHeadsRepo == g.repo && g.prHeadsOf == g.refsGen && time.Since(g.prHeadsRead) < every {
+	r := g.repo
+	key := prHeadsAsked{r, g.refsGen}
+	if !g.prHeadsPoll.Start(key, a.prHeadsEvery()) {
 		return
 	}
-	if g.prHeadsRepo != g.repo {
+	if g.prHeadsRepo != r {
 		g.prHeads = nil
 	}
-	g.prHeadsRunning = true
-	r, refs := g.repo, g.refsGen
 	bg.Go(func() {
 		defer recoverCrash()
 		heads, err := r.PullRequestHeads()
 		a.app.post(func() {
-			g.prHeadsRunning = false
-			if g.repo != r {
+			// A folder opened meanwhile asks for its own, which this
+			// answer does not end.
+			if !g.prHeadsPoll.Done(key) || g.repo != r {
 				return
 			}
-			g.prHeadsRepo, g.prHeadsOf, g.prHeadsRead = r, refs, time.Now()
+			g.prHeadsRepo = r
 			switch {
 			case err == nil:
 				g.prHeads, g.prHeadsOff = heads, false
@@ -121,16 +113,17 @@ func (a *gitContext) refreshPRHeads() {
 			default:
 				g.prHeads, g.prHeadsOff = nil, true
 			}
-			every := prHeadsEvery
-			if g.prHeadsOff {
-				every = prOffEvery
-			}
-			if g.prHeadsWake != nil {
-				g.prHeadsWake.Stop()
-			}
-			g.prHeadsWake = time.AfterFunc(every, a.app.invalidate)
+			g.prHeadsPoll.Keep(key, a.prHeadsEvery(), a.app.invalidate)
 		})
 	})
+}
+
+// prHeadsEvery is how often the open pull requests are asked for again.
+func (a *gitContext) prHeadsEvery() time.Duration {
+	if a.git.prHeadsOff {
+		return prOffEvery
+	}
+	return prHeadsEvery
 }
 
 // prHeadsAt is the pull requests open whose head is commit hash.

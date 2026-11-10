@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -84,7 +85,7 @@ func TestLanguageServerRetry(t *testing.T) {
 		"name": "fake",
 		"contributes": map[string]any{
 			"languages":       []any{map[string]any{"id": "fake", "extensions": []string{".fake"}}},
-			"languageServers": []any{map[string]any{"id": "fake.server", "languages": []string{"fake"}, "command": "mayoi-fake-lsp", "args": []string{"-test.run=^$"}}},
+			"languageServers": []any{map[string]any{"id": "fake.server", "languages": []string{"fake"}, "command": "mayoi-fake-lsp.exe", "args": []string{"-test.run=^$"}}},
 		},
 	})
 	hs := newHarness(t, false)
@@ -136,7 +137,11 @@ func TestLanguageServerRetry(t *testing.T) {
 	}
 
 	// Installed, then the plugin reloaded: the open documents' server starts.
-	if err := os.Symlink(os.Args[0], filepath.Join(bin, "mayoi-fake-lsp")); err != nil {
+	// The executable suffix lets Windows find it on PATH too.
+	if err := os.Symlink(os.Args[0], filepath.Join(bin, "mayoi-fake-lsp.exe")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := exec.LookPath("mayoi-fake-lsp.exe"); err != nil {
 		t.Fatal(err)
 	}
 	h.reloadAll()
@@ -160,7 +165,7 @@ func TestLanguageServerRetryOnOpen(t *testing.T) {
 		"name": "fake",
 		"contributes": map[string]any{
 			"languages":       []any{map[string]any{"id": "fake", "extensions": []string{".fake"}}},
-			"languageServers": []any{map[string]any{"id": "fake.server", "languages": []string{"fake"}, "command": "mayoi-fake-lsp", "args": []string{"-test.run=^$"}}},
+			"languageServers": []any{map[string]any{"id": "fake.server", "languages": []string{"fake"}, "command": "mayoi-fake-lsp.exe", "args": []string{"-test.run=^$"}}},
 		},
 	})
 	hs := newHarness(t, false)
@@ -170,7 +175,10 @@ func TestLanguageServerRetryOnOpen(t *testing.T) {
 	os.WriteFile(hs.path("a.fake"), []byte("so bad\n"), 0o644)
 	a.openFile(hs.path("a.fake"), true)
 	hs.untilLong("the failed start", func() bool { return a.fails == 1 })
-	if err := os.Symlink(os.Args[0], filepath.Join(bin, "mayoi-fake-lsp")); err != nil {
+	if err := os.Symlink(os.Args[0], filepath.Join(bin, "mayoi-fake-lsp.exe")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := exec.LookPath("mayoi-fake-lsp.exe"); err != nil {
 		t.Fatal(err)
 	}
 	path := hs.path("b.fake")

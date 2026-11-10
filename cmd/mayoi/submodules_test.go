@@ -53,7 +53,7 @@ func settleRepositories(t *testing.T, hs *harness, count int) {
 		ready := len(contexts) == count && !hs.a.repositories.scanning
 		for _, ctx := range contexts {
 			g := ctx.git
-			ready = ready && !g.running && !g.stale && g.pending == 0 && g.busy == "" && g.status != nil && !g.loadingHistory && g.historyOf == ctx.historyKey()
+			ready = ready && !g.statusRead.Running() && !g.statusRead.Stale() && g.pending == 0 && g.busy == "" && g.status != nil && !g.loadingHistory && g.historyOf == ctx.historyKey()
 		}
 		if ready {
 			return

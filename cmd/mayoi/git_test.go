@@ -167,14 +167,14 @@ func (hs *harness) settleGit() {
 	hs.a.git.checked = time.Time{} // look at the refs now
 	for range 200 {
 		hs.settle()
-		if g := &hs.a.git; g.looked && !g.running && !g.stale && g.busy == "" && g.pending == 0 &&
+		if g := &hs.a.git; g.looked && !g.statusRead.Running() && !g.statusRead.Stale() && g.busy == "" && g.pending == 0 &&
 			(g.repo == nil || g.historyOf == hs.a.historyKey()) {
 			return
 		}
 	}
 	g := &hs.a.git
 	hs.t.Fatalf("git status never settled: looked %v running %v stale %v busy %q pending %d history %q want %q",
-		g.looked, g.running, g.stale, g.busy, g.pending, g.historyOf, hs.a.historyKey())
+		g.looked, g.statusRead.Running(), g.statusRead.Stale(), g.busy, g.pending, g.historyOf, hs.a.historyKey())
 }
 
 func TestExplorerShowsGitState(t *testing.T) {

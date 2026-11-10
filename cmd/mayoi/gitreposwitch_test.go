@@ -32,15 +32,17 @@ func TestRepositorySwitchKeepsNewStatusReadRunning(t *testing.T) {
 	a.drain()
 	a.git.checked = a.gitNow()
 	a.git.status = nil // only start the status read
-	a.git.stale = true
+	a.git.statusRead.Invalidate()
 	a.refreshGit()
 	waitGitPost(t, a)
 	next := &gitpkg.Repo{}
 	read := time.Now().Add(-time.Minute)
-	a.git = gitState{repo: next, running: true, read: read}
+	a.git = gitState{repo: next, read: read}
+	a.git.statusRead.Invalidate()
+	a.git.statusRead.Start(next)
 	a.drain()
-	if !a.git.running || !a.git.read.Equal(read) || a.git.status != nil {
-		t.Fatalf("old status result changed new read: running=%v read=%v status=%v", a.git.running, a.git.read, a.git.status)
+	if !a.git.statusRead.Running() || !a.git.read.Equal(read) || a.git.status != nil {
+		t.Fatalf("old status result changed new read: running=%v read=%v status=%v", a.git.statusRead.Running(), a.git.read, a.git.status)
 	}
 }
 
@@ -79,8 +81,8 @@ func TestRepositorySwitchKeepsNewCommandPending(t *testing.T) {
 			defer close(release)
 			a.gitDo("New command…", func(*gitpkg.Repo) error { <-release; return nil }, nil)
 			a.drain()
-			if oldCalled || a.git.pending != 1 || a.git.busy != "New command…" || a.git.stale {
-				t.Fatalf("old command changed new state: callback=%v pending=%d busy=%q stale=%v", oldCalled, a.git.pending, a.git.busy, a.git.stale)
+			if oldCalled || a.git.pending != 1 || a.git.busy != "New command…" || a.git.statusRead.Stale() {
+				t.Fatalf("old command changed new state: callback=%v pending=%d busy=%q stale=%v", oldCalled, a.git.pending, a.git.busy, a.git.statusRead.Stale())
 			}
 		})
 	}

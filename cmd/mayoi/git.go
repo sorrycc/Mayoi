@@ -49,16 +49,16 @@ type gitState struct {
 	// the command ends or another starts.
 	mergeDone   map[string]bool
 	mergeDoneOp git.Op
-	// stale has the next frame read the status again, unless running;
-	// read is when it was read last.
-	stale, running bool
-	read           time.Time
+	// status reads the status of the work tree again when it may have
+	// changed; read is when it was read last.
+	statusRead bg.Refresher[*git.Repo]
+	read       time.Time
 
 	// meta is when the files Git changes as HEAD moves last changed, and
-	// checked when the app last looked; metaRunning is set while a remote
-	// work tree is looked at.
+	// checked when the app last looked; metaRead looks at a remote work
+	// tree.
 	meta, checked time.Time
-	metaRunning   bool
+	metaRead      bg.Refresher[*git.Repo]
 	// refsMeta is when the refs last changed, and refsGen counts the
 	// changes, for the history to be read again.
 	refsMeta time.Time
@@ -163,7 +163,8 @@ func (a *app) lookUpRepo() {
 			}
 			g.looking, g.looked = false, true
 			if err == nil {
-				g.repo, g.stale, g.remotesStale = r, true, true
+				g.repo, g.remotesStale = r, true
+				g.statusRead.Invalidate()
 			}
 		})
 	})
@@ -183,17 +184,18 @@ func (a *gitContext) refreshGit() {
 	switch {
 	case a.app.conn != nil:
 		// On the host, at one round trip, in the background.
-		if !g.metaRunning && now.Sub(g.checked) >= remoteMetaEvery {
-			g.checked, g.metaRunning = now, true
-			r := g.repo
+		if !g.metaRead.Running() && now.Sub(g.checked) >= remoteMetaEvery {
+			g.metaRead.Invalidate()
+		}
+		if r := g.repo; g.metaRead.Start(r) {
+			g.checked = now
 			bg.Go(func() {
 				defer recoverCrash()
 				t, refs, err := remoteGitMeta(r)
 				a.app.post(func() {
-					if g.repo != r {
+					if !g.metaRead.Done(r) || g.repo != r {
 						return
 					}
-					g.metaRunning = false
 					if err == nil {
 						a.tookGitMeta(t, refs)
 					}
@@ -205,11 +207,13 @@ func (a *gitContext) refreshGit() {
 		a.tookGitMeta(gitMeta(g.repo))
 	}
 	a.refreshHistory()
-	if g.running || !g.stale && now.Sub(g.read) < statusEvery {
+	if !g.statusRead.Running() && now.Sub(g.read) >= statusEvery {
+		g.statusRead.Invalidate()
+	}
+	r := g.repo
+	if !g.statusRead.Start(r) {
 		return
 	}
-	g.running, g.stale = true, false
-	r := g.repo
 	// The remotes change seldom: they are read again with the status after
 	// a command, or as HEAD moves, not every few seconds, and of a work
 	// tree here only once the config they are in changed.
@@ -238,10 +242,10 @@ func (a *gitContext) refreshGit() {
 			remotes, remotesErr = r.Remotes()
 		}
 		a.app.post(func() {
-			if g.repo != r {
+			if !g.statusRead.Done(r) || g.repo != r {
 				return
 			}
-			g.running, g.read = false, a.app.gitNow()
+			g.read = a.app.gitNow()
 			if err != nil {
 				return
 			}
@@ -459,10 +463,11 @@ func (a *gitContext) gitChanged() {
 		}
 	}
 	a.app.diffsChanged(a.git.repo.Root)
-	a.git.stale, a.git.remotesStale = true, true
+	a.git.statusRead.Invalidate()
+	a.git.remotesStale = true
 	for _, ctx := range a.app.repositories.contexts {
 		if ctx.git.repo != nil && a.git.repo != nil && ctx.git.repo.Root != a.git.repo.Root && ctx.git.repo.Contains(a.git.repo.Root) {
-			ctx.git.stale = true
+			ctx.git.statusRead.Invalidate()
 		}
 	}
 }

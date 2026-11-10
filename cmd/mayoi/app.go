@@ -638,7 +638,7 @@ func (a *app) saveDoc(d *document, then func()) {
 	}
 	saved := func() {
 		d.diskGone, d.autoSave.failed = false, false
-		a.repositoryForPath(d.path).git.stale = true
+		a.repositoryForPath(d.path).git.statusRead.Invalidate()
 		a.rememberTabs()
 		if then != nil {
 			then()

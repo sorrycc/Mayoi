@@ -407,7 +407,7 @@ func (a *app) pumpChain() {
 			a.chain = nil
 			return
 		}
-		if g := &a.git; g.repo != nil && (g.busy != "" || g.pending > 0 || g.running || g.stale) || a.confirm != nil || a.prompt != nil {
+		if g := &a.git; g.repo != nil && (g.busy != "" || g.pending > 0 || g.statusRead.Running() || g.statusRead.Stale()) || a.confirm != nil || a.prompt != nil {
 			return
 		}
 		if d := a.activeEditor(); d != nil && len(d.cmds) > 0 {

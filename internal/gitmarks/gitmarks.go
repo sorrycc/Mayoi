@@ -26,11 +26,11 @@ type Marks struct {
 	// of the same version.
 	Hunks []linediff.Hunk
 
-	base    []string // the lines at HEAD; nil for a file Git has none of
-	of      []string // the base the hunks are of
-	loaded  bool
-	loading bool
-	stale   bool // HEAD may have moved: read the base again
+	base   []string // the lines at HEAD; nil for a file Git has none of
+	of     []string // the base the hunks are of
+	loaded bool
+	// head reads the base, of the path, again when HEAD may have moved.
+	head bg.Refresher[string]
 
 	diffed  bool // the marks are of the base read last
 	running bool
@@ -50,13 +50,18 @@ func (g *Marks) Refresh(path string, snap ui.TextSnapshot, post func(func())) {
 	if path == "" {
 		return
 	}
-	if (!g.loaded || g.stale) && !g.loading {
-		g.loading, g.stale = true, false
+	if !g.loaded && !g.head.Running() {
+		g.head.Invalidate()
+	}
+	if g.head.Start(path) {
 		dir, name := filepath.Dir(path), filepath.Base(path)
 		bg.Go(func() {
 			out, err := vfs.Output(dir, "git", "show", "HEAD:./"+name)
 			post(func() {
-				g.loading, g.loaded, g.diffed = false, true, false
+				if !g.head.Done(path) {
+					return
+				}
+				g.loaded, g.diffed = true, false
 				// The marks of the old base show until those of the new.
 				g.base = nil
 				if err == nil {
@@ -97,7 +102,7 @@ func (g *Marks) Base() []string { return g.of }
 
 // HeadMoved has the next Refresh read the base again, as when a commit
 // may have been made.
-func (g *Marks) HeadMoved() { g.stale = true }
+func (g *Marks) HeadMoved() { g.head.Invalidate() }
 
 // sameLines reports whether two bases are one.
 func sameLines(a, b []string) bool {

@@ -21,7 +21,7 @@ func settleNested(t *testing.T, hs *harness, count int) {
 		ready := len(contexts) == count+1 && !hs.a.repositories.scanning
 		for _, ctx := range contexts[min(1, len(contexts)):] {
 			g := ctx.git
-			ready = ready && !g.running && !g.stale && g.pending == 0 && g.busy == "" && g.status != nil
+			ready = ready && !g.statusRead.Running() && !g.statusRead.Stale() && g.pending == 0 && g.busy == "" && g.status != nil
 		}
 		if ready {
 			return

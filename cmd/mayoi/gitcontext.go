@@ -207,7 +207,9 @@ func (a *app) discoverRepositories() {
 					}
 				}
 				if ctx == nil {
-					ctx = &gitContext{app: a, identity: repo, git: &gitState{repo: repo, looked: true, stale: true, remotesStale: true}, scm: &scmState{}}
+					g := &gitState{repo: repo, looked: true, remotesStale: true}
+					g.statusRead.Invalidate()
+					ctx = &gitContext{app: a, identity: repo, git: g, scm: &scmState{}}
 				}
 				next = append(next, ctx)
 			}

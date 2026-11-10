@@ -16704,11 +16704,11 @@ func (msgs Messages) CompletionPlaceholder() string {
 	return Catalog.Format(msgs.locale, "completionPlaceholder", nil)
 }
 
-// CmdViewLayoutLeft says "Toggle Left Panel"
+// CmdViewLayoutLeft says "Toggle Primary Side Bar"
 // in the language the app shows.
 func CmdViewLayoutLeft() string { return In(i18n.Locale()).CmdViewLayoutLeft() }
 
-// CmdViewLayoutLeft says "Toggle Left Panel"
+// CmdViewLayoutLeft says "Toggle Primary Side Bar"
 // in the language of msgs.
 func (msgs Messages) CmdViewLayoutLeft() string {
 	return Catalog.Format(msgs.locale, "cmdViewLayoutLeft", nil)
@@ -16724,11 +16724,11 @@ func (msgs Messages) CmdViewLayoutBottom() string {
 	return Catalog.Format(msgs.locale, "cmdViewLayoutBottom", nil)
 }
 
-// CmdViewLayoutRight says "Toggle Right Panel"
+// CmdViewLayoutRight says "Toggle Secondary Side Bar"
 // in the language the app shows.
 func CmdViewLayoutRight() string { return In(i18n.Locale()).CmdViewLayoutRight() }
 
-// CmdViewLayoutRight says "Toggle Right Panel"
+// CmdViewLayoutRight says "Toggle Secondary Side Bar"
 // in the language of msgs.
 func (msgs Messages) CmdViewLayoutRight() string {
 	return Catalog.Format(msgs.locale, "cmdViewLayoutRight", nil)

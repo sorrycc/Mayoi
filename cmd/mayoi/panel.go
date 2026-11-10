@@ -79,11 +79,6 @@ func (s *session) label() string {
 	return cmp.Or(s.name, s.title)
 }
 
-type panelHeaderLayout struct {
-	windowWidth, panelWidth float32
-	side, titles, font      string
-}
-
 // termTheme is the terminal's colors for a palette: its background the
 // panel's, so that the panel and the editor are of a piece.
 func termTheme(p *palette) *terminal.Theme {
@@ -537,8 +532,15 @@ func (a *app) panel(c *ui.Context, side settings.Side) {
 func (a *app) panelHeader(c *ui.Context, side settings.Side) {
 	panel := a.window.Panels.Get(side)
 	view := panel.Shown()
-	// The bottom panel is as wide as the editors.
-	wide := side == settings.SideBottom || a.panelWidth(side) >= panelWide
+	// The bottom panel is as wide as the editors. A side panel's header
+	// follows the width left after both side panels are clamped, not the
+	// width the panel would have in a wider window.
+	wide := side == settings.SideBottom || a.panelMax == side
+	if !wide {
+		width, _ := c.Size()
+		size, _ := a.sidePanelSize(side, width)
+		wide = size >= panelWide
+	}
 	ui.Row(c).Height(panelHeadH).Padding(0, 8, 0, 14).Gap(4).AlignItems(ui.Center).Children(func() {
 		ui.Row(c.Key("panel-tabs:" + string(side))).Grow(1).MinWidth(0).Gap(4).AlignItems(ui.Center).Children(func() {
 			for _, v := range panel.Views {

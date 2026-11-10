@@ -99,7 +99,7 @@ Esc, ⌃[ or ⌃C leaves insert mode. A change and the text typed after it undo 
 use the system clipboard unless a register is named, and a yank of whole lines pastes as lines. Where Control is not
 the key of shortcuts, ⌃W and ⌃U delete the word and the line before the caret in insert mode. In normal mode, ⌃R redoes rather than opening
 recent folders. ⌘ shortcuts work as usual in every mode. Punctuation keys are read as a US keyboard types them. On
-Windows and Linux, ⌃F, ⌃B, ⌃R and ⌃O stay Find, Toggle Left Panel, Open Recent and Open in normal mode, and ⌃A and ⌃X
+Windows and Linux, ⌃F, ⌃B, ⌃R and ⌃O stay Find, Toggle Primary Side Bar, Open Recent and Open in normal mode, and ⌃A and ⌃X
 Select All and Cut, unless `vimCtrlKeys` is on.
 
 ### Undo

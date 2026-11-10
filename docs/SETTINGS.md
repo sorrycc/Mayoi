@@ -217,7 +217,7 @@ differ in width lines them up only roughly.
   independently.
 - **`vim`** starts editors in vim's normal mode.
 - **`vimCtrlKeys`** gives ⌃F, ⌃B, ⌃R, ⌃A and ⌃X to vim's normal mode on Windows and Linux, rather than to Find,
-  Toggle Left Panel, Open Recent, Select All and Cut. On macOS, where those commands use ⌘, vim always has them.
+  Toggle Primary Side Bar, Open Recent, Select All and Cut. On macOS, where those commands use ⌘, vim always has them.
 - **`blame`** shows who last changed the caret's line, and when, at the end of the line.
 - **`explorerCompactFolders`** shows each chain of folders that contain only one child folder on one Explorer row,
   as `src/main/java/com/example`. The row's actions use the last folder in the chain. Turn it off to show the

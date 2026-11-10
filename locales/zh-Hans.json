@@ -1652,9 +1652,9 @@
   "definitionNone": "未找到定义",
   "completionNone": "此处没有补全",
   "completionPlaceholder": "补全为",
-  "cmdViewLayoutLeft": "切换左面板",
+  "cmdViewLayoutLeft": "切换主侧边栏",
   "cmdViewLayoutBottom": "切换下面板",
-  "cmdViewLayoutRight": "切换右面板",
+  "cmdViewLayoutRight": "切换次侧边栏",
   "panelMoveTo": "移到",
   "panelMoveViewTo": "移动视图到面板"
 }

@@ -1880,9 +1880,9 @@
   "definitionNone": "No definition found",
   "completionNone": "No completions here",
   "completionPlaceholder": "Complete with",
-  "cmdViewLayoutLeft": "Toggle Left Panel",
+  "cmdViewLayoutLeft": "Toggle Primary Side Bar",
   "cmdViewLayoutBottom": "Toggle Bottom Panel",
-  "cmdViewLayoutRight": "Toggle Right Panel",
+  "cmdViewLayoutRight": "Toggle Secondary Side Bar",
   "panelMoveTo": "Move to",
   "panelMoveViewTo": "Move View to Panel"
 }

@@ -768,13 +768,14 @@ func TestNewWindowCopiesTheViews(t *testing.T) {
 // copy: the window moves on without it.
 func TestStashCopiesTheLayout(t *testing.T) {
 	s := Default()
-	s.AddRecent("/tmp/x")
+	dir := t.TempDir()
+	s.AddRecent(dir)
 	w := s.NewWindow()
-	w.Folder, w.Expanded = "/tmp/x", []string{"src"}
+	w.Folder, w.Expanded = dir, []string{"src"}
 	s.Stash(w)
 	w.Panels.Place(ViewSearch, SideRight)
 	w.Panels.Get(SideLeft).Size = 400
-	ses := s.Sessions["/tmp/x"]
+	ses := s.Sessions[dir]
 	if ses == nil {
 		t.Fatal("no session kept")
 	}

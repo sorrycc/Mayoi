@@ -5,25 +5,16 @@ needs a `## <version>` section here, or its build fails.
 
 ## Unreleased
 
-- The window is panels all the way down: one on the left, one on the right
-  and one at the bottom, each holding views as tabs, and every view — the
-  terminal, the Explorer, Search, Source Control and the views plugins add
-  — in one of them. **Move … to** in a tab's menu puts that view alone on
-  the left, on the right or at the bottom, **Move View to Panel** in the
-  View menu does the same for any view, and each project remembers where it
-  put them. This takes the place of **View → Panel Position**, which put
-  the terminal panel at a side of the window: the terminal's side is now
-  its panel's, and **Move Panel to Left**, **Right** and **Bottom** in the
-  command palette move it there.
-- A panel on a side is as wide as its handle is dragged, the bottom one as
-  tall; a narrow one shortens a long tab's name and gives the view's tools
-  and the panel's buttons a row of their own. **View → Sidebar on Right**
-  mirrors the layout: the panel of the left then shows on the right, and
-  each view keeps its side.
-- The three buttons at the end of the title bar show and hide the panels of
-  the left, the bottom and the right, as VS Code's layout controls do.
-  ⌃` shows the terminal, ⇧⌘E, ⇧⌘F and ⌃⇧G show their views wherever they
-  are, and a panel with no view does nothing.
+- Every view is now a tab in a panel on the left, the right or the bottom of the window.
+- **Move to** in a tab's menu, or **View → Move View to Panel**, puts a view in another panel.
+- Enabled plugin views have tabs and menu items, and stay where you put them when revealed.
+- **View → Panel Position** is gone; move the terminal like any other view.
+- The title bar's buttons show and hide the primary side bar, bottom panel and secondary side bar.
+- **View → Sidebar on Right** mirrors the panels and their title bar icons.
+- Drag a panel's edge to resize it; narrow panels shorten tab names and wrap their tools.
+- Two side panels leave room for the editors, even in a narrow window.
+- Each project remembers which panel holds each view, and the panels' sizes.
+- `` ⌃` `` and the Explorer, Search and Source Control shortcuts open their views wherever they are.
 - Clicking a repository's name or row background in source control expands or collapses its changes.
 - **Settings > Shortcuts** lists **Report a Problem** under Help instead of Account.
 

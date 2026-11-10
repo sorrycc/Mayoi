@@ -82,12 +82,6 @@ func sideLabel(s settings.Side) string {
 	return locales.PanelBottom()
 }
 
-// panelAt reports whether the terminal's view shows on a side.
-func (a *app) panelAt(s settings.Side) bool {
-	at, ok := a.viewSide(panelTerminal)
-	return ok && at == s
-}
-
 // sidebarShown reports whether the panel on the layout's left shows.
 func (a *app) sidebarShown() bool { return a.window.Panels.Get(settings.SideLeft).Visible() }
 
@@ -121,6 +115,9 @@ func (a *app) showPanelView(v string) {
 	}
 	a.window.Panels.Get(s).Activate(v)
 	a.settings.Changed()
+	if id, ok := strings.CutPrefix(v, "plugin:"); ok {
+		a.activatePluginView(id)
+	}
 	if v == panelTerminal {
 		if a.panelTerm != nil {
 			a.focusTerminal()

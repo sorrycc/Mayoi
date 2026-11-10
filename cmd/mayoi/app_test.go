@@ -932,16 +932,16 @@ func TestSidebarOnTheRight(t *testing.T) {
 	}
 }
 
-// The three buttons at the end of the title bar are the panels of the
-// layout's left, of the bottom and of the right, in that order, and they
-// follow the layout as it mirrors.
+// The three buttons at the end of the title bar are the primary side bar,
+// the bottom panel and the secondary side bar. Their order and names stay
+// put as the layout mirrors; their icons follow the panels' physical sides.
 func TestLayoutButtonsFollowTheLayout(t *testing.T) {
 	hs := newHarness(t, true)
 	a, tt := hs.a, hs.tt
 	a.openFile(hs.path("main.go"), true)
 	hs.settle()
-	// The left panel's button adds its keys, as ⌘B has them; the others
-	// have none.
+	// The primary side bar's button adds its keys, as ⌘B has them; the
+	// others have none.
 	at := func(label, cmd string) ui.Rect {
 		box, ok := tt.Find(a.withKey(label, cmd))
 		if !ok {
@@ -949,19 +949,18 @@ func TestLayoutButtonsFollowTheLayout(t *testing.T) {
 		}
 		return box
 	}
-	left, bottom, right := at("Toggle Left Panel", "view.sidebar"), at("Toggle Bottom Panel", "view.panelBottom"), at("Toggle Right Panel", "view.panelRight")
-	if !(left.X < bottom.X && bottom.X < right.X) {
-		t.Fatalf("the buttons: left %v, bottom %v, right %v", left, bottom, right)
+	primary, bottom, secondary := at("Toggle Primary Side Bar", "view.sidebar"), at("Toggle Bottom Panel", "view.panelBottom"), at("Toggle Secondary Side Bar", "view.panelRight")
+	if !(primary.X < bottom.X && bottom.X < secondary.X) {
+		t.Fatalf("the buttons: primary %v, bottom %v, secondary %v", primary, bottom, secondary)
 	}
-	if right.X+right.W < 1200-160 {
-		t.Errorf("the buttons end at %v, not at the bar's right", right.X+right.W)
+	if secondary.X+secondary.W < 1200-160 {
+		t.Errorf("the buttons end at %v, not at the bar's right", secondary.X+secondary.W)
 	}
-	// Mirrored, each button shows the panel on the side of the window its
-	// panel shows on, and the three keep their order.
 	a.run("view.sidebarRight")
 	hs.settle()
-	if left, right := at("Toggle Left Panel", "view.sidebar"), at("Toggle Right Panel", "view.panelRight"); !(left.X < right.X) {
-		t.Errorf("mirrored, the buttons: left %v, right %v", left, right)
+	primary, bottom, secondary = at("Toggle Primary Side Bar", "view.sidebar"), at("Toggle Bottom Panel", "view.panelBottom"), at("Toggle Secondary Side Bar", "view.panelRight")
+	if !(primary.X < bottom.X && bottom.X < secondary.X) {
+		t.Errorf("mirrored, the buttons: primary %v, bottom %v, secondary %v", primary, bottom, secondary)
 	}
 }
 

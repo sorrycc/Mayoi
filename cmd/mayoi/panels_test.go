@@ -2,10 +2,13 @@ package main
 
 import (
 	"encoding/json"
+	"os"
+	"runtime"
 	"slices"
 	"strings"
 	"testing"
 
+	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
 
 	"mayoi/internal/settings"
@@ -191,8 +194,15 @@ func TestViewsInPanels(t *testing.T) {
 // A view moves alone: the views of the panel it goes to stay where they
 // were, as tabs, and the one that moves shows.
 func TestViewsMoveAlone(t *testing.T) {
+	if testing.Short() {
+		t.Skip("starts a shell")
+	}
+	if runtime.GOOS != "windows" {
+		t.Setenv("SHELL", "/bin/sh")
+	}
 	hs := newHarness(t, true)
 	a, tt := hs.a, hs.tt
+	t.Cleanup(a.closeTerminals)
 	a.openFile(hs.path("main.go"), true)
 	hs.settle()
 	a.run("view.terminal")
@@ -230,8 +240,15 @@ func TestViewsMoveAlone(t *testing.T) {
 // The menu of a panel's tab moves that view, and offers the panel's own
 // actions; the panel's buttons show and hide the panels of the layout.
 func TestPanelTabMenus(t *testing.T) {
+	if testing.Short() {
+		t.Skip("starts a shell")
+	}
+	if runtime.GOOS != "windows" {
+		t.Setenv("SHELL", "/bin/sh")
+	}
 	hs := newHarness(t, true)
 	a, tt := hs.a, hs.tt
+	t.Cleanup(a.closeTerminals)
 	a.openFile(hs.path("main.go"), true)
 	hs.settle()
 	a.run("view.terminal")
@@ -288,7 +305,7 @@ func TestLayoutControls(t *testing.T) {
 	hs.settle()
 	a.moveView(settings.ViewSearch, settings.SideRight)
 	hs.settle()
-	if err := tt.Click(a.withKey("Toggle Right Panel", "view.panelRight")); err != nil {
+	if err := tt.Click(a.withKey("Toggle Secondary Side Bar", "view.panelRight")); err != nil {
 		t.Fatalf("no right panel button: %v", err)
 	}
 	hs.settle()
@@ -298,7 +315,7 @@ func TestLayoutControls(t *testing.T) {
 	if _, ok := tt.Find("SEARCH"); ok {
 		t.Error("the right panel is drawn while closed")
 	}
-	if err := tt.Click(a.withKey("Toggle Right Panel", "view.panelRight")); err != nil {
+	if err := tt.Click(a.withKey("Toggle Secondary Side Bar", "view.panelRight")); err != nil {
 		t.Fatal(err)
 	}
 	hs.settle()
@@ -321,6 +338,9 @@ func TestLayoutControls(t *testing.T) {
 	if a.bottomPanel().Open || len(a.window.Panels) != before {
 		t.Errorf("the button made a panel of the bottom one: open %v, %d panels, was %d", a.bottomPanel().Open, len(a.window.Panels), before)
 	}
+	if tt.Focused("Toggle Bottom Panel") {
+		t.Error("the button for a panel with no views takes the keyboard")
+	}
 }
 
 // A panel on a side is as wide as its handle is dragged, keeps its size as
@@ -328,10 +348,16 @@ func TestLayoutControls(t *testing.T) {
 // widens.
 func TestSidePanelKeepsItsWidth(t *testing.T) {
 	hs := newHarness(t, true)
-	a, tt := hs.a, hs.tt
+	a := hs.a
 	a.openFile(hs.path("main.go"), true)
 	hs.settle()
 	a.moveView(settings.ViewSearch, settings.SideRight)
+	var editorWidth float32
+	tt := ui.NewTester(func(c *ui.Context) {
+		a.view(c)
+		editorWidth = a.colsView.Bounds(c).W
+	}, 1200, 800)
+	hs.tt = tt
 	hs.settle()
 	size := a.rightPanel().Size
 	edge := 1200 - size + 2
@@ -346,13 +372,38 @@ func TestSidePanelKeepsItsWidth(t *testing.T) {
 	wide := a.rightPanel().Size
 	hs.tt.SetSize(760, 800)
 	hs.settle()
-	if hide, ok := tt.Find("SEARCH"); ok && hide.X+hide.W > 760-320+40 {
-		t.Errorf("the panel in a narrow window reaches %v", hide.X+hide.W)
+	if editorWidth < 320 {
+		t.Errorf("the panels leave the editors %v in a narrow window", editorWidth)
 	}
 	hs.tt.SetSize(1200, 800)
 	hs.settle()
 	if got := a.rightPanel().Size; got != wide {
 		t.Errorf("the panel is %v wide, was %v", got, wide)
+	}
+}
+
+// Two side panels share the room outside the editors: each gives way for
+// the other, and its header uses the width it actually gets, not the width
+// it would have in a wider window.
+func TestSidePanelsShareTheWindow(t *testing.T) {
+	hs := newHarness(t, true)
+	a := hs.a
+	a.openFile(hs.path("main.go"), true)
+	a.moveView(settings.ViewSCM, settings.SideRight)
+	a.leftPanel().Size = 500
+	a.rightPanel().Size = 500
+	var editorWidth float32
+	tt := ui.NewTester(func(c *ui.Context) {
+		a.view(c)
+		editorWidth = a.colsView.Bounds(c).W
+	}, 900, 760)
+	hs.tt = tt
+	hs.settle()
+	if editorWidth < 320 {
+		t.Errorf("the editors are %v wide, less than the 320 the panels leave them", editorWidth)
+	}
+	if !tt.HasText("GIT") || tt.HasText("SOURCE CONTROL") {
+		t.Errorf("the clamped panel names its tabs %q", tt.Texts())
 	}
 }
 
@@ -419,22 +470,53 @@ func TestSideBarConditions(t *testing.T) {
 	}
 }
 
-// A plugin's view is a view of any panel: moved out of the left panel, it
-// draws its rows there.
+// An enabled plugin's view has a tab and a menu item before it is first
+// revealed. Its tab starts it, and revealing it again leaves it where the
+// user moved it.
 func TestPluginViewMovesBetweenPanels(t *testing.T) {
 	hs := newHarness(t, false)
 	h := withBundled(hs)
 	a, tt := hs.a, hs.tt
-	a.showPluginView("todos.list")
+	const view = "plugin:todos.list"
+	if !a.viewInPanel(view) || !tt.HasText("TODOS") {
+		t.Fatalf("the unrevealed plugin's view has no tab: %q", tt.Texts())
+	}
+	var viewMenu, moveMenu, todosMenu *mygo.MenuItem
+	for _, it := range a.menu(false, func(string, *mygo.Window) {}).Items() {
+		if it.Label == "View" {
+			viewMenu = it
+		}
+	}
+	if viewMenu != nil {
+		for _, it := range viewMenu.Submenu {
+			if it.Label == "Move View to Panel" {
+				moveMenu = it
+			}
+		}
+	}
+	if moveMenu != nil {
+		for _, it := range moveMenu.Submenu {
+			if it.Label == "TODOs" {
+				todosMenu = it
+			}
+		}
+	}
+	if todosMenu == nil {
+		t.Fatal("Move View to Panel does not list the enabled plugin's view")
+	}
+
+	if err := tt.Click("TODOS"); err != nil {
+		t.Fatal(err)
+	}
 	hs.until("the TODOs", func() bool {
 		h.mu.Lock()
 		defer h.mu.Unlock()
 		data, _ := json.Marshal(h.views["todos.list"])
 		return strings.Contains(string(data), "say more")
 	})
-	a.moveView("plugin:todos.list", settings.SideRight)
+	a.moveView(view, settings.SideRight)
 	hs.settle()
-	if at, _ := a.viewSide("plugin:todos.list"); at != settings.SideRight {
+	if at, _ := a.viewSide(view); at != settings.SideRight {
 		t.Fatalf("the plugin's view is on %q", at)
 	}
 	if !tt.HasText("TODOS") {
@@ -443,14 +525,45 @@ func TestPluginViewMovesBetweenPanels(t *testing.T) {
 	if tt.HasText("This plugin's view is gone.") {
 		t.Fatalf("the plugin's view is gone: %q", tt.Texts())
 	}
-	if !tt.HasText("say more") || !tt.HasText("main.go") {
-		t.Errorf("the panel has no TODO rows: %q", tt.Texts())
+	hs.until("the moved TODOs", func() bool { return tt.HasText("say more") && tt.HasText("main.go") })
+	a.showPluginView("todos.list")
+	hs.settle()
+	if at, _ := a.viewSide(view); at != settings.SideRight || hs.shown(view) != view {
+		t.Errorf("revealing moved the plugin's view to %q, showing %q", at, hs.shown(view))
+	}
+}
+
+// Removing a plugin takes its view's tab away, rather than leaving a tab
+// that can only say the view is gone.
+func TestUninstalledPluginViewLosesItsTab(t *testing.T) {
+	hs := newHarness(t, false)
+	h := withPlugins(hs, map[string]map[string]string{"lint": {"plugin.json": lintPlugin, "main.ts": lintMain}})
+	a, tt := hs.a, hs.tt
+	a.showPluginView("lint.view")
+	a.moveView("plugin:lint.view", settings.SideRight)
+	hs.settle()
+	if !tt.HasText("LINT") {
+		t.Fatalf("no plugin tab before its removal: %q", tt.Texts())
+	}
+	if err := os.RemoveAll(h.reg.Plugin("lint").Dir); err != nil {
+		t.Fatal(err)
+	}
+	h.reg.Load()
+	hs.settle()
+	if tt.HasText("LINT.VIEW") || tt.HasText("This plugin's view is gone.") {
+		t.Errorf("the removed plugin leaves a dead tab: %q", tt.Texts())
 	}
 }
 
 // A terminal shown from a command opens the panel that holds it, with
 // the keyboard in the terminal.
 func TestShowingATerminalOpensItsPanel(t *testing.T) {
+	if testing.Short() {
+		t.Skip("starts a shell")
+	}
+	if runtime.GOOS != "windows" {
+		t.Setenv("SHELL", "/bin/sh")
+	}
 	hs := newHarness(t, true)
 	a, tt := hs.a, hs.tt
 	t.Cleanup(a.closeTerminals)
@@ -478,6 +591,12 @@ func TestShowingATerminalOpensItsPanel(t *testing.T) {
 // A window that quits with the terminal in an open panel starts a
 // terminal again, as a local terminal is not attached to.
 func TestTerminalComesBackWithThePanel(t *testing.T) {
+	if testing.Short() {
+		t.Skip("starts a shell")
+	}
+	if runtime.GOOS != "windows" {
+		t.Setenv("SHELL", "/bin/sh")
+	}
 	root := workspaceFixture(t)
 	s := settings.Default()
 	w := s.NewWindow()
@@ -485,6 +604,7 @@ func TestTerminalComesBackWithThePanel(t *testing.T) {
 	w.Panels.Get(settings.SideBottom).Open = true
 	a := newApp(&fakeHost{folder: root}, s, w)
 	t.Cleanup(a.shutdown)
+	t.Cleanup(a.closeTerminals)
 	tt := ui.NewTester(a.view, 1200, 760)
 	for range 3 {
 		step(tt)
@@ -550,6 +670,12 @@ func TestHidingAPanelKeepsTheKeyboard(t *testing.T) {
 // A panel whose last terminal goes stops being maximized: the panel that
 // shows the terminal again takes its own room.
 func TestPanelStopsMaximizedWhenItsLastTerminalGoes(t *testing.T) {
+	if testing.Short() {
+		t.Skip("starts a shell")
+	}
+	if runtime.GOOS != "windows" {
+		t.Setenv("SHELL", "/bin/sh")
+	}
 	hs := newHarness(t, true)
 	a := hs.a
 	t.Cleanup(a.closeTerminals)

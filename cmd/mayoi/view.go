@@ -57,6 +57,7 @@ func (a *app) view(c *ui.Context) {
 	}
 	a.drain()
 	a.pumpChain()
+	a.syncPluginViews()
 	// The key the keymap took is let go of where its release does not
 	// come: in a place with no text, or another window.
 	if a.held != nil && (a.blurred || a.keyFocus != placeEditor && a.keyFocus != placeInput) {
@@ -214,6 +215,26 @@ func (a *app) main(c *ui.Context) {
 	})
 }
 
+// sidePanelSize is how wide a panel on a side gets in a window of width,
+// and the most its splitter allows. Two visible side panels share the room
+// outside the editors' 320 points and the rail, rather than each clamping
+// its own width as though the other were not there.
+func (a *app) sidePanelSize(s settings.Side, width float32) (size, room float32) {
+	other := settings.SideRight
+	if s == settings.SideRight {
+		other = settings.SideLeft
+	}
+	room = width - 320
+	if p := a.window.Panels.Get(other); p.Visible() {
+		room -= p.Size
+	}
+	if a.rail != nil {
+		room -= railW
+	}
+	room = max(room, minPanelW)
+	return clamp(a.window.Panels.Get(s).Size, minPanelW, room), room
+}
+
 // panelColumn is the panel on a side of the editors: a column as wide as
 // the window keeps it, with a handle on its inner edge, at.
 func (a *app) panelColumn(c *ui.Context, s settings.Side, at edge) {
@@ -232,14 +253,7 @@ func (a *app) panelColumn(c *ui.Context, s settings.Side, at edge) {
 	} else {
 		box.BorderWidth(0, 1, 0, 0)
 	}
-	// It leaves the editors 320 points beside the rail, as a panel on a side
-	// leaves them, however narrow the window.
-	room := width - 320
-	if a.rail != nil {
-		room -= railW
-	}
-	room = max(room, minPanelW)
-	size := clamp(panel.Size, minPanelW, room)
+	size, room := a.sidePanelSize(s, width)
 	if a.panelMax == s {
 		box.Grow(1)
 	} else {
@@ -352,7 +366,8 @@ func (a *app) titleBar(c *ui.Context) {
 		})
 		ui.Row(c).Basis(0).Grow(1).MinWidth(56).Justify(ui.End).Gap(2).Children(func() {
 			// A button for each panel, as VS Code's layout controls: the
-			// one of the left, of the bottom, and of the right.
+			// primary side bar, the bottom panel and the secondary side bar,
+			// in a stable order as the layout mirrors.
 			a.panelToggle(c, settings.SideLeft)
 			a.panelToggle(c, settings.SideBottom)
 			a.panelToggle(c, settings.SideRight)
@@ -360,15 +375,14 @@ func (a *app) titleBar(c *ui.Context) {
 	})
 }
 
-// panelToggle is the button that shows or hides a panel, its icon a
-// square with a bar on the side the panel shows on. A panel with no view
-// has nothing to show: its button is faint, and does nothing.
+// panelToggle is the button that shows or hides the primary side bar, the
+// bottom panel or the secondary side bar. Its icon names the physical side
+// the panel shows on; its label does not change as the layout mirrors. A
+// panel with no view has a faint, disabled button.
 func (a *app) panelToggle(c *ui.Context, s settings.Side) {
-	// The icon is the panel's own, as its label names it: mirrored, the
-	// panel of the left shows on the right, and its button keeps the bar
-	// on the left.
+	shown := a.sideOn(s)
 	icon := iconPanel
-	switch s {
+	switch shown {
 	case settings.SideLeft:
 		icon = iconSidebar
 	case settings.SideRight:
@@ -383,7 +397,8 @@ func (a *app) panelToggle(c *ui.Context, s settings.Side) {
 	}
 	p := a.window.Panels.Get(s)
 	if p == nil || len(p.Views) == 0 {
-		b := ui.ButtonBase(c).Size(26, 24).Radius(5).Justify(ui.Center).AlignItems(ui.Center).Label(label).Tooltip(label)
+		b := ui.ButtonBase(c).Size(26, 24).Radius(5).Justify(ui.Center).AlignItems(ui.Center).
+			Label(label).Tooltip(label).Disabled(true)
 		b.Children(func() { ui.Icon(c, icon).FontSize(15).TextColor(a.pal.faint) })
 		return
 	}

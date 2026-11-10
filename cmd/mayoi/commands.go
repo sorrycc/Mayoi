@@ -512,6 +512,9 @@ func (a *app) menu(cli bool, run func(id string, win *mygo.Window)) *mygo.Menu {
 	// of the right or of the bottom, the one it is in checked.
 	moveViews := func() []*mygo.MenuItem {
 		views := append(slices.Clone(settings.SidebarViews), settings.ViewTerminal)
+		for _, slot := range pluginSlots() {
+			views = append(views, "plugin:"+slot.id)
+		}
 		out := make([]*mygo.MenuItem, 0, len(views))
 		for _, v := range views {
 			at, _ := a.viewSide(v)
@@ -521,7 +524,11 @@ func (a *app) menu(cli bool, run func(id string, win *mygo.Window)) *mygo.Menu {
 				sides = append(sides, &mygo.MenuItem{Label: sideLabel(side), Type: mygo.MenuItemRadio, Checked: at == side,
 					Click: func(_ *mygo.MenuItem, _ *mygo.Window) { a.post(func() { a.moveView(view, side) }) }})
 			}
-			out = append(out, &mygo.MenuItem{Label: viewLabel(v), Submenu: sides})
+			label := viewLabel(v)
+			if label == "" {
+				label = a.viewTitle(v)
+			}
+			out = append(out, &mygo.MenuItem{Label: label, Submenu: sides})
 		}
 		return out
 	}

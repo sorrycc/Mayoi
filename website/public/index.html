@@ -83,7 +83,8 @@
           <p class="muted">Mayoi paints its own UI with <a href="https://github.com/egoist/mygo">MyGo</a>, straight to the GPU.
             There's no browser engine to start and no DOM to diff, so the whole app ships in one small binary and a
             keystroke costs less than a frame.</p>
-          <p class="muted small">Figures from Mayoi's own tests on an M-series Mac. See
+          <p class="muted small">Figures from Mayoi's own tests on an M-series Mac. Each pull request fails if a frame
+            gets slower than its budget. See
             <a href="https://github.com/sorrycc/Mayoi/blob/main/docs/ARCHITECTURE.md#performance">ARCHITECTURE.md</a>.</p>
         </div>
         <div class="card table-card">
@@ -99,6 +100,7 @@
                 <tr><td>Scroll or type with find open</td><td class="num">~3 ms</td></tr>
                 <tr><td>Re-highlight a 6,000-line file after a key</td><td class="num">&lt; 1 ms</td></tr>
                 <tr><td>Quick open across 100,000 paths</td><td class="num">~1.5 ms</td></tr>
+                <tr><td>Open and close the command palette</td><td class="num">~13 ms</td></tr>
                 <tr><td>Diff a few edits in a 100,000-line file</td><td class="num">~0.25 ms</td></tr>
               </tbody>
               <tfoot>

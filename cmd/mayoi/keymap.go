@@ -92,6 +92,7 @@ func (a *app) keyStroke(s keymap.Stroke, where keyPlace) bool {
 		a.chord = seq
 	case b != nil:
 		a.chord = nil
+		a.keyedAt = a.frameAt
 		bd := *b
 		a.post(func() { a.runBinding(bd.Command, bd.Args, where) })
 	case len(a.chord) > 0:

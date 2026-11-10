@@ -314,6 +314,8 @@ type app struct {
 	// frame may build the view several times.
 	frame   int
 	frameAt time.Time
+	// keyedAt is when a key last ran a binding, for keyedOpen.
+	keyedAt time.Time
 	// builds counts the builds of the view.
 	builds int
 	// dragging is set while a tab is dragged, as the frame before found.

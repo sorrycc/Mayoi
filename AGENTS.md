@@ -6,6 +6,11 @@
 - Put any detail in a short body, not the subject.
 - Dont run full test since its slow.
 
+## Design
+
+- Follow docs/DESIGN.md for motion, layout stability, states, speed, failures and words.
+- Take animation lengths from the tokens in cmd/mayoi/motion.go, never a number written out.
+
 ## Changelog
 
 - Add a bullet for every user-facing change under `## Unreleased` in CHANGELOG.md, creating that section above the latest version if it is missing.

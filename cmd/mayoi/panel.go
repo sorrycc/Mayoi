@@ -68,6 +68,9 @@ type session struct {
 	// name is what the user renamed it to, "" for none, shown over the
 	// title its programs give it.
 	name string
+	// started is when its program started, to tell a shell that exits
+	// as it starts from one the user ended.
+	started time.Time
 }
 
 // label is what the terminal is called: the name the user gave it, or
@@ -153,7 +156,7 @@ func (a *app) addTerminal(s *session) *session {
 		a.fail("%s", locales.FailStartTerminal(err.Error()))
 		return nil
 	}
-	s.term = term
+	s.term, s.started = term, time.Now()
 	a.terms = append(a.terms, s)
 	return s
 }

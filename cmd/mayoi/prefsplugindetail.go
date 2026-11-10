@@ -81,7 +81,7 @@ func slideIn(c *ui.Context, e ui.Element, dx float32) ui.Element {
 	if c.Direction() == ui.RightToLeft {
 		dx = -dx
 	}
-	k := e.Keyframes("show", []ui.Keyframe{{Value: 0}, {At: 180 * time.Millisecond, Value: 1, Ease: ui.EaseOut}})
+	k := e.Keyframes("show", []ui.Keyframe{{Value: 0}, {At: motionMove, Value: 1, Ease: ui.EaseOut}})
 	return e.Opacity(k).Translate(dx*(1-k), 0)
 }
 

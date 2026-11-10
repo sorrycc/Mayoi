@@ -597,7 +597,7 @@ func (o *treeOpening) note(open *ui.Selection[string], now time.Time) {
 		o.open, o.opened = map[string]bool{}, map[string]time.Time{}
 	}
 	for dir, at := range o.opened {
-		if now.Sub(at) >= showFor {
+		if now.Sub(at) >= motionShow {
 			delete(o.opened, dir)
 		}
 	}
@@ -631,7 +631,7 @@ func (o *treeOpening) shown(dir string, now time.Time) float32 {
 	if !ok {
 		return 1
 	}
-	return ui.EaseOut(min(float32(now.Sub(at))/float32(showFor), 1))
+	return ui.EaseOut(min(float32(now.Sub(at))/float32(motionShow), 1))
 }
 
 // treeGuides paints the indent guides of a row of the tree, depth deep,

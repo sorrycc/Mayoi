@@ -39,14 +39,18 @@ func commandGroup(t locales.Messages, id string) string {
 		return t.MenuSelection()
 	case "go":
 		return t.MenuGo()
-	case "view", "editor", "image":
+	case "view", "editor", "image", "mermaid":
 		return t.MenuView()
+	case "remote":
+		return t.MenuRemoteSSH()
 	case "git":
 		return t.MenuGit()
 	case "review":
 		return t.MenuReview()
 	case "account":
 		return t.MenuAccount()
+	case "help":
+		return t.MenuHelp()
 	case "plugins":
 		return t.MenuPlugins()
 	case "script":
@@ -58,6 +62,15 @@ func commandGroup(t locales.Messages, id string) string {
 		}
 	}
 	return ""
+}
+
+// groupTitle is a command's title in the palette: its group, then its
+// label; the label alone for a command of no group.
+func groupTitle(group, label string) string {
+	if group == "" {
+		return label
+	}
+	return group + ": " + label
 }
 
 // viewKeys are the keys of the commands that the editor or the view
@@ -81,15 +94,15 @@ func (a *app) paletteEntries() []paletteEntry {
 	shown, en := locales.In(i18n.Locale()), locales.In("en")
 	english := map[string]string{}
 	for _, cmd := range a.commandsIn(en) {
-		english[cmd.id] = commandGroup(en, cmd.id) + ": " + cmd.label
+		english[cmd.id] = groupTitle(commandGroup(en, cmd.id), cmd.label)
 	}
 	for _, cmd := range a.commandsIn(shown) {
 		if cmd.id == "go.commands" {
 			continue
 		}
 		group := commandGroup(shown, cmd.id)
-		title := group + ": " + cmd.label
-		e := paletteEntry{id: cmd.id, title: title, group: len(group) + 2, caps: a.commandCaps(cmd)}
+		title := groupTitle(group, cmd.label)
+		e := paletteEntry{id: cmd.id, title: title, group: len(title) - len(cmd.label), caps: a.commandCaps(cmd)}
 		if english[cmd.id] != title {
 			e.en = english[cmd.id]
 		}

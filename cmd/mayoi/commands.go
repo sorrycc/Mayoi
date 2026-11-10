@@ -65,6 +65,7 @@ func (a *app) commandsIn(t locales.Messages) []command {
 		{"account.syncNow", t.CmdAccountSyncNow(), "", a.syncNow},
 		{"account.compareKeybindings", t.CmdAccountCompareKeybindings(), "", a.compareKeybindings},
 		{"account.manage", t.CmdAccountManage(), "", func() { a.services.OpenURL(monURL()) }},
+		{"help.reportProblem", t.CmdHelpReportProblem(), "", a.reportFromMenu},
 		{"account.signOut", t.CmdAccountSignOut(), "", a.confirmSignOut},
 		{"file.installCLI", t.CmdFileInstallCLI(), "", func() { a.host.installCLI() }},
 		{"file.uninstallCLI", t.CmdFileUninstallCLI(), "", func() { a.host.uninstallCLI() }},
@@ -573,9 +574,12 @@ func (a *app) menu(cli bool, run func(id string, win *mygo.Window)) *mygo.Menu {
 		help = append(help, a.updateItem(), mygo.Separator())
 	}
 	help = append(help, account...)
+	report := item("help.reportProblem")
+	help = append(help, mygo.Separator(), report)
 	appMenu := &mygo.MenuItem{Role: mygo.RoleAppMenu}
 	if runtime.GOOS == "darwin" {
-		help = nil
+		// Help keeps only the report: the rest is in the app menu.
+		help = []*mygo.MenuItem{report}
 		appMenu = &mygo.MenuItem{Label: mygo.App.Name(), Submenu: slices.Concat(about, []*mygo.MenuItem{mygo.Separator(), item("file.settings"), mygo.Separator()}, account, []*mygo.MenuItem{
 			mygo.Separator(),
 			{Role: mygo.RoleServices}, mygo.Separator(),

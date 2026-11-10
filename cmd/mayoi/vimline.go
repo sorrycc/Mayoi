@@ -588,7 +588,7 @@ func (a *app) vimLineView(c *ui.Context, d *editor) {
 	f := a.font
 	bar := a.floating(c, ui.Row(c.Key("vim-line")).Absolute().Bottom(12).Left(16).Right(16).MaxWidth(640).Height(34).
 		Padding(0, 6, 0, 6).Gap(8).AlignItems(ui.Center).Radius(8), false).
-		Transition(ui.ElementTransition{Duration: 130 * time.Millisecond, Colors: true, Enter: &ui.Motion{Y: 8}, Exit: &ui.Motion{Y: 6}})
+		Transition(ui.ElementTransition{Duration: motionShow, Colors: true, Enter: &ui.Motion{Y: 8}, Exit: &ui.Motion{Y: 6}})
 	shake(c, bar, l.shook)
 	bar.Role(ui.RoleToolbar).Label(locales.VimCommandLine())
 	bar.Children(func() {

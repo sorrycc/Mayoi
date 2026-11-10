@@ -2,8 +2,10 @@ package main
 
 import (
 	"slices"
+	"strings"
 	"testing"
 
+	"github.com/egoist/mygo/i18n"
 	"github.com/egoist/mygo/ui"
 )
 
@@ -55,6 +57,23 @@ func TestAccelCaps(t *testing.T) {
 	} {
 		if got := accelCaps(c.accel, c.mac); !slices.Equal(got, c.want) {
 			t.Errorf("accelCaps(%q, %v) = %q, want %q", c.accel, c.mac, got, c.want)
+		}
+	}
+}
+
+// Every command of the palette names its group, in every language, and
+// none shows a colon with nothing before it.
+func TestPaletteTitlesHaveGroups(t *testing.T) {
+	locale := i18n.Locale()
+	t.Cleanup(func() { i18n.SetLocaleFunc(func() string { return locale }) })
+	for _, loc := range []string{"en", "ja", "zh-Hans"} {
+		i18n.SetLocaleFunc(func() string { return loc })
+		hs := newHarness(t, false)
+		hs.a.palette = nil
+		for _, e := range hs.a.paletteEntries() {
+			if strings.HasPrefix(e.title, ":") || e.group == 0 {
+				t.Errorf("%s: %s shows no group: %q", loc, e.id, e.title)
+			}
 		}
 	}
 }

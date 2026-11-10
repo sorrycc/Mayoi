@@ -439,8 +439,8 @@ func (w *prefsWindow) sectionMark(c *ui.Context, section string, focused bool) f
 	}
 	host := ui.Box(c.Key("prefs-section-mark")).Absolute().Size(0, 0)
 	y := host.Animate("y", item.Y-list.Y, 160*time.Millisecond)
-	fill = host.AnimateColor("fill", fill, ui.Animation{Duration: 120 * time.Millisecond})
-	edge = host.AnimateColor("edge", edge, ui.Animation{Duration: 120 * time.Millisecond})
+	fill = host.AnimateColor("fill", fill, ui.Animation{Duration: motionHover})
+	edge = host.AnimateColor("edge", edge, ui.Animation{Duration: motionHover})
 	x, h := item.X-list.X, item.H
 	return func(pt *ui.Painter, r ui.Rect) {
 		box := ui.Rect{X: r.X + x, Y: r.Y + y, W: item.W, H: h}
@@ -658,7 +658,7 @@ func (w *prefsWindow) row(c *ui.Context, f settings.Field, scope *prefFolder) {
 	}
 	raw := eff.Raw(f.Key)
 	row := ui.Column(c.Key("prefs-row-"+f.Key)).Padding(14, 16).Gap(10).Transition(ui.ElementTransition{
-		Colors: true, Duration: 160 * time.Millisecond, Enter: &ui.Motion{Y: 4},
+		Colors: true, Duration: motionShow, Enter: &ui.Motion{Y: 4},
 	})
 	if f.Key == w.jump {
 		row.ScrollIntoView()

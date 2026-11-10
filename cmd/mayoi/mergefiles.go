@@ -258,7 +258,7 @@ func (a *app) conflictsView(c *ui.Context) {
 					}
 				})
 				ui.Row(c).Height(26).Padding(0, 10, 2, 8).Gap(6).AlignItems(ui.Center).Background(p.chrome).Children(func() {
-					ui.Text(c, locales.MergeFilesResolved(strconv.Itoa(resolved), strconv.Itoa(total))).
+					ui.Text(c, locales.MergeFilesResolved(total, strconv.Itoa(resolved))).
 						FontSize(11.5).TextColor(p.muted).SingleLine()
 					ui.Spacer(c)
 					if st := a.git.status; st != nil && st.Op != "" {

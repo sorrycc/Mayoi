@@ -117,7 +117,7 @@ func (h *pluginHost) sortedStatus() []pluginStatus {
 // statusMotion is how a plugin's item of the status bar follows its
 // text: it widens and narrows to it, rather than pushing its neighbours
 // along at once, and fades in and out as it comes and goes.
-var statusMotion = ui.ElementTransition{Duration: 160 * time.Millisecond, Size: true, Colors: true,
+var statusMotion = ui.ElementTransition{Duration: motionShow, Size: true, Colors: true,
 	Enter: &ui.Motion{}, Exit: &ui.Motion{}}
 
 // pluginStatusItems puts the plugins' items of one side in the status bar,

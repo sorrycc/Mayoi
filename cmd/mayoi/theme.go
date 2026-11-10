@@ -1553,7 +1553,7 @@ func applyTheme(c *ui.Context, prefs *settings.Prefs, fade *paletteFade) *palett
 
 // paletteFadeFor is how long the window takes from one palette to the
 // next.
-const paletteFadeFor = 220 * time.Millisecond
+const paletteFadeFor = motionMove
 
 // paletteFade takes the window from one palette to another: each of its
 // colors fades to the new one's, rather than the whole window flashing.
@@ -1626,170 +1626,6 @@ func mixPalettes(x, y *palette, k float32) *palette {
 
 var colorType = reflect.TypeFor[ui.Color]()
 
-// popIn is how a box over an editor comes in, as find's: it fades in,
-// from a little above where it settles, and goes back up as it fades out.
-// Only its colors follow it after.
-var popIn = ui.ElementTransition{Duration: 130 * time.Millisecond, Colors: true, Enter: &ui.Motion{Y: -6}, Exit: &ui.Motion{Y: -4}}
-
-// hoverFade is how a button's background follows the pointer: it fades
-// in and out rather than blinks.
-var hoverFade = ui.ElementTransition{Colors: true, Duration: 110 * time.Millisecond}
-
-// revealFade is hoverFade for a small button that shows only while the
-// pointer is over its row, as the actions of a group of changes: it fades
-// in and out too, rather than pops.
-var revealFade = ui.ElementTransition{Colors: true, Duration: 110 * time.Millisecond, Enter: &ui.Motion{}, Exit: &ui.Motion{}}
-
-// tabMotion is how a tab moves along its strip: it grows in as it opens,
-// folds away as it closes, and the others slide to their places.
-var tabMotion = ui.ElementTransition{
-	Duration: 140 * time.Millisecond,
-	Enter:    &ui.Motion{Collapse: true},
-	Exit:     &ui.Motion{Collapse: true},
-}
-
-// dotPop is how a small mark comes and goes, as the dot of a tab's
-// unsaved changes: it grows from half its size and shrinks back.
-var dotPop = ui.ElementTransition{
-	Animation: &ui.Snappy,
-	Enter:     &ui.Motion{Scale: 0.5},
-	Exit:      &ui.Motion{Scale: 0.5},
-}
-
-// pickMark marks the row chosen in a list, first in the row's children.
-// It moves at once with the keys that move the choice.
-func (a *app) pickMark(c *ui.Context, on bool) {
-	if !on {
-		return
-	}
-	ui.Box(c.Key("pick-mark")).Absolute().Left(0).Right(0).Top(0).Bottom(0).Radius(6).Background(a.pal.active)
-}
-
-// riseIn brings a block of a page in as the page shows: it fades in from
-// a little below, after delay, so that blocks delayed more follow.
-func riseIn(e ui.Element, delay time.Duration) ui.Element {
-	k := e.Keyframes("rise", []ui.Keyframe{{Value: 0}, {At: 240 * time.Millisecond, Value: 1, Ease: ui.EaseOut}},
-		ui.KeyframeOptions{Delay: delay})
-	return e.Opacity(k).Translate(0, 8*(1-k))
-}
-
-// fadePage brings a page in as it is chosen, as a section of the
-// settings: it fades in, without moving.
-func fadePage(e ui.Element) ui.Element {
-	return e.Opacity(e.Keyframes("show", []ui.Keyframe{{Value: 0}, {At: 150 * time.Millisecond, Value: 1, Ease: ui.EaseOut}}))
-}
-
-// showFor is how long a pane or a box that floats takes to come in as it
-// shows: long enough to see where it came from, short enough never to
-// wait for.
-const showFor = 140 * time.Millisecond
-
-// fadeIn brings a pane in as it shows, as the sidebar or the panel does
-// once toggled on: it fades in. Its motion starts the first time it is
-// built, so it plays again each time the pane comes back.
-func fadeIn(e ui.Element) ui.Element {
-	return e.Opacity(e.Keyframes("show", []ui.Keyframe{{Value: 0}, {At: showFor, Value: 1, Ease: ui.EaseOut}}))
-}
-
-// dropIn brings a box that floats from what opened it in, as a popover
-// or a tip: it fades in, from dy above where it settles (below, for a
-// negative dy), as popIn does for a box in a parent that was there.
-func dropIn(e ui.Element, dy float32) ui.Element {
-	k := e.Keyframes("show", []ui.Keyframe{{Value: 0}, {At: showFor, Value: 1, Ease: ui.EaseOut}})
-	return e.Opacity(k).Translate(0, -dy*(1-k))
-}
-
-// appearing follows the rows of a list by their keys, so that a row new
-// to it comes in rather than pops, as those of a group just opened: the
-// rows the list had when last noted, and when each that came since did.
-type appearing struct {
-	had map[string]bool
-	at  map[string]time.Time
-}
-
-// note takes the rows of the list at now, keys giving each one's: one it
-// did not have comes. A first note, one after none, or a fresh one, as
-// for the list showing other rows, takes them as they are.
-func (ap *appearing) note(n int, key func(int) string, now time.Time, fresh bool) {
-	first := len(ap.had) == 0 || fresh
-	if ap.had == nil {
-		ap.had, ap.at = map[string]bool{}, map[string]time.Time{}
-	}
-	for k, at := range ap.at {
-		if first || now.Sub(at) >= showFor {
-			delete(ap.at, k)
-		}
-	}
-	if !first {
-		for i := range n {
-			if k := key(i); !ap.had[k] {
-				ap.at[k] = now
-			}
-		}
-	}
-	clear(ap.had)
-	for i := range n {
-		ap.had[key(i)] = true
-	}
-}
-
-// shown returns how far in the row of key is at now, from 0, as it
-// comes, to 1.
-func (ap *appearing) shown(key string, now time.Time) float32 {
-	at, ok := ap.at[key]
-	if !ok {
-		return 1
-	}
-	return ui.EaseOut(min(float32(now.Sub(at))/float32(showFor), 1))
-}
-
-// chevron is the arrow of what folds: it points to the side while
-// closed, and turns down as it opens.
-func chevron(c *ui.Context, open bool) ui.Element {
-	turn := float32(0)
-	if open {
-		turn = 90
-	}
-	return ui.Icon(c.Key("chevron"), iconChevronRight).AnimatePose(ui.Pose{Rotate: turn}, ui.Snappy)
-}
-
-// pressPose sinks a button a little as it is held down, as a key does.
-func pressPose(b ui.Element) {
-	pose := ui.Pose{}
-	if b.Pressed() {
-		pose.Scale = 0.96
-	}
-	b.AnimatePose(pose, ui.Snappy)
-}
-
-// shakeFor is how long a box shakes its head, as a password field of the
-// Mac does at a wrong password.
-const shakeFor = 360 * time.Millisecond
-
-// shake moves a box side to side for a moment from at, as it finds
-// nothing for the Return pressed in it, and settles where it was. A box
-// shaken long ago, or never, stays put; with less motion, it does too.
-func shake(c *ui.Context, e ui.Element, at time.Time) ui.Element {
-	since := c.Now().Sub(at)
-	if at.IsZero() || since < 0 || since >= shakeFor || c.Preferences().ReduceMotion {
-		return e
-	}
-	c.AnimationFrame()
-	t := float64(since) / float64(shakeFor)
-	return e.Translate(float32(7*(1-t)*math.Sin(t*6*math.Pi)), 0)
-}
-
-// popUp brings the badge of an empty view in as the view shows: it grows
-// from a little smaller to its size, and fades in.
-func popUp(e ui.Element) ui.Element {
-	k := e.Keyframes("pop", []ui.Keyframe{{Value: 0}, {At: 240 * time.Millisecond, Value: 1, Ease: ui.EaseOut}})
-	return e.Opacity(k).Scale(0.92+0.08*k, 0.92+0.08*k)
-}
-
-// fieldFocus is how a field's border follows the keyboard: the accent
-// fades in as the field takes it, and out as it leaves.
-var fieldFocus = ui.ElementTransition{Colors: true, Duration: 120 * time.Millisecond}
-
 // floating styles a box that floats over the window: a dialog, as quick
 // open's, a picker's or a prompt's, or a smaller box over an editor, as
 // find's. The shadow is lighter on a light window, where a dark one looks
@@ -1799,7 +1635,7 @@ var fieldFocus = ui.ElementTransition{Colors: true, Duration: 120 * time.Millise
 func (a *app) floating(c *ui.Context, box ui.Element, dialog bool) ui.Element {
 	p := a.pal
 	if dialog {
-		k := box.Keyframes("dialog-in", []ui.Keyframe{{Value: 0}, {At: showFor, Value: 1, Ease: ui.EaseOut}})
+		k := box.Keyframes("dialog-in", showIn(a.keyedOpen(c)))
 		s := 0.98 + 0.02*k
 		box.Opacity(k).TransformOrigin(0.5, 0).Scale(s, s)
 	}

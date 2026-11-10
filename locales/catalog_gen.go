@@ -1002,26 +1002,6 @@ func (msgs Messages) AgoMinutes(count int) string {
 	return Catalog.Format(msgs.locale, "agoMinutes", map[string]any{"count": count})
 }
 
-// AgoMonths says "{count, plural, one {# month ago} other {# months ago}}"
-// in the language the app shows.
-func AgoMonths(count int) string { return In(i18n.Locale()).AgoMonths(count) }
-
-// AgoMonths says "{count, plural, one {# month ago} other {# months ago}}"
-// in the language of msgs.
-func (msgs Messages) AgoMonths(count int) string {
-	return Catalog.Format(msgs.locale, "agoMonths", map[string]any{"count": count})
-}
-
-// AgoYears says "{count, plural, one {# year ago} other {# years ago}}"
-// in the language the app shows.
-func AgoYears(count int) string { return In(i18n.Locale()).AgoYears(count) }
-
-// AgoYears says "{count, plural, one {# year ago} other {# years ago}}"
-// in the language of msgs.
-func (msgs Messages) AgoYears(count int) string {
-	return Catalog.Format(msgs.locale, "agoYears", map[string]any{"count": count})
-}
-
 // AiFailed says "Couldn't write the message: {error}"
 // in the language the app shows.
 func AiFailed(error string) string { return In(i18n.Locale()).AiFailed(error) }
@@ -6726,16 +6706,16 @@ func (msgs Messages) MergeFileResolvedOp(op string) string {
 	return Catalog.Format(msgs.locale, "mergeFileResolvedOp", map[string]any{"op": op})
 }
 
-// MergeFilesResolved says "{resolved} of {total} files resolved"
+// MergeFilesResolved says "{total, plural, one {{resolved} of # file resolved} other {{resolved} of # files resolved}}"
 // in the language the app shows.
-func MergeFilesResolved(resolved string, total string) string {
-	return In(i18n.Locale()).MergeFilesResolved(resolved, total)
+func MergeFilesResolved(total int, resolved string) string {
+	return In(i18n.Locale()).MergeFilesResolved(total, resolved)
 }
 
-// MergeFilesResolved says "{resolved} of {total} files resolved"
+// MergeFilesResolved says "{total, plural, one {{resolved} of # file resolved} other {{resolved} of # files resolved}}"
 // in the language of msgs.
-func (msgs Messages) MergeFilesResolved(resolved string, total string) string {
-	return Catalog.Format(msgs.locale, "mergeFilesResolved", map[string]any{"resolved": resolved, "total": total})
+func (msgs Messages) MergeFilesResolved(total int, resolved string) string {
+	return Catalog.Format(msgs.locale, "mergeFilesResolved", map[string]any{"total": total, "resolved": resolved})
 }
 
 // MergeFilesResolvedTip says "The files of the {op} that stand resolved"
@@ -11166,13 +11146,13 @@ func (msgs Messages) SearchFilesInclude() string {
 	return Catalog.Format(msgs.locale, "searchFilesInclude", nil)
 }
 
-// SearchFirstResults says "The first {n} results in {files, plural, one {# file} other {# files}}"
+// SearchFirstResults says "{n, plural, one {The first result} other {The first # results}} in {files, plural, one {# file} other {# files}}"
 // in the language the app shows.
 func SearchFirstResults(n int, files int) string {
 	return In(i18n.Locale()).SearchFirstResults(n, files)
 }
 
-// SearchFirstResults says "The first {n} results in {files, plural, one {# file} other {# files}}"
+// SearchFirstResults says "{n, plural, one {The first result} other {The first # results}} in {files, plural, one {# file} other {# files}}"
 // in the language of msgs.
 func (msgs Messages) SearchFirstResults(n int, files int) string {
 	return Catalog.Format(msgs.locale, "searchFirstResults", map[string]any{"n": n, "files": files})
@@ -12472,6 +12452,50 @@ func TermLost(host string) string { return In(i18n.Locale()).TermLost(host) }
 // in the language of msgs.
 func (msgs Messages) TermLost(host string) string {
 	return Catalog.Format(msgs.locale, "termLost", map[string]any{"host": host})
+}
+
+// TermExitedEarly says "[{shell} exited with code {code} as it started. What it printed is above.]"
+// in the language the app shows.
+func TermExitedEarly(shell string, code string) string {
+	return In(i18n.Locale()).TermExitedEarly(shell, code)
+}
+
+// TermExitedEarly says "[{shell} exited with code {code} as it started. What it printed is above.]"
+// in the language of msgs.
+func (msgs Messages) TermExitedEarly(shell string, code string) string {
+	return Catalog.Format(msgs.locale, "termExitedEarly", map[string]any{"shell": shell, "code": code})
+}
+
+// NoteTermExitedEarly says "{shell} exited as it started, with code {code}."
+// in the language the app shows.
+func NoteTermExitedEarly(shell string, code string) string {
+	return In(i18n.Locale()).NoteTermExitedEarly(shell, code)
+}
+
+// NoteTermExitedEarly says "{shell} exited as it started, with code {code}."
+// in the language of msgs.
+func (msgs Messages) NoteTermExitedEarly(shell string, code string) string {
+	return Catalog.Format(msgs.locale, "noteTermExitedEarly", map[string]any{"shell": shell, "code": code})
+}
+
+// CmdHelpReportProblem says "Report a Problem…"
+// in the language the app shows.
+func CmdHelpReportProblem() string { return In(i18n.Locale()).CmdHelpReportProblem() }
+
+// CmdHelpReportProblem says "Report a Problem…"
+// in the language of msgs.
+func (msgs Messages) CmdHelpReportProblem() string {
+	return Catalog.Format(msgs.locale, "cmdHelpReportProblem", nil)
+}
+
+// ReportProblem says "Report…"
+// in the language the app shows.
+func ReportProblem() string { return In(i18n.Locale()).ReportProblem() }
+
+// ReportProblem says "Report…"
+// in the language of msgs.
+func (msgs Messages) ReportProblem() string {
+	return Catalog.Format(msgs.locale, "reportProblem", nil)
 }
 
 // TermMoveEditorArea says "Move to Editor Area"

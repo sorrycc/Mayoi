@@ -801,7 +801,7 @@ func (f *frame) railTab(c *ui.Context, a *app, h *desktop, i int, label string) 
 	if !mark {
 		markCol = markCol.Alpha(0)
 	}
-	dotCol := b.AnimateColor("markCol", markCol, ui.Animation{Duration: 220 * time.Millisecond})
+	dotCol := b.AnimateColor("markCol", markCol, ui.Animation{Duration: motionMove})
 	ground := railGround(p)
 	b.Draw(func(pt *ui.Painter, r ui.Rect) {
 		if over {

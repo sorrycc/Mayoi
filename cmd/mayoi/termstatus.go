@@ -534,7 +534,7 @@ func (a *app) hcMenu(m *ui.Menu, s *session) {
 
 // pillMotion is how the pill over a terminal comes, changes and goes: it
 // drops in, its width follows what it says, and it rises away.
-var pillMotion = ui.ElementTransition{Duration: 160 * time.Millisecond, Colors: true, Size: true, Enter: &ui.Motion{Y: -6}, Exit: &ui.Motion{Y: -4}}
+var pillMotion = ui.ElementTransition{Duration: motionShow, Colors: true, Size: true, Enter: &ui.Motion{Y: -6}, Exit: &ui.Motion{Y: -4}}
 
 // waitPill is the pill over a terminal that waits, at its upper right:
 // a spinner in the color of its badge and what it waits for, which turns
@@ -578,7 +578,7 @@ func (a *app) waitPill(c *ui.Context, s *session) {
 
 // pillText is how what the pill over a terminal says changes: it fades
 // across.
-var pillText = ui.ContentTransition{Animation: &ui.Animation{Duration: 140 * time.Millisecond}}
+var pillText = ui.ContentTransition{Animation: &ui.Animation{Duration: motionShow}}
 
 // progBar is how the bar of the pill over a terminal follows the
 // progress of the work it shows.

@@ -221,7 +221,7 @@ func (a *app) saveCloseMerge(v *mergeView) {
 				return
 			}
 		}
-	})
+	}, nil)
 }
 
 // conflictsView shows the box of the files in conflict while it is open.

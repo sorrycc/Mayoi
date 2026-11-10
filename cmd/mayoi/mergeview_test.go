@@ -429,7 +429,7 @@ func TestMergeViewExitAndContinue(t *testing.T) {
 		t.Fatalf("the conflict is not open: %+v", e)
 	}
 	// Out of the merge, and back in: the result goes on where it stood.
-	a.closeTab(a.activeTab(), nil)
+	a.closeTab(a.activeTab(), nil, nil)
 	hs.settle()
 	a.openMerge(hs.path("shared.txt"), true)
 	hs.settle()
@@ -688,7 +688,7 @@ func TestMergeAutoApplyKept(t *testing.T) {
 	hs.a.saveMerge(v)
 	hs.settleGit()
 	a := hs.a
-	a.closeTab(a.activeTab(), nil)
+	a.closeTab(a.activeTab(), nil, nil)
 	hs.settle()
 	a.openMerge(hs.path("one.txt"), true)
 	hs.settle()

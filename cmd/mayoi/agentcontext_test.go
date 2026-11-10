@@ -521,7 +521,7 @@ func TestAgentContextDraftAcrossTabs(t *testing.T) {
 	a.openFile(hs.path("README.md"), true)
 	hs.settle()
 	other := a.activeTab()
-	a.closeTab(other, nil)
+	a.closeTab(other, nil, nil)
 	hs.settle()
 	if a.review.draft != n || a.review.ed != d || a.review.text != "keep the first" {
 		t.Fatal("closing another tab changed the draft")
@@ -538,7 +538,7 @@ func TestAgentContextDraftAcrossTabs(t *testing.T) {
 	}
 	hs.tt.Type("keep the second")
 	hs.settle()
-	a.closeTab(original, nil)
+	a.closeTab(original, nil, nil)
 	hs.settle()
 	if a.review.text != "keep the second" {
 		t.Fatal("old editor's release ended the new draft")
@@ -738,7 +738,7 @@ func TestAgentContextSharedEditorDraft(t *testing.T) {
 		t.Fatal("same-document draft was duplicated or lost")
 	}
 	hidden := a.cols[1].tab()
-	a.closeTab(hidden, nil)
+	a.closeTab(hidden, nil, nil)
 	hs.settle()
 	if a.review.draft != n || a.review.ed != left {
 		t.Fatal("closing the previous editor cleared the current draft")

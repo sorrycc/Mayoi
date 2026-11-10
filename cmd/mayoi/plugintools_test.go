@@ -294,7 +294,7 @@ func TestShotPluginTools(t *testing.T) {
 		hs.settle()
 		hs.shot("plugin-log-nomatch" + suffix)
 		l.query = ""
-		a.closeTab(a.activeTab(), nil)
+		a.closeTab(a.activeTab(), nil, nil)
 		hs.settle()
 	}
 }

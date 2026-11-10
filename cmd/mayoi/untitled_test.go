@@ -50,7 +50,7 @@ func TestQuitKeepsUntitledDocuments(t *testing.T) {
 		t.Fatal("quitting still loses the untitled documents")
 	}
 	closed := false
-	a.closeQuitting(func() { closed = true })
+	a.closeQuitting(func() { closed = true }, nil)
 	step(tt)
 	if !closed || len(h.asked) != 0 {
 		t.Fatalf("closed %v, asked %v", closed, h.asked)
@@ -112,7 +112,7 @@ func TestSavedUntitledDropsKeptText(t *testing.T) {
 	a.keepUntitled()
 	kept = filepath.Join(a.untitledDir(), ed.kept)
 	h.choice = 1 // don't save
-	a.closeTab(a.activeTab(), nil)
+	a.closeTab(a.activeTab(), nil, nil)
 	if _, err := os.Stat(kept); !os.IsNotExist(err) {
 		t.Errorf("the discarded text stays: %v", err)
 	}
@@ -131,9 +131,32 @@ func TestClosingWindowAsksAboutUntitled(t *testing.T) {
 	ed.edit(ed.sel, textEdit{0, 0, "text"})
 	step(tt)
 	a.keepUntitled()
-	a.closeKeeping(func() {})
+	a.closeKeeping(func() {}, nil)
 	step(tt)
 	if len(h.asked) != 1 {
 		t.Errorf("asked %v", h.asked)
+	}
+}
+
+// Closing an untitled document whose Save As is put off keeps it open,
+// and says so.
+func TestCloseTabSaveAsPutOff(t *testing.T) {
+	root := workspaceFixture(t)
+	s := settings.Load(filepath.Join(t.TempDir(), "settings.json"))
+	h := &fakeHost{folder: root, choice: 0}
+	a, tt := untitledApp(t, s, root, h, nil)
+	a.newFile()
+	step(tt)
+	ed := a.activeEditor()
+	ed.edit(ed.sel, textEdit{0, 0, "unsaved"})
+	step(tt)
+	tab := a.activeTab()
+	closed, cancelled := false, false
+	a.closeTab(tab, func() { closed = true }, func() { cancelled = true })
+	if closed || !cancelled {
+		t.Errorf("closed %v, cancelled %v", closed, cancelled)
+	}
+	if col, _ := a.locate(tab); col == nil {
+		t.Error("the tab closed")
 	}
 }

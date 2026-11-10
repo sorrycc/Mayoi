@@ -491,7 +491,7 @@ func (a *app) askSavePath(name string, done func(path string)) {
 		}
 		done(remote.Path(host, p))
 		return ""
-	}}
+	}, cancel: func() { done("") }}
 }
 
 // hostPath is how a path is copied or shown as text: a remote one as its

@@ -516,11 +516,17 @@ func (a *app) focusColumnBy(step int) {
 }
 
 // closeTab closes a tab, asking first to save the changes of a document
-// that no other tab shows, then calls then unless it stayed open.
-func (a *app) closeTab(t *colTab, then func()) {
+// that no other tab shows, then calls then, or cancelled when it stayed
+// open: the question cancelled, or the document not saved.
+func (a *app) closeTab(t *colTab, then, cancelled func()) {
 	done := func() {
 		if then != nil {
 			then()
+		}
+	}
+	stop := func() {
+		if cancelled != nil {
+			cancelled()
 		}
 	}
 	if col, _ := a.locate(t); col == nil {
@@ -545,15 +551,17 @@ func (a *app) closeTab(t *colTab, then func()) {
 		}
 		if doc := t.merge.doc; doc != nil && doc.dirty() && len(doc.views) <= 1 {
 			if a.autoSaves(doc) {
-				a.saveDoc(doc, remove)
+				a.saveDocElse(doc, remove, stop)
 				return
 			}
 			a.host.confirmClose(doc.name(), func(choice int) {
 				switch choice {
 				case 0:
-					a.saveDoc(doc, remove)
+					a.saveDocElse(doc, remove, stop)
 				case 1:
 					remove()
+				default:
+					stop()
 				}
 			})
 			return
@@ -580,23 +588,25 @@ func (a *app) closeTab(t *colTab, then func()) {
 		return
 	}
 	if a.autoSaves(doc) {
-		a.saveDoc(doc, remove)
+		a.saveDocElse(doc, remove, stop)
 		return
 	}
 	a.host.confirmClose(doc.name(), func(choice int) {
 		switch choice {
 		case 0:
-			a.saveDoc(doc, remove)
+			a.saveDocElse(doc, remove, stop)
 		case 1:
 			a.dropKept(doc)
 			remove()
+		default:
+			stop()
 		}
 	})
 }
 
 // closeTabs closes tabs from the last, asking about each changed
-// document, then calls then unless one stayed open.
-func (a *app) closeTabs(tabs []*colTab, then func()) {
+// document, then calls then, or cancelled when one stayed open.
+func (a *app) closeTabs(tabs []*colTab, then, cancelled func()) {
 	if len(tabs) == 0 {
 		if then != nil {
 			then()
@@ -604,19 +614,19 @@ func (a *app) closeTabs(tabs []*colTab, then func()) {
 		return
 	}
 	n := len(tabs) - 1
-	a.closeTab(tabs[n], func() { a.closeTabs(tabs[:n], then) })
+	a.closeTab(tabs[n], func() { a.closeTabs(tabs[:n], then, cancelled) }, cancelled)
 }
 
 // closeAll closes every document, asking about each changed one, then
-// calls then unless one stayed open. Terminals stay.
-func (a *app) closeAll(then func()) { a.closeTabs(a.editorTabs(), then) }
+// calls then, or cancelled when one stayed open. Terminals stay.
+func (a *app) closeAll(then, cancelled func()) { a.closeTabs(a.editorTabs(), then, cancelled) }
 
 // closeOthers closes the tabs of a column other than keep, but those
 // whose changes would be lost.
 func (a *app) closeOthers(col *column, keep *colTab) {
 	for _, t := range slices.Clone(col.tabs) {
 		if t != keep && (t.ed == nil || !t.ed.dirty() || len(t.ed.views) > 1 || a.autoSaves(t.ed.document)) {
-			a.closeTab(t, nil)
+			a.closeTab(t, nil, nil)
 		}
 	}
 	if col, i := a.locate(keep); col != nil {

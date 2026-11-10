@@ -113,7 +113,7 @@ func TestClosingWindowKeepsItsTabs(t *testing.T) {
 	ed.edit(ed.sel, textEdit{0, 0, "// changed\n"})
 	step(tt)
 	closed := false
-	a.closeKeeping(func() { closed = true })
+	a.closeKeeping(func() { closed = true }, nil)
 	step(tt)
 	if !closed || len(allTabNames(a)) != 0 {
 		t.Fatalf("closed %v, tabs %v", closed, allTabNames(a))

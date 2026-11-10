@@ -45,6 +45,16 @@ type desktop struct {
 	logoGen       int
 }
 
+// lifecycle is how far the app, or a window, is along closing: open,
+// settling the changes of its projects, or closing.
+type lifecycle int
+
+const (
+	lifeOpen lifecycle = iota
+	lifeSettling
+	lifeClosing
+)
+
 // mayoi is the app's projects, the focused one last first, and its
 // windows.
 type mayoi struct {
@@ -56,9 +66,13 @@ type mayoi struct {
 	// it was ready.
 	ready   bool
 	pending []string
-	// quitting is set once the app quits, so that the windows it closes
-	// stay in the settings, to open again at the next start.
-	quitting bool
+	// life is how far the app is along quitting: closing once it quits,
+	// so that the windows it closes stay in the settings, to open again
+	// at the next start.
+	life lifecycle
+	// asking is the project whose question about its changes shows while
+	// the app, or a window, settles them.
+	asking *desktop
 	// menuKey is the key (menuKey) of the menu last set, which is set
 	// again only when it changes.
 	menuKey      string
@@ -127,9 +141,10 @@ func (h *desktop) saveAs(name string, done func(string)) {
 		path, err := mygo.Dialog.Save(mygo.SaveDialogOptions{
 			Parent: h.f.win, Title: locales.DialogSaveAs(), DefaultPath: filepath.Join(dir, name), CreateDirectories: true,
 		})
-		if err == nil && path != "" {
-			h.a.post(func() { done(path) })
+		if err != nil {
+			path = ""
 		}
+		h.a.post(func() { done(path) })
 	}()
 }
 
@@ -296,7 +311,9 @@ func (h *desktop) show() {
 // do runs fn on the window's app before its next frame.
 func (h *desktop) do(fn func()) {
 	h.a.post(fn)
-	h.f.win.Invalidate()
+	if h.f.win != nil {
+		h.f.win.Invalidate()
+	}
 }
 
 // settingsPath is where the settings are kept.
@@ -375,21 +392,9 @@ func main() {
 		m.open([]string{path})
 	})
 	mygo.App.OnBeforeQuit(func(e *mygo.QuitEvent) {
-		if !m.quitting {
-			for _, w := range m.wins {
-				w.a.keepUntitled()
-			}
+		if !m.beforeQuit() {
+			e.PreventDefault()
 		}
-		if m.quitting || !m.anyUnkept() {
-			m.quitting = true
-			return
-		}
-		// Ask about the changes of each window first, then quit again.
-		e.PreventDefault()
-		m.settle(slices.Clone(m.wins), true, func() {
-			m.quitting = true
-			mygo.App.Quit()
-		})
 	})
 	mygo.App.OnQuit(func() {
 		m.s.Flush()
@@ -786,7 +791,7 @@ func (m *mayoi) menuUpdate(menu *mygo.Menu) func() {
 	m.menuRevision++
 	revision := m.menuRevision
 	return func() {
-		if revision == m.menuRevision && !m.quitting {
+		if revision == m.menuRevision && m.life != lifeClosing {
 			mygo.App.SetMenu(menu)
 		}
 	}
@@ -871,6 +876,47 @@ func (m *mayoi) run(id string, win *mygo.Window) {
 	h.do(func() { a.run(id) })
 }
 
+// beforeQuit tells whether the app may quit now. With changes to ask
+// about, it asks about those of each window first, then quits again.
+// Asked again meanwhile, or while a window settles its changes, it
+// brings the question shown to the front.
+func (m *mayoi) beforeQuit() bool {
+	switch {
+	case m.life == lifeClosing:
+		return true
+	case m.settling():
+		m.frontAsking()
+		return false
+	}
+	for _, w := range m.wins {
+		w.a.keepUntitled()
+	}
+	if !m.anyUnkept() {
+		m.life = lifeClosing
+		return true
+	}
+	m.life = lifeSettling
+	m.settle(slices.Clone(m.wins), true, func() {
+		m.life = lifeClosing
+		mygo.App.Quit()
+	}, func() { m.life = lifeOpen })
+	return false
+}
+
+// settling reports whether the app, or a window, is asking about
+// changes before it closes.
+func (m *mayoi) settling() bool {
+	return m.life == lifeSettling || slices.ContainsFunc(m.frames, func(f *frame) bool { return f.life == lifeSettling })
+}
+
+// frontAsking brings the window whose question about changes shows to
+// the front.
+func (m *mayoi) frontAsking() {
+	if m.asking != nil {
+		m.asking.show()
+	}
+}
+
 // anyUnkept reports whether quitting loses changes, those of documents
 // other than the untitled ones kept.
 func (m *mayoi) anyUnkept() bool {
@@ -878,21 +924,26 @@ func (m *mayoi) anyUnkept() bool {
 }
 
 // settle saves the files of wins that save themselves, asks about the
-// other changes of each, a window at a time, then calls done, unless a
-// change was kept. As the app quits, the untitled documents are kept
-// rather than asked about.
-func (m *mayoi) settle(wins []*desktop, quit bool, done func()) {
+// other changes of each, a window at a time, then calls done, or
+// cancelled when a change was kept. As the app quits, the untitled
+// documents are kept rather than asked about.
+func (m *mayoi) settle(wins []*desktop, quit bool, done, cancelled func()) {
 	if len(wins) == 0 {
+		m.asking = nil
 		done()
 		return
 	}
 	w, a := wins[0], wins[0].a
 	if !a.started {
 		// Not shown since the app started, it has nothing open.
-		m.settle(wins[1:], quit, done)
+		m.settle(wins[1:], quit, done, cancelled)
 		return
 	}
-	next := func() { m.settle(wins[1:], quit, done) }
+	next := func() { m.settle(wins[1:], quit, done, cancelled) }
+	stop := func() {
+		m.asking = nil
+		cancelled()
+	}
 	w.do(func() {
 		a.autoSaveAll()
 		if quit {
@@ -902,11 +953,12 @@ func (m *mayoi) settle(wins []*desktop, quit bool, done func()) {
 			next()
 			return
 		}
+		m.asking = w
 		w.show()
 		if quit {
-			a.closeQuitting(next)
+			a.closeQuitting(next, stop)
 		} else {
-			a.closeKeeping(next)
+			a.closeKeeping(next, stop)
 		}
 	})
 }

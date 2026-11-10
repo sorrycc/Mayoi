@@ -3,6 +3,10 @@
 The update window shows the section of the version it offers. Every release
 needs a `## <version>` section here, or its build fails.
 
+## Unreleased
+
+- Clicking a repository's name or row background in source control expands or collapses its changes.
+
 ## 0.19.3
 
 - Language server plugins can run a `resolve` command that sets the server's arguments, environment and settings.

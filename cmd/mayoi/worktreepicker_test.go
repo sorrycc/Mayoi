@@ -689,6 +689,7 @@ func TestWorktreeButtonBindsItsRepository(t *testing.T) {
 	a.selectRepository(subRoot)
 	hs.settle()
 	openSCM(hs)
+	parentExpanded := a.repositoryForRoot(parentRoot).changesExpanded()
 	if err := hs.tt.Click(locales.WorktreeStatusTip(filepath.Base(parentRoot))); err != nil {
 		t.Fatal(err)
 	}
@@ -696,6 +697,9 @@ func TestWorktreeButtonBindsItsRepository(t *testing.T) {
 	awaitWorktrees(t, hs)
 	if a.worktrees.repoRoot != parentRoot {
 		t.Fatalf("box of %q, want the header's repository %q", a.worktrees.repoRoot, parentRoot)
+	}
+	if a.repositoryForRoot(parentRoot).changesExpanded() != parentExpanded {
+		t.Fatal("worktree button toggled the repository row")
 	}
 	a.selectRepository(parentRoot)
 	hs.settle()
@@ -765,10 +769,21 @@ func checkHeader(t *testing.T, ctx *gitContext, remote bool) {
 	if !remote {
 		return
 	}
+	expanded := ctx.changesExpanded()
+	if err := tt.Click(locales.BranchLabel(ctx.branch())); err != nil {
+		t.Fatal(err)
+	}
+	step(tt)
+	if ctx.changesExpanded() != expanded {
+		t.Fatal("branch button toggled the repository row")
+	}
 	if err := tt.Click(locales.ScmMoreActions()); err != nil {
 		t.Fatal(err)
 	}
 	step(tt)
+	if ctx.changesExpanded() != expanded {
+		t.Fatal("more-actions button toggled the repository row")
+	}
 	for _, label := range []string{locales.CmdGitFetch(), locales.CmdGitPull(), locales.CmdGitPush()} {
 		if !slices.Contains(tt.Menu(), label) {
 			t.Fatalf("the more menu of the header lacks %q: %q", label, tt.Menu())

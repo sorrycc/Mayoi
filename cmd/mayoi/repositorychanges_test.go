@@ -11,7 +11,7 @@ import (
 	"mayoi/locales"
 )
 
-func TestRepositoryHeaderSeparatesSelectionAndExpansion(t *testing.T) {
+func TestRepositoryHeaderRowTogglesChanges(t *testing.T) {
 	hs, sub, parent := submoduleHarness(t)
 	a := hs.a
 	draft := "keep this module draft"
@@ -21,14 +21,10 @@ func TestRepositoryHeaderSeparatesSelectionAndExpansion(t *testing.T) {
 		t.Fatal(err)
 	}
 	hs.settle()
-	if a.repositories.selected != sub.git.repo.Root || sub.changesExpanded() {
-		t.Fatal("selecting a clean repository must only select its history")
+	if a.repositories.selected != sub.git.repo.Root || !sub.changesExpanded() {
+		t.Fatal("clicking the repository name must select its history and expand its changes")
 	}
 	hs.shot("submodules-selected-header")
-	if err := hs.tt.Click(locales.ScmToggleRepository(sub.label())); err != nil {
-		t.Fatal(err)
-	}
-	hs.settle()
 	if !sub.changesExpanded() || !hs.tt.HasText(locales.ScmCommitMessage()) || sub.git.message != draft || !hs.tt.HasText(locales.DiffNoChanges()) {
 		t.Fatalf("expanded clean repository lost its draft or clean state: %q", hs.tt.Texts())
 	}
@@ -53,6 +49,18 @@ func TestRepositoryHeaderSeparatesSelectionAndExpansion(t *testing.T) {
 	settleRepositories(t, hs, 2)
 	if sub.changesExpanded() {
 		t.Fatal("status refresh reopened a manually collapsed repository")
+	}
+	// The row's left padding is outside the disclosure button and name.
+	for _, want := range []bool{true, false} {
+		arrow, ok := hs.tt.Find(locales.ScmToggleRepository(sub.label()))
+		if !ok {
+			t.Fatal("missing repository disclosure")
+		}
+		hs.tt.ClickAt(arrow.X-2, arrow.Y+arrow.H/2)
+		hs.settle()
+		if sub.changesExpanded() != want || a.repositories.selected != sub.git.repo.Root || sub.git.message != draft {
+			t.Fatalf("background click: expanded=%v, want %v; selection/draft must survive", sub.changesExpanded(), want)
+		}
 	}
 }
 

@@ -165,17 +165,30 @@ func (s *lspServer) start(a *app) {
 		}
 		close(s.ready)
 	}()
-	pr, pw := io.Pipe()
-	cmd, err := vfs.Command(s.root, nil, pr, s.contrib.Command, s.contrib.Args...)
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	launch, err := s.resolve(ctx)
 	if err != nil {
+		s.err = err
+		s.plugin.Log("error", "could not resolve "+s.contrib.ID+": "+err.Error())
+		return
+	}
+	pr, pw := io.Pipe()
+	cmd, err := vfs.CommandEnvironment(s.root, launch.environment(), launch.UnsetEnv, pr, launch.Command, launch.Args...)
+	if err != nil {
+		pr.Close()
+		pw.Close()
 		s.err = err
 		return
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
 	owner := "lsp:" + s.contrib.ID
 	root := s.root
-	c, err := lsp.Start(ctx, lsp.Options{Cmd: cmd, Stdin: pw, RootURI: serverURI(root), InitOptions: s.contrib.Options,
+	rootURI := serverURI(root)
+	if len(launch.WorkspaceFolders) > 0 {
+		rootURI = launch.WorkspaceFolders[0].URI
+	}
+	c, err := lsp.Start(ctx, lsp.Options{Cmd: cmd, Stdin: pw, RootURI: rootURI, InitOptions: launch.Options,
+		Configuration: launch.Configuration, WorkspaceFolders: launch.WorkspaceFolders, PathMappings: launch.PathMappings,
 		Handlers: lsp.Handlers{
 			Diagnostics: func(uri string, items []lsp.Diagnostic) {
 				path := serverPath(root, uri)
@@ -197,7 +210,9 @@ func (s *lspServer) start(a *app) {
 			Log: func(level, msg string) { s.plugin.Log(level, s.contrib.ID+": "+msg) },
 		}})
 	if err != nil {
-		s.err = fmt.Errorf("%s: %v", s.contrib.Command, err)
+		pr.Close()
+		pw.Close()
+		s.err = fmt.Errorf("%s: %v", launch.Command, err)
 		s.plugin.Log("error", "could not start "+s.contrib.ID+": "+err.Error())
 		return
 	}

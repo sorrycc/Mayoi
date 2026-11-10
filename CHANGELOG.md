@@ -5,6 +5,9 @@ needs a `## <version>` section here, or its build fails.
 
 ## Unreleased
 
+- Language server plugins can run a `resolve` command that sets the server's arguments, environment and settings.
+- Language server plugins can map paths so definitions and diagnostics keep the workspace's symlinked paths.
+- Mayoi no longer waits on a language server that has already stopped.
 - Inline blame now shows with **View → Word Wrap** on, after the caret line's last row.
 - When a wrapped line's last row is too full, its inline blame is cut short with `…`.
 - Dragging over code in a diff selects text across lines; dragging on the line numbers still selects rows.

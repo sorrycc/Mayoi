@@ -2476,16 +2476,6 @@ func (msgs Messages) CmdGitCreateBranch() string {
 	return Catalog.Format(msgs.locale, "cmdGitCreateBranch", nil)
 }
 
-// CmdGitFetch says "Fetch"
-// in the language the app shows.
-func CmdGitFetch() string { return In(i18n.Locale()).CmdGitFetch() }
-
-// CmdGitFetch says "Fetch"
-// in the language of msgs.
-func (msgs Messages) CmdGitFetch() string {
-	return Catalog.Format(msgs.locale, "cmdGitFetch", nil)
-}
-
 // CmdGitExpandAllFiles says "Expand All Files in Diff"
 // in the language the app shows.
 func CmdGitExpandAllFiles() string { return In(i18n.Locale()).CmdGitExpandAllFiles() }
@@ -2494,6 +2484,16 @@ func CmdGitExpandAllFiles() string { return In(i18n.Locale()).CmdGitExpandAllFil
 // in the language of msgs.
 func (msgs Messages) CmdGitExpandAllFiles() string {
 	return Catalog.Format(msgs.locale, "cmdGitExpandAllFiles", nil)
+}
+
+// CmdGitFetch says "Fetch"
+// in the language the app shows.
+func CmdGitFetch() string { return In(i18n.Locale()).CmdGitFetch() }
+
+// CmdGitFetch says "Fetch"
+// in the language of msgs.
+func (msgs Messages) CmdGitFetch() string {
+	return Catalog.Format(msgs.locale, "cmdGitFetch", nil)
 }
 
 // CmdGitNextChange says "Next Change"

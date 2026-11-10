@@ -215,6 +215,14 @@ type ServerContrib struct {
 	Command   string          `json:"command"`
 	Args      []string        `json:"args,omitempty"`
 	Options   json.RawMessage `json:"initializationOptions,omitempty"`
+	// Resolve prepares a launch description, using workspace/settings JSON on
+	// stdin and returning command, args and LSP options as JSON on stdout.
+	Resolve *ServerResolver `json:"resolve,omitempty"`
+}
+
+type ServerResolver struct {
+	Command string   `json:"command"`
+	Args    []string `json:"args,omitempty"`
 }
 
 var nameRe = regexp.MustCompile(`^[a-z][a-z0-9-]*$`)
@@ -337,8 +345,11 @@ func (m *Manifest) check() error {
 		if err := own("language server", s.ID); err != nil {
 			return err
 		}
-		if s.Command == "" {
+		if s.Command == "" && (s.Resolve == nil || s.Resolve.Command == "") {
 			return fmt.Errorf("language server %q has no command", s.ID)
+		}
+		if s.Resolve != nil && s.Command != "" {
+			return fmt.Errorf("language server %q must use command or resolve, not both", s.ID)
 		}
 	}
 	for _, l := range c.TerminalLinks {

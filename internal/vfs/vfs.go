@@ -16,6 +16,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"slices"
+	"strings"
 
 	"mayoi/internal/remote"
 )
@@ -332,8 +333,17 @@ func Look(dirs, files []string) (map[string][]Entry, map[string]error, map[strin
 // of dir, with env added to its environment and stdin, nil for none, as
 // its input. The caller sets its output.
 func Command(dir string, env []string, stdin io.Reader, name string, args ...string) (*exec.Cmd, error) {
+	return CommandEnvironment(dir, env, nil, stdin, name, args...)
+}
+
+// CommandEnvironment also removes inherited variables, on the folder's host.
+func CommandEnvironment(dir string, env, unset []string, stdin io.Reader, name string, args ...string) (*exec.Cmd, error) {
 	if c, rp, ok := remote.Lookup(dir); ok {
-		cargs := append([]string{rp}, env...)
+		cargs := []string{rp}
+		for _, key := range unset {
+			cargs = append(cargs, "-u", key)
+		}
+		cargs = append(cargs, env...)
 		cargs = append(cargs, name)
 		cargs = append(cargs, args...)
 		// The arguments: the folder, then the environment's, then the
@@ -345,8 +355,22 @@ exec env "$@"`
 	cmd := exec.Command(name, args...)
 	cmd.Dir = dir
 	hideWindow(cmd)
-	if len(env) > 0 {
-		cmd.Env = append(os.Environ(), env...)
+	if len(env) > 0 || len(unset) > 0 {
+		cmd.Env = []string{}
+		for _, value := range os.Environ() {
+			key, _, _ := strings.Cut(value, "=")
+			remove := false
+			for _, item := range unset {
+				if key == item {
+					remove = true
+					break
+				}
+			}
+			if !remove {
+				cmd.Env = append(cmd.Env, value)
+			}
+		}
+		cmd.Env = append(cmd.Env, env...)
 	}
 	if stdin != nil {
 		cmd.Stdin = stdin

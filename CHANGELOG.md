@@ -5,6 +5,9 @@ needs a `## <version>` section here, or its build fails.
 
 ## Unreleased
 
+- Language plugins can prepare server settings and preserve workspace paths across symlinks.
+- Closing a stopped language server no longer waits on its input pipe.
+
 - **Git → Collapse All Files in Diff** and **Expand All Files in Diff** fold the current diff's files.
 - On macOS, `Option+Cmd+[` collapses all diff files and `Option+Cmd+]` expands them.
 - `mayoi settings` reads and changes preferences, with Mayoi running or not.

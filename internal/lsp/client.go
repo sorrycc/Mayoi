@@ -74,6 +74,8 @@ type Handlers struct {
 	Diagnostics func(uri string, items []Diagnostic)
 	// Log is a message of the server's, and of the client's about it.
 	Log func(level, msg string)
+	// Notification receives notifications not otherwise handled by the client.
+	Notification func(method string, params json.RawMessage)
 }
 
 // Options start a client.
@@ -87,7 +89,11 @@ type Options struct {
 	RootURI string
 	// InitOptions are the server's initializationOptions.
 	InitOptions json.RawMessage
-	Handlers    Handlers
+	// Configuration answers workspace/configuration by section.
+	Configuration    map[string]any
+	WorkspaceFolders []WorkspaceFolder
+	PathMappings     []PathMapping
+	Handlers         Handlers
 }
 
 // Client is a running server.
@@ -108,7 +114,10 @@ type Client struct {
 	done    chan struct{}
 	err     error
 	// versions are the documents open, by URI, and their versions.
-	versions map[string]int
+	versions           map[string]int
+	configuration      map[string]any
+	folders            []WorkspaceFolder
+	toServer, toClient []PathMapping
 }
 
 type response struct {
@@ -146,7 +155,11 @@ func Start(ctx context.Context, opts Options) (*Client, error) {
 		return nil, err
 	}
 	c := &Client{cmd: opts.Cmd, in: in, h: opts.Handlers, waiting: map[int]chan response{}, done: make(chan struct{}),
-		versions: map[string]int{}}
+		versions: map[string]int{}, configuration: opts.Configuration, folders: opts.WorkspaceFolders,
+		toServer: sortedMappings(opts.PathMappings, true), toClient: sortedMappings(opts.PathMappings, false)}
+	if c.folders == nil {
+		c.folders = []WorkspaceFolder{{URI: opts.RootURI, Name: filepath.Base(Path(opts.RootURI))}}
+	}
 	if stderr != nil {
 		go c.logLines(stderr)
 	}
@@ -169,11 +182,9 @@ func Start(ctx context.Context, opts Options) (*Client, error) {
 		initOpts = opts.InitOptions
 	}
 	params := map[string]any{
-		"processId": nil,
-		"rootUri":   opts.RootURI,
-		"workspaceFolders": []any{
-			map[string]any{"uri": opts.RootURI, "name": filepath.Base(opts.RootURI)},
-		},
+		"processId":             nil,
+		"rootUri":               opts.RootURI,
+		"workspaceFolders":      c.folders,
 		"initializationOptions": initOpts,
 		"capabilities": map[string]any{
 			"general": map[string]any{"positionEncodings": []string{"utf-16"}},
@@ -241,8 +252,9 @@ func (c *Client) Close() {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
-	c.Call(ctx, "shutdown", nil)
-	c.Notify("exit", nil)
+	if _, err := c.Call(ctx, "shutdown", nil); err == nil {
+		c.writeContext(ctx, map[string]any{"jsonrpc": "2.0", "method": "exit"})
+	}
 	c.in.Close()
 	select {
 	case <-c.done:
@@ -268,12 +280,29 @@ func (c *Client) write(m any) error {
 	if err != nil {
 		return err
 	}
+	data = mapJSON(data, c.toServer, true)
 	c.wmu.Lock()
 	defer c.wmu.Unlock()
 	if _, err := fmt.Fprintf(c.in, "Content-Length: %d\r\n\r\n", len(data)); err != nil {
 		return err
 	}
 	_, err = c.in.Write(data)
+	return err
+}
+
+// A server that stops reading must not hold a caller past its deadline.
+// Only a blocked write closes the transport; a slow response can be cancelled
+// without disconnecting an otherwise healthy server.
+func (c *Client) writeContext(ctx context.Context, m any) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	stop := context.AfterFunc(ctx, func() { c.in.Close() })
+	err := c.write(m)
+	stop()
+	if ctx.Err() != nil {
+		return ctx.Err()
+	}
 	return err
 }
 
@@ -290,16 +319,14 @@ func (c *Client) Call(ctx context.Context, method string, params any) (json.RawM
 	ch := make(chan response, 1)
 	c.waiting[id] = ch
 	c.mu.Unlock()
-	if err := c.write(map[string]any{"jsonrpc": "2.0", "id": id, "method": method, "params": params}); err != nil {
+	defer func() { c.mu.Lock(); delete(c.waiting, id); c.mu.Unlock() }()
+	if err := c.writeContext(ctx, map[string]any{"jsonrpc": "2.0", "id": id, "method": method, "params": params}); err != nil {
 		return nil, err
 	}
 	select {
 	case r := <-ch:
 		return r.result, r.err
 	case <-ctx.Done():
-		c.mu.Lock()
-		delete(c.waiting, id)
-		c.mu.Unlock()
 		c.Notify("$/cancelRequest", map[string]any{"id": id})
 		return nil, ctx.Err()
 	}
@@ -311,11 +338,16 @@ func (c *Client) Notify(method string, params any) error {
 	if params != nil {
 		m["params"] = params
 	}
-	return c.write(m)
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	return c.writeContext(ctx, m)
 }
 
 // read reads the server's messages until it stops.
 func (c *Client) read(r *bufio.Reader) {
+	// A child can exit while os/exec is still copying stdin from a caller's
+	// pipe. Closing the writer unblocks that copy so Wait and Done complete.
+	defer c.in.Close()
 	for {
 		n := -1
 		for {
@@ -342,6 +374,8 @@ func (c *Client) read(r *bufio.Reader) {
 		if json.Unmarshal(body, &m) != nil {
 			continue
 		}
+		m.Result = mapJSON(m.Result, c.toClient, false)
+		m.Params = mapJSON(m.Params, c.toClient, false)
 		switch {
 		case m.ID != nil && m.Method == "":
 			var id int
@@ -371,12 +405,29 @@ func (c *Client) answer(id json.RawMessage, method string, params json.RawMessag
 	switch method {
 	case "workspace/configuration":
 		var p struct {
-			Items []any `json:"items"`
+			Items []struct {
+				Section string `json:"section"`
+			} `json:"items"`
 		}
 		json.Unmarshal(params, &p)
-		result = make([]any, len(p.Items))
+		values := make([]any, len(p.Items))
+		for i, item := range p.Items {
+			var value any = c.configuration
+			if item.Section != "" {
+				for _, part := range strings.Split(item.Section, ".") {
+					if object, ok := value.(map[string]any); ok {
+						value = object[part]
+					} else {
+						value = nil
+						break
+					}
+				}
+			}
+			values[i] = value
+		}
+		result = values
 	case "workspace/workspaceFolders":
-		result = []any{}
+		result = c.folders
 	}
 	c.write(map[string]any{"jsonrpc": "2.0", "id": id, "result": result})
 }
@@ -405,6 +456,10 @@ func (c *Client) notified(method string, params json.RawMessage) {
 				level = "warn"
 			}
 			c.h.Log(level, p.Message)
+		}
+	default:
+		if c.h.Notification != nil {
+			c.h.Notification(method, params)
 		}
 	}
 }

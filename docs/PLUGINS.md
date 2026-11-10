@@ -380,6 +380,49 @@ folder's machine, so it runs on the SSH host of a remote folder. Mayoi shows the
 **Go → Go to Definition** (F12), **Go → Show Hover**, **Selection → Complete Word** (⌃Space in the editor), and
 **Format Document** when no plugin formats the language.
 
+For servers that need setup, use `resolve` instead of `command`:
+
+```jsonc
+"settings": { "helperPath": { "type": "string", "default": "my-helper" } },
+"languageServers": [{
+  "id": "example.server", "languages": ["java"],
+  "resolve": { "command": "${settings.helperPath}", "args": ["resolve"] }
+}]
+```
+
+The resolver runs once at server startup, on the workspace's machine. Its stdin
+is JSON `{root, settings}`: an absolute host path and the plugin's explicitly
+stored settings (without manifest defaults). `${settings.key}` references in the
+resolver command and arguments use stored settings with manifest defaults as a
+fallback; substitution passes literal arguments and never invokes a shell.
+Keep resolution fast and offline; dependency installation belongs in a separate
+setup command. Resolution and initialization share a 30-second deadline.
+
+The resolver must print one JSON object and exit successfully:
+
+```ts
+{
+  command: string;
+  args?: string[];
+  env?: Record<string, string>;
+  unsetEnv?: string[];
+  initializationOptions?: unknown;
+  configuration?: Record<string, unknown>;
+  workspaceFolders?: { uri: string; name: string }[];
+  pathMappings?: { clientURI: string; serverURI: string }[];
+}
+```
+
+Mayoi starts the returned command directly. `env` overrides inherited variables;
+`unsetEnv` removes them on the workspace host. `configuration` answers
+`workspace/configuration` requests by dotted section. `workspaceFolders` is used
+for initialization and folder requests; the first folder supplies `rootUri`.
+Folders and mappings must use absolute `file:` URIs. URI prefix mappings run in
+both directions and match whole path components, longest first. They cover URI
+values and keys in workspace edits while preserving source/edit text. This lets
+a server import canonical paths and the editor keep the workspace's symlink
+aliases for definitions and diagnostics. Standard declarations remain valid.
+
 ### User scripts
 
 A `.ts` or `.js` file in `~/.mayoi/scripts` is a plugin without a manifest: each function it exports is a command,

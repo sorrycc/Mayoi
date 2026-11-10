@@ -276,10 +276,10 @@ func (c *Client) logLines(r io.Reader) {
 	}
 }
 
+// write waits as long as the server takes to read: a busy server may not read
+// a large document for a while, and a deadline would close its input.
 func (c *Client) write(m any) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-	defer cancel()
-	return c.writeContext(ctx, m)
+	return c.writeContext(context.Background(), m)
 }
 
 // A cancelled queued writer must leave the shared stream intact. Once a frame
@@ -347,9 +347,7 @@ func (c *Client) Call(ctx context.Context, method string, params any) (json.RawM
 
 // Notify sends a notification.
 func (c *Client) Notify(method string, params any) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-	defer cancel()
-	return c.send(ctx, method, params, nil)
+	return c.send(context.Background(), method, params, nil)
 }
 
 func (c *Client) send(ctx context.Context, method string, params any, id *int) error {

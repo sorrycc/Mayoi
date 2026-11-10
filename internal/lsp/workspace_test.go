@@ -250,6 +250,27 @@ func TestBlockedWriteDeadline(t *testing.T) {
 	}
 }
 
+// A server busy for longer than any deadline still gets the whole document.
+func TestNotifyWaitsForSlowReader(t *testing.T) {
+	reader, writer := io.Pipe()
+	defer reader.Close()
+	c := &Client{in: writer}
+	read := make(chan int64)
+	go func() {
+		time.Sleep(2500 * time.Millisecond)
+		n, _ := io.Copy(io.Discard, reader)
+		read <- n
+	}()
+	text := strings.Repeat("x", 1<<16)
+	if err := c.Notify("textDocument/didChange", map[string]any{"text": text}); err != nil {
+		t.Fatalf("notify: %v", err)
+	}
+	writer.Close()
+	if n := <-read; n < int64(len(text)) {
+		t.Fatalf("server read %d bytes", n)
+	}
+}
+
 func TestChildExitWithCopiedStdin(t *testing.T) {
 	cmd := exec.Command(os.Args[0])
 	cmd.Env = append(os.Environ(), "MAYOI_FAKE_LSP=1")

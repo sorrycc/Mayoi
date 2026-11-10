@@ -4,7 +4,6 @@ import (
 	"cmp"
 	"fmt"
 	"strconv"
-	"time"
 
 	"github.com/egoist/mygo/ui"
 
@@ -105,7 +104,7 @@ func (a *app) mergeHead(c *ui.Context, v *mergeView) {
 		add(-2, pill, "", measure(pill, 10.5)+2*7, nil, false)
 	}
 	if filesTotal > 1 {
-		count := locales.MergeFilesResolved(strconv.Itoa(filesResolved), strconv.Itoa(filesTotal))
+		count := locales.MergeFilesResolved(filesTotal, strconv.Itoa(filesResolved))
 		add(-1, count, "", measure(count, 11.5), nil, false)
 	}
 	if filesTotal > 0 {
@@ -254,7 +253,7 @@ func (a *app) mergeHead(c *ui.Context, v *mergeView) {
 		if done >= 1 {
 			col = p.added
 		}
-		col = head.AnimateColor("done-color", col, ui.Animation{Duration: 200 * time.Millisecond})
+		col = head.AnimateColor("done-color", col, ui.Animation{Duration: motionMove})
 		ui.Box(c).Height(2).Draw(func(pt *ui.Painter, r ui.Rect) {
 			pt.Fill(r, p.border.Alpha(0.6), 0)
 			pt.Fill(ui.Rect{X: r.X, Y: r.Y, W: r.W * clamp(fill, 0, 1), H: r.H}, col, 0)

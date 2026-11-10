@@ -82,7 +82,7 @@ func (w *prefsWindow) themeTiles(c *ui.Context, chosen string, apply func(any)) 
 						if tile.FocusVisible() {
 							ring.Shadow(0, 0, 0, 3, p.accent.Alpha(0.25))
 						}
-						ring.Transition(ui.ElementTransition{Duration: 220 * time.Millisecond, Ease: ui.EaseInOut, Match: themeRing{}})
+						ring.Transition(ui.ElementTransition{Duration: motionMove, Ease: ui.EaseInOut, Match: themeRing{}})
 						ui.Box(c.Key("check")).Absolute().Top(-7).Right(-7).Size(18, 18).Radius(9).Background(p.fill).
 							Border(2, p.editor).Justify(ui.Center).AlignItems(ui.Center).Transition(dotPop).Children(func() {
 							ui.Icon(c, iconCheck).FontSize(10).TextColor(p.fillText)
@@ -175,7 +175,7 @@ func (w *prefsWindow) segmented(c *ui.Context, key string, sel int, labels []str
 					} else {
 						thumb.Background(t.Surface).Shadow(0, 1, 2, 0, ui.RGBA(20, 20, 40, 0.12))
 					}
-					thumb.Transition(ui.ElementTransition{Duration: 180 * time.Millisecond, Ease: ui.EaseInOut, Match: segmentThumb{key}})
+					thumb.Transition(ui.ElementTransition{Duration: motionMove, Ease: ui.EaseInOut, Match: segmentThumb{key}})
 				}
 				// The label takes the room, and a copy of it shows over the
 				// face, as what is placed paints over what is laid out.
@@ -451,7 +451,7 @@ func (w *prefsWindow) fontPreview(c *ui.Context) {
 	// preview takes its new height as it is let go.
 	height := 20 + float32(len(lines))*float32(int(s.FontSize*s.LineHeight+0.5))
 	ui.Column(c.Key("prefs-preview")).Radius(10).Clip().Background(p.editor).Border(1, p.border).
-		Transition(ui.ElementTransition{Size: true, Duration: 140 * time.Millisecond}).Children(func() {
+		Transition(ui.ElementTransition{Size: true, Duration: motionShow}).Children(func() {
 		ui.Row(c.Key("bar")).Height(30).Padding(0, 12).Gap(7).AlignItems(ui.Center).Background(p.chrome).
 			BorderWidth(0, 0, 1, 0).BorderColor(p.border).Children(func() {
 			ui.Icon(c, iconFileCode).FontSize(12).TextColor(p.accent).Shrink(0)
@@ -510,7 +510,7 @@ func previewSpans(line highlight.Line, p *palette, family string, size float32, 
 
 // toastMotion is how a toast of the window comes and goes: it slides up
 // as it fades in, and fades out as it sinks back.
-var toastMotion = ui.ElementTransition{Duration: 200 * time.Millisecond, Colors: true, Enter: &ui.Motion{Y: 16}, Exit: &ui.Motion{Y: 8}}
+var toastMotion = ui.ElementTransition{Duration: motionMove, Colors: true, Enter: &ui.Motion{Y: 16}, Exit: &ui.Motion{Y: 8}}
 
 // toasts builds the window's toasts, in the window's look: a card at the
 // foot of the window, a toast that undoes with its button.

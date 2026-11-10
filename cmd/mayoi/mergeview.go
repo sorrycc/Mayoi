@@ -7,7 +7,6 @@ import (
 	"slices"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/egoist/mygo/ui"
 
@@ -1004,7 +1003,7 @@ func (a *app) revealMergeRegion(v *mergeView, i int) {
 	}
 	y := max(0, editorPadY+a.mergeGeometry(v, 1).top(at[1])-room/3)
 	if d := y - v.panes[1].scroll.Y; d != 0 && max(d, -d) < 3*v.viewH {
-		v.panes[1].scroll.ScrollTo(v.panes[1].scroll.X, y, ui.Animation{Duration: 220 * time.Millisecond, Ease: ui.EaseOut})
+		v.panes[1].scroll.ScrollTo(v.panes[1].scroll.X, y, ui.Animation{Duration: motionMove, Ease: ui.EaseOut})
 		return
 	}
 	for k, line := range at {

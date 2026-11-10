@@ -283,3 +283,8 @@ These figures come from the tests, run on an M-series Mac:
 - Scrolling and typing cost under 2 ms per frame, or about 3 ms with find open.
 - Highlighting again after a keystroke in a 6,000-line file takes under 1 ms.
 - Quick open searches 100,000 paths in about 1.5 ms.
+- Opening the command palette and closing it again takes about 13 ms, a frame each.
+
+`TestBudgets` in `budget_test.go` holds the cost of a frame to a budget, a few times these figures to allow for
+a slower machine: idle, scrolling and typing, typing with find open, quick open, the palette, and a terminal
+printing as fast as it can. CI runs it on macOS for every pull request (`MAYOI_BUDGETS=1`).

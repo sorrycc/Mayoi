@@ -1138,7 +1138,7 @@ func (a *app) searchMatchRow(c *ui.Context, i int, f *searchFile, m searchMatch,
 	row := ui.Row(c).Grow(1).Gap(6).AlignItems(ui.Center).Height(22).Padding(0, 0, 0, 30)
 	// The matches of a file just unfolded fade in.
 	if at, ok := s.unfolded[f.rel]; ok {
-		if k := ui.EaseOut(min(float32(c.Now().Sub(at))/float32(showFor), 1)); k < 1 {
+		if k := ui.EaseOut(min(float32(c.Now().Sub(at))/float32(motionShow), 1)); k < 1 {
 			row.Opacity(k)
 			c.AnimationFrame()
 		} else {

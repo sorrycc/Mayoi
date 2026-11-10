@@ -196,7 +196,7 @@ func (a *app) diffPaneUI(c *ui.Context, v *diffView) {
 			// is near, as an editor's going to a line does; revealing a
 			// row as the keys move along does not, nor does a long way.
 			if d := top - v.scroll.Y; v.glide && d != 0 && max(d, -d) < 3*view.H {
-				v.scroll.ScrollTo(v.scroll.X, top, ui.Animation{Duration: 220 * time.Millisecond, Ease: ui.EaseOut})
+				v.scroll.ScrollTo(v.scroll.X, top, ui.Animation{Duration: motionMove, Ease: ui.EaseOut})
 				v.glideY = top
 			} else {
 				v.scroll.Y = top
@@ -1181,7 +1181,11 @@ func (a *app) layOutCommitCard(c *ui.Context, v *diffView, w float32) *commitCar
 		})
 	}})
 	if !info.Time.IsZero() {
-		when := locales.CardCommitted(ago(info.Time, time.Now())) + " · " + dateTime(info.Time)
+		// The date and time, after how long ago for a commit of this week.
+		when := locales.CardCommitted(dateTime(info.Time))
+		if now := time.Now(); now.Sub(info.Time) < agoFor {
+			when = locales.CardCommitted(ago(info.Time, now)) + " · " + dateTime(info.Time)
+		}
 		pieces = append(pieces, text(label(when, 400, p.muted), false))
 	}
 	pieces = append(pieces, hashChip(cm.hash, true))

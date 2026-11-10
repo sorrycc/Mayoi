@@ -1,7 +1,11 @@
 package main
 
 import (
+	"os"
 	"path"
+	"strconv"
+	"strings"
+	"time"
 
 	"github.com/egoist/mygo/plugins/terminal"
 
@@ -39,7 +43,35 @@ func (a *app) terminalExited(s *session, t *terminal.Terminal, code int) {
 		}
 		return
 	}
+	if time.Since(s.started) < exitedEarlyWithin {
+		a.exitedEarly(s, t, code)
+		return
+	}
 	a.removeTerminal(s)
+}
+
+// exitedEarlyWithin is how soon after it started a shell that exits
+// counts as one that could not start, as for a broken rc file or a
+// $SHELL that is not there, rather than one the user ended.
+const exitedEarlyWithin = 2 * time.Second
+
+// exitedEarly keeps a terminal whose shell exited as it started, rather
+// than have it flash and vanish: it shows what the shell printed and why
+// it stopped, and offers to report it.
+func (a *app) exitedEarly(s *session, t *terminal.Terminal, code int) {
+	shell, c := shellName(), strconv.Itoa(code)
+	t.Feed([]byte("\r\n\x1b[0;2m" + locales.TermExitedEarly(shell, c) + "\x1b[0m\r\n"))
+	out := lastLines(t.Text(), 20)
+	a.tell(note{message: locales.NoteTermExitedEarly(shell, c), label: locales.ReportProblem(), action: func() {
+		a.reportProblem(shell+" exited with code "+c+" as the terminal started",
+			"Shell: "+os.Getenv("SHELL")+"\nExit code: "+c+"\n\nWhat it printed:\n```\n"+out+"\n```")
+	}})
+}
+
+// lastLines returns the last n lines of s that have text.
+func lastLines(s string, n int) string {
+	lines := strings.Split(strings.TrimRight(s, "\n "), "\n")
+	return strings.Join(lines[max(len(lines)-n, 0):], "\n")
 }
 
 // restartTerminals starts again the terminals of the host the connection

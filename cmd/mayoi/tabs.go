@@ -11,13 +11,13 @@ import (
 )
 
 // crossFade is how a tab's cross comes and goes with the pointer.
-var crossFade = ui.ElementTransition{Duration: 100 * time.Millisecond, Enter: &ui.Motion{}, Exit: &ui.Motion{}}
+var crossFade = ui.ElementTransition{Duration: motionTap, Enter: &ui.Motion{}, Exit: &ui.Motion{}}
 
 // tabWheelGlide is how a notch of the wheel scrolls the tabs, as it scrolls
 // a container elsewhere; tabWheelLand is a touchpad's move, which already
 // follows the fingers, and so lands in the frame after it.
 var (
-	tabWheelGlide = ui.Animation{Duration: 150 * time.Millisecond, Ease: ui.EaseOut}
+	tabWheelGlide = ui.Animation{Duration: motionShow, Ease: ui.EaseOut}
 	tabWheelLand  = ui.Animation{Duration: time.Millisecond, Ease: ui.EaseOut}
 )
 
@@ -161,7 +161,9 @@ func (a *app) tabStrip(c *ui.Context, col *column) {
 						case t.ed != nil && t.ed.diskGone, t.view != nil && t.view.diskGone:
 							name.TextColor(p.dangerFg).Strikethrough()
 						case active:
-							name.FontWeight(550).TextColor(p.text)
+							// In color alone: a heavier weight would widen the tab
+							// and move those after it.
+							name.TextColor(p.text)
 						default:
 							name.TextColor(p.muted)
 						}

@@ -540,7 +540,7 @@ func (a *app) runningHead(c *ui.Context, r *runningView, width float32) {
 
 // runRowMotion is how a row of the table follows the pointer, and moves
 // to its place as the rows are sorted again.
-var runRowMotion = ui.ElementTransition{Duration: 160 * time.Millisecond, Position: true, Colors: true}
+var runRowMotion = ui.ElementTransition{Duration: motionShow, Position: true, Colors: true}
 
 // runningRow is a plugin of the table, with its buttons at the end while
 // the pointer is over it.
@@ -761,7 +761,7 @@ const logFlash = 900 * time.Millisecond
 
 // logFollow is how the log glides to a line that comes while its end
 // shows.
-var logFollow = ui.Animation{Duration: 120 * time.Millisecond, Ease: ui.EaseOut}
+var logFollow = ui.Animation{Duration: motionHover, Ease: ui.EaseOut}
 
 // logView is what the Plugin Log keeps: the filters, and the numbers of
 // the lines they let through, oldest first, of the lines up to upTo.
@@ -1125,4 +1125,4 @@ func (a *app) logJump(c *ui.Context, l *logView, fresh int) {
 
 // popUpPill is how the pill over the end of the log comes and goes: up a
 // little as it fades in, and down as it fades out.
-var popUpPill = ui.ElementTransition{Duration: 150 * time.Millisecond, Colors: true, Enter: &ui.Motion{Y: 8}, Exit: &ui.Motion{Y: 8}}
+var popUpPill = ui.ElementTransition{Duration: motionShow, Colors: true, Enter: &ui.Motion{Y: 8}, Exit: &ui.Motion{Y: 8}}

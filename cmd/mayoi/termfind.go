@@ -96,7 +96,7 @@ func (a *app) termFindView(c *ui.Context, s *session) {
 		if none {
 			col = p.dangerFg
 		}
-		ui.Text(c, count).FontSize(findCountSize).TextColor(col).Width(countW).SingleLine().TextAlign(ui.Center)
+		ui.Text(c, count).FontSize(findCountSize).FontFeatures("tnum").TextColor(col).Width(countW).SingleLine().TextAlign(ui.Center)
 		// Older output is up the screen.
 		if a.iconButton(c, iconArrowUp, locales.FindNextMatch(), false).Disabled(st.Total == 0).Clicked() {
 			a.termFindStep(s, 1)

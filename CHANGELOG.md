@@ -8,6 +8,15 @@ needs a `## <version>` section here, or its build fails.
 - Language server plugins can run a `resolve` command that sets the server's arguments, environment and settings.
 - Language server plugins can map paths so definitions and diagnostics keep the workspace's symlinked paths.
 - Mayoi no longer waits on a language server that has already stopped.
+- The command palette, Quick Open and pickers show at once when a key opens them, and fade in on a click.
+- Animations share a few lengths, so what moves alike now moves alike.
+- Choosing a tab no longer makes its title bolder and shifts the tabs after it.
+- The caret's line and column in the status bar, and find's match count, no longer jiggle as digits change.
+- Remote SSH and Mermaid commands show their menu in the command palette instead of a bare `:`.
+- A terminal whose shell exits as it starts stays open with what it printed, and offers **Report…**.
+- **Help → Report a Problem…** opens a new GitHub issue with Mayoi's version and your system filled in.
+- Inline blame, commit tips and settings sync show a date for anything older than a week.
+- The merge view's count of resolved files reads "1 of 1 file resolved" in English.
 - Inline blame now shows with **View → Word Wrap** on, after the caret line's last row.
 - When a wrapped line's last row is too full, its inline blame is cut short with `…`.
 - Dragging over code in a diff selects text across lines; dragging on the line numbers still selects rows.

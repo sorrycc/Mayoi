@@ -3,6 +3,8 @@ package main
 import (
 	"fmt"
 	"os"
+	"path/filepath"
+	"regexp"
 	"slices"
 	"strings"
 	"testing"
@@ -39,12 +41,12 @@ func TestTreeOpeningFades(t *testing.T) {
 	if k := o.shown("/w/restored", now); k != 1 {
 		t.Errorf("the rows of a folder open before fade again: %v", k)
 	}
-	mid := now.Add(showFor / 2)
+	mid := now.Add(motionShow / 2)
 	o.note(&open, mid)
 	if k := o.shown("/w/a", mid); k <= 0 || k >= 1 {
 		t.Errorf("halfway, the rows show at %v", k)
 	}
-	end := now.Add(showFor)
+	end := now.Add(motionShow)
 	o.note(&open, end)
 	if k := o.shown("/w/a", end); k != 1 {
 		t.Errorf("once in, the rows show at %v", k)
@@ -159,10 +161,10 @@ func TestAppearingFades(t *testing.T) {
 	if k := ap.shown("b", now); k != 1 {
 		t.Errorf("a row there before fades again: %v", k)
 	}
-	if k := ap.shown("c", now.Add(showFor/2)); k <= 0 || k >= 1 {
+	if k := ap.shown("c", now.Add(motionShow/2)); k <= 0 || k >= 1 {
 		t.Errorf("halfway, the row shows at %v", k)
 	}
-	if k := ap.shown("c", now.Add(showFor)); k != 1 {
+	if k := ap.shown("c", now.Add(motionShow)); k != 1 {
 		t.Errorf("once in, the row shows at %v", k)
 	}
 	// Rows of another list, noted fresh, show at once.
@@ -245,5 +247,64 @@ func TestSearchFileUnfoldsQuietly(t *testing.T) {
 	}
 	if !quiet(hs) {
 		t.Error("frames are drawn after the matches came in")
+	}
+}
+
+// Animation lengths come from the motion tokens of motion.go, not from
+// numbers written where they are used.
+func TestMotionUsesTokens(t *testing.T) {
+	raw := regexp.MustCompile(`(Duration:|At:)\s*[0-9.]+ ?\* ?time\.(Millisecond|Second)`)
+	files, _ := filepath.Glob("*.go")
+	for _, f := range files {
+		if strings.HasSuffix(f, "_test.go") || f == "motion.go" {
+			continue
+		}
+		src, err := os.ReadFile(f)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for i, line := range strings.Split(string(src), "\n") {
+			if raw.MatchString(line) {
+				t.Errorf("%s:%d: an animation's length written out; use a motion token: %s", f, i+1, strings.TrimSpace(line))
+			}
+		}
+	}
+}
+
+func TestKeyedOpenShowsAtOnce(t *testing.T) {
+	a := &app{}
+	var keyed bool
+	tt := ui.NewTester(func(c *ui.Context) { keyed = a.keyedOpen(c) }, 10, 10)
+	tt.Frame()
+	if keyed {
+		t.Fatal("with no key pressed, a dialog counts as keyed")
+	}
+	a.keyedAt = tt.Now()
+	tt.Advance(16 * time.Millisecond)
+	tt.Frame()
+	if !keyed {
+		t.Fatal("a dialog opened the frame after a key does not count as keyed")
+	}
+	tt.Advance(time.Second)
+	tt.Frame()
+	if keyed {
+		t.Fatal("a dialog opened long after a key counts as keyed")
+	}
+	if k := showIn(true); k[0].Value != 1 {
+		t.Errorf("a keyed dialog starts at %v, not shown", k[0].Value)
+	}
+	if k := showIn(false); k[0].Value != 0 || k[len(k)-1].At != motionShow {
+		t.Errorf("a dialog opened with the pointer does not fade in over motionShow: %+v", k)
+	}
+}
+
+func TestKeyRunsStampKeyedOpen(t *testing.T) {
+	hs := newHarness(t, false)
+	withKeys(t, hs.a, `[{"key": "ctrl+.", "command": "go.quickOpen"}]`)
+	hs.a.keyedAt = time.Time{}
+	hs.tt.Key(ui.Ctrl, ui.KeyPeriod)
+	hs.settle()
+	if hs.a.keyedAt.IsZero() {
+		t.Fatal("a binding run by a key does not stamp keyedAt")
 	}
 }

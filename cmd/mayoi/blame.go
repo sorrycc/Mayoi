@@ -132,7 +132,9 @@ func fitBlame(text string, room float32, width func(string) float32) string {
 	return strings.TrimRight(string(runes[:lo]), " ·,") + "…"
 }
 
-// ago says how long before now t was, roughly.
+// ago says how long before now t was, roughly, for a week; older, it
+// says the date, as "340 days ago" is a sum for the reader to do: the day
+// and month this year, with the year before.
 func ago(t, now time.Time) string {
 	d := now.Sub(t)
 	switch {
@@ -142,13 +144,18 @@ func ago(t, now time.Time) string {
 		return locales.AgoMinutes(int(d / time.Minute))
 	case d < 24*time.Hour:
 		return locales.AgoHours(int(d / time.Hour))
-	case d < 30*24*time.Hour:
+	case d < agoFor:
 		return locales.AgoDays(int(d / (24 * time.Hour)))
-	case d < 365*24*time.Hour:
-		return locales.AgoMonths(int(d / (30 * 24 * time.Hour)))
 	}
-	return locales.AgoYears(int(d / (365 * 24 * time.Hour)))
+	skeleton := "yMMMd"
+	if t.Year() == now.Year() {
+		skeleton = "MMMd"
+	}
+	return i18n.FormatDate(i18n.Locale(), t.Local(), i18n.DateOptions{Skeleton: skeleton})
 }
+
+// agoFor is how long ago says how long before: past it, it says the date.
+const agoFor = 7 * 24 * time.Hour
 
 // dateTime is a date and time to the minute, in the language shown, as
 // "Jan 2, 2006, 15:04" in English.

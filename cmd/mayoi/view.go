@@ -325,7 +325,7 @@ func (a *app) splitter(c *ui.Context, at edge, drag func(d float32)) ui.Element 
 	if h.Pressed() || h.Dragging() {
 		lit = h.Jump("lit", 1)
 	} else {
-		show := ui.Animation{Duration: 150 * time.Millisecond}
+		show := ui.Animation{Duration: motionShow}
 		if h.Hovered() {
 			show.Delay = 250 * time.Millisecond
 		}
@@ -1028,7 +1028,7 @@ type statusVisibility struct {
 // parts stay as the caret moves.
 func (a *app) statusFit(c *ui.Context, width float32) statusVisibility {
 	measure := func(s string, icon bool) float32 {
-		w, _ := c.MeasureText(0, ui.Span{Text: s, Size: 11.5})
+		w, _ := c.MeasureText(0, ui.Span{Text: s, Size: 11.5, Features: "tnum"})
 		w += 2*6 + 2 // the item's padding, and the gap after it
 		if icon {
 			w += 12 + 5
@@ -1205,7 +1205,7 @@ func (a *app) vimBadge(c *ui.Context, v *vimState, text func(string) ui.Element)
 		if a.vimRec != 0 {
 			// A register recording, as vim says: a red dot, and its name.
 			ui.Row(c.Key("status:vim-rec")).Gap(5).AlignItems(ui.Center).
-				Transition(ui.ElementTransition{Duration: 160 * time.Millisecond, Enter: &ui.Motion{Scale: 0.8}, Exit: &ui.Motion{Scale: 0.8}}).
+				Transition(ui.ElementTransition{Duration: motionShow, Enter: &ui.Motion{Scale: 0.8}, Exit: &ui.Motion{Scale: 0.8}}).
 				Children(func() {
 					ui.Box(c).Width(6).Height(6).Radius(3).Background(p.dangerFg)
 					ui.Text(c, locales.VimRecording(string(a.vimRec))).FontSize(11.5).TextColor(p.dangerFg).SingleLine()
@@ -1222,7 +1222,7 @@ func (a *app) vimBadge(c *ui.Context, v *vimState, text func(string) ui.Element)
 				col = p.dangerFg
 			}
 			ui.Text(c.Key("status:vim-msg"), m.text).FontSize(11.5).TextColor(col).SingleLine().MaxWidth(420).
-				Transition(ui.ElementTransition{Duration: 180 * time.Millisecond, Colors: true, Enter: &ui.Motion{}, Exit: &ui.Motion{}}).
+				Transition(ui.ElementTransition{Duration: motionMove, Colors: true, Enter: &ui.Motion{}, Exit: &ui.Motion{}}).
 				ContentTransition(ui.ContentTransition{})
 		}
 	})
@@ -1237,8 +1237,10 @@ func (a *app) statusBar(c *ui.Context) {
 		BorderWidth(1, 0, 0, 0).BorderColor(p.hairline())
 	a.grained(bar)
 	bar.Children(func() {
+		// Its digits are of one width, so that the caret's line and column,
+		// changing with each key, do not shift the items after them.
 		text := func(s string) ui.Element {
-			return ui.Text(c, s).FontSize(11.5).TextColor(p.statusFg).SingleLine()
+			return ui.Text(c, s).FontSize(11.5).FontFeatures("tnum").TextColor(p.statusFg).SingleLine()
 		}
 		// item is a part of the bar, a button when it does something.
 		item := func(key, label, tip string, icon *ui.SVG, fn func()) {

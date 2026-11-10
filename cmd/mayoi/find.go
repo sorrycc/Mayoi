@@ -384,7 +384,7 @@ func (a *app) findCountWidth(c *ui.Context) float32 {
 		m := locales.In(loc)
 		w := float32(findCountMin)
 		for _, s := range []string{m.FindCountMore(maxMatches, maxMatches), m.FindInvalid(), m.FindNoResults()} {
-			tw, _ := c.MeasureText(0, ui.Span{Text: s, Size: findCountSize})
+			tw, _ := c.MeasureText(0, ui.Span{Text: s, Size: findCountSize, Features: "tnum"})
 			w = max(w, tw+4)
 		}
 		f.countW, f.countFor = w, loc
@@ -490,7 +490,7 @@ func (a *app) findBoxView(c *ui.Context, b findBox) {
 			if none || b.err != "" {
 				col = p.dangerFg
 			}
-			ui.Text(c, count).FontSize(findCountSize).TextColor(col).Width(countW).SingleLine().TextAlign(ui.Center)
+			ui.Text(c, count).FontSize(findCountSize).FontFeatures("tnum").TextColor(col).Width(countW).SingleLine().TextAlign(ui.Center)
 			if a.iconButton(c, iconArrowUp, locales.FindPrevMatch(keyText("Shift+Enter")), false).Disabled(b.n == 0).Clicked() {
 				b.step(-1)
 			}

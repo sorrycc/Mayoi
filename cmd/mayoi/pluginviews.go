@@ -504,7 +504,7 @@ const viewRowStep = 12
 
 // treeKids is how the rows of a node of a plugin's tree come and go as it
 // opens and closes: they unfold rather than jump.
-var treeKids = ui.ElementTransition{Duration: 140 * time.Millisecond, Enter: &ui.Motion{Collapse: true}, Exit: &ui.Motion{Collapse: true}}
+var treeKids = ui.ElementTransition{Duration: motionShow, Enter: &ui.Motion{Collapse: true}, Exit: &ui.Motion{Collapse: true}}
 
 // rowPath is where a row of a plugin's list or tree is, under the path of
 // its parent, worked out once.

@@ -3,10 +3,17 @@ package main
 import (
 	"fmt"
 	"net"
+	"net/url"
+	"os"
+	"path/filepath"
+	"runtime"
+	"strings"
 	"testing"
 
 	"github.com/egoist/mygo/plugins/terminal"
 	"github.com/egoist/mygo/ui"
+
+	"mayoi/locales"
 )
 
 // The scroll bar must not take clicks in the lower half of a terminal's
@@ -161,5 +168,47 @@ func TestRenameTerminal(t *testing.T) {
 	}
 	if got := s.label(); got != "vim main.go" {
 		t.Fatalf("label = %q, want vim main.go", got)
+	}
+}
+
+// A shell that exits as it starts keeps its terminal, with what it printed
+// and why it stopped, and offers to report it, rather than flash and close
+// (#87).
+func TestTerminalExitedEarlyStays(t *testing.T) {
+	if testing.Short() {
+		t.Skip("starts a shell")
+	}
+	sh := filepath.Join(t.TempDir(), "broken-sh")
+	os.WriteFile(sh, []byte("#!/bin/sh\necho 'rc: something is wrong'\nexit 3\n"), 0o755)
+	t.Setenv("SHELL", sh)
+	hs := newHarness(t, true)
+	a := hs.a
+	a.run("view.terminalTab")
+	hs.settle()
+	if len(a.terms) != 1 {
+		t.Fatalf("%d terminals", len(a.terms))
+	}
+	s := a.terms[0]
+	hs.until("the note of the exit", func() bool { return strings.Contains(s.term.Text(), "code 3") })
+	if !strings.Contains(s.term.Text(), "rc: something is wrong") {
+		t.Errorf("what the shell printed is gone: %q", s.term.Text())
+	}
+	if len(a.terms) != 1 || a.column().tab().term != s {
+		t.Fatal("the terminal closed")
+	}
+	if !hs.tt.HasText(locales.NoteTermExitedEarly(shellName(), "3")) || !hs.tt.HasText(locales.ReportProblem()) {
+		t.Fatalf("no toast offers to report it: %q", hs.tt.Texts())
+	}
+}
+
+func TestReportURL(t *testing.T) {
+	u, err := url.Parse(reportURL("zsh exited", "Exit code: 3"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	q := u.Query()
+	if !strings.HasPrefix(u.String(), repoURL+"/issues/new?") || q.Get("title") != "zsh exited" ||
+		!strings.Contains(q.Get("body"), "Exit code: 3") || !strings.Contains(q.Get("body"), runtime.GOOS) {
+		t.Errorf("report URL %s", u)
 	}
 }

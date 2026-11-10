@@ -127,6 +127,21 @@ jobs:
             ~/go/pkg/mod
           key: go-${{ matrix.os }}-${{ hashFiles('go.sum') }}-${{ github.run_id }}-${{ github.run_attempt }}
 
+  # The latency budgets (cmd/mayoi/budget_test.go), on a Mac as the
+  # published figures are, with the terminal's that starts a shell.
+  budgets:
+    name: Budgets
+    runs-on: macos-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      - run: go test -run TestBudgets -v ./cmd/mayoi
+        env:
+          MAYOI_BUDGETS: "1"
+
   # macOS and Windows draw with their own system's text, with nothing to
   # install.
   native:

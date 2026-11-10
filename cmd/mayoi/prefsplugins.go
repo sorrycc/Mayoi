@@ -127,7 +127,7 @@ func repoName(url string) string {
 
 // pluginRowMotion is how a row of a plugin comes and goes, as one is
 // installed or removed: it opens and closes rather than jumps.
-var pluginRowMotion = ui.ElementTransition{Duration: 160 * time.Millisecond, Colors: true,
+var pluginRowMotion = ui.ElementTransition{Duration: motionShow, Colors: true,
 	Enter: &ui.Motion{Collapse: true}, Exit: &ui.Motion{Collapse: true}}
 
 // pluginsPane is the Plugins page: the plugins installed, bundled and

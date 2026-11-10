@@ -5,6 +5,8 @@ needs a `## <version>` section here, or its build fails.
 
 ## Unreleased
 
+- Clicking a repository's name or row background in source control expands or collapses its changes.
+
 - Language server plugins can run a `resolve` command that sets the server's arguments, environment and settings.
 - Language server plugins can map paths so definitions and diagnostics keep the workspace's symlinked paths.
 - Mayoi no longer waits on a language server that has already stopped.

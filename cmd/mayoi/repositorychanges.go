@@ -297,8 +297,8 @@ func (a *app) repositoryGroupHeader(c *ui.Context, list ui.Element, rows []repos
 	})
 }
 
-// The arrow changes expansion; the name selects history. Branch and remote
-// actions bind to this header's repository regardless of the history selection.
+// Clicking the name or background toggles changes and selects history. The
+// arrow and other controls keep their own actions without a second row click.
 func (a *gitContext) repositoryHeader(c *ui.Context) {
 	p := a.app.pal
 	root := a.git.repo.Root
@@ -312,6 +312,11 @@ func (a *gitContext) repositoryHeader(c *ui.Context) {
 		head.Background(p.hover)
 	}
 	head.Transition(hoverFade)
+	clicked := head.Clicked()
+	toggle := func() {
+		open := !a.changesExpanded()
+		a.expanded = &open
+	}
 	width := head.Bounds().W
 	head.Children(func() {
 		if selected {
@@ -321,8 +326,7 @@ func (a *gitContext) repositoryHeader(c *ui.Context) {
 		arrow := ui.ButtonBase(c.Key("expand")).Size(20, 24).Label(locales.ScmToggleRepository(name))
 		arrow.Children(func() { chevron(c, a.changesExpanded()).FontSize(12).TextColor(p.muted) })
 		if arrow.Clicked() {
-			open := !a.changesExpanded()
-			a.expanded = &open
+			toggle()
 		}
 		selectRepo := ui.ButtonBase(c.Key("select")).Height(24).Grow(1).Shrink(1).MinWidth(20).Gap(4).
 			AlignItems(ui.Center).Justify(ui.Start).Label(locales.ScmSelectRepository(name)).Tooltip(root)
@@ -333,7 +337,7 @@ func (a *gitContext) repositoryHeader(c *ui.Context) {
 			}
 		})
 		if selectRepo.Clicked() {
-			a.app.post(func() { a.app.selectRepository(root) })
+			clicked = true
 		}
 		a.scmWorktreeButton(c, true)
 		a.scmBranchButton(c, true)
@@ -344,6 +348,10 @@ func (a *gitContext) repositoryHeader(c *ui.Context) {
 		ui.ButtonBase(c.Key("more")).Size(20, 24).Label(locales.ScmMoreActions()).
 			Children(func() { ui.Icon(c, iconMore).FontSize(13).TextColor(p.muted) }).Menu(a.scmMenu)
 	})
+	if clicked {
+		toggle()
+		a.app.post(func() { a.app.selectRepository(root) })
+	}
 }
 
 func submoduleDescription(e git.Entry, staged bool) string {

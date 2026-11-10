@@ -104,8 +104,10 @@ type queuedEvent struct {
 	data any
 }
 
-// Stats is how a plugin is doing.
+// Stats is how a plugin is doing. State says it in one word, which
+// Active, Disabled and Crashed are the parts of.
 type Stats struct {
+	State       State
 	Active      bool
 	Disabled    bool // by its settings
 	Crashed     bool // stopped too often, until reloaded
@@ -129,8 +131,9 @@ func (p *Plugin) Title() string {
 func (p *Plugin) Stats() Stats {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	st := Stats{Active: p.in != nil, ActivatedIn: p.activatedIn, Crashes: p.crashes, Crashed: p.crashes >= maxCrashes,
-		Err: p.lastErr, Disabled: !p.reg.enabled(p)}
+	enabled := p.reg.enabled(p)
+	st := Stats{State: p.state(enabled), Active: p.in != nil, ActivatedIn: p.activatedIn, Crashes: p.crashes,
+		Crashed: p.crashes >= maxCrashes, Err: p.lastErr, Disabled: !enabled}
 	if p.loadErr != "" {
 		st.Err = p.loadErr
 	}

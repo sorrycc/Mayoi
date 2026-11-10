@@ -279,7 +279,7 @@ func (r *runningView) refresh() {
 	for _, pl := range all {
 		st := pl.Stats()
 		row := runRow{pl: pl, st: st, cpu: "—", mem: "—", started: "—", crashes: strconv.Itoa(st.Crashes), errMsg: firstLine(st.Err)}
-		row.rank, row.state = stateOf(pl, st)
+		row.rank, row.state = stateOf(st)
 		if st.Active {
 			r.active++
 			r.total += st.Memory
@@ -306,17 +306,20 @@ func (r *runningView) refresh() {
 
 // stateOf is the state of a plugin in a word, and its place as the rows
 // are sorted by it: the plugins running first, those in trouble next.
-func stateOf(pl *plugin.Plugin, st plugin.Stats) (int, string) {
-	switch {
-	case st.Active:
+func stateOf(st plugin.Stats) (int, string) {
+	switch st.State {
+	case plugin.StateRunning:
 		return 0, locales.RunningStateRunning()
-	case st.Crashed:
+	case plugin.StateCrashed:
 		return 1, locales.RunningStateCrashed()
-	case st.Disabled:
+	case plugin.StateOff:
 		return 5, locales.PluginsOff()
-	case !pl.HasCode() && !pl.Script:
+	case plugin.StateStatic:
 		return 4, locales.RunningStateStatic()
-	case st.Err != "":
+	}
+	// Starting, or waiting for its first call: in trouble when it has
+	// failed, or cannot be read.
+	if st.Err != "" {
 		return 2, locales.PluginsIdle()
 	}
 	return 3, locales.PluginsIdle()

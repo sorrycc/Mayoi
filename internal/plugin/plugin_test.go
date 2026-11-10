@@ -377,3 +377,39 @@ func TestOrigin(t *testing.T) {
 		t.Errorf("the author of from-git is not read: %+v", p)
 	}
 }
+
+// TestStateIsOneOfALife: a plugin's state is one word at a time, as its
+// code starts, is turned off and on, and as it only declares.
+func TestStateIsOneOfALife(t *testing.T) {
+	r, h, dirs := newRegistry(t)
+	writePlugin(t, dirs.Plugins, "life", map[string]string{
+		"plugin.json": `{"name": "life", "main": "main.js", "contributes": {"commands": [{"id": "life.x", "title": "X"}]}}`,
+		"main.js":     `import { commands } from "mayoi"; commands.register("life.x", () => 1);`,
+	})
+	writePlugin(t, dirs.Plugins, "look", map[string]string{
+		"plugin.json": `{"name": "look", "contributes": {"commands": []}}`,
+	})
+	r.Load()
+	state := func(name string) State { return r.Plugin(name).Stats().State }
+	if got := state("life"); got != StateIdle {
+		t.Fatalf("before its first call: %v", got)
+	}
+	if got := state("look"); got != StateStatic {
+		t.Fatalf("without code: %v", got)
+	}
+	if _, err := r.Run("life.x", nil); err != nil {
+		t.Fatal(err)
+	}
+	if got := state("life"); got != StateRunning {
+		t.Fatalf("after its first call: %v", got)
+	}
+	h.settings["life"] = json.RawMessage(`{"enabled": false}`)
+	r.Toggled("life")
+	if got := state("life"); got != StateOff {
+		t.Fatalf("turned off: %v", got)
+	}
+	h.settings["look"] = json.RawMessage(`{"enabled": false}`)
+	if got := state("look"); got != StateOff {
+		t.Fatalf("one that declares, turned off: %v", got)
+	}
+}

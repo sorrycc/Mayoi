@@ -50,19 +50,21 @@ func expandServerArg(arg string, settings map[string]json.RawMessage) (string, e
 
 // limitedBuffer bounds untrusted resolver output while continuing to drain it.
 type limitedBuffer struct {
-	bytes.Buffer
+	buffer   bytes.Buffer
 	overflow bool
 }
 
 func (b *limitedBuffer) Write(p []byte) (int, error) {
 	n := len(p)
-	if available := (4 << 20) - b.Len(); len(p) > available {
+	if available := (4 << 20) - b.buffer.Len(); len(p) > available {
 		b.overflow = true
 		p = p[:available]
 	}
-	b.Buffer.Write(p)
+	b.buffer.Write(p)
 	return n, nil
 }
+
+func (b *limitedBuffer) String() string { return b.buffer.String() }
 
 func (s *lspServer) resolve(ctx context.Context) (serverLaunch, error) {
 	launch := serverLaunch{Command: s.contrib.Command, Args: s.contrib.Args, Options: s.contrib.Options}
@@ -120,7 +122,8 @@ func (s *lspServer) resolve(ctx context.Context) (serverLaunch, error) {
 		return launch, fmt.Errorf("%s: resolver output exceeds 4 MiB", command)
 	}
 	launch = serverLaunch{}
-	decoder := json.NewDecoder(&stdout.Buffer)
+	decoder := json.NewDecoder(&stdout.buffer)
+	decoder.UseNumber()
 	if err = decoder.Decode(&launch); err != nil {
 		return launch, fmt.Errorf("%s: invalid launch description: %w", command, err)
 	}

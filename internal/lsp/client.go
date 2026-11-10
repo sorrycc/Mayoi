@@ -107,7 +107,8 @@ type Client struct {
 		Sync int
 	}
 
-	wmu     sync.Mutex // writes
+	wonce   sync.Once
+	writing chan struct{} // one frame writer; acquiring it can be cancelled
 	mu      sync.Mutex
 	seq     int
 	waiting map[int]chan response
@@ -253,7 +254,7 @@ func (c *Client) Close() {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 	if _, err := c.Call(ctx, "shutdown", nil); err == nil {
-		c.writeContext(ctx, map[string]any{"jsonrpc": "2.0", "method": "exit"})
+		c.send(ctx, "exit", nil, nil)
 	}
 	c.in.Close()
 	select {
@@ -276,30 +277,42 @@ func (c *Client) logLines(r io.Reader) {
 }
 
 func (c *Client) write(m any) error {
-	data, err := json.Marshal(m)
-	if err != nil {
-		return err
-	}
-	data = mapJSON(data, c.toServer, true)
-	c.wmu.Lock()
-	defer c.wmu.Unlock()
-	if _, err := fmt.Fprintf(c.in, "Content-Length: %d\r\n\r\n", len(data)); err != nil {
-		return err
-	}
-	_, err = c.in.Write(data)
-	return err
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	return c.writeContext(ctx, m)
 }
 
-// A server that stops reading must not hold a caller past its deadline.
-// Only a blocked write closes the transport; a slow response can be cancelled
-// without disconnecting an otherwise healthy server.
+// A cancelled queued writer must leave the shared stream intact. Once a frame
+// starts writing, a timeout closes the stream because a partial frame cannot be
+// safely followed by another message.
 func (c *Client) writeContext(ctx context.Context, m any) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	stop := context.AfterFunc(ctx, func() { c.in.Close() })
-	err := c.write(m)
-	stop()
+	data, err := json.Marshal(m)
+	if err != nil {
+		return err
+	}
+	c.wonce.Do(func() { c.writing = make(chan struct{}, 1) })
+	select {
+	case c.writing <- struct{}{}:
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+	defer func() { <-c.writing }()
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	closed := make(chan struct{})
+	stop := context.AfterFunc(ctx, func() { c.in.Close(); close(closed) })
+	if _, err = fmt.Fprintf(c.in, "Content-Length: %d\r\n\r\n", len(data)); err == nil {
+		_, err = c.in.Write(data)
+	}
+	if !stop() {
+		// The callback may already be running. Finish it before releasing
+		// ownership so it cannot close a later writer's stream.
+		<-closed
+	}
 	if ctx.Err() != nil {
 		return ctx.Err()
 	}
@@ -320,12 +333,12 @@ func (c *Client) Call(ctx context.Context, method string, params any) (json.RawM
 	c.waiting[id] = ch
 	c.mu.Unlock()
 	defer func() { c.mu.Lock(); delete(c.waiting, id); c.mu.Unlock() }()
-	if err := c.writeContext(ctx, map[string]any{"jsonrpc": "2.0", "id": id, "method": method, "params": params}); err != nil {
+	if err := c.send(ctx, method, params, &id); err != nil {
 		return nil, err
 	}
 	select {
 	case r := <-ch:
-		return r.result, r.err
+		return mapResult(method, r.result, c.toClient, false), r.err
 	case <-ctx.Done():
 		c.Notify("$/cancelRequest", map[string]any{"id": id})
 		return nil, ctx.Err()
@@ -334,12 +347,19 @@ func (c *Client) Call(ctx context.Context, method string, params any) (json.RawM
 
 // Notify sends a notification.
 func (c *Client) Notify(method string, params any) error {
-	m := map[string]any{"jsonrpc": "2.0", "method": method}
-	if params != nil {
-		m["params"] = params
-	}
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
+	return c.send(ctx, method, params, nil)
+}
+
+func (c *Client) send(ctx context.Context, method string, params any, id *int) error {
+	m := map[string]any{"jsonrpc": "2.0", "method": method}
+	if id != nil {
+		m["id"] = *id
+	}
+	if params != nil || id != nil {
+		m["params"] = mapParameterValues(method, params, c.toServer)
+	}
 	return c.writeContext(ctx, m)
 }
 
@@ -374,8 +394,7 @@ func (c *Client) read(r *bufio.Reader) {
 		if json.Unmarshal(body, &m) != nil {
 			continue
 		}
-		m.Result = mapJSON(m.Result, c.toClient, false)
-		m.Params = mapJSON(m.Params, c.toClient, false)
+		m.Params = mapParams(m.Method, m.Params, c.toClient, false)
 		switch {
 		case m.ID != nil && m.Method == "":
 			var id int
@@ -429,7 +448,10 @@ func (c *Client) answer(id json.RawMessage, method string, params json.RawMessag
 	case "workspace/workspaceFolders":
 		result = c.folders
 	}
-	c.write(map[string]any{"jsonrpc": "2.0", "id": id, "result": result})
+	raw, err := json.Marshal(result)
+	if err == nil {
+		c.write(map[string]any{"jsonrpc": "2.0", "id": id, "result": mapResult(method, raw, c.toServer, true)})
+	}
 }
 
 func (c *Client) notified(method string, params json.RawMessage) {

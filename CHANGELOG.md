@@ -5,6 +5,9 @@ needs a `## <version>` section here, or its build fails.
 
 ## Unreleased
 
+- Cancelling a queued language-server request keeps other requests connected.
+- Workspace path mappings preserve hover text, extension data and large numbers.
+
 - Language plugins can prepare server settings and preserve workspace paths across symlinks.
 - Closing a stopped language server no longer waits on its input pipe.
 - Dragging over code in a diff selects text across lines; dragging on the line numbers still selects rows.

@@ -418,8 +418,11 @@ Mayoi starts the returned command directly. `env` overrides inherited variables;
 `workspace/configuration` requests by dotted section. `workspaceFolders` is used
 for initialization and folder requests; the first folder supplies `rootUri`.
 Folders and mappings must use absolute `file:` URIs. URI prefix mappings run in
-both directions and match whole path components, longest first. They cover URI
-values and keys in workspace edits while preserving source/edit text. This lets
+both directions and match whole path components, longest first. Mapping follows
+known LSP document, workspace, definition and diagnostic URI fields, including
+keys in workspace edits. Source/edit text, hover content, configuration,
+`initializationOptions` and unknown extension payloads pass through unchanged.
+Plugins prepare server-specific paths inside their own configuration. This lets
 a server import canonical paths and the editor keep the workspace's symlink
 aliases for definitions and diagnostics. Standard declarations remain valid.
 

@@ -3,10 +3,13 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
+	"strings"
 	"testing"
 	"time"
 
@@ -16,6 +19,26 @@ import (
 
 func init() {
 	if os.Getenv("MAYOI_TEST_RESOLVER") == "1" {
+		switch os.Getenv("MAYOI_TEST_RESOLVER_MODE") {
+		case "timeout":
+			time.Sleep(time.Hour)
+		case "malformed":
+			fmt.Fprint(os.Stdout, `{invalid`)
+			os.Exit(0)
+		case "extra":
+			fmt.Fprint(os.Stdout, `{"command":"server"} {}`)
+			os.Exit(0)
+		case "oversized":
+			fmt.Fprint(os.Stdout, `{"command":"server"}`)
+			fmt.Fprint(os.Stdout, strings.Repeat(" ", (4<<20)+1))
+			os.Exit(0)
+		case "exit":
+			fmt.Fprint(os.Stderr, "resolver setup failed")
+			os.Exit(3)
+		case "no-command":
+			fmt.Fprint(os.Stdout, `{"args":["server"]}`)
+			os.Exit(0)
+		}
 		var request struct {
 			Root     string                     `json:"root"`
 			Settings map[string]json.RawMessage `json:"settings"`
@@ -26,7 +49,7 @@ func init() {
 		}
 		json.NewEncoder(os.Stdout).Encode(serverLaunch{
 			Command: os.Args[0], Args: []string{"-test.run=^$"},
-			Configuration:    map[string]any{"root": request.Root},
+			Configuration:    map[string]any{"root": request.Root, "token": json.Number("9007199254740993")},
 			WorkspaceFolders: []lsp.WorkspaceFolder{{URI: lsp.URI(request.Root), Name: "test"}},
 			Env:              map[string]string{"RESOLVED": "yes", "MAYOI_FAKE_LSP": "1"},
 			UnsetEnv:         []string{"MAYOI_TEST_RESOLVER"},
@@ -51,11 +74,59 @@ func TestResolveLanguageServer(t *testing.T) {
 	if launch.WorkspaceFolders[0].URI != lsp.URI(root) {
 		t.Fatal(launch.WorkspaceFolders)
 	}
+	if n, ok := launch.Configuration["token"].(json.Number); !ok || n.String() != "9007199254740993" {
+		t.Fatalf("configuration number changed: %+v", launch.Configuration)
+	}
 	// Static declarations retain their old behavior.
 	s.contrib = plugin.ServerContrib{Command: "static", Args: []string{"a"}}
 	launch, err = s.resolve(ctx)
 	if err != nil || launch.Command != "static" {
 		t.Fatalf("static: %+v %v", launch, err)
+	}
+}
+
+func TestResolverFailures(t *testing.T) {
+	t.Setenv("MAYOI_TEST_RESOLVER", "1")
+	s := &lspServer{root: t.TempDir(), plugin: &plugin.Plugin{}, contrib: plugin.ServerContrib{Resolve: &plugin.ServerResolver{Command: os.Args[0]}}}
+	for _, tc := range []struct{ mode, want string }{
+		{"malformed", "invalid launch description"},
+		{"extra", "unexpected resolver output"},
+		{"oversized", "resolver output exceeds 4 MiB"},
+		{"exit", "resolver setup failed"},
+		{"no-command", "has no command"},
+	} {
+		t.Run(tc.mode, func(t *testing.T) {
+			t.Setenv("MAYOI_TEST_RESOLVER_MODE", tc.mode)
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			if _, err := s.resolve(ctx); err == nil || !strings.Contains(err.Error(), tc.want) {
+				t.Fatalf("resolve: %v; want %q", err, tc.want)
+			}
+		})
+	}
+	t.Run("timeout", func(t *testing.T) {
+		t.Setenv("MAYOI_TEST_RESOLVER_MODE", "timeout")
+		ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+		defer cancel()
+		started := time.Now()
+		if _, err := s.resolve(ctx); !errors.Is(err, context.DeadlineExceeded) {
+			t.Fatalf("resolve: %v", err)
+		}
+		if time.Since(started) > 3*time.Second {
+			t.Fatal("resolver outlived its deadline")
+		}
+	})
+}
+
+func TestResolverOutputLimitDrainsCopy(t *testing.T) {
+	var out limitedBuffer
+	const size = (4 << 20) + 1024
+	n, err := io.Copy(&out, io.LimitReader(strings.NewReader(strings.Repeat("x", size)), size))
+	if err != nil || n != size {
+		t.Fatalf("copy did not drain: %d, %v", n, err)
+	}
+	if !out.overflow || out.buffer.Len() != 4<<20 {
+		t.Fatalf("unbounded copy: len=%d overflow=%v", out.buffer.Len(), out.overflow)
 	}
 }
 
@@ -85,6 +156,9 @@ func TestResolvedLanguageServerRetryOnOpen(t *testing.T) {
 	lspRetryPause = 0
 	t.Cleanup(func() { lspRetryPause = old })
 	resolver := filepath.Join(t.TempDir(), "mayoi-fake-resolver")
+	if runtime.GOOS == "windows" {
+		resolver += ".exe"
+	}
 	manifest, _ := json.Marshal(map[string]any{
 		"name": "fake",
 		"contributes": map[string]any{
@@ -108,7 +182,13 @@ func TestResolvedLanguageServerRetryOnOpen(t *testing.T) {
 	}
 	open("a.fake")
 	hs.untilLong("the failed resolution", func() bool { return hs.a.fails == 1 })
-	if err := os.Symlink(os.Args[0], resolver); err != nil {
+	// Copy the test executable: Windows needs an .exe suffix and should not
+	// require symlink privileges just to exercise retry after installation.
+	binary, err := os.ReadFile(os.Args[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(resolver, binary, 0o755); err != nil {
 		t.Fatal(err)
 	}
 	path := open("b.fake")

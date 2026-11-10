@@ -19,6 +19,10 @@ func Serve(in io.Reader, out io.Writer) {
 		data, _ := json.Marshal(m)
 		fmt.Fprintf(out, "Content-Length: %d\r\n\r\n%s", len(data), data)
 	}
+	var initialize, document json.RawMessage
+	var options struct {
+		HoverContents json.RawMessage `json:"hoverContents"`
+	}
 	for {
 		n := -1
 		for {
@@ -45,11 +49,18 @@ func Serve(in io.Reader, out io.Writer) {
 		reply := func(result any) { send(map[string]any{"jsonrpc": "2.0", "id": *m.ID, "result": result}) }
 		switch m.Method {
 		case "initialize":
+			initialize = append(json.RawMessage(nil), m.Params...)
+			var p struct {
+				InitializationOptions json.RawMessage `json:"initializationOptions"`
+			}
+			json.Unmarshal(m.Params, &p)
+			json.Unmarshal(p.InitializationOptions, &options)
 			reply(map[string]any{"capabilities": map[string]any{
 				"hoverProvider": true, "definitionProvider": true, "completionProvider": map[string]any{},
 				"documentFormattingProvider": true, "textDocumentSync": 1,
 			}})
 		case "textDocument/didOpen", "textDocument/didChange":
+			document = append(json.RawMessage(nil), m.Params...)
 			var p struct {
 				TextDocument struct {
 					URI  string `json:"uri"`
@@ -75,7 +86,15 @@ func Serve(in io.Reader, out io.Writer) {
 			send(map[string]any{"jsonrpc": "2.0", "method": "textDocument/publishDiagnostics",
 				"params": map[string]any{"uri": p.TextDocument.URI, "diagnostics": diags}})
 		case "textDocument/hover":
-			reply(map[string]any{"contents": map[string]any{"kind": "markdown", "value": "**hello**"}})
+			if len(options.HoverContents) > 0 {
+				reply(map[string]any{"contents": options.HoverContents})
+			} else {
+				reply(map[string]any{"contents": map[string]any{"kind": "markdown", "value": "**hello**"}})
+			}
+		case "test/snapshot":
+			reply(map[string]any{"initialize": initialize, "document": document})
+		case "test/noReply":
+			// A response timeout must not disconnect an otherwise healthy client.
 		case "textDocument/definition":
 			reply([]any{map[string]any{"uri": "file:///tmp/def.fake", "range": map[string]any{
 				"start": map[string]any{"line": 3, "character": 1}, "end": map[string]any{"line": 3, "character": 4}}}})

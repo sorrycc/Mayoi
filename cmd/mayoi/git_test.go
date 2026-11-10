@@ -423,6 +423,71 @@ func TestBranchesAndBlame(t *testing.T) {
 	}
 }
 
+// With word wrap, the blame shows after the caret line's last row, cut
+// to fit on it.
+func TestBlameWraps(t *testing.T) {
+	hs := newHarness(t, true)
+	git := hs.gitRepo()
+	a := hs.a
+	a.settings.WordWrap = true
+	long := strings.Repeat("word ", 400)
+	os.WriteFile(hs.path("README.md"), []byte("# Mayoi\n\nA small editor.\n"+long+"\n"+long+"xxxxxxxxxxxxxxx\n"), 0o644)
+	git("commit", "-qam", "a long line to wrap")
+	a.openFile(hs.path("README.md"), true)
+	hs.settleGit()
+	d := a.activeEditor()
+	blamed := func(line int) {
+		t.Helper()
+		s, _ := d.buf.Snapshot().LineRange(line)
+		d.selectRange(s, s, false)
+		hs.settle()
+		hs.until("the line is blamed", func() bool {
+			step(hs.tt)
+			return d.blame.phase == blameRead && d.blame.line == line
+		})
+		step(hs.tt)
+	}
+	blamed(2)
+	if !strings.HasPrefix(d.blame.text, "t, just now · first") {
+		t.Errorf("blame %q", d.blame.text)
+	}
+	// After a line that wraps, on its last row, cut to the room left.
+	blamed(3)
+	if !strings.HasPrefix(d.blame.text, "t, just now · a long line") {
+		t.Errorf("blame %q", d.blame.text)
+	}
+	f := a.font
+	width := func(s string) float32 { return float32(len([]rune(s))) * f.charW }
+	snap := d.buf.Snapshot()
+	x, row, text := a.blameAfterRows(d, snap, 3, d.blame.text, 0, 1e6, width)
+	if row < 1 || text != d.blame.text || x >= float32(len(long))*f.charW {
+		t.Errorf("blame at x %v on row %d: %q", x, row, text)
+	}
+	if _, _, text := a.blameAfterRows(d, snap, 3, d.blame.text, 0, x+10*f.charW, width); text != "t, just n…" {
+		t.Errorf("blame cut to %q", text)
+	}
+}
+
+func TestFitBlame(t *testing.T) {
+	width := func(s string) float32 { return float32(len([]rune(s))) }
+	text := "t, just now · first"
+	for _, c := range []struct {
+		room float32
+		want string
+	}{
+		{100, text},
+		{float32(len([]rune(text))), text},
+		{12, "t, just now…"},
+		{14, "t, just now…"},
+		{5, "t, j…"},
+		{4, ""},
+	} {
+		if got := fitBlame(text, c.room, width); got != c.want {
+			t.Errorf("fitBlame(%v) = %q, want %q", c.room, got, c.want)
+		}
+	}
+}
+
 func TestPushPullFetch(t *testing.T) {
 	hs := newHarness(t, true)
 	git := hs.gitRepo()

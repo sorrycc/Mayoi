@@ -475,7 +475,8 @@ func (a *app) editorView(c *ui.Context, d *editor) {
 		}
 
 		lineH, charW, size, family := f.lineH, f.charW, f.size, f.family
-		// Who changed the caret's line last, after it, unless it wraps.
+		// Who changed the caret's line last, after it: after its last row
+		// when it wraps, placed as the frame lays the rows out.
 		var blame string
 		var blameX float32
 		// The comment of each review note after its last line, in its
@@ -485,8 +486,8 @@ func (a *app) editorView(c *ui.Context, d *editor) {
 		if !wrap {
 			hints = a.editorHints(d, snap, noted, first, last)
 		}
-		if !wrap && !slices.ContainsFunc(hints, func(h editorHint) bool { return h.line == caretLine }) {
-			if blame = a.blameLine(d, caretLine, snap.Version(), focused); blame != "" {
+		if !slices.ContainsFunc(hints, func(h editorHint) bool { return h.line == caretLine }) {
+			if blame = a.blameLine(d, caretLine, snap.Version(), focused); blame != "" && !wrap {
 				s, e := snap.LineRange(caretLine)
 				blameX = textX + f.width(snap.Slice(s, min(e, s+maxBlameAfter))) + 4*charW
 			}
@@ -689,8 +690,19 @@ func (a *app) editorView(c *ui.Context, d *editor) {
 			}
 			if blame != "" {
 				span := ui.Span{Text: blame, Font: family, Size: size * 0.92, Color: p.faint}
-				_, h := pt.MeasureText(0, span)
-				pt.RichText(r.X+blameX, lineY(r, caretLine)+(lineH-h)/2, 0, span)
+				x, y := blameX, lineY(r, caretLine)
+				if wrap {
+					var row int
+					x, row, span.Text = a.blameAfterRows(d, snap, caretLine, blame, textX, r.W-textPadR, func(t string) float32 {
+						w, _ := pt.MeasureText(0, ui.Span{Text: t, Font: family, Size: span.Size})
+						return w
+					})
+					y += float32(row) * lineH
+				}
+				if span.Text != "" {
+					_, h := pt.MeasureText(0, span)
+					pt.RichText(r.X+x, y+(lineH-h)/2, 0, span)
+				}
 			}
 		})
 		area.DrawOver(func(pt *ui.Painter, r ui.Rect) {

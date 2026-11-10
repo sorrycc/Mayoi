@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"mayoi/internal/bg"
@@ -10,6 +11,7 @@ import (
 	"mayoi/locales"
 
 	"github.com/egoist/mygo/i18n"
+	"github.com/egoist/mygo/ui"
 )
 
 // blameState is who last changed the caret's line of an editor, which
@@ -88,6 +90,46 @@ func blameText(b git.Blame, now time.Time) string {
 		return ""
 	}
 	return fmt.Sprintf("%s, %s · %s", b.Author, ago(b.Time, now), b.Summary)
+}
+
+// blameAfterRows places the blame of line i of an editor that wraps after
+// the end of the line's last row, its text starting at left: its x in the
+// area, the row, and its text cut to fit before right, as width measures it.
+func (a *app) blameAfterRows(d *editor, snap ui.TextSnapshot, i int, text string, left, right float32, width func(string) float32) (float32, int, string) {
+	f := a.font
+	d.rows.runes = d.lines.AppendRows(d.rows.runes[:0], i)
+	s, e := snap.LineRange(i)
+	at, row := 0, 0
+	if n := len(d.rows.runes); n > 1 {
+		at, row = d.rows.runes[n-1], n-1
+	}
+	x := left + f.width(snap.Slice(min(e, s+at), e)) + 4*f.charW
+	return x, row, fitBlame(text, right-x, width)
+}
+
+// minBlameRunes is the fewest runes of a blame cut to fit that show.
+const minBlameRunes = 4
+
+// fitBlame returns as much of a blame as fits in room, as width measures
+// it, ending in "…" when cut, or "" when too little of it fits.
+func fitBlame(text string, room float32, width func(string) float32) string {
+	if width(text) <= room {
+		return text
+	}
+	runes := []rune(text)
+	lo, hi := 0, len(runes)
+	for lo < hi {
+		mid := (lo + hi + 1) / 2
+		if width(string(runes[:mid])+"…") <= room {
+			lo = mid
+		} else {
+			hi = mid - 1
+		}
+	}
+	if lo < minBlameRunes {
+		return ""
+	}
+	return strings.TrimRight(string(runes[:lo]), " ·,") + "…"
 }
 
 // ago says how long before now t was, roughly.

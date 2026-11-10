@@ -770,6 +770,13 @@ func checkHeader(t *testing.T, ctx *gitContext, remote bool) {
 		return
 	}
 	expanded := ctx.changesExpanded()
+	if err := tt.Click(locales.BranchLabel(ctx.branch())); err != nil {
+		t.Fatal(err)
+	}
+	step(tt)
+	if ctx.changesExpanded() != expanded {
+		t.Fatal("branch button toggled the repository row")
+	}
 	if err := tt.Click(locales.ScmMoreActions()); err != nil {
 		t.Fatal(err)
 	}

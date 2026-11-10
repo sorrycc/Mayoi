@@ -10,6 +10,8 @@ needs a `## <version>` section here, or its build fails.
 
 - Language plugins can prepare server settings and preserve workspace paths across symlinks.
 - Closing a stopped language server no longer waits on its input pipe.
+- Inline blame now shows with **View → Word Wrap** on, after the caret line's last row.
+- When a wrapped line's last row is too full, its inline blame is cut short with `…`.
 - Dragging over code in a diff selects text across lines; dragging on the line numbers still selects rows.
 - Double-clicking a word in a diff selects it, and a triple click selects the line; `E` opens the file.
 - `Cmd+C` in a diff copies the selected code with its indent, without line numbers or `+`/`-` marks.

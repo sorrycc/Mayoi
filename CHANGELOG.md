@@ -3,7 +3,7 @@
 The update window shows the section of the version it offers. Every release
 needs a `## <version>` section here, or its build fails.
 
-## Unreleased
+## 0.19.3
 
 - Language server plugins can run a `resolve` command that sets the server's arguments, environment and settings.
 - Language server plugins can map paths so definitions and diagnostics keep the workspace's symlinked paths.

@@ -24,6 +24,10 @@ needs a `## <version>` section here, or its build fails.
 - Claude Code sessions of every `~/.claude-*` folder show too; `agentSessionsClaudeDirs` adds more folders.
 - With `terminalBackend` set to `"hc"`, a running session's dot and words say whether it works or waits for you.
 - Resuming a session that runs in an hc terminal shows that terminal instead of starting another.
+- In **Sessions**, `↑` and `↓` in the search field move the chosen session without leaving the field.
+- The chosen session stays chosen when sessions are read again, and sessions that appear fade in.
+- Hovering a session shows buttons to resume it or copy its resume command.
+- The **This Project** / **All Projects** switch in **Sessions** no longer clips in Japanese.
 
 ## 0.19.3
 

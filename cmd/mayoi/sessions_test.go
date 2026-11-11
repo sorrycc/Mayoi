@@ -10,8 +10,10 @@ import (
 	"time"
 
 	"github.com/egoist/mygo/plugins/terminal"
+	"github.com/egoist/mygo/ui"
 
 	"mayoi/internal/agents"
+	"mayoi/locales"
 )
 
 // agentHome makes a home folder of a session of Claude Code in dir, and
@@ -167,5 +169,81 @@ func TestSessionLinesHeadTheDays(t *testing.T) {
 	}
 	if got := sessionAt([]sessionLine{{head: true}}, 0); got != -1 {
 		t.Errorf("sessionAt of heads alone = %d, want -1", got)
+	}
+}
+
+// Up and Down from the query step over the heads, and stop at the ends.
+func TestSessionStepSkipsTheHeads(t *testing.T) {
+	lines := []sessionLine{{head: true}, {s: agents.Session{ID: "a"}}, {head: true}, {s: agents.Session{ID: "b"}}}
+	for _, c := range []struct{ i, d, want int }{{1, 1, 3}, {3, 1, 3}, {3, -1, 1}, {1, -1, 1}} {
+		if got := sessionStep(lines, c.i, c.d); got != c.want {
+			t.Errorf("sessionStep(%d, %d) = %d, want %d", c.i, c.d, got, c.want)
+		}
+	}
+}
+
+// The choice stays on its session as a reading moves it, goes to the
+// nearest session once it is gone, and the session a reading brings
+// fades in, while those of another query show at once.
+func TestSessionsChoiceFollowsItsSession(t *testing.T) {
+	hs := newHarness(t, true)
+	a := hs.a
+	st := &a.sessions
+	now := time.Date(2026, 3, 10, 9, 0, 0, 0, time.Local)
+	at := func(id string, ago time.Duration) agents.Session {
+		return agents.Session{Harness: agents.Codex, ID: id, Updated: now.Add(-ago)}
+	}
+	read := func(ss ...agents.Session) []sessionLine {
+		st.rowsKey.version++
+		lines := a.sessionLines(ss, now)
+		a.keepChoice(lines, now)
+		return lines
+	}
+	lines := read(at("a", time.Hour), at("b", 2*time.Hour))
+	st.row = 2
+	st.noteChoice(lines)
+	lines = read(at("b", time.Minute), at("a", time.Hour))
+	if got := lines[st.row].s.ID; got != "b" {
+		t.Errorf("the choice went to %q, want b", got)
+	}
+	if k := st.appear.shown(at("c", 0).Key(), now); k != 1 {
+		t.Errorf("a row not read shows at %v", k)
+	}
+	lines = read(at("c", 0), at("a", time.Hour))
+	if got := lines[st.row].s.ID; lines[st.row].head || got == "b" {
+		t.Errorf("the choice stays on %q, gone", got)
+	}
+	if k := st.appear.shown(at("c", 0).Key(), now); k != 0 {
+		t.Errorf("the row read anew shows at %v, want 0", k)
+	}
+	st.rowsKey.query = "other"
+	read(at("d", 0))
+	if k := st.appear.shown(at("d", 0).Key(), now); k != 1 {
+		t.Errorf("a row of another query shows at %v, want 1", k)
+	}
+}
+
+// Down and Up in the query move the choice among the sessions, and leave
+// the keyboard in the query.
+func TestSessionsQueryKeysMoveTheChoice(t *testing.T) {
+	skipOnWindows(t, "the sessions' folders are POSIX paths")
+	hs := newHarness(t, true)
+	a := hs.a
+	agentHome(t, hs.root)
+	a.sessions.all = 1
+	a.showSessions()
+	hs.settle()
+	st := &a.sessions
+	if st.row != 1 {
+		t.Fatalf("the choice starts on %d, want 1", st.row)
+	}
+	hs.key(0, ui.KeyDown)
+	if st.row != 2 || !hs.tt.Focused(locales.SessionsFind()) {
+		t.Errorf("after Down the choice is on %d, the query focused %v; want 2, true", st.row, hs.tt.Focused(locales.SessionsFind()))
+	}
+	hs.key(0, ui.KeyDown)
+	hs.key(0, ui.KeyUp)
+	if st.row != 1 {
+		t.Errorf("after Down, Down and Up the choice is on %d, want 1", st.row)
 	}
 }

@@ -42,11 +42,13 @@ type sessionsState struct {
 	// all lists the sessions of every folder rather than the window's:
 	// 1 for every folder, 0 for the window's, as a segmented control has
 	// it.
-	all    int
-	input  ui.Handle
-	list   ui.ListState
-	row    int
-	toList bool
+	all   int
+	input ui.Handle
+	list  ui.ListState
+	row   int
+	// rowKey is the key of the session chosen, which the choice stays on
+	// as the sessions are read again and move.
+	rowKey string
 
 	read     bg.Poller[string]
 	sessions []agents.Session
@@ -65,6 +67,10 @@ type sessionsState struct {
 	// sessions are read, and shownAt when the rows took their place.
 	skeleton bool
 	shownAt  time.Time
+	// appear has the rows that come with a reading fade in, as of the
+	// rows of appearKey.
+	appear    appearing
+	appearKey sessionsKey
 
 	live     bg.Poller[string]
 	running  map[string]hcAgent
@@ -236,6 +242,51 @@ func sessionAt(lines []sessionLine, i int) int {
 	return -1
 }
 
+// sessionStep is the session row of lines after i, or before it for a
+// negative d, past the heads; i itself at the end.
+func sessionStep(lines []sessionLine, i, d int) int {
+	for j := i + d; j >= 0 && j < len(lines); j += d {
+		if !lines[j].head {
+			return j
+		}
+	}
+	return i
+}
+
+// keepChoice keeps the choice on the session it was on as the lines
+// change, or on the session nearest its row once that one is gone, and
+// notes which rows came with a reading, to fade them in.
+func (a *app) keepChoice(lines []sessionLine, now time.Time) {
+	st := &a.sessions
+	if st.appearKey != st.rowsKey {
+		k, was := st.rowsKey, st.appearKey
+		fresh := k.query != was.query || k.root != was.root || k.all != was.all
+		st.appear.note(len(lines), func(i int) string { return lines[i].key() }, now, fresh)
+		st.appearKey = k
+	}
+	if len(lines) == 0 {
+		return
+	}
+	if st.rowKey != "" && (st.row < 0 || st.row >= len(lines) || lines[st.row].key() != st.rowKey) {
+		for i, l := range lines {
+			if l.key() == st.rowKey {
+				st.row = i
+				break
+			}
+		}
+	}
+	st.row = sessionAt(lines, max(st.row, 0))
+	st.noteChoice(lines)
+}
+
+// noteChoice notes the key of the session chosen in lines.
+func (st *sessionsState) noteChoice(lines []sessionLine) {
+	st.rowKey = ""
+	if st.row >= 0 && st.row < len(lines) {
+		st.rowKey = lines[st.row].key()
+	}
+}
+
 // sessionsView is the Sessions view: the query, which folders, and the
 // sessions.
 func (a *app) sessionsView(c *ui.Context) {
@@ -249,19 +300,28 @@ func (a *app) sessionsView(c *ui.Context) {
 	}
 	now := c.Now()
 	rows := a.sessionLines(a.sessionRows(), now)
+	a.keepChoice(rows, now)
 	ui.Column(c).Padding(0, 12, 6, 12).Gap(6).Children(func() {
 		in := a.searchField(c, "sessions-query", &st.query, locales.SessionsFind(), &st.input, nil)
 		if in.Changed() {
-			st.row = 0
+			st.row, st.rowKey = 0, ""
 		}
 		if in.Submitted() && len(rows) > 0 {
 			if i := sessionAt(rows, st.row); i >= 0 {
 				a.resumeSession(rows[i].s)
 			}
 		}
-		if in.Shortcut(0, ui.KeyDown) && len(rows) > 0 {
-			st.row = sessionAt(rows, st.row)
-			st.toList = true
+		// Up and Down move the choice, as in Quick Open, with the keyboard
+		// left in the query.
+		for _, step := range [...]struct {
+			key ui.Key
+			d   int
+		}{{ui.KeyDown, 1}, {ui.KeyUp, -1}} {
+			if in.Shortcut(0, step.key) && len(rows) > 0 {
+				st.row = sessionStep(rows, st.row, step.d)
+				st.noteChoice(rows)
+				st.list.ScrollIntoView(st.row)
+			}
 		}
 		if a.root != "" {
 			ui.Segmented(c.Key("sessions-scope"), &st.all, locales.SessionsThisProject(), locales.SessionsAllProjects())
@@ -278,10 +338,6 @@ func (a *app) sessionsView(c *ui.Context) {
 	if st.skeleton {
 		// The rows take the place of their shapes, and fade in over them.
 		st.skeleton, st.shownAt = false, now
-	}
-	// The choice is a session's, what Enter in the query resumes.
-	if st.row >= 0 && st.row < len(rows) && rows[st.row].head {
-		st.row = sessionAt(rows, st.row)
 	}
 	st.list.Selected = &st.row
 	st.list.Header = func(i int) bool { return i < len(rows) && rows[i].head }
@@ -307,7 +363,12 @@ func (a *app) sessionsView(c *ui.Context) {
 		if r := rows[i]; r.head {
 			a.sessionsHead(c, r)
 		} else {
-			a.sessionRow(c, r.s, now, dots, &action)
+			row := a.sessionRow(c, r.s, now, dots, i == st.row, &action)
+			if k := st.appear.shown(r.key(), now); k < 1 {
+				// It came with this reading.
+				row.Opacity(k)
+				c.AnimationFrame()
+			}
 		}
 	}).Grow(1).Padding(0, 6, 8, 6)
 	if since := now.Sub(st.shownAt); since < motionShow {
@@ -315,8 +376,8 @@ func (a *app) sessionsView(c *ui.Context) {
 		c.AnimationFrame()
 	}
 	c.SetTheme(base)
-	if st.toList && st.list.Focus(c) {
-		st.toList = false
+	if out.Changed() {
+		st.noteChoice(rows)
 	}
 	if st.list.Shortcut(c, 0, ui.KeyEscape) {
 		st.input.Focus()
@@ -346,7 +407,8 @@ func (a *app) sessionsHead(c *ui.Context, r sessionLine) {
 		ui.Text(c, p.title(r.day.name())).FontSize(size).FontWeight(600).LetterSpacing(spacing).
 			TextColor(p.muted).SingleLine().Shrink(1)
 		ui.Spacer(c)
-		ui.Text(c, strconv.Itoa(r.count)).FontSize(10.5).FontFeatures("tnum").TextColor(p.faint).SingleLine().Shrink(0)
+		ui.Text(c, strconv.Itoa(r.count)).FontSize(10.5).FontFeatures("tnum").TextColor(p.faint).SingleLine().Shrink(0).
+			ContentTransition(ui.ContentTransition{Numeric: true})
 	})
 }
 
@@ -401,15 +463,20 @@ func (a *app) sessionsEmpty(c *ui.Context) {
 
 // sessionRow is the row of a session: its title, and under it what it
 // does while it runs in herdr-core, its agent and its folder, and at the
-// end when it was used last. Its menu resumes it or copies how to. With dots,
-// as hc says which sessions run, a dot before it says it runs.
-func (a *app) sessionRow(c *ui.Context, s agents.Session, now time.Time, dots bool, action *func()) {
+// end when it was used last, where the pointer over it shows buttons that
+// resume it and copy how to, as its menu does. With dots, as hc says which
+// sessions run, a dot before it says it runs. The chosen row has the
+// background of the choice.
+func (a *app) sessionRow(c *ui.Context, s agents.Session, now time.Time, dots, chosen bool, action *func()) ui.Element {
 	p := a.pal
 	st := &a.sessions
 	live, running := st.running[liveKey(s.Harness, s.ID)]
 	rec := a.liveRecord(live)
 	row := ui.Row(c).Grow(1).Gap(8).AlignItems(ui.Center).Height(sessionRowH).Padding(0, 6, 0, 6).
 		Tooltip(s.Dir + "\n" + s.ID + "\n" + dateTime(s.Updated.Local()))
+	// The buttons take the place of the time as the pointer comes, and
+	// give it back as it goes; neither moves the title or the folder.
+	reveal := row.Animate("reveal", unit(row.Hovered()), motionHover)
 	row.ContextMenu(func(m *ui.Menu) {
 		if m.Item(locales.SessionsResume()).Chosen() {
 			*action = func() { a.resumeSession(s) }
@@ -443,10 +510,38 @@ func (a *app) sessionRow(c *ui.Context, s agents.Session, now time.Time, dots bo
 				}
 				ui.Text(c, a.sessionMeta(s)).FontSize(11).TextColor(p.faint).SingleLine().ClipX().Shrink(1)
 				ui.Spacer(c)
-				ui.Text(c, ago(s.Updated, now)).FontSize(11).FontFeatures("tnum").TextColor(p.faint).SingleLine().Shrink(0).Padding(0, 0, 0, 6)
+				ui.Text(c, ago(s.Updated, now)).FontSize(11).FontFeatures("tnum").TextColor(p.faint).SingleLine().Shrink(0).Padding(0, 0, 0, 6).
+					Opacity(1 - reveal)
 			})
 		})
+		if reveal > 0 {
+			// The buttons sit on the row's background, which the ends of
+			// the title and the folder fade into before them.
+			bg := p.hover.Over(p.chrome)
+			if chosen {
+				bg = p.active.Over(p.chrome)
+			}
+			ui.Row(c.Key("actions")).Absolute().Right(0).Top(0).Bottom(0).Opacity(reveal).Children(func() {
+				ui.Box(c).Width(16).Gradient(bg.Alpha(0), bg, 90)
+				ui.Row(c).Gap(2).Padding(0, 6, 0, 2).AlignItems(ui.Center).Background(bg).Radius(0, 6, 6, 0).Children(func() {
+					a.sessionActions(c, s, action)
+				})
+			})
+		}
 	})
+	return row
+}
+
+// sessionActions are the buttons of a session's row: one resumes it, the
+// other copies the command that does.
+func (a *app) sessionActions(c *ui.Context, s agents.Session, action *func()) {
+	if a.smallButton(c, iconTerminal, locales.SessionsResume()) {
+		*action = func() { a.resumeSession(s) }
+	}
+	if a.smallButton(c, iconCopy, locales.SessionsCopyCommand()) {
+		cmd := a.agentEnv().ResumeCommand(s)
+		*action = func() { a.copyText(cmd) }
+	}
 }
 
 // sessionMeta is what a session's row says under its title, what tells

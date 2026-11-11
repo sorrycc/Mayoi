@@ -40,6 +40,14 @@ var galleryStates = []struct {
 		hs.a.sessions.all = 1
 		hs.a.showSessions()
 	}},
+	{"sessions-hover", func(hs *harness) {
+		agentHome(hs.t, hs.root)
+		hs.a.sessions.all = 1
+		hs.a.showSessions()
+		hs.settle()
+		// The pointer over the second row, which shows its buttons.
+		hs.tt.Move(120, 222)
+	}},
 	{"unsaved", func(hs *harness) {
 		hs.a.openFile(hs.path("main.go"), true)
 		hs.settle()

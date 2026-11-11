@@ -3,6 +3,7 @@ package main
 import (
 	"mayoi/internal/settings"
 	"mayoi/locales"
+	"net/url"
 	"path/filepath"
 	"slices"
 	"testing"
@@ -13,7 +14,8 @@ import (
 
 func TestSplitPaths(t *testing.T) {
 	root := workspaceFixture(t)
-	got := argPaths([]string{"-psn_0_1", ".", "main.go", "internal/", root, "gone.go", ""}, root)
+	fileURL := (&url.URL{Scheme: "file", Path: filepath.ToSlash(filepath.Join(root, "main.go"))}).String()
+	got := argPaths([]string{"-psn_0_1", ".", "main.go", "internal/", root, "gone.go", "", fileURL}, root)
 	folders, files := splitPaths(got)
 	if !slices.Equal(folders, []string{root, filepath.Join(root, "internal")}) {
 		t.Errorf("folders %v", folders)

@@ -18,6 +18,9 @@ needs a `## <version>` section here, or its build fails.
 - Clicking a repository's name or row background in source control expands or collapses its changes.
 - **Settings > Shortcuts** lists **Report a Problem** under Help instead of Account.
 - A `mayoi://file` link opens its file at the line and column it names.
+- On Linux, Mayoi is offered for text, Markdown, JSON and other text files, and `xdg-mime default` takes it.
+- On Linux, opening a file in Mayoi from the file manager opens that file.
+- On Windows, **Open with** lists Mayoi for text, Markdown, JSON and other text files.
 - LocatorJS's **Custom link** reaches Mayoi with `mayoi://file/${projectPath}${filePath}:${line}:${column}`.
 - A `mayoi://` link to a missing file says Mayoi could not open it, in the window in front.
 - Math with `\tag{…}` now renders in the Markdown preview, its label beside the equation.

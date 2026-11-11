@@ -12,6 +12,7 @@ import (
 	"mayoi/internal/remote"
 	"mayoi/internal/settings"
 	"mayoi/locales"
+	"net/url"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -501,6 +502,13 @@ func argPaths(args []string, wd string) []string {
 		if arg == "" || strings.HasPrefix(arg, "-") || isMayoiURL(arg) {
 			continue
 		}
+		// A file:// URL, which Linux file managers pass for %U.
+		if u, err := url.Parse(arg); err == nil && u.Scheme == "file" {
+			arg = filepath.FromSlash(u.Path)
+			if runtime.GOOS == "windows" {
+				arg = strings.TrimPrefix(arg, `\`) // file:///C:/x
+			}
+		}
 		if !filepath.IsAbs(arg) {
 			arg = filepath.Join(wd, arg)
 		}
@@ -584,7 +592,11 @@ func splitPaths(paths []string) (folders, files []string) {
 				folders = append(folders, p)
 			}
 		case info.Mode().IsRegular():
-			files = append(files, p)
+			// MyGo also hands the files of its associations to
+			// OnOpenFile.
+			if !slices.Contains(files, p) {
+				files = append(files, p)
+			}
 		}
 	}
 	return folders, files

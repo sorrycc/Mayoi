@@ -4,6 +4,17 @@
   "version": "0.19.3",
   "main": "./cmd/mayoi",
   "urlSchemes": ["mayoi"],
+  "fileAssociations": [
+    { "name": "Plain Text", "ext": ["txt", "text", "log"], "mimeType": "text/plain" },
+    { "name": "Markdown Document", "ext": ["md", "markdown"], "mimeType": "text/markdown" },
+    { "name": "JSON Document", "ext": ["json"], "mimeType": "application/json" },
+    { "name": "XML Document", "ext": ["xml"], "mimeType": "application/xml" },
+    { "name": "YAML Document", "ext": ["yaml", "yml"], "mimeType": "application/yaml" },
+    { "name": "HTML Document", "ext": ["html", "htm"], "mimeType": "text/html" },
+    { "name": "CSS Stylesheet", "ext": ["css"], "mimeType": "text/css" },
+    { "name": "CSV Document", "ext": ["csv"], "mimeType": "text/csv" },
+    { "name": "JavaScript Source", "ext": ["js", "mjs", "cjs"], "mimeType": "text/javascript" }
+  ],
   "out": "build",
   "i18n": {
     "dir": "locales",

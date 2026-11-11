@@ -5,6 +5,13 @@ needs a `## <version>` section here, or its build fails.
 
 ## Unreleased
 
+- Plugins can add coding agents with `contributes.agents`, whose sessions show in **Sessions** with their own icon.
+- A plugin agent's sessions come from files a glob matches, or from a function registered with `agents.register`.
+- A plugin agent's session resumes in an editor tab with its `resume` command, as the built-in agents' do.
+- A slow or failing plugin agent never holds up **Sessions**, and its error shows in **Plugins → Show Plugin Log**.
+- Turning a plugin off fades its agent's sessions out of **Sessions**.
+- A resumed session's tab is titled after the session until the agent names it.
+- Terminal tabs kept in herdr-core keep their agent's icon across a restart.
 - Resuming a session in **Sessions** opens it in a tab of the editor column you were in, ready to type.
 - A session already open in a terminal shows that tab again instead of starting another.
 - Each **Sessions** row shows an icon for its agent: Claude Code, Codex, Qoder or Grok.

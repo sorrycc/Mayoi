@@ -93,6 +93,10 @@ type pluginHost struct {
 	slotsKey    slotsKey
 	slotsListed bool
 
+	// agentsSig is what the agents of the plugins on were as they were
+	// last given to the Sessions view; main thread only.
+	agentsSig string
+
 	// edIDs number the editors plugins were told of; main thread only.
 	edIDs  map[*editor]int
 	edNext int
@@ -241,6 +245,7 @@ func (h *pluginHost) toggled(old, now map[string]json.RawMessage) {
 	}
 	if len(names) > 0 {
 		forgetFailedServers(names...)
+		h.syncAgents()
 	}
 	if !started {
 		return
@@ -347,6 +352,7 @@ func (h *pluginHost) Changed() {
 			a.palette, a.hints = nil, nil
 			a.invalidate()
 		}
+		h.syncAgents()
 		h.menu()
 		h.redrawPrefs()
 	})

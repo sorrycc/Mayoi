@@ -76,12 +76,37 @@ type session struct {
 	// for, and resumed the key of the session, "" for none.
 	agent   agents.Harness
 	resumed string
+	// sessionTitle is the title of the session resumed in it, which it is
+	// called until the agent names it, "" once it did, and program the
+	// program of the command that resumed it.
+	sessionTitle, program string
 }
 
 // label is what the terminal is called: the name the user gave it, or
+// the title of the session resumed in it, until the agent names it, or
 // the title its programs give it.
 func (s *session) label() string {
-	return cmp.Or(s.name, s.title)
+	return cmp.Or(s.name, s.sessionTitle, s.title)
+}
+
+// retitle takes a title its programs give the terminal, which is the
+// agent's own, ending the session's title, unless it is as a shell names
+// a terminal: by the shell, a folder (as "~/src" or "me@host: ~/src"), or
+// the command line the shell runs (as "claude --resume …").
+func (s *session) retitle(title string) {
+	s.title = title
+	if s.sessionTitle == "" {
+		return
+	}
+	t := strings.TrimSpace(title)
+	shellish := t == "" || t == shellName() || strings.HasPrefix(t, "~") || strings.HasPrefix(t, "/") ||
+		(strings.Contains(t, "@") && strings.Contains(t, ":"))
+	if !shellish && s.program != "" {
+		shellish = strings.HasPrefix(t, s.program) || strings.Contains(t, s.program+" ")
+	}
+	if !shellish {
+		s.sessionTitle = ""
+	}
 }
 
 type panelHeaderLayout struct {
@@ -205,7 +230,7 @@ func (a *app) spawnTerminal(s *session, dir string) (*terminal.Terminal, error) 
 		// Selecting copies, as in Ghostty and iTerm2.
 		CopyOnSelect: copyOnSelect(a.prefs().TerminalCopyOnSelect),
 		OnTitle: func(title string) {
-			a.post(func() { s.title = title })
+			a.post(func() { s.retitle(title) })
 		},
 		// A terminal of a host gets files and images pasted as copies
 		// uploaded to it.

@@ -1,6 +1,8 @@
 package agents
 
 import (
+	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -201,5 +203,88 @@ func TestKnownAgents(t *testing.T) {
 	}
 	if h := Harness("aider"); h.Name() != "aider" || h.Agent().Icon != "" || e.ResumeCommand(Session{Harness: h, ID: "x"}) != "" {
 		t.Errorf("an agent not known: %+v", h.Agent())
+	}
+}
+
+// An agent added is read as those known are: of files a glob matches,
+// or of what its List gives; one that fails keeps what it gave before,
+// and one gone takes its sessions with it.
+func TestUseAddsAgents(t *testing.T) {
+	t.Cleanup(func() { Use(nil) })
+	home := t.TempDir()
+	write(t, filepath.Join(home, ".pi", "2026", "a.json"), `{"meta":{"cwd":"/work/a"},"name":"Fix the build","messages":[{"content":"fix it"}],"at":1700000000000}`)
+	write(t, filepath.Join(home, ".pi", "2026", "b.jsonl"), `{"id":"b-1","cwd":"/work/b"}`+"\n"+`{"prompt":[{"type":"text","text":"first ask"}]}`+"\n"+`{"title":"old"}`+"\n"+`{"title":"new","at":"2026-11-01T10:00:00Z"}`+"\n")
+	write(t, filepath.Join(home, ".pi", "2026", "skip.txt"), `x`)
+	pi := WithPattern(Agent{ID: "pi.agent", Name: "Pi", Resume: ResumeTemplate("pi -r {id} --title {title}")},
+		Pattern{Glob: "~/.pi/**/*.json", Format: "json", Folder: "meta.cwd", Title: "name", Prompt: "messages.0.content", Updated: "at"})
+	pl := WithPattern(Agent{ID: "pi.lines", Name: "Pi Lines"},
+		Pattern{Glob: "~/.pi/*/*.jsonl", Format: "jsonl", ID: "id", Folder: "cwd", Title: "title", Prompt: "prompt", Updated: "at"})
+	fail := false
+	listed := Agent{ID: "js.agent", Name: "JS", List: func(ctx context.Context) ([]Session, error) {
+		if fail {
+			return nil, errors.New("broken")
+		}
+		return []Session{{ID: "j1", Title: "from js", Dir: "/work/j", Updated: time.Unix(10, 0)}, {Title: "no id"}}, nil
+	}}
+	Use([]Agent{pi, pl, listed, {ID: Claude, Name: "not Claude"}})
+	if Claude.Name() != "Claude Code" {
+		t.Errorf("an agent added took the id of one known")
+	}
+	sc := NewScanner()
+	e := &Env{Home: home}
+	got := byID(sc.Scan(e))
+	if a := got["a"]; a.Harness != "pi.agent" || a.Dir != "/work/a" || a.Title != "Fix the build" || a.Prompt != "fix it" || !a.Updated.Equal(time.UnixMilli(1700000000000)) {
+		t.Errorf("session of a JSON file: %+v", a)
+	}
+	if b := got["b-1"]; b.Harness != "pi.lines" || b.Dir != "/work/b" || b.Title != "new" || b.Prompt != "first ask" || b.Updated.Year() != 2026 {
+		t.Errorf("session of a file of lines: %+v", b)
+	}
+	if j := got["j1"]; j.Harness != "js.agent" || j.Title != "from js" || len(got) != 3 {
+		t.Errorf("sessions listed: %+v", got)
+	}
+	if cmd := e.ResumeCommand(got["a"]); cmd != "pi -r a --title 'Fix the build'" {
+		t.Errorf("resume command %q", cmd)
+	}
+	fail = true
+	if got := byID(sc.Scan(e)); got["j1"].ID == "" {
+		t.Errorf("a List that failed lost what it listed before")
+	}
+	Use([]Agent{pi})
+	if got := byID(sc.Scan(e)); len(got) != 1 || got["a"].ID == "" {
+		t.Errorf("the agents gone stay: %+v", got)
+	}
+}
+
+// A List slower than ListWait does not hold the scan up: what it lists
+// comes with the next, and late says so.
+func TestSlowListComesLate(t *testing.T) {
+	t.Cleanup(func() { Use(nil) })
+	release := make(chan struct{})
+	Use([]Agent{{ID: "slow.agent", Name: "Slow", List: func(ctx context.Context) ([]Session, error) {
+		select {
+		case <-release:
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		}
+		return []Session{{ID: "s1", Title: "slow"}}, nil
+	}}})
+	sc := NewScanner()
+	late := make(chan struct{}, 1)
+	sc.OnLate(func() { late <- struct{}{} })
+	start := time.Now()
+	if got := sc.Scan(&Env{Home: t.TempDir()}); len(got) != 0 {
+		t.Errorf("sessions of a List that has not ended: %+v", got)
+	}
+	if d := time.Since(start); d > ListWait+time.Second {
+		t.Errorf("the scan waited %v", d)
+	}
+	close(release)
+	select {
+	case <-late:
+	case <-time.After(5 * time.Second):
+		t.Fatal("late was not called")
+	}
+	if got := sc.Scan(&Env{Home: t.TempDir()}); len(got) != 1 || got[0].Harness != "slow.agent" {
+		t.Errorf("the next scan has %+v", got)
 	}
 }

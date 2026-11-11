@@ -1,6 +1,7 @@
 package main
 
 import (
+	"cmp"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -179,34 +180,53 @@ func fileIcon(p *palette, name string) (*ui.SVG, ui.Color) {
 	return iconFile, p.muted
 }
 
-// agentIcons are the marks of the agents, by id, made the first time
-// each shows.
+// agentIcons are the marks of the agents, by id and mark, made the first
+// time each shows.
 var (
 	agentIconsMu sync.Mutex
-	agentIcons   = map[agents.Harness]*ui.SVG{}
+	agentIcons   = map[[2]string]*ui.SVG{}
 )
 
 // agentIcon returns the mark of agent h and its color: its own, drawn as
-// the other icons are, or iconAgent in the color of quiet text for one
-// with none, or whose mark does not parse.
+// the other icons are, a whole SVG, or one of the app's it names, or
+// iconAgent in the color of quiet text for one with none, or whose mark
+// does not parse.
 func agentIcon(p *palette, h agents.Harness) (*ui.SVG, ui.Color) {
 	ag := h.Agent()
+	k := [2]string{string(h), ag.Icon}
 	agentIconsMu.Lock()
-	icon, ok := agentIcons[h]
+	icon, ok := agentIcons[k]
 	if !ok {
-		icon = iconAgent
-		if ag.Icon != "" {
-			if svg, err := ui.ParseSVG(lucideSVG(ag.Icon)); err == nil {
-				icon = svg
-			}
-		}
-		agentIcons[h] = icon
+		icon = parseAgentIcon(ag.Icon)
+		agentIcons[k] = icon
 	}
 	agentIconsMu.Unlock()
 	if ag.Tint[0] == "" {
 		return icon, p.muted
 	}
-	return icon, langColor(p, ag.Tint[0], ag.Tint[1])
+	return icon, langColor(p, ag.Tint[0], cmp.Or(ag.Tint[1], ag.Tint[0]))
+}
+
+// parseAgentIcon is the icon of an agent's mark, iconAgent for none.
+func parseAgentIcon(mark string) *ui.SVG {
+	mark = strings.TrimSpace(mark)
+	switch {
+	case mark == "":
+		return iconAgent
+	case strings.HasPrefix(mark, "<svg"):
+		if svg, err := ui.ParseSVG([]byte(mark)); err == nil {
+			return svg
+		}
+	case strings.HasPrefix(mark, "<"):
+		if svg, err := ui.ParseSVG(lucideSVG(mark)); err == nil {
+			return svg
+		}
+	default:
+		if icon := namedIcon(mark); icon != iconPlug {
+			return icon
+		}
+	}
+	return iconAgent
 }
 
 // langColor is the color of a language's icon, as it is in a dark

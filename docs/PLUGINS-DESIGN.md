@@ -258,6 +258,7 @@ What a plugin declares, Mayoi shows without running it:
 | `languages`     | file associations, comment tokens, brackets, indentation, the Chroma lexer                         | 3     |
 | `snippets`      | VS Code's snippet format, per language                                                              | 3     |
 | `languageServers` | the LSP client: a command to start and the languages it serves                                  | 5     |
+| `agents`        | `internal/agents`' table of agents, beside those Mayoi knows: the **Sessions** view and terminal tabs | 6 |
 
 ## UI
 
@@ -398,6 +399,11 @@ declares. A folder's `.mayoi/settings.json` may set a plugin's settings but not 
 - With no build step and hot reload, an agent can write a plugin into `plugins/` and see it work at once.
   `mayoi plugin new` writes an `AGENTS.md` beside `mayoi.d.ts` that tells an agent how plugins work.
 - `ai.complete` lets a plugin use Mon's gateway when the user is signed in, as AI commit messages do.
+- A plugin adds a coding agent to the **Sessions** view with `contributes.agents`. The agents Mayoi knows and those of
+  plugins are rows of one table in `internal/agents` (id, names, icon, tint, resume, and how to list): a reader of
+  files, a declared glob with JSON field paths, or a `List` function, which for a plugin is a request to its
+  `agents.register` function. The scanner runs a `List` on a goroutine of its own, waits `ListWait` (1.5 s) and gives
+  up at `ListLimit` (10 s); one that ends late is kept for the next reading, which it asks for at once.
 
 ## Bundled plugins
 

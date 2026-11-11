@@ -37,7 +37,8 @@ const mayoiShim = `const m = globalThis.__mayoi;
 export const version = m.version, platform = m.platform, log = m.log, commands = m.commands,
   editor = m.editor, workspace = m.workspace, window = m.window, settings = m.settings,
   storage = m.storage, events = m.events, process = m.process, languages = m.languages,
-  statusItem = m.statusItem, views = m.views, previews = m.previews, webview = m.webview, ai = m.ai;
+  statusItem = m.statusItem, views = m.views, previews = m.previews, webview = m.webview, agents = m.agents,
+  ai = m.ai;
 export default m;
 `
 

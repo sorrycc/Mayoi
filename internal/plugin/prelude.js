@@ -38,6 +38,7 @@
   const hoverFns = new Map();
   const viewShows = new Map();
   const webviewFns = new Map();
+  const agentFns = new Map();
   let handlerSeq = 0;
   const handlers = new Map(); // id -> fn
   const owned = new Map(); // owner -> [ids], dropped as the owner renders anew
@@ -243,6 +244,12 @@
         };
       },
     },
+    agents: {
+      register(id, fn) {
+        agentFns.set(id, fn);
+        return disposable(() => agentFns.delete(id));
+      },
+    },
     ai: {
       complete: (prompt, opts) => call("ai.complete", { prompt, system: opts?.system }),
     },
@@ -303,6 +310,13 @@
       case "webview": {
         for (const fn of webviewFns.get(p.id) || []) await fn(p.message);
         return null;
+      }
+      case "agentSessions": {
+        const fn = agentFns.get(p.id);
+        if (!fn) throw new Error(`agent ${p.id} has no sessions function: call agents.register("${p.id}", fn)`);
+        const out = await fn();
+        if (!Array.isArray(out)) throw new Error(`the sessions of agent ${p.id} are not an array`);
+        return out;
       }
       case "call": {
         // An export of the entry module, as a user script's commands.

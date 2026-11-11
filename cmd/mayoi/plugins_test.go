@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"mayoi/internal/agents"
 	"mayoi/internal/highlight"
 	"mayoi/internal/plugin"
 	"mayoi/internal/settings"
@@ -37,6 +38,7 @@ func withPlugins(hs *harness, files map[string]map[string]string) *pluginHost {
 	t.Cleanup(func() {
 		h.reg.Close()
 		plugins, highlight.LexerName = old, oldLexer
+		agents.Use(nil)
 	})
 	hs.settle()
 	return h

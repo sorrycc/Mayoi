@@ -442,6 +442,11 @@ type Tab struct {
 	File     string `json:"file,omitempty"`
 	Terminal bool   `json:"terminal,omitempty"`
 	HC       string `json:"hc,omitempty"`
+	// Agent is the agent of a terminal of herdr-core, as its icon shows,
+	// and Session the key of the session the Sessions view resumed in it,
+	// "" for none.
+	Agent   string `json:"agent,omitempty"`
+	Session string `json:"session,omitempty"`
 	// Preview is set for an SVG shown as a picture rather than as text.
 	Preview bool `json:"preview,omitempty"`
 	// Transient is set for the preview tab of its column, which the next

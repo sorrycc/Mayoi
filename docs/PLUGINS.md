@@ -158,6 +158,7 @@ languages plugins declare.
 | `snippets`        | Snippets in VS Code's format, for a `language` or `*`                                          |
 | `terminalLinks`   | A `pattern` of links clicked in a terminal (URLs and paths), which runs `command` with the match |
 | `languageServers` | Language servers: a `command`, its `args` and `initializationOptions`, for `languages`         |
+| `agents`          | Coding agents whose sessions the **Sessions** view lists and resumes; see below                 |
 
 #### Keyboard shortcuts
 
@@ -218,6 +219,7 @@ Every call that reaches the editor returns a promise.
 | `views`                  | `render(id, tree)`, `onShow(id, fn)`, `reveal(id)`                                        |
 | `previews`               | `register(id, fn)`, `refresh(id)`                                                         |
 | `webview`                | `open(id)`, then the panel's `post(message)`, `onMessage(fn)`, `close()`                  |
+| `agents`                 | `register(id, fn)`, the function that lists the sessions of an agent                      |
 | `ai`                     | `complete(prompt, {system})`, with Mon's AI gateway while you are signed in               |
 | `log`                    | `info`, `warn`, `error`, `debug`                                                          |
 
@@ -425,6 +427,46 @@ keys in workspace edits. Source/edit text, hover content, configuration,
 Plugins prepare server-specific paths inside their own configuration. This lets
 a server import canonical paths and the editor keep the workspace's symlink
 aliases for definitions and diagnostics. Standard declarations remain valid.
+
+### Coding agents
+
+The **Sessions** view lists the sessions of Claude Code, Qoder, Codex and Grok. A plugin adds another agent, whose
+sessions show there with its icon and resume in a terminal tab as theirs do:
+
+```jsonc
+"agents": [{
+  "id": "pi.agent", "name": "Pi",
+  "icon": "sparkles",                      // one of the icons of views, or an SVG: "<path d=\"…\"/>" of a 24×24 view
+  "tint": ["#e0559b", "#b8326f"],          // optional: one hex color, or one for dark windows and one for light
+  "resume": "pi --resume {id}",            // run in the session's folder; {id}, {folder} and {title} are quoted
+  "sessions": {                            // optional: a session for each file the glob matches
+    "glob": "~/.pi/sessions/**/*.jsonl", "format": "jsonl",
+    "id": "sessionId", "title": "title", "folder": "cwd", "updated": "timestamp", "prompt": "message.content"
+  }
+}]
+```
+
+`sessions` reads each file the glob matches (`~` is the home folder, `**` any folders) as `json`, one object, or
+`jsonl`, an object a line. Each field is a path of keys by dots, as `meta.cwd` or `messages.0.content`; of a `jsonl`
+file each takes the first line that has it, but `title` and `updated` the last. A session's id is the file's name
+without its extension unless `id` names one, and its time the file's unless `updated` names one: milliseconds or
+seconds since 1970, or ISO 8601 text. A file is read again only once it changes.
+
+An agent without `sessions` lists them with a function, which starts the plugin as the view reads:
+
+```ts
+import { agents, workspace } from "mayoi";
+
+agents.register("pi.agent", async () => {
+  const index = JSON.parse(await workspace.readFile("/Users/me/.pi/index.json"));
+  return index.map((s) => ({ id: s.id, title: s.name, folder: s.cwd, updated: s.mtime, prompt: s.firstPrompt }));
+});
+```
+
+Mayoi calls it off its main thread each time it reads the sessions, every few seconds while the view shows, and waits
+1.5 seconds for it: what comes later shows a moment after, and a function that runs 10 seconds is given up. One that
+fails keeps the sessions it gave last, and its error goes to the plugin's log, once until it changes. A plugin turned
+off takes its agents and their sessions with it.
 
 ### User scripts
 

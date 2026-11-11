@@ -21,12 +21,13 @@ import (
 )
 
 // The Sessions view lists the sessions of the coding agents on this
-// machine, Claude Code of each of its config folders, Qoder, Codex and
-// Grok, the one used last first: of the window's folder, or of every
+// machine, Claude Code of each of its config folders, Qoder, Codex, Grok
+// and those plugins add (pluginagents.go), the one used last first: of the window's folder, or of every
 // folder. A query narrows them by title, first prompt, folder, agent or
 // id, its words marked where a row shows them, each row marked with its
 // agent's icon, and Enter resumes one in a terminal of its folder, in a tab
-// of the column that has the keyboard. With the terminal backend "hc", a
+// of the column that has the keyboard, titled after the session until the
+// agent names it. With the terminal backend "hc", a
 // session that runs in a terminal of herdr-core says what it does, and
 // resuming it shows that terminal, in a tab.
 
@@ -66,9 +67,12 @@ type sessionsState struct {
 	// last frame, for the choice; 0 for none.
 	endKey ui.Key
 
-	read     bg.Poller[string]
-	sessions []agents.Session
-	loaded   bool
+	read bg.Poller[string]
+	// readAgain has the sessions read again once the reading going ends,
+	// as the agents changed meanwhile.
+	readAgain bool
+	sessions  []agents.Session
+	loaded    bool
 	// version counts the sessions read, and rows are the sessions shown
 	// as of rowsKey.
 	version int
@@ -103,6 +107,9 @@ type sessionsState struct {
 	looks    map[string]*sessionLook
 	words    []string
 	looksKey lookKey
+	// goneLooks are the looks of the reading before, for the rows it
+	// dropped as they go.
+	goneLooks map[string]*sessionLook
 
 	live     bg.Poller[string]
 	running  map[string]hcAgent
@@ -140,6 +147,10 @@ func (a *app) readSessions() {
 				st.sessions, st.loaded = ss, true
 				st.version++
 				st.read.Keep("", sessionsEvery, a.invalidate)
+				if st.readAgain {
+					st.readAgain = false
+					st.read.Expire()
+				}
 			})
 		})
 	}
@@ -161,6 +172,18 @@ func (a *app) readSessions() {
 			})
 		})
 	}
+}
+
+// readSessionsNow has the sessions read again at once, as the agents
+// change: after the reading going, if one is.
+func (a *app) readSessionsNow() {
+	st := &a.sessions
+	if st.read.Running() {
+		st.readAgain = true
+	} else {
+		st.read.Expire()
+	}
+	a.invalidate()
 }
 
 // noteLive notes, at now, when each session of running took its state:
@@ -1038,6 +1061,15 @@ func (a *app) sessionLooks() {
 	if st.looks != nil && k == st.looksKey {
 		return
 	}
+	// A row a reading dropped keeps its look as it goes, though its agent
+	// may have gone with it.
+	st.goneLooks = nil
+	if was := st.looksKey; st.looks != nil && was.rows.query == k.rows.query && k.rows.version != was.rows.version {
+		was.rows.version = k.rows.version
+		if was == k {
+			st.goneLooks = st.looks
+		}
+	}
 	st.looks, st.looksKey = map[string]*sessionLook{}, k
 	st.words = strings.Fields(strings.ToLower(st.query))
 }
@@ -1046,6 +1078,10 @@ func (a *app) sessionLooks() {
 func (a *app) sessionLook(l sessionLine) *sessionLook {
 	st, p, s := &a.sessions, a.pal, l.s
 	if lk, ok := st.looks[l.key()]; ok {
+		return lk
+	}
+	if lk, ok := st.goneLooks[l.key()]; ok && !l.gone.IsZero() {
+		st.looks[l.key()] = lk
 		return lk
 	}
 	words := st.words
@@ -1258,10 +1294,23 @@ func (a *app) resumeSession(s agents.Session) {
 	if t == nil {
 		return
 	}
+	cmd := a.agentEnv().ResumeCommand(s)
 	t.agent, t.resumed = s.Harness, key
+	t.sessionTitle, t.program = s.Label(), programOf(cmd)
 	a.terminalInColumn(t, true)
 	// The shell runs it once it starts, as typed ahead.
-	t.term.Send([]byte(a.agentEnv().ResumeCommand(s) + "\r"))
+	t.term.Send([]byte(cmd + "\r"))
+}
+
+// programOf is the program a shell command runs: its first word but the
+// variables it sets, as CLAUDE_CONFIG_DIR=… claude.
+func programOf(cmd string) string {
+	for _, w := range strings.Fields(cmd) {
+		if !strings.Contains(w, "=") {
+			return w
+		}
+	}
+	return ""
 }
 
 // terminalInColumn shows a terminal in a tab, with the keyboard in it: in

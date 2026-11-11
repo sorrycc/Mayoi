@@ -1,17 +1,19 @@
 // Package agents reads the sessions coding agents keep on this machine:
-// Claude Code, in each of its config folders, Qoder, Codex and Grok. It
-// reads their files only, and of a transcript only its start and its end,
-// as one can be gigabytes: where it ran and what was asked first, and the
-// title it was given last.
+// Claude Code, in each of its config folders, Qoder, Codex and Grok, and
+// those of the agents plugins add. It reads their files only, and of a
+// transcript only its start and its end, as one can be gigabytes: where it
+// ran and what was asked first, and the title it was given last.
 package agents
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"slices"
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -25,9 +27,9 @@ const (
 	Grok   Harness = "grok"
 )
 
-// Agent is what is known of an agent: its id, its names, its mark, and
-// how one of its sessions is resumed. How its sessions are listed is
-// Scan's, for now.
+// Agent is what is known of an agent: its id, its names, its mark, how
+// its sessions are listed and how one of them is resumed. The agents Mayoi
+// knows and those plugins add are of this one shape, and listed alike.
 type Agent struct {
 	ID Harness
 	// Name is its name, for people, and App the name it gives itself for
@@ -35,65 +37,131 @@ type Agent struct {
 	// runs in a terminal.
 	Name, App string
 	// Icon is its mark, the shapes of an SVG of a 24 by 24 view drawn in
-	// strokes of the color of the text, as the app's icons are; "" for
-	// the mark of an agent of no mark of its own.
+	// strokes of the color of the text, as the app's icons are, a whole
+	// SVG, or the name of one of the app's icons; "" for the mark of an
+	// agent of no mark of its own.
 	Icon string
 	// Tint is the color of its mark in a dark window and in a light one,
 	// as hex; "" for the color of quiet text.
 	Tint [2]string
-	// resume is the shell command that resumes s, in its folder.
-	resume func(e *Env, s Session) string
+	// Resume is the shell command that resumes s, in its folder.
+	Resume func(e *Env, s Session) string
+
+	// Files are the files of its sessions, each read by Read, which
+	// reports false for one that is no session to show. A file is read
+	// again only once it changes.
+	Files func(e *Env) []File
+	Read  func(path string) (Session, bool)
+	// Titles, for an agent that names its sessions in a file of its own,
+	// are that file and how it reads, its names by session id, which win
+	// over those of the sessions' files.
+	Titles *TitleIndex
+	// List, for an agent of no files to read, lists its sessions itself,
+	// as a plugin's function does, before ctx is done: off the main thread,
+	// and waited for no longer than ListWait.
+	List func(ctx context.Context) ([]Session, error)
 }
 
-// Known are the agents read, in the order they are named.
+// File is a file of an agent's sessions, and the config folder it is of,
+// "" for none.
+type File struct{ Path, Root string }
+
+// TitleIndex is a file of an agent's own, of the names of its sessions.
+type TitleIndex struct {
+	Path func(e *Env) string
+	Read func(path string) map[string]string
+}
+
+// Known are the agents Mayoi reads of itself, in the order they are named.
 var Known = []Agent{
 	{
 		ID: Claude, Name: "Claude Code", App: "claude-code",
 		// A spark of eight rays, the long ones upright.
 		Icon: `<path d="M12 3v18"/><path d="M3 12h18"/><path d="m6.7 6.7 10.6 10.6"/><path d="m17.3 6.7-10.6 10.6"/>`,
 		Tint: [2]string{"#d97757", "#c15f3c"},
-		resume: func(e *Env, s Session) string {
+		Resume: func(e *Env, s Session) string {
 			cmd := "claude --resume " + quote(s.ID)
 			if s.Root != "" && filepath.Clean(s.Root) != filepath.Join(e.Home, ".claude") {
 				cmd = "CLAUDE_CONFIG_DIR=" + quote(s.Root) + " " + cmd
 			}
 			return cmd
 		},
+		Files: func(e *Env) []File {
+			var out []File
+			for _, root := range e.ClaudeRoots() {
+				for _, p := range transcripts(filepath.Join(root, "projects")) {
+					out = append(out, File{p, root})
+				}
+			}
+			return out
+		},
+		Read: func(p string) (Session, bool) { return readTranscript(p, Claude) },
 	},
 	{
 		ID: Qoder, Name: "Qoder", App: "qodercli",
 		// A Q, its tail through its ring.
 		Icon:   `<circle cx="11.5" cy="11" r="8"/><path d="m13.5 14.5 6 6.5"/>`,
 		Tint:   [2]string{"#2fd189", "#13985a"},
-		resume: func(_ *Env, s Session) string { return "qodercli -r " + quote(s.ID) },
+		Resume: func(_ *Env, s Session) string { return "qodercli -r " + quote(s.ID) },
+		Files:  func(e *Env) []File { return files(transcripts(filepath.Join(e.Home, ".qoder", "projects"))) },
+		Read:   func(p string) (Session, bool) { return readTranscript(p, Qoder) },
 	},
 	{
 		ID: Codex, Name: "Codex", App: "codex",
 		// A prompt in a hexagon.
 		Icon:   `<path d="M12 2.5 20.5 7.25v9.5L12 21.5 3.5 16.75v-9.5Z"/><path d="m10 8.5 3.5 3.5-3.5 3.5"/>`,
-		resume: func(_ *Env, s Session) string { return "codex resume " + quote(s.ID) },
+		Resume: func(_ *Env, s Session) string { return "codex resume " + quote(s.ID) },
+		Files:  func(e *Env) []File { return files(codexRollouts(filepath.Join(e.Home, ".codex", "sessions"))) },
+		Read:   readCodex,
+		Titles: &TitleIndex{
+			Path: func(e *Env) string { return filepath.Join(e.Home, ".codex", "session_index.jsonl") },
+			Read: readCodexIndex,
+		},
 	},
 	{
 		ID: Grok, Name: "Grok", App: "grok",
 		// A ring, open where a slash runs through it.
 		Icon:   `<path d="M17.5 6.2A8 8 0 1 0 19.8 13"/><path d="M20.5 3.5 9 15"/>`,
-		resume: func(_ *Env, s Session) string { return "grok --resume " + quote(s.ID) },
+		Resume: func(_ *Env, s Session) string { return "grok --resume " + quote(s.ID) },
+		Files:  func(e *Env) []File { return files(grokSummaries(filepath.Join(e.Home, ".grok", "sessions"))) },
+		Read:   readGrok,
 	},
 }
 
-// Harnesses are the agents read, in the order they are named.
-var Harnesses = func() []Harness {
-	out := make([]Harness, len(Known))
-	for i, ag := range Known {
-		out[i] = ag.ID
+// files are paths as files of no config folder.
+func files(paths []string) []File {
+	out := make([]File, len(paths))
+	for i, p := range paths {
+		out[i] = File{Path: p}
 	}
 	return out
-}()
+}
+
+// all are the agents Known and those Use added after them, made anew as
+// those change.
+var all atomic.Pointer[[]Agent]
+
+func init() { all.Store(&Known) }
+
+// Use has the agents be those Known and more, as plugins add them, after
+// them: one of an id taken is left out.
+func Use(more []Agent) {
+	out := slices.Clone(Known)
+	for _, ag := range more {
+		if !slices.ContainsFunc(out, func(o Agent) bool { return o.ID == ag.ID }) {
+			out = append(out, ag)
+		}
+	}
+	all.Store(&out)
+}
+
+// All are the agents read: those Known, then those Use added.
+func All() []Agent { return *all.Load() }
 
 // Agent is what is known of the agent h; of one not known, its id as its
 // names and no mark.
 func (h Harness) Agent() Agent {
-	for _, ag := range Known {
+	for _, ag := range All() {
 		if ag.ID == h {
 			return ag
 		}
@@ -109,7 +177,7 @@ func (h Harness) App() string { return h.Agent().App }
 
 // HarnessOfApp is the agent of an app's name, false for another program.
 func HarnessOfApp(app string) (Harness, bool) {
-	for _, ag := range Known {
+	for _, ag := range All() {
 		if ag.App == app || string(ag.ID) == app {
 			return ag.ID, true
 		}
@@ -185,10 +253,18 @@ func (s Session) In(dir string) bool {
 // folder: Claude Code's of a config folder other than ~/.claude names it
 // with CLAUDE_CONFIG_DIR.
 func (e *Env) ResumeCommand(s Session) string {
-	if ag := s.Harness.Agent(); ag.resume != nil {
-		return ag.resume(e, s)
+	if ag := s.Harness.Agent(); ag.Resume != nil {
+		return ag.Resume(e, s)
 	}
 	return ""
+}
+
+// ResumeTemplate is a Resume of a command with {id}, {folder} and {title}
+// in it, each the session's, quoted for a POSIX shell.
+func ResumeTemplate(tmpl string) func(e *Env, s Session) string {
+	return func(_ *Env, s Session) string {
+		return strings.NewReplacer("{id}", quote(s.ID), "{folder}", quote(s.Dir), "{title}", quote(s.Title)).Replace(tmpl)
+	}
 }
 
 // quote quotes s for a POSIX shell, unless it needs no quotes.
@@ -240,14 +316,19 @@ func (e *Env) ClaudeRoots() []string {
 }
 
 // Scanner reads the sessions, and keeps what it read of each file until
-// the file changes. It is safe for one goroutine at a time.
+// the file changes, and what each agent that lists its own sessions
+// listed last. It is safe for one goroutine at a time.
 type Scanner struct {
 	mu    sync.Mutex
 	files map[string]*cached
-	// titles are Codex's names of its sessions, by id, of the index as of
-	// indexMod.
-	titles   map[string]string
-	indexMod time.Time
+	// indexes are the names agents keep of their sessions, by agent.
+	indexes map[Harness]*index
+
+	// lmu guards lists, what the agents of a List listed, by agent, and
+	// late, which a List that ends after Scan stopped waiting calls.
+	lmu   sync.Mutex
+	lists map[Harness]*listed
+	late  func()
 }
 
 type cached struct {
@@ -257,48 +338,76 @@ type cached struct {
 	ok   bool
 }
 
+// index is a TitleIndex as of the time its file was last changed.
+type index struct {
+	path   string
+	mod    time.Time
+	titles map[string]string
+}
+
+// listed is what an agent's List listed last, and whether one runs.
+type listed struct {
+	ss   []Session
+	busy bool
+}
+
 // NewScanner returns a scanner that has read nothing.
-func NewScanner() *Scanner { return &Scanner{files: map[string]*cached{}} }
+func NewScanner() *Scanner {
+	return &Scanner{files: map[string]*cached{}, indexes: map[Harness]*index{}, lists: map[Harness]*listed{}}
+}
+
+// OnLate has fn called, on a goroutine of a List, as one ends after Scan
+// stopped waiting for it, with sessions the next Scan has.
+func (sc *Scanner) OnLate(fn func()) {
+	sc.lmu.Lock()
+	sc.late = fn
+	sc.lmu.Unlock()
+}
 
 // scanWorkers is how many files are read at once.
 const scanWorkers = 8
+
+// ListWait is how long Scan waits for the agents of a List, and
+// ListLimit how long one may run before it is given up. One that ends
+// late is kept for the next Scan, and one that fails keeps what it listed
+// before.
+const (
+	ListWait  = 1500 * time.Millisecond
+	ListLimit = 10 * time.Second
+)
 
 // Scan returns the sessions of every agent, the one used last first.
 func (sc *Scanner) Scan(e *Env) []Session {
 	sc.mu.Lock()
 	defer sc.mu.Unlock()
+	agents := All()
+	waits := sc.startLists(agents)
+
 	type job struct {
-		path string
+		File
 		read func(string) (Session, bool)
-		root string
 	}
 	var jobs []job
-	for _, root := range e.ClaudeRoots() {
-		for _, p := range transcripts(filepath.Join(root, "projects")) {
-			jobs = append(jobs, job{p, func(p string) (Session, bool) { return readTranscript(p, Claude) }, root})
+	for _, ag := range agents {
+		if ag.Files == nil || ag.Read == nil {
+			continue
+		}
+		for _, f := range ag.Files(e) {
+			jobs = append(jobs, job{f, ag.Read})
 		}
 	}
-	for _, p := range transcripts(filepath.Join(e.Home, ".qoder", "projects")) {
-		jobs = append(jobs, job{p, func(p string) (Session, bool) { return readTranscript(p, Qoder) }, ""})
-	}
-	for _, p := range codexRollouts(filepath.Join(e.Home, ".codex", "sessions")) {
-		jobs = append(jobs, job{p, readCodex, ""})
-	}
-	for _, p := range grokSummaries(filepath.Join(e.Home, ".grok", "sessions")) {
-		jobs = append(jobs, job{p, readGrok, ""})
-	}
-	sc.readCodexIndex(filepath.Join(e.Home, ".codex", "session_index.jsonl"))
+	sc.readIndexes(e, agents)
 
 	seen := make(map[string]bool, len(jobs))
 	var todo []job
 	var infos []os.FileInfo
 	for _, j := range jobs {
-		fi, err := os.Stat(j.path)
-		if err != nil {
+		fi, err := os.Stat(j.Path)
+		if err != nil || seen[j.Path] {
 			continue
 		}
-		seen[j.path] = true
-		if c := sc.files[j.path]; c != nil && c.size == fi.Size() && c.mod.Equal(fi.ModTime()) {
+		seen[j.Path] = true
+		if c := sc.files[j.Path]; c != nil && c.size == fi.Size() && c.mod.Equal(fi.ModTime()) {
 			continue
 		}
 		todo = append(todo, j)
@@ -313,8 +422,8 @@ func (sc *Scanner) Scan(e *Env) []Session {
 			defer wg.Done()
 			for i := range next {
 				j := todo[i]
-				s, ok := j.read(j.path)
-				s.Root = j.root
+				s, ok := j.read(j.Path)
+				s.Root = j.Root
 				if s.Updated.IsZero() {
 					s.Updated = infos[i].ModTime()
 				}
@@ -330,10 +439,10 @@ func (sc *Scanner) Scan(e *Env) []Session {
 	for i, j := range todo {
 		c := read[i]
 		// A title past the end read of a transcript that grew stays.
-		if old := sc.files[j.path]; old != nil && c.s.Title == "" {
+		if old := sc.files[j.Path]; old != nil && c.s.Title == "" {
 			c.s.Title = old.s.Title
 		}
-		sc.files[j.path] = &c
+		sc.files[j.Path] = &c
 	}
 	for p := range sc.files {
 		if !seen[p] {
@@ -346,16 +455,140 @@ func (sc *Scanner) Scan(e *Env) []Session {
 			continue
 		}
 		s := c.s
-		if s.Harness == Codex && sc.titles[s.ID] != "" {
-			s.Title = sc.titles[s.ID]
+		if ix := sc.indexes[s.Harness]; ix != nil && ix.titles[s.ID] != "" {
+			s.Title = ix.titles[s.ID]
 		}
 		out = append(out, s)
 	}
+	out = append(out, sc.waitLists(agents, waits)...)
 	sort.Slice(out, func(i, j int) bool {
 		if !out[i].Updated.Equal(out[j].Updated) {
 			return out[i].Updated.After(out[j].Updated)
 		}
 		return out[i].Key() < out[j].Key()
 	})
+	return out
+}
+
+// readIndexes reads the TitleIndex of each agent of one, once its file
+// changed, and forgets those of agents gone.
+func (sc *Scanner) readIndexes(e *Env, agents []Agent) {
+	keep := map[Harness]bool{}
+	for _, ag := range agents {
+		if ag.Titles == nil {
+			continue
+		}
+		keep[ag.ID] = true
+		path := ag.Titles.Path(e)
+		fi, err := os.Stat(path)
+		if err != nil {
+			delete(sc.indexes, ag.ID)
+			continue
+		}
+		if ix := sc.indexes[ag.ID]; ix != nil && ix.path == path && ix.mod.Equal(fi.ModTime()) {
+			continue
+		}
+		sc.indexes[ag.ID] = &index{path: path, mod: fi.ModTime(), titles: ag.Titles.Read(path)}
+	}
+	for h := range sc.indexes {
+		if !keep[h] {
+			delete(sc.indexes, h)
+		}
+	}
+}
+
+// round is a Scan's wait for the Lists it started, until ListWait after
+// they started: gaveUp, guarded by lmu, is set once it stopped waiting,
+// and done closes as each List ends.
+type round struct {
+	until  time.Time
+	gaveUp bool
+	done   []chan struct{}
+}
+
+// startLists starts the List of each agent of one, unless one of it
+// still runs, and forgets what agents gone listed.
+func (sc *Scanner) startLists(agents []Agent) *round {
+	sc.lmu.Lock()
+	defer sc.lmu.Unlock()
+	r := &round{until: time.Now().Add(ListWait)}
+	keep := map[Harness]bool{}
+	for _, ag := range agents {
+		if ag.List == nil {
+			continue
+		}
+		keep[ag.ID] = true
+		l := sc.lists[ag.ID]
+		if l == nil {
+			l = &listed{}
+			sc.lists[ag.ID] = l
+		}
+		if l.busy {
+			continue
+		}
+		l.busy = true
+		done := make(chan struct{})
+		r.done = append(r.done, done)
+		go sc.list(ag, l, r, done)
+	}
+	for h := range sc.lists {
+		if !keep[h] {
+			delete(sc.lists, h)
+		}
+	}
+	return r
+}
+
+// list runs ag's List into l, keeping what it listed before when it
+// fails, then closes done, and calls late when the Scan of r no longer
+// waits.
+func (sc *Scanner) list(ag Agent, l *listed, r *round, done chan struct{}) {
+	ctx, cancel := context.WithTimeout(context.Background(), ListLimit)
+	ss, err := ag.List(ctx)
+	cancel()
+	for i := range ss {
+		ss[i].Harness, ss[i].Root = ag.ID, ""
+	}
+	ss = slices.DeleteFunc(ss, func(s Session) bool { return s.ID == "" })
+	sc.lmu.Lock()
+	l.busy = false
+	if err == nil {
+		l.ss = ss
+	}
+	late := sc.late
+	if !r.gaveUp || err != nil {
+		late = nil
+	}
+	sc.lmu.Unlock()
+	close(done)
+	if late != nil {
+		late()
+	}
+}
+
+// waitLists waits for the Lists of r, as long as it may, and returns
+// what every agent of one listed last.
+func (sc *Scanner) waitLists(agents []Agent, r *round) []Session {
+	if len(r.done) > 0 {
+		timeout := time.NewTimer(time.Until(r.until))
+		defer timeout.Stop()
+	wait:
+		for _, done := range r.done {
+			select {
+			case <-done:
+			case <-timeout.C:
+				break wait
+			}
+		}
+	}
+	sc.lmu.Lock()
+	defer sc.lmu.Unlock()
+	r.gaveUp = true
+	var out []Session
+	for _, ag := range agents {
+		if l := sc.lists[ag.ID]; l != nil {
+			out = append(out, l.ss...)
+		}
+	}
 	return out
 }

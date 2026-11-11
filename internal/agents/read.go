@@ -297,20 +297,11 @@ func readCodex(path string) (Session, bool) {
 	return s, s.ID != "" && !exec
 }
 
-// readCodexIndex reads Codex's names of its sessions, the last of each,
-// once the index changed.
-func (sc *Scanner) readCodexIndex(path string) {
-	fi, err := os.Stat(path)
-	if err != nil {
-		sc.titles, sc.indexMod = nil, time.Time{}
-		return
-	}
-	if fi.ModTime().Equal(sc.indexMod) {
-		return
-	}
+// readCodexIndex reads Codex's names of its sessions, the last of each.
+func readCodexIndex(path string) map[string]string {
 	f, err := os.Open(path)
 	if err != nil {
-		return
+		return nil
 	}
 	defer f.Close()
 	titles := map[string]string{}
@@ -324,7 +315,7 @@ func (sc *Scanner) readCodexIndex(path string) {
 		}
 		return true
 	})
-	sc.titles, sc.indexMod = titles, fi.ModTime()
+	return titles
 }
 
 // grokSummaries are Grok's summaries of its sessions: a folder for each

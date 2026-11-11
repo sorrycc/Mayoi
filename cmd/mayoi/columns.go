@@ -10,6 +10,7 @@ import (
 	"github.com/egoist/mygo/i18n"
 	"github.com/egoist/mygo/ui"
 
+	"mayoi/internal/agents"
 	"mayoi/internal/git"
 	"mayoi/internal/highlight"
 	"mayoi/internal/remote"
@@ -921,6 +922,10 @@ func (a *app) rememberTabs() {
 			switch {
 			case t.term != nil:
 				ts = settings.Tab{Terminal: true, HC: t.term.hc}
+				if ts.HC != "" {
+					// Its shell runs on, and the agent in it.
+					ts.Agent, ts.Session = string(t.term.agent), t.term.resumed
+				}
 			case t.diff != nil && t.diff.commit != nil:
 				ts = settings.Tab{Diff: "commit:" + t.diff.commit.key(), Layout: t.diff.layout.key(), Transient: t.transient}
 			case t.diff != nil:
@@ -1114,7 +1119,11 @@ func (a *app) restoreTabs() {
 			case ts.Terminal:
 				if dir, ok := live[ts.HC]; ok && ts.HC != "" {
 					if !a.hcShown(ts.HC) {
-						a.terminalTab(col, len(col.tabs), a.attachTerminal(ts.HC, dir), false)
+						t := a.attachTerminal(ts.HC, dir)
+						if t != nil {
+							t.agent, t.resumed = agents.Harness(ts.Agent), ts.Session
+						}
+						a.terminalTab(col, len(col.tabs), t, false)
 					}
 				} else if a.root != "" {
 					a.newTerminalTab(col, a.root, false)

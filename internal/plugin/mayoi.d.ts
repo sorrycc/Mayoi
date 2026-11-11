@@ -264,6 +264,27 @@ declare module "mayoi" {
     open(id: string, opts?: { title?: string }): Promise<Webview>;
   };
 
+  /** A session of an agent plugin.json declares, as the Sessions view lists it. */
+  export interface AgentSession {
+    /** What the resume command's {id} is; a session without one is left out. */
+    id: string;
+    title?: string;
+    /** The folder it ran in, which it resumes in. */
+    folder?: string;
+    /** When it was used last: milliseconds since 1970, or ISO 8601 text. */
+    updated?: number | string;
+    /** The first thing asked in it. */
+    prompt?: string;
+  }
+
+  export const agents: {
+    /**
+     * Lists the sessions of an agent plugin.json declares without `sessions`. Mayoi calls fn
+     * off its main thread as the Sessions view reads, waits 1.5 s for it, and gives up after 10 s.
+     */
+    register(id: string, fn: () => Promise<AgentSession[]> | AgentSession[]): Disposable;
+  };
+
   export const ai: {
     /** Completes a prompt with Mon's AI gateway; the user must be signed in. */
     complete(prompt: string, opts?: { system?: string }): Promise<string>;
@@ -286,6 +307,7 @@ declare module "mayoi" {
     views: typeof views;
     previews: typeof previews;
     webview: typeof webview;
+    agents: typeof agents;
     ai: typeof ai;
   };
   export default mayoi;

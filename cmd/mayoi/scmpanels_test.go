@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/egoist/mygo/ui"
+
 	"mayoi/internal/git"
 )
 
@@ -133,7 +134,7 @@ func TestScmBranchRemotePanels(t *testing.T) {
 		a.switchScmPanelTab(tab.id)
 		for _, dark := range []bool{true, false} {
 			hs.tt.SetDark(dark)
-			a.window.SidebarWidth = 320
+			a.leftPanel().Size = 320
 			hs.settle()
 			name := "git-panels-expanded-light"
 			if dark {
@@ -476,7 +477,7 @@ func TestScmPanelRefreshKeepsPublishedRows(t *testing.T) {
 			t.Fatal("refresh discarded loaded page limit")
 		}
 		for frame := range 60 {
-			a.window.SidebarWidth = 260 + float32(frame%20)*4
+			a.leftPanel().Size = 260 + float32(frame%20)*4
 			step(hs.tt)
 			if !slices.Equal(keys(before), keys(a.scmRows())) {
 				t.Fatalf("background refresh changed visible rows in frame %d", frame)

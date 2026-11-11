@@ -79,11 +79,6 @@ func (s *session) label() string {
 	return cmp.Or(s.name, s.title)
 }
 
-type panelHeaderLayout struct {
-	windowWidth, panelWidth float32
-	side, titles, font      string
-}
-
 // termTheme is the terminal's colors for a palette: its background the
 // panel's, so that the panel and the editor are of a piece.
 func termTheme(p *palette) *terminal.Theme {
@@ -279,14 +274,22 @@ func (a *app) newTerminal() { a.newTerminalIn(a.workDir()) }
 
 // newTerminalIn starts a terminal of the panel in dir and shows it.
 func (a *app) newTerminalIn(dir string) {
+	if s := a.startPanelTerminal(dir); s != nil {
+		a.showTerminalView()
+		a.rememberTabs()
+		a.focusTerminal()
+	}
+}
+
+// startPanelTerminal starts a terminal of the panel in dir, without
+// showing it, which the state leaves as it was.
+func (a *app) startPanelTerminal(dir string) *session {
 	s := a.startTerminal(dir)
 	if s == nil {
-		return
+		return nil
 	}
 	a.panelTerm = s
-	a.window.PanelOpen, a.window.TerminalOpen = true, true
-	a.rememberTabs()
-	a.focusTerminal()
+	return s
 }
 
 // openTerminal starts a terminal in dir where terminalLocation says: in
@@ -374,7 +377,16 @@ func (a *app) leavePanel(s *session) {
 		}
 	}
 	if len(rest) == 0 {
-		a.window.PanelOpen, a.window.TerminalOpen = false, false
+		// The panel keeps the view it shows, if it has one, and hides
+		// after its last terminal when it has none.
+		if side, ok := a.viewSide(panelTerminal); ok {
+			if p := a.window.Panels.Get(side); len(p.Views) == 1 {
+				p.Open = false
+				if a.panelMax == side {
+					a.panelMax = ""
+				}
+			}
+		}
 		a.settings.Changed()
 	}
 }
@@ -429,7 +441,7 @@ func (a *app) terminalToPanel(s *session) {
 	s.tab = nil
 	a.dropTab(t)
 	a.panelTerm = s
-	a.window.PanelOpen, a.window.TerminalOpen = true, true
+	a.showTerminalView()
 	a.rememberTabs()
 	a.focusTerminal()
 }
@@ -450,44 +462,201 @@ func (a *app) closeTerminals() {
 	a.terms, a.panelTerm = nil, nil
 }
 
-// hidePanel hides the panel, and gives the keyboard back to the column.
-func (a *app) hidePanel() {
-	a.window.PanelOpen = false
-	a.settings.Changed()
-	a.focusColumn()
+// hidePanel hides the panel on a side, and gives the keyboard back to the
+// column when it was in that panel.
+func (a *app) hidePanel(s settings.Side) {
+	holds := a.panelHoldsKeys(s)
+	if p := a.window.Panels.Get(s); p != nil {
+		p.Open = false
+		a.settings.Changed()
+	}
+	if a.panelMax == s {
+		a.panelMax = ""
+	}
+	if holds {
+		a.focusColumn()
+	}
 }
 
-// panelMenu is the menu of the panel's header: where the panel sits,
-// and its size.
-func (a *app) panelMenu(m *ui.Menu) {
-	m.Submenu(locales.MenuPanelPosition(), func(m *ui.Menu) {
-		for _, pos := range []struct{ label, id, side string }{
-			{locales.PanelBottom(), "", "bottom"},
-			{locales.PanelLeft(), "left", "left"},
-			{locales.PanelRight(), "right", "right"},
-		} {
-			if m.Item(pos.label).Checked(a.panelSide() == pos.side).Chosen() {
-				a.post(func() { a.setPanelPosition(pos.id) })
-			}
+// panelHoldsKeys reports whether the keyboard is in the panel on a side:
+// in its terminal, its tree or one of its fields.
+func (a *app) panelHoldsKeys(s settings.Side) bool {
+	p := a.window.Panels.Get(s)
+	if !p.Visible() {
+		return false
+	}
+	switch p.Shown() {
+	case panelTerminal:
+		return a.focus == paneTerminal || a.keyFocus == placeTerminal
+	case settings.ViewExplorer:
+		return a.keyFocus == placeExplorer
+	case settings.ViewSearch, settings.ViewSCM:
+		return a.keyFocus == placeInput
+	}
+	return false
+}
+
+// panel is the panel on a side: its views' tabs, the tools of the view
+// shown, and the view itself. A terminal dragged from a tab is dropped on
+// it, and a file dragged from a view types its path.
+func (a *app) panel(c *ui.Context, side settings.Side) {
+	p := a.pal
+	panel := a.window.Panels.Get(side)
+	box := ui.Column(c).Fill().Background(p.panel)
+	if it, ok := ui.Drop[dragItem](box); ok {
+		switch s := a.panelTerm; {
+		case it.tab != nil && it.tab.term != nil && a.owns(it):
+			a.post(func() { a.terminalToPanel(it.tab.term) })
+		case it.file != nil && s != nil && panel.Shown() == settings.ViewTerminal:
+			// A file of a view types its path, as one from the Finder.
+			a.post(func() { a.pastePaths(s, []string{it.file.path}) })
+		}
+	}
+	over, _ := a.dragOver(box)
+	hovered := box.Hovered()
+	box.Children(func() {
+		a.panelHeader(c, side)
+		switch view := panel.Shown(); view {
+		case settings.ViewTerminal:
+			a.panelTerminals(c, side, over)
+		default:
+			ui.Column(c.Key("view:" + view)).Grow(1).MinHeight(0).Children(func() { a.viewBody(c, view, hovered) })
 		}
 	})
+}
+
+// panelHeader is the row at the top of the panel: its views as tabs, and
+// the tools of the view shown. A panel on a side may be too narrow for the
+// tabs, the tools and the buttons in one row: it names its tabs short, and
+// gives the tools and the buttons a row of their own.
+func (a *app) panelHeader(c *ui.Context, side settings.Side) {
+	panel := a.window.Panels.Get(side)
+	view := panel.Shown()
+	// The bottom panel is as wide as the editors. A side panel's header
+	// follows the width left after both side panels are clamped, not the
+	// width the panel would have in a wider window.
+	wide := side == settings.SideBottom || a.panelMax == side
+	if !wide {
+		width, _ := c.Size()
+		size, _ := a.sidePanelSize(side, width)
+		wide = size >= panelWide
+	}
+	ui.Row(c).Height(panelHeadH).Padding(0, 8, 0, 14).Gap(4).AlignItems(ui.Center).Children(func() {
+		ui.Row(c.Key("panel-tabs:" + string(side))).Grow(1).MinWidth(0).Gap(4).AlignItems(ui.Center).Children(func() {
+			for _, v := range panel.Views {
+				label := a.viewTitle(v)
+				if !wide && v == settings.ViewSCM {
+					label = viewShort(v)
+				}
+				// A theme may set titles in sentence case.
+				label = a.pal.title(label)
+				// Source control counts the files it has to show.
+				count := 0
+				if v == settings.ViewSCM {
+					count = a.changeCount()
+				}
+				tab := a.panelTab(c, side, v, label, count, view == v, func() { a.showPanelView(v) })
+				tab.ContextMenu(func(m *ui.Menu) { a.panelTabMenu(v, side, m) })
+			}
+		})
+		if !wide {
+			return
+		}
+		a.viewTitleActions(c, view, true)
+		a.panelButtons(c, side)
+	})
+	// The panel's buttons go with the view's tools to a row of their own;
+	// a view with no tools keeps its room, and its tab's menu maximizes or
+	// hides the panel.
+	if wide || !hasTitleActions(view) {
+		return
+	}
+	ui.Row(c).Height(panelHeadH-6).Padding(0, 8, 0, 14).Gap(2).AlignItems(ui.Center).Children(func() {
+		a.viewTitleActions(c, view, true)
+		a.panelButtons(c, side)
+	})
+}
+
+// panelButtons are the buttons that maximize the panel, or hide it.
+func (a *app) panelButtons(c *ui.Context, side settings.Side) {
+	icon, label := iconMaximize, locales.PanelMaximize()
+	if a.panelMax == side {
+		icon, label = iconMinimize, locales.PanelRestore()
+	}
+	if a.iconButton(c, icon, label, false).Clicked() {
+		a.togglePanelMax(side)
+	}
+	if a.iconButton(c, iconX, locales.PanelHide(), false).Clicked() {
+		a.hidePanel(side)
+	}
+}
+
+// togglePanelMax has a panel take the editors' room, or give it back.
+func (a *app) togglePanelMax(s settings.Side) {
+	if a.panelMax == s {
+		a.panelMax = ""
+	} else {
+		a.panelMax = s
+	}
+}
+
+// panelWidth is how wide a panel on a side is: its own, or the room it
+// takes when it is maximized.
+func (a *app) panelWidth(s settings.Side) float32 {
+	if a.panelMax == s {
+		return panelWide
+	}
+	return a.window.Panels.Get(s).Size
+}
+
+// panelTab is a view's tab in the panel's header: its name, with a line
+// under it while it shows, and a count after it when it has one.
+func (a *app) panelTab(c *ui.Context, side settings.Side, v, label string, count int, on bool, show func()) ui.Element {
+	p := a.pal
+	b := ui.ButtonBase(c.Key("panel:"+string(side)+":"+v)).Height(panelHeadH).Padding(0, 6).
+		Shrink(1).MinWidth(0).Justify(ui.Center).AlignItems(ui.Center).Label(label)
+	col := p.muted
+	switch {
+	case on:
+		col = p.text
+	case b.Hovered():
+		b.Background(p.hover)
+	}
+	b.Children(func() {
+		ui.Text(c, label).FontSize(11).FontWeight(600).LetterSpacing(0.7).TextColor(col).SingleLine()
+		if count > 0 {
+			ui.Text(c, fmt.Sprint(count)).FontSize(10).TextColor(p.muted).Margin(4, 0, 0, 0)
+		}
+		if on {
+			ui.Box(c).Absolute().Bottom(0).Left(0).Right(0).Height(1.5).Background(p.accent)
+		}
+	})
+	if b.Clicked() {
+		show()
+	}
+	return b
+}
+
+// panelTabMenu is the menu of a tab of a panel's views: where that view
+// shows, and the panel's own actions.
+func (a *app) panelTabMenu(v string, side settings.Side, m *ui.Menu) {
+	a.viewSideItems(v, m)
 	m.Separator()
 	label := locales.PanelMaximize()
-	if a.panelMax {
+	if a.panelMax == side {
 		label = locales.PanelRestore()
 	}
 	if m.Item(label).Chosen() {
-		a.post(func() { a.panelMax = !a.panelMax })
+		a.post(func() { a.togglePanelMax(side) })
 	}
 	if m.Item(locales.PanelHide()).Chosen() {
-		a.post(a.hidePanel)
+		a.post(func() { a.hidePanel(side) })
 	}
 }
 
-// panel is the terminal panel: a header of its terminals and its tools,
-// and the terminal shown. A terminal dragged from a tab is dropped on it,
-// and a file dragged from the sidebar types its path.
-func (a *app) panel(c *ui.Context) {
+// panelTerminals is the terminal's view: its terminals' tabs, and the
+// terminal shown, or the way to start one.
+func (a *app) panelTerminals(c *ui.Context, side settings.Side, over dragItem) {
 	p := a.pal
 	terms := a.panelTerms()
 	// MyGo's scroll bar takes the thumb's width plus six DIPs for its
@@ -497,47 +666,12 @@ func (a *app) panel(c *ui.Context) {
 	if a.panelScroll.MaxX > 0.5 {
 		scrollbarH = c.Theme().ScrollbarWidth + 6
 	}
-	box := ui.Column(c).Fill().Background(p.panel)
-	if it, ok := ui.Drop[dragItem](box); ok {
-		switch s := a.panelTerm; {
-		case it.tab != nil && it.tab.term != nil && a.owns(it):
-			a.post(func() { a.terminalToPanel(it.tab.term) })
-		case it.file != nil && s != nil:
-			// A file of the sidebar types its path, as one from the Finder.
-			a.post(func() { a.pastePaths(s, []string{it.file.path}) })
-		}
-	}
-	over, _ := a.dragOver(box)
-	// A panel at a side, dragged narrow, leaves out its title so that
-	// its terminals and its tools keep their room.
-	width := box.Bounds().W
-	var titles strings.Builder
-	for _, s := range terms {
-		titles.WriteString(s.label())
-		titles.WriteByte(0)
-	}
-	windowWidth, _ := c.Size()
-	layout := panelHeaderLayout{windowWidth, width, a.panelSide(), titles.String(), c.Theme().Font}
-	if layout != a.panelLayout {
-		a.panelLayout = layout
-		c.AnimationFrame()
-	}
-	titled := a.panelSide() == "bottom" || width == 0 || width >= panelTitleW
-	box.Children(func() {
-		head := ui.Row(c).Height(panelHeadH+scrollbarH).Padding(0, 8, 0, 14).Gap(4).AlignItems(ui.Center)
-		head.ContextMenu(a.panelMenu)
-		head.Children(func() {
-			if titled {
-				ui.Column(c).Height(panelHeadH).Margin(0, 0, scrollbarH, 0).Justify(ui.Center).Children(func() {
-					size, spacing := p.titleLook(11, 0.7)
-					ui.Text(c, p.title(locales.TabTerminal())).FontSize(size).FontWeight(600).LetterSpacing(spacing).TextColor(p.text)
-					ui.Box(c).Absolute().Bottom(0).Left(0).Right(0).Height(1.5).Background(p.accent)
-				})
-				ui.Box(c).Width(10)
-			}
+	if len(terms) > 0 {
+		ui.Row(c).Height(termStripH+scrollbarH).Padding(0, 8, 0, 8).Gap(2).AlignItems(ui.Center).
+			BorderWidth(0, 0, 1, 0).BorderColor(p.border).Children(func() {
 			// The terminals, as chips: a click shows one, and dragging one
 			// to a column makes a tab of it.
-			ui.ScrollHorizontal(c.Key("terms")).TrackScroll(&a.panelScroll).Grow(1).Height(panelHeadH+scrollbarH).Padding(0, 0, scrollbarH, 0).Children(func() {
+			ui.ScrollHorizontal(c.Key("terms")).TrackScroll(&a.panelScroll).Grow(1).Height(termStripH+scrollbarH).Padding(0, 0, scrollbarH, 0).Children(func() {
 				ui.Row(c).Gap(2).AlignItems(ui.Center).Children(func() {
 					for i, s := range terms {
 						chip := ui.ButtonBase(c.Key(s.id)).Padding(3, 8).Gap(6).Radius(5).AlignItems(ui.Center).Label(s.label()).
@@ -596,43 +730,33 @@ func (a *app) panel(c *ui.Context) {
 						a.post(func() { a.killTerminal(s) })
 					}
 				}
-				icon, label := iconMaximize, locales.PanelMaximize()
-				if a.panelMax {
-					icon, label = iconMinimize, locales.PanelRestore()
-				}
-				if a.iconButton(c, icon, label, false).Clicked() {
-					a.panelMax = !a.panelMax
-				}
-				if a.iconButton(c, iconX, locales.PanelHide(), false).Clicked() {
-					a.hidePanel()
-				}
 			})
 		})
-		term := ui.Box(c).Grow(1)
-		// Files from another app type their paths into the terminal shown.
-		filesOver := false
-		if s := a.panelTerm; s != nil {
-			if paths := term.DroppedFiles(); paths != nil {
-				paths = slices.Clone(paths)
-				a.post(func() { a.pastePaths(s, paths) })
-			}
-			filesOver = term.FileDragOver()
+	}
+	term := ui.Box(c).Grow(1)
+	// Files from another app type their paths into the terminal shown.
+	filesOver := false
+	if s := a.panelTerm; s != nil {
+		if paths := term.DroppedFiles(); paths != nil {
+			paths = slices.Clone(paths)
+			a.post(func() { a.pastePaths(s, paths) })
 		}
-		term.Children(func() {
-			s := a.panelTerm
-			if s == nil {
-				ui.Column(c).Fill().Center().Children(func() {
-					if ui.Button(c, locales.CmdViewNewTerminal()).Clicked() {
-						a.newTerminal()
-					}
-				})
-			} else {
-				a.terminalView(c, s)
-			}
-			if over.tab != nil && over.tab.term != nil || filesOver {
-				a.dropMark(c)
-			}
-		})
+		filesOver = term.FileDragOver()
+	}
+	term.Children(func() {
+		s := a.panelTerm
+		if s == nil {
+			ui.Column(c).Fill().Center().Children(func() {
+				if ui.Button(c, locales.CmdViewNewTerminal()).Clicked() {
+					a.newTerminal()
+				}
+			})
+		} else {
+			a.terminalView(c, s)
+		}
+		if over.tab != nil && over.tab.term != nil || filesOver {
+			a.dropMark(c)
+		}
 	})
 }
 

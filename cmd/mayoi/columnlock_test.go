@@ -426,7 +426,7 @@ func TestTerminalMovesToLockedRightColumn(t *testing.T) {
 		t.Fatal(err)
 	}
 	hs.settle()
-	if len(a.cols) != 2 || !a.cols[1].locked || a.cols[1].tab().term != s || s.term != process || a.window.PanelOpen {
+	if len(a.cols) != 2 || !a.cols[1].locked || a.cols[1].tab().term != s || s.term != process || a.panelOpen(panelTerminal) {
 		t.Fatal("the panel terminal did not move intact to a locked right column")
 	}
 	right := a.cols[1]

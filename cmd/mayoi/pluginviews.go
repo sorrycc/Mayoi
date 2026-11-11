@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"path"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -160,14 +161,14 @@ func keepInputs(old, n *viewNode) {
 	}
 }
 
-// pluginSlot is a view or a webview the sidebar can show.
+// pluginSlot is a view or a webview a panel can show.
 type pluginSlot struct {
 	id, title, icon string
 	plugin          *plugin.Plugin
 	webview         *plugin.WebviewContrib
 }
 
-// slotsKey is what the views the sidebar can show follow: the plugins,
+// slotsKey is what the views a panel can show follow: the plugins,
 // the settings that turn them on and off, and the webviews open.
 type slotsKey struct {
 	gen      uint64
@@ -177,7 +178,7 @@ type slotsKey struct {
 
 // pluginSlots are the views of the plugins that are on, and their
 // webviews that are open: listed anew as those change, not as each frame
-// draws the sidebar. On the main thread.
+// draws the panel. On the main thread.
 func pluginSlots() []pluginSlot {
 	h := plugins
 	if h == nil {
@@ -208,73 +209,83 @@ func pluginSlots() []pluginSlot {
 	return out
 }
 
-// pluginSidebarView is the id of the plugin view the sidebar shows, ""
-// for one of Mayoi's.
-func (a *app) pluginSidebarView() string {
-	id, _ := strings.CutPrefix(a.window.SidebarView, "plugin:")
-	if id == a.window.SidebarView {
-		return ""
-	}
-	return id
-}
-
-// showPluginView shows a plugin's view in the sidebar, starting the
-// plugin, which renders it.
-func (a *app) showPluginView(id string) {
-	var slot *pluginSlot
+// findPluginSlot is the view or open webview of id, nil when its plugin is
+// gone or off, or its webview is closed.
+func findPluginSlot(id string) *pluginSlot {
 	for _, s := range pluginSlots() {
 		if s.id == id {
-			slot = &s
+			return &s
 		}
 	}
-	if slot == nil {
+	return nil
+}
+
+// syncPluginViews gives every enabled plugin's view a home, without taking
+// the panel's current tab away from it, and drops views whose plugin or
+// webview is gone. It runs before a frame draws the panels.
+func (a *app) syncPluginViews() {
+	if plugins == nil {
 		return
 	}
-	a.window.SidebarView = "plugin:" + id
-	if a.window.SidebarClosed {
-		a.toggleSidebar()
+	slots := pluginSlots()
+	live := make(map[string]bool, len(slots))
+	changed := false
+	for _, slot := range slots {
+		v := "plugin:" + slot.id
+		live[v] = true
+		if a.viewInPanel(v) {
+			continue
+		}
+		p := a.window.Panels.On(settings.DefaultSide(v))
+		p.Views = append(slices.Clone(p.Views), v)
+		changed = true
 	}
-	a.settings.Changed()
-	if slot.webview == nil {
-		p := slot.plugin
-		plugins.reg.Activate("onView:" + id)
-		go func() {
-			ctx, cancel := context.WithTimeout(context.Background(), plugin.BusyLimit)
-			defer cancel()
-			p.Request(ctx, "viewShow", map[string]any{"id": id})
-		}()
-	}
-}
-
-// pluginSwitches are the sidebar's buttons of the plugins' views.
-func (a *app) pluginSwitches(c *ui.Context) {
-	shown := a.pluginSidebarView()
-	for _, s := range pluginSlots() {
-		id := s.id
-		a.sidebarSwitch(c, namedIcon(s.icon), s.title, shown == id, 0, func() { a.showPluginView(id) })
-	}
-}
-
-// pluginSidebarTitle is the title of the plugin view shown.
-func (a *app) pluginSidebarTitle() string {
-	id := a.pluginSidebarView()
-	for _, s := range pluginSlots() {
-		if s.id == id {
-			return s.title
+	for _, side := range settings.Sides {
+		p := a.window.Panels.Get(side)
+		if p == nil {
+			continue
+		}
+		for _, v := range slices.Clone(p.Views) {
+			if strings.HasPrefix(v, "plugin:") && !live[v] {
+				a.window.Panels.Detach(v)
+				changed = true
+			}
 		}
 	}
-	return ""
+	if changed {
+		a.settings.Changed()
+	}
 }
 
-// pluginSidebar draws the plugin view the sidebar shows.
-func (a *app) pluginSidebar(c *ui.Context) {
-	id := a.pluginSidebarView()
-	var slot *pluginSlot
-	for _, s := range pluginSlots() {
-		if s.id == id {
-			slot = &s
-		}
+// showPluginView shows a plugin's view where it is, or on its default side
+// before it was first placed. Showing its panel activates it.
+func (a *app) showPluginView(id string) {
+	if findPluginSlot(id) == nil {
+		return
 	}
+	a.showView("plugin:" + id)
+}
+
+// activatePluginView starts the plugin that renders a view and tells it the
+// view showed. A webview has no viewShow call of its own.
+func (a *app) activatePluginView(id string) {
+	slot := findPluginSlot(id)
+	if slot == nil || slot.webview != nil {
+		return
+	}
+	p := slot.plugin
+	plugins.reg.Activate("onView:" + id)
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), plugin.BusyLimit)
+		defer cancel()
+		p.Request(ctx, "viewShow", map[string]any{"id": id})
+	}()
+}
+
+// pluginSidebar draws a plugin's view, from the view's id.
+func (a *app) pluginSidebar(c *ui.Context, v string) {
+	id, _ := strings.CutPrefix(v, "plugin:")
+	slot := findPluginSlot(id)
 	p := a.pal
 	if slot == nil {
 		ui.Text(c, locales.PluginViewGone()).FontSize(12).TextColor(p.muted).Padding(12, 16)
@@ -911,7 +922,8 @@ func (h *pluginHost) webviewCall(p *plugin.Plugin, method, id, title string, raw
 		}
 		h.main(func(a *app) (any, error) {
 			for _, a := range h.apps() {
-				if a.pluginSidebarView() == id {
+				if a.viewInPanel("plugin:" + id) {
+					a.window.Panels.Detach("plugin:" + id)
 					a.showExplorer()
 				}
 			}
@@ -922,7 +934,7 @@ func (h *pluginHost) webviewCall(p *plugin.Plugin, method, id, title string, raw
 	return nil, nil
 }
 
-// webviewSlot draws a webview in the sidebar, making its page in the
+// webviewSlot draws a webview in a panel, making its page in the
 // window first.
 func (a *app) webviewSlot(c *ui.Context, slot *pluginSlot) {
 	p := a.pal

@@ -593,7 +593,6 @@
   "menuLanguage": "言語",
   "menuOpenRecent": "最近使用したフォルダーを開く",
   "menuOpenRecentMore": "その他…",
-  "menuPanelPosition": "パネルの位置",
   "menuRemoteSSH": "リモート SSH",
   "menuReview": "レビュー",
   "menuSelection": "選択",
@@ -1652,5 +1651,10 @@
   "lspDown": "言語サーバーは動いていません",
   "definitionNone": "定義が見つかりません",
   "completionNone": "ここに補完候補はありません",
-  "completionPlaceholder": "補完"
+  "completionPlaceholder": "補完",
+  "cmdViewLayoutLeft": "プライマリサイドバーの表示切替",
+  "cmdViewLayoutBottom": "下パネルの表示切替",
+  "cmdViewLayoutRight": "セカンダリサイドバーの表示切替",
+  "panelMoveTo": "移動",
+  "panelMoveViewTo": "ビューをパネルへ移動"
 }

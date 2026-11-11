@@ -178,7 +178,7 @@ func TestExplorerWholeRowPreviewsFile(t *testing.T) {
 				}
 				x := r.X - 24
 				if side == "trailing" {
-					x = a.window.SidebarWidth - 12
+					x = a.leftPanel().Size - 12
 				}
 				tt.ClickAt(x, r.Y+r.H/2)
 				hs.settle()

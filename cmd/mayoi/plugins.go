@@ -87,7 +87,7 @@ type pluginHost struct {
 	// updates are the newer commits found of the plugins from Git.
 	updates map[string]string
 
-	// slots are the views the sidebar can show, as of slotsKey, once
+	// slots are the views a panel can show, as of slotsKey, once
 	// slotsListed; main thread only.
 	slots       []pluginSlot
 	slotsKey    slotsKey

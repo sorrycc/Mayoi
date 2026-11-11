@@ -199,9 +199,10 @@ type Prefs struct {
 	// ExplorerCompactFolders shows a chain of single-child folders on one
 	// row in the Explorer, with its names separated by slashes.
 	ExplorerCompactFolders bool `json:"explorerCompactFolders,omitempty"`
-	// PanelPosition is where the terminal panel is: "" or "bottom"
-	// below the editors, "left" or "right" at the window's side, past
-	// the sidebar.
+	// PanelPosition is where the terminal panel was, before the views
+	// moved between the panels: "" or "bottom" below the editors, "left"
+	// or "right" at the window's side. The layout puts the terminal where
+	// it says, once, and it goes.
 	PanelPosition string `json:"panelPosition,omitempty"`
 	// TerminalLocation is where a new terminal opens: "" in the panel, or
 	// "editor" in a tab of the editor area.
@@ -344,16 +345,20 @@ type Window struct {
 // the panel, the folders open in the explorer, and its layout.
 type Session struct {
 	Layout
-	Columns      []Column `json:"columns,omitempty"`
-	Column       int      `json:"column,omitempty"`
-	FileColumn   int      `json:"fileColumn,omitempty"`
-	PanelOpen    bool     `json:"panelOpen,omitempty"`
-	TerminalOpen bool     `json:"terminalOpen,omitempty"`
+	Columns    []Column `json:"columns,omitempty"`
+	Column     int      `json:"column,omitempty"`
+	FileColumn int      `json:"fileColumn,omitempty"`
 	// PanelTerms are the addresses in herdr-core of the panel's terminals
 	// whose shells run there, which the next start attaches to again, and
 	// PanelTerm the one of them the panel showed.
 	PanelTerms []string `json:"panelTerms,omitempty"`
 	PanelTerm  int      `json:"panelTerm,omitempty"`
+	// PanelOpen, TerminalOpen and PanelHeight are a session of the version
+	// before the views moved between the panels, which kept the bottom one
+	// apart from them. Normalize makes its panel of them, and they go.
+	PanelOpen    bool    `json:"panelOpen,omitempty"`
+	TerminalOpen bool    `json:"terminalOpen,omitempty"`
+	PanelHeight  float32 `json:"panelHeight,omitempty"`
 	// Expanded are the explorer's folders showing their files, relative to
 	// the window's folder.
 	Expanded []string `json:"expanded,omitempty"`
@@ -382,17 +387,22 @@ type ReviewNote struct {
 	Text    string   `json:"text"`
 }
 
-// Layout is how a window lays its folder out: what its sidebar shows,
-// whether it is closed and how wide it is, and how tall its panel is at
-// the bottom, or how wide it is at a side.
+// The views a window shows, each in one of its panels.
+const (
+	ViewExplorer = "explorer"
+	ViewSearch   = "search"
+	ViewSCM      = "scm"
+	ViewTerminal = "terminal"
+)
+
+// SidebarViews are the views that show on the layout's left, in the order
+// of their tabs, as the terminal shows at the bottom.
+var SidebarViews = []string{ViewExplorer, ViewSearch, ViewSCM}
+
+// Layout is how a window lays its folder out: the panels beside and under
+// its editors, by the side they show on.
 type Layout struct {
-	// SidebarView is what the sidebar shows: "" the explorer, "search"
-	// the search in the files, "git" the changes for source control.
-	SidebarView   string  `json:"sidebarView,omitempty"`
-	SidebarClosed bool    `json:"sidebarClosed,omitempty"`
-	SidebarWidth  float32 `json:"sidebarWidth,omitempty"`
-	PanelHeight   float32 `json:"panelHeight,omitempty"`
-	PanelWidth    float32 `json:"panelWidth,omitempty"`
+	Panels Panels `json:"panels,omitempty"`
 	// CommitFilesOpen shows the panel of the files of a commit's tab, hidden
 	// at first, and CommitFilesWidth is how wide it is.
 	CommitFilesOpen  bool    `json:"commitFilesOpen,omitempty"`
@@ -400,27 +410,326 @@ type Layout struct {
 	// ScmChangesRatio is the share of the multi-repository view for changes.
 	// Zero fits the changes to their content, up to half the view.
 	ScmChangesRatio float32 `json:"scmChangesRatio,omitempty"`
+	// SidebarView, SidebarClosed, SidebarWidth, PanelHeight and PanelWidth
+	// are a layout of the version before the views moved between the
+	// panels, which kept the sidebar and the bottom panel apart from them.
+	// Normalize makes panels of them, and they go.
+	SidebarView   string  `json:"sidebarView,omitempty"`
+	SidebarClosed bool    `json:"sidebarClosed,omitempty"`
+	SidebarWidth  float32 `json:"sidebarWidth,omitempty"`
+	// PanelHeight is a window's, and PanelWidth the panel at a side's;
+	// a session keeps its own PanelHeight, which Normalize reads in its
+	// place.
+	PanelHeight float32 `json:"panelHeight,omitempty"`
+	PanelWidth  float32 `json:"panelWidth,omitempty"`
 }
 
 // DefaultLayout is the layout of a first launch.
-var DefaultLayout = Layout{SidebarWidth: 248, PanelHeight: 260, PanelWidth: 400, CommitFilesWidth: 240}
+var DefaultLayout = Layout{Panels: DefaultPanels(), CommitFilesWidth: 240}
+
+// DefaultPanels are the panels of a first launch: the file views on the
+// layout's left, and the terminal under the editors, closed until it
+// shows.
+func DefaultPanels() Panels {
+	return Panels{
+		SideLeft: {Views: []string{ViewExplorer, ViewSearch, ViewSCM}, Active: ViewExplorer, Open: true,
+			Size: DefaultPanelSize(SideLeft)},
+		SideBottom: {Views: []string{ViewTerminal}, Active: ViewTerminal, Size: DefaultPanelSize(SideBottom)},
+	}
+}
+
+// DefaultSide is the side a view shows on when nothing placed it: the
+// terminal under the editors, the others on the left.
+func DefaultSide(v string) Side {
+	if v == ViewTerminal {
+		return SideBottom
+	}
+	return SideLeft
+}
+
+// Side is a side of the editors a panel shows on: left of them, right of
+// them, or under them.
+type Side string
+
+const (
+	SideLeft   Side = "left"
+	SideRight  Side = "right"
+	SideBottom Side = "bottom"
+)
+
+// Sides are the sides a panel shows on, in the order a window lays them
+// out.
+var Sides = []Side{SideLeft, SideRight, SideBottom}
+
+// Panel is a panel of a window: the views it holds, as tabs, the one it
+// shows, whether it is open, and its size.
+type Panel struct {
+	// Views are the views the panel holds, in the order of their tabs.
+	Views []string `json:"views,omitempty"`
+	// Active is the view it shows, one of Views.
+	Active string `json:"active,omitempty"`
+	Open   bool   `json:"open,omitempty"`
+	// Size is its width on a side of the editors, its height at the
+	// bottom.
+	Size float32 `json:"size,omitempty"`
+}
+
+// Shown is the view the panel shows: the one it last showed, or the first
+// of its views.
+func (p *Panel) Shown() string {
+	if p == nil {
+		return ""
+	}
+	if slices.Contains(p.Views, p.Active) {
+		return p.Active
+	}
+	if len(p.Views) > 0 {
+		return p.Views[0]
+	}
+	return ""
+}
+
+// Visible reports whether the panel shows: open, with a view to show.
+func (p *Panel) Visible() bool { return p != nil && p.Open && len(p.Views) > 0 }
+
+// Activate has the panel show one of its views, open.
+func (p *Panel) Activate(v string) {
+	if !slices.Contains(p.Views, v) {
+		return
+	}
+	p.Active, p.Open = v, true
+}
+
+// Panels are a window's panels, by side. A panel is in the map from the
+// first view placed on it, and stays after its last view leaves, keeping
+// its size for the view that comes back; a panel with no view shows
+// nothing.
+type Panels map[Side]*Panel
+
+// DefaultPanelSize is how big a panel starts: wide on a side of the
+// editors, shorter at the bottom.
+func DefaultPanelSize(s Side) float32 {
+	switch s {
+	case SideBottom:
+		return 260
+	case SideLeft:
+		return 248
+	}
+	return 360
+}
+
+// Get is the panel on a side, nil when the window has none there.
+func (ps Panels) Get(s Side) *Panel { return ps[s] }
+
+// On is the panel on a side, made when the window has none there.
+func (ps *Panels) On(s Side) *Panel {
+	if p := (*ps)[s]; p != nil {
+		return p
+	}
+	if *ps == nil {
+		*ps = Panels{}
+	}
+	p := &Panel{Size: DefaultPanelSize(s)}
+	(*ps)[s] = p
+	return p
+}
+
+// SideOf is the side the panel that holds a view shows on, false when no
+// panel holds it.
+func (ps Panels) SideOf(v string) (Side, bool) {
+	for _, s := range Sides {
+		if p := ps[s]; p != nil && slices.Contains(p.Views, v) {
+			return s, true
+		}
+	}
+	return "", false
+}
+
+// Has reports whether a panel holds a view.
+func (ps Panels) Has(v string) bool {
+	_, ok := ps.SideOf(v)
+	return ok
+}
+
+// Place moves a view to the panel on a side, which shows it, out of the
+// panel it was in.
+func (ps *Panels) Place(v string, s Side) *Panel {
+	ps.Detach(v)
+	p := ps.On(s)
+	p.Views = append(slices.Clone(p.Views), v)
+	p.Active, p.Open = v, true
+	return p
+}
+
+// Detach takes a view out of the panel that holds it, which shows another
+// of its views. A panel left with none keeps its size for the next view
+// that comes, and shows nothing.
+func (ps *Panels) Detach(v string) {
+	for _, p := range *ps {
+		if p == nil {
+			continue
+		}
+		i := slices.Index(p.Views, v)
+		if i < 0 {
+			continue
+		}
+		p.Views = slices.Delete(slices.Clone(p.Views), i, i+1)
+		if p.Active == v {
+			p.Active = ""
+			if len(p.Views) > 0 {
+				p.Active = p.Views[0]
+			}
+		}
+		if len(p.Views) == 0 {
+			p.Open = false
+		}
+	}
+}
+
+// Copy returns the panels, and the views they hold, a copy.
+func (ps Panels) Copy() Panels {
+	if ps == nil {
+		return nil
+	}
+	out := make(Panels, len(ps))
+	for s, p := range ps {
+		if p == nil {
+			continue
+		}
+		c := *p
+		c.Views = slices.Clone(p.Views)
+		out[s] = &c
+	}
+	return out
+}
+
+// Normalize keeps each view in one panel, the view a panel shows one of
+// its own, the panels on the sides there are and in their bounds, and a
+// view no panel has on the side it starts on.
+func (ps Panels) Normalize() {
+	for s, p := range ps {
+		if !slices.Contains(Sides, s) || p == nil {
+			delete(ps, s)
+		}
+	}
+	// A view shows in one panel: the first that has it.
+	seen := make(map[string]bool, len(SidebarViews)+1)
+	for _, s := range Sides {
+		p := ps[s]
+		if p == nil {
+			continue
+		}
+		p.Views = slices.DeleteFunc(p.Views, func(v string) bool {
+			if !isView(v) || seen[v] {
+				return true
+			}
+			seen[v] = true
+			return false
+		})
+	}
+	// A view no panel has goes to the side it starts on, after the views
+	// there.
+	for _, v := range append(slices.Clone(SidebarViews), ViewTerminal) {
+		if seen[v] {
+			continue
+		}
+		p := ps.On(DefaultSide(v))
+		p.Views = append(slices.Clone(p.Views), v)
+		seen[v] = true
+	}
+	for _, s := range Sides {
+		p := ps[s]
+		if p == nil {
+			continue
+		}
+		if len(p.Views) == 0 {
+			// A panel with no view shows nothing, and keeps its size.
+			p.Active, p.Open = "", false
+		} else if !slices.Contains(p.Views, p.Active) {
+			p.Active = p.Views[0]
+		}
+		if p.Size == 0 {
+			p.Size = DefaultPanelSize(s)
+		}
+		if s == SideBottom {
+			p.Size = clamp(p.Size, 80, 2000)
+		} else {
+			p.Size = clamp(p.Size, 160, 2000)
+		}
+	}
+}
+
+// isView reports whether v names a view a panel may hold: one of the
+// window's, or a plugin's.
+func isView(v string) bool {
+	return v == ViewExplorer || v == ViewSearch || v == ViewSCM || v == ViewTerminal ||
+		strings.HasPrefix(v, "plugin:")
+}
 
 // Normalize keeps the layout in its bounds, as base has it where it has
-// none, as a session an older version kept.
+// none, and makes panels of the sidebar and the panel a version before the
+// views moved between them kept apart.
 func (l *Layout) Normalize(base Layout) {
-	if l.SidebarWidth == 0 {
-		*l = base
-	}
-	if l.PanelWidth == 0 {
-		l.PanelWidth = base.PanelWidth
-	}
 	if l.CommitFilesWidth == 0 {
 		l.CommitFilesWidth = base.CommitFilesWidth
 	}
-	l.SidebarWidth = clamp(l.SidebarWidth, 160, 600)
-	l.PanelWidth = clamp(l.PanelWidth, 160, 2000)
 	l.CommitFilesWidth = clamp(l.CommitFilesWidth, 140, 800)
-	l.PanelHeight = clamp(l.PanelHeight, 100, 2000)
+	// The sidebar's views, the one it showed and its width make the panel
+	// on the left; the bottom panel's height and width, the panels on the
+	// bottom and the side.
+	if l.SidebarWidth != 0 || l.SidebarClosed || l.SidebarView != "" {
+		p := l.Panels.On(SideLeft)
+		p.Views = append(slices.Clone(p.Views), SidebarViews...)
+		// The views are named by their ids: source control was "git", and
+		// the explorer "".
+		if l.SidebarView == "git" {
+			l.SidebarView = ViewSCM
+		}
+		p.Active, p.Open = l.SidebarView, !l.SidebarClosed
+		// A plugin's view was in the sidebar too, as a view of its own.
+		if strings.HasPrefix(l.SidebarView, "plugin:") {
+			p.Views = append(slices.Clone(p.Views), l.SidebarView)
+		}
+		if l.SidebarWidth != 0 {
+			p.Size = clamp(l.SidebarWidth, 160, 600)
+		}
+	}
+	if l.PanelHeight != 0 {
+		l.Panels.On(SideBottom).Size = clamp(l.PanelHeight, 100, 2000)
+	}
+	if l.PanelWidth != 0 {
+		l.Panels.On(SideRight).Size = clamp(l.PanelWidth, 160, 2000)
+	}
+	l.SidebarView, l.SidebarClosed, l.SidebarWidth = "", false, 0
+	l.PanelHeight, l.PanelWidth = 0, 0
+	if len(l.Panels) == 0 {
+		l.Panels = base.Panels.Copy()
+	}
+	l.Panels.Normalize()
+}
+
+// Normalize keeps the session's layout in its bounds, and turns the bottom
+// panel a version before the views moved between the panels kept apart
+// into a panel of them.
+func (s *Session) Normalize(base Layout) {
+	open, terminal, height := s.PanelOpen, s.TerminalOpen, s.PanelHeight
+	s.PanelOpen, s.TerminalOpen, s.PanelHeight = false, false, 0
+	s.Layout.Normalize(base)
+	if !terminal && !open && height == 0 {
+		return
+	}
+	p := s.Panels.On(SideBottom)
+	if terminal {
+		p.Views = append(slices.Clone(p.Views), ViewTerminal)
+		p.Active = ViewTerminal
+	}
+	if open {
+		p.Open = true
+	}
+	if height != 0 {
+		p.Size = height
+	}
+	s.Panels.Normalize()
 }
 
 // Column is a column of the editor area, as the settings keep it.
@@ -517,7 +826,9 @@ func Load(path string) *Settings {
 	if moved {
 		s.migrate(old)
 	}
-	s.layOut(layout)
+	if s.layOut(layout) {
+		moved = true
+	}
 	if moved {
 		s.Flush()
 	}
@@ -526,23 +837,49 @@ func Load(path string) *Settings {
 
 // layOut gives the windows and the sessions an older version kept the
 // layout it kept for them all, and keeps each in its bounds.
-func (s *Settings) layOut(old oldLayout) {
-	base := DefaultLayout
+func (s *Settings) layOut(old oldLayout) bool {
+	base := DefaultLayout.Copy()
+	left := base.Panels.Get(SideLeft)
 	if old.SidebarWidth != 0 {
-		base.SidebarWidth = old.SidebarWidth
+		left.Size = old.SidebarWidth
 	}
 	if old.PanelHeight != 0 {
-		base.PanelHeight = old.PanelHeight
+		base.Panels.Get(SideBottom).Size = old.PanelHeight
 	}
-	base.SidebarView = old.SidebarView
+	// The views are named by their ids: source control was "git", and the
+	// explorer "".
+	if old.SidebarView == "git" {
+		old.SidebarView = ViewSCM
+	}
+	if old.SidebarView == ViewSearch || old.SidebarView == ViewSCM || old.SidebarView == ViewExplorer {
+		left.Active = old.SidebarView
+	}
 	if old.SidebarOpen != nil {
-		base.SidebarClosed = !*old.SidebarOpen
+		left.Open = *old.SidebarOpen
 	}
 	for _, w := range s.Windows {
 		w.Normalize(base)
+		s.placePanel(w.Panels)
 	}
 	for _, ses := range s.Sessions {
 		ses.Normalize(base)
+		s.placePanel(ses.Panels)
+	}
+	// The layout takes the position from here: a pref that stays would
+	// move the terminal back on every start.
+	if s.PanelPosition != "" {
+		s.PanelPosition = ""
+		return true
+	}
+	return false
+}
+
+// placePanel puts the terminal where the version before the views moved
+// between the panels put its panel, and forgets the choice.
+func (s *Settings) placePanel(ps Panels) {
+	switch Side(s.PanelPosition) {
+	case SideLeft, SideRight:
+		ps.Place(ViewTerminal, Side(s.PanelPosition))
 	}
 }
 
@@ -588,6 +925,7 @@ func (p *Prefs) normalize() {
 	if p.PanelPosition != "left" && p.PanelPosition != "right" {
 		p.PanelPosition = ""
 	}
+
 	if p.TerminalLocation != "editor" {
 		p.TerminalLocation = ""
 	}
@@ -634,13 +972,20 @@ func (s *Settings) NewWindow() *Window {
 		id++
 	}
 	w := &Window{ID: id}
-	w.Layout = DefaultLayout
+	w.Layout = DefaultLayout.Copy()
 	if len(s.Windows) > 0 {
-		w.Layout = s.Windows[0].Layout
+		w.Layout = s.Windows[0].Layout.Copy()
 	}
 	s.Windows = slices.Insert(s.Windows, 0, w)
 	s.Changed()
 	return w
+}
+
+// Copy returns the layout, and the views its panels hold, a copy, which a
+// window moves without the window it was laid out as.
+func (l Layout) Copy() Layout {
+	l.Panels = l.Panels.Copy()
+	return l
 }
 
 // InRail returns the windows in the order of the rail of project tabs:
@@ -708,7 +1053,10 @@ func (s *Settings) Stash(w *Window) {
 		if s.Sessions == nil {
 			s.Sessions = map[string]*Session{}
 		}
+		// The session keeps the layout, and the views its panels hold, a
+		// copy: the window moves on without it.
 		ses := w.Session
+		ses.Layout = w.Layout.Copy()
 		s.Sessions[dir] = &ses
 	}
 	s.Changed()

@@ -702,7 +702,7 @@ func TestTermWaitPill(t *testing.T) {
 	useFakeHC(t, nil)
 	s := hcSession(t, a, "")
 	s.hcStarting = true
-	a.window.PanelOpen, a.window.TerminalOpen = true, true
+	a.window.Panels.On(settings.SideBottom).Open = true
 	shows := func(text string) bool {
 		step(hs.tt)
 		return slices.ContainsFunc(hs.tt.Texts(), func(s string) bool { return strings.Contains(s, text) })
@@ -731,7 +731,7 @@ func TestHCCopyAddress(t *testing.T) {
 	useFakeHC(t, nil)
 	s := hcSession(t, a, "vps/t2")
 	s.title = "vps"
-	a.window.PanelOpen, a.window.TerminalOpen = true, true
+	a.window.Panels.On(settings.SideBottom).Open = true
 	hs.settle()
 	if err := hs.tt.RightClick("1: vps"); err != nil {
 		t.Fatal(err)
@@ -767,7 +767,7 @@ func TestHCStartRestoresPanel(t *testing.T) {
 	})
 	attached := fakeAttach(t)
 	a.window.PanelTerms, a.window.PanelTerm = []string{"t6"}, 0
-	a.window.PanelOpen, a.window.TerminalOpen = true, true
+	a.window.Panels.On(settings.SideBottom).Open = true
 	a.start()
 	hs.settle()
 	if a.panelTerm == nil || a.panelTerm.hc != "t6" || !slices.Equal(*attached, []string{"t6+history"}) {

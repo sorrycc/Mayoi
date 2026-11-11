@@ -6350,16 +6350,6 @@ func (msgs Messages) MenuOpenRecentMore() string {
 	return Catalog.Format(msgs.locale, "menuOpenRecentMore", nil)
 }
 
-// MenuPanelPosition says "Panel Position"
-// in the language the app shows.
-func MenuPanelPosition() string { return In(i18n.Locale()).MenuPanelPosition() }
-
-// MenuPanelPosition says "Panel Position"
-// in the language of msgs.
-func (msgs Messages) MenuPanelPosition() string {
-	return Catalog.Format(msgs.locale, "menuPanelPosition", nil)
-}
-
 // MenuRemoteSSH says "Remote SSH"
 // in the language the app shows.
 func MenuRemoteSSH() string { return In(i18n.Locale()).MenuRemoteSSH() }
@@ -16712,4 +16702,54 @@ func CompletionPlaceholder() string { return In(i18n.Locale()).CompletionPlaceho
 // in the language of msgs.
 func (msgs Messages) CompletionPlaceholder() string {
 	return Catalog.Format(msgs.locale, "completionPlaceholder", nil)
+}
+
+// CmdViewLayoutLeft says "Toggle Primary Side Bar"
+// in the language the app shows.
+func CmdViewLayoutLeft() string { return In(i18n.Locale()).CmdViewLayoutLeft() }
+
+// CmdViewLayoutLeft says "Toggle Primary Side Bar"
+// in the language of msgs.
+func (msgs Messages) CmdViewLayoutLeft() string {
+	return Catalog.Format(msgs.locale, "cmdViewLayoutLeft", nil)
+}
+
+// CmdViewLayoutBottom says "Toggle Bottom Panel"
+// in the language the app shows.
+func CmdViewLayoutBottom() string { return In(i18n.Locale()).CmdViewLayoutBottom() }
+
+// CmdViewLayoutBottom says "Toggle Bottom Panel"
+// in the language of msgs.
+func (msgs Messages) CmdViewLayoutBottom() string {
+	return Catalog.Format(msgs.locale, "cmdViewLayoutBottom", nil)
+}
+
+// CmdViewLayoutRight says "Toggle Secondary Side Bar"
+// in the language the app shows.
+func CmdViewLayoutRight() string { return In(i18n.Locale()).CmdViewLayoutRight() }
+
+// CmdViewLayoutRight says "Toggle Secondary Side Bar"
+// in the language of msgs.
+func (msgs Messages) CmdViewLayoutRight() string {
+	return Catalog.Format(msgs.locale, "cmdViewLayoutRight", nil)
+}
+
+// PanelMoveTo says "Move to"
+// in the language the app shows.
+func PanelMoveTo() string { return In(i18n.Locale()).PanelMoveTo() }
+
+// PanelMoveTo says "Move to"
+// in the language of msgs.
+func (msgs Messages) PanelMoveTo() string {
+	return Catalog.Format(msgs.locale, "panelMoveTo", nil)
+}
+
+// PanelMoveViewTo says "Move View to Panel"
+// in the language the app shows.
+func PanelMoveViewTo() string { return In(i18n.Locale()).PanelMoveViewTo() }
+
+// PanelMoveViewTo says "Move View to Panel"
+// in the language of msgs.
+func (msgs Messages) PanelMoveViewTo() string {
+	return Catalog.Format(msgs.locale, "panelMoveViewTo", nil)
 }

@@ -8,6 +8,8 @@ import (
 	"testing"
 
 	"github.com/egoist/mygo/ui"
+
+	"mayoi/internal/settings"
 )
 
 // A tab's Reveal in Explorer shows the explorer in place of source
@@ -35,8 +37,8 @@ func TestTabRevealsItsFileInTheExplorer(t *testing.T) {
 		t.Fatalf("%v: %q", err, tt.Menu())
 	}
 	hs.settle()
-	if a.window.SidebarView != "" || a.window.SidebarClosed {
-		t.Fatalf("sidebar shows %q, closed %v", a.window.SidebarView, a.window.SidebarClosed)
+	if a.leftPanel().Shown() != settings.ViewExplorer || !a.leftPanel().Open {
+		t.Fatalf("the left panel shows %q, open %v", a.leftPanel().Shown(), a.leftPanel().Open)
 	}
 	if !a.files.Open.Has(dir) {
 		t.Error("the folder above the file did not open")

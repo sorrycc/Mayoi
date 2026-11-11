@@ -9,7 +9,7 @@ import (
 
 // A tab of a file goes to another project of the rail: dropped on its
 // square, or, once the drag rests there and the project shows, where it
-// is dropped in that project, as from its sidebar. The project opens the
+// is dropped in that project, as from its panel. The project opens the
 // file anew, with the changes not yet saved, and the tab leaves the one
 // it was in, unless Alt is held, which copies it.
 

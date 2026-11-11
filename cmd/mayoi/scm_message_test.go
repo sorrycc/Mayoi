@@ -11,14 +11,14 @@ func TestScmCommitMessageSizesToTextAndHint(t *testing.T) {
 	hs := newHarness(t, true)
 	git := hs.gitRepo()
 	hs.a.showSourceControl()
-	hs.a.window.SidebarWidth = 360
+	hs.a.leftPanel().Size = 360
 	hs.settle()
 	short, ok := hs.tt.Find(locales.ScmCommitMessage())
 	if !ok || short.H > 32 {
 		t.Fatalf("short message field: %v %v", short, ok)
 	}
 	git("checkout", "-qb", "feature/a-long-branch-name-that-wraps-the-commit-hint")
-	hs.a.window.SidebarWidth = 240
+	hs.a.leftPanel().Size = 240
 	hs.settleGit()
 	wrapped, _ := hs.tt.Find(locales.ScmCommitMessage())
 	if wrapped.H <= short.H {

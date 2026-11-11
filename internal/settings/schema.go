@@ -65,7 +65,9 @@ var Schema = []Field{
 	{Key: "zoomLevel", Category: CatAppearance, Kind: KindNumber, Min: MinZoomLevel, Max: MaxZoomLevel, Step: 0.5},
 	{Key: "sidebarRight", Category: CatAppearance, Kind: KindBool},
 	{Key: "explorerCompactFolders", Category: CatAppearance, Kind: KindBool},
-	{Key: "panelPosition", Category: CatAppearance, Kind: KindEnum, Options: []string{"", "left", "right"}},
+	// panelPosition is what a version before the views moved between the
+	// panels wrote; the layout takes it once, and forgets it.
+	{Key: "panelPosition", Category: CatAppearance, Kind: KindEnum, Options: []string{"", "left", "right"}, Memory: true},
 	{Key: "projectTabs", Category: CatAppearance, Kind: KindBool},
 	{Key: "projectTabStyle", Category: CatAppearance, Kind: KindStyles},
 

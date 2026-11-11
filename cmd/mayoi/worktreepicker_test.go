@@ -14,6 +14,8 @@ import (
 	"mayoi/internal/git"
 	"mayoi/internal/workspace"
 	"mayoi/locales"
+
+	"mayoi/internal/settings"
 )
 
 // worktreeFixture is the harness's repository with a linked worktree
@@ -548,7 +550,7 @@ func TestSourceControlRowFitsNarrowSidebar(t *testing.T) {
 	// Draw the sidebar alone so polling cannot replace the test's status,
 	// and labels cannot resolve to the status bar's matching buttons.
 	tt := ui.NewTester(func(c *ui.Context) {
-		ui.Column(c).Width(a.window.SidebarWidth).Height(760).Children(func() { a.sidebar(c) })
+		ui.Column(c).Width(a.leftPanel().Size).Height(760).Children(func() { a.panel(c, settings.SideLeft) })
 	}, 600, 760)
 	draw := func() {
 		for range 3 {
@@ -561,7 +563,7 @@ func TestSourceControlRowFitsNarrowSidebar(t *testing.T) {
 		{locales.CmdGitFetch(), iconLeast}, {locales.CmdGitPull(), iconLeast}, {locales.CmdGitPush(), iconLeast},
 	}
 	for _, w := range []float32{160, 240, 400} {
-		a.window.SidebarWidth = w
+		a.leftPanel().Size = w
 		draw()
 		controls := []control{{name, iconLeast}, {locales.BranchLabel(branch), branchLeast}, more}
 		if w >= scmRemoteRowW {
@@ -573,11 +575,11 @@ func TestSourceControlRowFitsNarrowSidebar(t *testing.T) {
 	}
 	// Counts take room of their own: a row with them shows its remote buttons
 	// only where they fit, and wide, always.
-	a.window.SidebarWidth = 160
+	a.leftPanel().Size = 160
 	a.git.status.Ahead, a.git.status.Behind = 10, 10
 	draw()
 	for _, w := range []float32{160, 180, 200, 240, 400} {
-		a.window.SidebarWidth = w
+		a.leftPanel().Size = w
 		draw()
 		controls := []control{{name, iconLeast}, {locales.BranchLabel(branch), branchLeast}, more}
 		if _, ok := tt.Find(locales.CmdGitFetch()); ok || w >= 400 {
@@ -603,7 +605,7 @@ func TestSourceControlRowFitsNarrowSidebar(t *testing.T) {
 			}
 			draw()
 			for _, w := range []float32{160, 200, 240, 400} {
-				a.window.SidebarWidth = w
+				a.leftPanel().Size = w
 				draw()
 				// The badge is shown whole or by its number beside the worktree and
 				// branch buttons at every width; the remote buttons show where they fit.
@@ -625,7 +627,7 @@ func TestSourceControlRowFitsNarrowSidebar(t *testing.T) {
 	hs.settleGit()
 	openSCM(hs)
 	for _, w := range []float32{160, 240, 400} {
-		a.window.SidebarWidth = w
+		a.leftPanel().Size = w
 		draw()
 		fitsSidebar(t, tt, w, []control{
 			{locales.WorktreeStatusTip(filepath.Base(dir2)), iconLeast}, {locales.BranchLabel(branch + "2"), branchLeast},
@@ -877,7 +879,7 @@ func TestPullRequestBadgeAppearsInAFrame(t *testing.T) {
 	// Draw the sidebar alone so polling cannot replace the test's status,
 	// and labels cannot resolve to the status bar's matching buttons.
 	tt := ui.NewTester(func(c *ui.Context) {
-		ui.Column(c).Width(a.window.SidebarWidth).Height(760).Children(func() { a.sidebar(c) })
+		ui.Column(c).Width(a.leftPanel().Size).Height(760).Children(func() { a.panel(c, settings.SideLeft) })
 	}, 600, 760)
 	draw := func() {
 		for range 3 {
@@ -887,7 +889,7 @@ func TestPullRequestBadgeAppearsInAFrame(t *testing.T) {
 	name := filepath.Base(dir)
 	reviewed := &git.PR{Number: 93, State: "OPEN", URL: "https://example.com/pull/93", Review: "APPROVED", Checks: git.ChecksPass, Passed: 3}
 	for _, w := range []float32{200, 400} {
-		a.window.SidebarWidth = w
+		a.leftPanel().Size = w
 		draw()
 		a.git.pr, a.git.prRepo, a.git.prBranch = reviewed, a.git.repo, branch
 		// Two redraw requests: the first draws the badge, the second lays out the

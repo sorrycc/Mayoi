@@ -21,6 +21,7 @@ import (
 
 	"mayoi/internal/bg"
 	"mayoi/internal/remote"
+	"mayoi/internal/settings"
 	"mayoi/internal/vfs"
 	"mayoi/internal/workspace"
 	"mayoi/locales"
@@ -60,7 +61,7 @@ type searchFile struct {
 // else a match of it.
 type searchRow struct{ file, match int }
 
-// searchState is the search view of the sidebar: its query, options and
+// searchState is the search view: its query, options and
 // results.
 type searchState struct {
 	query, with            string
@@ -122,7 +123,7 @@ func (s *searchState) searchKey() string {
 // changed says the results changed, so their rows are made again.
 func (s *searchState) changed() { s.version++ }
 
-// showSearch shows search in the sidebar, with the keyboard in its query,
+// showSearch shows search in its panel, with the keyboard in its query,
 // which becomes the selection's text when it is on one line, and selects
 // the query so typing or pasting replaces it.
 func (a *app) showSearch(replace bool) {
@@ -136,8 +137,7 @@ func (a *app) showSearch(replace bool) {
 		}
 	}
 	s.replacing = s.replacing || replace
-	a.window.SidebarClosed, a.window.SidebarView = false, "search"
-	a.settings.Changed()
+	a.showView(settings.ViewSearch)
 	s.input.SelectAll()
 }
 
@@ -818,7 +818,7 @@ func (a *app) replaceAllInFiles() {
 	})
 }
 
-// searchView is the search view of the sidebar: the query and its
+// searchView is the search view: the query and its
 // options, and the matches found, under their files.
 func (a *app) searchView(c *ui.Context) {
 	p := a.pal
@@ -1171,7 +1171,7 @@ func (a *app) searchMatchRow(c *ui.Context, i int, f *searchFile, m searchMatch,
 }
 
 // previewLead is how many characters of its line a match's row shows
-// before it, at most, so that the match shows in a narrow sidebar.
+// before it, at most, so that the match shows in a narrow panel.
 const previewLead = 28
 
 // matchPreview is the line of a match as its row shows it: from a little

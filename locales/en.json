@@ -855,7 +855,6 @@
   "menuLanguage": "Language",
   "menuOpenRecent": "Open Recent",
   "menuOpenRecentMore": "More…",
-  "menuPanelPosition": "Panel Position",
   "menuRemoteSSH": "Remote SSH",
   "menuReview": "Review",
   "menuSelection": "Selection",
@@ -1880,5 +1879,10 @@
   "lspDown": "The language server isn't running",
   "definitionNone": "No definition found",
   "completionNone": "No completions here",
-  "completionPlaceholder": "Complete with"
+  "completionPlaceholder": "Complete with",
+  "cmdViewLayoutLeft": "Toggle Primary Side Bar",
+  "cmdViewLayoutBottom": "Toggle Bottom Panel",
+  "cmdViewLayoutRight": "Toggle Secondary Side Bar",
+  "panelMoveTo": "Move to",
+  "panelMoveViewTo": "Move View to Panel"
 }

@@ -23,6 +23,7 @@ import (
 	"mayoi/internal/git"
 	"mayoi/internal/highlight"
 	"mayoi/internal/remote"
+	"mayoi/internal/settings"
 	"mayoi/locales"
 )
 
@@ -32,9 +33,9 @@ const (
 	crumbsH    = 24
 	statusBarH = 24
 	panelHeadH = 34
-	// panelTitleW is the least width of a panel at a side that still
-	// shows its title, past the room its terminals and tools need.
-	panelTitleW = 300
+	// termStripH is the row of a terminal's sessions, under the panel's
+	// views.
+	termStripH = 28
 )
 
 // view builds the window: a title bar, the explorer beside the editor
@@ -56,6 +57,7 @@ func (a *app) view(c *ui.Context) {
 	}
 	a.drain()
 	a.pumpChain()
+	a.syncPluginViews()
 	// The key the keymap took is let go of where its release does not
 	// come: in a place with no text, or another window.
 	if a.held != nil && (a.blurred || a.keyFocus != placeEditor && a.keyFocus != placeInput) {
@@ -108,49 +110,20 @@ func (a *app) view(c *ui.Context) {
 
 	ui.Column(c).Fill().Background(p.chrome).Children(func() {
 		a.titleBar(c)
-		// The panes keep their places in the tree, by keys, as the sidebar
-		// and the panel come and go, so that the editors keep their state.
+		// The panes keep their places in the tree, by keys, as the panels
+		// come and go, so that the editors keep their state.
 		ui.Row(c).Grow(1).MinHeight(0).AlignItems(ui.Stretch).Children(func() {
 			if a.rail != nil {
 				a.rail(c)
 			}
-			s, w := a.settings, a.window
-			// The panel is at the window's edge, past the sidebar, so
-			// that with both on a side the panel is the outer one.
-			side := ""
-			if w.PanelOpen {
-				side = a.panelSide()
-			}
-			sidebar := func() {
-				if w.SidebarClosed {
-					return
-				}
-				// Its splitter is along the edge facing the editors.
-				at, dir := edgeRight, float32(1)
-				box := ui.Column(c.Key("sidebar")).Width(w.SidebarWidth).Shrink(0).BorderColor(p.seam())
-				a.grained(box)
-				if s.SidebarRight {
-					at, dir = edgeLeft, -1
-					box.BorderWidth(0, 0, 0, 1)
-				} else {
-					box.BorderWidth(0, 1, 0, 0)
-				}
-				box.Children(func() {
-					a.sidebar(c)
-					a.splitter(c, at, func(d float32) {
-						width, _ := c.Size()
-						w.SidebarWidth = clamp(w.SidebarWidth+dir*d, 160, max(width-320, 160))
-					})
-				})
-			}
-			if side == "left" {
-				a.sidePanel(c, false)
-			}
-			if !s.SidebarRight {
-				sidebar()
-			}
+			w := a.window
+			// The panels show on the sides the layout gives them: a
+			// layout that runs right to left shows the panel of its left
+			// on the right of the window.
+			left, right := a.sideOn(settings.SideLeft), a.sideOn(settings.SideRight)
+			a.panelColumn(c, left, edgeRight)
 			main := ui.Column(c.Key("main")).MinWidth(0)
-			if (side == "left" || side == "right") && a.panelMax {
+			if a.panelMax != "" && a.panelMax != settings.SideBottom && w.Panels.Get(a.panelMax).Visible() {
 				// A panel maximized at a side takes the row, so the
 				// editors give it theirs rather than sharing it. One at
 				// the bottom is in the editors' column, and takes theirs.
@@ -158,17 +131,10 @@ func (a *app) view(c *ui.Context) {
 			} else {
 				main.Grow(1)
 				// Inset from the window's edges where it meets them.
-				left := a.rail == nil && side != "left" && (w.SidebarClosed || s.SidebarRight)
-				right := side != "right" && (w.SidebarClosed || !s.SidebarRight)
-				a.asCard(main, left, right)
+				a.asCard(main, a.rail == nil && !w.Panels.Get(left).Visible(), !w.Panels.Get(right).Visible())
 			}
 			main.Children(func() { a.main(c) })
-			if s.SidebarRight {
-				sidebar()
-			}
-			if side == "right" {
-				a.sidePanel(c, true)
-			}
+			a.panelColumn(c, right, edgeLeft)
 		})
 		a.statusBar(c)
 	})
@@ -218,82 +184,90 @@ func (a *app) view(c *ui.Context) {
 // at the bottom.
 func (a *app) main(c *ui.Context) {
 	p, w := a.pal, a.window
-	panel := w.PanelOpen
+	bottom := w.Panels.Get(settings.SideBottom)
+	panel := bottom.Visible()
 	a.remoteBanner(c)
 	editor := ui.Column(c.Key("editor")).Grow(1).MinHeight(0).Background(p.editor).Clip()
-	if panel && a.panelMax {
+	if panel && a.panelMax == settings.SideBottom {
 		// Out of sight, but built, so that the editors keep their state.
 		editor.Grow(0).Height(0).Invisible()
 	}
 	editor.Children(func() { a.columns(c) })
-	if !panel || a.panelSide() != "bottom" {
+	if !panel {
 		return
 	}
 	_, h := c.Size()
 	room := h - titleBarH - statusBarH
-	height := clamp(w.PanelHeight, 80, max(room-80, 80))
+	height := clamp(bottom.Size, 80, max(room-80, 80))
 	box := ui.Column(c.Key("panel")).Shrink(0).BorderWidth(1, 0, 0, 0).BorderColor(p.border)
-	if a.panelMax {
+	if a.panelMax == settings.SideBottom {
 		box.Grow(1)
 	} else {
 		box.Height(height)
 	}
 	box.Children(func() {
-		a.panel(c)
-		if !a.panelMax {
+		a.panel(c, settings.SideBottom)
+		if a.panelMax != settings.SideBottom {
 			a.splitter(c, edgeTop, func(d float32) {
-				w.PanelHeight = clamp(height-d, 80, max(room-80, 80))
+				bottom.Size = clamp(height-d, 80, max(room-80, 80))
 			})
 		}
 	})
 }
 
-// panelSide is the side the terminal panel is on: "bottom", "left" or
-// "right".
-func (a *app) panelSide() string {
-	switch a.settings.PanelPosition {
-	case "left", "right":
-		return a.settings.PanelPosition
+// sidePanelSize is how wide a panel on a side gets in a window of width,
+// and the most its splitter allows. Two visible side panels share the room
+// outside the editors' 320 points and the rail, rather than each clamping
+// its own width as though the other were not there.
+func (a *app) sidePanelSize(s settings.Side, width float32) (size, room float32) {
+	other := settings.SideRight
+	if s == settings.SideRight {
+		other = settings.SideLeft
 	}
-	return "bottom"
-}
-
-// sidePanel is the terminal panel at a side of the window, past the
-// sidebar, its splitter along the edge facing the editors.
-func (a *app) sidePanel(c *ui.Context, right bool) {
-	p, w := a.pal, a.window
-	width, _ := c.Size()
-	at, dir := edgeRight, float32(1)
-	box := ui.Column(c.Key("panel")).Shrink(0).BorderColor(p.border)
-	if right {
-		at, dir = edgeLeft, -1
-		box.BorderWidth(0, 0, 0, 1)
-	} else {
-		box.BorderWidth(0, 1, 0, 0)
-	}
-	// It leaves the editors 320 points beside the sidebar and the rail,
-	// as the sidebar leaves them, however narrow the window.
-	room := width - 320
-	if !w.SidebarClosed {
-		room -= w.SidebarWidth
+	room = width - 320
+	if p := a.window.Panels.Get(other); p.Visible() {
+		room -= p.Size
 	}
 	if a.rail != nil {
 		room -= railW
 	}
 	room = max(room, minPanelW)
-	size := clamp(w.PanelWidth, minPanelW, room)
-	if a.panelMax {
+	return clamp(a.window.Panels.Get(s).Size, minPanelW, room), room
+}
+
+// panelColumn is the panel on a side of the editors: a column as wide as
+// the window keeps it, with a handle on its inner edge, at.
+func (a *app) panelColumn(c *ui.Context, s settings.Side, at edge) {
+	panel := a.window.Panels.Get(s)
+	if !panel.Visible() {
+		return
+	}
+	p := a.pal
+	width, _ := c.Size()
+	dir := float32(1)
+	box := ui.Column(c.Key("panel:" + string(s))).Shrink(0).BorderColor(p.seam())
+	a.grained(box)
+	if at == edgeLeft {
+		dir = -1
+		box.BorderWidth(0, 0, 0, 1)
+	} else {
+		box.BorderWidth(0, 1, 0, 0)
+	}
+	size, room := a.sidePanelSize(s, width)
+	if a.panelMax == s {
 		box.Grow(1)
 	} else {
 		box.Width(size)
 	}
 	box.Children(func() {
-		a.panel(c)
-		if !a.panelMax {
-			a.splitter(c, at, func(d float32) {
-				w.PanelWidth = clamp(size+dir*d, minPanelW, room)
-			})
+		a.panel(c, s)
+		if a.panelMax == s {
+			return
 		}
+		a.splitter(c, at, func(d float32) {
+			panel.Size = clamp(size+dir*d, minPanelW, room)
+			a.settings.Changed()
+		})
 	})
 }
 
@@ -301,9 +275,9 @@ func (a *app) sidePanel(c *ui.Context, right bool) {
 type edge int
 
 const (
-	edgeRight edge = iota // the sidebar's, on the left
+	edgeRight edge = iota // a left panel's, on its right
 	edgeTop               // the panel's
-	edgeLeft              // a column's, after the first, or the sidebar's on the right
+	edgeLeft              // a column's, after the first, or a right panel's on its left
 )
 
 // splitter is the handle along an edge of a pane that resizes it. drag
@@ -382,54 +356,97 @@ func (a *app) titleBar(c *ui.Context) {
 		BorderWidth(0, 0, 1, 0).BorderColor(p.hairline()).DragWindow()
 	a.grained(row)
 	row.Children(func() {
-		// The sidebar's button is on its side. The terminal's is on the
-		// panel's: at the left of the bar when the panel is at the
-		// window's left, past the sidebar's button when the sidebar is
-		// there too, as the panel lies past the sidebar; at the right
-		// otherwise.
-		right := a.settings.SidebarRight
-		panelLeft := a.panelSide() == "left"
-		sidebarButton := func() {
-			icon := iconSidebar
-			if right {
-				icon = iconSidebarRight
-			}
-			if a.iconButton(c, icon, a.withKey(locales.CmdViewSidebar(), "view.sidebar"), !a.window.SidebarClosed).Clicked() {
-				a.toggleSidebar()
-			}
-		}
-		terminalButton := func() {
-			btn := a.iconButton(c, iconTerminal, a.withKey(locales.CmdViewTerminal(), "view.terminal"), a.window.PanelOpen)
-			if runtime.GOOS == "linux" {
-				btn.Padding(1, 0, 0, 0)
-			}
-			if btn.Clicked() {
-				a.togglePanel()
-			}
-		}
 		ui.Row(c).Basis(0).Grow(1).MinWidth(56).Gap(2).Children(func() {
 			if hostOS != "darwin" {
 				a.iconButton(c, iconMenu, locales.Menu(), false).Menu(a.appUIMenu)
-			}
-			if panelLeft {
-				terminalButton()
-			}
-			if !right {
-				sidebarButton()
 			}
 		})
 		ui.Row(c).Width(420).MaxWidthPercent(68).Shrink(1).MinWidth(140).Justify(ui.Center).AlignItems(ui.Center).Children(func() {
 			a.commandCenter(c)
 		})
 		ui.Row(c).Basis(0).Grow(1).MinWidth(56).Justify(ui.End).Gap(2).Children(func() {
-			if !panelLeft {
-				terminalButton()
-			}
-			if right {
-				sidebarButton()
-			}
+			// A button for each panel, as VS Code's layout controls: the
+			// primary side bar, the bottom panel and the secondary side bar,
+			// in a stable order as the layout mirrors.
+			a.panelToggle(c, settings.SideLeft)
+			a.panelToggle(c, settings.SideBottom)
+			a.panelToggle(c, settings.SideRight)
 		})
 	})
+}
+
+// panelToggle is the button that shows or hides the primary side bar, the
+// bottom panel or the secondary side bar. Its icon names the physical side
+// the panel shows on; its label does not change as the layout mirrors. A
+// panel with no view has a faint, disabled button.
+func (a *app) panelToggle(c *ui.Context, s settings.Side) {
+	shown := a.sideOn(s)
+	icon := iconPanel
+	switch shown {
+	case settings.SideLeft:
+		icon = iconSidebar
+	case settings.SideRight:
+		icon = iconSidebarRight
+	}
+	label, cmd := locales.CmdViewLayoutBottom(), "view.panelBottom"
+	switch s {
+	case settings.SideLeft:
+		label, cmd = locales.CmdViewLayoutLeft(), "view.sidebar"
+	case settings.SideRight:
+		label, cmd = locales.CmdViewLayoutRight(), "view.panelRight"
+	}
+	p := a.window.Panels.Get(s)
+	if p == nil || len(p.Views) == 0 {
+		b := ui.ButtonBase(c).Size(26, 24).Radius(5).Justify(ui.Center).AlignItems(ui.Center).
+			Label(label).Tooltip(label).Disabled(true)
+		b.Children(func() { ui.Icon(c, icon).FontSize(15).TextColor(a.pal.faint) })
+		return
+	}
+	if a.iconButton(c, icon, a.withKey(label, cmd), p.Visible()).Clicked() {
+		a.togglePanelAt(s)
+	}
+}
+
+// togglePanelAt shows or hides the panel on a side, and the keyboard with
+// it when it hides the one it is in.
+func (a *app) togglePanelAt(s settings.Side) {
+	p := a.window.Panels.Get(s)
+	// A panel with no view of its own has nothing to show, and is not
+	// made one by its button.
+	if p == nil || len(p.Views) == 0 {
+		return
+	}
+	holds := a.panelHoldsKeys(s)
+	p.Open = !p.Open
+	a.settings.Changed()
+	if p.Open {
+		return
+	}
+	if a.panelMax == s {
+		a.panelMax = ""
+	}
+	if holds {
+		a.focusColumn()
+	}
+}
+
+// toggleSidebar shows or hides the panel on the layout's left, which the
+// window's shortcuts call the left panel, and the keyboard with it.
+func (a *app) toggleSidebar() { a.togglePanelAt(settings.SideLeft) }
+
+// sideOn is the side of the window a panel shows on: a layout that runs
+// right to left swaps the two of the sides.
+func (a *app) sideOn(s settings.Side) settings.Side {
+	if !a.settings.SidebarRight {
+		return s
+	}
+	switch s {
+	case settings.SideLeft:
+		return settings.SideRight
+	case settings.SideRight:
+		return settings.SideLeft
+	}
+	return s
 }
 
 // commandCenter is the box in the middle of the title bar: it names the
@@ -717,7 +734,7 @@ func (a *app) hideEditor(d *editor) {
 }
 
 // dragItem is what is dragged to a column: one of its tabs, or of
-// another's, a terminal of the panel, or a file of the sidebar.
+// another's, a terminal of a panel, or a file of a panel.
 type dragItem struct {
 	tab  *colTab
 	term *session
@@ -1532,7 +1549,7 @@ func (a *app) welcome(c *ui.Context) {
 					}
 					a.welcomeAction(c, iconCommand, locales.CmdGoCommands(), a.keyHint("go.commands"), func() { a.openQuick(">") })
 					a.welcomeAction(c, iconFilePlus, locales.CmdFileNew(), a.keyHint("file.new"), a.newFile)
-					a.welcomeAction(c, iconTerminal, locales.CmdViewTerminal(), a.keyHint("view.terminal"), a.togglePanel)
+					a.welcomeAction(c, iconTerminal, locales.CmdViewTerminal(), a.keyHint("view.terminal"), a.toggleTerminal)
 					a.welcomeAction(c, iconSidebar, locales.CmdViewSidebar(), a.keyHint("view.sidebar"), a.toggleSidebar)
 					a.welcomeAction(c, iconSparkles, locales.CmdViewSelectTheme(), a.keyHint("view.selectTheme"), a.openThemePicker)
 					if a.host.account() == "" && a.settings.Path() != "" {
@@ -1617,7 +1634,7 @@ const welcomeRowH = 30
 func (a *app) welcomeSection(c *ui.Context, title string, delay time.Duration, rows func()) {
 	p := a.pal
 	riseIn(ui.Column(c.Key("welcome:"+title)).Gap(2), delay).Children(func() {
-		// As the sidebar titles its views.
+		// As a panel titles its views.
 		ui.Text(c, strings.ToUpper(title)).FontSize(11).FontWeight(600).LetterSpacing(0.7).TextColor(p.muted).Padding(0, 10, 6)
 		rows()
 	})
@@ -1701,36 +1718,38 @@ func (a *app) caps(c *ui.Context, caps []string) {
 	})
 }
 
-func (a *app) toggleSidebar() {
-	a.window.SidebarClosed = !a.window.SidebarClosed
-	a.settings.Changed()
-}
-
 // toggleSidebarRight moves the sidebar to the other side of the editors.
 func (a *app) toggleSidebarRight() {
 	a.settings.SidebarRight = !a.settings.SidebarRight
 	a.settings.Changed()
 }
 
-// togglePanel shows or hides the terminal panel, starting a terminal the
-// first time it shows.
-func (a *app) togglePanel() {
-	w := a.window
-	if w.PanelOpen && a.focus != paneTerminal && a.panelTerm != nil {
-		// Shown but not focused: focus it, as VS Code does.
-		a.focusTerminal()
-		return
-	}
-	w.PanelOpen = !w.PanelOpen
-	if w.PanelOpen {
-		if a.panelTerm == nil {
-			a.newTerminal()
+// toggleTerminal shows or hides the terminal's view, starting a terminal
+// the first time it shows, unless a panel shows it with the keyboard in
+// it, which it hides.
+func (a *app) toggleTerminal() {
+	if a.terminalShown() {
+		if a.focus != paneTerminal && a.panelTerm != nil {
+			// Shown but not focused: focus it, as VS Code does.
+			a.focusTerminal()
+			return
 		}
-		a.focusTerminal()
-	} else {
-		a.focusColumn()
+		if side, ok := a.viewSide(panelTerminal); ok {
+			a.hidePanel(side)
+			return
+		}
 	}
-	a.settings.Changed()
+	a.showTerminalInPanel()
+}
+
+// showTerminalInPanel shows the terminal's view, starting a terminal when
+// it has none, and gives it the keyboard.
+func (a *app) showTerminalInPanel() {
+	a.showTerminalView()
+	a.showPanelView(panelTerminal)
+	if a.panelTerm == nil {
+		a.newTerminal()
+	}
 }
 
 // toggleTerminalLocation has new terminals open in the editor area, or in
@@ -1744,14 +1763,17 @@ func (a *app) toggleTerminalLocation() {
 	a.settings.Changed()
 }
 
-// setPanelPosition moves the terminal panel to a side of the window, or
-// back below the editors for "", and shows it when it was hidden.
+// setPanelPosition moves the terminal's view to a side of the window, or
+// back below the editors for "", and shows it.
 func (a *app) setPanelPosition(pos string) {
-	a.settings.PanelPosition = pos
-	a.settings.Changed()
-	if !a.window.PanelOpen {
-		a.togglePanel()
+	side := settings.SideBottom
+	switch pos {
+	case "left":
+		side = settings.SideLeft
+	case "right":
+		side = settings.SideRight
 	}
+	a.moveView(panelTerminal, side)
 }
 
 func shortenHome(p string) string {

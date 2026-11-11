@@ -150,41 +150,52 @@ func TestProjectKeepsItsLayout(t *testing.T) {
 	f, hs, tt := railFixture(t, root, other)
 	a, b := hs[0].a, hs[1].a
 	a.showSourceControl()
-	a.window.SidebarWidth, a.window.PanelHeight = 320, 400
+	a.leftPanel().Size, a.bottomPanel().Size = 320, 400
 	step(tt)
 	if !tt.HasText("SOURCE CONTROL") {
-		t.Fatalf("A's sidebar: %v", tt.Texts())
+		t.Fatalf("A's panel: %v", tt.Texts())
 	}
 	f.active = hs[1]
 	step(tt)
 	step(tt)
-	if tt.HasText("SOURCE CONTROL") || !tt.HasText("EXPLORER") || b.window.SidebarWidth == 320 || b.window.PanelHeight == 400 {
-		t.Fatalf("B's sidebar: %+v, %v", b.window.Layout, tt.Texts())
+	if tt.HasText("SOURCE CONTROL") || !tt.HasText("EXPLORER") {
+		t.Fatalf("B's panel: %v", tt.Texts())
 	}
-	b.toggleSidebar()
+	if b.leftPanel().Size == 320 || b.bottomPanel().Size == 400 {
+		t.Fatalf("B took A's sizes: %+v", b.window.Panels)
+	}
 	f.active = hs[0]
 	step(tt)
 	step(tt)
-	if !tt.HasText("SOURCE CONTROL") || a.window.SidebarClosed || a.window.SidebarWidth != 320 || a.window.PanelHeight != 400 {
-		t.Fatalf("A's sidebar again: %+v, %v", a.window.Layout, tt.Texts())
+	if !tt.HasText("SOURCE CONTROL") || !a.leftPanel().Open || a.leftPanel().Size != 320 || a.bottomPanel().Size != 400 {
+		t.Fatalf("A's panel again: %+v, %v", a.window.Panels, tt.Texts())
 	}
 }
 
-// A folder opens again with the layout it had as it closed.
+// A folder opens again with the layout it had as it closed: the panels,
+// what each shows and how big they are.
 func TestFolderKeepsItsLayout(t *testing.T) {
 	root := workspaceFixture(t)
 	s := settings.Default()
 	s.AddRecent(root)
 	w := s.NewWindow()
 	w.Folder, w.Expanded = root, []string{"src"}
-	w.SidebarView, w.SidebarWidth = "git", 320
+	w.Panels.Place(settings.ViewSearch, settings.SideRight)
+	w.Panels.Get(settings.SideRight).Size = 320
+	w.Panels.Get(settings.SideLeft).Active = settings.ViewSCM
 	s.Forget(w)
 	x := s.NewWindow()
 	a := newApp(&fakeHost{folder: root}, s, x)
 	t.Cleanup(a.shutdown)
 	a.openSession(root)
-	if x.SidebarView != "git" || x.SidebarWidth != 320 {
-		t.Fatalf("layout %+v", x.Layout)
+	if at, _ := x.Panels.SideOf(settings.ViewSearch); at != settings.SideRight {
+		t.Fatalf("search is on %q", at)
+	}
+	if got := x.Panels.Get(settings.SideRight).Size; got != 320 {
+		t.Errorf("the right panel is %v wide, was 320", got)
+	}
+	if got := x.Panels.Get(settings.SideLeft).Shown(); got != settings.ViewSCM {
+		t.Errorf("the left panel shows %q", got)
 	}
 }
 

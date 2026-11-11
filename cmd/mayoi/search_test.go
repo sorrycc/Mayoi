@@ -10,6 +10,8 @@ import (
 	"time"
 
 	"github.com/egoist/mygo/ui"
+
+	"mayoi/internal/settings"
 )
 
 // settleSearch draws frames until the search under way, or waiting to
@@ -60,8 +62,8 @@ func TestSearchInFiles(t *testing.T) {
 	a, tt := hs.a, hs.tt
 	hs.searchFor("main")
 	s := &a.inFiles
-	if a.window.SidebarView != "search" || !tt.HasText("SEARCH") {
-		t.Fatalf("sidebar shows %q", a.window.SidebarView)
+	if a.leftPanel().Shown() != settings.ViewSearch || !tt.HasText("SEARCH") {
+		t.Fatalf("the left panel shows %q", a.leftPanel().Shown())
 	}
 	if got := strings.Join(resultFiles(s), " "); got != "main.go" || s.count != 3 {
 		t.Fatalf("results %q, %d matches; want main.go, 3", got, s.count)

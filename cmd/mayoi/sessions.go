@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -53,6 +54,16 @@ type sessionsState struct {
 	// rowKey is the key of the session chosen, which the choice stays on
 	// as the sessions are read again and move.
 	rowKey string
+	// glide is the choice's background on its way from the row it was on,
+	// and listH how tall the list was, a page for Page Up and Page Down.
+	glide choiceGlide
+	listH float32
+	// choiceHovered tells that the pointer was over the row chosen, as
+	// it is when a click chose it.
+	choiceHovered bool
+	// endKey is Home or End, which the query took from its caret since the
+	// last frame, for the choice; 0 for none.
+	endKey ui.Key
 
 	read     bg.Poller[string]
 	sessions []agents.Session
@@ -326,6 +337,14 @@ func (a *app) keepChoice(lines []sessionLine, now time.Time) []sessionLine {
 		fresh = k.query != was.query || k.root != was.root || k.all != was.all
 		st.appear.note(len(lines), func(i int) string { return lines[i].key() }, now, fresh)
 		st.appearKey = k
+		if !fresh {
+			// A row that comes back as it goes comes on from where it was.
+			for _, l := range st.shown {
+				if !l.gone.IsZero() {
+					st.appear.resume(l.key(), st.lineShown(l, now), now)
+				}
+			}
+		}
 	}
 	if st.shown == nil || st.shownGen != st.linesGen || (!st.goneEnd.IsZero() && !now.Before(st.goneEnd)) {
 		// Those of another query or folder don't go: the list shows
@@ -356,7 +375,7 @@ func (a *app) keepChoice(lines []sessionLine, now time.Time) []sessionLine {
 
 // leaveLines are lines with those of was they don't have among them as
 // they go: each after the line before it that stays, gone from now unless
-// it went before, and left out once gone for motionShow. end is when the
+// it went before, and left out once gone for motionLeave. end is when the
 // first of those among them is, zero for none.
 func leaveLines(was, lines []sessionLine, now time.Time) (out []sessionLine, end time.Time) {
 	if len(was) == 0 {
@@ -377,7 +396,7 @@ func leaveLines(was, lines []sessionLine, now time.Time) (out []sessionLine, end
 		if l.gone.IsZero() {
 			l.gone = now
 		}
-		until := l.gone.Add(motionShow)
+		until := l.gone.Add(motionLeave)
 		if !now.Before(until) {
 			continue
 		}
@@ -406,7 +425,7 @@ func leaveLines(was, lines []sessionLine, now time.Time) (out []sessionLine, end
 // a reading, and back to 0 as it goes.
 func (st *sessionsState) lineShown(l sessionLine, now time.Time) float32 {
 	if !l.gone.IsZero() {
-		return 1 - ui.EaseOut(min(float32(now.Sub(l.gone))/float32(motionShow), 1))
+		return 1 - ui.EaseOut(min(float32(now.Sub(l.gone))/float32(motionLeave), 1))
 	}
 	return st.appear.shown(l.key(), now)
 }
@@ -424,6 +443,154 @@ func (a *app) openShut(c *ui.Context, row ui.Element, l sessionLine, h float32, 
 		row.Height(h * k).ClipY()
 	}
 	c.AnimationFrame()
+}
+
+// sessionKeys moves the choice among rows by the keys shortcut reports:
+// Page Up and Page Down by a page, and from the query, Up and Down by a
+// row, and Home and End (with Ctrl but on macOS, where they move no
+// caret) to the first and the last.
+func (a *app) sessionKeys(rows []sessionLine, shortcut func(ui.Modifiers, ui.Key) bool, query bool) {
+	st := &a.sessions
+	if len(rows) == 0 {
+		return
+	}
+	end := st.endKey
+	st.endKey = 0
+	to, d := -1, 0
+	switch {
+	case shortcut(0, ui.KeyPageDown):
+		to, d = a.sessionPage(rows, st.row, 1), 1
+	case shortcut(0, ui.KeyPageUp):
+		to, d = a.sessionPage(rows, st.row, -1), -1
+	case !query:
+	case shortcut(0, ui.KeyDown):
+		to, d = sessionStep(rows, st.row, 1), 1
+	case shortcut(0, ui.KeyUp):
+		to, d = sessionStep(rows, st.row, -1), -1
+	case end == ui.KeyHome:
+		to, d = sessionAt(rows, 0), -1
+	case end == ui.KeyEnd:
+		to, d = sessionStep(rows, len(rows), -1), 1
+	}
+	if to < 0 || to >= len(rows) {
+		return
+	}
+	st.row = to
+	st.noteChoice(rows)
+	st.showChoice(rows, d)
+}
+
+// endsMods are the modifiers with which Home and End in the query move the
+// choice: none on macOS, where they move no caret in a field of its own,
+// else Ctrl, as Home and End alone move the caret.
+func endsMods() ui.Modifiers {
+	if runtime.GOOS == "darwin" {
+		return 0
+	}
+	return ui.Ctrl
+}
+
+// sessionPage is the session row of lines a page after i, or before it
+// for a negative d: the last a list as tall as the last frame's shows
+// whole below its pinned head, from i; the next one at least.
+func (a *app) sessionPage(lines []sessionLine, i, d int) int {
+	view := a.sessions.listH
+	if view <= 0 {
+		view = 10 * sessionRowH
+	}
+	view -= sessionsHeadH
+	to, y := i, float32(0)
+	for j := i + d; j >= 0 && j < len(lines); j += d {
+		if y += a.lineH(lines[j]) + sessionRowGap; y > view && to != i {
+			break
+		}
+		if lines[j].session() {
+			to = j
+		}
+	}
+	return to
+}
+
+// showChoice scrolls the list as little as shows the row chosen, and the
+// line past it in d, so that the next the keys go to shows, and the head
+// pinned at the top never hides it.
+func (st *sessionsState) showChoice(lines []sessionLine, d int) {
+	i := st.row
+	if j := i + d; d != 0 && j >= 0 && j < len(lines) {
+		i = j
+	}
+	st.list.ScrollIntoView(i)
+}
+
+// skipGone moves the choice the list's keys put on a row that goes past
+// it, on from pre, where it was, rather than letting it rest there a frame
+// and come back.
+func (a *app) skipGone(lines []sessionLine, pre int) {
+	st := &a.sessions
+	if st.row == pre || st.row < 0 || st.row >= len(lines) || lines[st.row].session() {
+		return
+	}
+	j := sessionStep(lines, st.row, cmp.Compare(st.row, pre))
+	if j == st.row {
+		j = pre
+	}
+	st.row = j
+	st.noteChoice(lines)
+}
+
+// lineH is the height of the row of line l, as it stays.
+func (a *app) lineH(l sessionLine) float32 {
+	switch {
+	case l.head:
+		return sessionsHeadH
+	case a.sessionLook(l).why != nil:
+		return sessionRowH + sessionWhyH
+	}
+	return sessionRowH
+}
+
+// choiceGlideSpan is how many lines apart the choice glides between two
+// rows at most; further, as Page Down takes it, it shows there at once.
+const choiceGlideSpan = 3
+
+// choiceGlide is the background of the choice as it glides to the row of
+// key, at row, from y above it (below, for a negative y) at at.
+type choiceGlide struct {
+	key string
+	row int
+	y   float32
+	at  time.Time
+}
+
+// glideTo is how far from row i of lines the choice's background shows at
+// now, and how much of the way there it went, from 0 to 1: it glides there
+// over motionHover from the row it was on, easing out as it follows a key.
+// A key that repeats as it glides, a row far off, or less motion, puts it
+// there at once.
+func (a *app) glideTo(lines []sessionLine, i int, now time.Time, reduce bool) (y, there float32) {
+	g := &a.sessions.glide
+	if k := lines[i].key(); g.key != k {
+		y = 0
+		if g.key != "" && !reduce && g.row >= 0 && g.row < len(lines) && lines[g.row].key() == g.key &&
+			abs(g.row-i) <= choiceGlideSpan && now.Sub(g.at) >= motionHover {
+			lo, hi := min(g.row, i), max(g.row, i)
+			for j := lo; j < hi; j++ {
+				y += a.lineH(lines[j]) + sessionRowGap
+			}
+			if g.row < i {
+				y = -y
+			}
+		}
+		g.key, g.y, g.at = k, y, now
+	}
+	g.row = i
+	k := float32(now.Sub(g.at)) / float32(motionHover)
+	if g.y == 0 || k >= 1 {
+		g.y = 0
+		return 0, 1
+	}
+	there = ui.EaseOut(k)
+	return g.y * (1 - there), there
 }
 
 // noteChoice notes the key of the session chosen in lines.
@@ -447,8 +614,19 @@ func (a *app) sessionsView(c *ui.Context) {
 	}
 	now := c.Now()
 	rows := a.keepChoice(a.sessionLines(a.sessionRows(), now), now)
+	a.sessionLooks()
+	queryKeys := false
 	ui.Column(c).Padding(0, 12, 6, 12).Gap(6).Children(func() {
 		in := a.searchField(c, "sessions-query", &st.query, locales.SessionsFind(), &st.input, nil)
+		queryKeys = in.Focused()
+		in.OnTextKey(func(k ui.TextKey) bool {
+			if (k.Key != ui.KeyHome && k.Key != ui.KeyEnd) || k.Mods != endsMods() {
+				return false
+			}
+			st.endKey = k.Key
+			a.invalidate()
+			return true
+		})
 		if in.Changed() {
 			st.row, st.rowKey = 0, ""
 		}
@@ -457,18 +635,9 @@ func (a *app) sessionsView(c *ui.Context) {
 				a.resumeSession(rows[i].s)
 			}
 		}
-		// Up and Down move the choice, as in Quick Open, with the keyboard
-		// left in the query.
-		for _, step := range [...]struct {
-			key ui.Key
-			d   int
-		}{{ui.KeyDown, 1}, {ui.KeyUp, -1}} {
-			if in.Shortcut(0, step.key) && len(rows) > 0 {
-				st.row = sessionStep(rows, st.row, step.d)
-				st.noteChoice(rows)
-				st.list.ScrollIntoView(st.row)
-			}
-		}
+		// Up and Down, Page Up and Page Down, and Home and End move the
+		// choice, as in Quick Open, with the keyboard left in the query.
+		a.sessionKeys(rows, in.Shortcut, true)
 		if a.root != "" {
 			ui.Segmented(c.Key("sessions-scope"), &st.all, locales.SessionsThisProject(), locales.SessionsAllProjects())
 		}
@@ -502,22 +671,47 @@ func (a *app) sessionsView(c *ui.Context) {
 	base := c.Theme()
 	quiet := *base
 	// The rows paint their hover themselves, to fade it with their
-	// buttons.
-	quiet.Accent, quiet.AccentText, quiet.SurfaceHover = p.active, p.text, ui.Color{}
+	// buttons, and the choice, to glide it between them.
+	quiet.Accent, quiet.AccentText, quiet.SurfaceHover = ui.Color{}, p.text, ui.Color{}
 	c.SetTheme(&quiet)
 	var action func()
 	dots := a.hcBackend()
-	a.sessionLooks()
+	pre := st.row
 	out := ui.List(c.Key("sessions"), &st.list, len(rows), func(i int) {
+		a.skipGone(rows, pre)
 		if r := rows[i]; r.head {
 			a.sessionsHead(c, r, now)
 		} else {
 			// The chosen row shows its buttons while the list has the
 			// keyboard, as the keys that run them do.
-			keyed := i == st.row && st.list.FocusWithin(c)
-			a.sessionRow(c, r, now, dots, i == st.row, keyed, &action)
+			var choice *sessionChoice
+			if i == st.row {
+				listKeys := st.list.FocusWithin(c)
+				choice = &sessionChoice{keyed: listKeys, held: listKeys || queryKeys}
+				choice.y, choice.there = a.glideTo(rows, i, now, c.Preferences().ReduceMotion)
+			}
+			row := a.sessionRow(c, r, now, dots, choice, &action)
+			if choice != nil {
+				st.choiceHovered = row.Hovered()
+			}
 		}
-	}).Grow(1).Padding(0, 6, 8, 6).Gap(sessionRowGap)
+	}).Grow(1).Padding(0, 6, 8, 6).Gap(sessionRowGap).FocusRing(false) // the choice rings itself
+	st.listH = out.Bounds().H
+	a.skipGone(rows, pre)
+	if st.row != pre && !st.choiceHovered {
+		// The keys of the list moved it: the row past it shows too.
+		st.showChoice(rows, cmp.Compare(st.row, pre))
+	}
+	if runtime.GOOS == "darwin" {
+		// Page Up and Page Down only scroll a list of macOS; here they
+		// move the choice, as from the query.
+		a.sessionKeys(rows, func(m ui.Modifiers, k ui.Key) bool { return st.list.Shortcut(c, m, k) }, false)
+	}
+	if st.row >= 0 && st.row < len(rows) {
+		// The list's keys and clicks move the choice after its rows are
+		// built: it glides from the next frame on.
+		a.glideTo(rows, st.row, now, c.Preferences().ReduceMotion)
+	}
 	if since := now.Sub(st.shownAt); since < motionShow {
 		out.Opacity(ui.EaseOut(float32(since) / float32(motionShow)))
 		c.AnimationFrame()
@@ -638,7 +832,7 @@ func (a *app) sessionsEmpty(c *ui.Context) {
 // row that came with a reading of the sessions fades in as it opens its
 // place, and the rows under it slide down; one a reading dropped fades out
 // as it closes its place, and they slide up.
-func (a *app) sessionRow(c *ui.Context, l sessionLine, now time.Time, dots, chosen, keyed bool, action *func()) ui.Element {
+func (a *app) sessionRow(c *ui.Context, l sessionLine, now time.Time, dots bool, choice *sessionChoice, action *func()) ui.Element {
 	p := a.pal
 	st := &a.sessions
 	s := l.s
@@ -652,14 +846,16 @@ func (a *app) sessionRow(c *ui.Context, l sessionLine, now time.Time, dots, chos
 	}
 	row := ui.Row(c).Grow(1).Gap(8).AlignItems(ui.Center).Height(h).Padding(0, 6, 0, 6).Tooltip(look.tip)
 	a.openShut(c, row, l, h, now)
+	chosen, keyed := choice != nil, choice != nil && choice.keyed
 	// The buttons take the place of the time as the pointer comes, and
 	// give it back as it goes; neither moves the title or the folder. They
-	// come at once with the choice the keys move. A row that goes shows
-	// none.
+	// come with the choice the keys move, as it glides in. A row that goes
+	// shows none.
 	going := !l.gone.IsZero()
 	reveal := row.Animate("reveal", unit(row.Hovered() && !going), motionHover)
 	if keyed {
-		reveal = 1
+		// As the choice comes, with it.
+		reveal = max(reveal, choice.there)
 	}
 	row.ContextMenu(func(m *ui.Menu) {
 		if going {
@@ -678,6 +874,10 @@ func (a *app) sessionRow(c *ui.Context, l sessionLine, now time.Time, dots, chos
 		}
 	})
 	row.Children(func() {
+		var mark ui.Color
+		if chosen {
+			mark = a.choiceMark(c, choice, h)
+		}
 		if !chosen && reveal > 0 {
 			// The hover, under the rest, in step with the buttons: it never
 			// leaves them over a row gone plain, nor the other way round.
@@ -734,7 +934,7 @@ func (a *app) sessionRow(c *ui.Context, l sessionLine, now time.Time, dots, chos
 			// the title and the folder fade into before them.
 			bg := p.hover.Over(p.chrome)
 			if chosen {
-				bg = p.active.Over(p.chrome)
+				bg = mark.Over(p.chrome)
 			}
 			ui.Row(c.Key("actions")).Absolute().Right(0).Top(0).Bottom(0).Opacity(reveal).Children(func() {
 				ui.Box(c).Width(16).Gradient(bg.Alpha(0), bg, 90)
@@ -745,6 +945,37 @@ func (a *app) sessionRow(c *ui.Context, l sessionLine, now time.Time, dots, chos
 		}
 	})
 	return row
+}
+
+// sessionChoice is how the row chosen shows the choice: y from its place
+// as it glides there, there of the way, and whether the list has the
+// keyboard (keyed), or it or the query, whose keys move the choice (held).
+type sessionChoice struct {
+	y, there    float32
+	keyed, held bool
+}
+
+// choiceMark is the background of the choice, under the rest of a row h
+// tall: quieter while neither the list nor the query has the keyboard, and
+// ringed in the accent, faintly, while the list does, the ring coming as
+// it glides in rather than crossing the text of the rows on its way. It
+// fades between them over motionHover, also with less motion.
+// It returns its color, for the buttons to sit on.
+func (a *app) choiceMark(c *ui.Context, choice *sessionChoice, h float32) ui.Color {
+	p := a.pal
+	box := ui.Box(c.Key("choice")).Absolute().Left(0).Right(0).Top(0).Height(h).Radius(6)
+	held := box.Animate("held", unit(choice.held), motionHover)
+	keyed := box.Animate("keyed", unit(choice.keyed), motionHover)
+	col := p.active.Alpha(0.5 + 0.5*held)
+	box.Background(col)
+	if keyed > 0 {
+		box.Border(1, p.accent.Alpha(0.45*keyed*choice.there*choice.there))
+	}
+	if choice.y != 0 {
+		box.Translate(0, choice.y)
+		c.AnimationFrame()
+	}
+	return col
 }
 
 // lookKey is what the looks of the rows depend on: the rows shown, and

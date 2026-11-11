@@ -7,12 +7,12 @@ The order: it works, then it is easy, then it looks good. Polish never covers a 
 
 ## Motion
 
-- Every animation takes its length from a token in `cmd/mayoi/motion.go`: `motionTap` (100 ms), `motionHover`
-  (120), `motionShow` (150), `motionMove` (200) and `motionEnter` (240). `TestMotionUsesTokens` fails on a length
+- Every animation takes its length from a token in `cmd/mayoi/motion.go`: `motionTap` (100 ms), `motionLeave`
+  (110), `motionHover` (120), `motionShow` (150), `motionMove` (200) and `motionEnter` (240). `TestMotionUsesTokens` fails on a length
   written out anywhere else.
 - What a person does a hundred times a day does not move. A dialog opened by a key (the command palette, Quick Open,
   a picker) shows at once (`keyedOpen`); opened with the pointer, it fades in over `motionShow`. The chosen row of a
-  list moves with the keys.
+  list moves with the keys: where it glides, as in Sessions, it starts at once and a key that repeats puts it there.
 - Motion says where something came from, or that a state changed. Looking nice is not a reason.
 - Coming in and going out ease out; moving across the screen eases in and out. Nothing eases in.
 - Going out is shorter and smaller than coming in.

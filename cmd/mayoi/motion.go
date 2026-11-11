@@ -26,6 +26,9 @@ const (
 	// that glides: long enough to see where it came from, short enough
 	// never to wait for.
 	motionShow = 150 * time.Millisecond
+	// motionLeave is a row that goes, as a session a reading dropped:
+	// shorter than motionShow, which it came in over, as going out is.
+	motionLeave = 110 * time.Millisecond
 	// motionMove is a thing that moves across the screen to its new
 	// place, as a scroll to a change or a chip's thumb, and the theme's
 	// colors as they fade to another.
@@ -174,6 +177,21 @@ func (ap *appearing) shown(key string, now time.Time) float32 {
 		return 1
 	}
 	return ui.EaseOut(min(float32(now.Sub(at))/float32(motionShow), 1))
+}
+
+// resume has the row of key, which comes again as it was going, come on
+// from k, how far in it shows at now, rather than from nothing.
+func (ap *appearing) resume(key string, k float32, now time.Time) {
+	if _, ok := ap.at[key]; !ok || k <= 0 {
+		return
+	}
+	if k >= 1 {
+		delete(ap.at, key)
+		return
+	}
+	// The inverse of EaseOut, 1-(1-t)³.
+	t := 1 - math.Cbrt(float64(1-k))
+	ap.at[key] = now.Add(-time.Duration(t * float64(motionShow)))
 }
 
 // chevron is the arrow of what folds: it points to the side while

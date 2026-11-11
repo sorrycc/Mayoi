@@ -5,6 +5,11 @@ needs a `## <version>` section here, or its build fails.
 
 ## Unreleased
 
+- In **Sessions**, `Page Up` and `Page Down` move the chosen session by a page, from the search field or the list.
+- `Home` and `End` in the **Sessions** search field choose the first or last session (`Ctrl` on Windows and Linux).
+- The chosen session glides to its new row and keeps the next row in view as the keys move it.
+- The chosen session is ringed while the **Sessions** list has the keyboard, and dims when the keyboard is elsewhere.
+- A session that drops out of **Sessions** fades out faster, and one that comes back mid-fade picks up where it was.
 - Clicking a repository's name or row background in source control expands or collapses its changes.
 - **Settings > Shortcuts** lists **Report a Problem** under Help instead of Account.
 - A `mayoi://file` link opens its file at the line and column it names.

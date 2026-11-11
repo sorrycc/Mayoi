@@ -567,14 +567,14 @@ func TestSessionsDroppedRowGoes(t *testing.T) {
 	if got := lines[sessionStep(lines, st.row, -1)].s.ID; got != "a" {
 		t.Errorf("Up from c goes to %q, want a past b", got)
 	}
-	if k := st.lineShown(lines[2], now.Add(motionShow/2)); k <= 0 || k >= 1 {
+	if k := st.lineShown(lines[2], now.Add(motionLeave/2)); k <= 0 || k >= 1 {
 		t.Errorf("b halfway gone shows at %v, want between 0 and 1", k)
 	}
-	lines = a.keepChoice(st.lines, now.Add(motionShow/2))
+	lines = a.keepChoice(st.lines, now.Add(motionLeave/2))
 	if got, want := ids(lines), "#0 a -b c #1 -old"; got != want {
 		t.Errorf("the lines halfway are %q, want %q", got, want)
 	}
-	lines = a.keepChoice(st.lines, now.Add(motionShow))
+	lines = a.keepChoice(st.lines, now.Add(motionLeave))
 	if got, want := ids(lines), "#0 a c"; got != want {
 		t.Errorf("the lines once gone are %q, want %q", got, want)
 	}
@@ -606,5 +606,214 @@ func TestSessionAgoKeptForItsMinute(t *testing.T) {
 	}
 	if got, want := lk.agoAt(updated, updated), ago(updated, updated); got != want {
 		t.Errorf("ago as the clock goes back is %q, want %q", got, want)
+	}
+}
+
+// sessionsOfToday shows n sessions of today in the view, s0 the latest, with
+// the keyboard in the query.
+func sessionsOfToday(t *testing.T, hs *harness, n int) *sessionsState {
+	skipOnWindows(t, "the sessions' folders are POSIX paths")
+	a := hs.a
+	agentHome(t, hs.root)
+	a.sessions.all = 1
+	a.showSessions()
+	hs.settle()
+	st := &a.sessions
+	now := time.Now()
+	ss := make([]agents.Session, n)
+	for i := range ss {
+		id := "s" + strconv.Itoa(i)
+		ss[i] = agents.Session{Harness: agents.Codex, ID: id, Title: "fix " + id, Dir: hs.root, Updated: now.Add(-time.Duration(i) * time.Second)}
+	}
+	st.sessions = ss
+	st.version++
+	hs.settle()
+	return st
+}
+
+// chosenID is the session the choice is on.
+func chosenID(st *sessionsState) string {
+	if st.row < 0 || st.row >= len(st.shown) {
+		return ""
+	}
+	return st.shown[st.row].s.ID
+}
+
+// Page Up and Page Down move the choice by a page, from the query and from
+// the list, and Home and End from the query to the first and the last,
+// each showing the row chosen.
+func TestSessionsPageAndEndKeys(t *testing.T) {
+	hs := newHarness(t, true)
+	st := sessionsOfToday(t, hs, 60)
+	ends := endsMods()
+	inView := func(id string) bool {
+		r, ok := hs.tt.Find("fix " + id)
+		return ok && r.Y >= 0 && r.Y+r.H <= 760
+	}
+	hs.key(0, ui.KeyPageDown)
+	n, _ := strconv.Atoi(strings.TrimPrefix(chosenID(st), "s"))
+	if n < 5 || n >= 59 {
+		t.Fatalf("Page Down in the query chose %q, want a page on", chosenID(st))
+	}
+	if !hs.tt.Focused(locales.SessionsFind()) {
+		t.Error("Page Down took the keyboard from the query")
+	}
+	hs.key(ends, ui.KeyEnd)
+	if got := chosenID(st); got != "s59" || !inView(got) {
+		t.Errorf("End chose %q, in view %v; want s59, shown", got, inView(got))
+	}
+	hs.key(0, ui.KeyPageUp)
+	if m, _ := strconv.Atoi(strings.TrimPrefix(chosenID(st), "s")); m != 59-n {
+		t.Errorf("Page Up from the end chose %q, want s%d", chosenID(st), 59-n)
+	}
+	hs.key(ends, ui.KeyHome)
+	if got := chosenID(st); got != "s0" || !inView(got) {
+		t.Errorf("Home chose %q, in view %v; want s0, shown", got, inView(got))
+	}
+	// Into the list, past the switch of the folders.
+	hs.key(0, ui.KeyTab)
+	hs.key(0, ui.KeyTab)
+	hs.key(0, ui.KeyPageDown)
+	if got := chosenID(st); got != "s"+strconv.Itoa(n) || !inView(got) {
+		t.Errorf("Page Down in the list chose %q, in view %v; want s%d, shown", got, inView(got), n)
+	}
+	hs.key(0, ui.KeyPageUp)
+	if got := chosenID(st); got != "s0" {
+		t.Errorf("Page Up in the list chose %q, want s0", got)
+	}
+}
+
+// Up in the list past a row that goes lands on the row above it at once,
+// rather than resting on the one going and coming back.
+func TestSessionsUpSkipsALeavingRow(t *testing.T) {
+	hs := newHarness(t, true)
+	st := sessionsOfToday(t, hs, 3)
+	hs.key(0, ui.KeyTab)
+	hs.key(0, ui.KeyTab)
+	hs.key(0, ui.KeyDown)
+	hs.key(0, ui.KeyDown)
+	if got := chosenID(st); got != "s2" {
+		t.Fatalf("the choice is on %q, want s2", got)
+	}
+	st.sessions = []agents.Session{st.sessions[0], st.sessions[2]}
+	st.version++
+	hs.tt.Frame()
+	hs.tt.Key(0, ui.KeyUp)
+	for range 3 {
+		step(hs.tt)
+		if got := chosenID(st); got != "s0" {
+			t.Fatalf("after Up past s1 going the choice is on %q, want s0", got)
+		}
+	}
+}
+
+// The choice's background glides to the row the keys move it to, starting
+// at once, and shows there at once for a key that repeats as it glides,
+// for a row far off, and with less motion.
+func TestSessionsChoiceGlides(t *testing.T) {
+	a := newHarness(t, true).a
+	now := time.Date(2026, 3, 10, 9, 0, 0, 0, time.Local)
+	var lines []sessionLine
+	lines = append(lines, sessionLine{head: true, id: "#"})
+	for i := range 8 {
+		id := "s" + strconv.Itoa(i)
+		lines = append(lines, sessionLine{s: agents.Session{Harness: agents.Codex, ID: id}, id: id})
+	}
+	a.sessionLooks()
+	g := &a.sessions.glide
+	*g = choiceGlide{key: "s0", row: 1, at: now.Add(-time.Second)}
+	step := float32(sessionRowH + sessionRowGap)
+	if y, there := a.glideTo(lines, 2, now, false); y != -step || there != 0 {
+		t.Errorf("the choice moved down starts at %v, %v there; want %v, 0", y, there, -step)
+	}
+	if y, there := a.glideTo(lines, 2, now.Add(motionHover/2), false); !(y < 0 && y > -step/2) || there <= 0.5 {
+		t.Errorf("halfway the choice is at %v, %v there; want past half of %v, easing out", y, there, -step)
+	}
+	if y, _ := a.glideTo(lines, 2, now.Add(motionHover/2), false); y == 0 {
+		t.Error("the glide stopped as the row was built again")
+	}
+	if y, _ := a.glideTo(lines, 3, now.Add(motionHover/2), false); y != 0 {
+		t.Errorf("a key repeating as it glides puts it %v off, want 0", y)
+	}
+	if y, _ := a.glideTo(lines, 2, now.Add(time.Second), false); y != step {
+		t.Errorf("Up starts at %v, want %v", y, step)
+	}
+	if y, _ := a.glideTo(lines, 2, now.Add(time.Second+motionHover), false); y != 0 {
+		t.Errorf("the glide ends at %v, want 0", y)
+	}
+	if y, _ := a.glideTo(lines, 8, now.Add(2*time.Second), false); y != 0 {
+		t.Errorf("a row far off is %v off, want 0", y)
+	}
+	if y, _ := a.glideTo(lines, 7, now.Add(3*time.Second), true); y != 0 {
+		t.Errorf("with less motion it is %v off, want 0", y)
+	}
+}
+
+// The choice shows strongest while the query or the list has the keyboard,
+// ringed while the list does, and quieter while neither does.
+func TestSessionsChoiceShowsWhereTheKeysAre(t *testing.T) {
+	hs := newHarness(t, true)
+	sessionsOfToday(t, hs, 3)
+	row, ok := hs.tt.Find("fix s0")
+	if !ok {
+		t.Fatal("no row of s0")
+	}
+	// Left of the title, in the row's padding, and on its edge.
+	at := func() (inside, edge [4]uint8) {
+		img := hs.tt.Image()
+		in, e := img.RGBAAt(int(row.X+3), int(row.Y+row.H/2)), img.RGBAAt(int(row.X), int(row.Y+row.H/2))
+		return [4]uint8{in.R, in.G, in.B, in.A}, [4]uint8{e.R, e.G, e.B, e.A}
+	}
+	query, queryEdge := at()
+	hs.key(0, ui.KeyTab)
+	hs.key(0, ui.KeyTab)
+	list, listEdge := at()
+	if list != query || listEdge == queryEdge {
+		t.Errorf("with the list focused the choice is %v, edge %v; want %v, ringed against %v", list, listEdge, query, queryEdge)
+	}
+	// Away, on the page beside the sidebar.
+	hs.tt.ClickAt(700, 600)
+	hs.settle()
+	away, _ := at()
+	if away == query {
+		t.Errorf("with the keyboard elsewhere the choice shows as %v, as with it in the query", away)
+	}
+}
+
+// A row that comes back as it goes comes on from as far as it showed,
+// rather than from nothing, and goes over motionLeave, less than it comes.
+func TestSessionsReturningRowResumes(t *testing.T) {
+	a := newHarness(t, true).a
+	st := &a.sessions
+	now := time.Date(2026, 3, 10, 9, 0, 0, 0, time.Local)
+	at := func(id string, ago time.Duration) agents.Session {
+		return agents.Session{Harness: agents.Codex, ID: id, Updated: now.Add(-ago)}
+	}
+	read := func(t time.Time, ss ...agents.Session) []sessionLine {
+		st.rowsKey.version++
+		return a.keepChoice(a.sessionLines(ss, now), t)
+	}
+	if motionLeave >= motionShow {
+		t.Errorf("going out takes %v, coming in %v; want it shorter", motionLeave, motionShow)
+	}
+	read(now, at("a", time.Hour), at("b", 2*time.Hour))
+	lines := read(now, at("a", time.Hour))
+	mid := now.Add(motionLeave / 2)
+	var was float32
+	for _, l := range lines {
+		if l.s.ID == "b" {
+			was = st.lineShown(l, mid)
+		}
+	}
+	if was <= 0 || was >= 1 {
+		t.Fatalf("b halfway gone shows at %v", was)
+	}
+	lines = read(mid, at("a", time.Hour), at("b", 2*time.Hour))
+	for _, l := range lines {
+		if l.s.ID == "b" {
+			if got := st.lineShown(l, mid); got < was-0.01 || got > was+0.01 {
+				t.Errorf("b back shows at %v, want %v, where it was", got, was)
+			}
+		}
 	}
 }

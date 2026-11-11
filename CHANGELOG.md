@@ -20,6 +20,7 @@ needs a `## <version>` section here, or its build fails.
 - A `mayoi://file` link opens its file at the line and column it names.
 - LocatorJS's **Custom link** reaches Mayoi with `mayoi://file/${projectPath}${filePath}:${line}:${column}`.
 - A `mayoi://` link to a missing file says Mayoi could not open it, in the window in front.
+- Math with `\tag{…}` now renders in the Markdown preview, its label beside the equation.
 
 ## 0.19.3
 

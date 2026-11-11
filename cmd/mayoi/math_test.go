@@ -21,6 +21,16 @@ func TestRenderMath(t *testing.T) {
 			}
 		}
 	}
+	// A labelled equation is drawn with its label beside it.
+	for _, tex := range []string{`E=mc^2 \tag{1}`, `x \tag*{A}`, `\begin{align}a&=b\tag{1}\\c&=d\tag{2}\end{align}`} {
+		f, plain := renderMath(tex, true), renderMath(`E=mc^2`, true)
+		if f.err != "" || f.svg == nil || f.w <= 0 || f.ascent <= 0 || f.depth < 0 {
+			t.Errorf("%s: %+v", tex, f)
+		}
+		if tex == `E=mc^2 \tag{1}` && f.w < plain.w+1 {
+			t.Errorf("%s is no wider than without its label: %v, %v", tex, f.w, plain.w)
+		}
+	}
 	if f := renderMath(`\frac{a}{b}`, false); f.depth < 0.3 {
 		t.Errorf("a fraction does not reach below the baseline: %+v", f)
 	}

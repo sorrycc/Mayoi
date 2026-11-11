@@ -27,8 +27,33 @@ import 'mathjax-full/js/input/tex/boldsymbol/BoldsymbolConfiguration.js';
 
 const adaptor = liteAdaptor();
 RegisterHTMLHandler(adaptor);
+const tex = new TeX({packages: ['base', 'ams', 'newcommand', 'boldsymbol']});
+// MathJax lays out a labelled row, of \tag, as wide as the page, its
+// label at its edge, which a drawing of its own size has none of: the
+// label is put after the row instead, in a column of its own, 2em on.
+tex.postFilters.add(({data}) => {
+	data.root.walkTree((table) => {
+		if (!table.isKind('mtable') || !table.childNodes.some((row) => row.isKind('mlabeledtr'))) {
+			return;
+		}
+		const f = table.factory;
+		const cols = Math.max(...table.childNodes.map((row) => row.childNodes.length - (row.isKind('mlabeledtr') ? 1 : 0)));
+		for (const row of [...table.childNodes]) {
+			if (!row.isKind('mlabeledtr')) {
+				continue;
+			}
+			const [label, ...cells] = row.childNodes;
+			while (cells.length < cols) {
+				cells.push(f.create('mtd'));
+			}
+			const tag = f.create('mtd', {}, [f.create('mspace', {width: '2em'}), ...label.childNodes[0].childNodes]);
+			tag.attributes.set('columnalign', 'left');
+			table.replaceChild(f.create('mtr', row.attributes.getAllAttributes(), [...cells, tag]), row);
+		}
+	});
+});
 const doc = mathjax.document('', {
-	InputJax: new TeX({packages: ['base', 'ams', 'newcommand', 'boldsymbol']}),
+	InputJax: tex,
 	OutputJax: new SVG({fontCache: 'none'}),
 });
 export function render(tex, display) {

@@ -10,6 +10,7 @@ import (
 	"github.com/egoist/mygo/plugins/terminal"
 	"github.com/egoist/mygo/ui"
 
+	"mayoi/internal/agents"
 	"mayoi/internal/bg"
 	"mayoi/locales"
 )
@@ -432,7 +433,11 @@ func (a *app) termIcon(c *ui.Context, s *session, size float32, tint, bg ui.Colo
 		box.Tooltip(termWait(s)).Label(termWait(s))
 	}
 	box.Children(func() {
-		ui.Icon(c, iconTerminal).FontSize(size).TextColor(tint)
+		icon := iconTerminal
+		if h, ok := termAgent(s); ok {
+			icon, tint = agentIcon(p, h)
+		}
+		ui.Icon(c, icon).FontSize(size).TextColor(tint)
 		if st == termHere && !busy {
 			return
 		}
@@ -468,6 +473,19 @@ func (a *app) termIcon(c *ui.Context, s *session, size float32, tint, bg ui.Colo
 		}
 		badge.Draw(func(pt *ui.Painter, r ui.Rect) { statusDot(pt, r, cut, col, bg, pulse, ready) })
 	})
+}
+
+// termAgent is the agent that runs in a terminal, as far as it is known:
+// the one the Sessions view resumed in it, or else the one its programs
+// say runs.
+func termAgent(s *session) (agents.Harness, bool) {
+	if s.agent != "" {
+		return s.agent, true
+	}
+	if r, ok := s.status.Top(); ok {
+		return agents.HarnessOfApp(r.App)
+	}
+	return "", false
 }
 
 // statusDot paints a dot of col in r, inside a ring of bg cut wide. For

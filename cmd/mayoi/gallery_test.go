@@ -72,6 +72,23 @@ var galleryStates = []struct {
 		hs.settle()
 		hs.a.sessions.query = "login blank"
 	}},
+	{"sessions-agents", func(hs *harness) {
+		// A session of each agent, each row marked with its agent's icon.
+		home := agentHome(hs.t, hs.root)
+		cwd := filepath.ToSlash(hs.root)
+		files := map[string]string{
+			".qoder/projects/p/q1.jsonl": `{"type":"user","message":{"content":"add dark mode"},"cwd":"` + cwd + `"}` + "\n",
+			".codex/sessions/2026/rollout-x1.jsonl": `{"type":"session_meta","payload":{"id":"x1","cwd":"` + cwd + `"}}` + "\n" +
+				`{"type":"response_item","payload":{"type":"message","role":"user","content":"speed up the build"}}` + "\n",
+			".grok/sessions/p/g1/summary.json": `{"info":{"id":"g1","cwd":"` + cwd + `"},"generated_title":"Write the release notes"}`,
+		}
+		for name, text := range files {
+			p := filepath.Join(home, filepath.FromSlash(name))
+			os.MkdirAll(filepath.Dir(p), 0o755)
+			os.WriteFile(p, []byte(text), 0o644)
+		}
+		hs.a.showSessions()
+	}},
 	{"unsaved", func(hs *harness) {
 		hs.a.openFile(hs.path("main.go"), true)
 		hs.settle()

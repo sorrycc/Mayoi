@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"fmt"
 	"io"
+	"mayoi/internal/agents"
 	"mayoi/internal/keymap"
 	"mayoi/internal/remote"
 	"mayoi/internal/settings"
@@ -71,6 +72,10 @@ type session struct {
 	// started is when its program started, to tell a shell that exits
 	// as it starts from one the user ended.
 	started time.Time
+	// agent is the agent the Sessions view resumed in it, or showed it
+	// for, and resumed the key of the session, "" for none.
+	agent   agents.Harness
+	resumed string
 }
 
 // label is what the terminal is called: the name the user gave it, or

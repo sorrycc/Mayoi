@@ -24,10 +24,11 @@ import (
 // machine, Claude Code of each of its config folders, Qoder, Codex and
 // Grok, the one used last first: of the window's folder, or of every
 // folder. A query narrows them by title, first prompt, folder, agent or
-// id, its words marked where a row shows them, and Enter resumes one in a
-// terminal of its folder. With the terminal
-// backend "hc", a session that runs in a terminal of herdr-core says
-// what it does, and resuming it shows that terminal.
+// id, its words marked where a row shows them, each row marked with its
+// agent's icon, and Enter resumes one in a terminal of its folder, in a tab
+// of the column that has the keyboard. With the terminal backend "hc", a
+// session that runs in a terminal of herdr-core says what it does, and
+// resuming it shows that terminal, in a tab.
 
 // agentScanner reads the sessions for every window, and keeps what it
 // read of each file.
@@ -749,6 +750,9 @@ const (
 	// sessionWhyH is how much taller a row is that says why the query
 	// found it.
 	sessionWhyH = 15
+	// sessionIconSize is the size of the icon of a row's agent, as tall as
+	// the line it leads.
+	sessionIconSize = 12
 	// sessionRowGap is the room between rows, so that the chosen row and
 	// the one under the pointer read as two.
 	sessionRowGap = 2
@@ -821,7 +825,8 @@ func (a *app) sessionsEmpty(c *ui.Context) {
 }
 
 // sessionRow is the row of a session: its title, and under it what it
-// does while it runs in herdr-core, its agent and its folder, and at the
+// does while it runs in herdr-core, its agent, by its icon and name, and its
+// folder, and at the
 // end when it was used last, where the pointer over it shows buttons that
 // resume it and copy how to, as its menu does; keyed, as the row chosen
 // while the list has the keyboard, it shows them too. The words of the
@@ -913,6 +918,10 @@ func (a *app) sessionRow(c *ui.Context, l sessionLine, now time.Time, dots bool,
 		ui.Column(c).Grow(1).MinWidth(0).Gap(3).Children(func() {
 			ui.RichText(c, look.title...).FontSize(12.5).SingleLine().ClipX()
 			ui.Row(c).Gap(5).AlignItems(ui.Center).MinWidth(0).Children(func() {
+				// The agent's icon leads, and stays put as the rest moves.
+				ui.Box(c.Key("agent")).Size(sessionIconSize, sessionIconSize).Shrink(0).Children(func() {
+					ui.Icon(c, look.icon).FontSize(sessionIconSize).TextColor(look.tint)
+				})
 				// What a session does opens its room as it starts to run,
 				// and the agent and folder move over for it.
 				if running {
@@ -994,6 +1003,9 @@ type lookKey struct {
 type sessionLook struct {
 	title, meta, why []ui.Span
 	tip, live        string
+	// icon is the icon of its agent, in tint.
+	icon *ui.SVG
+	tint ui.Color
 	// ago is how long ago the session was used, which holds from agoFrom
 	// until agoUntil, the minute it counts.
 	ago               string
@@ -1043,6 +1055,7 @@ func (a *app) sessionLook(l sessionLine) *sessionLook {
 		tip:   s.Dir + "\n" + s.ID + "\n" + dateTime(s.Updated.Local()),
 		live:  liveKey(s.Harness, s.ID),
 	}
+	lk.icon, lk.tint = agentIcon(p, s.Harness)
 	if why := a.sessionWhy(s, words); why != "" {
 		lk.why = wordSpans(why, words, p.muted, p.text)
 	}
@@ -1185,10 +1198,11 @@ func wordSpans(text string, words []string, normal, hit ui.Color) []ui.Span {
 	return spans
 }
 
-// sessionMeta is what a session's row says under its title, what tells
-// sessions apart first, as the narrow panel cuts its end: its agent, the
-// config folder of Claude Code other than ~/.claude, by the name after
-// .claude-, and its folder when the view lists every folder's.
+// sessionMeta is what a session's row says under its title, after its
+// agent's icon, what tells sessions apart first, as the narrow panel cuts
+// its end: its agent, the config folder of Claude Code other than
+// ~/.claude, by the name after .claude-, and its folder when the view
+// lists every folder's.
 func (a *app) sessionMeta(s agents.Session) string {
 	parts := []string{s.Harness.Name()}
 	if base := filepath.Base(s.Root); s.Root != "" && base != ".claude" {
@@ -1219,70 +1233,67 @@ func (a *app) copyText(text string) {
 	a.tell(note{message: locales.CopiedText(text)})
 }
 
-// resumeSession resumes a session: the terminal of herdr-core it runs in
-// shows, or a terminal of its folder starts, which runs the agent's
-// command that resumes it.
+// resumeSession resumes a session in a tab of an editor column, with the
+// keyboard in it: the terminal of herdr-core it runs in shows, or one here
+// that resumed it before, in the column it is in, or else a terminal of its
+// folder starts in the column that has the keyboard, which runs the
+// agent's command that resumes it.
 func (a *app) resumeSession(s agents.Session) {
 	if live, ok := a.sessions.running[liveKey(s.Harness, s.ID)]; ok {
-		a.showHCTerminal(live.addr, live.cwd)
+		a.showHCTerminal(live.addr, live.cwd, s.Harness)
 		return
+	}
+	key := s.Key()
+	for _, t := range a.terms {
+		if t.resumed == key {
+			a.terminalInColumn(t, false)
+			return
+		}
 	}
 	if fi, err := os.Stat(s.Dir); s.Dir == "" || err != nil || !fi.IsDir() {
 		a.tell(note{message: locales.SessionsDirGone(s.Dir)})
 		return
 	}
-	cmd := a.agentEnv().ResumeCommand(s)
-	if t := a.openSessionTerminal(s.Dir); t != nil {
-		// The shell runs it once it starts, as typed ahead.
-		t.term.Send([]byte(cmd + "\r"))
+	t := a.startTerminal(s.Dir)
+	if t == nil {
+		return
+	}
+	t.agent, t.resumed = s.Harness, key
+	a.terminalInColumn(t, true)
+	// The shell runs it once it starts, as typed ahead.
+	t.term.Send([]byte(a.agentEnv().ResumeCommand(s) + "\r"))
+}
+
+// terminalInColumn shows a terminal in a tab, with the keyboard in it: in
+// the tab it has, or, one just started or of the panel, in a new tab after
+// the one shown in the column that has the keyboard, which grows in.
+func (a *app) terminalInColumn(t *session, fresh bool) {
+	col := a.column()
+	switch {
+	case t.tab != nil:
+		a.showTerminal(t)
+	case fresh:
+		a.terminalTab(col, col.active+1, t, true)
+	default:
+		a.terminalToColumn(t, col, col.active+1)
 	}
 }
 
-// openSessionTerminal starts a terminal in dir where terminalLocation
-// says, shows it with the keyboard in it, and returns it, nil when it
-// can't start.
-func (a *app) openSessionTerminal(dir string) *session {
-	if a.settings.TerminalLocation == "editor" {
-		s := a.startTerminal(dir)
-		col := a.fileColumn()
-		if !a.terminalTab(col, col.active+1, s, true) {
-			return nil
-		}
-		return s
-	}
-	s := a.startTerminal(dir)
-	if s != nil {
-		a.panelTerm = s
-		a.window.PanelOpen, a.window.TerminalOpen = true, true
-		a.rememberTabs()
-		a.focusTerminal()
-	}
-	return s
-}
-
-// showHCTerminal shows the terminal of herdr-core at addr: one here that
-// shows it, or a new one attached to it, in dir, where terminalLocation
-// says.
-func (a *app) showHCTerminal(addr, dir string) {
+// showHCTerminal shows the terminal of herdr-core at addr, which runs an
+// agent's session, in a tab of a column: one here that shows it, or a new
+// one attached to it, in dir.
+func (a *app) showHCTerminal(addr, dir string, agent agents.Harness) {
 	for _, s := range a.terms {
 		if s.hc == addr {
-			a.showTerminal(s)
+			s.agent = agent
+			a.terminalInColumn(s, false)
 			return
 		}
 	}
-	s := a.attachTerminal(addr, dir)
-	if s == nil {
-		return
+	if s := a.attachTerminal(addr, dir); s != nil {
+		s.agent = agent
+		a.terminalInColumn(s, true)
 	}
-	if a.settings.TerminalLocation == "editor" {
-		col := a.fileColumn()
-		a.terminalTab(col, col.active+1, s, true)
-		return
-	}
-	a.panelTerm = s
-	a.window.PanelOpen, a.window.TerminalOpen = true, true
-	a.rememberTabs()
-	a.focusTerminal()
 }
 
 // showSessions shows the sessions in the sidebar, with the keyboard in

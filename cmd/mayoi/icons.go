@@ -3,13 +3,21 @@ package main
 import (
 	"path/filepath"
 	"strings"
+	"sync"
 
 	"github.com/egoist/mygo/ui"
+
+	"mayoi/internal/agents"
 )
 
 // Icons from Lucide (ISC license), drawn in the color of the text.
 func lucide(body string) *ui.SVG {
-	return ui.MustParseSVG([]byte(`<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">` + body + `</svg>`))
+	return ui.MustParseSVG(lucideSVG(body))
+}
+
+// lucideSVG is the SVG of the shapes body, drawn as Lucide's icons are.
+func lucideSVG(body string) []byte {
+	return []byte(`<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">` + body + `</svg>`)
 }
 
 var (
@@ -102,6 +110,7 @@ var (
 	iconScrollText    = lucide(`<path d="M15 12h-5"/><path d="M15 8h-5"/><path d="M19 17V5a2 2 0 0 0-2-2H4"/><path d="M8 21h12a2 2 0 0 0 2-2v-1a1 1 0 0 0-1-1H11a1 1 0 0 0-1 1v1a2 2 0 1 1-4 0V5a2 2 0 1 0-4 0v2a1 1 0 0 0 1 1h3"/>`)
 	iconStopSquare    = lucide(`<rect width="12" height="12" x="6" y="6" rx="2"/>`)
 	iconPencil        = lucide(`<path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/>`)
+	iconAgent         = lucide(`<path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/>`)
 	iconOpenFile      = lucide(`<path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>`)
 	// The icons of GitHub's alerts in a Markdown preview.
 	iconInfo          = lucide(`<circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/>`)
@@ -168,6 +177,36 @@ func fileIcon(p *palette, name string) (*ui.SVG, ui.Color) {
 		return iconLock, p.faint
 	}
 	return iconFile, p.muted
+}
+
+// agentIcons are the marks of the agents, by id, made the first time
+// each shows.
+var (
+	agentIconsMu sync.Mutex
+	agentIcons   = map[agents.Harness]*ui.SVG{}
+)
+
+// agentIcon returns the mark of agent h and its color: its own, drawn as
+// the other icons are, or iconAgent in the color of quiet text for one
+// with none, or whose mark does not parse.
+func agentIcon(p *palette, h agents.Harness) (*ui.SVG, ui.Color) {
+	ag := h.Agent()
+	agentIconsMu.Lock()
+	icon, ok := agentIcons[h]
+	if !ok {
+		icon = iconAgent
+		if ag.Icon != "" {
+			if svg, err := ui.ParseSVG(lucideSVG(ag.Icon)); err == nil {
+				icon = svg
+			}
+		}
+		agentIcons[h] = icon
+	}
+	agentIconsMu.Unlock()
+	if ag.Tint[0] == "" {
+		return icon, p.muted
+	}
+	return icon, langColor(p, ag.Tint[0], ag.Tint[1])
 }
 
 // langColor is the color of a language's icon, as it is in a dark

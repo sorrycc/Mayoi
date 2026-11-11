@@ -120,18 +120,96 @@ func TestHCAgentsTiesTerminalsToSessions(t *testing.T) {
 }
 
 // Resuming a session that runs in herdr-core shows its terminal, rather
-// than starting one.
+// than starting one: in a tab of the column that has the keyboard, moved
+// from the panel, and there again the next time.
 func TestResumeSessionShowsItsTerminal(t *testing.T) {
 	hs := newHarness(t, true)
 	a := hs.a
+	a.openFile(hs.path("main.go"), true)
 	s := hcSession(t, a, "t1")
 	other := hcSession(t, a, "t2")
 	a.panelTerm = other
 	a.sessions.running = map[string]hcAgent{liveKey(agents.Claude, "c1"): {addr: "t1", cwd: hs.root, harness: agents.Claude}}
 	n := len(a.terms)
-	a.resumeSession(agents.Session{Harness: agents.Claude, Root: "/h/.claude", ID: "c1", Dir: hs.root})
-	if len(a.terms) != n || a.panelTerm != s {
-		t.Errorf("the panel shows %v of %d terminals, want t1 of %d", a.panelTerm.hc, len(a.terms), n)
+	ses := agents.Session{Harness: agents.Claude, Root: "/h/.claude", ID: "c1", Dir: hs.root}
+	a.resumeSession(ses)
+	col := a.column()
+	if len(a.terms) != n || s.tab == nil || col.tab() != s.tab || col.active != 1 {
+		t.Fatalf("%d terminals, t1's tab %v at %d of the column; want t1 shown after main.go", len(a.terms), s.tab, col.active)
+	}
+	if a.panelTerm != other || a.focus != paneEditor || s.agent != agents.Claude {
+		t.Errorf("panel shows %v, focus %v, agent %q; want t2, the editor, claude", a.panelTerm.hc, a.focus, s.agent)
+	}
+	a.activate(col, 0, true)
+	a.resumeSession(ses)
+	if len(col.tabs) != 2 || col.tab() != s.tab {
+		t.Errorf("resumed again: %d tabs, shows %v; want t1's tab again", len(col.tabs), col.tab())
+	}
+}
+
+// Resuming a session starts a terminal of its folder in a tab after the
+// one shown in the column that has the keyboard, with the keyboard in it,
+// marked with its agent; resuming it again shows that tab.
+func TestResumeSessionOpensATab(t *testing.T) {
+	if testing.Short() {
+		t.Skip("starts a shell")
+	}
+	hs := newHarness(t, true)
+	a := hs.a
+	a.openFile(hs.path("main.go"), true)
+	ses := agents.Session{Harness: agents.Codex, ID: "x1", Dir: hs.root}
+	a.resumeSession(ses)
+	hs.settle()
+	col := a.column()
+	tab := col.tab()
+	if len(col.tabs) != 2 || col.active != 1 || tab.term == nil || tab.term.dir != hs.root {
+		t.Fatalf("%d tabs, showing %d; want a terminal of the folder after main.go", len(col.tabs), col.active)
+	}
+	if a.window.PanelOpen || a.focus != paneEditor {
+		t.Errorf("panel open %v, focus %v; want the tab to have the keyboard", a.window.PanelOpen, a.focus)
+	}
+	if h, ok := termAgent(tab.term); !ok || h != agents.Codex {
+		t.Errorf("the tab's agent %q, want codex", h)
+	}
+	n := len(a.terms)
+	a.activate(col, 0, true)
+	a.resumeSession(ses)
+	if len(a.terms) != n || col.tab() != tab {
+		t.Errorf("resumed again: %d terminals, want %d and its tab shown", len(a.terms), n)
+	}
+	a.closeTerminals()
+}
+
+// Every agent known has an icon of its own, which parses; another has the
+// neutral one, in the color of quiet text. A terminal is marked with the
+// agent resumed in it, or else the one its programs say runs.
+func TestAgentIcons(t *testing.T) {
+	p := paletteFor("", true)
+	seen := map[*ui.SVG]bool{}
+	for _, ag := range agents.Known {
+		icon, _ := agentIcon(p, ag.ID)
+		if icon == iconAgent || seen[icon] {
+			t.Errorf("%s has no icon of its own", ag.Name)
+		}
+		seen[icon] = true
+		if again, _ := agentIcon(p, ag.ID); again != icon {
+			t.Errorf("%s's icon was made again", ag.Name)
+		}
+	}
+	if icon, tint := agentIcon(p, "aider"); icon != iconAgent || tint != p.muted {
+		t.Errorf("an agent not known has icon %p in %v, want the neutral one", icon, tint)
+	}
+	s := &session{}
+	if _, ok := termAgent(s); ok {
+		t.Error("a shell has an agent")
+	}
+	s.status.Records = []terminal.StatusRecord{{State: terminal.StatusWorking, App: "qodercli"}}
+	if h, _ := termAgent(s); h != agents.Qoder {
+		t.Errorf("agent %q of a terminal running qodercli", h)
+	}
+	s.agent = agents.Claude
+	if h, _ := termAgent(s); h != agents.Claude {
+		t.Errorf("agent %q of a terminal Claude Code was resumed in", h)
 	}
 }
 
@@ -424,13 +502,17 @@ func TestSessionsNewRowOpensItsPlace(t *testing.T) {
 	}
 }
 
-// As a session starts to run, what it does opens its room before its
-// agent, which moves over rather than jumps.
+// As a session starts to run, what it does opens its room after its
+// agent's icon, and the agent's name moves over rather than jumps.
 func TestSessionsStateWordSlidesIn(t *testing.T) {
 	skipOnWindows(t, "herdr has no hc for Windows")
 	hs := newHarness(t, true)
 	a := hs.a
-	agentHome(t, hs.root)
+	home := agentHome(t, hs.root)
+	// Of a config folder the row names: "work".
+	if err := os.Rename(filepath.Join(home, ".claude"), filepath.Join(home, ".claude-work")); err != nil {
+		t.Fatal(err)
+	}
 	var mu sync.Mutex
 	runs := false
 	useFakeHC(t, func(args []string) ([]byte, error) {
@@ -447,7 +529,7 @@ func TestSessionsStateWordSlidesIn(t *testing.T) {
 	a.settings.TerminalBackend = "hc"
 	a.showSessions()
 	hs.settle()
-	before, ok := hs.tt.Find("Claude Code")
+	before, ok := hs.tt.Find("Claude Code · work")
 	if !ok {
 		t.Fatal("no agent in the row")
 	}
@@ -458,9 +540,9 @@ func TestSessionsStateWordSlidesIn(t *testing.T) {
 	hs.tt.Frame()
 	hs.tt.Advance(motionShow / 2)
 	hs.tt.Frame()
-	mid, _ := hs.tt.Find("Claude Code")
+	mid, _ := hs.tt.Find("Claude Code · work")
 	hs.settle()
-	after, _ := hs.tt.Find("Claude Code")
+	after, _ := hs.tt.Find("Claude Code · work")
 	if !(before.X < mid.X && mid.X < after.X) {
 		t.Errorf("the agent is at %v, %v, %v as the session starts to run; want it moving over", before.X, mid.X, after.X)
 	}

@@ -5,6 +5,10 @@ needs a `## <version>` section here, or its build fails.
 
 ## Unreleased
 
+- Resuming a session in **Sessions** opens it in a tab of the editor column you were in, ready to type.
+- A session already open in a terminal shows that tab again instead of starting another.
+- Each **Sessions** row shows an icon for its agent: Claude Code, Codex, Qoder or Grok.
+- A terminal tab running a coding agent shows that agent's icon.
 - In **Sessions**, `Page Up` and `Page Down` move the chosen session by a page, from the search field or the list.
 - `Home` and `End` in the **Sessions** search field choose the first or last session (`Ctrl` on Windows and Linux).
 - The chosen session glides to its new row and keeps the next row in view as the keys move it.

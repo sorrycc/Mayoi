@@ -183,3 +183,23 @@ func TestHarnessOfApp(t *testing.T) {
 		t.Error("zsh")
 	}
 }
+
+// Each agent known has its names, a mark and a way to resume, and is
+// found by the name it gives itself; another is named by its id.
+func TestKnownAgents(t *testing.T) {
+	e := &Env{Home: "/h"}
+	for _, ag := range Known {
+		if ag.Name == "" || ag.App == "" || ag.Icon == "" {
+			t.Errorf("%q lacks a name, an app or a mark: %+v", ag.ID, ag)
+		}
+		if h, ok := HarnessOfApp(ag.App); !ok || h != ag.ID {
+			t.Errorf("HarnessOfApp(%q) = %q, %v", ag.App, h, ok)
+		}
+		if e.ResumeCommand(Session{Harness: ag.ID, ID: "x"}) == "" {
+			t.Errorf("%q resumes with no command", ag.ID)
+		}
+	}
+	if h := Harness("aider"); h.Name() != "aider" || h.Agent().Icon != "" || e.ResumeCommand(Session{Harness: h, ID: "x"}) != "" {
+		t.Errorf("an agent not known: %+v", h.Agent())
+	}
+}

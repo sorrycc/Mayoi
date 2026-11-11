@@ -25,41 +25,93 @@ const (
 	Grok   Harness = "grok"
 )
 
+// Agent is what is known of an agent: its id, its names, its mark, and
+// how one of its sessions is resumed. How its sessions are listed is
+// Scan's, for now.
+type Agent struct {
+	ID Harness
+	// Name is its name, for people, and App the name it gives itself for
+	// machines, in what it says it does (OSC 7501) and in what hc says
+	// runs in a terminal.
+	Name, App string
+	// Icon is its mark, the shapes of an SVG of a 24 by 24 view drawn in
+	// strokes of the color of the text, as the app's icons are; "" for
+	// the mark of an agent of no mark of its own.
+	Icon string
+	// Tint is the color of its mark in a dark window and in a light one,
+	// as hex; "" for the color of quiet text.
+	Tint [2]string
+	// resume is the shell command that resumes s, in its folder.
+	resume func(e *Env, s Session) string
+}
+
+// Known are the agents read, in the order they are named.
+var Known = []Agent{
+	{
+		ID: Claude, Name: "Claude Code", App: "claude-code",
+		// A spark of eight rays, the long ones upright.
+		Icon: `<path d="M12 3v18"/><path d="M3 12h18"/><path d="m6.7 6.7 10.6 10.6"/><path d="m17.3 6.7-10.6 10.6"/>`,
+		Tint: [2]string{"#d97757", "#c15f3c"},
+		resume: func(e *Env, s Session) string {
+			cmd := "claude --resume " + quote(s.ID)
+			if s.Root != "" && filepath.Clean(s.Root) != filepath.Join(e.Home, ".claude") {
+				cmd = "CLAUDE_CONFIG_DIR=" + quote(s.Root) + " " + cmd
+			}
+			return cmd
+		},
+	},
+	{
+		ID: Qoder, Name: "Qoder", App: "qodercli",
+		// A Q, its tail through its ring.
+		Icon:   `<circle cx="11.5" cy="11" r="8"/><path d="m13.5 14.5 6 6.5"/>`,
+		Tint:   [2]string{"#2fd189", "#13985a"},
+		resume: func(_ *Env, s Session) string { return "qodercli -r " + quote(s.ID) },
+	},
+	{
+		ID: Codex, Name: "Codex", App: "codex",
+		// A prompt in a hexagon.
+		Icon:   `<path d="M12 2.5 20.5 7.25v9.5L12 21.5 3.5 16.75v-9.5Z"/><path d="m10 8.5 3.5 3.5-3.5 3.5"/>`,
+		resume: func(_ *Env, s Session) string { return "codex resume " + quote(s.ID) },
+	},
+	{
+		ID: Grok, Name: "Grok", App: "grok",
+		// A ring, open where a slash runs through it.
+		Icon:   `<path d="M17.5 6.2A8 8 0 1 0 19.8 13"/><path d="M20.5 3.5 9 15"/>`,
+		resume: func(_ *Env, s Session) string { return "grok --resume " + quote(s.ID) },
+	},
+}
+
 // Harnesses are the agents read, in the order they are named.
-var Harnesses = []Harness{Claude, Qoder, Codex, Grok}
+var Harnesses = func() []Harness {
+	out := make([]Harness, len(Known))
+	for i, ag := range Known {
+		out[i] = ag.ID
+	}
+	return out
+}()
+
+// Agent is what is known of the agent h; of one not known, its id as its
+// names and no mark.
+func (h Harness) Agent() Agent {
+	for _, ag := range Known {
+		if ag.ID == h {
+			return ag
+		}
+	}
+	return Agent{ID: h, Name: string(h), App: string(h)}
+}
 
 // Name is the agent's name, for people.
-func (h Harness) Name() string {
-	switch h {
-	case Claude:
-		return "Claude Code"
-	case Qoder:
-		return "Qoder"
-	case Codex:
-		return "Codex"
-	case Grok:
-		return "Grok"
-	}
-	return string(h)
-}
+func (h Harness) Name() string { return h.Agent().Name }
 
-// App is the name the agent gives itself for machines, in what it says
-// it does (OSC 7501) and in what hc says runs in a terminal.
-func (h Harness) App() string {
-	switch h {
-	case Claude:
-		return "claude-code"
-	case Qoder:
-		return "qodercli"
-	}
-	return string(h)
-}
+// App is the name the agent gives itself for machines.
+func (h Harness) App() string { return h.Agent().App }
 
 // HarnessOfApp is the agent of an app's name, false for another program.
 func HarnessOfApp(app string) (Harness, bool) {
-	for _, h := range Harnesses {
-		if h.App() == app || string(h) == app {
-			return h, true
+	for _, ag := range Known {
+		if ag.App == app || string(ag.ID) == app {
+			return ag.ID, true
 		}
 	}
 	return "", false
@@ -133,19 +185,8 @@ func (s Session) In(dir string) bool {
 // folder: Claude Code's of a config folder other than ~/.claude names it
 // with CLAUDE_CONFIG_DIR.
 func (e *Env) ResumeCommand(s Session) string {
-	switch s.Harness {
-	case Claude:
-		cmd := "claude --resume " + quote(s.ID)
-		if s.Root != "" && filepath.Clean(s.Root) != filepath.Join(e.Home, ".claude") {
-			cmd = "CLAUDE_CONFIG_DIR=" + quote(s.Root) + " " + cmd
-		}
-		return cmd
-	case Qoder:
-		return "qodercli -r " + quote(s.ID)
-	case Codex:
-		return "codex resume " + quote(s.ID)
-	case Grok:
-		return "grok --resume " + quote(s.ID)
+	if ag := s.Harness.Agent(); ag.resume != nil {
+		return ag.resume(e, s)
 	}
 	return ""
 }

@@ -77,6 +77,15 @@ var tabMotion = ui.ElementTransition{
 	Exit:     &ui.Motion{Collapse: true},
 }
 
+// wordIn is how a word that comes into a line takes its place, as the
+// state of a session that starts to run before its agent: it opens its
+// width as it fades in, and closes it as it fades out. slideAlong moves
+// the words after it over in step.
+var (
+	wordIn     = ui.ElementTransition{Duration: motionShow, Enter: &ui.Motion{Collapse: true}, Exit: &ui.Motion{Collapse: true}}
+	slideAlong = ui.ElementTransition{Duration: motionShow, Position: true}
+)
+
 // dotPop is how a small mark comes and goes, as the dot of a tab's
 // unsaved changes: it grows from half its size and shrinks back.
 var dotPop = ui.ElementTransition{

@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -355,5 +356,132 @@ func TestNoteLiveFollowsTheStates(t *testing.T) {
 	st.noteLive(nil, t0.Add(3*time.Second))
 	if len(st.liveSince) != 0 {
 		t.Errorf("a session stopped is kept: %v", st.liveSince)
+	}
+}
+
+// The hover of a row fades out with its buttons as the pointer leaves,
+// rather than going at once and leaving their background behind.
+func TestSessionsHoverFadesWithTheButtons(t *testing.T) {
+	skipOnWindows(t, "the sessions' folders are POSIX paths")
+	hs := newHarness(t, true)
+	a := hs.a
+	agentHome(t, hs.root)
+	a.sessions.all = 1
+	a.showSessions()
+	hs.settle()
+	row, ok := hs.tt.Find("fix there")
+	if !ok {
+		t.Fatal("no row of there")
+	}
+	// Left of the title, in the row's padding.
+	x, y := int(row.X+3), int(row.Y+row.H/2)
+	plain := hs.tt.Image().RGBAAt(x, y)
+	hs.tt.Move(row.X+row.W/2, row.Y+row.H/2)
+	hs.settle()
+	hovered := hs.tt.Image().RGBAAt(x, y)
+	if hovered == plain {
+		t.Fatal("the row under the pointer shows no hover")
+	}
+	hs.tt.Move(row.X, 600)
+	hs.tt.Frame()
+	hs.tt.Advance(motionHover / 2)
+	hs.tt.Frame()
+	if got := hs.tt.Image().RGBAAt(x, y); got == plain || got == hovered {
+		t.Errorf("halfway out the row shows %v, want between %v and %v", got, hovered, plain)
+	}
+	hs.settle()
+	if got := hs.tt.Image().RGBAAt(x, y); got != plain {
+		t.Errorf("the row left shows %v, want %v", got, plain)
+	}
+}
+
+// A session a reading brings opens its place, and the rows under it slide
+// down rather than jump.
+func TestSessionsNewRowOpensItsPlace(t *testing.T) {
+	skipOnWindows(t, "the sessions' folders are POSIX paths")
+	hs := newHarness(t, true)
+	a := hs.a
+	agentHome(t, hs.root)
+	a.sessions.all = 1
+	a.showSessions()
+	hs.settle()
+	st := &a.sessions
+	before, _ := hs.tt.Find("fix there")
+	s := st.sessions[0]
+	s.ID, s.Title, s.Updated = "new", "fix new", time.Now().Add(time.Minute)
+	st.sessions = append([]agents.Session{s}, st.sessions...)
+	st.version++
+	hs.tt.Frame()
+	hs.tt.Advance(motionShow / 2)
+	hs.tt.Frame()
+	mid, _ := hs.tt.Find("fix there")
+	hs.tt.Advance(motionShow)
+	hs.tt.Frame()
+	after, _ := hs.tt.Find("fix there")
+	if !(before.Y < mid.Y && mid.Y < after.Y) {
+		t.Errorf("the row under the new one is at %v, %v, %v; want it sliding down", before.Y, mid.Y, after.Y)
+	}
+	if want := before.Y + sessionRowH + sessionRowGap; after.Y != want {
+		t.Errorf("the row under the new one settles at %v, want %v", after.Y, want)
+	}
+}
+
+// As a session starts to run, what it does opens its room before its
+// agent, which moves over rather than jumps.
+func TestSessionsStateWordSlidesIn(t *testing.T) {
+	skipOnWindows(t, "herdr has no hc for Windows")
+	hs := newHarness(t, true)
+	a := hs.a
+	agentHome(t, hs.root)
+	var mu sync.Mutex
+	runs := false
+	useFakeHC(t, func(args []string) ([]byte, error) {
+		mu.Lock()
+		defer mu.Unlock()
+		switch {
+		case args[0] == "ls" && runs:
+			return []byte(`{"terminals":[{"address":"t1","agent":"claude-code","cwd":"/p","state":"live","status":"working"}]}`), nil
+		case args[0] == "get":
+			return []byte(`{"agent_session":{"agent":"claude-code","id":"here"}}`), nil
+		}
+		return []byte(`{"terminals":[]}`), nil
+	})
+	a.settings.TerminalBackend = "hc"
+	a.showSessions()
+	hs.settle()
+	before, ok := hs.tt.Find("Claude Code")
+	if !ok {
+		t.Fatal("no agent in the row")
+	}
+	mu.Lock()
+	runs = true
+	mu.Unlock()
+	a.sessions.running = map[string]hcAgent{liveKey(agents.Claude, "here"): {addr: "t1", harness: agents.Claude, state: terminal.StatusWorking}}
+	hs.tt.Frame()
+	hs.tt.Advance(motionShow / 2)
+	hs.tt.Frame()
+	mid, _ := hs.tt.Find("Claude Code")
+	hs.settle()
+	after, _ := hs.tt.Find("Claude Code")
+	if !(before.X < mid.X && mid.X < after.X) {
+		t.Errorf("the agent is at %v, %v, %v as the session starts to run; want it moving over", before.X, mid.X, after.X)
+	}
+}
+
+// A row's look is made once for the rows shown, and again for a new query.
+func TestSessionLooksAreKept(t *testing.T) {
+	a := newHarness(t, true).a
+	st := &a.sessions
+	l := sessionLine{s: agents.Session{Harness: agents.Codex, ID: "x", Title: "Fix login"}}
+	a.sessionLooks()
+	first := a.sessionLook(l)
+	if a.sessionLooks(); a.sessionLook(l) != first {
+		t.Error("the look was made again for the same rows")
+	}
+	st.query, st.rowsKey.query = "login", "login"
+	a.sessionLooks()
+	got := a.sessionLook(l)
+	if got == first || len(got.title) != 2 || got.title[1].Text != "login" {
+		t.Errorf("the look of the query is %+v, want login marked", got.title)
 	}
 }

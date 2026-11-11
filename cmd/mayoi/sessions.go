@@ -74,6 +74,11 @@ type sessionsState struct {
 	// rows of appearKey.
 	appear    appearing
 	appearKey sessionsKey
+	// looks are what the rows show of their sessions, by key, and words
+	// the query's, as of looksKey.
+	looks    map[string]*sessionLook
+	words    []string
+	looksKey lookKey
 
 	live     bg.Poller[string]
 	running  map[string]hcAgent
@@ -213,11 +218,16 @@ type sessionLine struct {
 	day   sessionDay
 	count int
 	s     agents.Session
+	// id is the line's key, made once as the lines are.
+	id string
 }
 
 // key is the line's in the list.
 func (l sessionLine) key() string {
-	if l.head {
+	switch {
+	case l.id != "":
+		return l.id
+	case l.head:
 		return "\x01" + strconv.Itoa(int(l.day))
 	}
 	return l.s.Key()
@@ -239,9 +249,10 @@ func (a *app) sessionLines(rows []agents.Session, now time.Time) []sessionLine {
 		if head < 0 || lines[head].day != day {
 			head = len(lines)
 			lines = append(lines, sessionLine{head: true, day: day})
+			lines[head].id = lines[head].key()
 		}
 		lines[head].count++
-		lines = append(lines, sessionLine{day: day, s: s})
+		lines = append(lines, sessionLine{day: day, s: s, id: s.Key()})
 	}
 	st.lines, st.linesKey, st.linesDay = lines, st.rowsKey, today
 	return lines
@@ -377,11 +388,13 @@ func (a *app) sessionsView(c *ui.Context) {
 	}
 	base := c.Theme()
 	quiet := *base
-	quiet.Accent, quiet.AccentText, quiet.SurfaceHover = p.active, p.text, p.hover
+	// The rows paint their hover themselves, to fade it with their
+	// buttons.
+	quiet.Accent, quiet.AccentText, quiet.SurfaceHover = p.active, p.text, ui.Color{}
 	c.SetTheme(&quiet)
 	var action func()
 	dots := a.hcBackend()
-	words := strings.Fields(strings.ToLower(st.query))
+	a.sessionLooks()
 	out := ui.List(c.Key("sessions"), &st.list, len(rows), func(i int) {
 		if r := rows[i]; r.head {
 			a.sessionsHead(c, r)
@@ -389,14 +402,9 @@ func (a *app) sessionsView(c *ui.Context) {
 			// The chosen row shows its buttons while the list has the
 			// keyboard, as the keys that run them do.
 			keyed := i == st.row && st.list.FocusWithin(c)
-			row := a.sessionRow(c, r.s, now, words, dots, i == st.row, keyed, &action)
-			if k := st.appear.shown(r.key(), now); k < 1 {
-				// It came with this reading.
-				row.Opacity(k)
-				c.AnimationFrame()
-			}
+			a.sessionRow(c, r, now, dots, i == st.row, keyed, &action)
 		}
-	}).Grow(1).Padding(0, 6, 8, 6)
+	}).Grow(1).Padding(0, 6, 8, 6).Gap(sessionRowGap)
 	if since := now.Sub(st.shownAt); since < motionShow {
 		out.Opacity(ui.EaseOut(float32(since) / float32(motionShow)))
 		c.AnimationFrame()
@@ -434,6 +442,9 @@ const (
 	// sessionWhyH is how much taller a row is that says why the query
 	// found it.
 	sessionWhyH = 15
+	// sessionRowGap is the room between rows, so that the chosen row and
+	// the one under the pointer read as two.
+	sessionRowGap = 2
 )
 
 // sessionsHead heads the sessions of a day, with how many there are. It
@@ -457,7 +468,7 @@ func (a *app) sessionsSkeleton(c *ui.Context) {
 	p := a.pal
 	a.sessions.skeleton = true
 	bar := p.text.Alpha(0.07)
-	ui.Column(c.Key("sessions-skeleton")).Padding(0, 6, 8, 6).Grow(1).Children(func() {
+	ui.Column(c.Key("sessions-skeleton")).Padding(0, 6, 8, 6).Gap(sessionRowGap).Grow(1).Children(func() {
 		ui.Row(c).Height(sessionsHeadH).Padding(4, 6, 0, 6).AlignItems(ui.Center).Children(func() {
 			ui.Box(c).Size(44, 7).Radius(3.5).Background(bar)
 		})
@@ -507,20 +518,29 @@ func (a *app) sessionsEmpty(c *ui.Context) {
 // query are marked in the title, in the accent, and in the agent and
 // folder, in the color of text. With dots, as hc says which sessions run,
 // a dot before it says it runs. The chosen row has the background of the
-// choice.
-func (a *app) sessionRow(c *ui.Context, s agents.Session, now time.Time, words []string, dots, chosen, keyed bool, action *func()) ui.Element {
+// choice; the one under the pointer fades its own in with its buttons. A
+// row that came with a reading of the sessions fades in as it opens its
+// place, and the rows under it slide down.
+func (a *app) sessionRow(c *ui.Context, l sessionLine, now time.Time, dots, chosen, keyed bool, action *func()) ui.Element {
 	p := a.pal
 	st := &a.sessions
+	s := l.s
 	lk := liveKey(s.Harness, s.ID)
 	live, running := st.running[lk]
 	rec := a.liveRecord(live)
-	why := a.sessionWhy(s, words)
+	look := a.sessionLook(l)
 	h := float32(sessionRowH)
-	if why != "" {
+	if look.why != nil {
 		h += sessionWhyH
 	}
-	row := ui.Row(c).Grow(1).Gap(8).AlignItems(ui.Center).Height(h).Padding(0, 6, 0, 6).
-		Tooltip(s.Dir + "\n" + s.ID + "\n" + dateTime(s.Updated.Local()))
+	row := ui.Row(c).Grow(1).Gap(8).AlignItems(ui.Center).Height(h).Padding(0, 6, 0, 6).Tooltip(look.tip)
+	if k := st.appear.shown(l.key(), now); k < 1 {
+		row.Opacity(k)
+		if !c.Preferences().ReduceMotion {
+			row.Height(h * k).ClipY()
+		}
+		c.AnimationFrame()
+	}
 	// The buttons take the place of the time as the pointer comes, and
 	// give it back as it goes; neither moves the title or the folder. They
 	// come at once with the choice the keys move.
@@ -542,6 +562,11 @@ func (a *app) sessionRow(c *ui.Context, s agents.Session, now time.Time, words [
 		}
 	})
 	row.Children(func() {
+		if !chosen && reveal > 0 {
+			// The hover, under the rest, in step with the buttons: it never
+			// leaves them over a row gone plain, nor the other way round.
+			ui.Box(c.Key("hover")).Absolute().Left(0).Right(0).Top(0).Bottom(0).Radius(6).Background(p.hover).Opacity(reveal)
+		}
 		// The dot's place is kept for a session that runs in none, so
 		// that rows don't move as one starts or stops.
 		if dots {
@@ -570,20 +595,22 @@ func (a *app) sessionRow(c *ui.Context, s agents.Session, now time.Time, words [
 			}
 		}
 		ui.Column(c).Grow(1).MinWidth(0).Gap(3).Children(func() {
-			ui.RichText(c, wordSpans(s.Label(), words, p.text, p.accent)...).FontSize(12.5).SingleLine().ClipX()
+			ui.RichText(c, look.title...).FontSize(12.5).SingleLine().ClipX()
 			ui.Row(c).Gap(5).AlignItems(ui.Center).MinWidth(0).Children(func() {
+				// What a session does opens its room as it starts to run,
+				// and the agent and folder move over for it.
 				if running {
 					_, what := progParts(rec)
-					ui.Text(c.Key("state"), what).FontSize(11).TextColor(a.progColor(rec.State)).SingleLine().Shrink(0).Transition(dotPop)
+					ui.Text(c.Key("state"), what).FontSize(11).TextColor(a.progColor(rec.State)).SingleLine().Shrink(0).Transition(wordIn)
 				}
-				ui.RichText(c, wordSpans(a.sessionMeta(s), words, p.faint, p.text)...).FontSize(11).SingleLine().ClipX().Shrink(1)
+				ui.RichText(c.Key("meta"), look.meta...).FontSize(11).SingleLine().ClipX().Shrink(1).Transition(slideAlong)
 				ui.Spacer(c)
 				ui.Text(c, ago(s.Updated, now)).FontSize(11).FontFeatures("tnum").TextColor(p.faint).SingleLine().Shrink(0).Padding(0, 0, 0, 6).
 					Opacity(1 - reveal)
 			})
-			if why != "" {
+			if look.why != nil {
 				// What the query found that the lines above don't show.
-				ui.RichText(c.Key("why"), wordSpans(why, words, p.muted, p.text)...).FontSize(11).SingleLine().ClipX()
+				ui.RichText(c.Key("why"), look.why...).FontSize(11).SingleLine().ClipX()
 			}
 		})
 		if reveal > 0 {
@@ -602,6 +629,56 @@ func (a *app) sessionRow(c *ui.Context, s agents.Session, now time.Time, words [
 		}
 	})
 	return row
+}
+
+// lookKey is what the looks of the rows depend on: the rows shown, and
+// the colors, which change as the theme fades to another.
+type lookKey struct {
+	rows                       sessionsKey
+	text, accent, faint, muted ui.Color
+}
+
+// sessionLook is what a session's row shows of it, in spans with the
+// words of the query marked, and its tip: made once for the rows shown
+// and their colors, rather than each frame the row is built, as while a
+// hover fades or the rows a reading brought come in.
+type sessionLook struct {
+	title, meta, why []ui.Span
+	tip              string
+}
+
+// sessionLooks readies the looks for the rows of this frame: those made
+// for other rows or colors go, and the query is split into its words
+// again.
+func (a *app) sessionLooks() {
+	st, p := &a.sessions, a.pal
+	k := lookKey{st.rowsKey, p.text, p.accent, p.faint, p.muted}
+	if st.looks != nil && k == st.looksKey {
+		return
+	}
+	st.looks, st.looksKey = map[string]*sessionLook{}, k
+	st.words = strings.Fields(strings.ToLower(st.query))
+}
+
+// sessionLook is the look of the row of l, made the first time it shows.
+func (a *app) sessionLook(l sessionLine) *sessionLook {
+	st, p, s := &a.sessions, a.pal, l.s
+	if lk, ok := st.looks[l.key()]; ok {
+		return lk
+	}
+	words := st.words
+	lk := &sessionLook{
+		title: wordSpans(s.Label(), words, p.text, p.accent),
+		meta:  wordSpans(a.sessionMeta(s), words, p.faint, p.text),
+		tip:   s.Dir + "\n" + s.ID + "\n" + dateTime(s.Updated.Local()),
+	}
+	if why := a.sessionWhy(s, words); why != "" {
+		lk.why = wordSpans(why, words, p.muted, p.text)
+	}
+	if st.looks != nil {
+		st.looks[l.key()] = lk
+	}
+	return lk
 }
 
 // liveDot paints the dot of a session that runs, of col, in r. While

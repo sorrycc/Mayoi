@@ -10,7 +10,6 @@ import (
 	"github.com/egoist/mygo/plugins/terminal"
 
 	"mayoi/internal/agents"
-	"mayoi/internal/settings"
 )
 
 // agentHome makes a home folder of a session of Claude Code in dir, and
@@ -45,7 +44,7 @@ func TestSessionsViewListsTheFolders(t *testing.T) {
 	hs := newHarness(t, true)
 	a := hs.a
 	agentHome(t, hs.root)
-	a.showView(settings.ViewSessions)
+	a.showSessions()
 	hs.settle()
 	if !a.sessions.loaded {
 		t.Fatal("the sessions were not read")

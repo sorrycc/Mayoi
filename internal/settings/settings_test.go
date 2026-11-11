@@ -10,21 +10,6 @@ import (
 	"time"
 )
 
-// samePanels reports whether two sets of panels hold the same views, on
-// the same sides.
-func samePanels(x, y Panels) bool {
-	if len(x) != len(y) {
-		return false
-	}
-	for s, p := range x {
-		q := y[s]
-		if q == nil || p.Active != q.Active || p.Open != q.Open || p.Size != q.Size || !slices.Equal(p.Views, q.Views) {
-			return false
-		}
-	}
-	return true
-}
-
 func TestRoundTrip(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "s.json")
 	s := Load(path)
@@ -42,10 +27,8 @@ func TestRoundTrip(t *testing.T) {
 		got.Windows[1].Folder != "/tmp/x" || len(got.Windows[1].Columns) != 1 {
 		t.Errorf("loaded %+v", got)
 	}
-	if x, y := got.Windows[1].Layout, got.Windows[0].Layout; x.Panels.Get(SideLeft).Size != 300 ||
-		x.Panels.Get(SideLeft).Active != ViewExplorer || x.ScmChangesRatio != 0.65 ||
-		y.Panels.Get(SideLeft).Size != 300 || y.Panels.Get(SideLeft).Active != ViewSCM ||
-		y.Panels.Get(SideBottom).Size != DefaultPanelSize(SideBottom) {
+	if x, y := got.Windows[1].Layout, got.Windows[0].Layout; x.SidebarWidth != 300 || x.SidebarView != "" || x.ScmChangesRatio != 0.65 ||
+		y.SidebarWidth != 300 || y.SidebarView != "git" || y.PanelHeight != DefaultLayout.PanelHeight {
 		t.Errorf("layouts %+v and %+v", x, y)
 	}
 }
@@ -95,16 +78,11 @@ func TestMigrateTheLayout(t *testing.T) {
 		"windows": [{"id": 0, "folder": "/tmp/x"}],
 		"sessions": {"/tmp/y": {"expanded": ["src"]}}}`), 0o644)
 	s := Load(path)
-	// The layout kept one sidebar for every window: its views, the one it
-	// showed, and its width make the panel on the left.
-	want := Panels{
-		SideLeft:   {Views: SidebarViews, Active: ViewSCM, Size: 320},
-		SideRight:  {Views: []string{ViewSessions}, Active: ViewSessions, Size: DefaultPanelSize(SideRight)},
-		SideBottom: {Views: []string{ViewTerminal}, Active: ViewTerminal, Size: 400},
-	}
-	if len(s.Windows) != 1 || !samePanels(s.Windows[0].Panels, want) || s.Sessions["/tmp/y"] == nil ||
-		!samePanels(s.Sessions["/tmp/y"].Panels, want) {
-		t.Fatalf("window %+v, session %+v, want %+v", s.Windows[0].Panels, s.Sessions["/tmp/y"].Panels, want)
+	// The panel's own width is new here, so it takes the default.
+	want := DefaultLayout
+	want.SidebarView, want.SidebarClosed, want.SidebarWidth, want.PanelHeight = "git", true, 320, 400
+	if len(s.Windows) != 1 || s.Windows[0].Layout != want || s.Sessions["/tmp/y"] == nil || s.Sessions["/tmp/y"].Layout != want {
+		t.Fatalf("windows %+v, sessions %+v", s.Windows, s.Sessions)
 	}
 	_, state := s.Encode()
 	if strings.Contains(string(state), `"sidebarOpen"`) {
@@ -123,17 +101,13 @@ func TestMigrateTheWindow(t *testing.T) {
 	data, _ := json.Marshal(old)
 	os.WriteFile(path, data, 0o644)
 	s := Load(path)
-	if len(s.Windows) != 1 || s.Windows[0].Panels.Get(SideLeft).Size != 300 {
+	if len(s.Windows) != 1 || s.Windows[0].SidebarWidth != 300 {
 		t.Fatalf("windows %+v", s.Windows)
 	}
 	w := s.Windows[0]
-	if w.ID != 0 || w.Folder != "/tmp/x" || len(w.Columns) != 1 ||
+	if w.ID != 0 || w.Folder != "/tmp/x" || !w.PanelOpen || !w.TerminalOpen || len(w.Columns) != 1 ||
 		len(w.Columns[0].Tabs) != 2 || w.Columns[0].Active != 1 {
 		t.Fatalf("window %+v", w)
-	}
-	// The panel it kept apart shows the terminal, open.
-	if p := w.Panels.Get(SideBottom); !p.Open || !slices.Equal(p.Views, []string{ViewTerminal}) {
-		t.Fatalf("the bottom panel %+v", p)
 	}
 	data, _ = os.ReadFile(path)
 	for _, key := range []string{`"folder"`, `"openFiles"`, `"sidebarWidth"`} {
@@ -141,7 +115,7 @@ func TestMigrateTheWindow(t *testing.T) {
 			t.Errorf("%s still kept in the settings", key)
 		}
 	}
-	if got := Load(path); len(got.Windows) != 1 || got.Windows[0].Panels.Get(SideLeft).Size != 300 {
+	if got := Load(path); len(got.Windows) != 1 || got.Windows[0].SidebarWidth != 300 {
 		t.Errorf("loaded again: windows %+v", got.Windows)
 	}
 }
@@ -155,7 +129,7 @@ func TestStateMovesToItsFile(t *testing.T) {
 	os.WriteFile(path, []byte(`{"fontSize": 15, "sidebarWidth": 320, "recent": ["/tmp/x"],
 		"windows": [{"id": 0, "folder": "/tmp/x", "columns": [{"tabs": [{"file": "/tmp/x/a.go"}], "active": 0, "weight": 1}]}]}`), 0o644)
 	s := Load(path)
-	if s.FontSize != 15 || len(s.Windows) != 1 || s.Windows[0].Panels.Get(SideLeft).Size != 320 || len(s.Recent) != 1 {
+	if s.FontSize != 15 || len(s.Windows) != 1 || s.Windows[0].SidebarWidth != 320 || len(s.Recent) != 1 {
 		t.Fatalf("loaded %+v", s)
 	}
 	prefs, _ := os.ReadFile(path)
@@ -655,219 +629,5 @@ func TestEdited(t *testing.T) {
 	}
 	if _, ok := s.Edited(); ok {
 		t.Error("an edit taken is an edit again")
-	}
-}
-
-// A view is in one panel at a time: placing it takes it out of the panel
-// it was in, which shows another of its views, and keeps its size for the
-// view that comes back.
-func TestPanelsMoveViews(t *testing.T) {
-	ps := Panels{}
-	ps.Place(ViewSearch, SideLeft)
-	ps.Place(ViewTerminal, SideBottom)
-	if at, ok := ps.SideOf(ViewSearch); !ok || at != SideLeft {
-		t.Fatalf("search is on %q", at)
-	}
-	ps.Place(ViewSearch, SideBottom)
-	if at, _ := ps.SideOf(ViewSearch); at != SideBottom {
-		t.Errorf("search is on %q", at)
-	}
-	if p := ps.Get(SideLeft); p == nil || p.Visible() {
-		t.Errorf("the left panel %+v shows, with no view", p)
-	}
-	p := ps.Get(SideBottom)
-	if !slices.Equal(p.Views, []string{ViewTerminal, ViewSearch}) || p.Shown() != ViewSearch || !p.Open {
-		t.Fatalf("the bottom panel %+v", p)
-	}
-	// The panel shows another of its views when the one it showed goes.
-	ps.Detach(ViewSearch)
-	if p.Shown() != ViewTerminal || !p.Open {
-		t.Errorf("the panel shows %q, open %v", p.Shown(), p.Open)
-	}
-	// A panel keeps its size for the view that comes back to it.
-	p.Size = 420
-	ps.Detach(ViewTerminal)
-	if p.Visible() {
-		t.Errorf("the bottom panel %+v shows, with no view", p)
-	}
-	ps.Place(ViewTerminal, SideBottom)
-	if p := ps.Get(SideBottom); p.Size != 420 {
-		t.Errorf("the panel is %.0f big, was 420", p.Size)
-	}
-}
-
-// The panels keep each view once, a panel showing one of its own views,
-// and a view no panel has on the side it starts on.
-func TestPanelsLayout(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "s.json")
-	s := Load(path)
-	w := s.NewWindow()
-	w.Panels = Panels{
-		SideLeft:   {Views: []string{ViewSearch, ViewTerminal}, Active: ViewTerminal, Open: true, Size: 420},
-		SideBottom: {Views: []string{ViewExplorer}, Active: ViewExplorer, Open: true},
-	}
-	w.Normalize(DefaultLayout)
-	if p := w.Panels.Get(SideLeft); p == nil || p.Size != 420 || p.Shown() != ViewTerminal {
-		t.Errorf("the left panel %+v", p)
-	}
-	if p := w.Panels.Get(SideBottom); p == nil || p.Size != DefaultPanelSize(SideBottom) {
-		t.Errorf("the bottom panel %+v", p)
-	}
-	s.Flush()
-	got := Load(path)
-	if len(got.Windows) != 1 || !samePanels(got.Windows[0].Panels, w.Panels) {
-		t.Fatalf("loaded %+v", got.Windows)
-	}
-
-	// A view of two panels stays in the first, once; one no view names
-	// goes; a panel that shows none of its views shows the first.
-	w = got.Windows[0]
-	w.Panels[SideRight] = &Panel{Views: []string{ViewExplorer, ViewExplorer, "elsewhere"}, Open: true}
-	w.Panels.Get(SideLeft).Active = "elsewhere"
-	w.Normalize(DefaultLayout)
-	if at, ok := w.Panels.SideOf(ViewExplorer); !ok || at != SideRight {
-		t.Errorf("the explorer is on %q", at)
-	}
-	if p := w.Panels.Get(SideRight); !slices.Equal(p.Views, []string{ViewExplorer, ViewSessions}) {
-		t.Errorf("the right panel %+v", p)
-	}
-	// The bottom panel lost the explorer, and shows nothing; the view no
-	// panel had came after the left panel's own.
-	if p := w.Panels.Get(SideBottom); p.Visible() {
-		t.Errorf("the bottom panel %+v shows, with no view", p)
-	}
-	if p := w.Panels.Get(SideLeft); !slices.Equal(p.Views, []string{ViewSearch, ViewTerminal, ViewSCM}) {
-		t.Errorf("the left panel holds %q", p.Views)
-	}
-	if p := w.Panels.Get(SideLeft); p.Shown() != ViewSearch {
-		t.Errorf("the left panel shows %q", p.Shown())
-	}
-	if p := w.Panels.Get(SideLeft); !p.Visible() {
-		t.Errorf("the left panel %+v does not show", p)
-	}
-}
-
-// A window is laid out as the one in front, with a copy of the views its
-// panels hold: moving one there leaves the other's tabs be.
-func TestNewWindowCopiesTheViews(t *testing.T) {
-	s := Default()
-	w := s.NewWindow()
-	y := s.NewWindow()
-	y.Panels.Place(ViewExplorer, SideRight)
-	if p := w.Panels.Get(SideLeft); !slices.Equal(p.Views, []string{ViewExplorer, ViewSearch, ViewSCM}) {
-		t.Errorf("the window in front has %q", p.Views)
-	}
-	if at, _ := w.Panels.SideOf(ViewExplorer); at != SideLeft {
-		t.Errorf("the explorer of the window in front is on %q", at)
-	}
-	if at, _ := y.Panels.SideOf(ViewExplorer); at != SideRight {
-		t.Errorf("the explorer of the new window is on %q", at)
-	}
-}
-
-// A stashed session keeps the layout, and the views its panels hold, a
-// copy: the window moves on without it.
-func TestStashCopiesTheLayout(t *testing.T) {
-	s := Default()
-	dir := t.TempDir()
-	s.AddRecent(dir)
-	w := s.NewWindow()
-	w.Folder, w.Expanded = dir, []string{"src"}
-	s.Stash(w)
-	w.Panels.Place(ViewSearch, SideRight)
-	w.Panels.Get(SideLeft).Size = 400
-	ses := s.Sessions[dir]
-	if ses == nil {
-		t.Fatal("no session kept")
-	}
-	if at, _ := ses.Panels.SideOf(ViewSearch); at != SideLeft {
-		t.Errorf("the session moved search to %q", at)
-	}
-	if got := ses.Panels.Get(SideLeft).Size; got == 400 {
-		t.Error("the session took the window's size")
-	}
-}
-
-// A session of the version that kept the bottom panel apart from the
-// sidebar keeps it as a panel, open with the terminal in it.
-func TestMigrateTheSessionsPanel(t *testing.T) {
-	dir := t.TempDir()
-	os.WriteFile(filepath.Join(dir, "state.json"), []byte(`{"windows":[{"id":0,"folder":"/tmp/x",
-		"panelOpen":true,"terminalOpen":true,"panelHeight":400,"expanded":["src"]}]}`), 0o644)
-	s := Load(filepath.Join(dir, "settings.json"))
-	if len(s.Windows) != 1 {
-		t.Fatalf("windows %+v", s.Windows)
-	}
-	p := s.Windows[0].Panels.Get(SideBottom)
-	if p == nil || !p.Open || p.Size != 400 || !slices.Equal(p.Views, []string{ViewTerminal}) {
-		t.Fatalf("the bottom panel %+v", p)
-	}
-	if p := s.Windows[0].Panels.Get(SideLeft); p.Shown() != ViewExplorer || !p.Open {
-		t.Errorf("the left panel %+v", p)
-	}
-}
-
-// panelPosition, where the version before the views moved between the
-// panels put the terminal, moves it there once, and goes.
-func TestPanelPositionMovesTheTerminal(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "s.json")
-	os.WriteFile(path, []byte(`{"panelPosition":"left","windows":[{"id":0,"folder":"/tmp/x"}]}`), 0o644)
-	s := Load(path)
-	if at, _ := s.Windows[0].Panels.SideOf(ViewTerminal); at != SideLeft {
-		t.Errorf("the terminal is on %q", at)
-	}
-	if s.PanelPosition != "" {
-		t.Errorf("panelPosition is still %q", s.PanelPosition)
-	}
-	_, state := s.Encode()
-	if strings.Contains(string(state), "panelPosition") {
-		t.Errorf("settings %s", state)
-	}
-}
-
-// A window of the version before the views moved between the panels keeps
-// the sidebar it had, as the panel of the left, and its panel at a side.
-func TestMigrateTheWindowsSidebar(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "state.json")
-	os.WriteFile(path, []byte(`{"windows":[{"id":0,"folder":"/tmp/x","sidebarWidth":300,
-		"sidebarView":"search","sidebarClosed":true,"panelWidth":400}]}`), 0o644)
-	s := Load(filepath.Join(filepath.Dir(path), "settings.json"))
-	w := s.Windows[0]
-	left := w.Panels.Get(SideLeft)
-	if !slices.Equal(left.Views, SidebarViews) || left.Shown() != ViewSearch || left.Size != 300 {
-		t.Errorf("the left panel %+v", left)
-	}
-	if left.Open {
-		t.Error("the left panel is open, was closed")
-	}
-	if p := w.Panels.Get(SideRight); p == nil || p.Size != 400 {
-		t.Errorf("the right panel %+v", p)
-	}
-	_, state := s.Encode()
-	if strings.Contains(string(state), "sidebarView") {
-		t.Errorf("state %s", state)
-	}
-}
-
-// A sidebar that showed a plugin's view keeps it, as a view of the panel
-// on the left.
-func TestMigrateThePluginView(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "state.json")
-	os.WriteFile(path, []byte(`{"windows":[{"id":0,"folder":"/tmp/x","sidebarView":"plugin:todos.list"}]}`), 0o644)
-	s := Load(filepath.Join(filepath.Dir(path), "settings.json"))
-	left := s.Windows[0].Panels.Get(SideLeft)
-	if left.Shown() != "plugin:todos.list" || !slices.Contains(left.Views, "plugin:todos.list") {
-		t.Errorf("the left panel %+v", left)
-	}
-}
-
-// A session whose panel was open with no terminal in it opens its panel
-// still.
-func TestMigrateASessionPanelWithNoTerminal(t *testing.T) {
-	path := filepath.Join(t.TempDir(), "state.json")
-	os.WriteFile(path, []byte(`{"windows":[{"id":0,"folder":"/tmp/x","panelOpen":true,"terminalOpen":false}]}`), 0o644)
-	s := Load(filepath.Join(filepath.Dir(path), "settings.json"))
-	if p := s.Windows[0].Panels.Get(SideBottom); !p.Open {
-		t.Errorf("the bottom panel %+v is closed", p)
 	}
 }

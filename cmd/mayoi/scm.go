@@ -14,7 +14,6 @@ import (
 
 	"mayoi/internal/bg"
 	"mayoi/internal/git"
-	"mayoi/internal/settings"
 	"mayoi/internal/vfs"
 	"mayoi/locales"
 )
@@ -93,10 +92,6 @@ func (r *scmRow) choice() string {
 // scmState is the source control view's: its list, the row chosen, and
 // the groups closed.
 type scmState struct {
-	// width is how wide the view was drawn, which its badges measure
-	// against: the panel's own width on a side, the editors' at the
-	// bottom, and the room it took maximized.
-	width       float32
 	section     scmSection
 	rowsSection scmSection
 	list        ui.ListState
@@ -397,12 +392,11 @@ func (a *gitContext) changeCount() int {
 	return len(a.git.status.Entries)
 }
 
-// scmView is the source control view: the branch, the commit
+// scmView is the sidebar's source control view: the branch, the commit
 // message, and the files changed, staged and not.
 func (a *gitContext) scmView(c *ui.Context) {
 	g := a.git
 	a.scmActivity(c)
-	a.scm.width = a.app.scmViewWidth(c)
 	if g.repo == nil {
 		if g.looked {
 			a.app.scmNoRepo(c)
@@ -458,7 +452,7 @@ func (a *gitContext) scmCommitControls(c *ui.Context) {
 				// wraps, sets the height too, so a long branch name shows whole.
 				width := box.Bounds().W
 				if width <= 0 {
-					width = a.app.scmWidthFor() - 24
+					width = a.app.window.SidebarWidth - 24
 				}
 				inset := float32(8 + 8 + 2) // the padding and the border
 				if button {
@@ -1341,43 +1335,13 @@ const (
 	graphMaxLanes = 6
 )
 
-// scmWidthFor is how wide the view is, as the frame that drew it made it;
-// before it was drawn, the width of the panel that holds it.
-func (a *app) scmWidthFor() float32 {
-	if a.scm.width > 0 {
-		return a.scm.width
-	}
-	return a.panelWidth(settings.SideLeft)
-}
-
-// scmViewWidth is how wide the panel that holds the view makes it: its own
-// width on a side, the editors' column at the bottom, and the room it
-// takes when it is maximized.
-func (a *app) scmViewWidth(c *ui.Context) float32 {
-	side, ok := a.viewSide(settings.ViewSCM)
-	if !ok {
-		return a.panelWidth(settings.SideLeft)
-	}
-	if side == settings.SideBottom || a.panelMax == side {
-		// The bottom panel is as wide as the editors' column; one
-		// maximized at a side takes the row, the editors' room with it.
-		if w := a.colsView.Bounds(c).W; w > 0 && side == settings.SideBottom {
-			return w
-		}
-		if w, _ := c.Size(); w > 0 {
-			return w
-		}
-	}
-	return a.panelWidth(side)
-}
-
 // badgeRoom is how many of n badges a commit's row shows, and how wide
 // each is at most: those that fit beside the start of its subject and its
 // time, past its lead, sharing the room, none narrower than a few letters.
 func (a *app) badgeRoom(n int, indented, lead float32) (shown int, w float32) {
 	const gap, more, least, widest = 6, 30, 48, 110
 	shown = min(a.badgesShown(indented), n)
-	room := a.scmWidthFor() - lead - 110
+	room := a.window.SidebarWidth - lead - 110
 	for ; shown > 0; shown-- {
 		r := room
 		if shown < n {
@@ -1391,10 +1355,10 @@ func (a *app) badgeRoom(n int, indented, lead float32) (shown int, w float32) {
 }
 
 // badgesShown is how many branches and tags a commit's row shows before
-// it counts the rest: more as the panel widens, fewer as the row is
+// it counts the rest: more as the sidebar widens, fewer as the row is
 // indented past the history's, so its subject and time keep their room.
 func (a *app) badgesShown(indented float32) int {
-	return min(max(1+int((a.scmWidthFor()-indented-240)/90), 1), 3)
+	return min(max(1+int((a.window.SidebarWidth-indented-240)/90), 1), 3)
 }
 
 // historyGraph returns the lanes of the history, laid out once for each
@@ -2267,16 +2231,20 @@ func (a *app) initRepo() {
 	})
 }
 
-// showExplorer shows the files, wherever they are.
+// showExplorer shows the files in the sidebar.
 func (a *app) showExplorer() {
-	a.showView(settings.ViewExplorer)
+	a.window.SidebarClosed, a.window.SidebarView = false, ""
+	a.settings.Changed()
 	// The files take the keyboard, as in VS Code: arrows choose, and ⌘V
 	// pastes into the folder chosen.
 	a.focusFiles = true
 }
 
-// showSourceControl shows the changes, wherever they are.
-func (a *app) showSourceControl() { a.showView(settings.ViewSCM) }
+// showSourceControl shows the changes in the sidebar.
+func (a *app) showSourceControl() {
+	a.window.SidebarClosed, a.window.SidebarView = false, "git"
+	a.settings.Changed()
+}
 
 // activePaths returns the file of the tab shown, to stage or unstage.
 func (a *app) activePaths() []string {

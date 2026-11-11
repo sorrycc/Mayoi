@@ -71,6 +71,7 @@ takes its default.
 | `theme`                 | `""`          | `""` (Mayoi), `"matrix"`, `"claude"`, `"qoder"`, `"grokbot"`, `"cursor"`, `"purplegold"`, `"pumpkin"`, `"witchsbrew"`, `"bloodmoon"` | **View → Theme**, **Color Theme…**             |
 | `appearance`            | `""`          | `""` (follow the system), `"light"`, `"dark"`               | **View → Theme**                               |
 | `sidebarRight`          | `false`       | `true`, `false`                                             | **View → Sidebar on Right**                    |
+| `panelPosition`         | `""`          | `""` (bottom), `"left"`, `"right"`                          | **View → Panel Position**                      |
 | `terminalLocation`      | `""`          | `""` (the panel), `"editor"`                                | **View → New Terminals in Editor Area**        |
 | `terminalBackend`       | `""`          | `""` (Mayoi), `"hc"` (herdr-core)                           |                                                |
 | `terminalBackendHcPath` | `""`          | A path to `hc`, a folder that has it, or a name on `PATH`   |                                                |
@@ -156,6 +157,9 @@ differ in width lines them up only roughly.
 - **`theme`** is Mayoi's own theme, The Matrix, Claude, Qoder, Grok Bot, Cursor, Purple Gold, or a Halloween theme:
   `"pumpkin"` for Jack-o'-Lantern, `"witchsbrew"` for Witch's Brew and `"bloodmoon"` for Blood Moon. The Matrix, Purple
   Gold and the Halloween themes are always dark, so they ignore `appearance`.
+- **`panelPosition`** is where the terminal panel is: `""` or `"bottom"` below the editors, `"left"` or `"right"` at a
+  side of the window. At a side it sits past the sidebar, so with the sidebar on the same side the panel is the outer
+  of the two.
 - **`terminalLocation`** is where a new terminal opens: `""` in the panel, or `"editor"` in a tab of the editor area,
   in the column files open in, as **New Terminal in Editor Area** does. It applies to New Terminal (⌃⇧`) and the
   Explorer's **Open in Terminal**. Toggle Terminal (⌃`), the title bar's terminal button and the panel's **+** still
@@ -221,7 +225,7 @@ differ in width lines them up only roughly.
   independently.
 - **`vim`** starts editors in vim's normal mode.
 - **`vimCtrlKeys`** gives ⌃F, ⌃B, ⌃R, ⌃A and ⌃X to vim's normal mode on Windows and Linux, rather than to Find,
-  Toggle Primary Side Bar, Open Recent, Select All and Cut. On macOS, where those commands use ⌘, vim always has them.
+  Toggle Sidebar, Open Recent, Select All and Cut. On macOS, where those commands use ⌘, vim always has them.
 - **`blame`** shows who last changed the caret's line, and when, at the end of the line.
 - **`explorerCompactFolders`** shows each chain of folders that contain only one child folder on one Explorer row,
   as `src/main/java/com/example`. The row's actions use the last folder in the chain. Turn it off to show the
@@ -358,8 +362,8 @@ so it overwrites any change you make to one while it's open. To start fresh, qui
 
 - **`state.json`** holds the open windows with their folders, columns and tabs, each tab with its caret, selection,
   scroll position and own word wrap. It also holds the folders open in the Explorer, the recent folders and the sessions
-  Mayoi restores when one opens again, and each window's layout: its panels, by side, each with the views it holds as
-  tabs, the one it shows, whether it is open and its size. Deleting it forgets all of that.
+  Mayoi restores when one opens again, and each window's layout: its sidebar's view, whether it is open and its width,
+  and its panel's height and, at a side, its width. Deleting it forgets all of that.
 - **`window-state.json`** holds each window's position and size.
 - **`updater.json`** holds your choices in the update window. See [Updates](FEATURES.md#updates).
 

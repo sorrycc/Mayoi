@@ -274,7 +274,7 @@ func TestSubmoduleUIAndStatusRepositoryPicker(t *testing.T) {
 	hs, sub, parent := submoduleHarness(t)
 	a := hs.a
 	hs.tt.SetSize(1200, 1000)
-	a.leftPanel().Size = 340
+	a.window.SidebarWidth = 340
 	path := filepath.Join(sub.git.repo.Root, "module.txt")
 	os.WriteFile(path, []byte("staged via UI\n"), 0o644)
 	gitIn(t, sub.git.repo.Root, "add", "module.txt")
@@ -365,7 +365,7 @@ func TestSubmoduleChangesPaneScroll(t *testing.T) {
 
 func TestSubmoduleLayoutUsesSpaceForChanges(t *testing.T) {
 	hs, sub, _ := submoduleHarness(t)
-	hs.a.leftPanel().Size = 300
+	hs.a.window.SidebarWidth = 300
 	os.WriteFile(filepath.Join(sub.git.repo.Root, "module.txt"), []byte("changed\n"), 0o644)
 	hs.a.gitChanged()
 	settleRepositories(t, hs, 2)

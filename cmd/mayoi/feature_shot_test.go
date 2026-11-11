@@ -353,7 +353,7 @@ func TestFeatSourceControl(t *testing.T) {
 		featChanges(t, root)
 		hs := featHarness(t, dark, featOpts{root: root})
 		a := hs.a
-		a.leftPanel().Size = 330
+		a.window.SidebarWidth = 330
 		a.run("view.scm")
 		hs.settleGit()
 		a.git.message = "Say what word wrap does as it toggles"
@@ -367,7 +367,7 @@ func TestFeatSourceControl(t *testing.T) {
 			for i, r := range v.rows {
 				if r.changed() && v.files[r.file].path == hs.path("cmd/mayoi/wrap.go") {
 					y := titleBarH + tabStripH + crumbsH + editorPadY + float32(v.tops[i])*a.font.lineH - v.scroll.Y + a.font.lineH/2
-					hs.tt.Move(a.leftPanel().Size+400, y)
+					hs.tt.Move(a.window.SidebarWidth+400, y)
 					break
 				}
 			}
@@ -421,7 +421,7 @@ func TestFeatCommits(t *testing.T) {
 		featHistory(t, root)
 		hs := featHarness(t, dark, featOpts{root: root})
 		a := hs.a
-		a.leftPanel().Size = 330
+		a.window.SidebarWidth = 330
 		a.run("view.scm")
 		hs.settleGit()
 		a.showCommit(a.git.history[0], false)
@@ -588,7 +588,7 @@ func TestFeatSearch(t *testing.T) {
 	featBoth(t, func(t *testing.T, dark bool) {
 		hs := featHarness(t, dark, featOpts{})
 		a := hs.a
-		a.leftPanel().Size = 360
+		a.window.SidebarWidth = 360
 		hs.searchFor("WordWrap")
 		s := &a.inFiles
 		if len(s.files) > 0 && len(s.files[0].matches) > 0 {

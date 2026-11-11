@@ -107,7 +107,7 @@ func TestShotDiffInteractions(t *testing.T) {
 		// The pointer over a change's arrow.
 		from, to := v.hunkRows(1)
 		y := titleBarH + tabStripH + crumbsH + editorPadY + float32(v.tops[from]+v.tops[to])/2*a.font.lineH - v.scroll.Y
-		hs.tt.Move(a.leftPanel().Size+v.viewW/2, y)
+		hs.tt.Move(a.window.SidebarWidth+v.viewW/2, y)
 		hs.settle()
 		hs.shot(name + "-arrow")
 		// Editing the working tree side.

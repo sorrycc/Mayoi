@@ -10,8 +10,6 @@ import (
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
 
-	"mayoi/internal/settings"
-
 	"mayoi/internal/highlight"
 )
 
@@ -293,7 +291,7 @@ func TestQoderTheme(t *testing.T) {
 		hs := themeHarness(t, theme, false)
 		// The panel without a terminal: a shell started in the folder
 		// holds it on Windows, which then cannot remove it.
-		hs.a.window.Panels.On(settings.SideBottom).Open = true
+		hs.a.window.PanelOpen = true
 		hs.settle()
 		capitals := hs.tt.HasText("EXPLORER") && hs.tt.HasText("TERMINAL")
 		if capitals != (theme == "") {
@@ -518,7 +516,7 @@ func shotTheme(t *testing.T, theme string) {
 		i := strings.Index(string(src), "func newCodeFont")
 		at := len([]rune(string(src)[:i]))
 		hs.place(d, at, at+20)
-		a.toggleTerminal()
+		a.togglePanel()
 		hs.settle()
 		hs.shot(name + "-editor")
 	}

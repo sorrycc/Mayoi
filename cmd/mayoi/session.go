@@ -52,11 +52,11 @@ func (a *app) openSession(dir string) {
 	if ses == nil {
 		return
 	}
-	// The panels and their terminals are the window's still, and the
+	// The panel and its terminals are the window's still, and the
 	// folder's layout its own.
 	a.window.Columns, a.window.Column, a.window.FileColumn, a.window.Expanded = ses.Columns, ses.Column, ses.FileColumn, ses.Expanded
 	a.window.Review = ses.Review
-	if len(ses.Panels) > 0 {
+	if ses.SidebarWidth != 0 {
 		a.window.Layout = ses.Layout
 	}
 	a.restoreTabs()

@@ -281,8 +281,11 @@ type app struct {
 	terms     []*session
 	panelTerm *session
 	nextTerm  int
-	// panelScroll measures whether the terminal chips need a scroll bar.
+	// panelScroll measures whether the terminal chips need a scroll bar;
+	// panelLayout requests a follow-up frame when their available room or
+	// titles change, so the header can use the freshly measured overflow.
 	panelScroll ui.ScrollState
+	panelLayout panelHeaderLayout
 	// termTheme is the theme of the settings the terminals have the colors
 	// of.
 	termTheme string
@@ -298,7 +301,7 @@ type app struct {
 	// transfers are the copies to and from hosts running.
 	transfers []*transfer
 
-	panelMax    settings.Side // the panel that takes the editor's room
+	panelMax    bool // the panel takes the editor's room
 	welcomeView ui.Handle
 	rain        rainState   // The Matrix's, behind the welcome page
 	mascot      mascotState // the theme's character, Claude's or Qoder's
@@ -350,11 +353,11 @@ type app struct {
 	// each one's version, and the editor in front.
 	pluginSeen pluginSeen
 	// viewStates are the folders open and the row chosen in each plugin
-	// view the left panel showed, by view id: this window's own.
+	// view the sidebar showed, by view id: this window's own.
 	viewStates map[string]*pluginView
 	hover      *hoverCard // the card Show Hover shows
 	find       findState
-	inFiles    searchState // search in the files, of the left panel
+	inFiles    searchState // search in the files, of the sidebar
 	sessions   sessionsState
 	prompt     *prompt
 	confirm    *confirm
@@ -392,7 +395,7 @@ type app struct {
 	// kept is the session the window had before its documents closed as it
 	// closes, which it keeps for its next start, nil until then.
 	kept *settings.Session
-	// rail builds the rail of project tabs left of the left panel, nil for
+	// rail builds the rail of project tabs left of the sidebar, nil for
 	// none.
 	rail func(c *ui.Context)
 	// alert is what a terminal of the project last asked attention for,
@@ -521,7 +524,7 @@ func (a *app) start() {
 		}
 	}
 	a.restoreTabs()
-	if !a.restorePanel(terms, shown) && a.root != "" && a.terminalShown() {
+	if !a.restorePanel(terms, shown) && w.TerminalOpen && w.PanelOpen && a.root != "" {
 		a.newTerminal()
 	}
 }

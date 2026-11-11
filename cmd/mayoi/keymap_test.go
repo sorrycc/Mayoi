@@ -9,8 +9,6 @@ import (
 	"github.com/egoist/mygo/ui"
 
 	"mayoi/internal/keymap"
-
-	"mayoi/internal/settings"
 )
 
 const testKeys = `// as Cursor's, with ctrl+. for the prefix
@@ -93,12 +91,12 @@ func TestKeymapInTextField(t *testing.T) {
 		t.Errorf("the chord typed in quick open: %q", a.quick.query)
 	}
 	// A chord there runs too.
-	a.leftPanel().Active = settings.ViewSCM
+	a.window.SidebarView = "git"
 	tt.Key(ui.Ctrl, ui.KeyPeriod)
 	tt.TypeKey(0, ui.Key1, "1")
 	hs.settle()
-	if a.quick.query != "ma" || a.leftPanel().Shown() != settings.ViewExplorer {
-		t.Errorf("ctrl+. 1 in quick open: query %q, the left panel shows %q", a.quick.query, a.leftPanel().Shown())
+	if a.quick.query != "ma" || a.window.SidebarView != "" {
+		t.Errorf("ctrl+. 1 in quick open: query %q, sidebar %q", a.quick.query, a.window.SidebarView)
 	}
 }
 
@@ -109,10 +107,10 @@ func TestKeymapOverridesShortcuts(t *testing.T) {
 	a.openFile(hs.path("go.mod"), true)
 	a.openFile(hs.path("README.md"), true)
 	hs.settle()
-	closed := !a.leftPanel().Open
+	closed := a.window.SidebarClosed
 	tt.Key(ui.Super, ui.Key1)
 	hs.settle()
-	if !a.leftPanel().Open == closed {
+	if a.window.SidebarClosed == closed {
 		t.Error("cmd+1 did not toggle the sidebar")
 	}
 	if a.activeTab().path() != hs.path("README.md") {
@@ -242,12 +240,12 @@ func TestKeymapChordTypesNothingAndLetsGo(t *testing.T) {
 	d := a.activeEditor()
 	before := d.buf.String()
 	// ctrl+. 1 from the editor: the Explorer, and no 1 typed.
-	a.leftPanel().Active = settings.ViewSCM
+	a.window.SidebarView = "git"
 	tt.Key(ui.Ctrl, ui.KeyPeriod)
 	tt.TypeKey(0, ui.Key1, "1")
 	hs.settle()
-	if d.buf.String() != before || a.leftPanel().Shown() != settings.ViewExplorer {
-		t.Fatalf("ctrl+. 1: text %q, the left panel shows %q", d.buf.String(), a.leftPanel().Shown())
+	if d.buf.String() != before || a.window.SidebarView != "" {
+		t.Fatalf("ctrl+. 1: text %q, sidebar %q", d.buf.String(), a.window.SidebarView)
 	}
 	// The key let go of, the editor types again.
 	tt.Key(0, ui.Key1) // its release

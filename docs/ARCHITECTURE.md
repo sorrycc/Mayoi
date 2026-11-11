@@ -52,10 +52,9 @@ keyboard is in none of them, the window registers the keys of the file as its sh
 the next frame, by Mayoi's id or VS Code's name, and `runCommands` steps through its commands one frame at a time, until
 the edits and Git commands before each are done.
 
-**`view.go`.** This is the layout. The panels, the columns and their views keep stable keys as panes come and go, so
+**`view.go`.** This is the layout. The sidebar, the columns and the panel keep stable keys as panes come and go, so
 editors never lose their state. Tabs are dragged as values within the window, and the drop targets a column offers only
-show during a drag. A view moves between the panels (`views.go`), each of which shows one of its own at a time, as tabs;
-the project's session keeps which.
+show during a drag.
 
 ## Documents, editors and columns
 
@@ -257,7 +256,7 @@ to tell plugins of what opened, changed, saved and closed, and to start those wh
 
 **`pluginui.go`, `pluginviews.go`, `plugintheme.go`, `pluginsnippets.go`.** What plugins show: status items,
 diagnostics as underlines (`editor.go`) and in Show Problems, formatters (`saveDoc` waits for one, 1.5 s at most),
-views as trees of nodes drawn with MyGo's widgets in a panel, previews in the viewer's place, webviews through
+views as trees of nodes drawn with MyGo's widgets in the sidebar, previews in the viewer's place, webviews through
 `ui.WebView` with a bridge of messages, themes as palettes over Mayoi's (or VS Code themes mapped to them), languages
 through `highlight.LexerName`, and snippets. `prefsplugins.go` is the Plugins page of the settings window.
 

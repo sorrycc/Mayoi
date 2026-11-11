@@ -102,7 +102,7 @@ func TestDiffFileHeaderNarrowActions(t *testing.T) {
 	a.showChanges(diffTarget{path: path, base: diffIndex}, true)
 	hs.settleGit()
 	v := a.activeTab().diff
-	a.leftPanel().Size = 280
+	a.window.SidebarWidth = 280
 	tt.SetSize(780, 500)
 	hs.settle()
 	if len(v.heads) != 1 {

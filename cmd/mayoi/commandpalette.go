@@ -137,8 +137,7 @@ func (a *app) commandOn(id string) bool {
 		return s.Theme == ""
 	}
 	if pos, ok := strings.CutPrefix(id, "view.panelPosition."); ok {
-		at, _ := a.viewSide(panelTerminal)
-		return string(at) == pos
+		return a.panelSide() == pos
 	}
 	if tag, ok := strings.CutPrefix(id, localeCommand); ok {
 		return a.localeOn(tag)

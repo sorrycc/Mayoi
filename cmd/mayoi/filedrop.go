@@ -17,27 +17,27 @@ import (
 // typed instead. Files dragged from the explorer, source control and the
 // search results go where those from the Finder go.
 
-// fileDrag is a file dragged from a panel, and the match of it a
+// fileDrag is a file dragged from the sidebar, and the match of it a
 // search result shows, which opens selected.
 type fileDrag struct {
 	path  string
 	match *searchMatch
 }
 
-// dropFile opens a file dragged from a panel at place at of a column.
+// dropFile opens a file dragged from the sidebar at place at of a column.
 func (a *app) dropFile(f *fileDrag, col *column, at int) {
 	a.dropFiles([]string{f.path}, col, at)
 	a.showDropped(f)
 }
 
-// dropFileBeside opens a file dragged from a panel in a column of its
+// dropFileBeside opens a file dragged from the sidebar in a column of its
 // own beside col.
 func (a *app) dropFileBeside(f *fileDrag, col *column, after bool) {
 	a.dropFilesBeside([]string{f.path}, col, after)
 	a.showDropped(f)
 }
 
-// dropFileOnColumn opens a file dragged from a panel after the tab a
+// dropFileOnColumn opens a file dragged from the sidebar after the tab a
 // column shows, or types its path into the terminal it shows.
 func (a *app) dropFileOnColumn(f *fileDrag, col *column) {
 	a.dropOnColumn([]string{f.path}, col)
@@ -51,7 +51,7 @@ func (a *app) showDropped(f *fileDrag) {
 	}
 }
 
-// dragFile makes a row of a panel drag its file to the columns. The
+// dragFile makes a row of the sidebar drag its file to the columns. The
 // drag also carries the file out to other apps, as a copy.
 func (a *app) dragFile(row ui.Element, f *fileDrag) {
 	row.Drag(dragItem{file: f})

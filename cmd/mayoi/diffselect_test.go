@@ -23,7 +23,7 @@ func diffSelTab(t *testing.T, l diffLayout) (*harness, *diffView, string, func(i
 	at := func(i, side int, col float32) (x, y float32) {
 		g := a.diffGeometry(v, v.split, v.viewW)
 		top := editorPadY + float32(v.tops[i])*a.font.lineH
-		x = a.leftPanel().Size + g.textX + col*a.font.charW
+		x = a.window.SidebarWidth + g.textX + col*a.font.charW
 		if side == 1 {
 			x += g.right()
 		}

@@ -535,8 +535,8 @@ func TestTerminalInAColumn(t *testing.T) {
 	a.run("view.terminalTab")
 	hs.settle()
 	col := a.column()
-	if len(a.terms) != 1 || len(col.tabs) != 2 || col.tab().term != a.terms[0] || a.panelOpen(panelTerminal) {
-		t.Fatalf("%d terminals, %d tabs, panel %v", len(a.terms), len(col.tabs), a.panelOpen(panelTerminal))
+	if len(a.terms) != 1 || len(col.tabs) != 2 || col.tab().term != a.terms[0] || a.window.PanelOpen {
+		t.Fatalf("%d terminals, %d tabs, panel %v", len(a.terms), len(col.tabs), a.window.PanelOpen)
 	}
 	s := a.terms[0]
 	says := func(text string) {
@@ -556,16 +556,16 @@ func TestTerminalInAColumn(t *testing.T) {
 	// To the panel, where it goes on, and back to a column of its own.
 	a.run("view.terminalMove")
 	hs.settle()
-	if s.tab != nil || a.panelTerm != s || !a.panelOpen(panelTerminal) || len(col.tabs) != 1 || a.focus != paneTerminal {
-		t.Fatalf("in the panel: tab %v, panel %v, %d tabs", s.tab, a.panelOpen(panelTerminal), len(col.tabs))
+	if s.tab != nil || a.panelTerm != s || !a.window.PanelOpen || len(col.tabs) != 1 || a.focus != paneTerminal {
+		t.Fatalf("in the panel: tab %v, panel %v, %d tabs", s.tab, a.window.PanelOpen, len(col.tabs))
 	}
 	tt.Type("echo panel-$((40+3))")
 	tt.Key(0, ui.KeyEnter)
 	says("panel-43")
 	a.run("view.terminalMove")
 	hs.settle()
-	if s.tab == nil || a.panelTerm != nil || a.panelOpen(panelTerminal) || len(col.tabs) != 2 {
-		t.Fatalf("back in a tab: tab %v, panel %v, %d tabs", s.tab, a.panelOpen(panelTerminal), len(col.tabs))
+	if s.tab == nil || a.panelTerm != nil || a.window.PanelOpen || len(col.tabs) != 2 {
+		t.Fatalf("back in a tab: tab %v, panel %v, %d tabs", s.tab, a.window.PanelOpen, len(col.tabs))
 	}
 	a.run("view.moveTabNext")
 	hs.settle()
@@ -672,8 +672,8 @@ func TestDraggingTerminals(t *testing.T) {
 		t.Fatalf("no chip or no editor: %q", tt.Texts())
 	}
 	hs.drag(chip.X+chip.W/2, chip.Y+chip.H/2, body.X+body.W-20, body.Y+body.H/2)
-	if len(a.cols) != 2 || a.cols[1].tab().term != second || a.panelTerm != first || !a.panelOpen(panelTerminal) {
-		t.Fatalf("%d columns, the panel open %v", len(a.cols), a.panelOpen(panelTerminal))
+	if len(a.cols) != 2 || a.cols[1].tab().term != second || a.panelTerm != first || !a.window.PanelOpen {
+		t.Fatalf("%d columns, the panel open %v", len(a.cols), a.window.PanelOpen)
 	}
 	hs.shot("14-terminal-dragged")
 	// And its tab, dropped on the panel, goes back.

@@ -108,7 +108,7 @@ func fadePage(e ui.Element) ui.Element {
 	return e.Opacity(e.Keyframes("show", showIn(false)))
 }
 
-// fadeIn brings a pane in as it shows, as a panel does
+// fadeIn brings a pane in as it shows, as the sidebar or the panel does
 // once toggled on: it fades in. Its motion starts the first time it is
 // built, so it plays again each time the pane comes back.
 func fadeIn(e ui.Element) ui.Element {

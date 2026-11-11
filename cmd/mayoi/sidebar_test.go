@@ -4,13 +4,12 @@ import (
 	"testing"
 
 	"github.com/egoist/mygo/ui"
-
-	"mayoi/internal/settings"
 )
 
-// The tab of source control shows its whole name in a panel wide enough
-// for it, and its short form in a narrow one.
-func TestViewTabNamesFit(t *testing.T) {
+// The sidebar's title shows whole: beside the Explorer's buttons, which go
+// on the folder's row, and in source control, whose title gives way to
+// its short form in a narrow sidebar.
+func TestSidebarTitleFits(t *testing.T) {
 	hs := newHarness(t, true)
 	a, tt := hs.a, hs.tt
 	whole := func(title string) {
@@ -21,22 +20,32 @@ func TestViewTabNamesFit(t *testing.T) {
 		}, 100, 100).Frame()
 		r, ok := tt.Find(title)
 		if !ok {
-			t.Fatalf("no tab %q: %q", title, tt.Texts())
+			t.Fatalf("no title %q: %q", title, tt.Texts())
 		}
+		// Less the title's left padding.
 		if r.W-6 < w {
-			t.Errorf("the tab %q has %.0f points of the %.0f it takes", title, r.W-6, w)
+			t.Errorf("the title %q has %.0f points of the %.0f it takes", title, r.W-6, w)
 		}
 	}
 	hs.gitRepo()
-	// The panel on the layout's left is narrow: source control is GIT
-	// there, with the views beside it.
-	if !tt.HasText("GIT") || tt.HasText("SOURCE CONTROL") {
-		t.Fatalf("the left panel names its tabs %q", tt.Texts())
+	tt.Move(100, 150)
+	hs.settle()
+	whole("EXPLORER")
+	if _, ok := tt.Find("New File…"); !ok {
+		t.Error("the Explorer's buttons do not show under the pointer")
 	}
-	// A panel as wide as the editors says the whole name.
-	a.moveView(settings.ViewSCM, settings.SideBottom)
+	a.run("view.scm")
 	hs.settleGit()
+	// A wider interface font, as DejaVu Sans, has the whole title in a
+	// wider sidebar.
+	if !tt.HasText("SOURCE CONTROL") {
+		a.window.SidebarWidth = 320
+		hs.settle()
+	}
 	whole("SOURCE CONTROL")
+	a.window.SidebarWidth = 180
+	hs.settle()
+	whole("GIT")
 }
 
 // The guides of a row go down the middle of the arrows of the folders

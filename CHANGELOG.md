@@ -5,16 +5,6 @@ needs a `## <version>` section here, or its build fails.
 
 ## Unreleased
 
-- Every view is now a tab in a panel on the left, the right or the bottom of the window.
-- **Move to** in a tab's menu, or **View → Move View to Panel**, puts a view in another panel.
-- Enabled plugin views have tabs and menu items, and stay where you put them when revealed.
-- **View → Panel Position** is gone; move the terminal like any other view.
-- The title bar's buttons show and hide the primary side bar, bottom panel and secondary side bar.
-- **View → Sidebar on Right** mirrors the panels and their title bar icons.
-- Drag a panel's edge to resize it; narrow panels shorten tab names and wrap their tools.
-- Two side panels leave room for the editors, even in a narrow window.
-- Each project remembers which panel holds each view, and the panels' sizes.
-- `` ⌃` `` and the Explorer, Search and Source Control shortcuts open their views wherever they are.
 - Clicking a repository's name or row background in source control expands or collapses its changes.
 - **Settings > Shortcuts** lists **Report a Problem** under Help instead of Account.
 - A `mayoi://file` link opens its file at the line and column it names.
@@ -25,7 +15,7 @@ needs a `## <version>` section here, or its build fails.
 - A `mayoi://` link to a missing file says Mayoi could not open it, in the window in front.
 - Math with `\tag{…}` now renders in the Markdown preview, its label beside the equation.
 - After a full-screen program is killed, scrolling or typing in the terminal no longer prints escape codes.
-- **View → Sessions** lists Claude Code, Qoder, Codex and Grok sessions in the right panel, the latest first.
+- The sidebar's new **Sessions** view lists Claude Code, Qoder, Codex and Grok sessions, the latest first.
 - Sessions show for **This Project** or **All Projects**, and the search field narrows them by title or folder.
 - Enter or a double click resumes a session in a new terminal in its folder.
 - Claude Code sessions of every `~/.claude-*` folder show too; `agentSessionsClaudeDirs` adds more folders.

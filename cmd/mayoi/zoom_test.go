@@ -22,7 +22,7 @@ func TestWindowZoomScalesRailAndSidebar(t *testing.T) {
 	for range 30 {
 		step(tt)
 	}
-	labels := []string{filepath.Base(other), locales.SidebarTitleScmShort()}
+	labels := []string{filepath.Base(other), a.withKey(locales.SidebarScm(), "view.scm")}
 	before := make([]ui.Rect, len(labels))
 	for i, label := range labels {
 		var ok bool
@@ -49,8 +49,8 @@ func TestWindowZoomScalesRailAndSidebar(t *testing.T) {
 		t.Fatal(err)
 	}
 	step(tt)
-	if a.leftPanel().Shown() != settings.ViewSCM {
-		t.Fatal("the zoomed sidebar tab did not take the click")
+	if a.window.SidebarView != "git" {
+		t.Fatal("the zoomed sidebar button did not take the click")
 	}
 	if err := tt.RightClick(labels[0]); err != nil {
 		t.Fatal(err)

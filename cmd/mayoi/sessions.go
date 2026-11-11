@@ -331,9 +331,10 @@ func (a *app) openSessionTerminal(dir string) *session {
 		}
 		return s
 	}
-	s := a.startPanelTerminal(dir)
+	s := a.startTerminal(dir)
 	if s != nil {
-		a.showTerminalView()
+		a.panelTerm = s
+		a.window.PanelOpen, a.window.TerminalOpen = true, true
 		a.rememberTabs()
 		a.focusTerminal()
 	}
@@ -360,7 +361,15 @@ func (a *app) showHCTerminal(addr, dir string) {
 		return
 	}
 	a.panelTerm = s
-	a.showTerminalView()
+	a.window.PanelOpen, a.window.TerminalOpen = true, true
 	a.rememberTabs()
 	a.focusTerminal()
+}
+
+// showSessions shows the sessions in the sidebar, with the keyboard in
+// their query.
+func (a *app) showSessions() {
+	a.window.SidebarClosed, a.window.SidebarView = false, "sessions"
+	a.settings.Changed()
+	a.sessions.input.Focus()
 }

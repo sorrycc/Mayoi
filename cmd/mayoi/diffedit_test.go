@@ -534,7 +534,7 @@ func TestDiffEditPlacesTheCaretByClicking(t *testing.T) {
 	v.scroll.Y = max(0, editorPadY+float32(v.tops[row])*a.font.lineH-300)
 	hs.settle()
 	y := titleBarH + tabStripH + crumbsH + editorPadY + float32(v.tops[row])*a.font.lineH - v.scroll.Y + a.font.lineH/2
-	x := a.leftPanel().Size + l.textX + 3*a.font.charW
+	x := a.window.SidebarWidth + l.textX + 3*a.font.charW
 	hs.tt.ClickAt(x, y)
 	hs.settle()
 	snap := e.doc.buf.Snapshot()

@@ -212,7 +212,7 @@ func TestRepositoryChangesResizeAndRemember(t *testing.T) {
 
 func TestRepositoryHeaderUsesActualWidth(t *testing.T) {
 	hs, sub, _ := submoduleHarness(t)
-	hs.a.leftPanel().Size = 420
+	hs.a.window.SidebarWidth = 420
 	width := float32(240)
 	tt := ui.NewTester(func(c *ui.Context) {
 		ui.Column(c).Width(width).Children(func() { sub.repositoryHeader(c) })
@@ -353,7 +353,7 @@ func TestRepositoryChangesScrollContinuouslyAndPinHeaders(t *testing.T) {
 	hs, sub, parent := submoduleHarness(t)
 	a := hs.a
 	hs.tt.SetSize(1200, 1000)
-	a.leftPanel().Size = 320
+	a.window.SidebarWidth = 320
 	for _, root := range []string{a.git.repo.Root, sub.git.repo.Root} {
 		for i := range 120 {
 			if err := os.WriteFile(filepath.Join(root, fmt.Sprintf("file-%03d.txt", i)), []byte("new\n"), 0o644); err != nil {
@@ -438,7 +438,7 @@ func repositoryGroupScrollFixture(t *testing.T) (*harness, *gitContext) {
 	hs, sub, _ := submoduleHarness(t)
 	a := hs.a
 	hs.tt.SetSize(1200, 1000)
-	a.leftPanel().Size = 340
+	a.window.SidebarWidth = 340
 	a.window.ScmChangesRatio = 0.7
 	root := sub.git.repo.Root
 	for _, prefix := range []string{"staged", "working"} {

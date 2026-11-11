@@ -80,8 +80,8 @@ func TestPluginDiagnosticsFormatViewsAndPreviews(t *testing.T) {
 		v := h.views["lint.view"]
 		return v != nil && v.Type == "stack"
 	})
-	if a.leftPanel().Shown() != "plugin:lint.view" {
-		t.Fatalf("the left panel shows %q", a.leftPanel().Shown())
+	if a.window.SidebarView != "plugin:lint.view" {
+		t.Fatalf("sidebar shows %q", a.window.SidebarView)
 	}
 	hs.settle() // draws it
 

@@ -21,6 +21,7 @@ needs a `## <version>` section here, or its build fails.
 - LocatorJS's **Custom link** reaches Mayoi with `mayoi://file/${projectPath}${filePath}:${line}:${column}`.
 - A `mayoi://` link to a missing file says Mayoi could not open it, in the window in front.
 - Math with `\tag{…}` now renders in the Markdown preview, its label beside the equation.
+- After a full-screen program is killed, scrolling or typing in the terminal no longer prints escape codes.
 
 ## 0.19.3
 

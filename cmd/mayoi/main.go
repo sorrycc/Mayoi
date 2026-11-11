@@ -63,9 +63,11 @@ type mayoi struct {
 	wins   []*desktop
 	frames []*frame
 	// pending are the folders and files the app was asked to open before
-	// it was ready.
-	ready   bool
-	pending []string
+	// it was ready, and pendingTargets the files a URL asked for with a
+	// line and column.
+	ready          bool
+	pending        []string
+	pendingTargets []cli.Target
 	// life is how far the app is along quitting: closing once it quits,
 	// so that the windows it closes stay in the settings, to open again
 	// at the next start.
@@ -391,6 +393,19 @@ func main() {
 		}
 		m.open([]string{path})
 	})
+	// A mayoi:// URL, as LocatorJS opens a file, once the windows are
+	// ready to show it.
+	mygo.App.OnOpenURL(func(rawURL string) {
+		t, ok := openURLTarget(rawURL)
+		if !ok {
+			return
+		}
+		if !m.ready {
+			m.pendingTargets = append(m.pendingTargets, t)
+			return
+		}
+		m.openTargets(cli.Request{Paths: []cli.Target{t}}, func(cli.Reply) {})
+	})
 	mygo.App.OnBeforeQuit(func(e *mygo.QuitEvent) {
 		if !m.beforeQuit() {
 			e.PreventDefault()
@@ -431,6 +446,10 @@ func main() {
 		m.ready = true
 		m.launch(append(m.pending, argPaths(os.Args[1:], wd)...))
 		m.pending = nil
+		if len(m.pendingTargets) > 0 {
+			m.openTargets(cli.Request{Paths: m.pendingTargets}, func(cli.Reply) {})
+			m.pendingTargets = nil
+		}
 		m.listenCLI()
 		go func() {
 			<-shellPathReady

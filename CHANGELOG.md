@@ -7,6 +7,8 @@ needs a `## <version>` section here, or its build fails.
 
 - Clicking a repository's name or row background in source control expands or collapses its changes.
 - **Settings > Shortcuts** lists **Report a Problem** under Help instead of Account.
+- A `mayoi://file` link opens its file at the line and column it names.
+- LocatorJS's **Custom link** reaches Mayoi with `mayoi://file/${projectPath}${filePath}:${line}:${column}`.
 
 ## 0.19.3
 

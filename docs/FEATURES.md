@@ -712,6 +712,21 @@ A command acts on the window whose folder contains the directory it runs in, els
 with `-w`, and starts Mayoi if it isn't running. When something goes wrong, it says so and exits with status 1, or 2
 for options it doesn't know. A `mayoi` command an older Mayoi installed is brought up to date as Mayoi starts.
 
+## Deep links
+
+`mayoi://file/<path>:<line>:<column>` opens the file at a line and column, in the window whose folder holds it, else
+in a new one. `mayoi://open?file=<path>&line=<line>&column=<column>` opens the same file with the path in the query.
+A path with spaces is percent-encoded by the browser, as `%20`.
+
+LocatorJS's **Custom link** opens the first form:
+
+```
+mayoi://file/${projectPath}${filePath}:${line}:${column}
+```
+
+The scheme is registered when Mayoi is installed. On Windows and Linux a link starts Mayoi, or reaches the one
+already running.
+
 ## Appearance and persistence
 
 **View → Theme** picks a theme, Mayoi, The Matrix, Claude, Qoder, Grok Bot, Cursor, Purple Gold, or one of the Halloween

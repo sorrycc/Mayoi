@@ -715,8 +715,9 @@ for options it doesn't know. A `mayoi` command an older Mayoi installed is broug
 ## Deep links
 
 `mayoi://file/<path>:<line>:<column>` opens the file at a line and column, in the window whose folder holds it, else
-in a new one. `mayoi://open?file=<path>&line=<line>&column=<column>` opens the same file with the path in the query.
-A path with spaces is percent-encoded by the browser, as `%20`.
+the one in front. `mayoi://open?file=<path>&line=<line>&column=<column>` opens the same file with the path in the query.
+A path with spaces is percent-encoded by the browser, as `%20`; a `#`, `?` or `%` in a file's name may be left as it
+is.
 
 LocatorJS's **Custom link** opens the first form:
 

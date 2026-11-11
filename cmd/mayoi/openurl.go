@@ -17,23 +17,28 @@ import (
 //
 // The first is what LocatorJS's Custom link opens.
 func openURLTarget(raw string) (cli.Target, bool) {
+	// The path as written, which url.Parse would cut at a # or ? of a
+	// file's name, or refuse for a %, all of which LocatorJS leaves
+	// unescaped.
+	const file = "mayoi://file"
+	if len(raw) > len(file) && strings.EqualFold(raw[:len(file)], file) && raw[len(file)] == '/' {
+		path := raw[len(file):]
+		if p, err := url.PathUnescape(path); err == nil {
+			path = p
+		}
+		at, line, col, _ := cutLineSuffix(path)
+		return urlTarget(at, line, col)
+	}
 	u, err := url.Parse(raw)
-	if err != nil || !strings.EqualFold(u.Scheme, "mayoi") {
+	if err != nil || !strings.EqualFold(u.Scheme, "mayoi") || !strings.EqualFold(u.Host, "open") {
 		return cli.Target{}, false
 	}
-	switch strings.ToLower(u.Host) {
-	case "file":
-		at, line, col, _ := cutLineSuffix(u.Path)
-		return urlTarget(at, line, col)
-	case "open":
-		q := u.Query()
-		line, col, ok := urlLineColumn(q.Get("line"), q.Get("column"))
-		if !ok {
-			return cli.Target{}, false
-		}
-		return urlTarget(q.Get("file"), line, col)
+	q := u.Query()
+	line, col, ok := urlLineColumn(q.Get("line"), q.Get("column"))
+	if !ok {
+		return cli.Target{}, false
 	}
-	return cli.Target{}, false
+	return urlTarget(q.Get("file"), line, col)
 }
 
 // urlTarget is the file a URL names, absolute, at a line and column.

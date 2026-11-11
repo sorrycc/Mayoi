@@ -41,6 +41,20 @@ func TestOpenURLTargetFile(t *testing.T) {
 	}
 }
 
+func TestOpenURLTargetFileUnescaped(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("a Windows path is tested by TestOpenURLTargetFileWindows")
+	}
+	dir := filepath.ToSlash(t.TempDir())
+	for _, name := range []string{"a#b.tsx", "a?b.tsx", "100%.tsx", "[slug].tsx"} {
+		raw := "mayoi://file" + dir + "/" + name + ":3:1"
+		want := cli.Target{Path: filepath.Join(dir, name), Line: 3, Col: 1}
+		if got, ok := openURLTarget(raw); !ok || got != want {
+			t.Fatalf("openURLTarget(%q) = %+v, %v; want %+v", raw, got, ok, want)
+		}
+	}
+}
+
 func TestOpenURLTargetFileWindows(t *testing.T) {
 	if runtime.GOOS != "windows" {
 		t.Skip("a Windows path")
@@ -59,6 +73,7 @@ func TestOpenURLTargetRejects(t *testing.T) {
 		"https://example.com/App.tsx:1:2",
 		"mayoi://other?file=" + url.QueryEscape(file),
 		"mayoi://file",
+		"mayoi://files/" + filepath.ToSlash(file),
 		"mayoi://open?file=",
 		"mayoi://open?file=" + url.QueryEscape(file) + "&line=0",
 		"mayoi://open?file=" + url.QueryEscape(file) + "&column=-1",

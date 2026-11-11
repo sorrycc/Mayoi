@@ -43,7 +43,9 @@ func TestSidebarTitleFits(t *testing.T) {
 		hs.settle()
 	}
 	whole("SOURCE CONTROL")
-	a.window.SidebarWidth = 180
+	// Narrow for the whole title, but with room for GIT in DejaVu Sans
+	// beside the four switches.
+	a.window.SidebarWidth = 200
 	hs.settle()
 	whole("GIT")
 }

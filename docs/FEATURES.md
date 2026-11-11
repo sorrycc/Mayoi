@@ -495,9 +495,11 @@ Ctrl+Shift shortcut but Ctrl+Shift+C and Ctrl+Shift+V, the terminal's copy and p
 
 The sidebar's clock switch, or **View → Sessions**, lists the sessions of the coding agents on this machine, the one used
 last first: Claude Code's of `~/.claude`, of each `~/.claude-*` folder, of `CLAUDE_CONFIG_DIR` and of the folders
-`agentSessionsClaudeDirs` lists, and Qoder's, Codex's and Grok's. Each row has its title, or what was first asked, then
-when it was used last, its agent, the Claude Code folder other than `~/.claude` it is of, and its project when listing
-every project's. **This Project** shows those of the window's folder and the folders in it, **All Projects** every
+`agentSessionsClaudeDirs` lists, and Qoder's, Codex's and Grok's, under the heads Today, Yesterday, Previous 7 Days and
+Older, each with how many it has, which stay at the top as their rows scroll under them. Each row has its title, or what
+was first asked, and under it its agent, the Claude Code folder other than `~/.claude` it is of, its project when
+listing every project's, and at the end when it was used last. While the view reads the sessions the first time, it
+shows the shapes of the rows to come. **This Project** shows those of the window's folder and the folders in it, **All Projects** every
 folder's, and the search field narrows them by title, first prompt, folder or id. ↓ goes to the list and Esc back to the
 field.
 

@@ -16804,14 +16804,54 @@ func (msgs Messages) SessionsNoMatch() string {
 	return Catalog.Format(msgs.locale, "sessionsNoMatch", nil)
 }
 
-// SessionsHint says "Sessions of Claude Code, Qoder, Codex and Grok, the latest first. Enter resumes one."
+// SessionsHint says "Sessions of Claude Code, Qoder, Codex and Grok show here, the latest first."
 // in the language the app shows.
 func SessionsHint() string { return In(i18n.Locale()).SessionsHint() }
 
-// SessionsHint says "Sessions of Claude Code, Qoder, Codex and Grok, the latest first. Enter resumes one."
+// SessionsHint says "Sessions of Claude Code, Qoder, Codex and Grok show here, the latest first."
 // in the language of msgs.
 func (msgs Messages) SessionsHint() string {
 	return Catalog.Format(msgs.locale, "sessionsHint", nil)
+}
+
+// SessionsToday says "Today"
+// in the language the app shows.
+func SessionsToday() string { return In(i18n.Locale()).SessionsToday() }
+
+// SessionsToday says "Today"
+// in the language of msgs.
+func (msgs Messages) SessionsToday() string {
+	return Catalog.Format(msgs.locale, "sessionsToday", nil)
+}
+
+// SessionsYesterday says "Yesterday"
+// in the language the app shows.
+func SessionsYesterday() string { return In(i18n.Locale()).SessionsYesterday() }
+
+// SessionsYesterday says "Yesterday"
+// in the language of msgs.
+func (msgs Messages) SessionsYesterday() string {
+	return Catalog.Format(msgs.locale, "sessionsYesterday", nil)
+}
+
+// SessionsPreviousWeek says "Previous 7 Days"
+// in the language the app shows.
+func SessionsPreviousWeek() string { return In(i18n.Locale()).SessionsPreviousWeek() }
+
+// SessionsPreviousWeek says "Previous 7 Days"
+// in the language of msgs.
+func (msgs Messages) SessionsPreviousWeek() string {
+	return Catalog.Format(msgs.locale, "sessionsPreviousWeek", nil)
+}
+
+// SessionsOlder says "Older"
+// in the language the app shows.
+func SessionsOlder() string { return In(i18n.Locale()).SessionsOlder() }
+
+// SessionsOlder says "Older"
+// in the language of msgs.
+func (msgs Messages) SessionsOlder() string {
+	return Catalog.Format(msgs.locale, "sessionsOlder", nil)
 }
 
 // SessionsResume says "Resume"

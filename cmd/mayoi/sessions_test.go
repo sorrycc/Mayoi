@@ -4,8 +4,10 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/egoist/mygo/plugins/terminal"
 
@@ -14,7 +16,7 @@ import (
 
 // agentHome makes a home folder of a session of Claude Code in dir, and
 // one in another folder, and has the tests read it.
-func agentHome(t *testing.T, dir string) string {
+func agentHome(t testing.TB, dir string) string {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 	t.Setenv("CLAUDE_CONFIG_DIR", "")
@@ -127,5 +129,43 @@ func TestResumeSessionShowsItsTerminal(t *testing.T) {
 	a.resumeSession(agents.Session{Harness: agents.Claude, Root: "/h/.claude", ID: "c1", Dir: hs.root})
 	if len(a.terms) != n || a.panelTerm != s {
 		t.Errorf("the panel shows %v of %d terminals, want t1 of %d", a.panelTerm.hc, len(a.terms), n)
+	}
+}
+
+// The rows go under the heads of the days they were used last, each with
+// how many it has, and the choice skips the heads.
+func TestSessionLinesHeadTheDays(t *testing.T) {
+	hs := newHarness(t, true)
+	a := hs.a
+	now := time.Date(2026, 3, 10, 9, 0, 0, 0, time.Local)
+	at := func(id string, t time.Time) agents.Session {
+		return agents.Session{Harness: agents.Codex, ID: id, Updated: t}
+	}
+	rows := []agents.Session{
+		at("a", now.Add(-time.Hour)),
+		at("b", now.Add(-8*time.Hour)),
+		at("c", now.Add(-10*time.Hour)),
+		at("d", now.AddDate(0, 0, -6)),
+		at("e", now.AddDate(0, 0, -7)),
+	}
+	lines := a.sessionLines(rows, now)
+	var got []string
+	for _, l := range lines {
+		if l.head {
+			got = append(got, "#"+strconv.Itoa(int(l.day))+":"+strconv.Itoa(l.count))
+		} else {
+			got = append(got, l.s.ID)
+		}
+	}
+	if want := "#0:2 a b #1:1 c #2:1 d #3:1 e"; strings.Join(got, " ") != want {
+		t.Errorf("lines %q, want %q", strings.Join(got, " "), want)
+	}
+	for i, want := range map[int]int{0: 1, 1: 1, 3: 4, 9: 8} {
+		if got := sessionAt(lines, i); got != want {
+			t.Errorf("sessionAt(%d) = %d, want %d", i, got, want)
+		}
+	}
+	if got := sessionAt([]sessionLine{{head: true}}, 0); got != -1 {
+		t.Errorf("sessionAt of heads alone = %d, want -1", got)
 	}
 }

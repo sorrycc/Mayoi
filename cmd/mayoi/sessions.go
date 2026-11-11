@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -55,6 +56,15 @@ type sessionsState struct {
 	version int
 	rows    []agents.Session
 	rowsKey sessionsKey
+	// lines are the rows under the heads of their days, as of linesKey
+	// and the day linesDay.
+	lines    []sessionLine
+	linesKey sessionsKey
+	linesDay time.Time
+	// skeleton is set while the view shows the shapes of rows, as the
+	// sessions are read, and shownAt when the rows took their place.
+	skeleton bool
+	shownAt  time.Time
 
 	live     bg.Poller[string]
 	running  map[string]hcAgent
@@ -130,6 +140,102 @@ func (a *app) sessionRows() []agents.Session {
 	return rows
 }
 
+// sessionDay is how long ago a session was used last, by the days of
+// the calendar, as the view heads its rows.
+type sessionDay int
+
+const (
+	sessionsToday sessionDay = iota
+	sessionsYesterday
+	sessionsWeek
+	sessionsOlder
+)
+
+// name is the head of the rows of the day.
+func (d sessionDay) name() string {
+	switch d {
+	case sessionsToday:
+		return locales.SessionsToday()
+	case sessionsYesterday:
+		return locales.SessionsYesterday()
+	case sessionsWeek:
+		return locales.SessionsPreviousWeek()
+	}
+	return locales.SessionsOlder()
+}
+
+// dayOf is the day of a session used last at t, as of today, the
+// midnight that started it.
+func dayOf(t, today time.Time) sessionDay {
+	switch {
+	case !t.Before(today):
+		return sessionsToday
+	case !t.Before(today.AddDate(0, 0, -1)):
+		return sessionsYesterday
+	case !t.Before(today.AddDate(0, 0, -6)):
+		return sessionsWeek
+	}
+	return sessionsOlder
+}
+
+// sessionLine is a row of the list: the head of a day, with how many
+// sessions it has, or a session.
+type sessionLine struct {
+	head  bool
+	day   sessionDay
+	count int
+	s     agents.Session
+}
+
+// key is the line's in the list.
+func (l sessionLine) key() string {
+	if l.head {
+		return "\x01" + strconv.Itoa(int(l.day))
+	}
+	return l.s.Key()
+}
+
+// sessionLines are rows under the heads of the days they were used last,
+// as of now.
+func (a *app) sessionLines(rows []agents.Session, now time.Time) []sessionLine {
+	st := &a.sessions
+	y, m, d := now.Local().Date()
+	today := time.Date(y, m, d, 0, 0, 0, 0, now.Local().Location())
+	if st.lines != nil && st.linesKey == st.rowsKey && st.linesDay.Equal(today) {
+		return st.lines
+	}
+	lines := make([]sessionLine, 0, len(rows)+4)
+	head := -1
+	for _, s := range rows {
+		day := dayOf(s.Updated, today)
+		if head < 0 || lines[head].day != day {
+			head = len(lines)
+			lines = append(lines, sessionLine{head: true, day: day})
+		}
+		lines[head].count++
+		lines = append(lines, sessionLine{day: day, s: s})
+	}
+	st.lines, st.linesKey, st.linesDay = lines, st.rowsKey, today
+	return lines
+}
+
+// sessionAt is the session row of lines nearest i, at or after it, else
+// before it, and -1 for none.
+func sessionAt(lines []sessionLine, i int) int {
+	i = min(max(i, 0), len(lines)-1)
+	for j := i; j < len(lines); j++ {
+		if !lines[j].head {
+			return j
+		}
+	}
+	for j := i - 1; j >= 0; j-- {
+		if !lines[j].head {
+			return j
+		}
+	}
+	return -1
+}
+
 // sessionsView is the Sessions view: the query, which folders, and the
 // sessions.
 func (a *app) sessionsView(c *ui.Context) {
@@ -141,49 +247,73 @@ func (a *app) sessionsView(c *ui.Context) {
 	} else {
 		ui.Box(c.Key("sessions-activity")).Height(2)
 	}
-	rows := a.sessionRows()
+	now := c.Now()
+	rows := a.sessionLines(a.sessionRows(), now)
 	ui.Column(c).Padding(0, 12, 6, 12).Gap(6).Children(func() {
 		in := a.searchField(c, "sessions-query", &st.query, locales.SessionsFind(), &st.input, nil)
 		if in.Changed() {
 			st.row = 0
 		}
 		if in.Submitted() && len(rows) > 0 {
-			a.resumeSession(rows[min(max(st.row, 0), len(rows)-1)])
+			if i := sessionAt(rows, st.row); i >= 0 {
+				a.resumeSession(rows[i].s)
+			}
 		}
 		if in.Shortcut(0, ui.KeyDown) && len(rows) > 0 {
-			st.row = min(max(st.row, 0), len(rows)-1)
+			st.row = sessionAt(rows, st.row)
 			st.toList = true
 		}
 		if a.root != "" {
 			ui.Segmented(c.Key("sessions-scope"), &st.all, locales.SessionsThisProject(), locales.SessionsAllProjects())
 		}
 	})
+	if !st.loaded {
+		a.sessionsSkeleton(c)
+		return
+	}
 	if len(rows) == 0 {
 		a.sessionsEmpty(c)
 		return
 	}
+	if st.skeleton {
+		// The rows take the place of their shapes, and fade in over them.
+		st.skeleton, st.shownAt = false, now
+	}
+	// The choice is a session's, what Enter in the query resumes.
+	if st.row >= 0 && st.row < len(rows) && rows[st.row].head {
+		st.row = sessionAt(rows, st.row)
+	}
 	st.list.Selected = &st.row
+	st.list.Header = func(i int) bool { return i < len(rows) && rows[i].head }
 	st.list.Key = func(i int) any {
 		if i >= len(rows) {
 			return i
 		}
-		return rows[i].Key()
+		return rows[i].key()
 	}
 	st.list.Label = func(i int) string {
-		if i >= len(rows) {
+		if i >= len(rows) || rows[i].head {
 			return ""
 		}
-		return rows[i].Label()
+		return rows[i].s.Label()
 	}
 	base := c.Theme()
 	quiet := *base
 	quiet.Accent, quiet.AccentText, quiet.SurfaceHover = p.active, p.text, p.hover
 	c.SetTheme(&quiet)
 	var action func()
-	now := c.Now()
+	dots := a.hcBackend()
 	out := ui.List(c.Key("sessions"), &st.list, len(rows), func(i int) {
-		a.sessionRow(c, rows[i], now, &action)
+		if r := rows[i]; r.head {
+			a.sessionsHead(c, r)
+		} else {
+			a.sessionRow(c, r.s, now, dots, &action)
+		}
 	}).Grow(1).Padding(0, 6, 8, 6)
+	if since := now.Sub(st.shownAt); since < motionShow {
+		out.Opacity(ui.EaseOut(float32(since) / float32(motionShow)))
+		c.AnimationFrame()
+	}
 	c.SetTheme(base)
 	if st.toList && st.list.Focus(c) {
 		st.toList = false
@@ -194,42 +324,92 @@ func (a *app) sessionsView(c *ui.Context) {
 	if action != nil {
 		action()
 	}
-	if out.Submitted() && st.row >= 0 && st.row < len(rows) {
+	if out.Submitted() && st.row >= 0 && st.row < len(rows) && !rows[st.row].head {
 		// Enter, or a double click.
-		a.resumeSession(rows[st.row])
+		a.resumeSession(rows[st.row].s)
 	}
 }
 
-// sessionsEmpty is what the view shows with no session to show: that
-// they are being read, that none matches, or that there are none, and
-// what the view does.
-func (a *app) sessionsEmpty(c *ui.Context) {
+// sessionsHeadH is the height of the head of a day, and sessionRowH of a
+// session's row.
+const (
+	sessionsHeadH = 26
+	sessionRowH   = 40
+)
+
+// sessionsHead heads the sessions of a day, with how many there are. It
+// stays at the top as they scroll under it.
+func (a *app) sessionsHead(c *ui.Context, r sessionLine) {
 	p := a.pal
-	st := &a.sessions
-	msg := locales.SessionsNone()
-	switch {
-	case !st.loaded:
-		msg = locales.SessionsReading()
-	case st.query != "":
-		msg = locales.SessionsNoMatch()
-	case st.all == 1 || a.root == "":
-		msg = locales.SessionsNoneAll()
-	}
-	ui.Column(c).Padding(10, 14, 0, 14).Gap(6).Children(func() {
-		ui.Text(c, msg).FontSize(12).TextColor(p.muted)
-		ui.Text(c, locales.SessionsHint()).FontSize(11.5).TextColor(p.faint)
+	ui.Row(c).Grow(1).Height(sessionsHeadH).Padding(4, 6, 0, 6).AlignItems(ui.Center).Gap(6).Background(p.chrome).Children(func() {
+		size, spacing := p.titleLook(10.5, 0.4)
+		ui.Text(c, p.title(r.day.name())).FontSize(size).FontWeight(600).LetterSpacing(spacing).
+			TextColor(p.muted).SingleLine().Shrink(1)
+		ui.Spacer(c)
+		ui.Text(c, strconv.Itoa(r.count)).FontSize(10.5).FontFeatures("tnum").TextColor(p.faint).SingleLine().Shrink(0)
 	})
 }
 
-// sessionRow is the row of a session: what it does while it runs in
-// herdr-core, its title, and its agent, folder and when it was used
-// last. Its menu resumes it or copies how to.
-func (a *app) sessionRow(c *ui.Context, s agents.Session, now time.Time, action *func()) {
+// sessionsSkeleton is what the view shows while it reads the sessions
+// the first time: the shapes of rows, where the rows will be, so that
+// nothing moves as they come.
+func (a *app) sessionsSkeleton(c *ui.Context) {
+	p := a.pal
+	a.sessions.skeleton = true
+	bar := p.text.Alpha(0.07)
+	ui.Column(c.Key("sessions-skeleton")).Padding(0, 6, 8, 6).Grow(1).Children(func() {
+		ui.Row(c).Height(sessionsHeadH).Padding(4, 6, 0, 6).AlignItems(ui.Center).Children(func() {
+			ui.Box(c).Size(44, 7).Radius(3.5).Background(bar)
+		})
+		for i, w := range []float32{0.78, 0.6, 0.86, 0.52, 0.7} {
+			ui.Row(c.Key(i)).Height(sessionRowH).Padding(0, 6, 0, 6).AlignItems(ui.Center).Children(func() {
+				ui.Column(c).Grow(1).Gap(7).Children(func() {
+					ui.Box(c).WidthPercent(w * 100).Height(8).Radius(4).Background(bar)
+					ui.Row(c).Children(func() {
+						ui.Box(c).Size(70, 6).Radius(3).Background(bar)
+						ui.Spacer(c)
+						ui.Box(c).Size(36, 6).Radius(3).Background(bar)
+					})
+				})
+			})
+		}
+	})
+}
+
+// sessionsEmpty is what the view shows with no session to show: that
+// none matches the query, or that there are none, and which agents' it
+// lists.
+func (a *app) sessionsEmpty(c *ui.Context) {
+	p := a.pal
+	st := &a.sessions
+	if st.query != "" {
+		ui.Text(c, locales.SessionsNoMatch()).FontSize(12).TextColor(p.muted).Padding(10, 18, 0, 18)
+		return
+	}
+	msg := locales.SessionsNone()
+	if st.all == 1 || a.root == "" {
+		msg = locales.SessionsNoneAll()
+	}
+	ui.Column(c.Key("sessions-empty")).Padding(28, 20, 8, 20).Gap(8).AlignItems(ui.Center).Shrink(0).Children(func() {
+		popUp(ui.Box(c.Key("badge")).Size(44, 44).Radius(22).Background(p.text.Alpha(0.06)).Justify(ui.Center).AlignItems(ui.Center)).Children(func() {
+			ui.Icon(c, iconClock).FontSize(20).TextColor(p.muted)
+		})
+		ui.Text(c, msg).FontSize(13).FontWeight(600).TextColor(p.text).TextAlign(ui.Center).Margin(4, 0, 0, 0)
+		ui.Text(c, locales.SessionsHint()).FontSize(12).TextColor(p.muted).TextAlign(ui.Center).LineHeight(1.45)
+	})
+}
+
+// sessionRow is the row of a session: its title, and under it what it
+// does while it runs in herdr-core, its agent and its folder, and at the
+// end when it was used last. Its menu resumes it or copies how to. With dots,
+// as hc says which sessions run, a dot before it says it runs.
+func (a *app) sessionRow(c *ui.Context, s agents.Session, now time.Time, dots bool, action *func()) {
 	p := a.pal
 	st := &a.sessions
 	live, running := st.running[liveKey(s.Harness, s.ID)]
 	rec := a.liveRecord(live)
-	row := ui.Row(c).Grow(1).Gap(8).AlignItems(ui.Center).Height(38).Padding(0, 4, 0, 4).Tooltip(s.Dir + "\n" + s.ID)
+	row := ui.Row(c).Grow(1).Gap(8).AlignItems(ui.Center).Height(sessionRowH).Padding(0, 6, 0, 6).
+		Tooltip(s.Dir + "\n" + s.ID + "\n" + dateTime(s.Updated.Local()))
 	row.ContextMenu(func(m *ui.Menu) {
 		if m.Item(locales.SessionsResume()).Chosen() {
 			*action = func() { a.resumeSession(s) }
@@ -246,32 +426,35 @@ func (a *app) sessionRow(c *ui.Context, s agents.Session, now time.Time, action 
 	row.Children(func() {
 		// The dot's place is kept for a session that runs in none, so
 		// that rows don't move as one starts or stops.
-		dot := ui.Box(c.Key("dot")).Size(7, 7).Shrink(0)
-		if running {
-			dot.Children(func() {
-				ui.Box(c.Key("on")).Size(7, 7).Radius(3.5).Background(a.progColor(rec.State)).Transition(dotPop).Tooltip(progLine(rec))
-			})
+		if dots {
+			dot := ui.Box(c.Key("dot")).Size(7, 7).Shrink(0)
+			if running {
+				dot.Children(func() {
+					ui.Box(c.Key("on")).Size(7, 7).Radius(3.5).Background(a.progColor(rec.State)).Transition(dotPop).Tooltip(progLine(rec))
+				})
+			}
 		}
-		ui.Column(c).Grow(1).MinWidth(0).Gap(2).Children(func() {
+		ui.Column(c).Grow(1).MinWidth(0).Gap(3).Children(func() {
 			ui.Text(c, s.Label()).FontSize(12.5).TextColor(p.text).SingleLine().ClipX()
 			ui.Row(c).Gap(5).AlignItems(ui.Center).MinWidth(0).Children(func() {
 				if running {
 					_, what := progParts(rec)
 					ui.Text(c.Key("state"), what).FontSize(11).TextColor(a.progColor(rec.State)).SingleLine().Shrink(0).Transition(dotPop)
 				}
-				ui.Text(c, a.sessionMeta(s, now)).FontSize(11).TextColor(p.faint).SingleLine().ClipX().Shrink(1)
+				ui.Text(c, a.sessionMeta(s)).FontSize(11).TextColor(p.faint).SingleLine().ClipX().Shrink(1)
+				ui.Spacer(c)
+				ui.Text(c, ago(s.Updated, now)).FontSize(11).FontFeatures("tnum").TextColor(p.faint).SingleLine().Shrink(0).Padding(0, 0, 0, 6)
 			})
 		})
 	})
 }
 
 // sessionMeta is what a session's row says under its title, what tells
-// sessions apart first, as the narrow panel cuts its end: when it was
-// used last, its agent, the config folder of Claude Code other than
-// ~/.claude, by the name after .claude-, and its folder when the view
-// lists every folder's.
-func (a *app) sessionMeta(s agents.Session, now time.Time) string {
-	parts := []string{ago(s.Updated, now), s.Harness.Name()}
+// sessions apart first, as the narrow panel cuts its end: its agent, the
+// config folder of Claude Code other than ~/.claude, by the name after
+// .claude-, and its folder when the view lists every folder's.
+func (a *app) sessionMeta(s agents.Session) string {
+	parts := []string{s.Harness.Name()}
 	if base := filepath.Base(s.Root); s.Root != "" && base != ".claude" {
 		parts = append(parts, cmp.Or(strings.TrimPrefix(base, ".claude-"), base))
 	}

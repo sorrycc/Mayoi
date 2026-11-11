@@ -18,6 +18,9 @@ needs a `## <version>` section here, or its build fails.
 - The sidebar's new **Sessions** view lists Claude Code, Qoder, Codex and Grok sessions, the latest first.
 - Sessions show for **This Project** or **All Projects**, and the search field narrows them by title or folder.
 - Enter or a double click resumes a session in a new terminal in its folder.
+- **Sessions** groups sessions under Today, Yesterday, Previous 7 Days and Older, each with its count.
+- Each session row shows its title on one line, with its agent, folder and last use under it.
+- While **Sessions** reads for the first time, it shows placeholder rows, which the sessions then replace.
 - Claude Code sessions of every `~/.claude-*` folder show too; `agentSessionsClaudeDirs` adds more folders.
 - With `terminalBackend` set to `"hc"`, a running session's dot and words say whether it works or waits for you.
 - Resuming a session that runs in an hc terminal shows that terminal instead of starting another.

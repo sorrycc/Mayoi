@@ -35,6 +35,11 @@ var galleryStates = []struct {
 	{"editor", func(hs *harness) { hs.a.openFile(hs.path("main.go"), true) }},
 	{"palette", func(hs *harness) { hs.a.run("go.commands") }},
 	{"no-match", func(hs *harness) { hs.a.openQuick("zzzz-nothing") }},
+	{"sessions", func(hs *harness) {
+		agentHome(hs.t, hs.root)
+		hs.a.sessions.all = 1
+		hs.a.showSessions()
+	}},
 	{"unsaved", func(hs *harness) {
 		hs.a.openFile(hs.path("main.go"), true)
 		hs.settle()

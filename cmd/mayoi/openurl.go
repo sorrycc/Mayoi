@@ -2,12 +2,14 @@ package main
 
 import (
 	"net/url"
+	"os"
 	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
 
 	"mayoi/internal/cli"
+	"mayoi/locales"
 )
 
 // openURLTarget reads the file, line and column of a mayoi:// URL:
@@ -74,4 +76,26 @@ func urlLineColumn(line, column string) (int, int, bool) {
 		c = n
 	}
 	return l, c, true
+}
+
+// isMayoiURL reports whether arg is a mayoi:// URL rather than a path.
+func isMayoiURL(arg string) bool {
+	scheme, _, ok := strings.Cut(arg, "://")
+	return ok && strings.EqualFold(scheme, "mayoi")
+}
+
+// openURL opens the file a mayoi:// URL names, at its line and column. A
+// file that is not there says so in the window in front, as the link has
+// no other place to tell it.
+func (m *mayoi) openURL(t cli.Target) {
+	if _, err := os.Stat(t.Path); err != nil {
+		if len(m.wins) == 0 {
+			m.openBlankWindow()
+		}
+		w := m.wins[0]
+		w.do(func() { w.a.fail("%s", locales.FailOpen(filepath.Base(t.Path), err.Error())) })
+		w.show()
+		return
+	}
+	m.openTargets(cli.Request{Paths: []cli.Target{t}}, func(cli.Reply) {})
 }

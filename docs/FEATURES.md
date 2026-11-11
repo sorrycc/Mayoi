@@ -717,7 +717,7 @@ for options it doesn't know. A `mayoi` command an older Mayoi installed is broug
 `mayoi://file/<path>:<line>:<column>` opens the file at a line and column, in the window whose folder holds it, else
 the one in front. `mayoi://open?file=<path>&line=<line>&column=<column>` opens the same file with the path in the query.
 A path with spaces is percent-encoded by the browser, as `%20`; a `#`, `?` or `%` in a file's name may be left as it
-is.
+is. A file that isn't there says so in the window in front.
 
 LocatorJS's **Custom link** opens the first form:
 

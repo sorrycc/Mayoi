@@ -55,6 +55,20 @@ func TestOpenURLTargetFileUnescaped(t *testing.T) {
 	}
 }
 
+func TestIsMayoiURL(t *testing.T) {
+	for arg, want := range map[string]bool{
+		"mayoi://file/a.go:1:2": true,
+		"MAYOI://open?file=/a":  true,
+		"/Users/me/mayoi":       false,
+		`C:\Users\me`:           false,
+		"mayoi.go":              false,
+	} {
+		if got := isMayoiURL(arg); got != want {
+			t.Errorf("isMayoiURL(%q) = %v, want %v", arg, got, want)
+		}
+	}
+}
+
 func TestOpenURLTargetFileWindows(t *testing.T) {
 	if runtime.GOOS != "windows" {
 		t.Skip("a Windows path")

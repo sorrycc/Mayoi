@@ -404,7 +404,7 @@ func main() {
 			m.pendingTargets = append(m.pendingTargets, t)
 			return
 		}
-		m.openTargets(cli.Request{Paths: []cli.Target{t}}, func(cli.Reply) {})
+		m.openURL(t)
 	})
 	mygo.App.OnBeforeQuit(func(e *mygo.QuitEvent) {
 		if !m.beforeQuit() {
@@ -446,10 +446,10 @@ func main() {
 		m.ready = true
 		m.launch(append(m.pending, argPaths(os.Args[1:], wd)...))
 		m.pending = nil
-		if len(m.pendingTargets) > 0 {
-			m.openTargets(cli.Request{Paths: m.pendingTargets}, func(cli.Reply) {})
-			m.pendingTargets = nil
+		for _, t := range m.pendingTargets {
+			m.openURL(t)
 		}
+		m.pendingTargets = nil
 		m.listenCLI()
 		go func() {
 			<-shellPathReady
@@ -496,7 +496,9 @@ func main() {
 func argPaths(args []string, wd string) []string {
 	var paths []string
 	for _, arg := range args {
-		if arg == "" || strings.HasPrefix(arg, "-") {
+		// A mayoi:// URL, which Windows and Linux start the app with,
+		// reaches OnOpenURL.
+		if arg == "" || strings.HasPrefix(arg, "-") || isMayoiURL(arg) {
 			continue
 		}
 		if !filepath.IsAbs(arg) {

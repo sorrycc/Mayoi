@@ -99,6 +99,7 @@ func TestMigrateTheLayout(t *testing.T) {
 	// showed, and its width make the panel on the left.
 	want := Panels{
 		SideLeft:   {Views: SidebarViews, Active: ViewSCM, Size: 320},
+		SideRight:  {Views: []string{ViewSessions}, Active: ViewSessions, Size: DefaultPanelSize(SideRight)},
 		SideBottom: {Views: []string{ViewTerminal}, Active: ViewTerminal, Size: 400},
 	}
 	if len(s.Windows) != 1 || !samePanels(s.Windows[0].Panels, want) || s.Sessions["/tmp/y"] == nil ||
@@ -727,7 +728,7 @@ func TestPanelsLayout(t *testing.T) {
 	if at, ok := w.Panels.SideOf(ViewExplorer); !ok || at != SideRight {
 		t.Errorf("the explorer is on %q", at)
 	}
-	if p := w.Panels.Get(SideRight); !slices.Equal(p.Views, []string{ViewExplorer}) {
+	if p := w.Panels.Get(SideRight); !slices.Equal(p.Views, []string{ViewExplorer, ViewSessions}) {
 		t.Errorf("the right panel %+v", p)
 	}
 	// The bottom panel lost the explorer, and shows nothing; the view no

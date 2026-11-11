@@ -122,6 +122,7 @@ func (a *app) commandsIn(t locales.Messages) []command {
 		{"view.compactFolders", t.CmdViewCompactFolders(), "", a.toggleCompactFolders},
 		{"view.search", t.CmdViewSearch(), "", func() { a.showSearch(false) }},
 		{"view.scm", t.CmdViewScm(), "Ctrl+Shift+G", a.showSourceControl},
+		{"view.sessions", t.CmdViewSessions(), "", func() { a.showView(settings.ViewSessions) }},
 		{"git.commit", t.CmdGitCommit(), "", func() { a.commit(false) }},
 		{"git.commitPush", t.CmdGitCommitPush(), "", func() { a.commit(true) }},
 		{"git.amend", t.CmdGitAmend(), "", func() { a.showSourceControl(); a.startAmend() }},
@@ -511,7 +512,7 @@ func (a *app) menu(cli bool, run func(id string, win *mygo.Window)) *mygo.Menu {
 	// moveViews is a view's place, for each view: the panel of the left,
 	// of the right or of the bottom, the one it is in checked.
 	moveViews := func() []*mygo.MenuItem {
-		views := append(slices.Clone(settings.SidebarViews), settings.ViewTerminal)
+		views := slices.Clone(settings.Views)
 		for _, slot := range pluginSlots() {
 			views = append(views, "plugin:"+slot.id)
 		}
@@ -649,7 +650,7 @@ func (a *app) menu(cli bool, run func(id string, win *mygo.Window)) *mygo.Menu {
 			item("sel.format"), item("sel.insertSnippet"), item("sel.complete"),
 		}},
 		{Label: locales.MenuView(), Submenu: []*mygo.MenuItem{
-			item("view.sidebar"), checkbox("view.sidebarRight", a.settings.SidebarRight), item("view.explorer"), item("view.search"), item("view.scm"), mygo.Separator(),
+			item("view.sidebar"), checkbox("view.sidebarRight", a.settings.SidebarRight), item("view.explorer"), item("view.search"), item("view.scm"), item("view.sessions"), mygo.Separator(),
 			checkbox("view.compactFolders", a.settings.ExplorerCompactFolders), mygo.Separator(),
 			checkbox("view.wordWrap", a.prefs().WordWrap), item("view.wordWrapTab"), item("view.togglePreview"), item("view.previewToSide"),
 			checkbox("view.markdownPreview", a.prefs().MarkdownPreview), mygo.Separator(),

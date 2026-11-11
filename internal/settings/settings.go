@@ -223,6 +223,10 @@ type Prefs struct {
 	// Herdr app, in a space of the window's folder, when TerminalBackend
 	// is "hc". Those of a remote folder stay out of it.
 	TerminalBackendHcShowInHerdr bool `json:"terminalBackendHcShowInHerdr"`
+	// AgentSessionsClaudeDirs are more config folders of Claude Code whose
+	// sessions the Sessions view lists, besides ~/.claude, each
+	// ~/.claude-* folder and $CLAUDE_CONFIG_DIR. A folder may start with ~.
+	AgentSessionsClaudeDirs []string `json:"agentSessionsClaudeDirs,omitempty"`
 	// ProjectTabs keeps the folders open in one window, a rail on its left
 	// choosing which shows, rather than a window for each.
 	ProjectTabs bool `json:"projectTabs,omitempty"`
@@ -392,12 +396,16 @@ const (
 	ViewExplorer = "explorer"
 	ViewSearch   = "search"
 	ViewSCM      = "scm"
+	ViewSessions = "sessions"
 	ViewTerminal = "terminal"
 )
 
 // SidebarViews are the views that show on the layout's left, in the order
 // of their tabs, as the terminal shows at the bottom.
 var SidebarViews = []string{ViewExplorer, ViewSearch, ViewSCM}
+
+// Views are every view of a window, in the order the menus list them.
+var Views = []string{ViewExplorer, ViewSearch, ViewSCM, ViewSessions, ViewTerminal}
 
 // Layout is how a window lays its folder out: the panels beside and under
 // its editors, by the side they show on.
@@ -428,21 +436,26 @@ type Layout struct {
 var DefaultLayout = Layout{Panels: DefaultPanels(), CommitFilesWidth: 240}
 
 // DefaultPanels are the panels of a first launch: the file views on the
-// layout's left, and the terminal under the editors, closed until it
-// shows.
+// layout's left, the sessions on its right, and the terminal under the
+// editors, those two closed until they show.
 func DefaultPanels() Panels {
 	return Panels{
 		SideLeft: {Views: []string{ViewExplorer, ViewSearch, ViewSCM}, Active: ViewExplorer, Open: true,
 			Size: DefaultPanelSize(SideLeft)},
+		SideRight:  {Views: []string{ViewSessions}, Active: ViewSessions, Size: DefaultPanelSize(SideRight)},
 		SideBottom: {Views: []string{ViewTerminal}, Active: ViewTerminal, Size: DefaultPanelSize(SideBottom)},
 	}
 }
 
 // DefaultSide is the side a view shows on when nothing placed it: the
-// terminal under the editors, the others on the left.
+// terminal under the editors, the sessions on the right, which keeps the
+// left panel's tabs to the files, and the others on the left.
 func DefaultSide(v string) Side {
-	if v == ViewTerminal {
+	switch v {
+	case ViewTerminal:
 		return SideBottom
+	case ViewSessions:
+		return SideRight
 	}
 	return SideLeft
 }
@@ -613,7 +626,7 @@ func (ps Panels) Normalize() {
 		}
 	}
 	// A view shows in one panel: the first that has it.
-	seen := make(map[string]bool, len(SidebarViews)+1)
+	seen := make(map[string]bool, len(Views))
 	for _, s := range Sides {
 		p := ps[s]
 		if p == nil {
@@ -629,7 +642,7 @@ func (ps Panels) Normalize() {
 	}
 	// A view no panel has goes to the side it starts on, after the views
 	// there.
-	for _, v := range append(slices.Clone(SidebarViews), ViewTerminal) {
+	for _, v := range Views {
 		if seen[v] {
 			continue
 		}
@@ -662,7 +675,7 @@ func (ps Panels) Normalize() {
 // isView reports whether v names a view a panel may hold: one of the
 // window's, or a plugin's.
 func isView(v string) bool {
-	return v == ViewExplorer || v == ViewSearch || v == ViewSCM || v == ViewTerminal ||
+	return v == ViewExplorer || v == ViewSearch || v == ViewSCM || v == ViewSessions || v == ViewTerminal ||
 		strings.HasPrefix(v, "plugin:")
 }
 
@@ -1358,8 +1371,8 @@ func (s *Settings) OnPrefsWritten(fn func()) {
 // chooses, what the person keeps on the machine, the looks of the
 // projects on the rail, by folders of this machine, and the hc to run
 // with its environment, which may hold secrets and runs as a terminal
-// opens.
-var unsynced = []string{"scmRepositoryOpen", "scmRemotes", "syncIgnored", "projectTabStyle", "terminalBackendHcPath", "terminalBackendHcEnv"}
+// opens, and the folders of Claude Code of this machine.
+var unsynced = []string{"scmRepositoryOpen", "scmRemotes", "syncIgnored", "projectTabStyle", "terminalBackendHcPath", "terminalBackendHcEnv", "agentSessionsClaudeDirs"}
 
 // PrefKeys are the keys of the preferences in the settings' file.
 var PrefKeys = func() []string {

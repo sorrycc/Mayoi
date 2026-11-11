@@ -1884,5 +1884,21 @@
   "cmdViewLayoutBottom": "Toggle Bottom Panel",
   "cmdViewLayoutRight": "Toggle Secondary Side Bar",
   "panelMoveTo": "Move to",
-  "panelMoveViewTo": "Move View to Panel"
+  "panelMoveViewTo": "Move View to Panel",
+  "cmdViewSessions": "Sessions",
+  "sidebarTitleSessions": "SESSIONS",
+  "sessionsFind": "Search sessions",
+  "sessionsThisProject": "This Project",
+  "sessionsAllProjects": "All Projects",
+  "sessionsReading": "Reading the sessions…",
+  "sessionsNone": "No agent has a session in this folder yet.",
+  "sessionsNoneAll": "No agent has a session on this Mac yet.",
+  "sessionsNoMatch": "No session matches.",
+  "sessionsHint": "Sessions of Claude Code, Qoder, Codex and Grok, the latest first. Enter resumes one.",
+  "sessionsResume": "Resume",
+  "sessionsCopyCommand": "Copy Resume Command",
+  "sessionsCopyID": "Copy Session ID",
+  "sessionsDirGone": "{dir} is gone, so the session can't resume in it",
+  "prefTitleAgentSessionsClaudeDirs": "More Claude Code Folders",
+  "prefDescAgentSessionsClaudeDirs": "Config folders of Claude Code whose sessions the Sessions view lists, besides ~/.claude, each ~/.claude-* folder and $CLAUDE_CONFIG_DIR."
 }

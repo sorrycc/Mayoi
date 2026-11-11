@@ -25,6 +25,12 @@ needs a `## <version>` section here, or its build fails.
 - A `mayoi://` link to a missing file says Mayoi could not open it, in the window in front.
 - Math with `\tag{…}` now renders in the Markdown preview, its label beside the equation.
 - After a full-screen program is killed, scrolling or typing in the terminal no longer prints escape codes.
+- **View → Sessions** lists Claude Code, Qoder, Codex and Grok sessions in the right panel, the latest first.
+- Sessions show for **This Project** or **All Projects**, and the search field narrows them by title or folder.
+- Enter or a double click resumes a session in a new terminal in its folder.
+- Claude Code sessions of every `~/.claude-*` folder show too; `agentSessionsClaudeDirs` adds more folders.
+- With `terminalBackend` set to `"hc"`, a running session's dot and words say whether it works or waits for you.
+- Resuming a session that runs in an hc terminal shows that terminal instead of starting another.
 
 ## 0.19.3
 

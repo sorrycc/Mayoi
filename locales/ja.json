@@ -1656,5 +1656,21 @@
   "cmdViewLayoutBottom": "下パネルの表示切替",
   "cmdViewLayoutRight": "セカンダリサイドバーの表示切替",
   "panelMoveTo": "移動",
-  "panelMoveViewTo": "ビューをパネルへ移動"
+  "panelMoveViewTo": "ビューをパネルへ移動",
+  "cmdViewSessions": "セッション",
+  "sidebarTitleSessions": "セッション",
+  "sessionsFind": "セッションを検索",
+  "sessionsThisProject": "このプロジェクト",
+  "sessionsAllProjects": "すべてのプロジェクト",
+  "sessionsReading": "セッションを読み込んでいます…",
+  "sessionsNone": "このフォルダにはまだエージェントのセッションがありません。",
+  "sessionsNoneAll": "この Mac にはまだエージェントのセッションがありません。",
+  "sessionsNoMatch": "一致するセッションはありません。",
+  "sessionsHint": "Claude Code、Qoder、Codex、Grok のセッションを新しい順に表示します。Enter で再開します。",
+  "sessionsResume": "再開",
+  "sessionsCopyCommand": "再開コマンドをコピー",
+  "sessionsCopyID": "セッション ID をコピー",
+  "sessionsDirGone": "{dir} がないため、そこでセッションを再開できません",
+  "prefTitleAgentSessionsClaudeDirs": "その他の Claude Code フォルダ",
+  "prefDescAgentSessionsClaudeDirs": "~/.claude、各 ~/.claude-* フォルダ、$CLAUDE_CONFIG_DIR のほかに、セッションビューがセッションを一覧する Claude Code の設定フォルダ。"
 }

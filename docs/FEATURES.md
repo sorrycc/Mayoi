@@ -490,8 +490,9 @@ Ctrl+Shift shortcut but Ctrl+Shift+C and Ctrl+Shift+V, the terminal's copy and p
 ## Panel
 
 The window has three panels: one on the left, one on the right, and one under the editors. A panel holds views as tabs,
-and every view is in one of them: **TERMINAL**, **EXPLORER**, **SEARCH**, **SOURCE CONTROL** and the views plugins add.
-The file views start on the left, in that order, and the terminal under the editors.
+and every view is in one of them: **TERMINAL**, **EXPLORER**, **SEARCH**, **SOURCE CONTROL**, **SESSIONS** and the views
+plugins add. The file views start on the left, in that order, the sessions on the right, and the terminal under the
+editors.
 
 **Move … to** in a tab's menu moves that view alone to the left, to the right or to the bottom, the views of the panel
 it goes to staying as they were; **Move View to Panel** in the **View** menu does the same for any view, and the command
@@ -508,6 +509,25 @@ right, as VS Code's layout controls do, each a square with a bar on the side its
 Right** mirrors the layout: the window runs right to left, and the panel of the left shows on the right. Each view keeps
 its side in that layout, so a view moved to the left is on the right of the window when the layout is mirrored, and back
 on the left when it is not.
+
+## Sessions
+
+**View → Sessions** lists the sessions of the coding agents on this machine, the one used last first: Claude Code's of
+`~/.claude`, of each `~/.claude-*` folder, of `CLAUDE_CONFIG_DIR` and of the folders `agentSessionsClaudeDirs` lists, and
+Qoder's, Codex's and Grok's. Each row has its title, or what was first asked, then when it was used last, its agent, the
+Claude Code folder other than `~/.claude` it is of, and its project when listing every project's. **This Project** shows
+those of the window's folder and the folders in it, **All Projects** every folder's, and the search field narrows them by
+title, first prompt, folder or id. ↓ goes to the list and Esc back to the field.
+
+Enter, or a double click, resumes a session: a terminal opens in its folder, where `terminalLocation` says, and runs the
+agent's own command, as `claude --resume <id>` with `CLAUDE_CONFIG_DIR` for a folder other than `~/.claude`, `qodercli
+-r`, `codex resume` or `grok --resume`. A row's menu copies that command or the session's id. Sessions of a folder that
+is gone say so instead. The view reads only the start and end of each transcript, again as files change, while it shows.
+
+With `terminalBackend` set to `"hc"`, a session that runs in a terminal of herdr-core, in this window, another or the
+Herdr app, has a dot in the color of what it says it does (OSC 7501), and says it: working, waiting for you, done or
+failed. Resuming it shows that terminal, attaching it here when no terminal of the window does. hc names the session that
+an agent reports to it; for Claude Code, its process names it too.
 
 ## Quick open
 

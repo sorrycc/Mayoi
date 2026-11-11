@@ -28,6 +28,8 @@ func viewLabel(v string) string {
 		return locales.CmdViewSearch()
 	case settings.ViewSCM:
 		return locales.CmdViewScm()
+	case settings.ViewSessions:
+		return locales.CmdViewSessions()
 	case settings.ViewTerminal:
 		return locales.TabTerminal()
 	}
@@ -43,6 +45,8 @@ func viewName(v string) string {
 		return locales.SidebarTitleSearch()
 	case settings.ViewSCM:
 		return locales.SidebarTitleScm()
+	case settings.ViewSessions:
+		return locales.SidebarTitleSessions()
 	case settings.ViewTerminal:
 		return locales.TabTerminal()
 	}
@@ -135,11 +139,14 @@ func (a *app) viewBody(c *ui.Context, v string, hovered bool) {
 		a.pluginSidebar(c, v)
 		return
 	}
-	if a.root == "" && v != settings.ViewTerminal {
+	// The sessions of every folder show without one.
+	if a.root == "" && v != settings.ViewTerminal && v != settings.ViewSessions {
 		a.noFolder(c)
 		return
 	}
 	switch v {
+	case settings.ViewSessions:
+		a.sessionsView(c)
 	case settings.ViewSCM:
 		a.scmView(c)
 	case settings.ViewSearch:
@@ -168,6 +175,8 @@ func (a *app) focusView(v string) {
 	switch v {
 	case settings.ViewSearch:
 		a.inFiles.input.Focus()
+	case settings.ViewSessions:
+		a.sessions.input.Focus()
 	case settings.ViewExplorer:
 		// The tree takes the keyboard as it next builds, as VS Code's does.
 		a.focusFiles = true
@@ -176,7 +185,7 @@ func (a *app) focusView(v string) {
 
 // moveView moves a view to the panel on a side, which shows it.
 func (a *app) moveView(v string, s settings.Side) {
-	if !slices.Contains(settings.SidebarViews, v) && v != panelTerminal && !strings.HasPrefix(v, "plugin:") {
+	if !slices.Contains(settings.Views, v) && !strings.HasPrefix(v, "plugin:") {
 		return
 	}
 	w := a.window

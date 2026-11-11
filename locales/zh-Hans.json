@@ -1656,5 +1656,21 @@
   "cmdViewLayoutBottom": "切换下面板",
   "cmdViewLayoutRight": "切换次侧边栏",
   "panelMoveTo": "移到",
-  "panelMoveViewTo": "移动视图到面板"
+  "panelMoveViewTo": "移动视图到面板",
+  "cmdViewSessions": "会话",
+  "sidebarTitleSessions": "会话",
+  "sessionsFind": "搜索会话",
+  "sessionsThisProject": "本项目",
+  "sessionsAllProjects": "所有项目",
+  "sessionsReading": "正在读取会话…",
+  "sessionsNone": "这个文件夹里还没有智能体会话。",
+  "sessionsNoneAll": "这台 Mac 上还没有智能体会话。",
+  "sessionsNoMatch": "没有匹配的会话。",
+  "sessionsHint": "Claude Code、Qoder、Codex 和 Grok 的会话，最近的在前。按 Enter 恢复。",
+  "sessionsResume": "恢复",
+  "sessionsCopyCommand": "复制恢复命令",
+  "sessionsCopyID": "复制会话 ID",
+  "sessionsDirGone": "{dir} 已不存在，无法在其中恢复会话",
+  "prefTitleAgentSessionsClaudeDirs": "更多 Claude Code 文件夹",
+  "prefDescAgentSessionsClaudeDirs": "除了 ~/.claude、各个 ~/.claude-* 文件夹和 $CLAUDE_CONFIG_DIR，会话视图还要列出其会话的 Claude Code 配置文件夹。"
 }

@@ -16753,3 +16753,167 @@ func PanelMoveViewTo() string { return In(i18n.Locale()).PanelMoveViewTo() }
 func (msgs Messages) PanelMoveViewTo() string {
 	return Catalog.Format(msgs.locale, "panelMoveViewTo", nil)
 }
+
+// CmdViewSessions says "Sessions"
+// in the language the app shows.
+func CmdViewSessions() string { return In(i18n.Locale()).CmdViewSessions() }
+
+// CmdViewSessions says "Sessions"
+// in the language of msgs.
+func (msgs Messages) CmdViewSessions() string {
+	return Catalog.Format(msgs.locale, "cmdViewSessions", nil)
+}
+
+// SidebarTitleSessions says "SESSIONS"
+// in the language the app shows.
+func SidebarTitleSessions() string { return In(i18n.Locale()).SidebarTitleSessions() }
+
+// SidebarTitleSessions says "SESSIONS"
+// in the language of msgs.
+func (msgs Messages) SidebarTitleSessions() string {
+	return Catalog.Format(msgs.locale, "sidebarTitleSessions", nil)
+}
+
+// SessionsFind says "Search sessions"
+// in the language the app shows.
+func SessionsFind() string { return In(i18n.Locale()).SessionsFind() }
+
+// SessionsFind says "Search sessions"
+// in the language of msgs.
+func (msgs Messages) SessionsFind() string {
+	return Catalog.Format(msgs.locale, "sessionsFind", nil)
+}
+
+// SessionsThisProject says "This Project"
+// in the language the app shows.
+func SessionsThisProject() string { return In(i18n.Locale()).SessionsThisProject() }
+
+// SessionsThisProject says "This Project"
+// in the language of msgs.
+func (msgs Messages) SessionsThisProject() string {
+	return Catalog.Format(msgs.locale, "sessionsThisProject", nil)
+}
+
+// SessionsAllProjects says "All Projects"
+// in the language the app shows.
+func SessionsAllProjects() string { return In(i18n.Locale()).SessionsAllProjects() }
+
+// SessionsAllProjects says "All Projects"
+// in the language of msgs.
+func (msgs Messages) SessionsAllProjects() string {
+	return Catalog.Format(msgs.locale, "sessionsAllProjects", nil)
+}
+
+// SessionsReading says "Reading the sessions…"
+// in the language the app shows.
+func SessionsReading() string { return In(i18n.Locale()).SessionsReading() }
+
+// SessionsReading says "Reading the sessions…"
+// in the language of msgs.
+func (msgs Messages) SessionsReading() string {
+	return Catalog.Format(msgs.locale, "sessionsReading", nil)
+}
+
+// SessionsNone says "No agent has a session in this folder yet."
+// in the language the app shows.
+func SessionsNone() string { return In(i18n.Locale()).SessionsNone() }
+
+// SessionsNone says "No agent has a session in this folder yet."
+// in the language of msgs.
+func (msgs Messages) SessionsNone() string {
+	return Catalog.Format(msgs.locale, "sessionsNone", nil)
+}
+
+// SessionsNoneAll says "No agent has a session on this Mac yet."
+// in the language the app shows.
+func SessionsNoneAll() string { return In(i18n.Locale()).SessionsNoneAll() }
+
+// SessionsNoneAll says "No agent has a session on this Mac yet."
+// in the language of msgs.
+func (msgs Messages) SessionsNoneAll() string {
+	return Catalog.Format(msgs.locale, "sessionsNoneAll", nil)
+}
+
+// SessionsNoMatch says "No session matches."
+// in the language the app shows.
+func SessionsNoMatch() string { return In(i18n.Locale()).SessionsNoMatch() }
+
+// SessionsNoMatch says "No session matches."
+// in the language of msgs.
+func (msgs Messages) SessionsNoMatch() string {
+	return Catalog.Format(msgs.locale, "sessionsNoMatch", nil)
+}
+
+// SessionsHint says "Sessions of Claude Code, Qoder, Codex and Grok, the latest first. Enter resumes one."
+// in the language the app shows.
+func SessionsHint() string { return In(i18n.Locale()).SessionsHint() }
+
+// SessionsHint says "Sessions of Claude Code, Qoder, Codex and Grok, the latest first. Enter resumes one."
+// in the language of msgs.
+func (msgs Messages) SessionsHint() string {
+	return Catalog.Format(msgs.locale, "sessionsHint", nil)
+}
+
+// SessionsResume says "Resume"
+// in the language the app shows.
+func SessionsResume() string { return In(i18n.Locale()).SessionsResume() }
+
+// SessionsResume says "Resume"
+// in the language of msgs.
+func (msgs Messages) SessionsResume() string {
+	return Catalog.Format(msgs.locale, "sessionsResume", nil)
+}
+
+// SessionsCopyCommand says "Copy Resume Command"
+// in the language the app shows.
+func SessionsCopyCommand() string { return In(i18n.Locale()).SessionsCopyCommand() }
+
+// SessionsCopyCommand says "Copy Resume Command"
+// in the language of msgs.
+func (msgs Messages) SessionsCopyCommand() string {
+	return Catalog.Format(msgs.locale, "sessionsCopyCommand", nil)
+}
+
+// SessionsCopyID says "Copy Session ID"
+// in the language the app shows.
+func SessionsCopyID() string { return In(i18n.Locale()).SessionsCopyID() }
+
+// SessionsCopyID says "Copy Session ID"
+// in the language of msgs.
+func (msgs Messages) SessionsCopyID() string {
+	return Catalog.Format(msgs.locale, "sessionsCopyID", nil)
+}
+
+// SessionsDirGone says "{dir} is gone, so the session can't resume in it"
+// in the language the app shows.
+func SessionsDirGone(dir string) string { return In(i18n.Locale()).SessionsDirGone(dir) }
+
+// SessionsDirGone says "{dir} is gone, so the session can't resume in it"
+// in the language of msgs.
+func (msgs Messages) SessionsDirGone(dir string) string {
+	return Catalog.Format(msgs.locale, "sessionsDirGone", map[string]any{"dir": dir})
+}
+
+// PrefTitleAgentSessionsClaudeDirs says "More Claude Code Folders"
+// in the language the app shows.
+func PrefTitleAgentSessionsClaudeDirs() string {
+	return In(i18n.Locale()).PrefTitleAgentSessionsClaudeDirs()
+}
+
+// PrefTitleAgentSessionsClaudeDirs says "More Claude Code Folders"
+// in the language of msgs.
+func (msgs Messages) PrefTitleAgentSessionsClaudeDirs() string {
+	return Catalog.Format(msgs.locale, "prefTitleAgentSessionsClaudeDirs", nil)
+}
+
+// PrefDescAgentSessionsClaudeDirs says "Config folders of Claude Code whose sessions the Sessions view lists, besides ~/.claude, each ~/.claude-* folder and …"
+// in the language the app shows.
+func PrefDescAgentSessionsClaudeDirs() string {
+	return In(i18n.Locale()).PrefDescAgentSessionsClaudeDirs()
+}
+
+// PrefDescAgentSessionsClaudeDirs says "Config folders of Claude Code whose sessions the Sessions view lists, besides ~/.claude, each ~/.claude-* folder and …"
+// in the language of msgs.
+func (msgs Messages) PrefDescAgentSessionsClaudeDirs() string {
+	return Catalog.Format(msgs.locale, "prefDescAgentSessionsClaudeDirs", nil)
+}

@@ -490,7 +490,7 @@ func (a *app) panelHoldsKeys(s settings.Side) bool {
 		return a.focus == paneTerminal || a.keyFocus == placeTerminal
 	case settings.ViewExplorer:
 		return a.keyFocus == placeExplorer
-	case settings.ViewSearch, settings.ViewSCM:
+	case settings.ViewSearch, settings.ViewSCM, settings.ViewSessions:
 		return a.keyFocus == placeInput
 	}
 	return false

@@ -355,6 +355,7 @@ type app struct {
 	hover      *hoverCard // the card Show Hover shows
 	find       findState
 	inFiles    searchState // search in the files, of the left panel
+	sessions   sessionsState
 	prompt     *prompt
 	confirm    *confirm
 	asks       []*confirm // the questions asked in the background, waiting their turn

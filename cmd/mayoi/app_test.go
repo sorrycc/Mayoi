@@ -989,8 +989,12 @@ func TestMaximizedPanelFillsTheWindow(t *testing.T) {
 		// The panel starts at the window's edge, or past the left panel
 		// when the editors' column is what it took.
 		start, first := left, "TERMINAL"
-		if side == settings.SideLeft {
+		switch side {
+		case settings.SideLeft:
 			start, first = 0, "EXPLORER"
+		case settings.SideRight:
+			// The terminal follows the sessions there.
+			first = "SESSIONS"
 		}
 		tab, ok := tt.Find(first)
 		if !ok || tab.X < start || tab.X > start+60 {

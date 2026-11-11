@@ -76,6 +76,7 @@ takes its default.
 | `terminalBackendHcPath` | `""`          | A path to `hc`, a folder that has it, or a name on `PATH`   |                                                |
 | `terminalBackendHcEnv`  | none          | A list of `KEY=value` environment variables for `hc`        |                                                |
 | `terminalBackendHcShowInHerdr` | `true` | `true`, `false`                                      |                                                |
+| `agentSessionsClaudeDirs` | none        | A list of more Claude Code config folders                   |                                                |
 | `projectTabs`           | `false`       | `true`, `false`                                             | **View → Project Tabs**                        |
 | `projectTabStyle`       | none          | A label, color and icon for each folder                     | A square's context menu on the rail            |
 | `locale`                | `""`          | `""` (follow the system), `"en"`, `"zh-Hans"`, `"ja"`       | **View → Language**                            |
@@ -182,6 +183,9 @@ differ in width lines them up only roughly.
   space for each folder, a tab for each terminal. Terminals already running there show up as Mayoi attaches them again.
   Turned off, new terminals stay out of Herdr, and those already there stay until closed. Closing one in either app
   ends its shell, which closes it in the other. Terminals of a remote folder stay out of Herdr.
+- **`agentSessionsClaudeDirs`** lists more Claude Code config folders whose sessions the **Sessions** view shows, as
+  `["~/work/claude"]`. Without it the view already reads `~/.claude`, each `~/.claude-*` folder and the folder
+  `CLAUDE_CONFIG_DIR` names. It stays on each machine.
 - **`projectTabs`** keeps every folder open in one window, as project tabs on a rail on its left, rather than a
   window for each. Changing it gathers the windows into one, or parts them, at once.
 - **`projectTabStyle`** gives a project's square on the rail its own label, up to two characters, in place of its

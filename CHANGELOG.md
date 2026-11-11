@@ -3,6 +3,10 @@
 The update window shows the section of the version it offers. Every release
 needs a `## <version>` section here, or its build fails.
 
+## Unreleased
+
+- A resumed session's tab keeps the session's title in a shell other than your default one.
+
 ## 0.20.0
 
 - Plugins can add coding agents with `contributes.agents`, whose sessions show in **Sessions** with their own icon.

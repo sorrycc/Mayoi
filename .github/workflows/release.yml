@@ -51,7 +51,13 @@ jobs:
           go-version-file: go.mod
       - name: Install NSIS, for the Windows installers
         if: matrix.name == 'Windows'
-        run: sudo apt-get update && sudo apt-get install -y nsis
+        # Tries again, as the runner's mirrors at times fail to resolve.
+        run: |
+          for i in 1 2 3; do
+            sudo apt-get -o Acquire::Retries=3 update && sudo apt-get -o Acquire::Retries=3 install -y nsis && exit 0
+            sleep 15
+          done
+          exit 1
       # mygo.json signs ad hoc, so that builds on any Mac work; releases sign
       # with the Developer ID and are notarized.
       - name: Import the certificate and the notary credentials

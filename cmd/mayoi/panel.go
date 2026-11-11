@@ -91,7 +91,7 @@ func (s *session) label() string {
 
 // retitle takes a title its programs give the terminal, which is the
 // agent's own, ending the session's title, unless it is as a shell names
-// a terminal: by the shell, a folder (as "~/src" or "me@host: ~/src"), or
+// a terminal: by a shell, a folder (as "~/src" or "me@host: ~/src"), or
 // the command line the shell runs (as "claude --resume …").
 func (s *session) retitle(title string) {
 	s.title = title
@@ -99,7 +99,7 @@ func (s *session) retitle(title string) {
 		return
 	}
 	t := strings.TrimSpace(title)
-	shellish := t == "" || t == shellName() || strings.HasPrefix(t, "~") || strings.HasPrefix(t, "/") ||
+	shellish := t == "" || isShellName(t) || strings.HasPrefix(t, "~") || strings.HasPrefix(t, "/") ||
 		(strings.Contains(t, "@") && strings.Contains(t, ":"))
 	if !shellish && s.program != "" {
 		shellish = strings.HasPrefix(t, s.program) || strings.Contains(t, s.program+" ")
@@ -374,6 +374,16 @@ func shellName() string {
 		return filepath.Base(sh)
 	}
 	return "shell"
+}
+
+// shellNames are the shells a terminal may run besides the user's own.
+var shellNames = []string{"sh", "bash", "zsh", "fish", "dash", "ksh", "tcsh", "csh", "nu", "pwsh", "powershell", "cmd"}
+
+// isShellName reports whether a title is a shell's name, as "zsh" or
+// "pwsh.exe".
+func isShellName(title string) bool {
+	name := strings.TrimSuffix(strings.ToLower(title), ".exe")
+	return name == shellName() || slices.Contains(shellNames, name)
 }
 
 // panelTerms returns the terminals of the panel.

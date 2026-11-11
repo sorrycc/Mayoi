@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 	"unicode"
+	"unicode/utf8"
 
 	"github.com/egoist/mygo/plugins/terminal"
 	"github.com/egoist/mygo/ui"
@@ -77,6 +78,9 @@ type sessionsState struct {
 	live     bg.Poller[string]
 	running  map[string]hcAgent
 	liveSeen bool
+	// liveSince is when each session that runs, by liveKey, took the
+	// state hc says it is in, which its dot calls out for a while.
+	liveSince map[string]time.Time
 }
 
 // sessionsKey is what the sessions shown depend on.
@@ -111,7 +115,7 @@ func (a *app) readSessions() {
 		})
 	}
 	if !a.hcBackend() {
-		st.running, st.liveSeen = nil, false
+		st.running, st.liveSeen, st.liveSince = nil, false, nil
 		return
 	}
 	if st.live.Start("", sessionsLiveEvery) {
@@ -122,11 +126,27 @@ func (a *app) readSessions() {
 				if !st.live.Done("") {
 					return
 				}
+				st.noteLive(running, time.Now())
 				st.running, st.liveSeen = running, true
 				st.live.Keep("", sessionsLiveEvery, a.invalidate)
 			})
 		})
 	}
+}
+
+// noteLive notes, at now, when each session of running took its state:
+// one that starts or changes its state takes it now, one that stopped is
+// forgotten.
+func (st *sessionsState) noteLive(running map[string]hcAgent, now time.Time) {
+	since := make(map[string]time.Time, len(running))
+	for k, ag := range running {
+		if was, ok := st.running[k]; ok && was.state == ag.state && !st.liveSince[k].IsZero() {
+			since[k] = st.liveSince[k]
+		} else {
+			since[k] = now
+		}
+	}
+	st.liveSince = since
 }
 
 // sessionRows are the sessions the view shows: of the window's folder or
@@ -411,6 +431,9 @@ func (a *app) sessionsView(c *ui.Context) {
 const (
 	sessionsHeadH = 26
 	sessionRowH   = 40
+	// sessionWhyH is how much taller a row is that says why the query
+	// found it.
+	sessionWhyH = 15
 )
 
 // sessionsHead heads the sessions of a day, with how many there are. It
@@ -488,9 +511,15 @@ func (a *app) sessionsEmpty(c *ui.Context) {
 func (a *app) sessionRow(c *ui.Context, s agents.Session, now time.Time, words []string, dots, chosen, keyed bool, action *func()) ui.Element {
 	p := a.pal
 	st := &a.sessions
-	live, running := st.running[liveKey(s.Harness, s.ID)]
+	lk := liveKey(s.Harness, s.ID)
+	live, running := st.running[lk]
 	rec := a.liveRecord(live)
-	row := ui.Row(c).Grow(1).Gap(8).AlignItems(ui.Center).Height(sessionRowH).Padding(0, 6, 0, 6).
+	why := a.sessionWhy(s, words)
+	h := float32(sessionRowH)
+	if why != "" {
+		h += sessionWhyH
+	}
+	row := ui.Row(c).Grow(1).Gap(8).AlignItems(ui.Center).Height(h).Padding(0, 6, 0, 6).
 		Tooltip(s.Dir + "\n" + s.ID + "\n" + dateTime(s.Updated.Local()))
 	// The buttons take the place of the time as the pointer comes, and
 	// give it back as it goes; neither moves the title or the folder. They
@@ -519,7 +548,24 @@ func (a *app) sessionRow(c *ui.Context, s agents.Session, now time.Time, words [
 			dot := ui.Box(c.Key("dot")).Size(7, 7).Shrink(0)
 			if running {
 				dot.Children(func() {
-					ui.Box(c.Key("on")).Size(7, 7).Radius(3.5).Background(a.progColor(rec.State)).Transition(dotPop).Tooltip(progLine(rec))
+					on := ui.Box(c.Key("on")).Size(7, 7).Transition(dotPop).Tooltip(progLine(rec))
+					col := on.AnimateColor("col", a.progColor(rec.State), ui.Smooth)
+					// It breathes while the agent works, and calls for a
+					// while as it begins to wait for the user; it stays
+					// still for those who ask for less motion.
+					var pulse time.Time
+					breathe := false
+					if !c.Preferences().ReduceMotion {
+						switch rec.State {
+						case terminal.StatusWorking:
+							breathe = true
+						case terminal.StatusBlocked:
+							if since := st.liveSince[lk]; now.Sub(since) < pulseFor {
+								pulse = since
+							}
+						}
+					}
+					on.Draw(func(pt *ui.Painter, r ui.Rect) { liveDot(pt, r, col, pulse, breathe) })
 				})
 			}
 		}
@@ -535,6 +581,10 @@ func (a *app) sessionRow(c *ui.Context, s agents.Session, now time.Time, words [
 				ui.Text(c, ago(s.Updated, now)).FontSize(11).FontFeatures("tnum").TextColor(p.faint).SingleLine().Shrink(0).Padding(0, 0, 0, 6).
 					Opacity(1 - reveal)
 			})
+			if why != "" {
+				// What the query found that the lines above don't show.
+				ui.RichText(c.Key("why"), wordSpans(why, words, p.muted, p.text)...).FontSize(11).SingleLine().ClipX()
+			}
 		})
 		if reveal > 0 {
 			// The buttons sit on the row's background, which the ends of
@@ -552,6 +602,77 @@ func (a *app) sessionRow(c *ui.Context, s agents.Session, now time.Time, words [
 		}
 	})
 	return row
+}
+
+// liveDot paints the dot of a session that runs, of col, in r. While
+// breathe, a ring swells from it and fades every two pulseBeats, slower
+// and fainter than a call, at 20 frames a second; for pulseFor from
+// pulse, unless it is zero, it calls as a terminal's badge does as its
+// program begins to wait. The window paints them without building the
+// view.
+func liveDot(pt *ui.Painter, r ui.Rect, col ui.Color, pulse time.Time, breathe bool) {
+	if !beacon(pt, r, col, pulse, 0.9, 0.45) && breathe {
+		beat := 2 * pulseBeat
+		ring(pt, r, col, float32(pt.Now().UnixNano()%int64(beat))/float32(beat), 0.7, 0.3)
+		pt.AnimationFrameRate(20)
+	}
+	pt.Fill(r, col, r.W/2)
+}
+
+// sessionWhy is what of a session the query finds that its row does not
+// show, for the row to say why it is there: around the first word of
+// words in neither its title nor what goes under it, its first prompt,
+// its folder, from ~, or its id, the first that has it. It is "" when the
+// row shows every word.
+func (a *app) sessionWhy(s agents.Session, words []string) string {
+	if len(words) == 0 {
+		return ""
+	}
+	shown := strings.ToLower(s.Label() + "\n" + a.sessionMeta(s))
+	var hidden []string
+	if s.Title != "" && s.Prompt != "" {
+		hidden = append(hidden, s.Prompt)
+	}
+	if s.Dir != "" {
+		hidden = append(hidden, shortenHome(s.Dir))
+	}
+	if s.Label() != s.ID {
+		hidden = append(hidden, s.ID)
+	}
+	for _, w := range words {
+		if strings.Contains(shown, w) {
+			continue
+		}
+		for _, h := range hidden {
+			if i := strings.Index(strings.ToLower(h), w); i >= 0 {
+				return snippetAt(h, i, len(w))
+			}
+		}
+	}
+	return ""
+}
+
+// snippetLead is how many bytes of text before a match its snippet keeps.
+const snippetLead = 24
+
+// snippetAt is text cut to show the run at i of n bytes of its lower
+// case near its start: from a word that starts at most snippetLead before
+// it, after an ellipsis. Text whose lower case is not as long as it is
+// stays whole, as i would not be its own.
+func snippetAt(text string, i, n int) string {
+	if i <= snippetLead || len(strings.ToLower(text)) != len(text) || i+n > len(text) {
+		return text
+	}
+	from := i - snippetLead
+	if sp := strings.IndexByte(text[from:i], ' '); sp >= 0 {
+		from += sp + 1
+	} else {
+		from = i
+	}
+	for from < i && !utf8.RuneStart(text[from]) {
+		from++
+	}
+	return "…" + text[from:]
 }
 
 // sessionActions are the buttons of a session's row: one resumes it, the

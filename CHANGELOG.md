@@ -31,6 +31,8 @@ needs a `## <version>` section here, or its build fails.
 - With the keyboard in the sessions list, the chosen session shows its resume and copy buttons.
 - `⌘C` in the sessions list copies the chosen session's resume command.
 - The **This Project** / **All Projects** switch in **Sessions** no longer clips in Japanese.
+- When a search matches a session's first prompt, folder or id, its row shows that text under the title.
+- With `terminalBackend` set to `"hc"`, a working session's dot breathes, and one that starts waiting pulses.
 
 ## 0.19.3
 

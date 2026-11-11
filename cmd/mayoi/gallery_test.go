@@ -61,6 +61,17 @@ var galleryStates = []struct {
 		hs.key(0, ui.KeyTab)
 		hs.key(0, ui.KeyTab)
 	}},
+	{"sessions-why", func(hs *harness) {
+		home := agentHome(hs.t, hs.root)
+		// A titled session, which the query finds in its first prompt.
+		p := filepath.Join(home, ".claude", "projects", "p-titled", "titled.jsonl")
+		os.MkdirAll(filepath.Dir(p), 0o755)
+		os.WriteFile(p, []byte(`{"type":"user","message":{"content":"the sign in page of the account settings shows a blank form"},"cwd":"`+
+			filepath.ToSlash(hs.root)+`"}`+"\n"+`{"type":"custom-title","customTitle":"Login bug"}`+"\n"), 0o644)
+		hs.a.showSessions()
+		hs.settle()
+		hs.a.sessions.query = "login blank"
+	}},
 	{"unsaved", func(hs *harness) {
 		hs.a.openFile(hs.path("main.go"), true)
 		hs.settle()

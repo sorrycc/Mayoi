@@ -304,3 +304,56 @@ func TestSessionsListKeysShowAndCopy(t *testing.T) {
 		t.Errorf("the clipboard has %q, want the command that resumes here", got)
 	}
 }
+
+// A row says why the query found it when the words are in what it does
+// not show: its first prompt under a title, its folder or its id, cut to
+// show the word.
+func TestSessionWhySaysWhatMatched(t *testing.T) {
+	a := newHarness(t, true).a
+	a.sessions.all = 0
+	s := agents.Session{Harness: agents.Claude, ID: "abc123", Title: "Login bug",
+		Prompt: "the sign in page of the account settings shows a blank form", Dir: "/w/mayoi"}
+	for _, c := range []struct {
+		query, want string
+	}{
+		{"", ""},
+		{"login", ""},
+		{"claude", ""},
+		{"login blank", "…settings shows a blank form"},
+		{"sign", s.Prompt},
+		{"mayoi", "/w/mayoi"},
+		{"c12", "abc123"},
+	} {
+		if got := a.sessionWhy(s, strings.Fields(c.query)); got != c.want {
+			t.Errorf("sessionWhy(%q) = %q, want %q", c.query, got, c.want)
+		}
+	}
+	// A session of no title shows its prompt as its title.
+	s.Title = ""
+	if got := a.sessionWhy(s, []string{"blank"}); got != "" {
+		t.Errorf("sessionWhy of a prompt shown = %q, want none", got)
+	}
+}
+
+// A session that runs keeps when it took its state while it stays in it,
+// and takes a new time as it changes.
+func TestNoteLiveFollowsTheStates(t *testing.T) {
+	var st sessionsState
+	t0 := time.Unix(1000, 0)
+	k := liveKey(agents.Claude, "c1")
+	run := func(s terminal.StatusState) map[string]hcAgent { return map[string]hcAgent{k: {state: s}} }
+	st.noteLive(run(terminal.StatusWorking), t0)
+	st.running = run(terminal.StatusWorking)
+	st.noteLive(run(terminal.StatusWorking), t0.Add(time.Second))
+	if got := st.liveSince[k]; !got.Equal(t0) {
+		t.Errorf("a state kept took %v, want %v", got, t0)
+	}
+	st.noteLive(run(terminal.StatusBlocked), t0.Add(2*time.Second))
+	if got := st.liveSince[k]; !got.Equal(t0.Add(2 * time.Second)) {
+		t.Errorf("a state changed took %v, want the time it changed", got)
+	}
+	st.noteLive(nil, t0.Add(3*time.Second))
+	if len(st.liveSince) != 0 {
+		t.Errorf("a session stopped is kept: %v", st.liveSince)
+	}
+}

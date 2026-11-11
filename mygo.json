@@ -3,6 +3,7 @@
   "identifier": "dev.mayoi.editor",
   "version": "0.19.3",
   "main": "./cmd/mayoi",
+  "urlSchemes": ["mayoi"],
   "out": "build",
   "i18n": {
     "dir": "locales",

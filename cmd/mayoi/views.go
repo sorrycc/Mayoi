@@ -159,6 +159,9 @@ func (a *app) viewTitleActions(c *ui.Context, v string, hovered bool) {
 	}
 }
 
+// hasTitleActions reports whether a view has tools for its title's row.
+func hasTitleActions(v string) bool { return v == settings.ViewSCM || v == settings.ViewSearch }
+
 // focusView gives the keyboard to what a view shows: its query, or its
 // files.
 func (a *app) focusView(v string) {

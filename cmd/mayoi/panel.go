@@ -565,7 +565,10 @@ func (a *app) panelHeader(c *ui.Context, side settings.Side) {
 		a.viewTitleActions(c, view, true)
 		a.panelButtons(c, side)
 	})
-	if wide {
+	// The panel's buttons go with the view's tools to a row of their own;
+	// a view with no tools keeps its room, and its tab's menu maximizes or
+	// hides the panel.
+	if wide || !hasTitleActions(view) {
 		return
 	}
 	ui.Row(c).Height(panelHeadH-6).Padding(0, 8, 0, 14).Gap(2).AlignItems(ui.Center).Children(func() {

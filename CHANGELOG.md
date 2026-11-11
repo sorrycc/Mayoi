@@ -35,6 +35,8 @@ needs a `## <version>` section here, or its build fails.
 - With `terminalBackend` set to `"hc"`, a working session's dot breathes, and one that starts waiting pulses.
 - **Sessions** rows sit slightly apart, and a hovered row's background fades in and out with its buttons.
 - Sessions that appear as **Sessions** is read again open their place, and the rows under them slide down.
+- Sessions that disappear on a re-read close their place as they fade, and the rows under them slide up.
+- Typing in the **Sessions** search field stays quick with thousands of sessions.
 - When a session starts or stops running, its state slides in or out and the agent beside it glides over.
 
 ## 0.19.3

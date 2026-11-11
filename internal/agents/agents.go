@@ -99,9 +99,21 @@ func (s Session) Key() string { return string(s.Harness) + "\x00" + s.Root + "\x
 // Matches reports whether every word of query is in the session's title,
 // first prompt, folder or id, ignoring case.
 func (s Session) Matches(query string) bool {
-	hay := strings.ToLower(s.Title + "\n" + s.Prompt + "\n" + s.Dir + "\n" + s.ID + "\n" + s.Harness.Name())
-	for _, w := range strings.Fields(strings.ToLower(query)) {
-		if !strings.Contains(hay, w) {
+	return HasWords(s.Text(), strings.Fields(strings.ToLower(query)))
+}
+
+// Text is what a query looks in, in lower case: the session's title,
+// first prompt, folder, id and agent. A list filtered key by key makes it
+// once for each session.
+func (s Session) Text() string {
+	return strings.ToLower(s.Title + "\n" + s.Prompt + "\n" + s.Dir + "\n" + s.ID + "\n" + s.Harness.Name())
+}
+
+// HasWords reports whether text, a session's Text, has every one of
+// words, in lower case.
+func HasWords(text string, words []string) bool {
+	for _, w := range words {
+		if !strings.Contains(text, w) {
 			return false
 		}
 	}

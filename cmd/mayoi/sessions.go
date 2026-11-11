@@ -10,6 +10,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
+	"github.com/egoist/mygo/i18n"
 	"github.com/egoist/mygo/plugins/terminal"
 	"github.com/egoist/mygo/ui"
 
@@ -61,11 +62,22 @@ type sessionsState struct {
 	version int
 	rows    []agents.Session
 	rowsKey sessionsKey
+	// texts are what the query looks in of each session, as of the
+	// reading textsVersion, made once for it rather than for each key.
+	texts        []string
+	textsVersion int
 	// lines are the rows under the heads of their days, as of linesKey
 	// and the day linesDay.
 	lines    []sessionLine
 	linesKey sessionsKey
 	linesDay time.Time
+	// linesGen counts the lines made. shown are those the list shows, as
+	// of shownGen: the lines, with those a reading dropped in their places
+	// as they go, the first of them gone at goneEnd.
+	linesGen int
+	shown    []sessionLine
+	shownGen int
+	goneEnd  time.Time
 	// skeleton is set while the view shows the shapes of rows, as the
 	// sessions are read, and shownAt when the rows took their place.
 	skeleton bool
@@ -163,9 +175,17 @@ func (a *app) sessionRows() []agents.Session {
 	if k == st.rowsKey && st.rows != nil {
 		return st.rows
 	}
+	words := strings.Fields(strings.ToLower(st.query))
+	if len(words) > 0 && (st.texts == nil || st.textsVersion != st.version) {
+		st.texts = make([]string, len(st.sessions))
+		for i, s := range st.sessions {
+			st.texts[i] = s.Text()
+		}
+		st.textsVersion = st.version
+	}
 	rows := []agents.Session{}
-	for _, s := range st.sessions {
-		if (all || s.In(a.root)) && s.Matches(st.query) {
+	for i, s := range st.sessions {
+		if (all || s.In(a.root)) && (len(words) == 0 || agents.HasWords(st.texts[i], words)) {
 			rows = append(rows, s)
 		}
 	}
@@ -220,7 +240,14 @@ type sessionLine struct {
 	s     agents.Session
 	// id is the line's key, made once as the lines are.
 	id string
+	// gone is when a reading dropped the line, which then closes its place
+	// as it fades out; zero for a line that stays.
+	gone time.Time
 }
+
+// session reports whether the line is a session's that stays, which the
+// choice can rest on.
+func (l sessionLine) session() bool { return !l.head && l.gone.IsZero() }
 
 // key is the line's in the list.
 func (l sessionLine) key() string {
@@ -255,6 +282,7 @@ func (a *app) sessionLines(rows []agents.Session, now time.Time) []sessionLine {
 		lines = append(lines, sessionLine{day: day, s: s, id: s.Key()})
 	}
 	st.lines, st.linesKey, st.linesDay = lines, st.rowsKey, today
+	st.linesGen++
 	return lines
 }
 
@@ -263,12 +291,12 @@ func (a *app) sessionLines(rows []agents.Session, now time.Time) []sessionLine {
 func sessionAt(lines []sessionLine, i int) int {
 	i = min(max(i, 0), len(lines)-1)
 	for j := i; j < len(lines); j++ {
-		if !lines[j].head {
+		if lines[j].session() {
 			return j
 		}
 	}
 	for j := i - 1; j >= 0; j-- {
-		if !lines[j].head {
+		if lines[j].session() {
 			return j
 		}
 	}
@@ -279,26 +307,39 @@ func sessionAt(lines []sessionLine, i int) int {
 // negative d, past the heads; i itself at the end.
 func sessionStep(lines []sessionLine, i, d int) int {
 	for j := i + d; j >= 0 && j < len(lines); j += d {
-		if !lines[j].head {
+		if lines[j].session() {
 			return j
 		}
 	}
 	return i
 }
 
-// keepChoice keeps the choice on the session it was on as the lines
-// change, or on the session nearest its row once that one is gone, and
-// notes which rows came with a reading, to fade them in.
-func (a *app) keepChoice(lines []sessionLine, now time.Time) {
+// keepChoice returns the lines the list shows, those a reading dropped
+// among them as they go, and keeps the choice on the session it was on
+// as they change, or on the session nearest its row once that one is
+// gone. It notes which rows came with a reading, to fade them in.
+func (a *app) keepChoice(lines []sessionLine, now time.Time) []sessionLine {
 	st := &a.sessions
+	fresh := false
 	if st.appearKey != st.rowsKey {
 		k, was := st.rowsKey, st.appearKey
-		fresh := k.query != was.query || k.root != was.root || k.all != was.all
+		fresh = k.query != was.query || k.root != was.root || k.all != was.all
 		st.appear.note(len(lines), func(i int) string { return lines[i].key() }, now, fresh)
 		st.appearKey = k
 	}
+	if st.shown == nil || st.shownGen != st.linesGen || (!st.goneEnd.IsZero() && !now.Before(st.goneEnd)) {
+		// Those of another query or folder don't go: the list shows
+		// other rows.
+		was := st.shown
+		if fresh {
+			was = nil
+		}
+		st.shown, st.goneEnd = leaveLines(was, lines, now)
+		st.shownGen = st.linesGen
+	}
+	lines = st.shown
 	if len(lines) == 0 {
-		return
+		return lines
 	}
 	if st.rowKey != "" && (st.row < 0 || st.row >= len(lines) || lines[st.row].key() != st.rowKey) {
 		for i, l := range lines {
@@ -310,6 +351,79 @@ func (a *app) keepChoice(lines []sessionLine, now time.Time) {
 	}
 	st.row = sessionAt(lines, max(st.row, 0))
 	st.noteChoice(lines)
+	return lines
+}
+
+// leaveLines are lines with those of was they don't have among them as
+// they go: each after the line before it that stays, gone from now unless
+// it went before, and left out once gone for motionShow. end is when the
+// first of those among them is, zero for none.
+func leaveLines(was, lines []sessionLine, now time.Time) (out []sessionLine, end time.Time) {
+	if len(was) == 0 {
+		return lines, time.Time{}
+	}
+	has := make(map[string]bool, len(lines))
+	for _, l := range lines {
+		has[l.key()] = true
+	}
+	var after map[string][]sessionLine
+	n, prev := 0, ""
+	for _, l := range was {
+		k := l.key()
+		if has[k] {
+			prev = k
+			continue
+		}
+		if l.gone.IsZero() {
+			l.gone = now
+		}
+		until := l.gone.Add(motionShow)
+		if !now.Before(until) {
+			continue
+		}
+		if end.IsZero() || until.Before(end) {
+			end = until
+		}
+		if after == nil {
+			after = map[string][]sessionLine{}
+		}
+		after[prev] = append(after[prev], l)
+		n++
+	}
+	if n == 0 {
+		return lines, time.Time{}
+	}
+	out = make([]sessionLine, 0, len(lines)+n)
+	out = append(out, after[""]...)
+	for _, l := range lines {
+		out = append(out, l)
+		out = append(out, after[l.key()]...)
+	}
+	return out, end
+}
+
+// lineShown is how far in a line is at now: from 0 to 1 as it comes with
+// a reading, and back to 0 as it goes.
+func (st *sessionsState) lineShown(l sessionLine, now time.Time) float32 {
+	if !l.gone.IsZero() {
+		return 1 - ui.EaseOut(min(float32(now.Sub(l.gone))/float32(motionShow), 1))
+	}
+	return st.appear.shown(l.key(), now)
+}
+
+// openShut has the row of line l open as far as it shows at now, of
+// height h: it fades, and grows or shrinks to its height, which moves
+// the rows under it along; with less motion, it only fades.
+func (a *app) openShut(c *ui.Context, row ui.Element, l sessionLine, h float32, now time.Time) {
+	k := a.sessions.lineShown(l, now)
+	if k >= 1 {
+		return
+	}
+	row.Opacity(k)
+	if !c.Preferences().ReduceMotion {
+		row.Height(h * k).ClipY()
+	}
+	c.AnimationFrame()
 }
 
 // noteChoice notes the key of the session chosen in lines.
@@ -332,8 +446,7 @@ func (a *app) sessionsView(c *ui.Context) {
 		ui.Box(c.Key("sessions-activity")).Height(2)
 	}
 	now := c.Now()
-	rows := a.sessionLines(a.sessionRows(), now)
-	a.keepChoice(rows, now)
+	rows := a.keepChoice(a.sessionLines(a.sessionRows(), now), now)
 	ui.Column(c).Padding(0, 12, 6, 12).Gap(6).Children(func() {
 		in := a.searchField(c, "sessions-query", &st.query, locales.SessionsFind(), &st.input, nil)
 		if in.Changed() {
@@ -397,7 +510,7 @@ func (a *app) sessionsView(c *ui.Context) {
 	a.sessionLooks()
 	out := ui.List(c.Key("sessions"), &st.list, len(rows), func(i int) {
 		if r := rows[i]; r.head {
-			a.sessionsHead(c, r)
+			a.sessionsHead(c, r, now)
 		} else {
 			// The chosen row shows its buttons while the list has the
 			// keyboard, as the keys that run them do.
@@ -419,7 +532,7 @@ func (a *app) sessionsView(c *ui.Context) {
 	// Copy of the Edit menu, which takes ⌘C, copies the command that
 	// resumes the session chosen while the list has the keyboard.
 	out.HandleInput(func(ev ui.InputEvent) bool {
-		if ev.Kind != ui.InputCommand || ev.Text != "copy" || st.row < 0 || st.row >= len(rows) || rows[st.row].head {
+		if ev.Kind != ui.InputCommand || ev.Text != "copy" || st.row < 0 || st.row >= len(rows) || !rows[st.row].session() {
 			return false
 		}
 		a.copyText(a.agentEnv().ResumeCommand(rows[st.row].s))
@@ -428,7 +541,7 @@ func (a *app) sessionsView(c *ui.Context) {
 	if action != nil {
 		action()
 	}
-	if out.Submitted() && st.row >= 0 && st.row < len(rows) && !rows[st.row].head {
+	if out.Submitted() && st.row >= 0 && st.row < len(rows) && rows[st.row].session() {
 		// Enter, or a double click.
 		a.resumeSession(rows[st.row].s)
 	}
@@ -448,10 +561,13 @@ const (
 )
 
 // sessionsHead heads the sessions of a day, with how many there are. It
-// stays at the top as they scroll under it.
-func (a *app) sessionsHead(c *ui.Context, r sessionLine) {
+// stays at the top as they scroll under it, and comes and goes with the
+// day's rows, as a reading brings the first or drops the last.
+func (a *app) sessionsHead(c *ui.Context, r sessionLine, now time.Time) {
 	p := a.pal
-	ui.Row(c).Grow(1).Height(sessionsHeadH).Padding(4, 6, 0, 6).AlignItems(ui.Center).Gap(6).Background(p.chrome).Children(func() {
+	head := ui.Row(c).Grow(1).Height(sessionsHeadH).Padding(4, 6, 0, 6).AlignItems(ui.Center).Gap(6).Background(p.chrome)
+	a.openShut(c, head, r, sessionsHeadH, now)
+	head.Children(func() {
 		size, spacing := p.titleLook(10.5, 0.4)
 		ui.Text(c, p.title(r.day.name())).FontSize(size).FontWeight(600).LetterSpacing(spacing).
 			TextColor(p.muted).SingleLine().Shrink(1)
@@ -520,35 +636,35 @@ func (a *app) sessionsEmpty(c *ui.Context) {
 // a dot before it says it runs. The chosen row has the background of the
 // choice; the one under the pointer fades its own in with its buttons. A
 // row that came with a reading of the sessions fades in as it opens its
-// place, and the rows under it slide down.
+// place, and the rows under it slide down; one a reading dropped fades out
+// as it closes its place, and they slide up.
 func (a *app) sessionRow(c *ui.Context, l sessionLine, now time.Time, dots, chosen, keyed bool, action *func()) ui.Element {
 	p := a.pal
 	st := &a.sessions
 	s := l.s
-	lk := liveKey(s.Harness, s.ID)
+	look := a.sessionLook(l)
+	lk := look.live
 	live, running := st.running[lk]
 	rec := a.liveRecord(live)
-	look := a.sessionLook(l)
 	h := float32(sessionRowH)
 	if look.why != nil {
 		h += sessionWhyH
 	}
 	row := ui.Row(c).Grow(1).Gap(8).AlignItems(ui.Center).Height(h).Padding(0, 6, 0, 6).Tooltip(look.tip)
-	if k := st.appear.shown(l.key(), now); k < 1 {
-		row.Opacity(k)
-		if !c.Preferences().ReduceMotion {
-			row.Height(h * k).ClipY()
-		}
-		c.AnimationFrame()
-	}
+	a.openShut(c, row, l, h, now)
 	// The buttons take the place of the time as the pointer comes, and
 	// give it back as it goes; neither moves the title or the folder. They
-	// come at once with the choice the keys move.
-	reveal := row.Animate("reveal", unit(row.Hovered()), motionHover)
+	// come at once with the choice the keys move. A row that goes shows
+	// none.
+	going := !l.gone.IsZero()
+	reveal := row.Animate("reveal", unit(row.Hovered() && !going), motionHover)
 	if keyed {
 		reveal = 1
 	}
 	row.ContextMenu(func(m *ui.Menu) {
+		if going {
+			return
+		}
 		if m.Item(locales.SessionsResume()).Shortcut(0, ui.KeyEnter).Chosen() {
 			*action = func() { a.resumeSession(s) }
 		}
@@ -605,7 +721,7 @@ func (a *app) sessionRow(c *ui.Context, l sessionLine, now time.Time, dots, chos
 				}
 				ui.RichText(c.Key("meta"), look.meta...).FontSize(11).SingleLine().ClipX().Shrink(1).Transition(slideAlong)
 				ui.Spacer(c)
-				ui.Text(c, ago(s.Updated, now)).FontSize(11).FontFeatures("tnum").TextColor(p.faint).SingleLine().Shrink(0).Padding(0, 0, 0, 6).
+				ui.Text(c, look.agoAt(s.Updated, now)).FontSize(11).FontFeatures("tnum").TextColor(p.faint).SingleLine().Shrink(0).Padding(0, 0, 0, 6).
 					Opacity(1 - reveal)
 			})
 			if look.why != nil {
@@ -636,15 +752,38 @@ func (a *app) sessionRow(c *ui.Context, l sessionLine, now time.Time, dots, chos
 type lookKey struct {
 	rows                       sessionsKey
 	text, accent, faint, muted ui.Color
+	locale                     string
 }
 
 // sessionLook is what a session's row shows of it, in spans with the
-// words of the query marked, and its tip: made once for the rows shown
-// and their colors, rather than each frame the row is built, as while a
-// hover fades or the rows a reading brought come in.
+// words of the query marked, and its tip: made once for the rows shown,
+// their colors and language, rather than each frame the row is built, as
+// while a hover fades or the rows a reading brought come in. live is the
+// session's key in what runs in herdr-core.
 type sessionLook struct {
 	title, meta, why []ui.Span
-	tip              string
+	tip, live        string
+	// ago is how long ago the session was used, which holds from agoFrom
+	// until agoUntil, the minute it counts.
+	ago               string
+	agoFrom, agoUntil time.Time
+}
+
+// agoAt is how long ago a session used at updated was, as of now: said
+// again only once the minute it counts from updated is over, rather than
+// each frame.
+func (lk *sessionLook) agoAt(updated, now time.Time) string {
+	if lk.agoUntil.IsZero() || now.Before(lk.agoFrom) || !now.Before(lk.agoUntil) {
+		d := now.Sub(updated)
+		m := d / time.Minute
+		if d < 0 && d%time.Minute != 0 {
+			m--
+		}
+		lk.ago = ago(updated, now)
+		lk.agoFrom = updated.Add(m * time.Minute)
+		lk.agoUntil = lk.agoFrom.Add(time.Minute)
+	}
+	return lk.ago
 }
 
 // sessionLooks readies the looks for the rows of this frame: those made
@@ -652,7 +791,7 @@ type sessionLook struct {
 // again.
 func (a *app) sessionLooks() {
 	st, p := &a.sessions, a.pal
-	k := lookKey{st.rowsKey, p.text, p.accent, p.faint, p.muted}
+	k := lookKey{st.rowsKey, p.text, p.accent, p.faint, p.muted, i18n.Locale()}
 	if st.looks != nil && k == st.looksKey {
 		return
 	}
@@ -671,6 +810,7 @@ func (a *app) sessionLook(l sessionLine) *sessionLook {
 		title: wordSpans(s.Label(), words, p.text, p.accent),
 		meta:  wordSpans(a.sessionMeta(s), words, p.faint, p.text),
 		tip:   s.Dir + "\n" + s.ID + "\n" + dateTime(s.Updated.Local()),
+		live:  liveKey(s.Harness, s.ID),
 	}
 	if why := a.sessionWhy(s, words); why != "" {
 		lk.why = wordSpans(why, words, p.muted, p.text)

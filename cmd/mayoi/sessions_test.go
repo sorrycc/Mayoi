@@ -196,9 +196,7 @@ func TestSessionsChoiceFollowsItsSession(t *testing.T) {
 	}
 	read := func(ss ...agents.Session) []sessionLine {
 		st.rowsKey.version++
-		lines := a.sessionLines(ss, now)
-		a.keepChoice(lines, now)
-		return lines
+		return a.keepChoice(a.sessionLines(ss, now), now)
 	}
 	lines := read(at("a", time.Hour), at("b", 2*time.Hour))
 	st.row = 2
@@ -483,5 +481,130 @@ func TestSessionLooksAreKept(t *testing.T) {
 	got := a.sessionLook(l)
 	if got == first || len(got.title) != 2 || got.title[1].Text != "login" {
 		t.Errorf("the look of the query is %+v, want login marked", got.title)
+	}
+}
+
+// A session a reading drops closes its place as it fades, and the rows
+// under it slide up rather than jump; with less motion, it only fades,
+// and they move once it is gone.
+func TestSessionsDroppedRowClosesItsPlace(t *testing.T) {
+	skipOnWindows(t, "the sessions' folders are POSIX paths")
+	for _, reduce := range []bool{false, true} {
+		hs := newHarness(t, true)
+		a := hs.a
+		agentHome(t, hs.root)
+		hs.tt.SetPreferences(ui.Preferences{ReduceMotion: reduce})
+		a.sessions.all = 1
+		a.showSessions()
+		hs.settle()
+		st := &a.sessions
+		top, under := st.sessions[0], st.sessions[1]
+		before, _ := hs.tt.Find(under.Label())
+		st.sessions = []agents.Session{under}
+		st.version++
+		hs.tt.Frame()
+		hs.tt.Advance(motionShow / 2)
+		hs.tt.Frame()
+		mid, _ := hs.tt.Find(under.Label())
+		if !hs.tt.HasText(top.Label()) {
+			t.Errorf("reduce %v: the row dropped is gone at once", reduce)
+		}
+		hs.settle()
+		after, _ := hs.tt.Find(under.Label())
+		if hs.tt.HasText(top.Label()) {
+			t.Errorf("reduce %v: the row dropped stays", reduce)
+		}
+		if want := before.Y - sessionRowH - sessionRowGap; after.Y != want {
+			t.Errorf("reduce %v: the row under the one dropped settles at %v, want %v", reduce, after.Y, want)
+		}
+		if reduce && mid.Y != before.Y {
+			t.Errorf("with less motion the row under the one dropped moves to %v, want it at %v until it goes", mid.Y, before.Y)
+		}
+		if !reduce && !(after.Y < mid.Y && mid.Y < before.Y) {
+			t.Errorf("the row under the one dropped is at %v, %v, %v; want it sliding up", before.Y, mid.Y, after.Y)
+		}
+	}
+}
+
+// The rows a reading drops stay among the lines as they go, after the
+// row before them, where neither the choice nor the keys rest; they are
+// left out once gone, and at once for another query.
+func TestSessionsDroppedRowGoes(t *testing.T) {
+	a := newHarness(t, true).a
+	st := &a.sessions
+	now := time.Date(2026, 3, 10, 9, 0, 0, 0, time.Local)
+	at := func(id string, ago time.Duration) agents.Session {
+		return agents.Session{Harness: agents.Codex, ID: id, Updated: now.Add(-ago)}
+	}
+	ids := func(lines []sessionLine) string {
+		var out []string
+		for _, l := range lines {
+			switch {
+			case l.head:
+				out = append(out, "#"+strconv.Itoa(int(l.day)))
+			case !l.gone.IsZero():
+				out = append(out, "-"+l.s.ID)
+			default:
+				out = append(out, l.s.ID)
+			}
+		}
+		return strings.Join(out, " ")
+	}
+	read := func(at time.Time, ss ...agents.Session) []sessionLine {
+		st.rowsKey.version++
+		return a.keepChoice(a.sessionLines(ss, now), at)
+	}
+	lines := read(now, at("a", time.Hour), at("b", 2*time.Hour), at("c", 3*time.Hour), at("old", 30*time.Hour))
+	st.row = 2
+	st.noteChoice(lines)
+	lines = read(now, at("a", time.Hour), at("c", 3*time.Hour))
+	if got, want := ids(lines), "#0 a -b c #1 -old"; got != want {
+		t.Errorf("the lines as b and old go are %q, want %q", got, want)
+	}
+	if got := lines[st.row].s.ID; got != "c" {
+		t.Errorf("the choice on b went to %q, want c", got)
+	}
+	if got := lines[sessionStep(lines, st.row, -1)].s.ID; got != "a" {
+		t.Errorf("Up from c goes to %q, want a past b", got)
+	}
+	if k := st.lineShown(lines[2], now.Add(motionShow/2)); k <= 0 || k >= 1 {
+		t.Errorf("b halfway gone shows at %v, want between 0 and 1", k)
+	}
+	lines = a.keepChoice(st.lines, now.Add(motionShow/2))
+	if got, want := ids(lines), "#0 a -b c #1 -old"; got != want {
+		t.Errorf("the lines halfway are %q, want %q", got, want)
+	}
+	lines = a.keepChoice(st.lines, now.Add(motionShow))
+	if got, want := ids(lines), "#0 a c"; got != want {
+		t.Errorf("the lines once gone are %q, want %q", got, want)
+	}
+	if got := lines[st.row].s.ID; got != "c" {
+		t.Errorf("the choice is on %q once b is gone, want c", got)
+	}
+	st.rowsKey.query = "a"
+	if got, want := ids(read(now, at("a", time.Hour))), "#0 a"; got != want {
+		t.Errorf("the lines of another query are %q, want %q", got, want)
+	}
+}
+
+// How long ago a row's session was used is said again only as the minute
+// it counts turns, not each frame.
+func TestSessionAgoKeptForItsMinute(t *testing.T) {
+	updated := time.Date(2026, 3, 10, 9, 0, 0, 0, time.Local)
+	lk := &sessionLook{}
+	now := updated.Add(5*time.Minute + 10*time.Second)
+	if got, want := lk.agoAt(updated, now), ago(updated, now); got != want {
+		t.Fatalf("ago %q, want %q", got, want)
+	}
+	lk.ago = "kept"
+	if got := lk.agoAt(updated, now.Add(49*time.Second)); got != "kept" {
+		t.Errorf("ago within its minute is %q, made again", got)
+	}
+	later := now.Add(50 * time.Second)
+	if got, want := lk.agoAt(updated, later), ago(updated, later); got != want {
+		t.Errorf("ago as its minute turns is %q, want %q", got, want)
+	}
+	if got, want := lk.agoAt(updated, updated), ago(updated, updated); got != want {
+		t.Errorf("ago as the clock goes back is %q, want %q", got, want)
 	}
 }

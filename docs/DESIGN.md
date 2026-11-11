@@ -38,7 +38,8 @@ The order: it works, then it is easy, then it looks good. Polish never covers a 
 ## Speed
 
 - `TestBudgets` (`cmd/mayoi/budget_test.go`) holds the cost of a frame to a budget: idle, scrolling, typing, typing
-  with find open, Quick Open, the palette, and a terminal printing as fast as it can. CI runs it on macOS.
+  with find open, Quick Open, the palette, 2,000 sessions scrolled, hovered and filtered, and a terminal printing as
+  fast as it can. CI runs it on macOS.
   A change that needs more raises a budget in the same commit and says why.
 - The figures on the website and in `docs/ARCHITECTURE.md` come from these tests.
 

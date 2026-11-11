@@ -11,6 +11,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
@@ -23,16 +24,24 @@ import (
 const budgetFrames = 60
 
 // medianFrame returns the median of n runs of frame, after 3n to warm
-// up: the first after a file opens wait on its highlighting.
-func medianFrame(n int, frame func()) time.Duration {
+// up: the first after a file opens wait on its highlighting. With
+// builds, which counts the builds of the view, a run costs its time over
+// the builds it took.
+func medianFrame(n int, frame func(), builds func() int) time.Duration {
 	for range 3 * n {
 		frame()
 	}
 	ds := make([]time.Duration, n)
 	for i := range ds {
-		start := time.Now()
+		start, was := time.Now(), 0
+		if builds != nil {
+			was = builds()
+		}
 		frame()
 		ds[i] = time.Since(start)
+		if builds != nil {
+			ds[i] /= time.Duration(max(builds()-was, 1))
+		}
 	}
 	slices.Sort(ds)
 	return ds[n/2]
@@ -45,14 +54,18 @@ func TestBudgets(t *testing.T) {
 	budgets := []struct {
 		name   string
 		budget time.Duration
+		// perBuild counts the frames an input draws one by one: the tester
+		// draws, at once, all those a fade asks for, which a window spreads
+		// over its own.
+		perBuild bool
 		// measure sets the window up and returns the frame to time.
 		measure func(t *testing.T, hs *harness) func()
 	}{
-		{"idle frame", 2 * time.Millisecond, func(t *testing.T, hs *harness) func() {
+		{"idle frame", 2 * time.Millisecond, false, func(t *testing.T, hs *harness) func() {
 			bigDoc(hs)
 			return func() { step(hs.tt) }
 		}},
-		{"scroll frame", 4 * time.Millisecond, func(t *testing.T, hs *harness) func() {
+		{"scroll frame", 4 * time.Millisecond, false, func(t *testing.T, hs *harness) func() {
 			bigDoc(hs)
 			i := 0
 			return func() {
@@ -65,12 +78,12 @@ func TestBudgets(t *testing.T) {
 				step(hs.tt)
 			}
 		}},
-		{"type frame", 4 * time.Millisecond, func(t *testing.T, hs *harness) func() {
+		{"type frame", 4 * time.Millisecond, false, func(t *testing.T, hs *harness) func() {
 			d := bigDoc(hs)
 			hs.place(d, 5000, 5000)
 			return func() { hs.tt.Type("a"); step(hs.tt) }
 		}},
-		{"type frame with find open", 6 * time.Millisecond, func(t *testing.T, hs *harness) func() {
+		{"type frame with find open", 6 * time.Millisecond, false, func(t *testing.T, hs *harness) func() {
 			d := bigDoc(hs)
 			hs.a.find.query = "func"
 			hs.a.openFind(false)
@@ -82,7 +95,7 @@ func TestBudgets(t *testing.T) {
 		// The palette shows in the frame after its key, and goes in the
 		// frame after Escape: both, well within the tenth of a second
 		// that still reads as at once.
-		{"palette open and close", 60 * time.Millisecond, func(t *testing.T, hs *harness) func() {
+		{"palette open and close", 60 * time.Millisecond, false, func(t *testing.T, hs *harness) func() {
 			bigDoc(hs)
 			return func() {
 				hs.a.run("go.commands")
@@ -94,7 +107,7 @@ func TestBudgets(t *testing.T) {
 				step(hs.tt)
 			}
 		}},
-		{"quick open typing", 3 * time.Millisecond, func(t *testing.T, hs *harness) func() {
+		{"quick open typing", 3 * time.Millisecond, false, func(t *testing.T, hs *harness) func() {
 			hs.a.openQuick("")
 			hs.settle()
 			i := 0
@@ -107,9 +120,50 @@ func TestBudgets(t *testing.T) {
 				step(hs.tt)
 			}
 		}},
+		// The Sessions view of some 2,000 sessions, scrolled with the
+		// pointer over its rows, whose hovers fade as they pass under it,
+		// and filtered as a query is typed and cleared.
+		{"sessions scroll, hover and filter", 2 * time.Millisecond, true, func(t *testing.T, hs *harness) func() {
+			manySessions(t, hs, 2000)
+			row, ok := hs.tt.Find("fix the session 0 of the folder 0, then run its tests")
+			if !ok {
+				t.Fatal("no session's row")
+			}
+			x, y := row.X+row.W/2, row.Y+120
+			hs.tt.Move(x, y)
+			i := 0
+			return func() {
+				switch {
+				case i%40 == 39:
+					hs.a.sessions.query = ""
+				case i%10 == 9:
+					hs.tt.Type("1")
+				}
+				dy := float32(60)
+				if i/20%2 == 1 {
+					dy = -60
+				}
+				i++
+				hs.tt.Scroll(x, y, 0, dy)
+				step(hs.tt)
+			}
+		}},
+		// Each key typed in the query of those sessions filters them again.
+		{"sessions filter typing", 2 * time.Millisecond, false, func(t *testing.T, hs *harness) func() {
+			manySessions(t, hs, 2000)
+			i := 0
+			return func() {
+				if i%6 == 0 {
+					hs.a.sessions.query = ""
+				}
+				i++
+				hs.tt.Type("s")
+				step(hs.tt)
+			}
+		}},
 		// A terminal printing as fast as it can, as a build's log does,
 		// costs the window little more than an idle frame (#115).
-		{"terminal streaming", 4 * time.Millisecond, func(t *testing.T, hs *harness) func() {
+		{"terminal streaming", 4 * time.Millisecond, false, func(t *testing.T, hs *harness) func() {
 			if testing.Short() {
 				t.Skip("starts a shell")
 			}
@@ -137,7 +191,11 @@ func TestBudgets(t *testing.T) {
 		t.Run(b.name, func(t *testing.T) {
 			hs := newHarness(t, true)
 			frame := b.measure(t, hs)
-			got := medianFrame(budgetFrames, frame)
+			var builds func() int
+			if b.perBuild {
+				builds = func() int { return hs.a.builds }
+			}
+			got := medianFrame(budgetFrames, frame, builds)
 			fmt.Fprintf(&report, "%-28s %6.2f ms  (budget %v)\n", b.name, float64(got.Microseconds())/1000, b.budget)
 			if got > b.budget {
 				t.Errorf("%s: %v a frame, over its budget of %v", b.name, got, b.budget)
@@ -162,4 +220,30 @@ func bigDoc(hs *harness) *editor {
 	d.vscroll.Y = 4000
 	hs.settle()
 	return d
+}
+
+// manySessions shows the sessions of every folder in the Sessions view,
+// n of them, of Claude Code, used last over the past two months.
+func manySessions(t *testing.T, hs *harness, n int) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("CLAUDE_CONFIG_DIR", "")
+	now := time.Now()
+	for i := range n {
+		id := fmt.Sprintf("s%04d", i)
+		p := filepath.Join(home, ".claude", "projects", fmt.Sprintf("p%02d", i%40), id+".jsonl")
+		os.MkdirAll(filepath.Dir(p), 0o755)
+		line := fmt.Sprintf(`{"type":"user","message":{"content":"fix the session %d of the folder %d, then run its tests"},"cwd":"/work/project-%02d"}`+"\n", i, i%40, i%40)
+		if err := os.WriteFile(p, []byte(line), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		at := now.Add(-time.Duration(i) * 45 * time.Minute)
+		os.Chtimes(p, at, at)
+	}
+	hs.a.sessions.all = 1
+	hs.a.showSessions()
+	hs.settle()
+	if got := len(hs.a.sessions.sessions); got != n {
+		t.Fatalf("%d sessions read, want %d", got, n)
+	}
 }

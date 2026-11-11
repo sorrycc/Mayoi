@@ -286,5 +286,5 @@ These figures come from the tests, run on an M-series Mac:
 - Opening the command palette and closing it again takes about 13 ms, a frame each.
 
 `TestBudgets` in `budget_test.go` holds the cost of a frame to a budget, a few times these figures to allow for
-a slower machine: idle, scrolling and typing, typing with find open, quick open, the palette, and a terminal
-printing as fast as it can. CI runs it on macOS for every pull request (`MAYOI_BUDGETS=1`).
+a slower machine: idle, scrolling and typing, typing with find open, quick open, the palette, the Sessions view of
+2,000 sessions scrolled, hovered and filtered, and a terminal printing as fast as it can. CI runs it on macOS for every pull request (`MAYOI_BUDGETS=1`).

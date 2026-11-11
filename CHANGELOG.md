@@ -16,7 +16,7 @@ needs a `## <version>` section here, or its build fails.
 - Math with `\tag{…}` now renders in the Markdown preview, its label beside the equation.
 - After a full-screen program is killed, scrolling or typing in the terminal no longer prints escape codes.
 - The sidebar's new **Sessions** view lists Claude Code, Qoder, Codex and Grok sessions, the latest first.
-- Sessions show for **This Project** or **All Projects**, and the search field narrows them by title or folder.
+- Sessions show for **This Project** or **All Projects**, and the search field narrows them by title, folder or agent.
 - Enter or a double click resumes a session in a new terminal in its folder.
 - **Sessions** groups sessions under Today, Yesterday, Previous 7 Days and Older, each with its count.
 - Each session row shows its title on one line, with its agent, folder and last use under it.
@@ -27,6 +27,9 @@ needs a `## <version>` section here, or its build fails.
 - In **Sessions**, `↑` and `↓` in the search field move the chosen session without leaving the field.
 - The chosen session stays chosen when sessions are read again, and sessions that appear fade in.
 - Hovering a session shows buttons to resume it or copy its resume command.
+- In **Sessions**, the search words are marked in each session's title, agent and folder.
+- With the keyboard in the sessions list, the chosen session shows its resume and copy buttons.
+- `⌘C` in the sessions list copies the chosen session's resume command.
 - The **This Project** / **All Projects** switch in **Sessions** no longer clips in Japanese.
 
 ## 0.19.3

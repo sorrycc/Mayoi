@@ -16,6 +16,7 @@ import (
 	"testing"
 
 	"github.com/egoist/mygo/i18n"
+	"github.com/egoist/mygo/ui"
 )
 
 // galleryThemes are the themes of the gallery, "" for Mayoi's own.
@@ -47,6 +48,18 @@ var galleryStates = []struct {
 		hs.settle()
 		// The pointer over the second row, which shows its buttons.
 		hs.tt.Move(120, 222)
+	}},
+	{"sessions-find", func(hs *harness) {
+		agentHome(hs.t, hs.root)
+		hs.a.sessions.all = 1
+		hs.a.showSessions()
+		hs.settle()
+		// The query marked in the rows, and the keyboard in the list, which
+		// shows the chosen row's buttons.
+		hs.a.sessions.query = "fix else"
+		hs.settle()
+		hs.key(0, ui.KeyTab)
+		hs.key(0, ui.KeyTab)
 	}},
 	{"unsaved", func(hs *harness) {
 		hs.a.openFile(hs.path("main.go"), true)

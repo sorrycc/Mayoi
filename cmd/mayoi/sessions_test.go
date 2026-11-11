@@ -247,3 +247,60 @@ func TestSessionsQueryKeysMoveTheChoice(t *testing.T) {
 		t.Errorf("after Down, Down and Up the choice is on %d, want 1", st.row)
 	}
 }
+
+// The words of the query are marked where a row shows them, ignoring
+// case, also where lower case changes a letter's length.
+func TestWordSpansMarkTheQuery(t *testing.T) {
+	var normal, hit ui.Color
+	hit.A = 1
+	show := func(spans []ui.Span) string {
+		var b strings.Builder
+		for _, sp := range spans {
+			if sp.Color == hit {
+				b.WriteString("[" + sp.Text + "]")
+			} else {
+				b.WriteString(sp.Text)
+			}
+		}
+		return b.String()
+	}
+	for _, c := range []struct {
+		text  string
+		words []string
+		want  string
+	}{
+		{"Fix the Login bug", nil, "Fix the Login bug"},
+		{"Fix the Login bug", []string{"login", "fi"}, "[Fi]x the [Login] bug"},
+		{"aaa", []string{"aa"}, "[aa]a"},
+		{"İstanbul café", []string{"stan", "é"}, "İ[stan]bul caf[é]"},
+		{"Codex · mayoi", []string{"mayoi", "nope"}, "Codex · [mayoi]"},
+	} {
+		if got := show(wordSpans(c.text, c.words, normal, hit)); got != c.want {
+			t.Errorf("wordSpans(%q, %q) = %q, want %q", c.text, c.words, got, c.want)
+		}
+	}
+}
+
+// The row chosen while the list has the keyboard shows its buttons, and
+// Copy of the Edit menu copies the command that resumes its session.
+func TestSessionsListKeysShowAndCopy(t *testing.T) {
+	skipOnWindows(t, "the sessions' folders are POSIX paths")
+	hs := newHarness(t, true)
+	a := hs.a
+	agentHome(t, hs.root)
+	a.showSessions()
+	hs.settle()
+	if _, ok := hs.tt.Find(locales.SessionsCopyCommand()); ok {
+		t.Fatal("the buttons show with the keyboard in the query")
+	}
+	// Past the switch of the folders to the list.
+	hs.key(0, ui.KeyTab)
+	hs.key(0, ui.KeyTab)
+	if _, ok := hs.tt.Find(locales.SessionsCopyCommand()); !ok {
+		t.Error("the chosen row shows no buttons with the keyboard in the list")
+	}
+	hs.command("copy")
+	if got := hs.tt.Clipboard(); !strings.Contains(got, "--resume") || !strings.Contains(got, "here") {
+		t.Errorf("the clipboard has %q, want the command that resumes here", got)
+	}
+}

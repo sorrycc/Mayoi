@@ -500,14 +500,15 @@ Older, each with how many it has, which stay at the top as their rows scroll und
 was first asked, and under it its agent, the Claude Code folder other than `~/.claude` it is of, its project when
 listing every project's, and at the end when it was used last. While the view reads the sessions the first time, it
 shows the shapes of the rows to come. **This Project** shows those of the window's folder and the folders in it, **All Projects** every
-folder's, and the search field narrows them by title, first prompt, folder or id. ↑ and ↓ in the field move the choice,
+folder's, and the search field narrows them by title, first prompt, folder, agent or id, its words marked in the rows. ↑ and ↓ in the field move the choice,
 which stays on its session as the sessions are read again; Tab goes to the list and Esc back to the field. Sessions
 that come with a later reading fade in.
 
 Enter, or a double click, resumes a session: a terminal opens in its folder, where `terminalLocation` says, and runs the
 agent's own command, as `claude --resume <id>` with `CLAUDE_CONFIG_DIR` for a folder other than `~/.claude`, `qodercli
 -r`, `codex resume` or `grok --resume`. A row's menu copies that command or the session's id; with the pointer over a row, buttons in place of its time
-resume it and copy the command. Sessions of a folder that
+resume it and copy the command, as they do on the chosen row while the list has the keyboard, where ⌘C copies the
+command. Sessions of a folder that
 is gone say so instead. The view reads only the start and end of each transcript, again as files change, while it shows.
 
 With `terminalBackend` set to `"hc"`, a session that runs in a terminal of herdr-core, in this window, another or the

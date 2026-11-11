@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/egoist/mygo/plugins/terminal"
 	"github.com/egoist/mygo/ui"
@@ -19,8 +20,9 @@ import (
 // The Sessions view lists the sessions of the coding agents on this
 // machine, Claude Code of each of its config folders, Qoder, Codex and
 // Grok, the one used last first: of the window's folder, or of every
-// folder. A query narrows them by title, first prompt, folder or id, and
-// Enter resumes one in a terminal of its folder. With the terminal
+// folder. A query narrows them by title, first prompt, folder, agent or
+// id, its words marked where a row shows them, and Enter resumes one in a
+// terminal of its folder. With the terminal
 // backend "hc", a session that runs in a terminal of herdr-core says
 // what it does, and resuming it shows that terminal.
 
@@ -359,11 +361,15 @@ func (a *app) sessionsView(c *ui.Context) {
 	c.SetTheme(&quiet)
 	var action func()
 	dots := a.hcBackend()
+	words := strings.Fields(strings.ToLower(st.query))
 	out := ui.List(c.Key("sessions"), &st.list, len(rows), func(i int) {
 		if r := rows[i]; r.head {
 			a.sessionsHead(c, r)
 		} else {
-			row := a.sessionRow(c, r.s, now, dots, i == st.row, &action)
+			// The chosen row shows its buttons while the list has the
+			// keyboard, as the keys that run them do.
+			keyed := i == st.row && st.list.FocusWithin(c)
+			row := a.sessionRow(c, r.s, now, words, dots, i == st.row, keyed, &action)
 			if k := st.appear.shown(r.key(), now); k < 1 {
 				// It came with this reading.
 				row.Opacity(k)
@@ -382,6 +388,15 @@ func (a *app) sessionsView(c *ui.Context) {
 	if st.list.Shortcut(c, 0, ui.KeyEscape) {
 		st.input.Focus()
 	}
+	// Copy of the Edit menu, which takes ⌘C, copies the command that
+	// resumes the session chosen while the list has the keyboard.
+	out.HandleInput(func(ev ui.InputEvent) bool {
+		if ev.Kind != ui.InputCommand || ev.Text != "copy" || st.row < 0 || st.row >= len(rows) || rows[st.row].head {
+			return false
+		}
+		a.copyText(a.agentEnv().ResumeCommand(rows[st.row].s))
+		return true
+	})
 	if action != nil {
 		action()
 	}
@@ -464,10 +479,13 @@ func (a *app) sessionsEmpty(c *ui.Context) {
 // sessionRow is the row of a session: its title, and under it what it
 // does while it runs in herdr-core, its agent and its folder, and at the
 // end when it was used last, where the pointer over it shows buttons that
-// resume it and copy how to, as its menu does. With dots, as hc says which
-// sessions run, a dot before it says it runs. The chosen row has the
-// background of the choice.
-func (a *app) sessionRow(c *ui.Context, s agents.Session, now time.Time, dots, chosen bool, action *func()) ui.Element {
+// resume it and copy how to, as its menu does; keyed, as the row chosen
+// while the list has the keyboard, it shows them too. The words of the
+// query are marked in the title, in the accent, and in the agent and
+// folder, in the color of text. With dots, as hc says which sessions run,
+// a dot before it says it runs. The chosen row has the background of the
+// choice.
+func (a *app) sessionRow(c *ui.Context, s agents.Session, now time.Time, words []string, dots, chosen, keyed bool, action *func()) ui.Element {
 	p := a.pal
 	st := &a.sessions
 	live, running := st.running[liveKey(s.Harness, s.ID)]
@@ -475,14 +493,18 @@ func (a *app) sessionRow(c *ui.Context, s agents.Session, now time.Time, dots, c
 	row := ui.Row(c).Grow(1).Gap(8).AlignItems(ui.Center).Height(sessionRowH).Padding(0, 6, 0, 6).
 		Tooltip(s.Dir + "\n" + s.ID + "\n" + dateTime(s.Updated.Local()))
 	// The buttons take the place of the time as the pointer comes, and
-	// give it back as it goes; neither moves the title or the folder.
+	// give it back as it goes; neither moves the title or the folder. They
+	// come at once with the choice the keys move.
 	reveal := row.Animate("reveal", unit(row.Hovered()), motionHover)
+	if keyed {
+		reveal = 1
+	}
 	row.ContextMenu(func(m *ui.Menu) {
-		if m.Item(locales.SessionsResume()).Chosen() {
+		if m.Item(locales.SessionsResume()).Shortcut(0, ui.KeyEnter).Chosen() {
 			*action = func() { a.resumeSession(s) }
 		}
 		m.Separator()
-		if m.Item(locales.SessionsCopyCommand()).Chosen() {
+		if m.Item(locales.SessionsCopyCommand()).Shortcut(ui.Cmd, ui.KeyC).Chosen() {
 			cmd := a.agentEnv().ResumeCommand(s)
 			*action = func() { a.copyText(cmd) }
 		}
@@ -502,13 +524,13 @@ func (a *app) sessionRow(c *ui.Context, s agents.Session, now time.Time, dots, c
 			}
 		}
 		ui.Column(c).Grow(1).MinWidth(0).Gap(3).Children(func() {
-			ui.Text(c, s.Label()).FontSize(12.5).TextColor(p.text).SingleLine().ClipX()
+			ui.RichText(c, wordSpans(s.Label(), words, p.text, p.accent)...).FontSize(12.5).SingleLine().ClipX()
 			ui.Row(c).Gap(5).AlignItems(ui.Center).MinWidth(0).Children(func() {
 				if running {
 					_, what := progParts(rec)
 					ui.Text(c.Key("state"), what).FontSize(11).TextColor(a.progColor(rec.State)).SingleLine().Shrink(0).Transition(dotPop)
 				}
-				ui.Text(c, a.sessionMeta(s)).FontSize(11).TextColor(p.faint).SingleLine().ClipX().Shrink(1)
+				ui.RichText(c, wordSpans(a.sessionMeta(s), words, p.faint, p.text)...).FontSize(11).SingleLine().ClipX().Shrink(1)
 				ui.Spacer(c)
 				ui.Text(c, ago(s.Updated, now)).FontSize(11).FontFeatures("tnum").TextColor(p.faint).SingleLine().Shrink(0).Padding(0, 0, 0, 6).
 					Opacity(1 - reveal)
@@ -542,6 +564,56 @@ func (a *app) sessionActions(c *ui.Context, s agents.Session, action *func()) {
 		cmd := a.agentEnv().ResumeCommand(s)
 		*action = func() { a.copyText(cmd) }
 	}
+}
+
+// wordSpans is text in spans of normal, with each run of it that one of
+// words, in lower case, finds, ignoring case, in hit and a heavier weight.
+// With no words, it is the one span of text.
+func wordSpans(text string, words []string, normal, hit ui.Color) []ui.Span {
+	if len(words) == 0 {
+		return []ui.Span{{Text: text, Color: normal}}
+	}
+	// low is text in lower case, and at where each of its bytes came
+	// from in text, as a rune's lower case can be longer or shorter.
+	var b strings.Builder
+	at := make([]int, 0, len(text)+1)
+	for i, r := range text {
+		n := b.Len()
+		b.WriteRune(unicode.ToLower(r))
+		for range b.Len() - n {
+			at = append(at, i)
+		}
+	}
+	at = append(at, len(text))
+	low := b.String()
+	on := make([]bool, len(text))
+	for _, w := range words {
+		for from := 0; from < len(low); {
+			k := strings.Index(low[from:], w)
+			if k < 0 || w == "" {
+				break
+			}
+			lo, hi := at[from+k], at[from+k+len(w)]
+			for j := lo; j < hi; j++ {
+				on[j] = true
+			}
+			from += k + len(w)
+		}
+	}
+	var spans []ui.Span
+	start := 0
+	for i := 1; i <= len(text); i++ {
+		if i < len(text) && on[i] == on[start] {
+			continue
+		}
+		sp := ui.Span{Text: text[start:i], Color: normal}
+		if on[start] {
+			sp.Color, sp.Weight = hit, 650
+		}
+		spans = append(spans, sp)
+		start = i
+	}
+	return spans
 }
 
 // sessionMeta is what a session's row says under its title, what tells

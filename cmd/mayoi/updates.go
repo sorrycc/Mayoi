@@ -9,6 +9,8 @@ import (
 
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/plugins/updater"
+
+	"mayoi/locales"
 )
 
 // Mayoi checks for a new version itself, every updateInterval, and shows
@@ -105,6 +107,24 @@ func skippedVersion() string {
 	_ = json.Unmarshal(data, &st) // a damaged file skips nothing
 	return st.SkippedVersion
 }
+
+// offerNativeBuild tells, at each launch of the Intel build on a Mac with
+// Apple Silicon, that Rosetta runs it slower and crashes it at times, with
+// the download of the Apple Silicon build, which updates install too
+// (mygo.Updater.Check).
+func (m *mayoi) offerNativeBuild(h *desktop) {
+	if !mygo.App.IsTranslated() {
+		return
+	}
+	h.do(func() {
+		h.a.tell(note{message: locales.NoteIntelBuild(), label: locales.DownloadButton(), action: func() {
+			h.a.services.OpenURL(nativeBuildURL)
+		}})
+	})
+}
+
+// nativeBuildURL is where the Apple Silicon build downloads from.
+const nativeBuildURL = repoURL + "/releases/latest"
 
 // The host's side of updates.
 

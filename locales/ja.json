@@ -1216,6 +1216,7 @@
   "termLost": "[{host} との接続が切れました。接続が戻るとターミナルが再起動します。]",
   "termExitedEarly": "[{shell} は起動直後にコード {code} で終了しました。出力は上にあります。]",
   "noteTermExitedEarly": "{shell} は起動直後にコード {code} で終了しました。",
+  "noteIntelBuild": "これは Intel 版で、この Mac では動作が遅く、クラッシュすることがあります。次のアップデートで Apple シリコン版になります。",
   "cmdHelpReportProblem": "問題を報告…",
   "reportProblem": "報告…",
   "termMoveEditorArea": "エディター領域へ移動",

@@ -1460,6 +1460,7 @@
   "termLost": "[The connection to {host} was lost. The terminal starts again once it is back.]",
   "termExitedEarly": "[{shell} exited with code {code} as it started. What it printed is above.]",
   "noteTermExitedEarly": "{shell} exited as it started, with code {code}.",
+  "noteIntelBuild": "This is the Intel build, which runs slower on this Mac and can crash. The next update installs the Apple silicon build.",
   "cmdHelpReportProblem": "Report a Problem…",
   "reportProblem": "Report…",
   "termMoveEditorArea": "Move to Editor Area",

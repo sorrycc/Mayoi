@@ -463,6 +463,7 @@ func main() {
 		m.setMenu(first.a)
 		if os.Getenv("MAYOI_SNAPSHOT") == "" {
 			m.offerCrashes(first)
+			m.offerNativeBuild(first)
 		}
 		if out := os.Getenv("MAYOI_SNAPSHOT"); out != "" {
 			// For checking the real window: capture it once it settles, and

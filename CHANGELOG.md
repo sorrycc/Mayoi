@@ -6,7 +6,8 @@ needs a `## <version>` section here, or its build fails.
 ## Unreleased
 
 - Clicking a Git diff's toolbar buttons while its changes refresh no longer crashes Mayoi.
-
+- On a Mac with Apple silicon, the Intel build of Mayoi updates to the Apple silicon build.
+- The Intel build on Apple silicon says at launch that it runs slower and can crash, with a **Download** button.
 - A resumed session's tab keeps the session's title in a shell other than your default one.
 - On Linux and Windows, `Page Up` in the **Sessions** list goes back up to the first session.
 - Opening a file in Mayoi while it is still starting no longer crashes; the file opens once it's ready.

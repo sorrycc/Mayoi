@@ -1216,6 +1216,7 @@
   "termLost": "[与 {host} 的连接已断开。连接恢复后终端将重新启动。]",
   "termExitedEarly": "[{shell} 启动后随即退出，代码 {code}。它的输出在上方。]",
   "noteTermExitedEarly": "{shell} 启动后随即退出，代码 {code}。",
+  "noteIntelBuild": "这是 Intel 版，在这台 Mac 上运行较慢，还可能崩溃。下次更新会装上 Apple 芯片版。",
   "cmdHelpReportProblem": "报告问题…",
   "reportProblem": "报告…",
   "termMoveEditorArea": "移到编辑器区域",

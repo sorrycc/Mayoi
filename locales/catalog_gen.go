@@ -12478,6 +12478,16 @@ func (msgs Messages) NoteTermExitedEarly(shell string, code string) string {
 	return Catalog.Format(msgs.locale, "noteTermExitedEarly", map[string]any{"shell": shell, "code": code})
 }
 
+// NoteIntelBuild says "This is the Intel build, which runs slower on this Mac and can crash. The next update installs the Apple silicon build."
+// in the language the app shows.
+func NoteIntelBuild() string { return In(i18n.Locale()).NoteIntelBuild() }
+
+// NoteIntelBuild says "This is the Intel build, which runs slower on this Mac and can crash. The next update installs the Apple silicon build."
+// in the language of msgs.
+func (msgs Messages) NoteIntelBuild() string {
+	return Catalog.Format(msgs.locale, "noteIntelBuild", nil)
+}
+
 // CmdHelpReportProblem says "Report a Problem…"
 // in the language the app shows.
 func CmdHelpReportProblem() string { return In(i18n.Locale()).CmdHelpReportProblem() }

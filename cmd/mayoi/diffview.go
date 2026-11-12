@@ -723,6 +723,7 @@ func (a *app) openChanges() {
 // openDiffFile opens the file of a diff's chosen row, or, when no row is
 // chosen, of the change gone to last, at its line.
 func (a *app) openDiffFile(v *diffView) {
+	a.layoutRows(v, a.diffGeometry(v, v.split, v.viewW))
 	row := v.focusRow()
 	if v.cursor < 0 && v.current >= 0 && v.current < len(v.starts) {
 		row = v.starts[v.current]
@@ -730,6 +731,14 @@ func (a *app) openDiffFile(v *diffView) {
 	if path, line := v.lineAt(row); path != "" {
 		a.openFileAt(path, line, true)
 	}
+}
+
+// diffAction runs fn, an action of a diff's toolbar, once the diff's rows
+// show its files as they are now: a click runs after the posts before it,
+// which may have listed the files again.
+func (a *app) diffAction(v *diffView, fn func()) {
+	a.layoutRows(v, a.diffGeometry(v, v.split, v.viewW))
+	fn()
 }
 
 // showingDiff returns the place of a column's tab that shows the changes
@@ -1752,6 +1761,9 @@ func (v *diffView) lineAt(i int) (string, int) {
 		return "", 0
 	}
 	file := v.rows[i].file
+	if file < 0 || file >= len(v.files) {
+		return "", 0
+	}
 	path := v.files[file].path
 	switch v.rows[i].kind {
 	case rowHunk:
@@ -2369,7 +2381,7 @@ func (a *app) diffButtons(c *ui.Context, t *colTab) {
 	}
 	act := func(icon *ui.SVG, label string, fn func()) {
 		if button(icon, label, false).Clicked() {
-			a.post(fn)
+			a.post(func() { a.diffAction(v, fn) })
 		}
 	}
 	a.reviewSendButton(c)
@@ -2460,11 +2472,13 @@ func (a *app) diffButtons(c *ui.Context, t *colTab) {
 		b.Tooltip(locales.DiffEditTip())
 		if b.Clicked() {
 			a.post(func() {
-				if e := v.editing; e != nil && e.f == f {
-					a.endDiffEdit(v)
-					return
-				}
-				a.beginDiffEdit(v, v.focusRow())
+				a.diffAction(v, func() {
+					if e := v.editing; e != nil && e.f == f {
+						a.endDiffEdit(v)
+						return
+					}
+					a.beginDiffEdit(v, v.focusRow())
+				})
 			})
 		}
 	}

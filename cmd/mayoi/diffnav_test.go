@@ -298,3 +298,56 @@ func TestDiffJumpToSourceKeepsPosition(t *testing.T) {
 	hs.settle()
 	at("read again")
 }
+
+// TestDiffActionsAfterFilesListedAgain: a click on a diff's toolbar runs
+// after the posts before it, which may have listed the diff's files again
+// while its rows still showed the old ones. With every change gone, Open
+// File and the steps do nothing; with a file gone, Open File opens one
+// the diff still shows.
+func TestDiffActionsAfterFilesListedAgain(t *testing.T) {
+	hs := newHarness(t, true)
+	git := hs.gitRepo()
+	os.WriteFile(hs.path("a.txt"), []byte("one\ntwo\nthree\n"), 0o644)
+	os.WriteFile(hs.path("b.txt"), []byte("four\nfive\nsix\n"), 0o644)
+	git("add", ".")
+	git("commit", "-qm", "two files")
+	os.WriteFile(hs.path("a.txt"), []byte("one\n2\nthree\n"), 0o644)
+	os.WriteFile(hs.path("b.txt"), []byte("four\n6\nsix\n"), 0o644)
+	v := diffNavOf(t, hs)
+	if len(v.files) != 2 || len(v.starts) != 2 {
+		t.Fatalf("files %d, changes %d", len(v.files), len(v.starts))
+	}
+	// The second file's change chosen, then only the second file listed.
+	v.setCursor(v.starts[1])
+	keep := v.files[1]
+	hs.a.post(func() {
+		v.files = v.files[1:]
+		v.changed()
+	})
+	hs.a.post(func() { hs.a.diffAction(v, func() { hs.a.openDiffFile(v) }) })
+	hs.a.drain()
+	hs.settle()
+	if d := hs.a.activeEditor(); d == nil || d.path != keep.path {
+		t.Fatalf("opened %+v, want %s", d, keep.path)
+	}
+	if col, i := hs.a.changesTab(); col != nil {
+		hs.a.activate(col, i, false)
+	}
+	hs.settle()
+	// Every file gone: nothing opens, and the steps stay put.
+	v.setCursor(v.starts[0])
+	hs.a.post(func() {
+		v.files = nil
+		v.changed()
+	})
+	hs.a.post(func() { hs.a.diffAction(v, func() { v.stepHunk(1, crossAsk) }) })
+	hs.a.post(func() { hs.a.diffAction(v, func() { v.stepFile(1) }) })
+	hs.a.post(func() { hs.a.diffAction(v, func() { hs.a.openDiffFile(v) }) })
+	hs.a.drain()
+	if len(v.rows) != 0 {
+		t.Fatalf("rows %d after the files went", len(v.rows))
+	}
+	if d := hs.a.activeEditor(); d != nil {
+		t.Fatalf("opened %s with no files", d.path)
+	}
+}

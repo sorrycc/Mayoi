@@ -196,7 +196,8 @@ func (f *frame) view(c *ui.Context) {
 	f.services, f.hasServices = c.Services(), true
 	// The project shown before goes out of sight now, rather than as
 	// another was chosen: the rest of its frame built it still.
-	if old := f.shown; old != f.active {
+	switched := f.shown != f.active
+	if old := f.shown; switched {
 		if old != nil && slices.Contains(f.tabs, old) {
 			old.a.park()
 		}
@@ -218,10 +219,12 @@ func (f *frame) view(c *ui.Context) {
 	a.dragSeen = false
 	root := ui.Column(c.Key(fmt.Sprintf("project-%d", a.window.ID))).Fill()
 	// A tab carried in from another project shows where it would drop
-	// until the drag ends, as nothing here sees it any more.
+	// until the drag ends, as nothing here sees it any more: from the
+	// frame after it shows, the first to have its elements under the
+	// pointer.
 	_, over := a.dragOver(root)
 	root.Children(func() { a.view(c) })
-	if a.carried != nil && !over && !a.dragSeen {
+	if a.carried != nil && !over && !a.dragSeen && !switched {
 		a.carried = nil
 		a.invalidate()
 	}
@@ -272,12 +275,14 @@ func (f *frame) activate(h *desktop) {
 	a.post(a.gitChanged)
 	a.post(a.focusColumn)
 	f.m.front(h)
-	title := a.title
-	if title == "" {
-		title = "Mayoi"
+	if f.win != nil { // a tester's has none
+		title := a.title
+		if title == "" {
+			title = "Mayoi"
+		}
+		f.win.SetTitle(title)
+		f.win.Invalidate()
 	}
-	f.win.SetTitle(title)
-	f.win.Invalidate()
 	f.m.refreshMenu()
 }
 

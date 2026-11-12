@@ -8,6 +8,8 @@ needs a `## <version>` section here, or its build fails.
 - In **Sessions**, `⌘`-click, `Shift`-click, `Shift`+arrows and `⌘A` select several sessions.
 - **Copy Session ID** on one of several selected sessions copies all their IDs, one per line.
 - Drag one of several selected sessions to open all their transcripts, or type their paths in a terminal.
+- A button at the foot of the project rail shows each project's name beside its square.
+- Drag the wide rail's edge to set its width; narrower than its least, it is the bar again.
 - A tab dragged onto another project's square stays under the pointer as that project shows, to drop in a column.
 - On macOS, VoiceOver no longer crashes Mayoi on text that starts with a byte order mark.
 - Clicking a Git diff's toolbar buttons while its changes refresh no longer crashes Mayoi.

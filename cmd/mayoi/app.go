@@ -396,8 +396,9 @@ type app struct {
 	// closes, which it keeps for its next start, nil until then.
 	kept *settings.Session
 	// rail builds the rail of project tabs left of the sidebar, nil for
-	// none.
-	rail func(c *ui.Context)
+	// none, and railWidth is how wide it is shown, as it built it.
+	rail      func(c *ui.Context)
+	railWidth float32
 	// alert is what a terminal of the project last asked attention for,
 	// by its bell, a notification or work that finished or failed, until
 	// the project shows: the rail marks its square, in the color of

@@ -9112,6 +9112,16 @@ func (msgs Messages) RailColorYellow() string {
 	return Catalog.Format(msgs.locale, "railColorYellow", nil)
 }
 
+// RailHideNames says "Hide Project Names"
+// in the language the app shows.
+func RailHideNames() string { return In(i18n.Locale()).RailHideNames() }
+
+// RailHideNames says "Hide Project Names"
+// in the language of msgs.
+func (msgs Messages) RailHideNames() string {
+	return Catalog.Format(msgs.locale, "railHideNames", nil)
+}
+
 // RailNoFolder says "No folder"
 // in the language the app shows.
 func RailNoFolder() string { return In(i18n.Locale()).RailNoFolder() }
@@ -9160,6 +9170,16 @@ func RailResetIcon() string { return In(i18n.Locale()).RailResetIcon() }
 // in the language of msgs.
 func (msgs Messages) RailResetIcon() string {
 	return Catalog.Format(msgs.locale, "railResetIcon", nil)
+}
+
+// RailShowNames says "Show Project Names"
+// in the language the app shows.
+func RailShowNames() string { return In(i18n.Locale()).RailShowNames() }
+
+// RailShowNames says "Show Project Names"
+// in the language of msgs.
+func (msgs Messages) RailShowNames() string {
+	return Catalog.Format(msgs.locale, "railShowNames", nil)
 }
 
 // RailUntitled says "Untitled"

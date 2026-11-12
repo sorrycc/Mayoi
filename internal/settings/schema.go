@@ -68,6 +68,8 @@ var Schema = []Field{
 	{Key: "panelPosition", Category: CatAppearance, Kind: KindEnum, Options: []string{"", "left", "right"}},
 	{Key: "projectTabs", Category: CatAppearance, Kind: KindBool},
 	{Key: "projectTabStyle", Category: CatAppearance, Kind: KindStyles},
+	{Key: "railWide", Category: CatAppearance, Kind: KindBool, Memory: true},
+	{Key: "railWidth", Category: CatAppearance, Kind: KindNumber, Min: float64(RailWideMin), Max: float64(RailWideMax), Step: 10, Memory: true},
 
 	{Key: "fontFamily", Category: CatFonts, Kind: KindText},
 	{Key: "fontSize", Category: CatFonts, Kind: KindNumber, Min: 9, Max: 28, Step: 1},

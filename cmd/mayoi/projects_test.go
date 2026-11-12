@@ -90,6 +90,69 @@ func TestRailWithOneProject(t *testing.T) {
 	}
 }
 
+// The button at the foot of the rail shows the projects wide, with their
+// names, and back as a bar of squares.
+func TestRailWide(t *testing.T) {
+	root, other := workspaceFixture(t), workspaceFixture(t)
+	f, _, tt := railFixture(t, root, other)
+	if f.m.s.RailWide {
+		t.Fatal("the rail opens wide")
+	}
+	if err := tt.Click(locales.RailShowNames()); err != nil {
+		t.Fatal(err)
+	}
+	step(tt)
+	if !f.m.s.RailWide {
+		t.Fatal("the button did not show the rail wide")
+	}
+	want := clamp(f.m.s.RailWidth, settings.RailWideMin, settings.RailWideMax)
+	if got := f.active.a.railWidth; got != want || got <= railW {
+		t.Fatalf("the wide rail is %v wide, want %v", got, want)
+	}
+	if _, ok := tt.Find(filepath.Base(other)); !ok {
+		t.Errorf("no project on the wide rail: %v", tt.Texts())
+	}
+	if err := tt.Click(locales.RailHideNames()); err != nil {
+		t.Fatal(err)
+	}
+	step(tt)
+	if f.m.s.RailWide || f.active.a.railWidth != railW {
+		t.Fatalf("the rail is %v wide, wide=%v", f.active.a.railWidth, f.m.s.RailWide)
+	}
+}
+
+// The wide rail is dragged by its edge, keeps its least width while the
+// pointer goes narrower still, and is the bar once it is let go there.
+func TestRailWideDropsToTheBar(t *testing.T) {
+	root, other := workspaceFixture(t), workspaceFixture(t)
+	f, _, tt := railFixture(t, root, other)
+	f.setRailWide(true)
+	step(tt)
+	w := f.active.a.railWidth
+	tt.Press(w-2, 300)
+	tt.Move(w+58, 300)
+	tt.Release(w+58, 300)
+	step(tt)
+	if !f.m.s.RailWide || f.m.s.RailWidth < w+50 || f.m.s.RailWidth > w+70 {
+		t.Fatalf("the rail after dragging right is %v wide, wide=%v", f.m.s.RailWidth, f.m.s.RailWide)
+	}
+	w = f.active.a.railWidth
+	tt.Press(w-2, 300)
+	step(tt)
+	x := settings.RailWideMin / 2
+	tt.Move(x, 300)
+	step(tt)
+	if !f.m.s.RailWide || f.active.a.railWidth != settings.RailWideMin {
+		t.Fatalf("the rail while dragged below its least is %v wide, wide=%v", f.active.a.railWidth, f.m.s.RailWide)
+	}
+	tt.Release(x, 300)
+	step(tt)
+	step(tt)
+	if f.m.s.RailWide || f.active.a.railWidth != railW {
+		t.Fatalf("the rail after letting go is %v wide, wide=%v", f.active.a.railWidth, f.m.s.RailWide)
+	}
+}
+
 // A project out of sight keeps its caret and where it was scrolled, and
 // gets them back as it shows again, although its text area is a new one.
 func TestProjectKeepsItsPlace(t *testing.T) {

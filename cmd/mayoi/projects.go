@@ -64,6 +64,10 @@ type frame struct {
 	hoverOn    *desktop
 	hoverSince time.Time
 	hoverWake  bool
+	// railBelow is set while the wide rail's edge is dragged narrower
+	// than it goes: the rail stays at its least until the pointer is let
+	// go, which makes it the bar.
+	railBelow bool
 }
 
 // newFrame opens a window that shows h.
@@ -514,16 +518,25 @@ func (m *mayoi) projectTabsChanged() {
 // railView is the rail of project tabs, left of the sidebar: a square of
 // each project's logo or initials, the one shown marked, and after them a
 // button that opens another folder. It shows with Project Tabs on, a
-// window of one project too. a is the project it is built in, which the
-// frame goes on building as a click shows another. A square is dragged
-// along the rail to reorder it, a folder dropped on the rail opens as a
-// project, and a picture dropped on a square shows in it.
+// window of one project too. Wide, it shows each project's name beside
+// its square, and its edge is dragged to set how wide it is. a is the
+// project it is built in, which the frame goes on building as a click
+// shows another. A square is dragged along the rail to reorder it, a
+// folder dropped on the rail opens as a project, and a picture dropped on
+// a square shows in it.
 func (f *frame) railView(c *ui.Context, a *app) {
 	if !f.m.s.ProjectTabs {
 		return
 	}
 	p := a.pal
-	rail := ui.Column(c.Key("rail")).Width(railW).Shrink(0).Background(railGround(p)).BorderWidth(0, 1, 0, 0).BorderColor(p.seam())
+	wide := f.m.s.RailWide
+	width, _ := c.Size()
+	w := float32(railW)
+	if wide {
+		w = f.railWideWidth(width)
+	}
+	a.railWidth = w
+	rail := ui.Column(c.Key("rail")).Width(w).Shrink(0).Background(railGround(p)).BorderWidth(0, 1, 0, 0).BorderColor(p.seam())
 	// Past the last square: at the end.
 	f.railDrop(rail, a, nil)
 	_, atEnd := ui.DragOver[railDrag](rail)
@@ -536,17 +549,114 @@ func (f *frame) railView(c *ui.Context, a *app) {
 	labels := railLabels(names)
 	rail.Children(func() {
 		ui.Scroll(c).Grow(1).MinHeight(0).Children(func() {
-			ui.Column(c).FillWidth().Padding(8, 0, 10, 0).Gap(6).AlignItems(ui.Center).Children(func() {
+			list := ui.Column(c).FillWidth().Gap(6)
+			if wide {
+				list.Padding(railWidePad, railWidePad, railWidePad, railWidePad).AlignItems(ui.Stretch)
+			} else {
+				list.Padding(8, 0, 10, 0).AlignItems(ui.Center)
+			}
+			list.Children(func() {
 				for i, h := range tabs {
-					f.railTab(c, a, h, i, labels[i])
+					f.railTab(c, a, h, i, labels[i], wide)
 				}
 				if atEnd {
 					ui.Box(c).Size(24, 2).Radius(1).Background(p.accent)
 				}
-				ui.Box(c).Size(20, 1).Margin(4, 0, 2, 0).Background(p.border)
-				f.railAdd(c, a, folders)
+				if wide {
+					ui.Box(c).FillWidth().Height(1).Margin(4, 0, 2, 0).Background(p.border)
+				} else {
+					ui.Box(c).Size(20, 1).Margin(4, 0, 2, 0).Background(p.border)
+				}
+				f.railAdd(c, a, folders, wide)
 			})
 		})
+		f.railMode(c, a, wide)
+		if wide {
+			h := a.splitter(c, edgeRight, func(d float32) { f.dragRailWidth(d, width) })
+			if _, _, ended := h.DragEnded(); f.railBelow && ended {
+				f.setRailWide(false)
+			}
+		}
+	})
+}
+
+// railWidePad is the space around a project's row in the rail wide, and
+// between the rail's edge and the mark of the project shown.
+const railWidePad float32 = 6
+
+// railWideWidth is how wide the rail is wide in a window of width.
+func (f *frame) railWideWidth(width float32) float32 {
+	room := max(width-320, settings.RailWideMin)
+	return clamp(f.m.s.RailWidth, settings.RailWideMin, min(settings.RailWideMax, room))
+}
+
+// dragRailWidth widens or narrows the rail wide by d, keeping it at its
+// least while the pointer goes narrower still: it is the bar once the
+// pointer is let go there.
+func (f *frame) dragRailWidth(d, width float32) {
+	s := f.m.s
+	if !s.RailWide {
+		return
+	}
+	next := s.RailWidth + d
+	if next < settings.RailWideMin {
+		s.RailWidth, f.railBelow = settings.RailWideMin, true
+	} else {
+		room := max(width-320, settings.RailWideMin)
+		s.RailWidth = clamp(next, settings.RailWideMin, min(settings.RailWideMax, room))
+		f.railBelow = false
+	}
+	s.Changed()
+	if f.win != nil {
+		f.win.Invalidate()
+	}
+}
+
+// setRailWide shows the rail wide, with each project's name, or as a bar
+// of squares.
+func (f *frame) setRailWide(wide bool) {
+	s := f.m.s
+	f.railBelow = false
+	if s.RailWide == wide {
+		return
+	}
+	s.RailWide = wide
+	if wide {
+		s.RailWidth = clamp(s.RailWidth, settings.RailWideMin, settings.RailWideMax)
+	}
+	s.Changed()
+	if f.win != nil {
+		f.win.Invalidate()
+	}
+}
+
+// railMode is the button at the rail's foot that shows the projects wide,
+// with their names, or as a bar of squares.
+func (f *frame) railMode(c *ui.Context, a *app, wide bool) {
+	p := a.pal
+	label, icon := locales.RailShowNames(), iconChevronsRight
+	if wide {
+		label, icon = locales.RailHideNames(), iconChevronsLeft
+	}
+	row := ui.Row(c).FillWidth().Shrink(0).Height(railSquare + 4).AlignItems(ui.Center)
+	if wide {
+		row.Padding(0, 0, 0, railWidePad).Justify(ui.Start)
+	} else {
+		row.Justify(ui.Center)
+	}
+	row.Children(func() {
+		b := ui.ButtonBase(c.Key("rail-mode")).Size(26, 24).Shrink(0).Radius(5).
+			Justify(ui.Center).AlignItems(ui.Center).Label(label).Tooltip(label)
+		col := p.muted
+		if b.Hovered() || b.Pressed() {
+			b.Background(p.hover)
+			col = p.text
+		}
+		b.Transition(hoverFade)
+		b.Children(func() { ui.Icon(c, icon).FontSize(15).TextColor(col) })
+		if b.Clicked() {
+			f.setRailWide(!wide)
+		}
 	})
 }
 
@@ -679,7 +789,7 @@ func railName(dir string) (name, where string) {
 // finished or failed while the project was out of sight, in the color of
 // its state, and, while a program works, a ring turning around it. label is what it shows without a logo,
 // unless the project has a label of its own.
-func (f *frame) railTab(c *ui.Context, a *app, h *desktop, i int, label string) {
+func (f *frame) railTab(c *ui.Context, a *app, h *desktop, i int, label string, wide bool) {
 	p := a.pal
 	dir := h.a.folder()
 	name, where := railName(dir)
@@ -748,8 +858,13 @@ func (f *frame) railTab(c *ui.Context, a *app, h *desktop, i int, label string) 
 	if dir != "" && h.needsLogoScan(dir, icon) {
 		f.scanProjectLogo(a, h, dir, icon)
 	}
-	b := ui.ButtonBase(c.Key(fmt.Sprintf("project-%d", h.a.window.ID))).Width(railW).Height(railSquare + 4).Shrink(0).
+	b := ui.ButtonBase(c.Key(fmt.Sprintf("project-%d", h.a.window.ID))).Height(railSquare + 4).Shrink(0).
 		Label(name).Description(railDescription(where, work)).Drag(railDrag{h})
+	if wide {
+		b.FillWidth()
+	} else {
+		b.Width(railW)
+	}
 	f.railTip(c, a, b, name, where, keys, dirty, work, alert, h.a.alertState, alertCol, conn, connCol)
 	f.railDrop(b, a, h)
 	// Another square, or a picture dragged from the sidebar or anything
@@ -771,6 +886,18 @@ func (f *frame) railTab(c *ui.Context, a *app, h *desktop, i int, label string) 
 		f.hoverOn = nil
 	}
 	hovered, pressed, dragged := b.Hovered(), b.Pressed(), b.Dragging()
+	if wide {
+		// The project's name, past its square.
+		nameCol := p.muted
+		if on || hovered {
+			nameCol = p.text
+		}
+		b.Children(func() {
+			ui.Row(c).Absolute().Fill().Padding(0, 10, 0, railSquare+8).AlignItems(ui.Center).Children(func() {
+				ui.Text(c, name).FontSize(12.5).TextColor(nameCol).SingleLine().Ellipsis("…").MinWidth(0)
+			})
+		})
+	}
 	pill, fill := float32(0), float32(0.14)
 	switch {
 	case on:
@@ -780,6 +907,13 @@ func (f *frame) railTab(c *ui.Context, a *app, h *desktop, i int, label string) 
 	}
 	pill = b.Animate("pill", pill, 160*time.Millisecond)
 	fill = b.Animate("fill", fill, 120*time.Millisecond)
+	row := float32(0)
+	if hovered && !on {
+		// The row the pointer is on, not the project shown, which its
+		// square and the pill along the rail mark.
+		row = 0.06
+	}
+	row = b.Animate("row", row, motionHover)
 	outline := b.Animate("ring", unit(on), 160*time.Millisecond)
 	drop := b.Animate("drop", unit(pic || carry), 120*time.Millisecond)
 	sink := b.Animate("sink", unit(pressed && !dragged), 80*time.Millisecond)
@@ -820,10 +954,21 @@ func (f *frame) railTab(c *ui.Context, a *app, h *desktop, i int, label string) 
 			if on {
 				pc = p.accent
 			}
-			pt.Fill(ui.Rect{X: r.X - 2, Y: r.Y + (r.H-pill)/2, W: 5, H: pill}, pc, 2.5)
+			x := r.X - 2
+			if wide {
+				x = r.X - railWidePad
+			}
+			pt.Fill(ui.Rect{X: x, Y: r.Y + (r.H-pill)/2, W: 5, H: pill}, pc, 2.5)
+		}
+		if wide && row > 0.01 {
+			// The row the pointer is on, or the project shown.
+			pt.Fill(r, p.text.Alpha(row), 6)
 		}
 		s := float32(railSquare) - 2*sink
 		sq := ui.Rect{X: r.X + (r.W-s)/2, Y: r.Y + (r.H-s)/2, W: s, H: s}
+		if wide {
+			sq.X = r.X + (railSquare-s)/2
+		}
 		alpha := float32(1)
 		if dragged {
 			alpha = 0.4
@@ -1185,21 +1330,38 @@ func railInitials(name string) (string, []rune) {
 
 // railAdd is the button after the squares that opens another folder: a
 // square drawn dashed, which fills under the pointer, or as folders are
-// dragged over the rail.
-func (f *frame) railAdd(c *ui.Context, a *app, folders bool) {
+// dragged over the rail, and wide a row with the folders it opens.
+func (f *frame) railAdd(c *ui.Context, a *app, folders, wide bool) {
 	p := a.pal
-	b := ui.ButtonBase(c.Key("rail-add")).Size(railW, railSquare+4).Shrink(0).Label(locales.CmdFileOpenFolder()).
+	b := ui.ButtonBase(c.Key("rail-add")).Height(railSquare + 4).Shrink(0).Label(locales.CmdFileOpenFolder()).
 		Tooltip(a.withKey(locales.CmdFileOpenFolder(), "file.openFolder"))
+	if wide {
+		b.FillWidth()
+	} else {
+		b.Size(railW, railSquare+4)
+	}
 	hot := b.Hovered() || folders
-	k := b.Animate("hot", unit(hot), 120*time.Millisecond)
+	k := b.Animate("hot", unit(hot), motionHover)
 	b.Draw(func(pt *ui.Painter, r ui.Rect) {
 		sq := ui.Rect{X: r.X + (r.W-railSquare)/2, Y: r.Y + (r.H-railSquare)/2, W: railSquare, H: railSquare}
+		if wide {
+			sq = ui.Rect{X: r.X, Y: r.Y + (r.H-railSquare)/2, W: r.W, H: railSquare}
+		}
 		if k > 0.01 {
 			pt.Fill(sq, p.accent.Alpha(0.14*k), railRadius)
 		}
 		pt.StrokeDashed(sq, p.faint.Mix(p.accent, k), railRadius, 1)
 	})
 	b.Children(func() {
+		if wide {
+			ui.Row(c).Absolute().Fill().Padding(0, 10, 0, 0).AlignItems(ui.Center).Children(func() {
+				ui.Box(c).Size(railSquare+8, railSquare).Shrink(0).Justify(ui.Center).AlignItems(ui.Center).Children(func() {
+					ui.Icon(c, iconPlus).FontSize(16).TextColor(p.muted.Mix(p.accent, k))
+				})
+				ui.Text(c, locales.CmdFileOpenFolder()).FontSize(12.5).TextColor(p.muted).SingleLine().Ellipsis("…").Grow(1).MinWidth(0)
+			})
+			return
+		}
 		ui.Box(c).Absolute().Fill().Justify(ui.Center).AlignItems(ui.Center).Children(func() {
 			ui.Icon(c, iconPlus).FontSize(16).TextColor(p.muted.Mix(p.accent, k))
 		})

@@ -234,6 +234,11 @@ type Prefs struct {
 	// ProjectTabStyle is a project's own label, color and icon on the rail
 	// of project tabs, by its folder.
 	ProjectTabStyle map[string]TabStyle `json:"projectTabStyle,omitempty"`
+	// RailWide shows the rail of project tabs wide, with each project's
+	// name beside its square, rather than as a bar of squares. RailWidth
+	// is how wide it is then; below RailWideMin it is the bar again.
+	RailWide  bool    `json:"railWide,omitempty"`
+	RailWidth float32 `json:"railWidth,omitempty"`
 	// Locale is the language Mayoi shows, as "en", "zh-Hans" or "ja", or ""
 	// for the one the system's languages prefer.
 	Locale string `json:"locale,omitempty"`
@@ -270,6 +275,15 @@ type Prefs struct {
 	// here for settings sync to bring to the person's other machines.
 	PluginSources map[string]PluginSource `json:"pluginSources,omitempty"`
 }
+
+// RailWideWidth is how wide the rail of project tabs is as it opens wide,
+// and RailWideMin and RailWideMax bound it. Narrower than RailWideMin, the
+// rail is the bar of squares again.
+const (
+	RailWideWidth float32 = 220
+	RailWideMin   float32 = 96
+	RailWideMax   float32 = 360
+)
 
 // TabStyle is a project's own look on the rail: Label, up to two
 // characters, in place of its initials or logo, Color, a name of the
@@ -490,6 +504,7 @@ func Default() *Settings {
 			FontSize: 13, FontFamily: "monospace", FontWeight: 400, LineHeight: 1.55, TabSize: 4,
 			AutoSave: true, Blame: true, TerminalCopyOnSelect: true, TerminalBackendHcShowInHerdr: true, PreviewMermaid: true, PreviewMath: true,
 			DiffAlignedRows: true, DiffContext: 3, DiffSyncScroll: true, MergeAutoApply: true,
+			RailWidth: RailWideWidth,
 		},
 	}
 }
@@ -598,6 +613,10 @@ func (p *Prefs) normalize() {
 		p.DiffWhitespace = ""
 	}
 	p.DiffContext = min(max(p.DiffContext, 0), MaxDiffContext)
+	if p.RailWidth == 0 {
+		p.RailWidth = RailWideWidth
+	}
+	p.RailWidth = clamp(p.RailWidth, RailWideMin, RailWideMax)
 
 	// "" and "bottom" are the same panel position.
 	if p.PanelPosition != "left" && p.PanelPosition != "right" {

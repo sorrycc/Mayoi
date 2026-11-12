@@ -582,6 +582,8 @@ Each folder gets its own window.
 - A rail on the far left has a square for each project, the one shown marked with a pill along the rail's edge, and a
   dot on any with unsaved changes. Its tip gives the project's name, its folder and the keys that show it. The rail
   shows while the window has one project too, with the button that opens another folder after the squares.
+- The button at the foot of the rail shows each project's name beside its square, wide, and back as a bar of squares.
+  Drag the wide rail's edge to set how wide it is; narrower than its least, the rail is the bar again.
 - Each square shows the project's favicon or logo, or its folder's initials when it has none, found in its
   well-known icon files, `favicon.ico` included, a mygo app's icon (`mygo.json`'s `icon`, or `resources/icon.png`),
   the icon its sources declare (`site/index.html` and `docs/index.html` among them), or a macOS app's `.icns` or Xcode

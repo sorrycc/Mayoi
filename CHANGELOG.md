@@ -5,6 +5,9 @@ needs a `## <version>` section here, or its build fails.
 
 ## Unreleased
 
+- In **Sessions**, `⌘`-click, `Shift`-click, `Shift`+arrows and `⌘A` select several sessions.
+- **Copy Session ID** on one of several selected sessions copies all their IDs, one per line.
+- Drag one of several selected sessions to open all their transcripts, or type their paths in a terminal.
 - A tab dragged onto another project's square stays under the pointer as that project shows, to drop in a column.
 - On macOS, VoiceOver no longer crashes Mayoi on text that starts with a byte order mark.
 - Clicking a Git diff's toolbar buttons while its changes refresh no longer crashes Mayoi.

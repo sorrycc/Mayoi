@@ -57,6 +57,12 @@ type sessionsState struct {
 	// rowKey is the key of the session chosen, which the choice stays on
 	// as the sessions are read again and move.
 	rowKey string
+	// selection are the sessions Shift and Cmd choose with it, by their
+	// keys, none for the session chosen alone; anchor is the one Shift
+	// chooses from, and cursor the choice they were chosen with, which,
+	// moved otherwise, lets them go.
+	selection      ui.Selection[string]
+	anchor, cursor string
 	// glide is the choice's background on its way from the row it was on,
 	// and listH how tall the list was, a page for Page Up and Page Down.
 	glide choiceGlide
@@ -360,6 +366,9 @@ func (a *app) keepChoice(lines []sessionLine, now time.Time) []sessionLine {
 	if st.appearKey != st.rowsKey {
 		k, was := st.rowsKey, st.appearKey
 		fresh = k.query != was.query || k.root != was.root || k.all != was.all
+		if fresh {
+			st.selection.Clear()
+		}
 		st.appear.note(len(lines), func(i int) string { return lines[i].key() }, now, fresh)
 		st.appearKey = k
 		if !fresh {
@@ -395,7 +404,116 @@ func (a *app) keepChoice(lines []sessionLine, now time.Time) []sessionLine {
 	}
 	st.row = sessionAt(lines, max(st.row, 0))
 	st.noteChoice(lines)
+	st.keepSelection(lines)
 	return lines
+}
+
+// keepSelection lets go of the sessions chosen that lines no longer
+// list, and of them all once the choice moved off the session they were
+// chosen with, as a plain click or key moves it.
+func (st *sessionsState) keepSelection(lines []sessionLine) {
+	if st.selection.Len() == 0 {
+		return
+	}
+	if st.rowKey != st.cursor {
+		st.selection.Clear()
+		return
+	}
+	listed := make(map[string]bool, len(lines))
+	for _, l := range lines {
+		if l.session() {
+			listed[l.key()] = true
+		}
+	}
+	for k := range st.selection.All() {
+		if !listed[k] {
+			st.selection.Remove(k)
+		}
+	}
+}
+
+// selectSessionRow chooses row i of lines as a click or a key with mods
+// does: with Shift, the sessions from the anchor to it; with Cmd, it as
+// well as those chosen, or no longer; else it alone. Shift and Cmd put
+// the choice there at once, rather than gliding over the rows between.
+func (a *app) selectSessionRow(lines []sessionLine, i int, mods ui.Modifiers) {
+	st := &a.sessions
+	if i < 0 || i >= len(lines) || !lines[i].session() {
+		return
+	}
+	k := lines[i].key()
+	anchor := -1
+	if st.selection.Len() > 0 {
+		for j, l := range lines {
+			if l.key() == st.anchor && l.session() {
+				anchor = j
+				break
+			}
+		}
+	}
+	if anchor < 0 && st.row >= 0 && st.row < len(lines) && lines[st.row].session() {
+		anchor = st.row
+	}
+	switch {
+	case mods&ui.Shift != 0 && anchor >= 0:
+		st.selection.Clear()
+		for j := min(anchor, i); j <= max(anchor, i); j++ {
+			if lines[j].session() {
+				st.selection.Add(lines[j].key())
+			}
+		}
+		st.anchor = lines[anchor].key()
+	case mods&ui.Cmd != 0:
+		if st.selection.Len() == 0 && anchor >= 0 {
+			st.selection.Add(lines[anchor].key())
+		}
+		if st.selection.Has(k) {
+			st.selection.Remove(k)
+		} else {
+			st.selection.Add(k)
+		}
+		st.anchor = k
+	default:
+		st.selection.Clear()
+		st.anchor = k
+	}
+	if mods&(ui.Shift|ui.Cmd) != 0 {
+		st.glide.key = ""
+	}
+	st.row = i
+	st.noteChoice(lines)
+	st.cursor = st.rowKey
+}
+
+// selectAllSessions chooses every session of lines, the choice staying
+// where it is.
+func (a *app) selectAllSessions(lines []sessionLine) {
+	st := &a.sessions
+	st.selection.Clear()
+	for _, l := range lines {
+		if l.session() {
+			st.selection.Add(l.key())
+		}
+	}
+	st.cursor = st.rowKey
+	if st.selection.Len() > 0 && st.anchor == "" {
+		st.anchor = st.rowKey
+	}
+}
+
+// pickedSessions are the sessions of lines chosen with l, in their order,
+// when l is one of several chosen, and else l's alone.
+func (st *sessionsState) pickedSessions(lines []sessionLine, l sessionLine) []agents.Session {
+	if st.selection.Len() < 2 || !st.selection.Has(l.key()) {
+		return []agents.Session{l.s}
+	}
+	var out []agents.Session
+	for _, m := range lines {
+		if m.session() && st.selection.Has(m.key()) {
+			out = append(out, m.s)
+		}
+	}
+	return out
 }
 
 // leaveLines are lines with those of was they don't have among them as
@@ -721,7 +839,8 @@ func (a *app) sessionsView(c *ui.Context) {
 			var choice *sessionChoice
 			if i == st.row {
 				listKeys := st.list.FocusWithin(c)
-				choice = &sessionChoice{keyed: listKeys, held: listKeys || queryKeys}
+				loose := st.selection.Len() > 0 && !st.selection.Has(r.key())
+				choice = &sessionChoice{keyed: listKeys, held: listKeys || queryKeys, loose: loose}
 				choice.y, choice.there = a.glideTo(rows, i, now, c.Preferences().ReduceMotion)
 			}
 			row := a.sessionRow(c, r, now, dots, choice, &action)
@@ -735,8 +854,7 @@ func (a *app) sessionsView(c *ui.Context) {
 			case double:
 				action = func() { a.resumeSession(r.s) }
 			case clicked:
-				st.row = i
-				st.noteChoice(rows)
+				a.selectSessionRow(rows, i, row.ClickModifiers())
 				st.list.Focus(c)
 			}
 		}
@@ -752,6 +870,24 @@ func (a *app) sessionsView(c *ui.Context) {
 		// The keys of the list moved it: the row past it shows too.
 		st.showChoice(rows, cmp.Compare(st.row, pre))
 	}
+	// Shift with Up, Down, Home and End chooses the sessions from the
+	// anchor to the row it moves to.
+	for _, k := range []ui.Key{ui.KeyUp, ui.KeyDown, ui.KeyHome, ui.KeyEnd} {
+		if !out.Shortcut(ui.Shift, k) {
+			continue
+		}
+		to, d := sessionStep(rows, st.row, 1), 1
+		switch k {
+		case ui.KeyUp:
+			to, d = sessionStep(rows, st.row, -1), -1
+		case ui.KeyHome:
+			to, d = sessionAt(rows, 0), -1
+		case ui.KeyEnd:
+			to, d = sessionStep(rows, len(rows), -1), 1
+		}
+		a.selectSessionRow(rows, to, ui.Shift)
+		st.showChoice(rows, d)
+	}
 	if st.row >= 0 && st.row < len(rows) {
 		// The list's keys and clicks move the choice after its rows are
 		// built: it glides from the next frame on.
@@ -765,17 +901,40 @@ func (a *app) sessionsView(c *ui.Context) {
 	if out.Changed() {
 		st.noteChoice(rows)
 	}
+	if n := st.selection.Len(); n > 0 {
+		st.keepSelection(rows)
+		if st.selection.Len() != n {
+			a.invalidate()
+		}
+	}
 	if st.list.Shortcut(c, 0, ui.KeyEscape) {
-		st.input.Focus()
+		// The sessions chosen go first, then the keyboard.
+		if st.selection.Len() > 0 {
+			st.selection.Clear()
+		} else {
+			st.input.Focus()
+		}
 	}
 	// Copy of the Edit menu, which takes ⌘C, copies the command that
-	// resumes the session chosen while the list has the keyboard.
+	// resumes the session chosen while the list has the keyboard, and
+	// Select All, which takes ⌘A, chooses every session.
 	out.HandleInput(func(ev ui.InputEvent) bool {
-		if ev.Kind != ui.InputCommand || ev.Text != "copy" || st.row < 0 || st.row >= len(rows) || !rows[st.row].session() {
+		if ev.Kind != ui.InputCommand {
 			return false
 		}
-		a.copyText(a.agentEnv().ResumeCommand(rows[st.row].s))
-		return true
+		switch ev.Text {
+		case "selectAll":
+			a.selectAllSessions(rows)
+			a.invalidate()
+			return true
+		case "copy":
+			if st.row < 0 || st.row >= len(rows) || !rows[st.row].session() {
+				return false
+			}
+			a.copyText(a.agentEnv().ResumeCommand(rows[st.row].s))
+			return true
+		}
+		return false
 	})
 	if action != nil {
 		action()
@@ -897,6 +1056,9 @@ func (a *app) sessionRow(c *ui.Context, l sessionLine, now time.Time, dots bool,
 	row := ui.Row(c).Grow(1).Gap(8).AlignItems(ui.Center).Height(h).Padding(0, 6, 0, 6).Tooltip(look.tip)
 	a.openShut(c, row, l, h, now)
 	chosen, keyed := choice != nil, choice != nil && choice.keyed
+	// Of several chosen, those but the choice show the background of the
+	// choice too, without its ring.
+	picked := !chosen && st.selection.Len() > 0 && st.selection.Has(l.key())
 	// The buttons take the place of the time as the pointer comes, and
 	// give it back as it goes; neither moves the title or the folder. They
 	// come with the choice the keys move, as it glides in. A row that goes
@@ -919,8 +1081,14 @@ func (a *app) sessionRow(c *ui.Context, l sessionLine, now time.Time, dots bool,
 			cmd := a.agentEnv().ResumeCommand(s)
 			*action = func() { a.copyText(cmd) }
 		}
-		if m.Item(locales.SessionsCopyID()).Chosen() {
-			*action = func() { a.copyText(s.ID) }
+		// Of several sessions chosen, the menu of one copies their IDs.
+		ids := st.pickedSessions(st.shown, l)
+		label := locales.SessionsCopyID()
+		if len(ids) > 1 {
+			label = locales.SessionsCopyIDs(len(ids))
+		}
+		if m.Item(label).Chosen() {
+			*action = func() { a.copySessionIDs(ids) }
 		}
 		// What was said in it, of an agent that keeps it in a file.
 		m.Separator()
@@ -936,12 +1104,29 @@ func (a *app) sessionRow(c *ui.Context, l sessionLine, now time.Time, dots bool,
 		}
 	})
 	if !going && isFile(s.Transcript) {
-		a.dragFile(row, &fileDrag{path: s.Transcript})
+		f := &fileDrag{path: s.Transcript}
+		if st.selection.Len() > 1 && st.selection.Has(l.key()) {
+			// A row of several chosen drags their transcripts too.
+			lines := st.shown
+			f.more = func() []string {
+				var paths []string
+				for _, o := range st.pickedSessions(lines, l) {
+					if o.Transcript != s.Transcript && isFile(o.Transcript) {
+						paths = append(paths, o.Transcript)
+					}
+				}
+				return paths
+			}
+		}
+		a.dragFile(row, f)
 	}
 	row.Children(func() {
 		var mark ui.Color
 		if chosen {
 			mark = a.choiceMark(c, choice, h)
+		}
+		if picked {
+			ui.Box(c.Key("picked")).Absolute().Left(0).Right(0).Top(0).Bottom(0).Radius(6).Background(p.active)
 		}
 		if !chosen && reveal > 0 {
 			// The hover, under the rest, in step with the buttons: it never
@@ -1002,8 +1187,11 @@ func (a *app) sessionRow(c *ui.Context, l sessionLine, now time.Time, dots bool,
 			// The buttons sit on the row's background, which the ends of
 			// the title and the folder fade into before them.
 			bg := p.hover.Over(p.chrome)
-			if chosen {
+			switch {
+			case chosen:
 				bg = mark.Over(p.chrome)
+			case picked:
+				bg = p.hover.Over(p.active.Over(p.chrome))
 			}
 			ui.Row(c.Key("actions")).Absolute().Right(0).Top(0).Bottom(0).Opacity(reveal).Children(func() {
 				ui.Box(c).Width(16).Gradient(bg.Alpha(0), bg, 90)
@@ -1018,14 +1206,16 @@ func (a *app) sessionRow(c *ui.Context, l sessionLine, now time.Time, dots bool,
 
 // sessionChoice is how the row chosen shows the choice: y from its place
 // as it glides there, there of the way, and whether the list has the
-// keyboard (keyed), or it or the query, whose keys move the choice (held).
+// keyboard (keyed), or it or the query, whose keys move the choice (held),
+// and whether Cmd left it out of the sessions chosen (loose).
 type sessionChoice struct {
-	y, there    float32
-	keyed, held bool
+	y, there           float32
+	keyed, held, loose bool
 }
 
 // choiceMark is the background of the choice, under the rest of a row h
-// tall: quieter while neither the list nor the query has the keyboard, and
+// tall: quieter while neither the list nor the query has the keyboard,
+// none while it is left out of the sessions chosen, but for its ring, and
 // ringed in the accent, faintly, while the list does, the ring coming as
 // it glides in rather than crossing the text of the rows on its way. It
 // fades between them over motionHover, also with less motion.
@@ -1035,7 +1225,8 @@ func (a *app) choiceMark(c *ui.Context, choice *sessionChoice, h float32) ui.Col
 	box := ui.Box(c.Key("choice")).Absolute().Left(0).Right(0).Top(0).Height(h).Radius(6)
 	held := box.Animate("held", unit(choice.held), motionHover)
 	keyed := box.Animate("keyed", unit(choice.keyed), motionHover)
-	col := p.active.Alpha(0.5 + 0.5*held)
+	loose := box.Animate("loose", unit(choice.loose), motionHover)
+	col := p.active.Alpha((0.5 + 0.5*held) * (1 - loose))
 	box.Background(col)
 	if keyed > 0 {
 		box.Border(1, p.accent.Alpha(0.45*keyed*choice.there*choice.there))
@@ -1304,6 +1495,21 @@ func (a *app) liveRecord(live hcAgent) terminal.StatusRecord {
 func (a *app) copyText(text string) {
 	a.services.WriteClipboard(text)
 	a.tell(note{message: locales.CopiedText(text)})
+}
+
+// copySessionIDs puts the IDs of sessions on the clipboard, a line each,
+// and says so.
+func (a *app) copySessionIDs(ss []agents.Session) {
+	if len(ss) == 1 {
+		a.copyText(ss[0].ID)
+		return
+	}
+	ids := make([]string, len(ss))
+	for i, s := range ss {
+		ids[i] = s.ID
+	}
+	a.services.WriteClipboard(strings.Join(ids, "\n"))
+	a.tell(note{message: locales.SessionsCopiedIDs(len(ids))})
 }
 
 // copyTranscript puts the file of a session's transcript on the

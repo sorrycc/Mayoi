@@ -16914,6 +16914,26 @@ func (msgs Messages) SessionsCopyID() string {
 	return Catalog.Format(msgs.locale, "sessionsCopyID", nil)
 }
 
+// SessionsCopyIDs says "{count, plural, one {Copy # Session ID} other {Copy # Session IDs}}"
+// in the language the app shows.
+func SessionsCopyIDs(count int) string { return In(i18n.Locale()).SessionsCopyIDs(count) }
+
+// SessionsCopyIDs says "{count, plural, one {Copy # Session ID} other {Copy # Session IDs}}"
+// in the language of msgs.
+func (msgs Messages) SessionsCopyIDs(count int) string {
+	return Catalog.Format(msgs.locale, "sessionsCopyIDs", map[string]any{"count": count})
+}
+
+// SessionsCopiedIDs says "{count, plural, one {Copied # session ID} other {Copied # session IDs}}"
+// in the language the app shows.
+func SessionsCopiedIDs(count int) string { return In(i18n.Locale()).SessionsCopiedIDs(count) }
+
+// SessionsCopiedIDs says "{count, plural, one {Copied # session ID} other {Copied # session IDs}}"
+// in the language of msgs.
+func (msgs Messages) SessionsCopiedIDs(count int) string {
+	return Catalog.Format(msgs.locale, "sessionsCopiedIDs", map[string]any{"count": count})
+}
+
 // SessionsCopyTranscript says "Copy Transcript"
 // in the language the app shows.
 func SessionsCopyTranscript() string { return In(i18n.Locale()).SessionsCopyTranscript() }

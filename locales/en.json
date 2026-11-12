@@ -1901,6 +1901,8 @@
   "sessionsResume": "Resume",
   "sessionsCopyCommand": "Copy Resume Command",
   "sessionsCopyID": "Copy Session ID",
+  "sessionsCopyIDs": "{count, plural, one {Copy # Session ID} other {Copy # Session IDs}}",
+  "sessionsCopiedIDs": "{count, plural, one {Copied # session ID} other {Copied # session IDs}}",
   "sessionsCopyTranscript": "Copy Transcript",
   "sessionsOpenTranscript": "Open Transcript in Editor",
   "sessionsCopiedTranscript": "Copied the transcript",

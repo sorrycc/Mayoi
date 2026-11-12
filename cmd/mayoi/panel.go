@@ -544,7 +544,7 @@ func (a *app) panel(c *ui.Context) {
 			a.post(func() { a.terminalToPanel(it.tab.term) })
 		case it.file != nil && s != nil:
 			// A file of the sidebar types its path, as one from the Finder.
-			a.post(func() { a.pastePaths(s, []string{it.file.path}) })
+			a.post(func() { a.pastePaths(s, it.file.paths()) })
 		}
 	}
 	over, _ := a.dragOver(box)

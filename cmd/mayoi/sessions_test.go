@@ -469,6 +469,75 @@ func TestSessionRowDragsItsTranscript(t *testing.T) {
 	}
 }
 
+// Cmd-click and Shift choose several sessions, whose menu copies their
+// IDs and whose rows drag their transcripts together; a plain click
+// chooses one again, and Shift with the keys chooses from the anchor.
+func TestSessionsChooseSeveral(t *testing.T) {
+	skipOnWindows(t, "the sessions' folders are POSIX paths")
+	hs := newHarness(t, true)
+	a, tt := hs.a, hs.tt
+	agentHome(t, hs.root)
+	a.openFile(hs.path("main.go"), true)
+	a.showSessions()
+	a.sessions.all = 1
+	hs.settle()
+	if err := tt.Click("fix here"); err != nil {
+		t.Fatal(err)
+	}
+	hs.settle()
+	if err := tt.ClickWith(ui.Cmd, "fix there"); err != nil {
+		t.Fatal(err)
+	}
+	hs.settle()
+	st := &a.sessions
+	if st.selection.Len() != 2 {
+		t.Fatalf("Cmd-click chose %d sessions, want 2", st.selection.Len())
+	}
+	if err := tt.RightClick("fix there"); err != nil {
+		t.Fatal(err)
+	}
+	if err := tt.ChooseMenuItem(locales.SessionsCopyIDs(2)); err != nil {
+		t.Fatal(err)
+	}
+	if got := tt.Clipboard(); got != "here\nthere" {
+		t.Errorf("the clipboard has %q, want both IDs", got)
+	}
+	r, _ := tt.Find("fix there")
+	body, ok := tt.Find("Editor main.go")
+	if !ok {
+		t.Fatalf("no editor: %q", tt.Texts())
+	}
+	hs.drag(r.X+r.W/2, r.Y+r.H/2, body.X+body.W/2, body.Y+body.H/2)
+	if got := tabNames(a.cols[0]); got != "main.go there.jsonl here.jsonl" {
+		t.Errorf("tabs %q after dragging two sessions", got)
+	}
+	a.showSessions()
+	hs.settle()
+	if st.selection.Len() != 2 {
+		t.Fatalf("the drag left %d sessions chosen, want 2", st.selection.Len())
+	}
+	if err := tt.Click("fix here"); err != nil {
+		t.Fatal(err)
+	}
+	hs.settle()
+	if st.selection.Len() != 0 {
+		t.Errorf("a plain click left %d sessions chosen", st.selection.Len())
+	}
+	hs.key(ui.Shift, ui.KeyDown)
+	if st.selection.Len() != 2 || !st.selection.Has(st.rowKey) {
+		t.Errorf("Shift+Down chose %d sessions, want 2 with the choice", st.selection.Len())
+	}
+	hs.key(0, ui.KeyEscape)
+	if st.selection.Len() != 0 {
+		t.Errorf("Escape left %d sessions chosen", st.selection.Len())
+	}
+	hs.command("selectAll")
+	if st.selection.Len() != 2 {
+		t.Errorf("Select All chose %d sessions, want 2", st.selection.Len())
+	}
+	_ = home
+}
+
 // A row says why the query found it when the words are in what it does
 // not show: its first prompt under a title, its folder or its id, cut to
 // show the word.

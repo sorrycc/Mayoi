@@ -1400,6 +1400,8 @@
   "prefDescAutoSave": "停止输入片刻后，以及离开文件时，自动保存修改。",
   "prefTitleWordWrap": "自动换行",
   "prefDescWordWrap": "在编辑器边缘折行。单个标签页仍可另行选择。",
+  "prefTitleTabSize": "制表符宽度",
+  "prefDescTabSize": "编辑器中一个制表符占用的列数。",
   "prefTitleEditorAgentContext": "收集智能体上下文",
   "prefDescEditorAgentContext": "在普通文件的行号旁显示 +，收集代码片段和可选评论。",
   "prefTitleMarkdownPreview": "打开时预览 Markdown",

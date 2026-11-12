@@ -530,7 +530,7 @@ func (a *app) format(d *editor, limit time.Duration, quiet bool, then func()) {
 	doc := docJSON(d.document)
 	opts := map[string]any{"tabSize": max(d.indent.size, 1), "insertSpaces": !d.indent.tabs}
 	if d.indent.tabs {
-		opts["tabSize"] = tabWidth
+		opts["tabSize"] = tabWidth()
 	}
 	go func() {
 		ctx, cancel := context.WithTimeout(context.Background(), limit)

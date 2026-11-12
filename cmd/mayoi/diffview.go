@@ -2693,7 +2693,7 @@ func expandTabs(s string) (string, func(b int) int) {
 		at[i] = out.Len()
 		r, n := utf8.DecodeRuneInString(s[i:])
 		if r == '\t' {
-			k := tabWidth - col%tabWidth
+			k := tabWidth() - col%tabWidth()
 			out.WriteString(strings.Repeat(" ", k))
 			col += k
 		} else {

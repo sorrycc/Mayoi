@@ -128,6 +128,8 @@ type Prefs struct {
 	// scrolling sideways to them. A tab may choose otherwise, until this
 	// changes: Settings.WrapGen counts its changes.
 	WordWrap bool `json:"wordWrap,omitempty"`
+	// TabSize is how many columns a tab takes in the editor, from 1 to 8.
+	TabSize int `json:"tabSize"`
 	// EditorAgentContext offers selection actions in ordinary files to
 	// collect code snippets and send them with review comments.
 	EditorAgentContext bool `json:"editorAgentContext,omitempty"`
@@ -485,7 +487,7 @@ const MaxDiffContext = 100
 func Default() *Settings {
 	return &Settings{
 		Prefs: Prefs{
-			FontSize: 13, FontFamily: "monospace", FontWeight: 400, LineHeight: 1.55,
+			FontSize: 13, FontFamily: "monospace", FontWeight: 400, LineHeight: 1.55, TabSize: 4,
 			AutoSave: true, Blame: true, TerminalCopyOnSelect: true, TerminalBackendHcShowInHerdr: true, PreviewMermaid: true, PreviewMath: true,
 			DiffAlignedRows: true, DiffContext: 3, DiffSyncScroll: true, MergeAutoApply: true,
 		},
@@ -576,6 +578,10 @@ func (p *Prefs) normalize() {
 		p.LineHeight = 1.55
 	}
 	p.LineHeight = clamp(p.LineHeight, 1, 3)
+	if p.TabSize == 0 {
+		p.TabSize = 4
+	}
+	p.TabSize = min(max(p.TabSize, 1), 8)
 	p.FontFeatures = slices.DeleteFunc(p.FontFeatures, func(f string) bool { return strings.TrimSpace(f) == "" })
 	p.AISecretFiles = slices.DeleteFunc(p.AISecretFiles, func(f string) bool { return strings.TrimSpace(f) == "" })
 	if p.TerminalFontSize != 0 {

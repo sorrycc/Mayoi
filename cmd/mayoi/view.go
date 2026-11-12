@@ -1418,12 +1418,12 @@ func (a *app) statusBar(c *ui.Context) {
 			}
 			m.Separator()
 			if m.Item(locales.ConvertToTabs()).Chosen() {
-				a.editActive(func(d *editor) { reindent(d, indentStyle{tabs: true, size: tabWidth}) })()
+				a.editActive(func(d *editor) { reindent(d, indentStyle{tabs: true, size: tabWidth()}) })()
 			}
 			if m.Item(locales.ConvertToSpaces()).Chosen() {
 				size := d.indent.size
 				if d.indent.tabs {
-					size = tabWidth
+					size = tabWidth()
 				}
 				a.editActive(func(d *editor) { reindent(d, indentStyle{size: size}) })()
 			}

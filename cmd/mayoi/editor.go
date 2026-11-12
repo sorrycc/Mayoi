@@ -4,6 +4,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/egoist/mygo/ui"
@@ -16,7 +17,6 @@ import (
 
 const (
 	nearRows   = 3 // how far past an edge of the view an edit scrolls as little as it takes
-	tabWidth   = 4
 	editorPadY = 8  // above the first line
 	gutterGap  = 10 // between the line numbers and the text
 	textPadR   = 32 // right of the widest line
@@ -37,10 +37,21 @@ type codeFont struct {
 	lineHeight float32
 	lineH      float32
 	charW      float32
-	// tabW is how far apart the platform's text layout puts its tab stops,
-	// which is not a number of cells: a tab ends at the next stop.
-	tabW float32
+	// tabSize is how many cells apart the tab stops are, as the settings
+	// have it, and tabW how far apart that puts them: a tab ends at the
+	// next stop.
+	tabSize int
+	tabW    float32
 }
+
+// tabCols is how many columns a tab takes, as the settings have it: the
+// code that counts columns outside an editor's font reads it.
+var tabCols atomic.Int32
+
+func init() { tabCols.Store(4) }
+
+// tabWidth is how many columns a tab takes.
+func tabWidth() int { return int(tabCols.Load()) }
 
 func newCodeFont(p settings.Prefs) codeFont {
 	f := codeFont{
@@ -49,16 +60,18 @@ func newCodeFont(p settings.Prefs) codeFont {
 	}
 	w, _ := ui.ShapeText(strings.Repeat("0", 64), f.font(), 0).Size()
 	f.charW = w / 64
-	if f.tabW, _ = ui.ShapeText("\t", f.font(), 0).Size(); f.tabW <= 0 {
-		f.tabW = tabWidth * f.charW
-	}
+	// The text areas put their tab stops every tabSize spaces (TabSize).
+	f.tabSize = max(p.TabSize, 1)
+	f.tabW = float32(f.tabSize) * f.charW
+	tabCols.Store(int32(f.tabSize))
 	return f
 }
 
 // is reports whether the font is the one the preferences choose.
 func (f codeFont) is(p settings.Prefs) bool {
 	return f.charW != 0 && f.family == monoFallback(p.FontFamily) && f.size == p.FontSize && f.weight == p.FontWeight &&
-		f.features == strings.Join(p.FontFeatures, ",") && f.lineHeight == p.LineHeight
+		f.features == strings.Join(p.FontFeatures, ",") && f.lineHeight == p.LineHeight &&
+		f.tabSize == max(p.TabSize, 1)
 }
 
 // monoFallback is a font family list that ends in the system's monospaced
@@ -100,18 +113,25 @@ func (f codeFont) featureList() []string {
 }
 
 // width measures a run from the start of a line as the text area lays it
-// out: ASCII by its cells and the tab stops, anything else by shaping it.
+// out: ASCII by its cells and the tab stops, anything else by shaping it,
+// up to the next tab.
 func (f codeFont) width(s string) float32 {
-	var x float32
+	var x, from float32 // from is where the text after the last tab starts
+	last := 0           // and last its offset
 	for i := 0; i < len(s); i++ {
 		switch c := s[i]; {
 		case c == '\t':
 			x = f.afterTab(x)
+			from, last = x, i+1
 		case c < 0x80:
 			x += f.charW
 		default:
-			w, _ := ui.ShapeText(s, f.font(), 0).Size()
-			return w
+			end := len(s)
+			if j := strings.IndexByte(s[i:], '\t'); j >= 0 {
+				end = i + j
+			}
+			w, _ := ui.ShapeText(s[last:end], f.font(), 0).Size()
+			x, i = from+w, end-1
 		}
 	}
 	return x
@@ -248,7 +268,7 @@ func (a *app) editorView(c *ui.Context, d *editor) {
 	ui.ScrollHorizontal(c).TrackScroll(&d.hscroll).Fill().Background(p.editor).Children(func() {
 		area := ui.TextAreaBufferBase(c, d.buf).
 			Font(f.family).FontSize(f.size).FontWeight(f.weight).FontFeatures(f.featureList()...).FixedLineHeight(f.lineH).TextColor(p.text).
-			FillHeight().
+			TabSize(float32(f.tabSize)).FillHeight().
 			Padding(editorPadY, textPadR, editorPadY, textX).
 			Label(locales.EditorLabel(d.name())).
 			ReadOnly(vimKeys || a.chording() || d.locked())

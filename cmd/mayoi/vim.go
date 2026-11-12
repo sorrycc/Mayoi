@@ -836,7 +836,7 @@ func vimAtCol(snap ui.TextSnapshot, l, col int) int {
 	for _, r := range snap.Slice(s, e) {
 		w := 1
 		if r == '\t' {
-			w = tabWidth - c%tabWidth
+			w = tabWidth() - c%tabWidth()
 		}
 		if c+w > col {
 			break

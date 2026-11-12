@@ -1628,6 +1628,8 @@
   "prefDescAutoSave": "Saves a changed file a moment after you stop typing, and when you leave it.",
   "prefTitleWordWrap": "Word Wrap",
   "prefDescWordWrap": "Wraps long lines at the edge of the editor. A tab can still choose otherwise.",
+  "prefTitleTabSize": "Tab Size",
+  "prefDescTabSize": "How many columns a tab takes in the editor.",
   "prefTitleEditorAgentContext": "Collect Agent Context",
   "prefDescEditorAgentContext": "Show a gutter + to collect code and optional comments in ordinary files.",
   "prefTitleMarkdownPreview": "Preview Markdown on Open",

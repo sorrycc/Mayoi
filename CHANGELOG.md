@@ -6,6 +6,8 @@ needs a `## <version>` section here, or its build fails.
 ## Unreleased
 
 - A resumed session's tab keeps the session's title in a shell other than your default one.
+- **Settings → Editor → Tab Size** sets how many columns a tab takes, 4 by default.
+- Tabs now take the same width on every system, where Linux showed them 8 columns wide.
 
 ## 0.20.0
 

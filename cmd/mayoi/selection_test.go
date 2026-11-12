@@ -8,20 +8,32 @@ import (
 	"github.com/egoist/mygo/ui"
 
 	"mayoi/internal/highlight"
+	"mayoi/internal/settings"
 )
 
-// The editor places what it paints by measuring the text itself: a tab
-// ends where the text area's layout ends it, not after four cells.
+// The editor places what it paints where the text area lays the text out,
+// with its tab stops every tabSize cells as the settings have them.
 func TestWidthFollowsTabStops(t *testing.T) {
-	skipOnWindows(t, "MyGo's text layout on Windows gives a tab no width")
-	hs := newHarness(t, true)
-	f := hs.a.font
-	for _, s := range []string{"\t", "\t\tx", "a\tb", "abc\td\t", "    x", "\t\tfoo := bar(1, 2)\t// c", "\tnaïve\t迷い"} {
-		want, _ := ui.ShapeText(s, ui.Font{Family: f.family, Size: f.size}, 0).Size()
-		if got := f.width(s); got < want-0.05 || got > want+0.05 {
-			t.Errorf("width(%q) = %.2f, laid out %.2f wide", s, got, want)
+	for _, n := range []int{2, 4, 8} {
+		p := settings.Default().Prefs
+		p.TabSize = n
+		f := newCodeFont(p)
+		if f.tabW != float32(n)*f.charW || tabWidth() != n {
+			t.Fatalf("tab size %d: tabs %v wide, %d columns; a cell %v", n, f.tabW, tabWidth(), f.charW)
+		}
+		shaped := func(s string) float32 { w, _ := ui.ShapeText(s, f.font(), 0).Size(); return w }
+		stop, cell := f.tabW, f.charW
+		for s, want := range map[string]float32{
+			"\t": stop, "\t\tx": 2*stop + cell, "a\tb": stop + cell, "    x": 5 * cell,
+			"\tnaïve": stop + shaped("naïve"),
+			"\tnaïve\t迷い": f.afterTab(stop+shaped("naïve")) + shaped("迷い"),
+		} {
+			if got := f.width(s); got < want-0.05 || got > want+0.05 {
+				t.Errorf("tab size %d: width(%q) = %.2f, want %.2f", n, s, got, want)
+			}
 		}
 	}
+	tabCols.Store(4)
 }
 
 // The selection is a box for each line: from where it starts, to the end

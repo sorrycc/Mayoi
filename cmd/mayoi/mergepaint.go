@@ -582,7 +582,7 @@ func (a *app) mergePane(c *ui.Context, v *mergeView, k int, label, tip string) {
 			}
 			area := ui.TextAreaBufferBase(c, buf).
 				Font(f.family).FontSize(f.size).FontWeight(f.weight).FixedLineHeight(f.lineH).TextColor(p.text).
-				FillHeight().Padding(editorPadY, textPadR, editorPadY, mergeTextX).
+				TabSize(float32(f.tabSize)).FillHeight().Padding(editorPadY, textPadR, editorPadY, mergeTextX).
 				Label(label).Tooltip(tip)
 			if k == 1 {
 				vimKeys := a.prefs().Vim && v.ed.vim.mode != vimInsert

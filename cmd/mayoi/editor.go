@@ -16,7 +16,7 @@ import (
 )
 
 const (
-	nearRows   = 3 // how far past an edge of the view an edit scrolls as little as it takes
+	nearRows   = 3  // how far past an edge of the view an edit scrolls as little as it takes
 	editorPadY = 8  // above the first line
 	gutterGap  = 10 // between the line numbers and the text
 	textPadR   = 32 // right of the widest line

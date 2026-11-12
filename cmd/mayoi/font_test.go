@@ -2,7 +2,7 @@ package main
 
 import (
 	"slices"
-	"strings"
+	"strconv"
 	"testing"
 
 	"github.com/egoist/mygo/ui"
@@ -66,29 +66,33 @@ func TestMonoFallback(t *testing.T) {
 	}
 }
 
-// A line indented with a tab keeps its indent where the text system lays
-// it out, as the editor draws it: in colored spans, the tab alone at the
-// start of the line too, not only after a space (#123).
+// A line indented with tabs keeps its indent where the text system lays
+// it out with the editor's tab size, as the editor draws it: the tab
+// alone at the start of the line too, not only after a space (#123), at
+// every tab size the settings allow.
 func TestTabsIndentTheCode(t *testing.T) {
-	hs := newHarness(t, false)
-	hs.settle()
-	f := hs.a.font
-	stop := f.afterTab(0)
-	for _, s := range []string{"\tcode", " \tcode", "\t\tcode"} {
-		g := ui.Shape(s, f.font())
-		var at []float32
-		for _, g := range g {
-			at = append(at, g.X)
-		}
-		want := stop * float32(strings.Count(s, "\t"))
-		if c := g[len(g)-4]; c.X != want {
-			t.Errorf("%q: c at %v, want %v; glyphs at %v", s, c.X, want, at)
+	for _, n := range []int{2, 4, 8} {
+		p := settings.Default().Prefs
+		p.TabSize = n
+		f := newCodeFont(p)
+		lines := []string{"\tcode", " \tcode", "\t\tcode"}
+		tt := ui.NewTester(func(c *ui.Context) {
+			ui.Column(c).AlignItems(ui.Start).Children(func() {
+				for i, s := range lines {
+					ui.Text(c, s).Font(f.family).FontSize(f.size).FontWeight(f.weight).
+						TabSize(float32(f.tabSize)).SingleLine().Label(strconv.Itoa(i))
+				}
+			})
+		}, 800, 200)
+		for i, s := range lines {
+			r, ok := tt.Find(strconv.Itoa(i))
+			if !ok {
+				t.Fatalf("no line %q", s)
+			}
+			if want := f.width(s); r.W < want-0.5 || r.W > want+0.5 {
+				t.Errorf("tab size %d: %q laid out %.2f wide, the editor measures %.2f", n, s, r.W, want)
+			}
 		}
 	}
-	p := hs.a.pal
-	spans := []ui.Span{f.span("\t", p.text), f.span("code", p.syntax[0]), f.span(", message", p.text)}
-	l := ui.ShapeRichText(spans, f.font(), 0)
-	if x := l.Caret(1).X; x != stop {
-		t.Errorf("in spans, code after a tab at %v, want %v", x, stop)
-	}
+	tabCols.Store(4)
 }

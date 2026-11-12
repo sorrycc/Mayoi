@@ -25,7 +25,7 @@ func TestWidthFollowsTabStops(t *testing.T) {
 		stop, cell := f.tabW, f.charW
 		for s, want := range map[string]float32{
 			"\t": stop, "\t\tx": 2*stop + cell, "a\tb": stop + cell, "    x": 5 * cell,
-			"\tnaïve": stop + shaped("naïve"),
+			"\tnaïve":     stop + shaped("naïve"),
 			"\tnaïve\t迷い": f.afterTab(stop+shaped("naïve")) + shaped("迷い"),
 		} {
 			if got := f.width(s); got < want-0.05 || got > want+0.05 {

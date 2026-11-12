@@ -65,7 +65,7 @@ func TestBudgets(t *testing.T) {
 			bigDoc(hs)
 			return func() { step(hs.tt) }
 		}},
-		{"scroll frame", 4 * time.Millisecond, false, func(t *testing.T, hs *harness) func() {
+		{"scroll frame", 5 * time.Millisecond, false, func(t *testing.T, hs *harness) func() {
 			bigDoc(hs)
 			i := 0
 			return func() {

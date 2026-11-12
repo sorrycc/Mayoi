@@ -25,6 +25,22 @@ func TestSplitPaths(t *testing.T) {
 	}
 }
 
+// A second Mayoi started before the first is ready, with no settings
+// or windows yet, leaves its folders and files for launch.
+func TestSecondInstanceBeforeReady(t *testing.T) {
+	root := workspaceFixture(t)
+	m := &mayoi{}
+	m.secondInstance([]string{"main.go", "internal"}, root)
+	m.secondInstance(nil, root)
+	want := []string{filepath.Join(root, "main.go"), filepath.Join(root, "internal")}
+	if !slices.Equal(m.pending, want) {
+		t.Errorf("pending %v, want %v", m.pending, want)
+	}
+	if len(m.wins) > 0 {
+		t.Errorf("opened %d windows", len(m.wins))
+	}
+}
+
 // A window that shows nothing takes a folder, also before it starts; one
 // with tabs to restore does not.
 func TestBlankWindow(t *testing.T) {

@@ -378,13 +378,7 @@ func main() {
 	// updater never checks by itself. Development builds never check.
 	mygo.Use(native.New(updater.Options{DisableAutomaticChecks: true}))
 	m := &mayoi{}
-	mygo.App.OnSecondInstance(func(args []string, wd string) {
-		if paths := argPaths(args, wd); len(paths) > 0 {
-			m.open(paths)
-		} else if len(m.wins) > 0 {
-			m.wins[0].show()
-		}
-	})
+	mygo.App.OnSecondInstance(m.secondInstance)
 	// The folders and files of `mayoi` and the Finder, also those the app
 	// starts with.
 	mygo.App.OnOpenFile(func(path string) {
@@ -566,6 +560,22 @@ func (m *mayoi) launch(paths []string) {
 	}
 	for _, p := range files {
 		m.openFile(p)
+	}
+}
+
+// secondInstance opens the folders and files another Mayoi was started
+// with, or brings the first window to the front. Before the app is
+// ready, when it has no settings yet, they wait for launch.
+func (m *mayoi) secondInstance(args []string, wd string) {
+	paths := argPaths(args, wd)
+	if !m.ready {
+		m.pending = append(m.pending, paths...)
+		return
+	}
+	if len(paths) > 0 {
+		m.open(paths)
+	} else if len(m.wins) > 0 {
+		m.wins[0].show()
 	}
 }
 

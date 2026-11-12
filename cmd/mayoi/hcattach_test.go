@@ -1,10 +1,13 @@
 package main
 
 import (
+	"errors"
 	"runtime"
 	"slices"
 	"strings"
 	"testing"
+
+	"github.com/egoist/mygo"
 
 	"mayoi/internal/cli"
 	"mayoi/locales"
@@ -210,5 +213,26 @@ func TestHCAttachShowsOwnTerminal(t *testing.T) {
 	hs.settle()
 	if len(a.terms) != n || slices.ContainsFunc(a.terms, func(s *session) bool { return s.attach == "t3" }) {
 		t.Errorf("a second terminal attached to t3: %+v", a.terms)
+	}
+}
+
+// The View menu leaves out Attach to Terminal in herdr-core… while hc is
+// missing, rather than show an item with no label.
+func TestHCAttachMenuHidden(t *testing.T) {
+	hs := newHarness(t, true)
+	oldLook, oldBin := lookPath, hcLocalBin
+	lookPath = func(string) (string, error) { return "", errors.New("not found") }
+	bin := t.TempDir()
+	hcLocalBin = func() string { return bin }
+	t.Cleanup(func() { lookPath, hcLocalBin = oldLook, oldBin })
+	for _, m := range hs.a.menu(false, func(string, *mygo.Window) {}).Items() {
+		if m.Label != locales.MenuView() {
+			continue
+		}
+		for _, it := range m.Submenu {
+			if it.Type != mygo.MenuItemSeparator && it.Role == "" && it.Label == "" && len(it.Submenu) == 0 && !it.Hidden {
+				t.Errorf("%s has an item with no label", m.Label)
+			}
+		}
 	}
 }

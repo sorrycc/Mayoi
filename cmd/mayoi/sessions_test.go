@@ -18,17 +18,22 @@ import (
 )
 
 // agentHome makes a home folder of a session of Claude Code in dir, and
-// one in another folder, and has the tests read it.
+// an older one in another folder, and has the tests read it.
 func agentHome(t testing.TB, dir string) string {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
 	t.Setenv("CLAUDE_CONFIG_DIR", "")
+	now := time.Now()
 	for id, cwd := range map[string]string{"here": dir, "there": "/elsewhere"} {
 		p := filepath.Join(home, ".claude", "projects", "p-"+id, id+".jsonl")
 		os.MkdirAll(filepath.Dir(p), 0o755)
 		line := `{"type":"user","message":{"content":"fix ` + id + `"},"cwd":"` + filepath.ToSlash(cwd) + `"}` + "\n"
 		if err := os.WriteFile(p, []byte(line), 0o644); err != nil {
 			t.Fatal(err)
+		}
+		// Here is the newer, and the first in the list, every time.
+		if id == "there" {
+			os.Chtimes(p, now.Add(-time.Hour), now.Add(-time.Hour))
 		}
 	}
 	return home

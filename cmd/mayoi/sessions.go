@@ -721,15 +721,21 @@ func (a *app) sessionsView(c *ui.Context) {
 		}
 	}).Grow(1).Padding(0, 6, 8, 6).Gap(sessionRowGap).FocusRing(false) // the choice rings itself
 	st.listH = out.Bounds().H
+	// Page Up and Page Down only scroll a list of macOS, and elsewhere put
+	// its choice at the edge of what shows, under the pinned head at the
+	// top; here they move the choice by a page from where it was, as from
+	// the query.
+	up, down := st.list.Shortcut(c, 0, ui.KeyPageUp), st.list.Shortcut(c, 0, ui.KeyPageDown)
+	if up || down {
+		st.row = pre
+		a.sessionKeys(rows, func(m ui.Modifiers, k ui.Key) bool {
+			return m == 0 && (k == ui.KeyPageUp && up || k == ui.KeyPageDown && down)
+		}, false)
+	}
 	a.skipGone(rows, pre)
 	if st.row != pre && !st.choiceHovered {
 		// The keys of the list moved it: the row past it shows too.
 		st.showChoice(rows, cmp.Compare(st.row, pre))
-	}
-	if runtime.GOOS == "darwin" {
-		// Page Up and Page Down only scroll a list of macOS; here they
-		// move the choice, as from the query.
-		a.sessionKeys(rows, func(m ui.Modifiers, k ui.Key) bool { return st.list.Shortcut(c, m, k) }, false)
 	}
 	if st.row >= 0 && st.row < len(rows) {
 		// The list's keys and clicks move the choice after its rows are

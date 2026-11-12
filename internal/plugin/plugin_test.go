@@ -201,8 +201,13 @@ func TestBusyPluginIsStopped(t *testing.T) {
 	if d := time.Since(began); d > 3*time.Second {
 		t.Fatalf("stopped after %v", d)
 	}
+	// The stop is noted as the runtime ends, just after the call returns.
 	p := r.Plugin("spin")
-	if st := p.Stats(); st.Active || st.Crashes != 1 {
+	st := p.Stats()
+	for end := time.Now().Add(time.Second); st.Active && time.Now().Before(end); st = p.Stats() {
+		time.Sleep(10 * time.Millisecond)
+	}
+	if st.Active || st.Crashes != 1 {
 		t.Fatalf("stats = %+v", st)
 	}
 	// It starts again on the next call.

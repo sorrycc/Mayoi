@@ -5,6 +5,7 @@ needs a `## <version>` section here, or its build fails.
 
 ## Unreleased
 
+- On macOS, VoiceOver no longer crashes Mayoi on text that starts with a byte order mark.
 - Clicking a Git diff's toolbar buttons while its changes refresh no longer crashes Mayoi.
 - On a Mac with Apple silicon, the Intel build of Mayoi updates to the Apple silicon build.
 - The Intel build on Apple silicon says at launch that it runs slower and can crash, with a **Download** button.

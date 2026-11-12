@@ -27,7 +27,8 @@ import (
 // id, its words marked where a row shows them, each row marked with its
 // agent's icon, and Enter resumes one in a terminal of its folder, in a tab
 // of the column that has the keyboard, titled after the session until the
-// agent names it. With the terminal backend "hc", a
+// agent names it. A row drags the file of its transcript, to a column or
+// a terminal, as a file of the explorer. With the terminal backend "hc", a
 // session that runs in a terminal of herdr-core says what it does, and
 // resuming it shows that terminal, in a tab.
 
@@ -727,6 +728,17 @@ func (a *app) sessionsView(c *ui.Context) {
 			if choice != nil {
 				st.choiceHovered = row.Hovered()
 			}
+			// Taking the drag of its transcript, the row takes the clicks
+			// from the list too: one chooses it, two resume it.
+			switch double, clicked := row.DoubleClicked(), row.Clicked(); {
+			case action != nil:
+			case double:
+				action = func() { a.resumeSession(r.s) }
+			case clicked:
+				st.row = i
+				st.noteChoice(rows)
+				st.list.Focus(c)
+			}
 		}
 	}).Grow(1).Padding(0, 6, 8, 6).Gap(sessionRowGap).FocusRing(false) // the choice rings itself
 	st.listH = out.Bounds().H
@@ -868,7 +880,8 @@ func (a *app) sessionsEmpty(c *ui.Context) {
 // choice; the one under the pointer fades its own in with its buttons. A
 // row that came with a reading of the sessions fades in as it opens its
 // place, and the rows under it slide down; one a reading dropped fades out
-// as it closes its place, and they slide up.
+// as it closes its place, and they slide up. It drags the file of its
+// transcript while there is one.
 func (a *app) sessionRow(c *ui.Context, l sessionLine, now time.Time, dots bool, choice *sessionChoice, action *func()) ui.Element {
 	p := a.pal
 	st := &a.sessions
@@ -922,6 +935,9 @@ func (a *app) sessionRow(c *ui.Context, l sessionLine, now time.Time, dots bool,
 			*action = func() { a.host.reveal(s.Transcript) }
 		}
 	})
+	if !going && isFile(s.Transcript) {
+		a.dragFile(row, &fileDrag{path: s.Transcript})
+	}
 	row.Children(func() {
 		var mark ui.Color
 		if chosen {

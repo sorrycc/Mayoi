@@ -419,6 +419,56 @@ func TestSessionMenuCopiesTranscript(t *testing.T) {
 	}
 }
 
+// A row drags its transcript, to open it in a column as a file of the
+// explorer does, and still takes its clicks: one chooses it, two resume
+// it. One whose transcript is gone drags nothing.
+func TestSessionRowDragsItsTranscript(t *testing.T) {
+	skipOnWindows(t, "the sessions' folders are POSIX paths")
+	hs := newHarness(t, true)
+	a, tt := hs.a, hs.tt
+	home := agentHome(t, hs.root)
+	a.openFile(hs.path("main.go"), true)
+	a.showSessions()
+	a.sessions.all = 1
+	hs.settle()
+	if err := tt.Click("fix there"); err != nil {
+		t.Fatal(err)
+	}
+	hs.settle()
+	if rows := a.sessionLines(a.sessionRows(), time.Now()); a.sessions.row >= len(rows) || rows[a.sessions.row].s.ID != "there" {
+		t.Fatalf("a click chose row %d, want there", a.sessions.row)
+	}
+	// Its folder is gone, so resuming it only says so.
+	r, _ := tt.Find("fix there")
+	tt.ClickAt(r.X+r.W/2, r.Y+r.H/2)
+	hs.settle()
+	tt.ClickAt(r.X+r.W/2, r.Y+r.H/2)
+	hs.settle()
+	if _, ok := tt.Find(locales.SessionsDirGone("/elsewhere")); !ok {
+		t.Errorf("a double click resumed nothing: %q", tt.Texts())
+	}
+	r, ok := tt.Find("fix here")
+	body, ok2 := tt.Find("Editor main.go")
+	if !ok || !ok2 {
+		t.Fatalf("no session or no editor: %q", tt.Texts())
+	}
+	hs.drag(r.X+r.W/2, r.Y+r.H/2, body.X+body.W/2, body.Y+body.H/2)
+	col := a.cols[0]
+	if got := tabNames(col); got != "main.go here.jsonl" || col.tab().path() != filepath.Join(home, ".claude", "projects", "p-here", "here.jsonl") {
+		t.Fatalf("tabs %q after the drop", got)
+	}
+	os.Remove(filepath.Join(home, ".claude", "projects", "p-there", "there.jsonl"))
+	hs.settle()
+	r, ok = tt.Find("fix there")
+	if !ok {
+		t.Fatal("there left the list with its transcript")
+	}
+	hs.drag(r.X+r.W/2, r.Y+r.H/2, body.X+body.W/2, body.Y+body.H/2)
+	if got := tabNames(col); got != "main.go here.jsonl" {
+		t.Errorf("tabs %q after dragging a session with no transcript", got)
+	}
+}
+
 // A row says why the query found it when the words are in what it does
 // not show: its first prompt under a title, its folder or its id, cut to
 // show the word.

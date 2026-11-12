@@ -1673,6 +1673,9 @@
   "sessionsResume": "再開",
   "sessionsCopyCommand": "再開コマンドをコピー",
   "sessionsCopyID": "セッション ID をコピー",
+  "sessionsCopyTranscript": "トランスクリプトをコピー",
+  "sessionsOpenTranscript": "トランスクリプトをエディタで開く",
+  "sessionsCopiedTranscript": "トランスクリプトをコピーしました",
   "sessionsDirGone": "{dir} がないため、そこでセッションを再開できません",
   "prefTitleAgentSessionsClaudeDirs": "その他の Claude Code フォルダ",
   "prefDescAgentSessionsClaudeDirs": "~/.claude、各 ~/.claude-* フォルダ、$CLAUDE_CONFIG_DIR のほかに、セッションビューがセッションを一覧する Claude Code の設定フォルダ。"

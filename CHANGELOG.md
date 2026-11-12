@@ -9,6 +9,8 @@ needs a `## <version>` section here, or its build fails.
 - Clicking a Git diff's toolbar buttons while its changes refresh no longer crashes Mayoi.
 - On a Mac with Apple silicon, the Intel build of Mayoi updates to the Apple silicon build.
 - The Intel build on Apple silicon says at launch that it runs slower and can crash, with a **Download** button.
+
+- Right-click a session in **Sessions** to copy its transcript file, open it in the editor, or reveal it.
 - A resumed session's tab keeps the session's title in a shell other than your default one.
 - On Linux and Windows, `Page Up` in the **Sessions** list goes back up to the first session.
 - Opening a file in Mayoi while it is still starting no longer crashes; the file opens once it's ready.

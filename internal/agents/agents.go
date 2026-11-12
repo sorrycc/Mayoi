@@ -52,6 +52,9 @@ type Agent struct {
 	// again only once it changes.
 	Files func(e *Env) []File
 	Read  func(path string) (Session, bool)
+	// Transcript, for an agent whose files read are not what was said,
+	// is the file of what was, "" for none; nil for the file read.
+	Transcript func(path string) string
 	// Titles, for an agent that names its sessions in a file of its own,
 	// are that file and how it reads, its names by session id, which win
 	// over those of the sessions' files.
@@ -125,6 +128,14 @@ var Known = []Agent{
 		Resume: func(_ *Env, s Session) string { return "grok --resume " + quote(s.ID) },
 		Files:  func(e *Env) []File { return files(grokSummaries(filepath.Join(e.Home, ".grok", "sessions"))) },
 		Read:   readGrok,
+		// Its summary is beside the chat.
+		Transcript: func(p string) string {
+			chat := filepath.Join(filepath.Dir(p), "chat_history.jsonl")
+			if _, err := os.Stat(chat); err != nil {
+				return ""
+			}
+			return chat
+		},
 	},
 }
 
@@ -199,6 +210,9 @@ type Session struct {
 	// Dir is the folder it ran in, "" when it does not say.
 	Dir     string
 	Updated time.Time
+	// Transcript is the file of what was said in it, "" when it has
+	// none, as of a List.
+	Transcript string
 }
 
 // Label is what the session is called: its title, else what was first
@@ -385,7 +399,8 @@ func (sc *Scanner) Scan(e *Env) []Session {
 
 	type job struct {
 		File
-		read func(string) (Session, bool)
+		read       func(string) (Session, bool)
+		transcript func(string) string
 	}
 	var jobs []job
 	for _, ag := range agents {
@@ -393,7 +408,7 @@ func (sc *Scanner) Scan(e *Env) []Session {
 			continue
 		}
 		for _, f := range ag.Files(e) {
-			jobs = append(jobs, job{f, ag.Read})
+			jobs = append(jobs, job{f, ag.Read, ag.Transcript})
 		}
 	}
 	sc.readIndexes(e, agents)
@@ -423,7 +438,10 @@ func (sc *Scanner) Scan(e *Env) []Session {
 			for i := range next {
 				j := todo[i]
 				s, ok := j.read(j.Path)
-				s.Root = j.Root
+				s.Root, s.Transcript = j.Root, j.Path
+				if j.transcript != nil {
+					s.Transcript = j.transcript(j.Path)
+				}
 				if s.Updated.IsZero() {
 					s.Updated = infos[i].ModTime()
 				}

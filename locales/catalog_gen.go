@@ -16914,6 +16914,36 @@ func (msgs Messages) SessionsCopyID() string {
 	return Catalog.Format(msgs.locale, "sessionsCopyID", nil)
 }
 
+// SessionsCopyTranscript says "Copy Transcript"
+// in the language the app shows.
+func SessionsCopyTranscript() string { return In(i18n.Locale()).SessionsCopyTranscript() }
+
+// SessionsCopyTranscript says "Copy Transcript"
+// in the language of msgs.
+func (msgs Messages) SessionsCopyTranscript() string {
+	return Catalog.Format(msgs.locale, "sessionsCopyTranscript", nil)
+}
+
+// SessionsOpenTranscript says "Open Transcript in Editor"
+// in the language the app shows.
+func SessionsOpenTranscript() string { return In(i18n.Locale()).SessionsOpenTranscript() }
+
+// SessionsOpenTranscript says "Open Transcript in Editor"
+// in the language of msgs.
+func (msgs Messages) SessionsOpenTranscript() string {
+	return Catalog.Format(msgs.locale, "sessionsOpenTranscript", nil)
+}
+
+// SessionsCopiedTranscript says "Copied the transcript"
+// in the language the app shows.
+func SessionsCopiedTranscript() string { return In(i18n.Locale()).SessionsCopiedTranscript() }
+
+// SessionsCopiedTranscript says "Copied the transcript"
+// in the language of msgs.
+func (msgs Messages) SessionsCopiedTranscript() string {
+	return Catalog.Format(msgs.locale, "sessionsCopiedTranscript", nil)
+}
+
 // SessionsDirGone says "{dir} is gone, so the session can't resume in it"
 // in the language the app shows.
 func SessionsDirGone(dir string) string { return In(i18n.Locale()).SessionsDirGone(dir) }

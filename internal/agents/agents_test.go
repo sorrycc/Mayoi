@@ -87,6 +87,28 @@ func TestScanReadsEachAgent(t *testing.T) {
 	}
 }
 
+// A session's transcript is the file read, or Grok's chat beside its
+// summary, none for one of Grok of no chat, and what a List says.
+func TestScanFindsTranscripts(t *testing.T) {
+	t.Cleanup(func() { Use(nil) })
+	home := t.TempDir()
+	claude := filepath.Join(home, ".claude/projects/-p/c1.jsonl")
+	write(t, claude, `{"type":"user","message":{"role":"user","content":"hi"},"cwd":"/p"}`+"\n")
+	write(t, filepath.Join(home, ".grok/sessions/%2Ft/g1/summary.json"), `{"info":{"id":"g1","cwd":"/t"},"generated_title":"Chat"}`)
+	chat := filepath.Join(home, ".grok/sessions/%2Ft/g1/chat_history.jsonl")
+	write(t, chat, `{}`+"\n")
+	write(t, filepath.Join(home, ".grok/sessions/%2Ft/g2/summary.json"), `{"info":{"id":"g2","cwd":"/t"},"generated_title":"No chat"}`)
+	Use([]Agent{{ID: "js.agent", List: func(context.Context) ([]Session, error) {
+		return []Session{{ID: "j1", Transcript: "/made/up.jsonl"}}, nil
+	}}})
+	ss := byID(NewScanner().Scan(&Env{Home: home}))
+	for id, want := range map[string]string{"c1": claude, "g1": chat, "g2": "", "j1": "/made/up.jsonl"} {
+		if got := ss[id].Transcript; got != want {
+			t.Errorf("%s transcript %q, want %q", id, got, want)
+		}
+	}
+}
+
 func TestScanKeepsTitlesOfGrownTranscripts(t *testing.T) {
 	home := t.TempDir()
 	path := filepath.Join(home, ".claude/projects/-p/c1.jsonl")

@@ -909,6 +909,18 @@ func (a *app) sessionRow(c *ui.Context, l sessionLine, now time.Time, dots bool,
 		if m.Item(locales.SessionsCopyID()).Chosen() {
 			*action = func() { a.copyText(s.ID) }
 		}
+		// What was said in it, of an agent that keeps it in a file.
+		m.Separator()
+		none := !isFile(s.Transcript)
+		if m.Item(locales.SessionsCopyTranscript()).Disabled(none).Chosen() {
+			*action = func() { a.copyTranscript(s.Transcript) }
+		}
+		if m.Item(locales.SessionsOpenTranscript()).Disabled(none).Chosen() {
+			*action = func() { a.openFile(s.Transcript, true) }
+		}
+		if m.Item(revealLabel()).Disabled(none).Chosen() {
+			*action = func() { a.host.reveal(s.Transcript) }
+		}
 	})
 	row.Children(func() {
 		var mark ui.Color
@@ -1276,6 +1288,16 @@ func (a *app) liveRecord(live hcAgent) terminal.StatusRecord {
 func (a *app) copyText(text string) {
 	a.services.WriteClipboard(text)
 	a.tell(note{message: locales.CopiedText(text)})
+}
+
+// copyTranscript puts the file of a session's transcript on the
+// clipboard, and says so.
+func (a *app) copyTranscript(path string) {
+	if err := a.host.copyFiles([]string{path}); err != nil {
+		a.fail("%s", locales.FailCopy(err.Error()))
+		return
+	}
+	a.tell(note{message: locales.SessionsCopiedTranscript()})
 }
 
 // resumeSession resumes a session in a tab of an editor column, with the

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -384,6 +385,37 @@ func TestSessionsListKeysShowAndCopy(t *testing.T) {
 	hs.command("copy")
 	if got := hs.tt.Clipboard(); !strings.Contains(got, "--resume") || !strings.Contains(got, "here") {
 		t.Errorf("the clipboard has %q, want the command that resumes here", got)
+	}
+}
+
+// A row's menu copies its transcript as a file and reveals it, and has
+// neither once the file is gone.
+func TestSessionMenuCopiesTranscript(t *testing.T) {
+	skipOnWindows(t, "the sessions' folders are POSIX paths")
+	hs := newHarness(t, true)
+	a := hs.a
+	home := agentHome(t, hs.root)
+	file := filepath.Join(home, ".claude", "projects", "p-here", "here.jsonl")
+	a.showSessions()
+	hs.settle()
+	host := a.host.(*fakeHost)
+	for _, item := range []string{locales.SessionsCopyTranscript(), revealLabel()} {
+		if err := hs.tt.RightClick("fix here"); err != nil {
+			t.Fatal(err)
+		}
+		if err := hs.tt.ChooseMenuItem(item); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if !slices.Equal(host.clipboard, []string{file}) || !slices.Equal(host.revealed, []string{file}) {
+		t.Errorf("copied %v and revealed %v, want %s", host.clipboard, host.revealed, file)
+	}
+	os.Remove(file)
+	if err := hs.tt.RightClick("fix here"); err != nil {
+		t.Fatal(err)
+	}
+	if err := hs.tt.ChooseMenuItem(locales.SessionsOpenTranscript()); err == nil {
+		t.Error("the transcript gone opens")
 	}
 }
 

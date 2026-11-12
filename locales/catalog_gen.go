@@ -12444,6 +12444,26 @@ func (msgs Messages) FailListHC(err string) string {
 	return Catalog.Format(msgs.locale, "failListHC", map[string]any{"err": err})
 }
 
+// TermAttachEnded says "[hc attach {addr} ended as it started. What it printed is above.]"
+// in the language the app shows.
+func TermAttachEnded(addr string) string { return In(i18n.Locale()).TermAttachEnded(addr) }
+
+// TermAttachEnded says "[hc attach {addr} ended as it started. What it printed is above.]"
+// in the language of msgs.
+func (msgs Messages) TermAttachEnded(addr string) string {
+	return Catalog.Format(msgs.locale, "termAttachEnded", map[string]any{"addr": addr})
+}
+
+// FailAttachHCEnded says "Could not attach to {addr} in herdr-core. What hc printed stays in its terminal."
+// in the language the app shows.
+func FailAttachHCEnded(addr string) string { return In(i18n.Locale()).FailAttachHCEnded(addr) }
+
+// FailAttachHCEnded says "Could not attach to {addr} in herdr-core. What hc printed stays in its terminal."
+// in the language of msgs.
+func (msgs Messages) FailAttachHCEnded(addr string) string {
+	return Catalog.Format(msgs.locale, "failAttachHCEnded", map[string]any{"addr": addr})
+}
+
 // HcReady says "Running in herdr-core"
 // in the language the app shows.
 func HcReady() string { return In(i18n.Locale()).HcReady() }

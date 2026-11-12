@@ -3,9 +3,11 @@ package main
 import (
 	"runtime"
 	"slices"
+	"strings"
 	"testing"
 
 	"mayoi/internal/cli"
+	"mayoi/locales"
 )
 
 // The box of the terminals of herdr-core of the window's machine lists the
@@ -152,5 +154,61 @@ func TestHCAttachArg(t *testing.T) {
 	}
 	if _, err := hcAddrArg(hs.root, "  "); err == nil {
 		t.Error("hcAddrArg of nothing is no error")
+	}
+}
+
+// An attach that ends as it starts, as for an address that runs nothing,
+// keeps its terminal with what hc printed, and asking again tries anew.
+func TestHCAttachEndedStays(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("no hc for Windows")
+	}
+	hs := newHarness(t, true)
+	a := hs.a
+	useFakeHC(t, nil)
+	oldAttach := hcAttach
+	hcAttach = func(string, bool) []string {
+		return []string{"/bin/sh", "-c", "echo 'hc: no terminal t9'; exit 1"}
+	}
+	t.Cleanup(func() { hcAttach = oldAttach })
+
+	a.attachHCTerminal("t9", "t9")
+	hs.settle()
+	if len(a.terms) != 1 {
+		t.Fatalf("%d terminals", len(a.terms))
+	}
+	s := a.terms[0]
+	hs.until("the note of the end", func() bool { return s.attachEnded })
+	if !strings.Contains(s.term.Text(), "hc: no terminal t9") {
+		t.Errorf("what hc printed is gone: %q", s.term.Text())
+	}
+	if !slices.Contains(a.terms, s) {
+		t.Fatal("the terminal closed")
+	}
+	if !hs.tt.HasText(locales.FailAttachHCEnded("t9")) {
+		t.Errorf("no toast says so: %q", hs.tt.Texts())
+	}
+	a.attachHCTerminal("t9", "t9")
+	hs.settle()
+	if slices.Contains(a.terms, s) || !slices.ContainsFunc(a.terms, func(c *session) bool { return c.attach == "t9" }) {
+		t.Errorf("asking again kept the ended terminal: %+v", a.terms)
+	}
+}
+
+// A shell of herdr-core that a terminal of this window runs in already
+// shows there, rather than in a second terminal attached to it.
+func TestHCAttachShowsOwnTerminal(t *testing.T) {
+	hs := newHarness(t, true)
+	a := hs.a
+	useFakeHC(t, nil)
+	own := a.addTerminal(&session{dir: hs.root, hc: "t3"})
+	if own == nil {
+		t.Fatal("no terminal")
+	}
+	n := len(a.terms)
+	a.attachHCTerminal("t3", "api")
+	hs.settle()
+	if len(a.terms) != n || slices.ContainsFunc(a.terms, func(s *session) bool { return s.attach == "t3" }) {
+		t.Errorf("a second terminal attached to t3: %+v", a.terms)
 	}
 }

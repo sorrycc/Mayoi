@@ -1457,6 +1457,8 @@
   "hcTermsNone": "No terminal of herdr-core runs on this machine.",
   "hcTermShell": "shell",
   "failListHC": "Could not read the terminals of herdr-core: {err}",
+  "termAttachEnded": "[hc attach {addr} ended as it started. What it printed is above.]",
+  "failAttachHCEnded": "Could not attach to {addr} in herdr-core. What hc printed stays in its terminal.",
   "hcReady": "Running in herdr-core",
   "hcStarting": "Starting in herdr-core…",
   "termWaiting": "Waiting for {host}…",

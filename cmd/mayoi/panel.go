@@ -39,7 +39,10 @@ type session struct {
 	// attach is the address of the terminal of herdr-core this terminal
 	// shows by running hc attach here, which closing it, or Ctrl+\, ends
 	// without ending the shell there. "" for one that runs a shell.
-	attach string
+	// attachEnded is set once its hc attach ended as it started, which
+	// asking for the address again replaces.
+	attach      string
+	attachEnded bool
 	// attached is when the view last attached to it, and hcNew is set
 	// until the first attach of a shell just started, which has no
 	// history to show.

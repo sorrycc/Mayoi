@@ -114,10 +114,7 @@ func hcTermFolder(t hcLiveTerm) string {
 // agent, or its shell, and what it says it does.
 func hcTermAbout(t hcLiveTerm) string {
 	about := t.Agent
-	if shells[t.Agent] {
-		about = locales.HcTermShell()
-	}
-	if about == "" {
+	if about == "" || shells[about] {
 		about = locales.HcTermShell()
 	}
 	if t.Status != "" {
@@ -164,7 +161,14 @@ func (a *app) pickHCAttach() {
 // attach on it. A plugin, or the mayoi command, asks for one by its address.
 func (a *app) attachHCTerminal(addr, title string) {
 	for _, s := range a.terms {
-		if s.attach == addr {
+		if s.attach == addr && s.attachEnded {
+			// One that could not attach tries again in a new terminal.
+			a.removeTerminal(s)
+			break
+		}
+		// A terminal of this window whose shell runs there shows it
+		// already.
+		if s.attach == addr || s.hc == addr {
 			// One attach of a terminal of herdr-core, not two: the one here
 			// shows again, and says so when it is already in front.
 			inFront := a.termInFront(s)

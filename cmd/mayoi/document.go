@@ -396,7 +396,7 @@ func (w *widthCounter) Write(p []byte) (int, error) {
 			w.col = 0
 			i++
 		case c == '\t':
-			w.col += tabWidth - w.col%tabWidth
+			w.col += tabWidth() - w.col%tabWidth()
 			i++
 		case c < utf8.RuneSelf:
 			w.col++
@@ -415,7 +415,7 @@ func columns(s string) int {
 	col := 0
 	for _, r := range s {
 		if r == '\t' {
-			col += tabWidth - col%tabWidth
+			col += tabWidth() - col%tabWidth()
 		} else {
 			col++
 		}

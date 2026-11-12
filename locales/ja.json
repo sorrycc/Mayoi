@@ -1400,6 +1400,8 @@
   "prefDescAutoSave": "入力をやめて少し経ったときと、ファイルから離れたときに保存します。",
   "prefTitleWordWrap": "折り返し",
   "prefDescWordWrap": "長い行をエディターの端で折り返します。タブごとに変えることもできます。",
+  "prefTitleTabSize": "タブ幅",
+  "prefDescTabSize": "エディターでタブが占める列数です。",
   "prefTitleEditorAgentContext": "エージェントのコンテキストを収集",
   "prefDescEditorAgentContext": "通常のファイルのガターに + を表示し、コードと任意のコメントを収集します。",
   "prefTitleMarkdownPreview": "開くときに Markdown をプレビュー",

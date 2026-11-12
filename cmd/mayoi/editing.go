@@ -28,7 +28,7 @@ func (s indentStyle) unit() string {
 // cols is how many columns one level takes.
 func (s indentStyle) cols() int {
 	if s.tabs {
-		return tabWidth
+		return tabWidth()
 	}
 	return s.size
 }
@@ -67,7 +67,7 @@ func detectIndent(snap ui.TextSnapshot, path string) indentStyle {
 		prev = n
 	}
 	if tabs > spaces && tabs > 0 {
-		return indentStyle{tabs: true, size: tabWidth}
+		return indentStyle{tabs: true, size: tabWidth()}
 	}
 	if spaces > 0 {
 		best := 0
@@ -82,12 +82,12 @@ func detectIndent(snap ui.TextSnapshot, path string) indentStyle {
 	}
 	switch strings.ToLower(filepath.Ext(path)) {
 	case ".go", ".mod":
-		return indentStyle{tabs: true, size: tabWidth}
+		return indentStyle{tabs: true, size: tabWidth()}
 	case ".js", ".jsx", ".ts", ".tsx", ".mjs", ".cjs", ".json", ".yaml", ".yml", ".html", ".css", ".scss", ".vue", ".svelte", ".rb", ".lua", ".dart", ".nix":
 		return indentStyle{size: 2}
 	}
 	if strings.EqualFold(filepath.Base(path), "makefile") {
-		return indentStyle{tabs: true, size: tabWidth}
+		return indentStyle{tabs: true, size: tabWidth()}
 	}
 	return indentStyle{size: 4}
 }

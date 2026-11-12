@@ -14174,6 +14174,26 @@ func (msgs Messages) PrefDescWordWrap() string {
 	return Catalog.Format(msgs.locale, "prefDescWordWrap", nil)
 }
 
+// PrefTitleTabSize says "Tab Size"
+// in the language the app shows.
+func PrefTitleTabSize() string { return In(i18n.Locale()).PrefTitleTabSize() }
+
+// PrefTitleTabSize says "Tab Size"
+// in the language of msgs.
+func (msgs Messages) PrefTitleTabSize() string {
+	return Catalog.Format(msgs.locale, "prefTitleTabSize", nil)
+}
+
+// PrefDescTabSize says "How many columns a tab takes in the editor."
+// in the language the app shows.
+func PrefDescTabSize() string { return In(i18n.Locale()).PrefDescTabSize() }
+
+// PrefDescTabSize says "How many columns a tab takes in the editor."
+// in the language of msgs.
+func (msgs Messages) PrefDescTabSize() string {
+	return Catalog.Format(msgs.locale, "prefDescTabSize", nil)
+}
+
 // PrefTitleEditorAgentContext says "Collect Agent Context"
 // in the language the app shows.
 func PrefTitleEditorAgentContext() string { return In(i18n.Locale()).PrefTitleEditorAgentContext() }

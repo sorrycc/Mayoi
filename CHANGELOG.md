@@ -9,6 +9,8 @@ needs a `## <version>` section here, or its build fails.
 - On Linux and Windows, `Page Up` in the **Sessions** list goes back up to the first session.
 - Opening a file in Mayoi while it is still starting no longer crashes; the file opens once it's ready.
 - On Linux, letters no longer crowd together or leave gaps in fonts with kerning, such as Microsoft YaHei UI.
+- **Settings → Editor → Tab Size** sets how many columns a tab takes, 4 by default.
+- Tabs now take the same width on every system, where Linux showed them 8 columns wide.
 
 ## 0.20.0
 

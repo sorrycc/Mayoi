@@ -83,6 +83,7 @@ takes its default.
 | `locale`                | `""`          | `""` (follow the system), `"en"`, `"zh-Hans"`, `"ja"`       | **View → Language**                            |
 | `autoSave`              | `true`        | `true`, `false`                                             | **File → Auto Save**                           |
 | `wordWrap`              | `false`       | `true`, `false`                                             | **View → Word Wrap**                           |
+| `tabSize`               | `4`           | `1` to `8`                                                  |                                                |
 | `editorAgentContext`    | `false`       | `true`, `false`                                             | Only this file                                 |
 | `previewMermaid`        | `true`        | `true`, `false`                                             | Only this file                                 |
 | `previewMath`           | `true`        | `true`, `false`                                             | Only this file                                 |
@@ -203,6 +204,8 @@ differ in width lines them up only roughly.
 - **`autoSave`** saves a changed file a moment after you stop typing, and when you leave it.
 - **`wordWrap`** wraps long lines at the edge of the editor. **⌥Z** wraps or unwraps one tab only, until this
   setting changes.
+- **`tabSize`** is how many columns a tab takes in the editor, the same on every system. It doesn't change
+  what a key inserts: a file indented with spaces keeps its own indent size.
 - **`editorAgentContext`** shows a **+** beside the line under the pointer in ordinary files. Click it
   to comment on that line or the selected lines in an inline review card; an empty comment collects the
   code alone. Collect snippets across files and send them together from the editor toolbar. It is off

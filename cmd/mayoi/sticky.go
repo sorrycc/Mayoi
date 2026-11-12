@@ -207,7 +207,7 @@ func (a *app) stickyRows(d *editor, snap ui.TextSnapshot, lines []int) []stickyR
 		at := utf8.RuneCountInString(lead)
 		span := func(from, to int, c ui.Color) {
 			if to > from {
-				txt := strings.ReplaceAll(string(runes[from:to]), "\t", "    ")
+				txt := strings.ReplaceAll(string(runes[from:to]), "\t", strings.Repeat(" ", f.tabSize))
 				row.spans = append(row.spans, f.span(txt, c))
 			}
 		}

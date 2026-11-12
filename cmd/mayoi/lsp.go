@@ -596,7 +596,7 @@ func (a *app) lspFormat(d *editor, limit time.Duration, then func()) bool {
 	version := snap.Version()
 	size, spaces := max(d.indent.size, 1), !d.indent.tabs
 	if d.indent.tabs {
-		size = tabWidth
+		size = tabWidth()
 	}
 	uri := serverURI(d.path)
 	go func() {

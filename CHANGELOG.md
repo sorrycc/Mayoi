@@ -7,6 +7,7 @@ needs a `## <version>` section here, or its build fails.
 
 - A resumed session's tab keeps the session's title in a shell other than your default one.
 - On Linux and Windows, `Page Up` in the **Sessions** list goes back up to the first session.
+- Opening a file in Mayoi while it is still starting no longer crashes; the file opens once it's ready.
 - On Linux, letters no longer crowd together or leave gaps in fonts with kerning, such as Microsoft YaHei UI.
 
 ## 0.20.0

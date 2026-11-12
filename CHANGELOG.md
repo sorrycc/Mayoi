@@ -6,6 +6,7 @@ needs a `## <version>` section here, or its build fails.
 ## Unreleased
 
 - A resumed session's tab keeps the session's title in a shell other than your default one.
+- On Linux, letters no longer crowd together or leave gaps in fonts with kerning, such as Microsoft YaHei UI.
 
 ## 0.20.0
 

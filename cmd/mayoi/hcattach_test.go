@@ -204,6 +204,7 @@ func TestHCAttachShowsOwnTerminal(t *testing.T) {
 	hs := newHarness(t, true)
 	a := hs.a
 	useFakeHC(t, nil)
+	fakeAttach(t)
 	own := a.addTerminal(&session{dir: hs.root, hc: "t3"})
 	if own == nil {
 		t.Fatal("no terminal")

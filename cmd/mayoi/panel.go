@@ -36,6 +36,10 @@ type session struct {
 	// hc is the address of the terminal of herdr-core the shell runs in,
 	// "" for one that runs here.
 	hc string
+	// attach is the address of the terminal of herdr-core this terminal
+	// shows by running hc attach here, which closing it, or Ctrl+\, ends
+	// without ending the shell there. "" for one that runs a shell.
+	attach string
 	// attached is when the view last attached to it, and hcNew is set
 	// until the first attach of a shell just started, which has no
 	// history to show.
@@ -195,9 +199,14 @@ func (a *app) addTerminal(s *session) *session {
 // the host in a remote folder.
 func (a *app) spawnTerminal(s *session, dir string) (*terminal.Terminal, error) {
 	light, dark := a.termThemes()
-	// In a remote folder, a shell of its host, over the connection.
 	var command, env []string
-	if c, rdir, ok := remote.Lookup(dir); ok {
+	// Attached to a terminal of herdr-core: hc attach here, which closing
+	// the terminal ends alone.
+	if s.attach != "" {
+		command, env = hcAttach(s.attach, true), hcEnv()
+		dir, _ = os.UserHomeDir()
+	} else if c, rdir, ok := remote.Lookup(dir); ok {
+		// In a remote folder, a shell of its host, over the connection.
 		command = c.TerminalCommand(rdir)
 		dir, _ = os.UserHomeDir()
 	}

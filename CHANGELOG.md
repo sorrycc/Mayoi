@@ -6,6 +6,9 @@ needs a `## <version>` section here, or its build fails.
 ## Unreleased
 
 - A tab dragged onto another project's square stays under the pointer as that project shows, to drop in a column.
+- **View → Attach to Terminal in herdr-core…** shows one of its terminals in a terminal here, attached.
+- Closing such a terminal, or `Ctrl+\`, detaches it, and the shell in herdr-core runs on.
+- `mayoi run view.attachHC=<address>` shows a terminal of herdr-core by its address, for plugins too.
 - On macOS, VoiceOver no longer crashes Mayoi on text that starts with a byte order mark.
 - Clicking a Git diff's toolbar buttons while its changes refresh no longer crashes Mayoi.
 - On a Mac with Apple silicon, the Intel build of Mayoi updates to the Apple silicon build.

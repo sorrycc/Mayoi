@@ -33,6 +33,15 @@ func (a *app) terminalExited(s *session, t *terminal.Terminal, code int) {
 		a.hcExited(s, t)
 		return
 	}
+	// Attached to a terminal of herdr-core: what hc attach printed stays
+	// as it goes, and the shell there runs on.
+	if s.attach != "" {
+		if time.Since(s.started) < exitedEarlyWithin {
+			a.fail("%s", locales.FailAttachHC(s.attach))
+		}
+		a.removeTerminal(s)
+		return
+	}
 	// ssh exits with 255 when the connection fails, which a shell does
 	// only if asked.
 	if c := sessionConn(s); c != nil && c == a.conn && (code == 255 || !c.Connected()) {

@@ -12314,6 +12314,16 @@ func (msgs Messages) CmdViewInstallHC() string {
 	return Catalog.Format(msgs.locale, "cmdViewInstallHC", nil)
 }
 
+// CmdViewAttachHC says "Attach to Terminal in herdr-core…"
+// in the language the app shows.
+func CmdViewAttachHC() string { return In(i18n.Locale()).CmdViewAttachHC() }
+
+// CmdViewAttachHC says "Attach to Terminal in herdr-core…"
+// in the language of msgs.
+func (msgs Messages) CmdViewAttachHC() string {
+	return Catalog.Format(msgs.locale, "cmdViewAttachHC", nil)
+}
+
 // HcInstalling says "Installing hc…"
 // in the language the app shows.
 func HcInstalling() string { return In(i18n.Locale()).HcInstalling() }
@@ -12382,6 +12392,56 @@ func HcInstall() string { return In(i18n.Locale()).HcInstall() }
 // in the language of msgs.
 func (msgs Messages) HcInstall() string {
 	return Catalog.Format(msgs.locale, "hcInstall", nil)
+}
+
+// HcAttached says "Already attached to {addr} in herdr-core"
+// in the language the app shows.
+func HcAttached(addr string) string { return In(i18n.Locale()).HcAttached(addr) }
+
+// HcAttached says "Already attached to {addr} in herdr-core"
+// in the language of msgs.
+func (msgs Messages) HcAttached(addr string) string {
+	return Catalog.Format(msgs.locale, "hcAttached", map[string]any{"addr": addr})
+}
+
+// HcTermsPick says "Terminal in herdr-core"
+// in the language the app shows.
+func HcTermsPick() string { return In(i18n.Locale()).HcTermsPick() }
+
+// HcTermsPick says "Terminal in herdr-core"
+// in the language of msgs.
+func (msgs Messages) HcTermsPick() string {
+	return Catalog.Format(msgs.locale, "hcTermsPick", nil)
+}
+
+// HcTermsNone says "No terminal of herdr-core runs on this machine."
+// in the language the app shows.
+func HcTermsNone() string { return In(i18n.Locale()).HcTermsNone() }
+
+// HcTermsNone says "No terminal of herdr-core runs on this machine."
+// in the language of msgs.
+func (msgs Messages) HcTermsNone() string {
+	return Catalog.Format(msgs.locale, "hcTermsNone", nil)
+}
+
+// HcTermShell says "shell"
+// in the language the app shows.
+func HcTermShell() string { return In(i18n.Locale()).HcTermShell() }
+
+// HcTermShell says "shell"
+// in the language of msgs.
+func (msgs Messages) HcTermShell() string {
+	return Catalog.Format(msgs.locale, "hcTermShell", nil)
+}
+
+// FailListHC says "Could not read the terminals of herdr-core: {err}"
+// in the language the app shows.
+func FailListHC(err string) string { return In(i18n.Locale()).FailListHC(err) }
+
+// FailListHC says "Could not read the terminals of herdr-core: {err}"
+// in the language of msgs.
+func (msgs Messages) FailListHC(err string) string {
+	return Catalog.Format(msgs.locale, "failListHC", map[string]any{"err": err})
 }
 
 // HcReady says "Running in herdr-core"

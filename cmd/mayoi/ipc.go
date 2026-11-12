@@ -354,6 +354,13 @@ var commandArgs = map[string]commandArg{
 		}
 		return func() { a.run(id) }, nil
 	}},
+	"view.attachHC": {"<addr>", func(a *app, arg, cwd string) (func(), error) {
+		addr, err := hcAddrArg(a.root, arg)
+		if err != nil {
+			return nil, err
+		}
+		return func() { a.attachHCTerminal(addr, addr) }, nil
+	}},
 	"remote.forwardPort": {"<port>", func(a *app, arg, cwd string) (func(), error) {
 		port, err := strconv.Atoi(strings.TrimPrefix(arg, ":"))
 		switch {

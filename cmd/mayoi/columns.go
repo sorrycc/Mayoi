@@ -920,6 +920,10 @@ func (a *app) rememberTabs() {
 		for i, t := range col.tabs {
 			var ts settings.Tab
 			switch {
+			case t.term != nil && t.term.attach != "":
+				// One attached to a terminal of herdr-core shows it again
+				// when asked, not as a tab of its own.
+				continue
 			case t.term != nil:
 				ts = settings.Tab{Terminal: true, HC: t.term.hc}
 				if ts.HC != "" {

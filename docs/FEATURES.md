@@ -468,8 +468,12 @@ and maximize the panel. **View → New Terminals in Editor Area**, `terminalLoca
 and the Explorer's **Open in Terminal** open a tab of the editor area rather than the panel; Toggle Terminal and the
 panel's **+** still use the panel. Terminal colors follow the theme. With `terminalBackend` set to `"hc"`, shells run in
 herdr-core and keep running after Mayoi quits, and the next start attaches to them again. A dot on such a terminal's
-tab and chip says so, and pulses while its shell starts or its machine is away. **View → Install hc…**
-installs or updates `hc` in `~/.local/bin` with herdr's installer, on macOS and Linux.
+tab and chip says so, and pulses while its shell starts or its machine is away. **View → Attach to Terminal in
+herdr-core…** lists the terminals of herdr-core of the window's machine, those of the Herdr app and of an agent too, and
+shows the one chosen in a terminal of this window: it runs `hc attach` here, so closing it, or Ctrl+\, ends the attach
+alone and the shell runs on, in the Herdr app as well. Its size is the terminal's while it is attached. A plugin, or
+`mayoi run view.attachHC=<address>`, shows one by its address, an address of another machine with its machine's name.
+**View → Install hc…** installs or updates `hc` in `~/.local/bin` with herdr's installer, on macOS and Linux.
 Files dropped on a terminal type their paths, quoted for the shell. ⌘V with only an image on the clipboard sends an empty
 bracketed paste, as VS Code's terminal does, so that Claude Code pastes the screenshot. Selecting text copies it, as
 in Ghostty and iTerm2: a drag, a double click for a word, a triple click for a line, Shift with a drag in a program

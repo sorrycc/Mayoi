@@ -184,6 +184,7 @@ func (a *app) commandsIn(t locales.Messages) []command {
 		{"view.terminalMove", t.CmdViewTerminalMove(), "", a.moveTerminal},
 		{"view.terminalRename", t.CmdViewTerminalRename(), "", a.renameTerminal},
 		{"view.installHC", t.CmdViewInstallHC(), "", a.installHC},
+		{"view.attachHC", t.CmdViewAttachHC(), "", a.pickHCAttach},
 		{"view.terminalLocation", t.CmdViewTerminalLocation(), "", a.toggleTerminalLocation},
 		{"view.terminalLockRight", t.CmdViewTerminalLockRight(), "", a.moveTerminalToLockedRight},
 		{"view.panelPosition.bottom", t.CmdViewPanelBottom(), "", func() { a.setPanelPosition("") }},
@@ -245,6 +246,9 @@ func (a *app) commandsIn(t locales.Messages) []command {
 	}
 	if !hcInstallable() {
 		cmds = slices.DeleteFunc(cmds, func(c command) bool { return c.id == "view.installHC" })
+	}
+	if hcPath() == "" {
+		cmds = slices.DeleteFunc(cmds, func(c command) bool { return c.id == "view.attachHC" })
 	}
 	return cmds
 }
@@ -606,6 +610,11 @@ func (a *app) menu(cli bool, run func(id string, win *mygo.Window)) *mygo.Menu {
 		cut, selectAll = item("edit.cut"), item("edit.selectAll")
 	}
 	installHC := item("view.installHC")
+	// Attach to Terminal in herdr-core… is not a command while hc is
+	// missing, which would leave an item with no label.
+	attachHC := item("view.attachHC")
+	_, hasHC := byID["view.attachHC"]
+	attachHC.Hidden = !hasHC
 	menus := []*mygo.MenuItem{
 		appMenu,
 		{Label: locales.MenuFile(), Submenu: file},
@@ -631,7 +640,7 @@ func (a *app) menu(cli bool, run func(id string, win *mygo.Window)) *mygo.Menu {
 			checkbox("view.vim", a.prefs().Vim), checkbox("view.projectTabs", a.settings.ProjectTabs), mygo.Separator(),
 			item("view.splitRight"), item("view.nextColumn"), item("view.prevColumn"),
 			item("view.moveTabNext"), item("view.moveTabPrev"), mygo.Separator(),
-			item("view.terminal"), item("view.newTerminal"), item("view.terminalTab"), item("view.terminalMove"), installHC,
+			item("view.terminal"), item("view.newTerminal"), item("view.terminalTab"), item("view.terminalMove"), attachHC, installHC,
 			checkbox("view.terminalLocation", a.settings.TerminalLocation == "editor"),
 			{Label: locales.MenuPanelPosition(), Submenu: []*mygo.MenuItem{
 				radio("view.panelPosition.bottom", a.panelSide() == "bottom"),

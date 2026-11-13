@@ -156,3 +156,19 @@ func TestQuickPathFailureStates(t *testing.T) {
 		}
 	}
 }
+
+// A query like a path that names no file still matches the folder's files.
+func TestQuickPathMissingStillMatches(t *testing.T) {
+	hs := newHarness(t, true)
+	hs.settle()
+	a := hs.a
+	a.quick.probe.stat = func(string) (os.FileInfo, error) { return nil, os.ErrNotExist }
+	a.openQuick("/mayoi/app")
+	hs.settle()
+	a.index = []string{"cmd/mayoi/app.go"}
+	a.quick.stale = true
+	hs.settle()
+	if q := a.quick; len(q.results) != 1 || q.probe.pending || hs.tt.HasText(locales.QuickPathMissing()) {
+		t.Fatalf("a missing path hides the folder's matches: %+v", q.results)
+	}
+}

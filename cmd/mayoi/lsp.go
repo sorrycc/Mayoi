@@ -449,8 +449,12 @@ func (a *app) goToDefinition() {
 			}
 			a.openFileAt(path, locs[0].Range.Start.Line, true)
 			if ed := a.activeEditor(); ed != nil && ed.path == path {
-				at := posRune(ed.buf.Snapshot(), fromLSP(locs[0].Range.Start))
-				ed.selectRange(at, at, true)
+				// At the name, once the file is read, not the line's start.
+				ed.whenRead(func(ed *editor) {
+					at := posRune(ed.buf.Snapshot(), fromLSP(locs[0].Range.Start))
+					ed.selectRange(at, at, true)
+					ed.lightLanding()
+				})
 			}
 		})
 	}()

@@ -191,7 +191,7 @@ func TestRestoreRetainsLongLineFailure(t *testing.T) {
 	if names := allTabNames(a); !slices.Equal(names, []string{"index.js.map", "main.go"}) {
 		t.Fatalf("tabs %v", names)
 	}
-	if d := a.cols[0].tabs[0].ed; d.sync != syncLoadFailed || d.loadErr != errLongLine || d.buf.Len() != 0 || !tt.HasText("Try Again") {
+	if d := a.cols[0].tabs[0].ed; d.sync != syncLoadFailed || d.loadErr != errLongLine || d.buf.Len() != 0 || tt.HasText("Try Again") {
 		t.Fatal("restored long line did not retain its failure without loading text")
 	}
 }

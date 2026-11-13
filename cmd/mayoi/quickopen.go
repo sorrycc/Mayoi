@@ -78,18 +78,13 @@ func gotoLine(query string) (line, col int, ok bool) {
 	return n, col, true
 }
 
-// quickPath is the file of this machine that a query names by an
+// quickPathName is the file of this machine that a query names by an
 // absolute or ~/ path, which quick open offers in place of the folder's
-// matches, with the line and column of a :line or :line:column after it.
-// The path may be quoted or shell-escaped, as pasted from a terminal. It
-// is "" for any other query, a path that is not a file, or a folder on a
-// host, whose paths are the host's.
-func quickPath(root, query string) (name string, line, col int) {
-	result := probeQuickPath(quickPathName(root, query), os.Stat)
-	return result.name, result.at[0], result.at[1]
-}
-
-// quickPathName only parses text; it must never touch the filesystem.
+// matches once probeQuickPath finds it, with a :line or :line:column
+// after it. The path may be quoted or shell-escaped, as pasted from a
+// terminal. It is "" for any other query, or a folder on a host, whose
+// paths are the host's. It only parses text; it must never touch the
+// filesystem.
 func quickPathName(root, query string) string {
 	if remote.Is(root) {
 		return ""
@@ -142,9 +137,9 @@ func (a *app) quickOpenView(c *ui.Context) {
 		if q.path != "" {
 			// The one result is the path, as files below lists it alone.
 			q.results = []workspace.Match{{Index: 0}}
-		} else if q.probe.name != "" {
-			q.results = nil
 		} else {
+			// A path not found yet, or not a file, still matches the
+			// folder's files, which keep their place while it is checked.
 			q.results = workspace.Fuzzy(a.index, q.query, 60)
 			if strings.TrimSpace(q.query) == "" {
 				q.results = a.recentFirst(q.results)
@@ -382,6 +377,16 @@ func (d *editor) goToLine(line, col int) {
 	}
 	d.selectLine(line, col)
 	d.vscroll.Focus()
+}
+
+// whenRead runs fn on the editor now, or once its file is read, in place
+// of a target asked for before.
+func (d *editor) whenRead(fn func(*editor)) {
+	if d.unread() {
+		d.loadedTarget = fn
+		return
+	}
+	fn(d)
 }
 
 func (d *editor) selectLine(line, col int) {

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/fs"
 	"os"
@@ -11,7 +12,9 @@ import (
 
 	"github.com/egoist/mygo/ui"
 
+	"mayoi/internal/settings"
 	"mayoi/internal/vfs"
+	"mayoi/locales"
 )
 
 func blockLocalReads(t *testing.T, a *app) (func(), *atomic.Int32) {
@@ -187,7 +190,9 @@ func TestLocalOpenBlockedFrameBudget(t *testing.T) {
 	hs.settle()
 }
 
-func TestLocalOpenReadyFeedback(t *testing.T) {
+// A read that ends soon shows no spinner; a slow one says it reads, and
+// the text it brings comes in without a flash.
+func TestLocalOpenReadingShowsLate(t *testing.T) {
 	for _, reduced := range []bool{false, true} {
 		t.Run(fmt.Sprint(reduced), func(t *testing.T) {
 			hs := newHarness(t, true)
@@ -196,21 +201,102 @@ func TestLocalOpenReadyFeedback(t *testing.T) {
 			release, _ := blockLocalReads(t, hs.a)
 			hs.a.openFile(hs.path("main.go"), true)
 			d := hs.a.activeEditor()
+			reading := locales.RemoteReading(d.name())
 			step(hs.tt)
 			if !d.locked() {
 				t.Fatal("loading editor accepted input")
 			}
+			if hs.tt.HasText(reading) {
+				t.Fatal("a read just begun shows that it reads")
+			}
+			hs.tt.Advance(readingShows)
+			step(hs.tt)
+			if !hs.tt.HasText(reading) {
+				t.Fatal("a slow read does not say it reads")
+			}
 			release()
 			hs.until("file ready", func() bool { return !d.unread() })
 			step(hs.tt)
-			if d.landAt.IsZero() || d.landDuration != motionShow {
-				t.Fatal("ready state did not use the tokenized landing feedback")
+			if !d.landAt.IsZero() {
+				t.Fatal("the text read lit a line")
 			}
 			hs.tt.Type("x")
 			hs.settle()
 			if !d.dirty() {
-				t.Fatal("ready feedback delayed typing")
+				t.Fatal("typing did not reach the file read")
 			}
 		})
+	}
+}
+
+// Reads stuck on a share that is gone stop holding their places, so a
+// file after them still opens.
+func TestLocalOpenStuckReadsLetOthersOpen(t *testing.T) {
+	hs := newHarness(t, true)
+	a := hs.a
+	a.localStuck = time.Millisecond
+	gate := make(chan struct{})
+	t.Cleanup(func() { close(gate) })
+	stuck := map[string]bool{hs.path("a.txt"): true, hs.path("b.txt"): true}
+	for p := range stuck {
+		os.WriteFile(p, []byte("x\n"), 0o600)
+	}
+	a.localRead = func(path string, limit int64) (fs.FileInfo, []byte, error) {
+		if stuck[path] {
+			<-gate
+		}
+		return vfs.ReadFileInfo(path, limit)
+	}
+	a.openFile(hs.path("a.txt"), true)
+	a.openFile(hs.path("b.txt"), true)
+	a.openFile(hs.path("main.go"), true)
+	d := a.activeEditor()
+	// settle would wait for the stuck reads too.
+	for deadline := time.Now().Add(5 * time.Second); d.unread(); time.Sleep(time.Millisecond) {
+		if time.Now().After(deadline) {
+			t.Fatal("main.go waits behind the stuck reads")
+		}
+		step(hs.tt)
+	}
+	if a.localReads != 0 {
+		t.Fatalf("stuck reads still hold %d places", a.localReads)
+	}
+}
+
+// A plugin's workspace.open answers once the file is read, so that the
+// plugin finds its text.
+func TestPluginOpenAnswersOnceRead(t *testing.T) {
+	hs := newHarness(t, true)
+	a := hs.a
+	release, _ := blockLocalReads(t, a)
+	h := newPluginHost(func() []*app { return []*app{a} }, a.post, func() *settings.Settings { return a.settings }, func() {})
+	answered := make(chan error, 1)
+	go func() {
+		_, err := h.Call(nil, "workspace.open", json.RawMessage(`{"path":"main.go"}`))
+		answered <- err
+	}()
+	for range 20 {
+		step(hs.tt)
+		time.Sleep(time.Millisecond)
+	}
+	select {
+	case <-answered:
+		t.Fatal("workspace.open answered before the file was read")
+	default:
+	}
+	release()
+	for deadline := time.Now().Add(5 * time.Second); ; time.Sleep(time.Millisecond) {
+		step(hs.tt)
+		select {
+		case err := <-answered:
+			if d := a.activeEditor(); err != nil || d == nil || d.unread() || d.buf.Len() == 0 {
+				t.Fatalf("answered %v with %+v", err, d)
+			}
+			return
+		default:
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("workspace.open never answered")
+		}
 	}
 }

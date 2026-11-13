@@ -96,7 +96,7 @@ func TestDroppingFiles(t *testing.T) {
 	os.WriteFile(bin, []byte{0, 1, 2, 0, 0, 3}, 0o644)
 	a.dropFilesBeside([]string{bin}, a.cols[1], true)
 	hs.settle()
-	if len(a.cols) != 3 || a.cols[2].tab().ed.loadErr != errBinary || !hs.tt.HasText("Try Again") {
+	if len(a.cols) != 3 || a.cols[2].tab().ed.loadErr != errBinary || hs.tt.HasText("Try Again") {
 		t.Errorf("%d columns after dropping a binary file beside", len(a.cols))
 	}
 	// Only folders beside a column split nothing.

@@ -294,7 +294,7 @@ func (a *app) markOffline() {
 // document is empty and read-only until it is read, or says why it could
 // not be.
 func (a *app) loadRemote(d *document) {
-	d.sync, d.loadErr = syncLoading, nil
+	d.sync, d.loadErr, d.readingAt = syncLoading, nil, time.Time{}
 	path := d.path
 	if !remote.IsConnected(path) {
 		d.sync, d.loadErr = syncLoadFailed, remote.ErrOffline
@@ -313,6 +313,7 @@ func (a *app) remoteLoaded(d *document, path string, info fs.FileInfo, data []by
 	if !slices.Contains(a.docs, d) || d.path != path {
 		return
 	}
+	defer d.readDone()
 	if err == nil && isBinary(data) {
 		err = errBinary
 	} else if err == nil && hasLongLine(data) {
@@ -356,7 +357,6 @@ func (a *app) remoteLoaded(d *document, path string, info fs.FileInfo, data []by
 	d.measureWidest()
 	d.stamp = stampOf(info)
 	for _, ed := range d.views {
-		restored := ed.restoreTab != nil
 		if ts := ed.restoreTab; ts != nil {
 			ed.restoreTab = nil
 			a.restoreEditor(ed, *ts)
@@ -364,16 +364,6 @@ func (a *app) remoteLoaded(d *document, path string, info fs.FileInfo, data []by
 		if target := ed.loadedTarget; target != nil {
 			ed.loadedTarget = nil
 			target(ed)
-		}
-		// Reuse the caret landing fade to mark the transition to ready.
-		// It changes color only, including with Reduce Motion, and never
-		// delays input or moves the editor or its neighbours.
-		if !remote.Is(path) {
-			if ed.pending == nil && !restored {
-				ed.selectRange(ed.sel[0], ed.sel[1], false)
-			}
-			ed.lightLanding()
-			ed.landDuration = motionShow
 		}
 	}
 	a.find.stale = true
@@ -708,6 +698,13 @@ func (a *app) loadingView(c *ui.Context, d *editor) {
 	p := a.pal
 	ui.Column(c).Fill().Center().Gap(10).Background(p.editor).Padding(24).Children(func() {
 		if d.sync == syncLoading {
+			if d.readingAt.IsZero() {
+				d.readingAt = c.Now()
+			}
+			if wait := readingShows - c.Now().Sub(d.readingAt); wait > 0 {
+				c.After(wait)
+				return
+			}
 			if !c.Preferences().ReduceMotion {
 				ui.Spinner(c).Size(16, 16)
 			} else {
@@ -735,7 +732,9 @@ func (a *app) loadingView(c *ui.Context, d *editor) {
 		}
 		ui.Text(c, msg).FontSize(13).TextColor(p.muted).MaxWidth(420)
 		ui.Text(c, d.path).FontSize(12).TextColor(p.muted).MaxWidth(420)
-		if !errors.Is(d.loadErr, remote.ErrOffline) && ui.Button(c.Key("retry:"+d.path), locales.RemoteTryAgain()).Clicked() {
+		// A binary file or one with a line too long fails again the same way.
+		retry := !errors.Is(d.loadErr, remote.ErrOffline) && !errors.Is(d.loadErr, errBinary) && !errors.Is(d.loadErr, errLongLine)
+		if retry && ui.Button(c.Key("retry:"+d.path), locales.RemoteTryAgain()).Clicked() {
 			a.loadFile(d.document)
 		}
 	})

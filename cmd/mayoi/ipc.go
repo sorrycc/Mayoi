@@ -418,6 +418,13 @@ type docWait struct {
 // docClosed answers the waits for a document that closed, nil for every
 // one, as the project closes.
 func (a *app) docClosed(d *document) {
+	if d != nil {
+		d.readDone()
+	} else {
+		for _, doc := range a.docs {
+			doc.readDone()
+		}
+	}
 	a.waits = slices.DeleteFunc(a.waits, func(w docWait) bool {
 		if d == nil || w.doc == d {
 			w.done()

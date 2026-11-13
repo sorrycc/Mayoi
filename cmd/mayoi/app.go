@@ -251,6 +251,7 @@ type app struct {
 	docs        []*document
 	localReads  int
 	localRead   localReader
+	localStuck  time.Duration // 0 is localReadStuck
 	loadsClosed bool
 	cols        []*column
 	col         int

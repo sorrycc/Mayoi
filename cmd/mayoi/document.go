@@ -77,6 +77,8 @@ type document struct {
 	sync              syncState
 	loadErr           error
 	localQueued       bool
+	readingAt         time.Time // when its tab first showed it reading
+	readWaits         []func()  // what waits for the read under way to end
 	stamp             *fileStamp
 	offline, restored bool
 	// waiters are the saves the write under way answers, or the question
@@ -123,10 +125,9 @@ type editor struct {
 
 	// landing is whether the jump asked for lights up the line it lands
 	// on, which landLine is, from landAt.
-	landing      bool
-	landDuration time.Duration
-	landLine     int
-	landAt       time.Time
+	landing  bool
+	landLine int
+	landAt   time.Time
 
 	vscroll ui.ScrollState // the text area's
 	hscroll ui.ScrollState // the container that scrolls it sideways
@@ -459,4 +460,4 @@ const landFor = 650 * time.Millisecond
 // lightLanding has the line the selection asked for lands on light up,
 // and fade, as the editor gets there: a jump from elsewhere, as going to
 // a line or to a match of a search, shows where it went.
-func (d *editor) lightLanding() { d.landing, d.landDuration = true, landFor }
+func (d *editor) lightLanding() { d.landing = true }

@@ -162,6 +162,30 @@ func TestPlaceLoose(t *testing.T) {
 	}
 }
 
+// An agent that began after the newest session of its folder runs one not
+// written yet, not the old one, which it would resume in place of.
+func TestPlaceLooseAfterItBegan(t *testing.T) {
+	hs := newHarness(t, true)
+	a := hs.a
+	t0 := time.Now()
+	a.sessions.sessions = []agents.Session{{Harness: agents.Qoder, ID: "q1", Dir: hs.root, Updated: t0}}
+	a.sessions.liveSeen = true
+	a.placeLive(t0)
+	q := &session{dir: hs.root}
+	q.status.Records = []terminal.StatusRecord{{State: terminal.StatusWorking, App: "qodercli", Progress: -1}}
+	a.terms = append(a.terms, q)
+	a.placeLive(t0.Add(time.Minute))
+	if r, ok := a.sessions.running[liveKey(agents.Qoder, "q1")]; ok {
+		t.Fatalf("q1 runs in %+v, want none", r)
+	}
+	// Once its first prompt writes the session, it runs that.
+	a.sessions.sessions = append(a.sessions.sessions, agents.Session{Harness: agents.Qoder, ID: "q2", Dir: hs.root, Updated: t0.Add(2 * time.Minute)})
+	a.placeLive(t0.Add(2 * time.Minute))
+	if r := a.sessions.running[liveKey(agents.Qoder, "q2")]; r.term != q {
+		t.Errorf("q2 runs in %+v, want the Qoder terminal", r)
+	}
+}
+
 // A program here that says it is an agent (OSC 7501) runs the session it
 // resumed, or else the newest of its folder, which says what it does.
 func TestPlaceLiveOfTerminalsHere(t *testing.T) {

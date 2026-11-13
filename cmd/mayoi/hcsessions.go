@@ -2,11 +2,13 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"maps"
 	"path/filepath"
 	"slices"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/egoist/mygo/plugins/terminal"
 
@@ -29,6 +31,17 @@ type hcAgent struct {
 	harness   agents.Harness
 	state     terminal.StatusState
 	term      *session
+	// since is when the agent was first seen to run, which a session it
+	// runs but nothing names was written after; zero for any.
+	since time.Time
+}
+
+// agentKey names an agent that runs among the terminals, over readings.
+func (ag hcAgent) agentKey() string {
+	if ag.term != nil {
+		return fmt.Sprintf("term:%p:%s", ag.term, ag.harness)
+	}
+	return "hc:" + ag.addr + ":" + string(ag.harness)
 }
 
 // liveKey names a session among those that run: an agent's ids are its
@@ -154,8 +167,9 @@ func hcAgents(roots []string) (running map[string]hcAgent, loose []hcAgent) {
 
 // placeLoose adds to running each agent of loose, whose session nothing
 // names, as running the session it most likely does: the newest of ss of
-// its agent and its folder that none of running does. It returns running,
-// made anew.
+// its agent and its folder that none of running does, and that was written
+// since the agent began: a new session writes nothing until its first
+// prompt. It returns running, made anew.
 func placeLoose(running map[string]hcAgent, loose []hcAgent, ss []agents.Session) map[string]hcAgent {
 	out := make(map[string]hcAgent, len(running)+len(loose))
 	maps.Copy(out, running)
@@ -170,7 +184,7 @@ func placeLoose(running map[string]hcAgent, loose []hcAgent, ss []agents.Session
 			if s.Harness != ag.harness || s.Dir == "" || filepath.Clean(s.Dir) != dir {
 				continue
 			}
-			if _, taken := out[liveKey(s.Harness, s.ID)]; taken {
+			if _, taken := out[liveKey(s.Harness, s.ID)]; taken || s.Updated.Before(ag.since) {
 				continue
 			}
 			if best == nil || s.Updated.After(best.Updated) {

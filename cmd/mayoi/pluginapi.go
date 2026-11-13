@@ -364,10 +364,11 @@ func (h *pluginHost) Call(p *plugin.Plugin, method string, raw json.RawMessage) 
 	case "workspace.isRemote":
 		return h.main(func(a *app) (any, error) { return remote.Is(a.root), nil })
 	case "workspace.open":
-		return h.main(func(a *app) (any, error) {
+		return h.wait(func(a *app, done func(any, error)) {
 			p, err := pluginPath(a, args.Path)
 			if err != nil {
-				return nil, err
+				done(nil, err)
+				return
 			}
 			if args.Line > 0 {
 				a.openFileAt(p, args.Line-1, true)
@@ -377,7 +378,13 @@ func (h *pluginHost) Call(p *plugin.Plugin, method string, raw json.RawMessage) 
 			} else {
 				a.openPath(p, true)
 			}
-			return nil, nil
+			// It answers once the file is read, so that the plugin finds
+			// its text.
+			if d := a.activeEditor(); d != nil && d.path == p && d.sync == syncLoading {
+				d.readWaits = append(d.readWaits, func() { done(nil, nil) })
+				return
+			}
+			done(nil, nil)
 		})
 	case "workspace.readFile", "workspace.writeFile", "workspace.stat":
 		v, err := h.main(func(a *app) (any, error) { return pluginPath(a, args.Path) })

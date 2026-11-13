@@ -37,7 +37,8 @@ var galleryStates = []struct {
 	{"file-loading", func(hs *harness) {
 		hs.a.openFile(hs.path("main.go"), true)
 		hs.settle()
-		hs.a.activeEditor().sync = syncLoading
+		ed := hs.a.activeEditor()
+		ed.sync, ed.readingAt = syncLoading, hs.tt.Now().Add(-readingShows)
 	}},
 	{"file-error", func(hs *harness) { hs.a.openFile(hs.path("missing.go"), true) }},
 	{"palette", func(hs *harness) { hs.a.run("go.commands") }},

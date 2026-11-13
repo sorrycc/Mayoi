@@ -38,6 +38,10 @@ const (
 	motionEnter = 240 * time.Millisecond
 )
 
+// readingShows is how long a file is read before its tab says so: one
+// read sooner, as most are, shows no spinner that flickers.
+const readingShows = 300 * time.Millisecond
+
 // keyedWithin is how soon after a key ran a binding a dialog that opens
 // counts as opened by it.
 const keyedWithin = 100 * time.Millisecond

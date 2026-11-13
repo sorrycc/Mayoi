@@ -63,6 +63,13 @@ func TestQuickSelectionVisibleAfterFiltering(t *testing.T) {
 	}
 }
 
+// quickPath probes a query's path at once, as Quick Open does off the UI
+// thread.
+func quickPath(root, query string) (name string, line, col int) {
+	result := probeQuickPath(quickPathName(root, query), os.Stat)
+	return result.name, result.at[0], result.at[1]
+}
+
 func TestQuickPath(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)

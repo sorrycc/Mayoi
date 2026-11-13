@@ -128,6 +128,10 @@ type sessionsState struct {
 	hcRunning map[string]hcAgent
 	hcLoose   []hcAgent
 	liveSeen  bool
+	// agentSince is when each agent that runs, by agentKey, was first
+	// seen to, those of the first reading at zero, as they may run from
+	// before the window.
+	agentSince map[string]time.Time
 	// liveSince is when each session that runs, by liveKey, took the
 	// state hc says it is in, which its dot calls out for a while.
 	liveSince map[string]time.Time
@@ -200,7 +204,26 @@ func (a *app) placeLive(now time.Time) {
 		running = map[string]hcAgent{}
 	}
 	loose := slices.Clone(st.hcLoose)
-	for _, ag := range a.localAgents() {
+	locals := a.localAgents()
+	since := make(map[string]time.Time, len(loose)+len(locals))
+	first := st.agentSince == nil
+	for _, ag := range append(slices.Clone(loose), locals...) {
+		k := ag.agentKey()
+		if was, ok := st.agentSince[k]; ok || first {
+			since[k] = was
+		} else {
+			since[k] = now
+		}
+	}
+	// Until hc is first read, every agent may run from before the window.
+	if st.liveSeen {
+		st.agentSince = since
+	}
+	for i := range loose {
+		loose[i].since = since[loose[i].agentKey()]
+	}
+	for _, ag := range locals {
+		ag.since = since[ag.agentKey()]
 		if ag.term.resumed == "" {
 			loose = append(loose, ag)
 			continue
@@ -233,7 +256,13 @@ func (a *app) localAgents() []hcAgent {
 		if !ok {
 			continue
 		}
-		out = append(out, hcAgent{cwd: t.dir, harness: h, state: r.State, term: t})
+		dir := t.dir
+		if t.term != nil {
+			if reported := t.term.Dir(); filepath.IsAbs(reported) {
+				dir = reported
+			}
+		}
+		out = append(out, hcAgent{cwd: dir, harness: h, state: r.State, term: t})
 	}
 	return out
 }

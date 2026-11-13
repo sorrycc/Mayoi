@@ -683,6 +683,7 @@ func TestDiffTab(t *testing.T) {
 	hs.shot("git-diff-split")
 	// Typing in the file changes the diff.
 	a.openFile(hs.path("main.go"), true)
+	hs.settle()
 	d := a.activeEditor()
 	d.edit(d.sel, textEdit{0, 0, "// top\n"})
 	col, i := a.changesTab()

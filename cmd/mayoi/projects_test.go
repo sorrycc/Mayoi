@@ -99,7 +99,8 @@ func TestProjectKeepsItsPlace(t *testing.T) {
 	f, hs, tt := railFixture(t, root, other)
 	a := hs[0].a
 	a.openFile(path, true)
-	step(tt)
+	h := &harness{t: t, a: a, tt: tt}
+	h.settle()
 	ed := a.activeEditor()
 	if ed == nil {
 		t.Fatal("no editor")

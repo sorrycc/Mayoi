@@ -135,8 +135,9 @@ func TestOtherBinaryFilesStillRefuse(t *testing.T) {
 	os.WriteFile(hs.path("blob.bin"), []byte("a\x00b"), 0o644)
 	os.WriteFile(hs.path("broken.png"), []byte("not a png"), 0o644)
 	a.openFile(hs.path("blob.bin"), true)
-	if len(a.errors) != 1 || !strings.Contains(a.errors[0], "binary") || len(a.column().tabs) != 0 {
-		t.Fatalf("errors %q, %d tabs", a.errors, len(a.column().tabs))
+	hs.settle()
+	if d := a.activeEditor(); d.sync != syncLoadFailed || d.loadErr != errBinary || !hs.tt.HasText("Try Again") || len(a.column().tabs) != 1 {
+		t.Fatal("binary file did not keep its failed tab and retry action")
 	}
 	// An image that does not decode says why in its tab.
 	a.openFile(hs.path("broken.png"), true)
@@ -167,8 +168,9 @@ func TestLongLineRefuses(t *testing.T) {
 	a := hs.a
 	os.WriteFile(hs.path("index.js.map"), []byte(line+"x"), 0o644)
 	a.openFile(hs.path("index.js.map"), true)
-	if len(a.errors) != 1 || !strings.Contains(a.errors[0], "too long") || len(a.column().tabs) != 0 {
-		t.Fatalf("errors %q, %d tabs", a.errors, len(a.column().tabs))
+	hs.settle()
+	if d := a.activeEditor(); d.sync != syncLoadFailed || d.loadErr != errLongLine || !hs.tt.HasText("Try Again") || len(a.column().tabs) != 1 {
+		t.Fatal("long line did not keep its failed tab and retry action")
 	}
 }
 

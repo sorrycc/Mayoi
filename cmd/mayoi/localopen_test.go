@@ -86,9 +86,15 @@ func TestLocalOpenTargetsAndSharedBuffer(t *testing.T) {
 	if a.activeTab().transient || first.document != second.document || a.localReads != 1 {
 		t.Fatal("deduplication or pinning changed")
 	}
+	// Let the new active file finish before the older target, so a
+	// delayed focus request cannot hide behind the active file's load.
+	a.localRead = vfs.ReadFileInfo
 	a.openFile(hs.path("main.go"), true)
 	active := a.activeTab()
+	hs.held++ // the target's read is intentionally blocked
+	hs.until("active file ready", func() bool { return !active.ed.unread() })
 	release()
+	hs.held--
 	hs.settle()
 	if a.activeTab() != active {
 		t.Fatal("delayed target stole focus")

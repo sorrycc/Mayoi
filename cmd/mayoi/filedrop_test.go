@@ -91,18 +91,18 @@ func TestDroppingFiles(t *testing.T) {
 	if len(a.cols) != 2 || tabNames(a.cols[1]) != "a.go" || a.col != 1 {
 		t.Fatalf("split: %d columns, col %d", len(a.cols), a.col)
 	}
-	// None that opens leaves no column behind.
+	// Failed files keep their column and explain why they could not open.
 	bin := hs.path("blob.bin")
 	os.WriteFile(bin, []byte{0, 1, 2, 0, 0, 3}, 0o644)
 	a.dropFilesBeside([]string{bin}, a.cols[1], true)
 	hs.settle()
-	if len(a.cols) != 2 {
+	if len(a.cols) != 3 || a.cols[2].tab().ed.loadErr != errBinary || !hs.tt.HasText("Try Again") {
 		t.Errorf("%d columns after dropping a binary file beside", len(a.cols))
 	}
 	// Only folders beside a column split nothing.
 	a.dropFilesBeside([]string{hs.path("web")}, a.cols[1], false)
 	hs.settle()
-	if len(a.cols) != 2 || hs.h.folders[len(hs.h.folders)-1] != hs.path("web") {
+	if len(a.cols) != 3 || hs.h.folders[len(hs.h.folders)-1] != hs.path("web") {
 		t.Errorf("%d columns, folders %q", len(a.cols), hs.h.folders)
 	}
 }

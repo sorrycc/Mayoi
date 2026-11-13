@@ -358,6 +358,11 @@ func (a *app) editorView(c *ui.Context, d *editor) {
 				d.landing, d.landLine, d.landAt = false, snap.LineAt(min(r[0], snap.Len())), c.Now()
 			}
 		}
+		// Ready feedback marks the selection without requesting a jump:
+		// a restored view must keep its saved scroll position.
+		if d.landing {
+			d.landing, d.landLine, d.landAt = false, snap.LineAt(min(d.sel[0], snap.Len())), c.Now()
+		}
 		// The frame a hidden tab comes back in builds it a new text area,
 		// which scrolls to a caret it is given out of view: it is covered
 		// for that frame, until the pin puts it back.

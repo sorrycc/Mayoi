@@ -5,6 +5,8 @@ needs a `## <version>` section here, or its build fails.
 
 ## Unreleased
 
+- Restored files keep their saved scroll position when loading finishes.
+- Delayed line navigation keeps focus on the file you switched to while it was loading.
 - Opening local files keeps the window responsive while their tabs show loading progress.
 - Files that fail to open keep their tabs, error details and a **Try Again** action.
 - Quick Open stays responsive while checking file paths, including unavailable network shares.

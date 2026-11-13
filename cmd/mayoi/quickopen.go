@@ -376,16 +376,21 @@ func (a *app) goToLine(line, col int) {
 
 func (d *editor) goToLine(line, col int) {
 	if d.unread() {
-		d.loadedTarget = func(ed *editor) { ed.goToLine(line, col) }
+		// Loading may finish after the user has focused another view.
+		d.loadedTarget = func(ed *editor) { ed.selectLine(line, col) }
 		return
 	}
+	d.selectLine(line, col)
+	d.vscroll.Focus()
+}
+
+func (d *editor) selectLine(line, col int) {
 	snap := d.buf.Snapshot()
 	l := max(0, min(line-1, snap.LineCount()-1))
 	s, e := snap.LineRange(l)
 	at := min(s+max(col-1, 0), e)
 	d.selectRange(at, at, true)
 	d.lightLanding()
-	d.vscroll.Focus()
 }
 
 // recentFirst puts the files shown last before the others, as quick open

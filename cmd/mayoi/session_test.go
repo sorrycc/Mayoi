@@ -170,9 +170,9 @@ func TestRestoresWhereTabsWere(t *testing.T) {
 	}
 }
 
-// A file with a line too long to lay out is not opened again as the
-// window starts, which it would hang.
-func TestRestoreSkipsLongLines(t *testing.T) {
+// A restored file with a line too long keeps its error tab without
+// laying out the text, which would hang the window.
+func TestRestoreRetainsLongLineFailure(t *testing.T) {
 	root := workspaceFixture(t)
 	long := filepath.Join(root, "index.js.map")
 	os.WriteFile(long, []byte(strings.Repeat("x", maxLineBytes+1)), 0o644)
@@ -186,9 +186,13 @@ func TestRestoreSkipsLongLines(t *testing.T) {
 	a := newApp(&fakeHost{folder: root}, s, w)
 	t.Cleanup(a.shutdown)
 	tt := ui.NewTester(a.view, 1200, 760)
-	step(tt)
-	if names := allTabNames(a); !slices.Equal(names, []string{"main.go"}) {
+	hs := &harness{t: t, a: a, tt: tt}
+	hs.settle()
+	if names := allTabNames(a); !slices.Equal(names, []string{"index.js.map", "main.go"}) {
 		t.Fatalf("tabs %v", names)
+	}
+	if d := a.cols[0].tabs[0].ed; d.sync != syncLoadFailed || d.loadErr != errLongLine || d.buf.Len() != 0 || !tt.HasText("Try Again") {
+		t.Fatal("restored long line did not retain its failure without loading text")
 	}
 }
 
@@ -206,9 +210,8 @@ func TestRestoresTheScroll(t *testing.T) {
 	a := newApp(&fakeHost{folder: root}, s, w)
 	t.Cleanup(a.shutdown)
 	tt := ui.NewTester(a.view, 1200, 760)
-	for range 3 {
-		step(tt)
-	}
+	hs := &harness{t: t, a: a, tt: tt}
+	hs.settle()
 	if y := a.cols[0].tabs[0].ed.vscroll.Y; y != 1200 {
 		t.Errorf("scrolled to %v", y)
 	}

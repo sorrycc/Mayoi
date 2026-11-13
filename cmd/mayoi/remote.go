@@ -356,6 +356,7 @@ func (a *app) remoteLoaded(d *document, path string, info fs.FileInfo, data []by
 	d.measureWidest()
 	d.stamp = stampOf(info)
 	for _, ed := range d.views {
+		restored := ed.restoreTab != nil
 		if ts := ed.restoreTab; ts != nil {
 			ed.restoreTab = nil
 			a.restoreEditor(ed, *ts)
@@ -368,7 +369,7 @@ func (a *app) remoteLoaded(d *document, path string, info fs.FileInfo, data []by
 		// It changes color only, including with Reduce Motion, and never
 		// delays input or moves the editor or its neighbours.
 		if !remote.Is(path) {
-			if ed.pending == nil {
+			if ed.pending == nil && !restored {
 				ed.selectRange(ed.sel[0], ed.sel[1], false)
 			}
 			ed.lightLanding()

@@ -27,6 +27,7 @@ func TestTakeTabFromAnotherProject(t *testing.T) {
 
 	// Changes not yet saved come along, still unsaved.
 	from.openFile(path, true)
+	src.settle()
 	tab = from.column().tab()
 	tab.ed.buf.Replace(0, 0, "edited ")
 	want := tab.ed.buf.String()

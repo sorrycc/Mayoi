@@ -1470,8 +1470,16 @@ func settleFixture(t *testing.T) (*frame, *fakeHost, *ui.Tester) {
 	f.m.s.AutoSave = false
 	a := hs[0].a
 	a.openFile(filepath.Join(root, "main.go"), true)
-	step(tt)
+	// An edit made before the file is read is not a change to it.
+	deadline := time.Now().Add(5 * time.Second)
+	for ed := a.activeEditor(); (ed == nil || ed.sync == syncLoading) && time.Now().Before(deadline); ed = a.activeEditor() {
+		step(tt)
+		time.Sleep(5 * time.Millisecond)
+	}
 	ed := a.activeEditor()
+	if ed == nil || ed.sync == syncLoading {
+		t.Fatal("main.go did not load")
+	}
 	ed.edit(ed.sel, textEdit{0, 0, "// changed\n"})
 	step(tt)
 	host := a.host.(*fakeHost)

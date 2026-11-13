@@ -335,8 +335,15 @@ func TestSVGPreview(t *testing.T) {
 	b := newApp(&fakeHost{folder: hs.root}, a.settings, a.window)
 	t.Cleanup(b.shutdown)
 	bt := ui.NewTester(b.view, 1200, 760)
-	step(bt)
-	step(bt)
+	restored := func() bool {
+		e := b.activeEditor()
+		return e != nil && e.preview != nil && e.preview.src != nil
+	}
+	deadline := time.Now().Add(5 * time.Second)
+	for !restored() && time.Now().Before(deadline) {
+		step(bt)
+		time.Sleep(5 * time.Millisecond)
+	}
 	if e := b.activeEditor(); e == nil || e.preview == nil || e.preview.src == nil {
 		t.Fatalf("restored %v", b.activeTab())
 	}

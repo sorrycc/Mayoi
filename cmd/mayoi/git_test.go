@@ -310,9 +310,9 @@ func TestGutterHunkActions(t *testing.T) {
 	a.openFile(hs.path("main.go"), true)
 	hs.settleGit()
 	d := a.activeEditor()
-	if hs := editorHunks(d); len(hs) != 2 {
-		t.Fatalf("hunks %v", hs)
-	}
+	hs.until("the hunks", func() bool { return len(editorHunks(d)) == 2 })
+	// The click goes where the gutter is once the layout has settled.
+	hs.settle()
 	// A click on the mark of line 7 shows what it was.
 	x := a.window.SidebarWidth + d.gutterW - 5
 	y := titleBarH + tabStripH + crumbsH + editorPadY + 6.5*a.font.lineH

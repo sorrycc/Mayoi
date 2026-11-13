@@ -16,7 +16,8 @@ The order: it works, then it is easy, then it looks good. Polish never covers a 
 - Motion says where something came from, or that a state changed. Looking nice is not a reason.
 - Coming in and going out ease out; moving across the screen eases in and out. Nothing eases in.
 - Going out is shorter and smaller than coming in.
-- With Reduce Motion on, nothing moves: colors fade at most (`shake` and `Keyframes` already stop).
+- With Reduce Motion on, nothing moves: colors fade at most (`shake` and `Keyframes` already stop). In Live Preview,
+  blocks and pictures take their new room at once and a task's check fades in without growing.
 - Something visible changes within a frame of the key or click, even when the work takes longer.
 
 ## Stability
@@ -31,10 +32,17 @@ The order: it works, then it is easy, then it looks good. Polish never covers a 
   caret's lines change, and a mark shows at the size of its text, so a heading's line keeps its height. The marks of
   the lines the caret comes to fade in over `motionHover`, a block it leaves over `motionShow`; their room shows at
   once. The indent of a nested list keeps its width wherever the caret is, and so do a bullet and a task's box: the
-  caret at them shows their source in the same room. The room a block's drawing gives up as the caret goes in, and
-  takes as it leaves, glides over `motionMove`, so the text below moves over (`TestLiveMarkersHoldStill`, `TestLiveBlockGlides`). A callout folded or
-  opened by its chevron glides the same way, its chevron turning over `motionHover` (`TestLiveCalloutFolds`). A link's
-  underline fills in under the pointer over `motionHover`, and nothing else about it changes (`TestLiveLinkHover`).
+  caret at them shows their source in the same room, an ordered task's box too. A block whose source is higher than
+  its drawing, as a short formula's, keeps its source's room. The room a block's drawing gives up as the caret goes
+  in, and takes as it leaves, glides over `motionMove`, so the text below moves over, with or without a blank line
+  after it, and turns back from where it is when the caret does (`TestLiveMarkersHoldStill`, `TestLiveBlockGlides`,
+  `TestLiveGlideTurnsBack`, `TestLiveGlideWithoutBlank`, `TestLiveMathHoldsStill`). A callout folded or opened by its
+  chevron glides the same way, its chevron turning over `motionHover` (`TestLiveCalloutFolds`). A link's underline
+  fills in under the pointer over `motionHover`, and nothing else about it changes (`TestLiveLinkHover`); with ⌘
+  held, and over a task's box, the pointer is a hand, and a box's edge darkens.
+- What loads keeps a place: a picture of the web on its way in Live Preview is a card where it goes, which the
+  picture fades in over as its room glides to its own (`TestLivePictureArrives`); a rendered block shows once it is
+  measured, fading in over `motionShow`.
 
 ## States
 

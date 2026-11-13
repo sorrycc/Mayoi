@@ -137,13 +137,17 @@ type liveSpan struct {
 }
 
 // livePicture is what objImage, objMath and objNote draw: a picture's
-// bitmap and size, and the width its wiki link asked for, 0 for its own;
-// a formula; or the number of a footnote, as the Reading view numbers it.
+// bitmap and size, where it is from, and the width its wiki link asked
+// for, 0 for its own; a formula; or the number of a footnote, as the
+// Reading view numbers it. A picture of the web still on its way is
+// loading, with no bitmap.
 type livePicture struct {
 	image   markdownInline
+	dest    string
 	width   float32
 	formula *mathFormula
 	note    string
+	loading bool
 }
 
 // liveDecoKind is what Live Preview paints behind a run of lines.
@@ -207,8 +211,8 @@ type liveDoc struct {
 	blocks []liveBlock
 	// callouts are the callouts that fold.
 	callouts []liveCallout
-	// edit is the edit made to the parse's text since, which its spans
-	// follow as visit finds them; nil for a parse.
+	// edit is the edit made to the parse's text since, which its spans,
+	// decos and blocks follow as they are found; nil for a parse.
 	edit *liveEdit
 }
 
@@ -559,9 +563,13 @@ func parseLive(source string, path, root string, full bool, cache *markdownCache
 					if images {
 						image = markdownPicture(cache, used, path, root, dest)
 					}
-					if image.bitmap != nil {
-						add(liveSpan{start: s, end: e, kind: liveObject, from: s, to: e, obj: objImage, drawn: &livePicture{image: image}})
-					} else {
+					switch {
+					case image.bitmap != nil:
+						add(liveSpan{start: s, end: e, kind: liveObject, from: s, to: e, obj: objImage, drawn: &livePicture{image: image, dest: dest}})
+					case images && markdownFetching(dest):
+						// A picture of the web on its way: a card in its place.
+						add(liveSpan{start: s, end: e, kind: liveObject, from: s, to: e, obj: objImage, drawn: &livePicture{dest: dest, loading: true}})
+					default:
 						is, ie := inner(ch)
 						style(is, ie, liveLook{color: liveLink})
 						mark(s, is, s, e)
@@ -1167,35 +1175,63 @@ func (e liveEdit) before(x int) int {
 // mapTo returns the parse moved to snap, a text that the edits made since
 // the parse changed: what was before the edits stays, what was after
 // moves with them, and what they replaced goes. A span that styles text
-// grows with what is typed at its end; a mark does not. Its spans move
-// only as visit finds them, as a frame needs those about the view alone.
+// grows with what is typed at its end; a mark does not. Its spans, decos
+// and blocks move only as visit, eachDeco and eachBlock find them, as a
+// frame needs those about the view alone.
 func (doc *liveDoc) mapTo(snap ui.TextSnapshot) *liveDoc {
 	if doc.snap.Version() == snap.Version() && doc.snap.Len() == snap.Len() {
 		return doc
 	}
 	p, q, r := snapDiff(doc.snap, snap)
 	e := liveEdit{p, q, r}
-	out := &liveDoc{snap: snap, spans: doc.spans, reach: doc.reach, edit: &e}
-	for _, d := range doc.decos {
-		d.start, d.end = e.start(d.start), e.end(d.end, true)
-		if d.end >= d.start {
-			out.decos = append(out.decos, d)
-		}
-	}
+	out := &liveDoc{snap: snap, spans: doc.spans, reach: doc.reach, decos: doc.decos, blocks: doc.blocks, edit: &e}
+	// The callouts that fold, few, move at once.
 	for _, c := range doc.callouts {
 		c.start, c.end = e.start(c.start), e.end(c.end, true)
 		if c.end >= c.start {
 			out.callouts = append(out.callouts, c)
 		}
 	}
-	for _, b := range doc.blocks {
-		if b.start < q && b.end >= p {
-			continue // edited: its text until parsed
-		}
-		b.start, b.end = e.start(b.start), e.end(b.end, true)
-		out.blocks = append(out.blocks, b)
-	}
 	return out
+}
+
+// eachDeco calls fn with each deco that reaches runes from up to to,
+// moved to the text as it is.
+func (doc *liveDoc) eachDeco(from, to int, fn func(d liveDeco)) {
+	e := doc.edit
+	for _, d := range doc.decos {
+		if e != nil {
+			d.start, d.end = e.start(d.start), e.end(d.end, true)
+		}
+		if d.end >= d.start && d.end >= from && d.start <= to {
+			fn(d)
+		}
+	}
+}
+
+// eachBlock calls fn with each block that reaches runes from up to to,
+// moved to the text as it is, but for those edited since the parse,
+// which show as their text until the next.
+func (doc *liveDoc) eachBlock(from, to int, fn func(b *liveBlock)) {
+	e := doc.edit
+	oldFrom, oldTo := from, to
+	if e != nil {
+		oldFrom, oldTo = e.before(from), e.before(to)
+	}
+	// The blocks follow one another, by their starts and their ends.
+	k := sort.Search(len(doc.blocks), func(i int) bool { return doc.blocks[i].end >= oldFrom })
+	for i := k; i < len(doc.blocks) && doc.blocks[i].start <= oldTo; i++ {
+		b := doc.blocks[i]
+		if e != nil {
+			if b.start < e.q && b.end >= e.p {
+				continue
+			}
+			b.start, b.end = e.start(b.start), e.end(b.end, true)
+		}
+		if b.end >= from && b.start <= to {
+			fn(&b)
+		}
+	}
 }
 
 // visit calls fn with each span that reaches runes from up to to, by

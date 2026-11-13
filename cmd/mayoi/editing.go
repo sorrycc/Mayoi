@@ -541,6 +541,13 @@ func (a *app) editorKey(d *editor, ev ui.InputEvent) bool {
 		a.invalidate()
 		return true
 	}
+	// The pointer over a link or a task's box in Live Preview shows so.
+	if ev.Kind == ui.InputPointerMove && a.livePreview(d) {
+		a.livePointer(d, ev)
+	} else if ev.Kind == ui.InputKeyDown || ev.Kind == ui.InputText {
+		// Typed, until the pointer moves again.
+		d.liveBox = 0
+	}
 	// A click on a task's box in Live Preview checks it.
 	if ev.Kind == ui.InputPointerDown && ev.Button == 0 && ev.Clicks == 1 && ev.Mods == 0 && a.livePreview(d) && a.liveClick(d, ev.X, ev.Y) {
 		return true

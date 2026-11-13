@@ -212,10 +212,11 @@ differ in width lines them up only roughly.
   by default; changes apply immediately and do not discard pending items. Closing the draft’s tab,
   starting another comment, or jumping to code keeps its text in the Review queue. **Send** saves the
   current draft before sending the batch.
-- **`previewMermaid`** draws the `mermaid` code blocks of a Markdown preview as diagrams. Turn it off to show
-  them as code. A `.mmd` or `.mermaid` file's own preview draws its diagram either way.
-- **`previewMath`** draws the LaTeX math of a Markdown preview, between `$` and `$`, `$$` and `$$`, or in a
-  `math` code block, as formulas. Turn it off to show the source.
+- **`previewMermaid`** draws the `mermaid` code blocks of Markdown as diagrams, in Live Preview and the Reading
+  view. Turn it off to show them as code. A `.mmd` or `.mermaid` file's own preview draws its diagram either way.
+- **`previewMath`** draws the LaTeX math of Markdown, between `$` and `$`, `$$` and `$$`, or in a `math` code
+  block, as formulas: in the Reading view, and in Live Preview but for `math` code blocks, which show as code. Turn
+  it off to show the source.
 - **`markdownMode`** is how Markdown files, .mdx included, open: as their source, as Live Preview, which you edit
   as it reads, its marks showing only where the caret is, or rendered in the Reading view. The buttons at the right
   of a tab's path, **⌥⌘V** and **⇧⌘V** switch a tab between them, and the choice of a tab is remembered for the

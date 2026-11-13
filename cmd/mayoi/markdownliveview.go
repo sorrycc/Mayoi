@@ -56,6 +56,12 @@ type liveState struct {
 	// lines start at, as the last frame saw them, by which one keeps
 	// whether it is folded as its title is edited.
 	titles map[int]string
+	// pics are the pictures of the web drawn as cards on their way, by
+	// where they are from.
+	pics map[string]*livePic
+	// colors are the colors of the code in view, of colorKey.
+	colors   []ui.TextRange
+	colorKey liveColorKey
 }
 
 // liveWidthKey is a run of text in a font.
@@ -80,21 +86,45 @@ func (l *liveState) width(text string, font ui.Font) float32 {
 
 // liveIn is the block the caret went into, by its first line and its last,
 // and when; or, once it left, when it did. Its height glides from what it
-// showed as to what it shows as now, so that the text below it moves over
-// rather than jumps: source is the height of its lines of source, drawn
-// that of its drawing, with its margin, and blank that of the blank line
-// after it, which takes the room the drawing gives up as it glides.
+// showed as, from, to what it shows as now, so that the text below it
+// moves over rather than jumps: source is the height of its lines of
+// source, drawn that of its drawing, with its margin, and blank that of
+// the blank line after it, which takes the room the drawing gives up as
+// it glides; with none, its last line grows, by grown in the last frame.
 type liveIn struct {
 	first, last int
 	in          bool
 	at          time.Time
+	from        float32
 	source      float32
 	drawn       float32
 	blank       float32
+	grown       float32
+}
+
+// extra is how much higher than its source the block the caret went into
+// shows at now: the room its drawing gave up, gliding away.
+func (in *liveIn) extra(now time.Time, glide bool) float32 {
+	since, gap := now.Sub(in.at), in.from-in.source
+	if !in.in || !glide || gap <= 0 || since < 0 || since >= motionMove {
+		return 0
+	}
+	return gap * (1 - ui.EaseInOut(float32(since)/float32(motionMove)))
+}
+
+// height is how high the block the caret left shows at now, gliding from
+// what it showed as to want.
+func (in *liveIn) height(now time.Time, want float32, glide bool) float32 {
+	since := now.Sub(in.at)
+	if in.in || !glide || in.from <= 0 || since < 0 || since >= motionMove {
+		return want
+	}
+	return in.from + (want-in.from)*ui.EaseInOut(float32(since)/float32(motionMove))
 }
 
 // liveView is a block Live Preview shows rendered: its preview, where it
-// showed, at, and how high, and the frame it showed in last.
+// showed, at, and how high, and the frame it showed in last. It shows
+// once measured, fading in from shownAt.
 type liveView struct {
 	v      *viewer
 	box    ui.Handle
@@ -103,7 +133,9 @@ type liveView struct {
 	frame  int
 	// source is how high its lines of source showed last, 0 before they
 	// did.
-	source float32
+	source   float32
+	measured bool
+	shownAt  time.Time
 }
 
 // liveHit is a task's box the last frame drew, where it showed, and the
@@ -321,6 +353,7 @@ func (a *app) liveArea(c *ui.Context, d *editor, area ui.Element, f liveFrame) {
 	n := snap.Len()
 	from, _ := snap.LineRange(max(0, f.first-liveSlack))
 	_, to := snap.LineRange(min(snap.LineCount()-1, f.last+liveSlack))
+	glide := !c.Preferences().ReduceMotion
 
 	// What the caret or the selection touches shows its marks.
 	selFrom, selTo := min(f.anchor, f.caret), max(f.anchor, f.caret)
@@ -336,27 +369,42 @@ func (a *app) liveArea(c *ui.Context, d *editor, area ui.Element, f liveFrame) {
 		return selFrom <= s.to && selTo >= s.from
 	}
 	// The marks of the lines the caret comes to fade in, rather than
-	// blink: only their color, as their room shows at once.
+	// blink: only their color, as their room shows at once. Those of the
+	// lines they showed on already stay, as a selection drawn over more.
 	now := c.Now()
 	if lines := [2]int{lineFrom, lineTo}; lines != d.liveLines {
 		if d.liveLines != [2]int{} || !d.liveRevealAt.IsZero() {
-			d.liveRevealAt = now
+			d.liveRevealAt, d.liveLinesWas = now, d.liveLines
 		}
 		d.liveLines = lines
 	}
-	faint := p.faint
+	faint, fresh, fading := p.faint, p.faint, false
 	if since := now.Sub(d.liveRevealAt); since >= 0 && since < motionHover {
-		faint = p.faint.Alpha(ui.EaseOut(float32(since) / float32(motionHover)))
+		fresh, fading = p.faint.Alpha(ui.EaseOut(float32(since)/float32(motionHover))), true
 		c.AnimationFrame()
+	}
+	markColor := func(s *liveSpan) ui.Color {
+		if !fading {
+			return faint
+		}
+		if i := snap.LineAt(min(s.start, n)); i >= d.liveLinesWas[0] && i <= d.liveLinesWas[1] {
+			return faint
+		}
+		return fresh
 	}
 	if d.tickNow {
 		d.tickNow, d.liveTickAt = false, now
 	}
-
 	codeFont, family := a.settings.FontFamily, c.Theme().Font
 	textFont := ui.Font{Family: family, Size: size}
-	var ranges []ui.TextRange
-	objects := map[int]liveDrawn{}
+	// The ranges and objects of the last frame, cleared for this one's:
+	// the area keeps a copy of the ranges, and the objects were drawn.
+	ranges := d.liveRanges[:0]
+	if d.liveObjects == nil {
+		d.liveObjects = map[int]liveDrawn{}
+	}
+	objects := d.liveObjects
+	clear(objects)
 	var codes []liveDeco
 	// The bullet whose mark shows first, as at+1, to fade between them.
 	marker := 0
@@ -368,6 +416,14 @@ func (a *app) liveArea(c *ui.Context, d *editor, area ui.Element, f liveFrame) {
 	if since := now.Sub(d.liveHoverAt); since >= 0 && since < motionHover {
 		hoverIn = ui.EaseOut(float32(since) / float32(motionHover))
 		c.AnimationFrame()
+	}
+	// A hand over a task's box, which a click checks, and over a link with
+	// ⌘ held, which a ⌘-click opens.
+	if !area.Hovered() {
+		d.liveBox = 0
+	}
+	if d.liveHover != 0 && d.liveCmd || d.liveBox != 0 {
+		area.Cursor(ui.CursorPointer)
 	}
 	if doc != nil {
 		// The spans that reach the lines about the view.
@@ -391,7 +447,7 @@ func (a *app) liveArea(c *ui.Context, d *editor, area ui.Element, f liveFrame) {
 				ranges = append(ranges, r)
 			case liveMark:
 				if revealed(s) {
-					ranges = append(ranges, ui.TextRange{Start: s.start, End: s.end, Color: faint})
+					ranges = append(ranges, ui.TextRange{Start: s.start, End: s.end, Color: markColor(s)})
 				} else {
 					ranges = append(ranges, ui.TextRange{Start: s.start, End: s.end, Hidden: true})
 				}
@@ -411,14 +467,27 @@ func (a *app) liveArea(c *ui.Context, d *editor, area ui.Element, f liveFrame) {
 							marker = s.start + 1
 						}
 					case objQuote, objExternal:
-						ranges = append(ranges, ui.TextRange{Start: s.start, End: s.end, Color: faint})
+						ranges = append(ranges, ui.TextRange{Start: s.start, End: s.end, Color: markColor(s)})
+						return
+					case objTask, objTaskDone:
+						// The box of an ordered task, as its source, keeps the
+						// room it drew in: the space after it widens by what
+						// the box was wider.
+						if s.from == s.start && s.end < n && snap.Slice(s.end, s.end+1) == " " {
+							w := l.width(snap.Slice(s.start, s.end), textFont)
+							if extra := size*1.1 - w; extra > 0.5 {
+								ranges = append(ranges, ui.TextRange{Start: s.end, End: s.end + 1, ObjectWidth: l.width(" ", textFont) + extra, ObjectHeight: 1})
+							}
+						}
 						return
 					default:
 						return
 					}
 				}
 				w, h, dsc := a.liveObjectSize(l, snap, s, size, f.width, family)
-				if task {
+				drawn := liveDrawn{s: s, shown: shown, fade: 1}
+				switch {
+				case task:
 					// As wide as its source, which shows as the caret comes;
 					// one of an ordered list, its box alone, no narrower than
 					// a bullet.
@@ -426,19 +495,26 @@ func (a *app) liveArea(c *ui.Context, d *editor, area ui.Element, f liveFrame) {
 					if s.from == s.start {
 						w = max(w, size*1.1)
 					}
+				case s.obj == objImage:
+					// A picture of the web that arrived fades in over its
+					// card, its room gliding from the card's.
+					w, h, drawn.fade = l.pictureRoom(s.drawn, w, h, now, glide)
+					if drawn.fade < 1 {
+						c.AnimationFrame()
+					}
 				}
 				ranges = append(ranges, ui.TextRange{Start: s.start, End: s.start + 1, ObjectWidth: w, ObjectHeight: h, ObjectDescent: dsc})
 				if s.end > s.start+1 {
 					ranges = append(ranges, ui.TextRange{Start: s.start + 1, End: s.end, Hidden: true})
 				}
-				objects[s.start] = liveDrawn{s: s, shown: shown}
+				objects[s.start] = drawn
 			}
 		})
-		for _, dc := range doc.decos {
-			if dc.kind == decoCode && dc.end >= from && dc.start <= to {
+		doc.eachDeco(from, to, func(dc liveDeco) {
+			if dc.kind == decoCode {
 				codes = append(codes, dc)
 			}
-		}
+		})
 	}
 	if marker != d.liveMarker {
 		d.liveMarkerWas, d.liveMarker, d.liveMarkerAt = d.liveMarker, marker, now
@@ -461,17 +537,7 @@ func (a *app) liveArea(c *ui.Context, d *editor, area ui.Element, f liveFrame) {
 	// The code of blocks of code in its language's colors.
 	if d.hl != nil && d.hl.Lexer() != nil && len(codes) > 0 {
 		d.hl.Request(snap, f.first, f.last)
-		// Not the fence's line, whose language reads faint.
-		for i, dc := range codes {
-			if dc.fenced {
-				_, codes[i].start = snap.LineRange(snap.LineAt(min(dc.start, n)))
-			}
-		}
-		for _, r := range d.colors.ranges(d.hl, p, snap, f.first, f.last, a.font.bold()) {
-			if slices.ContainsFunc(codes, func(dc liveDeco) bool { return r.Start >= dc.start && r.End <= dc.end }) {
-				ranges = append(ranges, ui.TextRange{Start: r.Start, End: r.End, Color: r.Color})
-			}
-		}
+		ranges = append(ranges, l.codeColors(d.hl, p, snap, doc, codes, f.first, f.last)...)
 	}
 	// Find's matches, over the rest.
 	if fd := &a.find; fd.open && fd.doc == d.id {
@@ -489,6 +555,7 @@ func (a *app) liveArea(c *ui.Context, d *editor, area ui.Element, f liveFrame) {
 		}
 	}
 	area.TextRanges(ranges...)
+	d.liveRanges = ranges
 
 	// The blocks shown rendered, where the caret is not.
 	type shown struct {
@@ -496,8 +563,9 @@ func (a *app) liveArea(c *ui.Context, d *editor, area ui.Element, f liveFrame) {
 		lv    *liveView
 		first int
 		// clip is how high it shows while its room grows, 0 for all of it,
-		// and fade how far it faded in.
-		clip, fade float32
+		// fade how far it faded in, and pad how much higher its source is
+		// than its drawing, whose room keeps it.
+		clip, fade, pad float32
 	}
 	var blocks []shown
 	// The callouts folded, but one the caret is in, which shows its
@@ -520,56 +588,85 @@ func (a *app) liveArea(c *ui.Context, d *editor, area ui.Element, f liveFrame) {
 			l.views = map[string]*liveView{}
 		}
 		lineH := size * a.settings.LineHeight
-		in, glide := &l.in, !c.Preferences().ReduceMotion
+		in := &l.in
 		caretIn := false
-		for i := range doc.blocks {
-			b := &doc.blocks[i]
-			if b.end < from || b.start > to || len(b.blocks) == 0 {
-				continue
+		// sourceH is how high a block's lines show as source, as they did
+		// last, and room how high it shows drawn: its drawing with its
+		// margin, or its source if that is higher, so that the caret
+		// going in moves nothing below it.
+		sourceH := func(lv *liveView, first, last int) float32 {
+			if lv != nil && lv.source > 0 {
+				return lv.source
+			}
+			return float32(last-first+1) * f.g.lineH
+		}
+		room := func(lv *liveView, first, last int) float32 {
+			return max(lv.height+size, sourceH(lv, first, last))
+		}
+		doc.eachBlock(from, to, func(b *liveBlock) {
+			if len(b.blocks) == 0 {
+				return
 			}
 			first, last := snap.LineAt(b.start), snap.LineAt(b.end)
 			if hidden(first) {
-				continue
+				return
 			}
 			lv := l.views[b.key]
 			if onLines(b.start, b.end) {
 				if caretIn {
-					continue
+					return
 				}
 				caretIn = true
 				if !in.in || in.first != first {
-					// Gone in: the drawing's room it gives up glides away
-					// below its source.
+					// Gone in: the room its drawing gives up glides away
+					// below its source, from where it was, as it may still
+					// have been gliding out.
 					drawn := in.drawn
 					if lv != nil {
-						drawn = lv.height + size
+						drawn = room(lv, first, last)
 					} else if in.first != first {
 						drawn = 0
 					}
-					source := float32(last-first+1) * f.g.lineH
-					if lv != nil && lv.source > 0 {
-						source = lv.source
+					from := drawn
+					if in.first == first && !in.in {
+						from = in.height(now, drawn, glide)
 					}
-					*in = liveIn{first: first, in: true, at: now, source: source, drawn: drawn,
+					*in = liveIn{first: first, in: true, at: now, from: from, source: sourceH(lv, first, last), drawn: drawn,
 						blank: f.g.top(last+2) - f.g.top(last+1)}
 				} else {
-					// Its lines showed as source in the last frame.
-					in.source = f.g.top(last+1) - f.g.top(first)
+					// Its lines showed as source in the last frame, the last
+					// as much higher as it was grown.
+					in.source = f.g.top(last+1) - f.g.top(first) - in.grown
 				}
-				in.last = last
+				in.last, in.grown = last, 0
 				if lv != nil {
 					lv.source = in.source
 				}
-				gap := in.drawn - in.source
-				since := now.Sub(in.at)
-				if glide && gap > 0.5 && since >= 0 && since < motionMove && last+1 < snap.LineCount() &&
-					strings.TrimSpace(snap.Line(last+1)) == "" {
-					k := ui.EaseInOut(float32(since) / float32(motionMove))
-					area.TextBlocks(ui.TextBlock{First: last + 1, Last: last + 1, Height: in.blank + gap*(1-k)})
-					c.AnimationFrame()
-				}
 				area.TextRanges(a.liveGlyphs(l, snap, max(first, f.first-liveSlack), min(last, f.last+liveSlack), size, codeFont, objects)...)
-				continue
+				extra := in.extra(now, glide)
+				if extra <= 0.5 {
+					return
+				}
+				c.AnimationFrame()
+				if last+1 < snap.LineCount() && liveBlank(snap, last+1) {
+					area.TextBlocks(ui.TextBlock{First: last + 1, Last: last + 1, Height: in.blank + extra})
+					return
+				}
+				// Text right below it: its last line grows as much, by its
+				// last rune drawn standing on the baseline it had.
+				ls, le := snap.LineRange(last)
+				if le <= ls {
+					return
+				}
+				glyph := snap.Slice(le-1, le)
+				font := ui.Font{Family: codeFont, Size: size * 0.9}
+				m := font.Metrics()
+				lh := f.g.lineH
+				base := (lh-m.Ascent-m.Descent)/2 + m.Ascent
+				area.TextRanges(ui.TextRange{Start: le - 1, End: le, ObjectWidth: l.width(glyph, font), ObjectHeight: base, ObjectDescent: lh + extra - base})
+				objects[le-1] = liveDrawn{s: &liveSpan{start: le - 1, end: le, kind: liveObject, obj: objGlyph}, glyph: glyph, room: lh}
+				in.grown = extra
+				return
 			}
 			if lv == nil {
 				m := &markdownPreview{blocks: b.blocks, lines: strings.Count(b.source, "\n") + 1}
@@ -578,7 +675,7 @@ func (a *app) liveArea(c *ui.Context, d *editor, area ui.Element, f liveFrame) {
 				if in.first == first && in.drawn > size {
 					// Its source edited: as high as it drew before, until
 					// it shows how high it draws now.
-					lv.height = in.drawn - size
+					lv.height, lv.measured = in.drawn-size, true
 				}
 				l.views[b.key] = lv
 			} else if &lv.v.markdown.blocks[0] != &b.blocks[0] {
@@ -589,29 +686,35 @@ func (a *app) liveArea(c *ui.Context, d *editor, area ui.Element, f liveFrame) {
 			}
 			lv.frame = a.frame
 			lv.v.markdown.measure = f.width
-			sh := shown{b: b, lv: lv, first: first, fade: 1}
-			height := lv.height + size
+			height := room(lv, first, last)
+			sh := shown{b: b, lv: lv, first: first, fade: 1, pad: height - lv.height - size}
+			// One shown first fades in once measured, until then not there.
+			if !lv.measured {
+				sh.fade = 0
+			} else if since := now.Sub(lv.shownAt); since >= 0 && since < motionShow {
+				sh.fade = ui.EaseOut(float32(since) / float32(motionShow))
+				c.AnimationFrame()
+			}
 			if in.first == first {
 				if in.in {
-					// Left: its room glides from its source's to its
+					// Left: its room glides from what it showed as to its
 					// drawing's, and the drawing fades in over it.
-					in.in, in.at = false, now
+					in.in, in.from, in.at = false, in.source+in.extra(now, glide), now
 				}
 				since := now.Sub(in.at)
 				if since >= 0 && since < motionShow {
-					sh.fade = ui.EaseOut(float32(since) / float32(motionShow))
+					sh.fade = min(sh.fade, ui.EaseOut(float32(since)/float32(motionShow)))
 					c.AnimationFrame()
 				}
-				if glide && in.source > 0 && since >= 0 && since < motionMove {
-					k := ui.EaseInOut(float32(since) / float32(motionMove))
-					height = in.source + (height-in.source)*k
-					sh.clip = max(1, height-size)
+				if h := in.height(now, height, glide); h != height {
+					height = h
+					sh.clip = max(1, height-size-sh.pad)
 					c.AnimationFrame()
 				}
 			}
 			area.TextBlocks(ui.TextBlock{First: first, Last: last, Height: height})
 			blocks = append(blocks, sh)
-		}
+		})
 		if in.in && !caretIn && (lineFrom < in.first || lineFrom > in.last) {
 			// Gone from it with the block out of view: nothing glides.
 			*in = liveIn{first: -1}
@@ -670,22 +773,22 @@ func (a *app) liveArea(c *ui.Context, d *editor, area ui.Element, f liveFrame) {
 			}
 			tintFrom, tintTo = 0, 0
 		}
-		for _, dc := range doc.decos {
-			if dc.kind != decoQuote || dc.end < from || dc.start > to {
-				continue
+		doc.eachDeco(from, to, func(dc liveDeco) {
+			if dc.kind != decoQuote {
+				return
 			}
 			l0, l1 := snap.LineAt(min(dc.start, n)), snap.LineAt(min(dc.end, n))
 			if tintTo > tintFrom && (tintTo != l0 || tint.alert != dc.alert) {
 				drawTint()
 			}
 			if dc.alert == alertNone {
-				continue
+				return
 			}
 			if tintTo <= tintFrom {
 				tint, tintFrom = dc, l0
 			}
 			tintTo = l1 + 1
-		}
+		})
 		drawTint()
 		// The bars of quotes, one from the first line of a run of a quote's
 		// lines to its last, rather than one a line.
@@ -705,10 +808,7 @@ func (a *app) liveArea(c *ui.Context, d *editor, area ui.Element, f liveFrame) {
 			}
 			barFrom, barTo = 0, 0
 		}
-		for _, dc := range doc.decos {
-			if dc.end < from || dc.start > to {
-				continue
-			}
+		doc.eachDeco(from, to, func(dc liveDeco) {
 			l0, l1 := snap.LineAt(min(dc.start, n)), snap.LineAt(min(dc.end, n))
 			y0, y1 := lineY(r, l0), lineY(r, l1+1)
 			switch dc.kind {
@@ -724,7 +824,7 @@ func (a *app) liveArea(c *ui.Context, d *editor, area ui.Element, f liveFrame) {
 				// Into the blank line after it, as far below its text as the
 				// Reading view's, or along its foot.
 				y := y1 - 1
-				if l1+1 < snap.LineCount() && strings.TrimSpace(snap.Line(l1+1)) == "" {
+				if liveBlank(snap, l1+1) {
 					y = y1 + size*0.25
 				}
 				pt.Fill(ui.Rect{X: x, Y: y, W: f.width, H: 1}, p.border, 0)
@@ -732,7 +832,7 @@ func (a *app) liveArea(c *ui.Context, d *editor, area ui.Element, f liveFrame) {
 				// The bars of a line whose > shows are the >.
 				if onLines(dc.start, dc.end) && l0 == l1 && liveQuoteMarks.MatchString(snap.Line(l0)) {
 					drawBars()
-					continue
+					return
 				}
 				if barTo > barFrom && (barTo != l0 || bars.depth != dc.depth || bars.alert != dc.alert) {
 					drawBars()
@@ -742,7 +842,7 @@ func (a *app) liveArea(c *ui.Context, d *editor, area ui.Element, f liveFrame) {
 				}
 				barTo = l1 + 1
 			}
-		}
+		})
 		drawBars()
 	})
 	area.DrawObjects(func(pt *ui.Painter, at int, r ui.Rect) {
@@ -778,24 +878,43 @@ func (a *app) liveArea(c *ui.Context, d *editor, area ui.Element, f liveFrame) {
 			b := size * 0.9
 			box := ui.Rect{X: r.X + min((r.W-b)/2, size*0.1), Y: r.Y + (r.H-b)/2, W: b, H: b}
 			// A box just checked fills in, its check growing from half its
-			// size; one unchecked empties.
+			// size, or only fading with Reduce Motion; one unchecked
+			// empties. The pointer over it darkens its edge.
 			k := float32(1)
 			if since := pt.Now().Sub(d.liveTickAt); at == d.liveTicked && !d.liveTickAt.IsZero() && since >= 0 && since < motionShow {
 				k = ui.EaseOut(float32(since) / float32(motionShow))
 				pt.AnimationFrame()
 			}
+			edge := p.muted
+			if d.liveBox == at+1 {
+				edge = p.text
+			}
 			if s.obj == objTaskDone {
-				pt.Stroke(box, p.muted.Alpha(1-k), 3, 1.25)
+				pt.Stroke(box, edge.Alpha(1-k), 3, 1.25)
 				pt.Fill(box, p.fill.Alpha(k), 3)
-				cw := b * 0.8 * (0.5 + 0.5*k)
+				cw := b * 0.8
+				if glide {
+					cw *= 0.5 + 0.5*k
+				}
 				pt.Icon(iconCheck, ui.Rect{X: box.X + (b-cw)/2, Y: box.Y + (b-cw)/2, W: cw, H: cw}, p.fillText.Alpha(k))
 			} else {
 				pt.Fill(box, p.fill.Alpha(1-k), 3)
-				pt.Stroke(box, p.muted, 3, 1.25)
+				pt.Stroke(box, edge, 3, 1.25)
 			}
 			d.liveHits = append(d.liveHits, liveHit{r: ui.Rect{X: box.X - d.liveAt.X, Y: box.Y - d.liveAt.Y, W: b, H: b}, at: at})
 		case objImage:
-			pt.Image(s.drawn.image.bitmap, r, ui.Contain)
+			// A picture on its way is a card at its place, which fades
+			// away over the picture once it arrived.
+			if !s.drawn.loading {
+				pt.Image(s.drawn.image.bitmap, r, ui.Contain)
+			}
+			if o.fade < 1 {
+				k := 1 - o.fade
+				pt.Fill(r, p.chrome.Alpha(k), 6)
+				pt.Stroke(r, p.border.Alpha(k), 6, 1)
+				is := min(size*1.5, r.H/2)
+				pt.Icon(iconImage, ui.Rect{X: r.X + (r.W-is)/2, Y: r.Y + (r.H-is)/2, W: is, H: is}, p.faint.Alpha(k))
+			}
 		case objMath:
 			s.drawn.formula.draw(pt, r, p.text)
 		case objNote:
@@ -808,10 +927,15 @@ func (a *app) liveArea(c *ui.Context, d *editor, area ui.Element, f liveFrame) {
 			is := size * 0.68
 			pt.Icon(iconExternal, ui.Rect{X: r.X + size*0.12, Y: r.Y + r.H - size*0.78, W: is, H: is}, p.accent.Alpha(0.7))
 		case objGlyph:
-			// In the middle of the columns it takes.
+			// In the middle of the columns it takes, and of its line's room
+			// when it holds the line higher.
+			h := r.H
+			if o.room > 0 {
+				h = o.room
+			}
 			span := ui.Span{Text: o.glyph, Font: codeFont, Size: size * 0.9, Color: p.text}
 			tw, th := pt.MeasureText(0, span)
-			pt.RichText(r.X+(r.W-tw)/2, r.Y+(r.H-th)/2, 0, span)
+			pt.RichText(r.X+(r.W-tw)/2, r.Y+(h-th)/2, 0, span)
 		case objAlert:
 			// An alert with no title of its own is titled by its kind.
 			icon, title := markdownAlertHead(s.alert, liveAlertWord(snap, s))
@@ -877,7 +1001,7 @@ func (a *app) liveArea(c *ui.Context, d *editor, area ui.Element, f liveFrame) {
 		for _, s := range blocks {
 			s := s
 			lv := s.lv
-			y := editorPadY + f.g.top(s.first) - d.vscroll.Y + size/2
+			y := editorPadY + f.g.top(s.first) - d.vscroll.Y + size/2 + s.pad/2
 			// Clipped to the room it has while that grows, its drawing
 			// measured whole.
 			room := ui.Box(c.Key("live-room:" + s.b.key)).Absolute().Top(y).Left(f.left).Width(f.width)
@@ -919,7 +1043,10 @@ func (a *app) liveArea(c *ui.Context, d *editor, area ui.Element, f liveFrame) {
 			// Not the room the Reading view keeps below its last row: the
 			// blank line after it is that room here.
 			bottom, outside := a.markdownBelow(lv.v.markdown, len(lv.v.markdown.blocks)-1)
-			if h := lv.at.H - bottom - outside; lv.at.H > 0 && h != lv.height {
+			if h := lv.at.H - bottom - outside; lv.at.H > 0 && (h != lv.height || !lv.measured) {
+				if !lv.measured {
+					lv.measured, lv.shownAt = true, c.Now()
+				}
 				lv.height = h
 				a.invalidate()
 			}
@@ -970,12 +1097,117 @@ func (a *app) liveHovered(d *editor, area ui.Element, doc *liveDoc, f liveFrame)
 }
 
 // liveDrawn is an object a frame of Live Preview draws: its span, whether
-// it shows as its source, as a bullet's mark does, and the rune it draws
-// for objGlyph.
+// it shows as its source, as a bullet's mark does, how far a picture
+// faded in, and the rune it draws for objGlyph, in the middle of the top
+// room of its box when that is set.
 type liveDrawn struct {
 	s     *liveSpan
 	shown bool
+	fade  float32
 	glyph string
+	room  float32
+}
+
+// livePic is a picture of the web that Live Preview drew a card for, w
+// by h, while it was on its way, and when it arrived, zero until then.
+type livePic struct {
+	at   time.Time
+	w, h float32
+}
+
+// pictureRoom is the room of a picture w by h at now, and how far it faded
+// in: a card's for one on its way, then one gliding from the card's to its
+// own, the picture fading in over it.
+func (l *liveState) pictureRoom(p *livePicture, w, h float32, now time.Time, glide bool) (float32, float32, float32) {
+	pic := l.pics[p.dest]
+	if p.loading {
+		if pic == nil {
+			if l.pics == nil || len(l.pics) >= 64 {
+				l.pics = map[string]*livePic{}
+			}
+			pic = &livePic{}
+			l.pics[p.dest] = pic
+		}
+		pic.w, pic.h = w, h
+		return w, h, 0
+	}
+	if pic == nil {
+		return w, h, 1
+	}
+	if pic.at.IsZero() {
+		pic.at = now
+	}
+	since := now.Sub(pic.at)
+	if since < 0 || since >= motionMove {
+		delete(l.pics, p.dest)
+		return w, h, 1
+	}
+	fade := float32(1)
+	if since < motionShow {
+		fade = ui.EaseOut(float32(since) / float32(motionShow))
+	}
+	if glide {
+		k := ui.EaseInOut(float32(since) / float32(motionMove))
+		w, h = pic.w+(w-pic.w)*k, pic.h+(h-pic.h)*k
+	}
+	return w, h, fade
+}
+
+// liveColorKey is what the colors of the code in view are of.
+type liveColorKey struct {
+	version     uint64
+	gen         uint64
+	first, last int
+	pal         *palette
+	doc         *liveDoc
+	hl          *highlight.Highlighter
+}
+
+// codeColors are the colors of the code of the blocks of code codes, in
+// their language, on lines first to last: not their fences, whose
+// language reads faint and whose marks hide.
+func (l *liveState) codeColors(hl *highlight.Highlighter, p *palette, snap ui.TextSnapshot, doc *liveDoc, codes []liveDeco, first, last int) []ui.TextRange {
+	k := liveColorKey{snap.Version(), hl.Gen(), first, last, p, doc, hl}
+	if l.colors != nil && l.colorKey == k {
+		return l.colors
+	}
+	out := l.colors[:0]
+	n := snap.Len()
+	for _, dc := range codes {
+		l0, l1 := snap.LineAt(min(dc.start, n)), snap.LineAt(min(dc.end, n))
+		if dc.fenced {
+			l0++
+			s, e := snap.LineRange(l1)
+			if t := strings.TrimSpace(snap.Slice(s, min(e, s+64))); l1 >= l0 && (strings.HasPrefix(t, "```") || strings.HasPrefix(t, "~~~")) {
+				l1--
+			}
+		}
+		for i := max(l0, first); i <= min(l1, last); i++ {
+			s, e := snap.LineRange(i)
+			if e-s > highlight.MaxLineRunes {
+				continue
+			}
+			for _, tok := range hl.Line(i, snap.Slice(s, e)) {
+				if col := p.syntax[tok.Kind]; col != p.text {
+					out = append(out, ui.TextRange{Start: s + tok.Start, End: s + tok.End, Color: col})
+				}
+			}
+		}
+	}
+	if out == nil {
+		out = []ui.TextRange{}
+	}
+	l.colors, l.colorKey = out, k
+	return out
+}
+
+// liveBlank reports whether line i of snap is there and blank.
+func liveBlank(snap ui.TextSnapshot, i int) bool {
+	if i < 0 || i >= snap.LineCount() {
+		return false
+	}
+	s, e := snap.LineRange(i)
+	return e-s <= 64 && strings.TrimSpace(snap.Slice(s, e)) == ""
 }
 
 // liveHang is how wide the white space s, which continues an item of a
@@ -1020,8 +1252,13 @@ func (a *app) liveStrike(d *editor, snap ui.TextSnapshot, s *liveSpan, now time.
 	}
 	n := min(s.end, snap.Len())
 	_, end := snap.LineRange(snap.LineAt(n))
-	line := snap.Slice(n, end)
-	start := n + utf8.RuneCountInString(line) - utf8.RuneCountInString(strings.TrimLeft(line, " \t"))
+	start := n
+	for start < end {
+		if r := snap.Slice(start, start+1); r != " " && r != "\t" {
+			break
+		}
+		start++
+	}
 	if start >= end {
 		return ui.TextRange{}, false
 	}
@@ -1126,6 +1363,16 @@ func (a *app) liveObjectSize(l *liveState, snap ui.TextSnapshot, s *liveSpan, si
 	case objQuote:
 		return size * 0.9 * float32(max(1, int(s.depth))), size * 0.7, 0
 	case objImage:
+		if s.drawn.loading {
+			// A card for a picture on its way, as wide as one asked for,
+			// else a modest one, of a photo's proportions.
+			w = size * 18
+			if s.drawn.width > 0 {
+				w = s.drawn.width
+			}
+			w = min(w, max(1, width))
+			return w, w * 9 / 16, 0
+		}
 		iw, ih := s.drawn.image.w, s.drawn.image.h
 		if iw <= 0 || ih <= 0 {
 			return 1, 1, 0
@@ -1238,6 +1485,22 @@ func (a *app) liveClick(d *editor, x, y float32) bool {
 		}
 	}
 	return false
+}
+
+// livePointer notes the task's box the pointer moved over in an editor of
+// Live Preview, and whether ⌘ is held, for the next frame to show; a drag
+// selecting shows neither.
+func (a *app) livePointer(d *editor, ev ui.InputEvent) {
+	box := 0
+	for _, h := range d.liveHits {
+		if r := h.r; ev.Button < 0 && h.key == "" && ev.X >= r.X-2 && ev.X <= r.X+r.W+2 && ev.Y >= r.Y-2 && ev.Y <= r.Y+r.H+2 {
+			box = h.at + 1
+		}
+	}
+	if cmd := ev.Mods == ui.Cmd; box != d.liveBox || cmd != d.liveCmd {
+		d.liveBox, d.liveCmd = box, cmd
+		a.invalidate()
+	}
 }
 
 // liveLinks are the links of a line of Markdown: [text](dest), <url> and

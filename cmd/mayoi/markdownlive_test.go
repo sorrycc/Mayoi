@@ -1,7 +1,10 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
+	"image"
+	"image/png"
 	"os"
 	"strings"
 	"testing"
@@ -341,7 +344,7 @@ func TestParseLiveKeepsBlocks(t *testing.T) {
 func TestLiveMarkersHoldStill(t *testing.T) {
 	hs := newHarness(t, true)
 	a := hs.a
-	src := "intro\n\n- bullet item\n  continued line\n- [ ] task item\n\nend\n"
+	src := "intro\n\n- bullet item\n  continued line\n- [ ] task item\n\n1. [ ] ordered task\n\nend\n"
 	path := hs.path("marks.md")
 	os.WriteFile(path, []byte(src), 0o644)
 	a.settings.MarkdownMode = "live"
@@ -361,7 +364,7 @@ func TestLiveMarkersHoldStill(t *testing.T) {
 	if b, c := x(runeOf("bullet item")), x(runeOf("continued")); b-c > 0.5 || c-b > 0.5 {
 		t.Errorf("the continued line starts at %v, its item's text at %v", c, b)
 	}
-	for _, tc := range []struct{ marker, text string }{{"- bullet", "bullet item"}, {"- [ ]", "task item"}} {
+	for _, tc := range []struct{ marker, text string }{{"- bullet", "bullet item"}, {"- [ ]", "task item"}, {"[ ] ordered", "ordered task"}} {
 		hs.place(d, 0, 0)
 		hs.settle()
 		before := x(runeOf(tc.text))
@@ -711,5 +714,138 @@ func TestLiveLinkHover(t *testing.T) {
 	step(hs.tt)
 	if d.liveHover != 0 || d.liveHoverWas != at {
 		t.Errorf("off the link, hover is %d, was %d", d.liveHover, d.liveHoverWas)
+	}
+}
+
+// openLive opens src as a note in Live Preview, once parsed with its
+// blocks drawn, and returns its editor.
+func openLive(t *testing.T, hs *harness, name, src string, blocks int) *editor {
+	t.Helper()
+	path := hs.path(name)
+	os.WriteFile(path, []byte(src), 0o644)
+	hs.a.settings.MarkdownMode = "live"
+	hs.a.openFile(path, true)
+	d := hs.a.activeEditor()
+	hs.until("Live Preview parsed", func() bool {
+		l := d.document.live
+		return l != nil && l.doc != nil && !l.quick && len(l.views) == blocks
+	})
+	hs.settle()
+	return d
+}
+
+// The caret leaving a block before the text below it glided down turns
+// it back from where it is, and going in again while it glides back up
+// does too: it never jumps.
+func TestLiveGlideTurnsBack(t *testing.T) {
+	hs := newHarness(t, true)
+	src := "intro\n\n| a | b |\n|---|---|\n| 1 | 2 |\n| 3 | 4 |\n| 5 | 6 |\n\nend\n"
+	d := openLive(t, hs, "turn.md", src, 1)
+	end := d.buf.Snapshot().LineCount() - 2
+	drawn := d.lines.Top(end)
+	at := len([]rune(src[:strings.Index(src, "| 3")]))
+	for range 2 {
+		d.selectRange(at, at, false)
+		step(hs.tt)
+		step(hs.tt)
+		step(hs.tt)
+		was := d.lines.Top(end)
+		d.selectRange(0, 0, false)
+		step(hs.tt)
+		if now := d.lines.Top(end); now < was-8 || now > was+8 {
+			t.Fatalf("leaving mid-glide, the text below jumped from %v to %v", was, now)
+		}
+		step(hs.tt)
+		step(hs.tt)
+		was = d.lines.Top(end)
+		d.selectRange(at, at, false)
+		step(hs.tt)
+		if now := d.lines.Top(end); now < was-8 || now > was+8 {
+			t.Fatalf("going in mid-glide, the text below jumped from %v to %v", was, now)
+		}
+		d.selectRange(0, 0, false)
+		hs.settle()
+	}
+	if back := d.lines.Top(end); back < drawn-1 || back > drawn+1 {
+		t.Errorf("the text below settled at %v, not %v", back, drawn)
+	}
+}
+
+// A diagram with text right below it, no blank line between, glides as
+// the caret goes in: its last line holds the room its drawing gives up.
+func TestLiveGlideWithoutBlank(t *testing.T) {
+	hs := newHarness(t, true)
+	src := "intro\n\n```mermaid\ngraph TD\n  A --> B\n  B --> C\n  C --> D\n```\nright below\n\nend\n"
+	d := openLive(t, hs, "diagram.md", src, 1)
+	below := d.buf.Snapshot().LineCount() - 4
+	drawn := d.lines.Top(below)
+	at := len([]rune(src[:strings.Index(src, "A -->")]))
+	d.selectRange(at, at, false)
+	step(hs.tt)
+	step(hs.tt)
+	first := d.lines.Top(below)
+	hs.settle()
+	source := d.lines.Top(below)
+	if source >= drawn-1 {
+		t.Fatalf("the diagram's source is as high as its drawing: %v, %v", source, drawn)
+	}
+	if first < drawn-(drawn-source)/2 {
+		t.Errorf("the text below jumped from %v to %v, not gliding to %v", drawn, first, source)
+	}
+}
+
+// A formula in display style whose source is higher than its drawing keeps
+// its source's room: the caret going in moves nothing below it.
+func TestLiveMathHoldsStill(t *testing.T) {
+	hs := newHarness(t, true)
+	src := "intro\n\n$$\nx\n$$\n\nend\n"
+	d := openLive(t, hs, "math.md", src, 1)
+	end := d.buf.Snapshot().LineCount() - 2
+	drawn := d.lines.Top(end)
+	at := len([]rune(src[:strings.Index(src, "x")]))
+	d.selectRange(at, at, false)
+	hs.settle()
+	if source := d.lines.Top(end); source < drawn-0.5 || source > drawn+0.5 {
+		t.Errorf("the text below moved from %v to %v as the caret went into the formula", drawn, source)
+	}
+}
+
+// A picture of the web on its way shows as a card in its place, which the
+// picture fades in over once it arrived.
+func TestLivePictureArrives(t *testing.T) {
+	hs := newHarness(t, true)
+	release := make(chan struct{})
+	get := markdownRemote.get
+	markdownRemote.get = func(string) ([]byte, error) {
+		<-release
+		img := image.NewRGBA(image.Rect(0, 0, 40, 20))
+		var b bytes.Buffer
+		png.Encode(&b, img)
+		return b.Bytes(), nil
+	}
+	t.Cleanup(func() { markdownRemote.get = get })
+	url := fmt.Sprintf("https://example.com/%d.png", time.Now().UnixNano())
+	src := "intro\n\n![a picture](" + url + ")\n\nend\n"
+	d := openLive(t, hs, "picture.md", src, 0)
+	picture := func() *liveDrawn {
+		for _, o := range d.liveObjects {
+			if o.s.obj == objImage {
+				return &o
+			}
+		}
+		return nil
+	}
+	if o := picture(); o == nil || !o.s.drawn.loading || o.fade != 0 {
+		t.Fatalf("the picture on its way shows as %+v, not its card", o)
+	}
+	close(release)
+	l := d.document.live
+	hs.until("the picture arrived", func() bool { o := picture(); return o != nil && !o.s.drawn.loading })
+	if o := picture(); o.fade >= 1 && len(l.pics) > 0 {
+		t.Error("the picture that arrived did not fade in")
+	}
+	hs.settle()
+	if o := picture(); o.fade < 1 || len(l.pics) != 0 {
+		t.Errorf("the picture settled at %v faded in, %d cards kept", o.fade, len(l.pics))
 	}
 }

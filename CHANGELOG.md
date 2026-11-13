@@ -5,25 +5,6 @@ needs a `## <version>` section here, or its build fails.
 
 ## Unreleased
 
-- Live Preview shows `#tags` as colored pills, as in Obsidian.
-- Live Preview raises footnote references like `[^1]` as small superscript numbers.
-- Live Preview hides the backslash of escaped characters like `\*` until the caret reaches them.
-- Links in Live Preview are underlined, and wikilinks to notes that don't exist yet look faded.
-- Callouts like `> [!tip] My title` show their own title, and Obsidian's callout types are recognized.
-- Callouts are tinted in their color in both Live Preview and Reading view.
-- Each Obsidian callout type, like `[!bug]` or `[!example]`, now has its own color and icon.
-- Callouts marked `[!faq]-` start folded and `[!faq]+` start open; click the chevron to fold or open them.
-- Embedded notes like `![[note]]` or `![[note#Heading]]` show their content in place, in both views.
-- Click the name above an embedded note to open it.
-- `%%comments%%` look faint in Live Preview and are hidden in Reading view.
-- Links to web pages in Live Preview end with a small external-link icon.
-- Reading view shows `#tags` as pills, as Live Preview does.
-- Footnote references show the same number in Live Preview as in Reading view.
-- Links in Reading view are faintly underlined, and wikilinks to missing notes look faded, as in Live Preview.
-- In Live Preview, a link's underline fills in as the pointer moves over it.
-- A folded callout stays folded when you edit its title.
-- Block embeds like `![[note#^id]]` show that paragraph, list item or block in place.
-- Block ids like `^id` look faint in Live Preview and are hidden in Reading view.
 - The sidebar's width and whether it's shown now stay the same as you switch projects and windows.
 - **Sessions** keeps **All Projects** chosen as you switch projects.
 - **Sessions** marks a session that's open in a terminal in any project with a terminal icon.
@@ -46,26 +27,40 @@ needs a `## <version>` section here, or its build fails.
 - **Sessions** shows what Qoder and Codex sessions do, as it does for Claude Code sessions.
 - **Sessions** shows what sessions running in Mayoi's own terminals do, without `terminalBackend` set to `"hc"`.
 - New Live Preview edits Markdown as it reads: headings, emphasis, links and code styled, their marks hidden.
-- In Live Preview, the marks of what the caret touches show, faint, to be edited.
-- Live Preview draws task boxes, bullets, quotes, alerts, pictures and math in place; a click checks a task.
+- In Live Preview, the marks of what the caret touches show, faint, fading in as the caret reaches their line.
+- Live Preview draws bullets, task boxes, quotes, alerts, pictures and math in place, as the Reading view does.
 - Live Preview renders tables, Mermaid diagrams and display math, and shows their source when the caret goes in.
-- `⌘`-click a link in Live Preview to open it.
+- In Live Preview, text below a table, diagram or formula glides as its source shows or hides.
+- Bullets, task boxes and list indents in Live Preview keep their width as the caret reaches them.
+- Nested lists and lines that continue a list item stand under the item's text in Live Preview.
+- Quotes in Live Preview have one unbroken bar, and the largest headings a hairline below, as in Reading.
+- A click on a task's box in Live Preview checks it, filling the box and striking its text through.
+- A click on a task's box in the Reading view checks it in the file.
+- A picture from the web in Live Preview shows a card in its place while it loads, then fades in.
+- Symbols such as `⌘` and wide characters keep a table's columns lined up in its Live Preview source.
 - Buttons at the right of a Markdown tab's path switch it between source, Live Preview and the Reading view.
+- Switching between source, Live Preview and the Reading view fades the new view in.
 - **View → Toggle Live Preview** (`⌥⌘V`) switches a Markdown tab between Live Preview and its source.
 - **View → Open Markdown As** chooses source, Live Preview or the Reading view for files you open.
-- A click on a task's box in the Reading view checks it in the file.
-- Live Preview stays smooth as you type in long notes full of tables, math and diagrams.
-- In Live Preview, marks fade in as the caret moves to their line, and a table fades back in as it leaves.
-- A task's box in Live Preview fills in as you check it, and no longer flashes `[x]` first.
-- Nested lists in Live Preview stand under their parent's text, as in the Reading view.
-- Quotes in Live Preview have one unbroken bar, and the largest headings a hairline below, as in Reading.
-- Switching between source, Live Preview and the Reading view fades the new view in.
-- In Live Preview, a bullet or task box keeps its width as the caret reaches it, so the line holds still.
-- Text below a table or diagram in Live Preview glides as its source shows or hides, rather than jumping.
-- A task checked in Live Preview is struck through at once, its strike fading in.
-- Lines that continue a list item in Live Preview stand under the item's text.
-- Symbols such as `⌘` and wide characters keep a table's columns lined up in its Live Preview source.
-- Live Preview parses long notes faster and with half the memory.
+- Live Preview stays smooth as you type and scroll in long notes full of tables, math and diagrams.
+- Live Preview shows `#tags` as colored pills, as in Obsidian.
+- Live Preview raises footnote references like `[^1]` as small superscript numbers, as Reading view does.
+- Live Preview hides the backslash of escaped characters like `\*` until the caret reaches them.
+- Links in Live Preview are underlined, and wikilinks to notes that don't exist yet look faded.
+- In Live Preview, a link's underline fills in under the pointer; `⌘`-click it to open it.
+- Callouts like `> [!tip] My title` show their own title, and Obsidian's callout types are recognized.
+- Callouts are tinted in their color in both Live Preview and Reading view.
+- Each Obsidian callout type, like `[!bug]` or `[!example]`, has its own color and icon.
+- Callouts marked `[!faq]-` start folded and `[!faq]+` start open; click the chevron to fold or open them.
+- Embedded notes like `![[note]]` or `![[note#Heading]]` show their content in place, in both views.
+- Click the name above an embedded note to open it.
+- `%%comments%%` look faint in Live Preview and are hidden in Reading view.
+- Links to web pages in Live Preview end with a small external-link icon.
+- Reading view shows `#tags` as pills, as Live Preview does.
+- Links in Reading view are faintly underlined, and wikilinks to missing notes look faded, as in Live Preview.
+- A folded callout stays folded when you edit its title.
+- Block embeds like `![[note#^id]]` show that paragraph, list item or block in place.
+- Block ids like `^id` look faint in Live Preview and are hidden in Reading view.
 
 ## 0.20.1
 

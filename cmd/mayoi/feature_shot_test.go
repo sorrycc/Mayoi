@@ -5,6 +5,7 @@ package main
 // FSHOTS=<dir> go test -run TestFeat ./cmd/mayoi
 
 import (
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -949,5 +950,51 @@ func TestFeatLiveCallouts(t *testing.T) {
 		time.Sleep(300 * time.Millisecond)
 		hs.settle()
 		hs.fshot("reading-callouts", dark)
+	})
+}
+
+// featLiveDetailsMD is a note of the smaller things Live Preview shows:
+// a link, ordered tasks, a picture of the web on its way, a formula and
+// a diagram.
+const featLiveDetailsMD = "# Details\n\n" +
+	"Hold ⌘ over [a link](https://example.com) to open it.\n\n" +
+	"1. [x] Ordered tasks\n2. [ ] keep their place\n\n" +
+	"![A picture on its way](https://example.com/feat-picture.png)\n\n" +
+	"$$\n\\int_0^1 x^2\\,dx = \\frac{1}{3}\n$$\n\n" +
+	"```mermaid\ngraph LR\n  A[Write] --> B[Read]\n```\n" +
+	"Text right below the diagram.\n"
+
+// Live Preview's details: the pointer over a link with ⌘ held, a picture
+// on its way as its card, and the caret at an ordered task's box.
+func TestFeatLivePreviewDetails(t *testing.T) {
+	featBoth(t, func(t *testing.T, dark bool) {
+		hold := make(chan struct{})
+		get := markdownRemote.get
+		markdownRemote.get = func(string) ([]byte, error) { <-hold; return nil, errors.New("offline") }
+		t.Cleanup(func() { close(hold); markdownRemote.get = get })
+		hs := featHarness(t, dark, featOpts{root: t.TempDir(), w: 1100, h: 900})
+		a := hs.a
+		os.WriteFile(hs.path("details.md"), []byte(featLiveDetailsMD), 0o644)
+		a.settings.MarkdownMode = "live"
+		a.openFile(hs.path("details.md"), true)
+		d := a.activeEditor()
+		hs.until("the note parsed", func() bool { l := d.document.live; return l != nil && l.doc != nil && !l.quick && len(l.views) == 2 })
+		hs.caretAt(d, "keep their", 0, 0)
+		hs.settle()
+		time.Sleep(300 * time.Millisecond)
+		hs.settle()
+		// The pointer over the link, ⌘ held.
+		link := len([]rune(featLiveDetailsMD[:strings.Index(featLiveDetailsMD, "a link")])) + 1
+		if _, y, h, ok := d.lines.Caret(link); ok {
+			hs.tt.HoldModifiers(ui.Cmd)
+			y = d.liveAt.Y + editorPadY + y + h/2 - d.vscroll.Y
+			for x := d.liveAt.X; x < d.liveAt.X+1000 && d.liveHover != link; x += 6 {
+				hs.tt.Move(x, y)
+				step(hs.tt)
+			}
+			hs.settle()
+		}
+		hs.fshot("live-preview-details", dark)
+		hs.tt.HoldModifiers(0)
 	})
 }

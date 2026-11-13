@@ -183,7 +183,7 @@ type markdownCache struct {
 	math     bool
 	formulas map[mathKey]*mathFormula
 	// arrived is called once a picture of the web a parse asked for is
-	// fetched, for the preview to parse again; without it, those pictures
+	// fetched or failed, for the preview to parse again; without it, those pictures
 	// are not fetched.
 	arrived func()
 	// keep is set while one parse of Live Preview parses each of its

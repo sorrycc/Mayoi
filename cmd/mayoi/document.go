@@ -235,11 +235,19 @@ type editor struct {
 	live     bool
 	liveHits []liveHit
 	liveAt   ui.Point
+	// liveBox is the task's box the pointer is over, as its rune plus
+	// one, 0 for none, and liveCmd set while ⌘ is held over the text.
+	liveBox int
+	liveCmd bool
+	// liveRanges and liveObjects are the ranges and the objects of Live
+	// Preview's last frame, kept for the next to fill again.
+	liveRanges  []ui.TextRange
+	liveObjects map[int]liveDrawn
 	// liveLines are the lines the caret's marks showed on in the last
-	// frame, and liveRevealAt when the caret came to them, from which the
-	// marks there fade in.
-	liveLines    [2]int
-	liveRevealAt time.Time
+	// frame, liveLinesWas those before, and liveRevealAt when the caret
+	// came to them, from which the marks there fade in.
+	liveLines, liveLinesWas [2]int
+	liveRevealAt            time.Time
 	// liveTicked is the rune of the [ of the task whose box was checked
 	// or unchecked last, tickNow set until a frame notes when, liveTickAt.
 	liveTicked int

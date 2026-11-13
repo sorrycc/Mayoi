@@ -133,22 +133,27 @@ draws its rendered blocks with as well.
 **`markdownlive.go`, `markdownliveview.go`.** Live Preview is the editor itself, its text area styled as the text reads,
 as Obsidian's is. A parse, in the background a moment after each edit, finds spans of runes: what styles text, as a
 heading's size or bold's weight, the marks of Markdown, which hide unless the caret or the selection touches what they
-mark, and objects, the first rune of a bullet, a task's box, a picture or a formula drawn in place, the rest hidden. They
-reach the text area as MyGo's `TextRange`s, for the lines about the view only. Until the next parse arrives, the last
-one follows the edits made since (`liveDoc.mapTo`): the texts are compared from both ends, what was before the change
-stays, what was after moves with it, a style grows with what is typed at its end and a mark does not, so that typing
-never lands in a hidden mark. Only the spans a frame styles move (`liveDoc.visit`), so a key costs the same in a long
-note as in a short one; a task's box checked stays a box. The first frame parses on the main thread, quickly, without
-pictures, formulas or blocks. Tables, diagrams and formulas in display style are blocks: `TextBlocks` keeps their lines
-as high as the block renders, and the block, drawn by `markdownRow`, covers them, until the caret goes in, which shows
-their source. A parse takes the blocks of the same source as the last drew (`markdownCache.blocks`), so only those
-edited are drawn again: a parse of a 250 KB note full of them takes some 13 ms and 30 MB (`BenchmarkParseLive`), a
-span keeping a picture or a formula behind a pointer. As the caret goes into a block or leaves it, its room glides
-between the drawing's height and its source's (`liveIn`), the blank line after it taking the difference, so the text
-below moves over rather than jumps. A bullet and a task's box keep the width of their source, which shows in their
-room as the caret comes to them, so the line holds still. Blocks of code are cards painted behind their lines, colored
-by the highlighter. The Reading view parses a note whole, with the cache of its last parse, so a parse after a key
-takes some 13 ms where one without would take 550 (`BenchmarkMarkdownReparse`).
+mark, and objects, the first rune of a bullet, a task's box, a picture or a formula drawn in place, the rest hidden.
+They reach the text area as MyGo's `TextRange`s, for the lines about the view only. Until the next parse arrives, the
+last one follows the edits made since (`liveDoc.mapTo`): the texts are compared from both ends, what was before the
+change stays, what was after moves with it, a style grows with what is typed at its end and a mark does not, so that
+typing never lands in a hidden mark. Only the spans, cards and blocks a frame shows move (`liveDoc.visit`, `eachDeco`,
+`eachBlock`), so a key costs the same in a long note as in a short one, some 50 µs to follow (`BenchmarkLiveMapTo`); a
+task's box checked stays a box. The first frame parses on the main thread, quickly, without pictures, formulas or
+blocks. Tables, diagrams and formulas in display style are blocks: `TextBlocks` keeps their lines as high as the block
+renders, and the block, drawn by `markdownRow`, covers them, until the caret goes in, which shows their source. A parse
+takes the blocks of the same source as the last drew (`markdownCache.blocks`), so only those edited are drawn again: a
+parse of a 250 KB note full of them takes some 13 ms and 30 MB (`BenchmarkParseLive`), a span keeping a picture or a
+formula behind a pointer. A block keeps the room of its drawing, or of its source when that is higher, as a short
+formula's is. As the caret goes into a block or leaves it, its room glides between the two (`liveIn`), from wherever it
+is when the caret turns back: the blank line after it takes the difference, or, with text right below, its last line
+grows by its last rune drawn as an object, so the text below moves over rather than jumps. A block shows once measured,
+fading in. A bullet and a task's box keep the width of their source, which shows in their room as the caret comes to
+them, so the line holds still. A picture of the web on its way is a card (`livePicture`), whose room glides to the
+picture's as it arrives and fades in over it. The link under the pointer is found from where the area says the pointer
+is (`liveHovered`), and its underline fills in. Blocks of code are cards painted behind their lines, their code alone
+colored by the highlighter (`liveState.codeColors`). The Reading view parses a note whole, with the cache of its last
+parse, so a parse after a key takes some 13 ms where one without would take 550 (`BenchmarkMarkdownReparse`).
 
 ## Git
 

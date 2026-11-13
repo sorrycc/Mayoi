@@ -57,7 +57,7 @@ func markdownHTTPGet(url string) ([]byte, error) {
 
 // markdownFetch is the picture at url once it is fetched. Until then, it
 // fetches it in the background, if arrived is not nil, and calls arrived
-// once it can be shown.
+// once it is fetched or failed.
 func markdownFetch(url string, arrived func()) (markdownInline, bool) {
 	m := &markdownRemote
 	m.Lock()
@@ -90,13 +90,22 @@ func markdownFetch(url string, arrived func()) (markdownInline, bool) {
 		calls := e.arrived
 		e.arrived = nil
 		m.Unlock()
-		if image.bitmap != nil {
-			for _, f := range calls {
-				f()
-			}
+		// Failed, it is called too: Live Preview's card for it goes.
+		for _, f := range calls {
+			f()
 		}
 	}()
 	return markdownInline{}, false
+}
+
+// markdownFetching reports whether the picture of the web at url is on
+// its way.
+func markdownFetching(url string) bool {
+	m := &markdownRemote
+	m.Lock()
+	defer m.Unlock()
+	e, ok := m.images[url]
+	return ok && !e.done
 }
 
 // markdownDecode is a picture's bitmap and size, of an SVG or another

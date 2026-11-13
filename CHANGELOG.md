@@ -18,6 +18,15 @@ needs a `## <version>` section here, or its build fails.
 - Typing a bracket or quote that closes itself no longer scrolls or shakes the editor.
 - **Sessions** shows what Qoder and Codex sessions do, as it does for Claude Code sessions.
 - **Sessions** shows what sessions running in Mayoi's own terminals do, without `terminalBackend` set to `"hc"`.
+- New Live Preview edits Markdown as it reads: headings, emphasis, links and code styled, their marks hidden.
+- In Live Preview, the marks of what the caret touches show, faint, to be edited.
+- Live Preview draws task boxes, bullets, quotes, alerts, pictures and math in place; a click checks a task.
+- Live Preview renders tables, Mermaid diagrams and display math, and shows their source when the caret goes in.
+- `⌘`-click a link in Live Preview to open it.
+- Buttons at the right of a Markdown tab's path switch it between source, Live Preview and the Reading view.
+- **View → Toggle Live Preview** (`⌥⌘V`) switches a Markdown tab between Live Preview and its source.
+- **View → Open Markdown As** chooses source, Live Preview or the Reading view for files you open.
+- A click on a task's box in the Reading view checks it in the file.
 
 ## 0.20.1
 

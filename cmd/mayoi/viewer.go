@@ -642,10 +642,10 @@ func (a *app) setPreview(d *editor, on bool) {
 	a.rememberTabs()
 }
 
-// toggleMarkdownPreview switches opening Markdown files, .mdx included,
-// rendered or as text.
-func (a *app) toggleMarkdownPreview() {
-	a.setPref("markdownPreview", func(p *settings.Prefs) { p.MarkdownPreview = !p.MarkdownPreview })
+// setMarkdownOpen has Markdown files, .mdx included, open as their source,
+// as Live Preview or rendered.
+func (a *app) setMarkdownOpen(mode string) {
+	a.setPref("markdownMode", func(p *settings.Prefs) { p.MarkdownMode = mode })
 }
 
 // togglePreview switches between a document's source and rendered view.

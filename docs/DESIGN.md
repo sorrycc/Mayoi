@@ -27,6 +27,8 @@ The order: it works, then it is easy, then it looks good. Polish never covers a 
 - Numbers that change in place use tabular digits (`FontFeatures("tnum")`), as the caret's position in the status
   bar and find's count (`TestStatusPositionHoldsItsWidth`).
 - Hover never moves what is clicked.
+- In Live Preview, the marks of what the caret touches show, and a block it goes into shows its source: only the
+  caret's lines change, and a mark shows at the size of its text, so a heading's line keeps its height.
 
 ## States
 

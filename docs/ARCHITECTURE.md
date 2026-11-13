@@ -124,6 +124,24 @@ painted over a checkerboard, at a scale and offset the viewer keeps.
 An SVG preview is a viewer shown in place of its editor. It parses the text shortly after each edit and keeps the last
 image that parsed. The text area stays built, out of sight, so the editor keeps its place.
 
+## Markdown
+
+**`markdown.go`, `markdownsync.go`.** The Reading view is a viewer in place of its editor too. goldmark parses the text
+in the background, a moment after each edit, into blocks a list shows, each drawn by `markdownRow`, which Live Preview
+draws its rendered blocks with as well.
+
+**`markdownlive.go`, `markdownliveview.go`.** Live Preview is the editor itself, its text area styled as the text reads,
+as Obsidian's is. A parse, in the background a moment after each edit, finds spans of runes: what styles text, as a
+heading's size or bold's weight, the marks of Markdown, which hide unless the caret or the selection touches what they
+mark, and objects, the first rune of a bullet, a task's box, a picture or a formula drawn in place, the rest hidden. They
+reach the text area as MyGo's `TextRange`s, for the lines about the view only. Until the next parse arrives, the last
+one follows the edits made since (`liveDoc.mapTo`): the texts are compared from both ends, what was before the change
+stays, what was after moves with it, a style grows with what is typed at its end and a mark does not, so that typing
+never lands in a hidden mark. The first frame parses on the main thread, quickly, without pictures, formulas or blocks.
+Tables, diagrams and formulas in display style are blocks: `TextBlocks` keeps their lines as high as the block renders,
+and the block, drawn by `markdownRow`, covers them, until the caret goes in, which shows their source. Blocks of code
+are cards painted behind their lines, colored by the highlighter.
+
 ## Git
 
 **`internal/git`.** This package runs the `git` command, never a library. It finds the work tree with `git rev-parse`

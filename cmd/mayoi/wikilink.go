@@ -96,6 +96,9 @@ func wikiLinkIn(line string, at int) (wikiLink, bool) {
 type wikiLinkNode struct {
 	ast.BaseInline
 	wikiLink
+	// start and stop are where the link and its brackets are in the
+	// source, which Live Preview hides them by.
+	start, stop int
 }
 
 var kindWikiLink = ast.NewNodeKind("WikiLink")
@@ -113,13 +116,13 @@ type wikiLinkParser struct{}
 func (wikiLinkParser) Trigger() []byte { return []byte{'[', '!'} }
 
 func (wikiLinkParser) Parse(parent ast.Node, block text.Reader, pc parser.Context) ast.Node {
-	line, _ := block.PeekLine()
+	line, seg := block.PeekLine()
 	l, n := wikiLinkAt(string(line))
 	if n == 0 {
 		return nil
 	}
 	block.Advance(n)
-	return &wikiLinkNode{wikiLink: l}
+	return &wikiLinkNode{wikiLink: l, start: seg.Start, stop: seg.Start + n}
 }
 
 // wikiLinkFile is the file a wiki link's target names, as Obsidian finds

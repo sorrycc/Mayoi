@@ -531,10 +531,17 @@ func (a *app) editorKey(d *editor, ev ui.InputEvent) bool {
 		a.invalidate()
 		return true
 	}
+	// A click on a task's box in Live Preview checks it.
+	if ev.Kind == ui.InputPointerDown && ev.Button == 0 && ev.Clicks == 1 && ev.Mods == 0 && a.livePreview(d) && a.liveClick(d, ev.X, ev.Y) {
+		return true
+	}
 	// A Cmd-click on a wiki link of a note opens what it links to, once the
-	// click put the caret in it.
+	// click put the caret in it, as does one on a link in Live Preview.
 	if ev.Kind == ui.InputPointerDown && ev.Button == 0 && ev.Clicks == 1 && ev.Mods == ui.Cmd && isMarkdown(d.document) {
 		d.cmds = append(d.cmds, a.followWikiLink)
+		if a.livePreview(d) {
+			d.cmds = append(d.cmds, a.followLiveLink)
+		}
 	}
 	if ev.Kind == ui.InputPointerDown && a.prefs().Vim && d.vim.mode.visual() {
 		// A click ends visual mode; a drag selects anew.

@@ -80,7 +80,7 @@ var Schema = []Field{
 	{Key: "tabSize", Category: CatEditor, Kind: KindNumber, Min: 1, Max: 8, Step: 1},
 	{Key: "editorAgentContext", Category: CatEditor, Kind: KindBool},
 
-	{Key: "markdownPreview", Category: CatMarkdown, Kind: KindBool, Folder: true},
+	{Key: "markdownMode", Category: CatMarkdown, Kind: KindEnum, Options: []string{"", "live", "reading"}, Folder: true},
 	{Key: "previewMermaid", Category: CatMarkdown, Kind: KindBool, Folder: true},
 	{Key: "previewMath", Category: CatMarkdown, Kind: KindBool, Folder: true},
 

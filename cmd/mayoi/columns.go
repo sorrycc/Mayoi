@@ -294,8 +294,13 @@ func (a *app) openFileIn(col *column, at int, path string, focus bool) {
 	t := &colTab{ed: newEditor(doc), transient: a.opening}
 	a.addTab(col, at, t)
 	a.activate(col, at, focus)
-	if a.prefs().MarkdownPreview && !a.openingText && isMarkdown(t.ed.document) {
-		a.setPreview(t.ed, true)
+	if isMarkdown(t.ed.document) {
+		// Opened at a place in its text, as by search, it shows its text.
+		mode := a.prefs().MarkdownMode
+		t.ed.live = mode != ""
+		if mode == "reading" && !a.openingText {
+			a.setPreview(t.ed, true)
+		}
 	}
 }
 
@@ -801,6 +806,7 @@ func cloneEditor(d *editor) *editor {
 	ed.sel, ed.caret = d.sel, d.caret
 	ed.vscroll.Y, ed.hscroll.X = d.vscroll.Y, d.hscroll.X
 	ed.wrap, ed.wrapGen = d.wrap, d.wrapGen
+	ed.live = d.live
 	return ed
 }
 
@@ -916,7 +922,7 @@ func (a *app) rememberTabs() {
 			case t.merge != nil:
 				continue // a merge opens again from its conflict, not a session
 			case t.path() != "":
-				ts = settings.Tab{File: t.path(), Preview: t.ed != nil && t.ed.preview != nil, Transient: t.transient}
+				ts = settings.Tab{File: t.path(), Preview: t.ed != nil && t.ed.preview != nil, Live: t.ed != nil && t.ed.live, Transient: t.transient}
 			case t.ed != nil && t.ed.kept != "":
 				ts = settings.Tab{Untitled: t.ed.kept, Number: t.ed.number}
 			default:
@@ -936,7 +942,7 @@ func (a *app) rememberTabs() {
 			}
 			if ed := t.ed; ed != nil {
 				if saved := ed.restoreTab; saved != nil {
-					ts.Preview, ts.Sel = saved.Preview, saved.Sel
+					ts.Preview, ts.Live, ts.Sel = saved.Preview, saved.Live, saved.Sel
 					ts.ScrollX, ts.ScrollY, ts.Wrap = saved.ScrollX, saved.ScrollY, saved.Wrap
 				} else {
 					ts.Sel, ts.ScrollX, ts.ScrollY = ed.sel, ed.hscroll.X, ed.vscroll.Y
@@ -1048,6 +1054,7 @@ func (a *app) restoreEditor(ed *editor, ts settings.Tab) {
 		w := *ts.Wrap
 		ed.wrap, ed.wrapGen = &w, a.settings.WrapGen
 	}
+	ed.live = ts.Live
 	a.setPreview(ed, ts.Preview)
 }
 

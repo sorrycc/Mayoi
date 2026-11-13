@@ -23,15 +23,16 @@ func macKeys() bool { return hostOS == "darwin" }
 // they are not macOS's with Control for Command: VS Code's, "" for none.
 // Control and Alt together are AltGr there, which types text.
 var otherAccels = map[string]string{
-	"edit.findNext":         "F3",
-	"edit.findPrev":         "Shift+F3",
-	"edit.replace":          "Ctrl+H",
-	"file.saveAll":          "",
-	"file.openFolderWindow": "",
-	"view.nextColumn":       "",
-	"view.prevColumn":       "",
-	"git.collapseAllFiles":  "",
-	"git.expandAllFiles":    "",
+	"edit.findNext":          "F3",
+	"edit.findPrev":          "Shift+F3",
+	"edit.replace":           "Ctrl+H",
+	"view.toggleLivePreview": "Shift+Alt+V",
+	"file.saveAll":           "",
+	"file.openFolderWindow":  "",
+	"view.nextColumn":        "",
+	"view.prevColumn":        "",
+	"git.collapseAllFiles":   "",
+	"git.expandAllFiles":     "",
 }
 
 // platformAccel is a command's accelerator on the system: on Windows and

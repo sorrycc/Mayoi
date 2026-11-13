@@ -87,7 +87,7 @@ takes its default.
 | `editorAgentContext`    | `false`       | `true`, `false`                                             | Only this file                                 |
 | `previewMermaid`        | `true`        | `true`, `false`                                             | Only this file                                 |
 | `previewMath`           | `true`        | `true`, `false`                                             | Only this file                                 |
-| `markdownPreview`       | `false`       | `true`, `false`                                             | **View → Preview Markdown on Open**            |
+| `markdownMode`          | `""`          | `""` (source), `"live"`, `"reading"`                        | **View → Open Markdown As**                    |
 | `vim`                   | `false`       | `true`, `false`                                             | **View → Vim Mode**                            |
 | `vimCtrlKeys`           | `false`       | `true`, `false`                                             | Only this file                                 |
 | `blame`                 | `true`        | `true`, `false`                                             | **Git → Inline Blame**                         |
@@ -216,8 +216,10 @@ differ in width lines them up only roughly.
   them as code. A `.mmd` or `.mermaid` file's own preview draws its diagram either way.
 - **`previewMath`** draws the LaTeX math of a Markdown preview, between `$` and `$`, `$$` and `$$`, or in a
   `math` code block, as formulas. Turn it off to show the source.
-- **`markdownPreview`** opens Markdown files, .mdx included, rendered rather than as text. **⇧⌘V** still shows
-  the text, and the choice of a tab is remembered for the session.
+- **`markdownMode`** is how Markdown files, .mdx included, open: as their source, as Live Preview, which you edit
+  as it reads, its marks showing only where the caret is, or rendered in the Reading view. The buttons at the right
+  of a tab's path, **⌥⌘V** and **⇧⌘V** switch a tab between them, and the choice of a tab is remembered for the
+  session. `markdownPreview: true`, which older versions wrote, reads as `"reading"`.
 - **`diffHighlight`** chooses whether changed lines show word-level, character-level or line-level tinting. The
   highlighting changes how a diff looks; block actions still use whole line hunks.
 - **`diffContext`** keeps that many unchanged lines around each diff hunk visible and folds the rest.
@@ -340,7 +342,7 @@ window. **File → Open Folder Settings (JSON)** opens the file, and creates it 
 window, choose the folder in the menu at the top right: it lists only the preferences a folder can set, and the arrow
 beside one returns it to your setting.
 
-A folder can set these: `autoSave`, `wordWrap`, `markdownPreview`, `previewMermaid`, `previewMath`,
+A folder can set these: `autoSave`, `wordWrap`, `markdownMode`, `previewMermaid`, `previewMath`,
 `terminalCopyOnSelect`, `diffHighlight`, `diffWhitespace`, `diffContext`, `diffCrossFiles`, `mergeAutoApply`,
 `blame`, `aiModel`, `vim`, `vimCtrlKeys`, `formatOnSave` and `formatters`.
 

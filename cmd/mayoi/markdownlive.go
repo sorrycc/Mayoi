@@ -1,0 +1,1002 @@
+package main
+
+import (
+	"bytes"
+	"regexp"
+	"slices"
+	"strconv"
+	"strings"
+	"unicode/utf8"
+
+	"github.com/egoist/mygo/ui"
+	"github.com/yuin/goldmark/ast"
+	east "github.com/yuin/goldmark/extension/ast"
+	"github.com/yuin/goldmark/text"
+)
+
+// Live Preview shows the text of a Markdown file as it reads, as
+// Obsidian's does: the text is the source, edited as it always is, but
+// its marks hide away from the caret, its headings are large, its
+// emphasis and code styled, its pictures and formulas drawn in place, and
+// its tables and diagrams rendered over the lines they take. The marks of
+// what the caret or the selection touches show, faint, to be edited.
+//
+// The text is parsed in the background, a moment after each edit, into
+// spans of runes. Until the next parse arrives, the spans of the last
+// follow the edits made since (liveDoc.mapTo), so that typing never lands
+// in a mark that is hidden.
+
+// liveKind is what a span of Live Preview does to its runes.
+type liveKind uint8
+
+const (
+	// liveStyle styles its runes, wherever the caret is.
+	liveStyle liveKind = iota
+	// liveMark is a mark of Markdown, as ** or the # of a heading: hidden,
+	// unless revealed, then faint.
+	liveMark
+	// liveObject draws its first rune as an object, a bullet, a task's box,
+	// a picture or a formula, and hides the rest, unless revealed.
+	liveObject
+)
+
+// liveColor is the color of a span's text, by its role, which the theme
+// gives as the frame paints.
+type liveColor uint8
+
+const (
+	liveText liveColor = iota
+	liveMuted
+	liveFaint
+	liveHeading
+	liveLink
+	liveAlert
+)
+
+// liveLook is how a span styles its runes.
+type liveLook struct {
+	// size is a scale of the text's size, 0 for its own.
+	size   float32
+	weight int
+	italic bool
+	strike bool
+	code   bool
+	// block is code of a block, on its card rather than a chip.
+	block bool
+	// mark is ==highlighted== text, on a marker's yellow.
+	mark  bool
+	color liveColor
+	// alert is the kind of the alert whose color an alert's title takes.
+	alert markdownAlert
+}
+
+// liveObj is what a liveObject draws.
+type liveObj uint8
+
+const (
+	objBullet liveObj = iota
+	objRing
+	objTask
+	objTaskDone
+	objImage
+	objMath
+	// objQuote is the room a quote's > takes, where its bar is painted.
+	objQuote
+	// objAlert is the marker of an alert with no title, as [!NOTE],
+	// drawn as its icon and its kind.
+	objAlert
+)
+
+// liveSpan is a run of runes that Live Preview styles, hides or draws.
+type liveSpan struct {
+	start, end int
+	kind       liveKind
+	// from and to are the element the span is of, whose marks show while
+	// the caret or the selection touches it, or, with byLine, while the
+	// caret is on its lines.
+	from, to int
+	byLine   bool
+	look     liveLook
+	obj      liveObj
+	// image is a picture's bitmap and size, and width the width its wiki
+	// link asked for, 0 for its own.
+	image   markdownInline
+	width   float32
+	formula *mathFormula
+	// depth is how many quotes the > of objQuote are of, and alert the
+	// kind of objAlert.
+	depth int
+	alert markdownAlert
+}
+
+// liveDecoKind is what Live Preview paints behind a run of lines.
+type liveDecoKind uint8
+
+const (
+	decoQuote liveDecoKind = iota
+	decoCode
+	decoRule
+)
+
+// liveDeco is a run of lines with something painted behind them: a quote's
+// bar, a block of code's card, a rule.
+type liveDeco struct {
+	start, end int
+	kind       liveDecoKind
+	depth      int
+	alert      markdownAlert
+}
+
+// liveBlock is a run of lines that Live Preview shows rendered in their
+// place while the caret is elsewhere: a table, a diagram, a formula in
+// display style.
+type liveBlock struct {
+	start, end int
+	source     string
+	// key is its source and how many blocks of the same source come
+	// before it, which tells it apart from them.
+	key string
+	// blocks are its source as the Reading view shows it.
+	blocks []markdownBlock
+}
+
+// liveDoc is a parse of a Markdown text for Live Preview, in runes of
+// the text snap.
+type liveDoc struct {
+	snap  ui.TextSnapshot
+	spans []liveSpan
+	// reach is how far the spans up to each reach, the most of their
+	// ends, by which the first span to reach a rune is found.
+	reach  []int
+	decos  []liveDeco
+	blocks []liveBlock
+}
+
+// index finds how far the spans reach.
+func (doc *liveDoc) index() {
+	doc.reach = slices.Grow(doc.reach[:0], len(doc.spans))
+	most := 0
+	for _, s := range doc.spans {
+		most = max(most, s.end)
+		doc.reach = append(doc.reach, most)
+	}
+}
+
+// liveListMarker is the marker of a list's item at the start of a line,
+// after its quotes' >, and the box of a task after it.
+var liveListMarker = regexp.MustCompile(`^((?:[ \t]*>)*[ \t]*)([-*+]|\d{1,9}[.)])([ \t]+)(?:(\[[ xX]\])(?:[ \t]|$))?`)
+
+// liveRule is a thematic break's line.
+var liveRule = regexp.MustCompile(`(?m)^ {0,3}([-*_])(?:[ \t]*[-*_]){2,}[ \t]*\r?$`)
+
+// liveQuoteMarks are the > of the quotes a line opens with, with a space
+// after each.
+var liveQuoteMarks = regexp.MustCompile(`^(?: {0,3}> ?)+`)
+
+// liveSizes are the scales of the headings' text, as the Reading view
+// sizes them.
+var liveSizes = [7]float32{1, 2, 1.5, 1.25, 1, 0.875, 0.85}
+
+// parseLive parses source, the text of the Markdown document at path,
+// for Live Preview, from and into the cache. Unless full is set, it is
+// quick, for the first frame to show: it draws no picture, formula or
+// block, which show as their source until a full parse.
+func parseLive(source string, path, root string, full bool, cache *markdownCache) *liveDoc {
+	images := full
+	src := []byte(source)
+	doc := &liveDoc{}
+	if cache.images == nil {
+		cache.images = map[markdownImageKey]markdownInline{}
+	}
+	used := map[markdownImageKey]bool{}
+	usedFormulas := map[mathKey]bool{}
+
+	// runeAt converts a byte offset of src to a rune offset.
+	ascii := len(src) == utf8.RuneCount(src)
+	var runeOf []int32
+	if !ascii {
+		// A byte inside a rune takes the rune's offset.
+		runeOf = make([]int32, len(src)+1)
+		n := int32(-1)
+		for i := range src {
+			if utf8.RuneStart(src[i]) {
+				n++
+			}
+			runeOf[i] = n
+		}
+		runeOf[len(src)] = n + 1
+	}
+	runeAt := func(b int) int {
+		b = max(0, min(b, len(src)))
+		if ascii {
+			return b
+		}
+		return int(runeOf[b])
+	}
+	// lineStart and lineEnd are the start of the line of byte b and its end,
+	// before its newline.
+	lineStart := func(b int) int {
+		return bytes.LastIndexByte(src[:max(0, min(b, len(src)))], '\n') + 1
+	}
+	lineEnd := func(b int) int {
+		b = max(0, min(b, len(src)))
+		if i := bytes.IndexByte(src[b:], '\n'); i >= 0 {
+			e := b + i
+			if e > 0 && src[e-1] == '\r' {
+				e--
+			}
+			return e
+		}
+		return len(src)
+	}
+	// add appends a span of bytes start up to end.
+	add := func(s liveSpan) {
+		if s.end <= s.start {
+			return
+		}
+		s.start, s.end, s.from, s.to = runeAt(s.start), runeAt(s.end), runeAt(s.from), runeAt(s.to)
+		doc.spans = append(doc.spans, s)
+	}
+	style := func(start, end int, look liveLook) {
+		add(liveSpan{start: start, end: end, kind: liveStyle, from: start, to: end, look: look})
+	}
+	mark := func(start, end, from, to int) {
+		add(liveSpan{start: start, end: end, kind: liveMark, from: from, to: to})
+	}
+	lineMark := func(start, end int) {
+		add(liveSpan{start: start, end: end, kind: liveMark, from: start, to: end, byLine: true})
+	}
+	deco := func(start, end int, d liveDeco) {
+		d.start, d.end = runeAt(start), runeAt(end)
+		doc.decos = append(doc.decos, d)
+	}
+	formula := func(tex string, display bool) *mathFormula {
+		key := mathKey{tex, display}
+		usedFormulas[key] = true
+		f, ok := cache.formulas[key]
+		if !ok {
+			f = renderMath(tex, display)
+			if cache.formulas == nil {
+				cache.formulas = map[mathKey]*mathFormula{}
+			}
+			cache.formulas[key] = f
+		}
+		return f
+	}
+
+	// Front matter is code, faint.
+	body, skip := markdownSkipFrontMatter(src)
+	off := 0
+	if skip > 0 {
+		off = len(src) - len(body)
+		style(0, lineEnd(max(0, off-1)), liveLook{code: true, block: true, color: liveFaint})
+	}
+	tree := markdownParser(cache.math).Parse(text.NewReader(body))
+
+	// extent is where an inline node is in src, with its marks, or -1.
+	var extent func(n ast.Node) (int, int)
+	inner := func(n ast.Node) (int, int) {
+		s, e := -1, -1
+		for ch := n.FirstChild(); ch != nil; ch = ch.NextSibling() {
+			cs, ce := extent(ch)
+			if cs < 0 {
+				continue
+			}
+			if s < 0 {
+				s = cs
+			}
+			e = ce
+		}
+		return s, e
+	}
+	// delims counts the runs of ch before s and after e, up to most.
+	delims := func(s, e int, ch byte, most int) (int, int) {
+		before := 0
+		for before < most && s-before-1 >= 0 && src[s-before-1] == ch {
+			before++
+		}
+		after := 0
+		for after < most && e+after < len(src) && src[e+after] == ch {
+			after++
+		}
+		return before, after
+	}
+	// linkEnd is where the destination of a link whose text ends at e
+	// ends: past (dest), [ref] or ].
+	linkEnd := func(e int) int {
+		if e >= len(src) || src[e] != ']' {
+			return e
+		}
+		e++
+		if e < len(src) && src[e] == '(' {
+			depth := 0
+			for i := e; i < len(src); i++ {
+				switch src[i] {
+				case '\\':
+					i++
+				case '(':
+					depth++
+				case ')':
+					if depth--; depth == 0 {
+						return i + 1
+					}
+				case '\n':
+					if i+1 < len(src) && src[i+1] == '\n' {
+						return e
+					}
+				}
+			}
+			return e
+		}
+		if e < len(src) && src[e] == '[' {
+			if i := bytes.IndexByte(src[e:], ']'); i >= 0 && !bytes.Contains(src[e:e+i], []byte{'\n'}) {
+				return e + i + 1
+			}
+		}
+		return e
+	}
+	extent = func(n ast.Node) (int, int) {
+		switch x := n.(type) {
+		case *ast.Text:
+			return off + x.Segment.Start, off + x.Segment.Stop
+		case *ast.RawHTML:
+			if x.Segments.Len() == 0 {
+				return -1, -1
+			}
+			return off + x.Segments.At(0).Start, off + x.Segments.At(x.Segments.Len()-1).Stop
+		case *ast.AutoLink:
+			// Its label is a slice of the source, where it starts.
+			label := x.Label(body)
+			if len(label) == 0 || cap(label) > cap(body) {
+				return -1, -1
+			}
+			s := off + cap(body) - cap(label)
+			e := s + len(label)
+			if s > 0 && src[s-1] == '<' && e < len(src) && src[e] == '>' {
+				return s - 1, e + 1
+			}
+			return s, e
+		case *mathNode:
+			return off + x.start, off + x.stop
+		case *wikiLinkNode:
+			return off + x.start, off + x.stop
+		case *ast.Emphasis:
+			s, e := inner(n)
+			if s < 0 {
+				return -1, -1
+			}
+			return s - x.Level, e + x.Level
+		case *east.Strikethrough, *markNode:
+			s, e := inner(n)
+			if s < 0 {
+				return -1, -1
+			}
+			ch := byte('~')
+			if _, ok := n.(*markNode); ok {
+				ch = '='
+			}
+			b, a := delims(s, e, ch, 2)
+			return s - b, e + a
+		case *ast.CodeSpan:
+			s, e := inner(n)
+			if s < 0 {
+				return -1, -1
+			}
+			b, a := codeTicks(src, s, e)
+			return s - b, e + a
+		case *ast.Link:
+			s, e := inner(n)
+			if s < 1 {
+				return -1, -1
+			}
+			return s - 1, linkEnd(e)
+		case *ast.Image:
+			s, e := inner(n)
+			if s < 2 {
+				return -1, -1
+			}
+			return s - 2, linkEnd(e)
+		}
+		return inner(n)
+	}
+
+	var walkInline func(n ast.Node)
+	walkInline = func(n ast.Node) {
+		for ch := n.FirstChild(); ch != nil; ch = ch.NextSibling() {
+			s, e := extent(ch)
+			switch x := ch.(type) {
+			case *ast.Emphasis:
+				if s >= 0 {
+					look := liveLook{italic: x.Level == 1}
+					if x.Level == 2 {
+						look = liveLook{weight: 700}
+					}
+					style(s+x.Level, e-x.Level, look)
+					mark(s, s+x.Level, s, e)
+					mark(e-x.Level, e, s, e)
+				}
+			case *east.Strikethrough, *markNode:
+				if s >= 0 {
+					is, ie := inner(ch)
+					look := liveLook{strike: true}
+					if _, ok := ch.(*markNode); ok {
+						look = liveLook{mark: true}
+					}
+					style(is, ie, look)
+					mark(s, is, s, e)
+					mark(ie, e, s, e)
+				}
+			case *ast.CodeSpan:
+				if s >= 0 {
+					is, ie := inner(ch)
+					style(is, ie, liveLook{code: true})
+					mark(s, is, s, e)
+					mark(ie, e, s, e)
+				}
+				continue
+			case *ast.Link:
+				if s >= 0 {
+					is, ie := inner(ch)
+					style(is, ie, liveLook{color: liveLink})
+					mark(s, is, s, e)
+					mark(ie, e, s, e)
+				}
+			case *ast.AutoLink:
+				if s >= 0 {
+					is, ie := s, e
+					if src[s] == '<' {
+						is, ie = s+1, e-1
+					}
+					style(is, ie, liveLook{color: liveLink})
+					mark(s, is, s, e)
+					mark(ie, e, s, e)
+				}
+				continue
+			case *ast.Image:
+				if s >= 0 {
+					dest := string(x.Destination)
+					var image markdownInline
+					if images {
+						image = markdownPicture(cache, used, path, root, dest)
+					}
+					if image.bitmap != nil {
+						add(liveSpan{start: s, end: e, kind: liveObject, from: s, to: e, obj: objImage, image: image})
+					} else {
+						is, ie := inner(ch)
+						style(is, ie, liveLook{color: liveLink})
+						mark(s, is, s, e)
+						mark(ie, e, s, e)
+					}
+				}
+				continue
+			case *wikiLinkNode:
+				if s >= 0 {
+					liveWikiLink(src, s, e, x, path, root, images, cache, used, add, style, mark)
+				}
+				continue
+			case *mathNode:
+				if s >= 0 {
+					var f *mathFormula
+					if full {
+						f = formula(x.tex, x.display)
+					}
+					if f != nil && f.err == "" && f.w > 0 {
+						add(liveSpan{start: s, end: e, kind: liveObject, from: s, to: e, obj: objMath, formula: f})
+					} else {
+						style(s, e, liveLook{code: true, color: liveMuted})
+					}
+				}
+				continue
+			case *ast.RawHTML:
+				if s >= 0 {
+					style(s, e, liveLook{color: liveMuted})
+				}
+				continue
+			case *east.TaskCheckBox:
+				continue // with its list's marker
+			}
+			walkInline(ch)
+		}
+	}
+	// linesOf is where a block's lines are in src: from the start of the
+	// line of its first to the end of its last.
+	var linesOf func(n ast.Node) (int, int)
+	linesOf = func(n ast.Node) (int, int) {
+		s, e := -1, -1
+		if n.Type() == ast.TypeBlock {
+			if l := n.Lines(); l != nil && l.Len() > 0 {
+				s, e = off+l.At(0).Start, off+l.At(l.Len()-1).Stop
+			}
+		}
+		for ch := n.FirstChild(); ch != nil; ch = ch.NextSibling() {
+			var cs, ce int
+			if ch.Type() == ast.TypeBlock {
+				cs, ce = linesOf(ch)
+			} else {
+				cs, ce = extent(ch)
+			}
+			if cs < 0 {
+				continue
+			}
+			if s < 0 || cs < s {
+				s = cs
+			}
+			e = max(e, ce)
+		}
+		if s < 0 {
+			return -1, -1
+		}
+		return lineStart(s), lineEnd(max(s, e-1))
+	}
+
+	var walk func(n ast.Node)
+	walk = func(n ast.Node) {
+		for ch := n.FirstChild(); ch != nil; ch = ch.NextSibling() {
+			switch x := ch.(type) {
+			case *ast.Heading:
+				s, e := linesOf(x)
+				if s < 0 {
+					if l := x.Lines(); l != nil && l.Len() > 0 {
+						s = lineStart(off + l.At(0).Start)
+					} else {
+						continue
+					}
+					e = lineEnd(s)
+				}
+				look := liveLook{size: liveSizes[min(x.Level, 6)], weight: 700, color: liveHeading}
+				if x.Level == 6 {
+					look.color = liveMuted
+				}
+				first := lineEnd(s)
+				if t := bytes.TrimLeft(src[s:first], " "); len(t) > 0 && t[0] == '#' {
+					// # Title: its #s and the spaces after them are a mark,
+					// as are the #s that may close it.
+					hashes := s + (first - s - len(t))
+					at := hashes
+					for at < first && src[at] == '#' {
+						at++
+					}
+					for at < first && (src[at] == ' ' || src[at] == '\t') {
+						at++
+					}
+					style(s, first, look)
+					lineMark(s, at)
+					if end := bytes.TrimRight(src[at:first], " \t"); bytes.HasSuffix(end, []byte{'#'}) {
+						trimmed := bytes.TrimRight(end, "#")
+						if len(trimmed) == 0 || trimmed[len(trimmed)-1] == ' ' {
+							mark(at+len(bytes.TrimRight(trimmed, " \t")), first, s, first)
+						}
+					}
+				} else {
+					// Title over a line of = or -, which shows faint.
+					style(s, e, look)
+					next := lineEnd(e + 1)
+					if e+1 < len(src) {
+						style(e+1, next, liveLook{color: liveFaint})
+					}
+				}
+				walkInline(x)
+			case *ast.Paragraph, *ast.TextBlock:
+				if b, ok := liveMathBlock(x); ok && full {
+					s, e := linesOf(x)
+					f := formula(b.tex, true)
+					if s >= 0 && f.err == "" && f.w > 0 {
+						doc.blocks = append(doc.blocks, liveBlock{start: s, end: e, source: string(src[s:e])})
+						continue
+					}
+				}
+				walkInline(x)
+			case *ast.ThematicBreak:
+				// It keeps no place: it is the first rule after the block
+				// before it.
+				from := off
+				if prev := x.PreviousSibling(); prev != nil {
+					if _, e := linesOf(prev); e >= 0 {
+						from = e
+					}
+				} else if ps, _ := linesOf(n); ps >= 0 {
+					from = ps
+				}
+				m := liveRule.FindIndex(src[from:])
+				if m == nil {
+					continue
+				}
+				s, e := from+m[0], lineEnd(from+m[0])
+				lineMark(s, e)
+				deco(s, e, liveDeco{kind: decoRule})
+			case *ast.FencedCodeBlock:
+				s, e := liveFence(src, off, x, lineStart, lineEnd)
+				if s < 0 {
+					continue
+				}
+				if lang := string(x.Language(body)); full && strings.EqualFold(lang, "mermaid") && cache.mermaid != nil {
+					doc.blocks = append(doc.blocks, liveBlock{start: s, end: e, source: string(src[s:e])})
+					continue
+				}
+				style(s, e, liveLook{code: true, block: true})
+				deco(s, e, liveDeco{kind: decoCode})
+				// The fences are marks of the block, its language faint.
+				open := lineEnd(s)
+				ticks := s
+				for ticks < open && (src[ticks] == ' ' || src[ticks] == '`' || src[ticks] == '~') {
+					ticks++
+				}
+				add(liveSpan{start: s, end: ticks, kind: liveMark, from: s, to: e})
+				style(ticks, open, liveLook{code: true, block: true, color: liveFaint, size: 0.85})
+				if close := lineStart(e); close > open {
+					if t := bytes.TrimSpace(src[close:e]); len(t) >= 3 && (t[0] == '`' || t[0] == '~') && len(bytes.Trim(t, string(t[0]))) == 0 {
+						add(liveSpan{start: close, end: e, kind: liveMark, from: s, to: e})
+					}
+				}
+			case *ast.CodeBlock:
+				s, e := linesOf(x)
+				if s >= 0 {
+					style(s, e, liveLook{code: true, block: true})
+					deco(s, e, liveDeco{kind: decoCode})
+				}
+			case *ast.HTMLBlock:
+				s, e := linesOf(x)
+				if s >= 0 {
+					style(s, e, liveLook{code: true, block: true, color: liveMuted})
+				}
+			case *ast.Blockquote:
+				s, e := linesOf(x)
+				if s >= 0 {
+					alert, _ := markdownAlertOf(x, body)
+					liveQuote(src, s, e, alert, lineEnd, add, deco, style)
+				}
+				walk(x)
+			case *ast.List:
+				for item := x.FirstChild(); item != nil; item = item.NextSibling() {
+					s, _ := linesOf(item)
+					if s >= 0 {
+						liveItem(src, s, lineEnd(s), x.IsOrdered(), liveDepth(x), add, style)
+					}
+				}
+				walk(x)
+			case *east.Table:
+				s, e := linesOf(x)
+				if s >= 0 && full {
+					doc.blocks = append(doc.blocks, liveBlock{start: s, end: e, source: string(src[s:e])})
+				}
+			case *east.FootnoteList:
+				s, e := linesOf(x)
+				if s >= 0 {
+					style(s, e, liveLook{color: liveMuted})
+				}
+				walk(x)
+			default:
+				walk(ch)
+			}
+		}
+	}
+	walk(tree)
+
+	seen := map[string]int{}
+	for i := range doc.blocks {
+		b := &doc.blocks[i]
+		b.key = b.source + "\x00" + strconv.Itoa(seen[b.source])
+		seen[b.source]++
+		// Its source, where the caret is, is code, so a table's pipes
+		// line up.
+		style(b.start, b.end, liveLook{code: true, block: true})
+		b.blocks = parseMarkdown([]byte(b.source), path, root, nil, cache)
+		b.start, b.end = runeAt(b.start), runeAt(b.end)
+	}
+	// The spans by start, those that start together the larger first, so
+	// that the marks inside an element style over it.
+	slices.SortStableFunc(doc.spans, func(x, y liveSpan) int {
+		if x.start != y.start {
+			return x.start - y.start
+		}
+		return y.end - x.end
+	})
+	doc.index()
+	if images {
+		for k := range cache.images {
+			if !used[k] {
+				delete(cache.images, k)
+			}
+		}
+	}
+	return doc
+}
+
+// codeTicks counts the backticks around a code span whose text is src[s:e],
+// with the space that pads it on each side.
+func codeTicks(src []byte, s, e int) (before, after int) {
+	b := s
+	if b > 0 && src[b-1] == ' ' && b > 1 && src[b-2] == '`' {
+		b--
+	}
+	for b > 0 && src[b-1] == '`' {
+		b--
+	}
+	a := e
+	if a < len(src) && src[a] == ' ' && a+1 < len(src) && src[a+1] == '`' {
+		a++
+	}
+	for a < len(src) && src[a] == '`' {
+		a++
+	}
+	return s - b, a - e
+}
+
+// liveMathBlock reports whether a paragraph is a formula in display style
+// alone.
+func liveMathBlock(n ast.Node) (*mathNode, bool) {
+	m, ok := n.FirstChild().(*mathNode)
+	return m, ok && m.display && m.NextSibling() == nil
+}
+
+// liveFence is where a fenced block of code is in src, from its opening
+// fence to the end of its closing one, or of its last line without one.
+func liveFence(src []byte, off int, x *ast.FencedCodeBlock, lineStart, lineEnd func(int) int) (int, int) {
+	lines := x.Lines()
+	var s int
+	switch {
+	case x.Info != nil:
+		s = lineStart(off + x.Info.Segment.Start)
+	case lines.Len() > 0:
+		s = lineStart(max(0, lineStart(off+lines.At(0).Start)-1))
+	default:
+		return -1, -1
+	}
+	t := bytes.TrimLeft(src[s:lineEnd(s)], " ")
+	if len(t) == 0 || t[0] != '`' && t[0] != '~' {
+		return -1, -1
+	}
+	fence, n := t[0], 0
+	for n < len(t) && t[n] == fence {
+		n++
+	}
+	// The line after the code closes it with as long a run of the mark.
+	last := lineEnd(s)
+	if lines.Len() > 0 {
+		last = lineEnd(off + lines.At(lines.Len()-1).Start)
+	}
+	if last+1 < len(src) {
+		end := lineEnd(last + 1)
+		line := bytes.TrimSpace(src[last+1 : end])
+		if len(line) >= n && line[0] == fence && len(bytes.Trim(line, string(fence))) == 0 {
+			return s, end
+		}
+	}
+	return s, last
+}
+
+// liveDepth is how deep a list is in other lists, 1 for one at the top.
+func liveDepth(n ast.Node) int {
+	d := 0
+	for ; n != nil; n = n.Parent() {
+		if _, ok := n.(*ast.List); ok {
+			d++
+		}
+	}
+	return d
+}
+
+// liveItem styles the marker of a list's item on the line src[s:e]: a dot
+// for a bullet, a ring in a list inside another, a box for a task, the
+// number of an ordered list muted.
+func liveItem(src []byte, s, e int, ordered bool, depth int, add func(liveSpan), style func(int, int, liveLook)) {
+	m := liveListMarker.FindSubmatchIndex(src[s:e])
+	if m == nil {
+		return
+	}
+	ms, me := s+m[4], s+m[5]
+	task := m[8] >= 0
+	if ordered {
+		style(ms, me, liveLook{color: liveMuted})
+	} else if !task {
+		obj := objBullet
+		if depth > 1 {
+			obj = objRing
+		}
+		add(liveSpan{start: ms, end: me, kind: liveObject, from: ms, to: me, obj: obj})
+	}
+	if task {
+		bs, be := s+m[8], s+m[9]
+		obj := objTask
+		if src[bs+1] != ' ' {
+			obj = objTaskDone
+			// A task done reads faint, struck through.
+			at := be
+			for at < e && (src[at] == ' ' || src[at] == '\t') {
+				at++
+			}
+			style(at, e, liveLook{strike: true, color: liveFaint})
+		}
+		if !ordered {
+			// The task's box stands for the bullet.
+			add(liveSpan{start: ms, end: s + m[7], kind: liveMark, from: ms, to: be})
+		}
+		add(liveSpan{start: bs, end: be, kind: liveObject, from: bs, to: be, obj: obj})
+	}
+}
+
+// liveQuote styles the lines src[s:e] of a quote: each line's > take the
+// room of the bars painted there, its text muted, an alert's title in its
+// color, its marker hidden.
+func liveQuote(src []byte, s, e int, alert markdownAlert, lineEnd func(int) int,
+	add func(liveSpan), deco func(int, int, liveDeco), style func(int, int, liveLook)) {
+	depth := 1
+	for at := s; at <= e && at < len(src); {
+		end := lineEnd(at)
+		marks := liveQuoteMarks.Find(src[at:end])
+		if n := bytes.Count(marks, []byte{'>'}); n > 0 {
+			depth = n
+			add(liveSpan{start: at, end: at + len(marks), kind: liveObject, from: at, to: at + len(marks), byLine: true, obj: objQuote, depth: n})
+		}
+		deco(at, end, liveDeco{kind: decoQuote, depth: depth, alert: alert})
+		if alert == alertNone {
+			style(at+len(marks), end, liveLook{color: liveMuted})
+		} else if at == s {
+			// [!NOTE] is the title's mark: the title is the alert's name.
+			rest := src[at+len(marks) : end]
+			if i := bytes.IndexByte(rest, ']'); i >= 0 {
+				ms := at + len(marks)
+				style(ms, end, liveLook{weight: 600, color: liveAlert, alert: alert})
+				if len(bytes.TrimSpace(rest[i+1:])) == 0 {
+					// No title of its own: the marker reads as the kind.
+					add(liveSpan{start: ms, end: ms + i + 1, kind: liveObject, from: ms, to: end, byLine: true, obj: objAlert, alert: alert})
+				} else {
+					add(liveSpan{start: ms, end: ms + i + 1, kind: liveMark, from: ms, to: end, byLine: true})
+				}
+			}
+		}
+		at = end + 1
+	}
+}
+
+// liveWikiLink styles a wiki link src[s:e]: its label as a link, its
+// brackets and target marks, or a picture it embeds drawn.
+func liveWikiLink(src []byte, s, e int, x *wikiLinkNode, path, root string, images bool, cache *markdownCache,
+	used map[markdownImageKey]bool, add func(liveSpan), style func(int, int, liveLook), mark func(int, int, int, int)) {
+	open := s + 2
+	if x.embed {
+		open++
+	}
+	close := e - 2
+	if open > close {
+		return
+	}
+	if x.embed && images && x.target != "" {
+		if file := wikiLinkFile(root, path, x.target); file != "" && isImage(file) {
+			image := markdownPicture(cache, used, path, root, wikiLinkDest(path, file, ""))
+			if image.bitmap != nil {
+				sp := liveSpan{start: s, end: e, kind: liveObject, from: s, to: e, obj: objImage, image: image}
+				w, _, _ := strings.Cut(x.label, "x")
+				if n, err := strconv.Atoi(w); err == nil && n > 0 {
+					sp.width = float32(n)
+				}
+				add(sp)
+				return
+			}
+		}
+	}
+	label := open
+	if i := bytes.LastIndexByte(src[open:close], '|'); i >= 0 {
+		label = open + i + 1
+	}
+	style(label, close, liveLook{color: liveLink})
+	mark(s, label, s, e)
+	mark(close, e, s, e)
+}
+
+// mapTo returns the parse with its spans moved to snap, a text that the
+// edits made since the parse changed: what was before the edits stays,
+// what was after moves with them, and what they replaced goes. A span
+// that styles text grows with what is typed at its end; a mark does not.
+func (doc *liveDoc) mapTo(snap ui.TextSnapshot) *liveDoc {
+	if doc.snap.Version() == snap.Version() && doc.snap.Len() == snap.Len() {
+		return doc
+	}
+	p, q, r := snapDiff(doc.snap, snap)
+	delta := r - q
+	start := func(x int) int {
+		switch {
+		case x < p:
+			return x
+		case x >= q:
+			return x + delta
+		}
+		return r
+	}
+	end := func(x int, grows bool) int {
+		switch {
+		case x < p, x == p && (p < q || !grows):
+			return x
+		case x > q || x == q:
+			return x + delta
+		}
+		if grows {
+			return r
+		}
+		return p
+	}
+	out := &liveDoc{snap: snap}
+	out.spans = make([]liveSpan, 0, len(doc.spans))
+	for _, s := range doc.spans {
+		grows := s.kind == liveStyle
+		if s.kind == liveObject && s.start < q && s.end > p {
+			continue // a picture or a box edited is text until parsed
+		}
+		s.start, s.end = start(s.start), end(s.end, grows)
+		s.from, s.to = start(s.from), end(s.to, true)
+		if s.end > s.start {
+			out.spans = append(out.spans, s)
+		}
+	}
+	// Moved, they are still by start, but for those the edits took to
+	// the same rune.
+	slices.SortStableFunc(out.spans, func(x, y liveSpan) int { return x.start - y.start })
+	out.index()
+	for _, d := range doc.decos {
+		d.start, d.end = start(d.start), end(d.end, true)
+		if d.end >= d.start {
+			out.decos = append(out.decos, d)
+		}
+	}
+	for _, b := range doc.blocks {
+		if b.start < q && b.end >= p {
+			continue // edited: its text until parsed
+		}
+		b.start, b.end = start(b.start), end(b.end, true)
+		out.blocks = append(out.blocks, b)
+	}
+	return out
+}
+
+// snapDiff returns where two texts differ: they agree up to rune p, and
+// from rune q of a and r of b to their ends.
+func snapDiff(a, b ui.TextSnapshot) (p, q, r int) {
+	const chunk = 4096
+	na, nb := a.Len(), b.Len()
+	for p < na && p < nb {
+		k := min(chunk, na-p, nb-p)
+		sa, sb := a.Slice(p, p+k), b.Slice(p, p+k)
+		if sa == sb {
+			p += k
+			continue
+		}
+		i := 0
+		for i < len(sa) && i < len(sb) && sa[i] == sb[i] {
+			i++
+		}
+		for i > 0 && i < len(sa) && !utf8.RuneStart(sa[i]) {
+			i--
+		}
+		p += utf8.RuneCountInString(sa[:i])
+		break
+	}
+	s := 0
+	for s < na-p && s < nb-p {
+		k := min(chunk, na-p-s, nb-p-s)
+		sa, sb := a.Slice(na-s-k, na-s), b.Slice(nb-s-k, nb-s)
+		if sa == sb {
+			s += k
+			continue
+		}
+		i := 0
+		for i < len(sa) && i < len(sb) && sa[len(sa)-1-i] == sb[len(sb)-1-i] {
+			i++
+		}
+		for i > 0 && !utf8.RuneStart(sa[len(sa)-i]) {
+			i--
+		}
+		s += utf8.RuneCountInString(sa[len(sa)-i:])
+		break
+	}
+	return p, na - s, nb - s
+}
+
+// liveTask is the rune of the line text whose [ ] or [x] is a task's
+// box, after a list's marker, and whether it is done; -1 for none.
+func liveTask(line string) (int, bool) {
+	m := liveListMarker.FindStringSubmatchIndex(line)
+	if m == nil || m[8] < 0 {
+		return -1, false
+	}
+	return utf8.RuneCountInString(line[:m[8]+1]), line[m[8]+1] != ' '
+}

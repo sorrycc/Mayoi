@@ -56,7 +56,7 @@ func TestRemoteMarkdownPreviewOfflineRestore(t *testing.T) {
 		t.Run(map[bool]string{false: "source", true: "preview"}[preview], func(t *testing.T) {
 			hs := newHarness(t, true)
 			s := settings.Default()
-			s.MarkdownPreview = !preview
+			s.MarkdownMode = map[bool]string{false: "reading"}[preview]
 			w := s.NewWindow()
 			w.Folder = hs.root
 			path := remote.Path("offline.invalid", "/srv/app/README.md")
@@ -86,7 +86,7 @@ func TestRemoteNewMarkdownFileOpensAsSource(t *testing.T) {
 	t.Setenv("MAYOI_SSH_TEST_HOST", "")
 	hs, c, dir := remoteHarness(t)
 	a, tt := hs.a, hs.tt
-	a.settings.MarkdownPreview = true
+	a.settings.MarkdownMode = "reading"
 	if _, err := c.Run(nil, `printf '# Readme\n\nRemote words.\n' > "$1/README.md"`, dir); err != nil {
 		t.Fatal(err)
 	}

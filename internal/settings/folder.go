@@ -41,6 +41,10 @@ type Folder struct {
 
 // setValues makes values the folder's, as its lock is held.
 func (f *Folder) setValues(values map[string]json.RawMessage) {
+	// What an older version chose for markdownMode.
+	if string(values["markdownPreview"]) == "true" && values["markdownMode"] == nil {
+		values["markdownMode"] = json.RawMessage(`"reading"`)
+	}
 	f.values, f.keys = values, nil
 	for _, k := range FolderKeys() {
 		if _, ok := values[k]; ok {

@@ -404,10 +404,17 @@ func TestMarkdownPreview(t *testing.T) {
 	a.openFile(hs.path("README.md"), true)
 	hs.settle()
 	d := a.activeEditor()
-	if d.preview != nil || !hs.tt.HasText("Show Preview (⇧⌘V)") {
+	if d.preview != nil || d.live || !hs.tt.HasText("Reading View (⇧⌘V)") {
 		t.Fatal("Markdown did not open as source")
 	}
-	if err := hs.tt.Click("Show Preview (⇧⌘V)"); err != nil {
+	if err := hs.tt.Click("Live Preview (⌥⌘V)"); err != nil {
+		t.Fatal(err)
+	}
+	hs.settle()
+	if !a.livePreview(d) {
+		t.Fatal("the Live Preview button did not show Live Preview")
+	}
+	if err := hs.tt.Click("Reading View (⇧⌘V)"); err != nil {
 		t.Fatal(err)
 	}
 	hs.until("Markdown preview", func() bool { return d.preview != nil && d.preview.loaded })
@@ -420,8 +427,15 @@ func TestMarkdownPreview(t *testing.T) {
 	}
 	a.run("view.togglePreview")
 	hs.settle()
-	if d.preview != nil {
-		t.Fatal("source toggle failed")
+	if d.preview != nil || !a.livePreview(d) {
+		t.Fatal("the Reading view did not go back to Live Preview")
+	}
+	if err := hs.tt.Click("Source (⌥⌘V)"); err != nil {
+		t.Fatal(err)
+	}
+	hs.settle()
+	if d.preview != nil || d.live {
+		t.Fatal("the Source button did not show the source")
 	}
 	for _, name := range []string{"main.go", "web/index.html"} {
 		a.openFile(hs.path(name), true)
@@ -440,7 +454,7 @@ func TestMarkdownPreview(t *testing.T) {
 func TestMarkdownPreviewOnOpen(t *testing.T) {
 	hs := newHarness(t, true)
 	a := hs.a
-	a.settings.MarkdownPreview = true
+	a.settings.MarkdownMode = "reading"
 	a.openFile(hs.path("README.md"), true)
 	hs.until("Markdown preview", func() bool {
 		return a.activeEditor().preview != nil && a.activeEditor().preview.loaded
@@ -468,7 +482,7 @@ func TestMarkdownPreviewOnOpen(t *testing.T) {
 		t.Fatal("MDX import was rendered")
 	}
 	// The setting off opens the text.
-	a.settings.MarkdownPreview = false
+	a.settings.MarkdownMode = ""
 	path = hs.path("plain.md")
 	os.WriteFile(path, []byte("# Plain\n"), 0o644)
 	a.openFile(path, true)
@@ -483,7 +497,7 @@ func TestMarkdownPreviewOnOpen(t *testing.T) {
 func TestMarkdownPreviewKeepsSource(t *testing.T) {
 	hs := newHarness(t, false)
 	a := hs.a
-	a.settings.MarkdownPreview = true
+	a.settings.MarkdownMode = "reading"
 	a.openFile(hs.path("README.md"), true)
 	hs.until("preview", func() bool {
 		return a.activeEditor().preview != nil && a.activeEditor().preview.loaded
@@ -526,7 +540,7 @@ func TestMarkdownOpensForText(t *testing.T) {
 			t.Run(fmt.Sprintf("existing=%v/%s", existing, action), func(t *testing.T) {
 				hs := newHarness(t, true)
 				a := hs.a
-				a.settings.MarkdownPreview = true
+				a.settings.MarkdownMode = "reading"
 				path := hs.path("target.md")
 				if err := os.WriteFile(path, []byte(source), 0o644); err != nil {
 					t.Fatal(err)
@@ -576,7 +590,7 @@ func TestMarkdownOpensForText(t *testing.T) {
 func TestMarkdownReopenKeepsExistingPreview(t *testing.T) {
 	hs := newHarness(t, true)
 	a := hs.a
-	a.settings.MarkdownPreview = true
+	a.settings.MarkdownMode = "reading"
 	path := hs.path("README.md")
 	a.openFile(path, true)
 	hs.until("preview", func() bool { return a.activeEditor().preview.loaded })
@@ -599,7 +613,7 @@ func TestMarkdownPreviewRestoresPlace(t *testing.T) {
 			t.Run(fmt.Sprintf("previewOnOpen=%v/reopen=%v", previewOnOpen, reopen), func(t *testing.T) {
 				hs := newHarness(t, false)
 				a := hs.a
-				a.settings.MarkdownPreview = previewOnOpen
+				a.settings.MarkdownMode = map[bool]string{true: "reading"}[previewOnOpen]
 				path := hs.path("sync.md")
 				if err := os.WriteFile(path, []byte(markdownSyncDoc()), 0o644); err != nil {
 					t.Fatal(err)

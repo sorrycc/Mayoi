@@ -644,24 +644,8 @@ func parseMarkdown(source []byte, path, root string, current func() bool, caches
 	picture := func(s markdownInline, alt, dest string) markdownInline {
 		s.text, s.image = alt, dest
 		if current == nil || current() {
-			if local := markdownPath(root, path, dest); local != "" {
-				if info, err := vfs.Stat(local); err == nil && info.Mode().IsRegular() {
-					key := markdownImageKey{local, info.ModTime(), info.Size()}
-					used[key] = true
-					image, ok := cache[key]
-					if !ok {
-						if data, err := readImage(local); err == nil {
-							image = markdownDecode(data, strings.EqualFold(filepath.Ext(local), ".svg"))
-						}
-						cache[key] = image
-					}
-					s.bitmap, s.w, s.h = image.bitmap, image.w, image.h
-				}
-			} else if u, err := url.Parse(dest); err == nil && (u.Scheme == "http" || u.Scheme == "https") {
-				if image, ok := markdownFetch(dest, c.arrived); ok {
-					s.bitmap, s.w, s.h = image.bitmap, image.w, image.h
-				}
-			}
+			image := markdownPicture(c, used, path, root, dest)
+			s.bitmap, s.w, s.h = image.bitmap, image.w, image.h
 		}
 		if s.text == "" {
 			s.text = filepath.Base(s.image)
@@ -1049,6 +1033,36 @@ func parseMarkdown(source []byte, path, root string, current func() bool, caches
 		blocks[i].line = line
 	}
 	return blocks
+}
+
+// markdownPicture is the picture at dest of the document at path: a file
+// decoded, as the cache has it from the parse before when it is the same,
+// or a picture of the web fetched, which arrives later. used marks the
+// files it took, for the parse to keep in the cache. Its bitmap is nil
+// for none.
+func markdownPicture(c *markdownCache, used map[markdownImageKey]bool, path, root, dest string) markdownInline {
+	if local := markdownPath(root, path, dest); local != "" {
+		info, err := vfs.Stat(local)
+		if err != nil || !info.Mode().IsRegular() {
+			return markdownInline{}
+		}
+		key := markdownImageKey{local, info.ModTime(), info.Size()}
+		used[key] = true
+		image, ok := c.images[key]
+		if !ok {
+			if data, err := readImage(local); err == nil {
+				image = markdownDecode(data, strings.EqualFold(filepath.Ext(local), ".svg"))
+			}
+			c.images[key] = image
+		}
+		return image
+	}
+	if u, err := url.Parse(dest); err == nil && (u.Scheme == "http" || u.Scheme == "https") {
+		if image, ok := markdownFetch(dest, c.arrived); ok {
+			return image
+		}
+	}
+	return markdownInline{}
 }
 
 // markdownSuperscript is the digits of n raised, as ¹².
@@ -1968,8 +1982,7 @@ func (a *app) markdownTableRow(c *ui.Context, m *markdownPreview, path string, i
 func (a *app) markdownView(c *ui.Context, v *viewer, name string) {
 	a.followMarkdown(v)
 	m, p := v.markdown, a.pal
-	size, lh := a.settings.FontSize, a.settings.LineHeight
-	path := v.doc.path
+	size := a.settings.FontSize
 	// Measure the actual body font, including the Matrix UI font. The
 	// column is 120 digits wide, room for tables and images while a line
 	// of prose stays short enough to read.
@@ -1996,106 +2009,122 @@ func (a *app) markdownView(c *ui.Context, v *viewer, name string) {
 		return false
 	})
 	list.Rows(func(row ui.ListRow) {
-		c := row.Context
-		b := m.blocks[row.Index]
-		top, _ := a.markdownSpacing(b)
-		bottom, outside := a.markdownBelow(m, row.Index)
-		switch {
-		case row.Index == 0:
-			top = 0
-		case b.kind == markdownHeading:
-			// The room above a heading takes in the room below the block
-			// before it, as CSS's margins collapse.
-			below, out := a.markdownBelow(m, row.Index-1)
-			top = max(0, top-below-out)
-		}
-		ui.Row(c).Bind(&m.sync.rows[row.Index]).WidthPercent(100).Justify(ui.Center).Margin(0, 0, outside, 0).Children(func() {
-			ui.Row(c).WidthPercent(100).MaxWidth(m.measure).AlignItems(ui.Start).Padding(0, 0, 0, b.offset*size).Gap(size * 0.5).Children(func() {
-				for i := range b.quote {
-					bar := p.guideNow
-					if b.alert != alertNone && i == b.alertAt-1 {
-						bar = a.markdownColor(b.alert)
-					}
-					ui.Box(c).Width(3).AlignSelf(ui.Stretch).Background(bar).Margin(0, size*0.25, 0, 0)
-				}
-				if b.marker != "" {
-					ms := size
-					if b.footnote {
-						ms = a.markdownSize(b)
-					}
-					a.markdownMarker(c, b, ms)
-				}
+		a.markdownRow(row.Context, v, row.Index, width, font, &m.sync.rows[row.Index])
+	})
+}
 
-				align := ui.Start
-				if b.center {
-					align = ui.Center
+// markdownRow shows block i of a preview, as its row of the list, bound to
+// bind, or as a block Live Preview shows rendered, with no bind.
+func (a *app) markdownRow(c *ui.Context, v *viewer, i int, width float32, font ui.Font, bind *ui.Handle) {
+	m, p := v.markdown, a.pal
+	size, lh := a.settings.FontSize, a.settings.LineHeight
+	path := v.doc.path
+	b := m.blocks[i]
+	top, _ := a.markdownSpacing(b)
+	bottom, outside := a.markdownBelow(m, i)
+	switch {
+	case i == 0:
+		top = 0
+	case b.kind == markdownHeading:
+		// The room above a heading takes in the room below the block
+		// before it, as CSS's margins collapse.
+		below, out := a.markdownBelow(m, i-1)
+		top = max(0, top-below-out)
+	}
+	row := ui.Row(c)
+	if bind != nil {
+		row.Bind(bind)
+	}
+	row.WidthPercent(100).Justify(ui.Center).Margin(0, 0, outside, 0).Children(func() {
+		ui.Row(c).WidthPercent(100).MaxWidth(m.measure).AlignItems(ui.Start).Padding(0, 0, 0, b.offset*size).Gap(size * 0.5).Children(func() {
+			for i := range b.quote {
+				bar := p.guideNow
+				if b.alert != alertNone && i == b.alertAt-1 {
+					bar = a.markdownColor(b.alert)
 				}
-				ui.Column(c).Grow(1).MinWidth(0).Padding(top, 0, bottom, 0).TextAlign(align).Children(func() {
-					switch b.kind {
-					case markdownRule:
-						ui.Box(c).Height(2).WidthPercent(100).Radius(1).Background(p.border).Margin(size*lh*0.375, 0)
-					case markdownImageBlock:
-						imageWidth := max(1, width-(b.offset+b.markerWidth)*size-float32(b.quote)*size)
-						// Pictures next to each other, as badges, wrap
-						// as words do.
-						images := ui.Row(c).WidthPercent(100).Wrap().Gap(size * 0.25)
-						if b.center {
-							images.Justify(ui.Center)
-						}
-						images.Children(func() {
-							for _, r := range b.runs {
-								a.markdownImage(c, m, path, r, imageWidth)
-							}
-						})
-					case markdownCodeBlock:
-						if d := b.diagram; d != nil && d.err == "" && !m.sources[b.line] {
-							a.markdownDiagram(c, v, b, size, max(1, width-(b.offset+b.markerWidth)*size-float32(b.quote)*size))
-							break
-						}
-						a.markdownCodeCard(c, m, path, b, size, a.previewHits(m, row.Index, -1, 0))
-						if d := b.diagram; d != nil && d.err != "" {
-							ui.Text(c, locales.MermaidCannotDraw(d.err)).FontSize(size*0.85).TextColor(p.dangerFg).Margin(size*0.4, 0, 0, 0)
-						}
-					case markdownMathBlock:
-						if f := b.formula; f != nil && f.err == "" && f.w > 0 {
-							a.markdownMathBlock(c, b, size, max(1, width-(b.offset+b.markerWidth)*size-float32(b.quote)*size))
-							break
-						}
-						a.markdownCodeCard(c, m, path, b, size, a.previewHits(m, row.Index, -1, 0))
-						if f := b.formula; f != nil {
-							ui.Text(c, locales.MathCannotDraw(f.err)).FontSize(size*0.85).TextColor(p.dangerFg).Margin(size*0.4, 0, 0, 0)
-						}
-					case markdownTable, markdownTableHeader:
-						a.markdownTableRow(c, m, path, row.Index, size, width, font)
-					case markdownAlertTitle:
-						icon, title := markdownAlertHead(b.alert)
-						col := a.markdownColor(b.alert)
-						ui.Row(c).AlignItems(ui.Center).Gap(size * 0.45).Height(size * lh).Children(func() {
-							ui.Icon(c, icon).FontSize(size * 1.1).TextColor(col)
-							ui.Text(c, title).FontSize(size).FontWeight(600).TextColor(col).SingleLine()
-						})
-					default:
-						// Quotes and the smallest headings are muted, as on
-						// GitHub; the text of an alert is not. The other
-						// headings take the theme's color for them, as the
-						// editor gives their lines.
-						color := p.text
-						if b.quote > b.alertAt || b.kind == markdownHeading && b.level == 6 || b.footnote {
-							color = p.muted
-						} else if b.kind == markdownHeading {
-							color = p.syntax[highlight.Heading]
-						}
-						if r := b.runs[0]; b.kind == markdownParagraph && len(b.runs) == 1 && r.image != "" && r.bitmap == nil {
-							a.markdownNoImage(c, m, path, r, size, align)
-							return
-						}
-						a.markdownText(c, m, path, b.runs, a.markdownSize(b), color, false, a.previewHits(m, row.Index, -1, 0))
-						if b.kind == markdownHeading && b.level <= 2 {
-							// A hairline under the largest headings, as GitHub draws it.
-							ui.Box(c).Height(1).WidthPercent(100).Background(p.border).Margin(size*0.4, 0, 0, 0)
-						}
+				ui.Box(c).Width(3).AlignSelf(ui.Stretch).Background(bar).Margin(0, size*0.25, 0, 0)
+			}
+			if b.marker != "" {
+				ms := size
+				if b.footnote {
+					ms = a.markdownSize(b)
+				}
+				var toggle func()
+				if bind != nil && (b.marker == "☐" || b.marker == "☑") {
+					toggle = func() { a.toggleReadingTask(v, i) }
+				}
+				a.markdownMarker(c, b, ms, toggle)
+			}
+
+			align := ui.Start
+			if b.center {
+				align = ui.Center
+			}
+			ui.Column(c).Grow(1).MinWidth(0).Padding(top, 0, bottom, 0).TextAlign(align).Children(func() {
+				switch b.kind {
+				case markdownRule:
+					ui.Box(c).Height(2).WidthPercent(100).Radius(1).Background(p.border).Margin(size*lh*0.375, 0)
+				case markdownImageBlock:
+					imageWidth := max(1, width-(b.offset+b.markerWidth)*size-float32(b.quote)*size)
+					// Pictures next to each other, as badges, wrap
+					// as words do.
+					images := ui.Row(c).WidthPercent(100).Wrap().Gap(size * 0.25)
+					if b.center {
+						images.Justify(ui.Center)
 					}
-				})
+					images.Children(func() {
+						for _, r := range b.runs {
+							a.markdownImage(c, m, path, r, imageWidth)
+						}
+					})
+				case markdownCodeBlock:
+					if d := b.diagram; d != nil && d.err == "" && !m.sources[b.line] {
+						a.markdownDiagram(c, v, b, size, max(1, width-(b.offset+b.markerWidth)*size-float32(b.quote)*size))
+						break
+					}
+					a.markdownCodeCard(c, m, path, b, size, a.previewHits(m, i, -1, 0))
+					if d := b.diagram; d != nil && d.err != "" {
+						ui.Text(c, locales.MermaidCannotDraw(d.err)).FontSize(size*0.85).TextColor(p.dangerFg).Margin(size*0.4, 0, 0, 0)
+					}
+				case markdownMathBlock:
+					if f := b.formula; f != nil && f.err == "" && f.w > 0 {
+						a.markdownMathBlock(c, b, size, max(1, width-(b.offset+b.markerWidth)*size-float32(b.quote)*size))
+						break
+					}
+					a.markdownCodeCard(c, m, path, b, size, a.previewHits(m, i, -1, 0))
+					if f := b.formula; f != nil {
+						ui.Text(c, locales.MathCannotDraw(f.err)).FontSize(size*0.85).TextColor(p.dangerFg).Margin(size*0.4, 0, 0, 0)
+					}
+				case markdownTable, markdownTableHeader:
+					a.markdownTableRow(c, m, path, i, size, width, font)
+				case markdownAlertTitle:
+					icon, title := markdownAlertHead(b.alert)
+					col := a.markdownColor(b.alert)
+					ui.Row(c).AlignItems(ui.Center).Gap(size * 0.45).Height(size * lh).Children(func() {
+						ui.Icon(c, icon).FontSize(size * 1.1).TextColor(col)
+						ui.Text(c, title).FontSize(size).FontWeight(600).TextColor(col).SingleLine()
+					})
+				default:
+					// Quotes and the smallest headings are muted, as on
+					// GitHub; the text of an alert is not. The other
+					// headings take the theme's color for them, as the
+					// editor gives their lines.
+					color := p.text
+					if b.quote > b.alertAt || b.kind == markdownHeading && b.level == 6 || b.footnote {
+						color = p.muted
+					} else if b.kind == markdownHeading {
+						color = p.syntax[highlight.Heading]
+					}
+					if r := b.runs[0]; b.kind == markdownParagraph && len(b.runs) == 1 && r.image != "" && r.bitmap == nil {
+						a.markdownNoImage(c, m, path, r, size, align)
+						return
+					}
+					a.markdownText(c, m, path, b.runs, a.markdownSize(b), color, false, a.previewHits(m, i, -1, 0))
+					if b.kind == markdownHeading && b.level <= 2 {
+						// A hairline under the largest headings, as GitHub draws it.
+						ui.Box(c).Height(1).WidthPercent(100).Background(p.border).Margin(size*0.4, 0, 0, 0)
+					}
+				}
 			})
 		})
 	})
@@ -2103,7 +2132,7 @@ func (a *app) markdownView(c *ui.Context, v *viewer, name string) {
 
 // markdownMarker is the marker of a list's item: a dot, a ring for a list
 // inside another, a task's box, or a number.
-func (a *app) markdownMarker(c *ui.Context, b markdownBlock, size float32) {
+func (a *app) markdownMarker(c *ui.Context, b markdownBlock, size float32, toggle func()) {
 	p, lh := a.pal, a.settings.LineHeight
 	switch b.marker {
 	case "•":
@@ -2125,6 +2154,10 @@ func (a *app) markdownMarker(c *ui.Context, b markdownBlock, size float32) {
 		ui.Box(c).Width(size * b.markerWidth).Height(size * lh).AlignItems(ui.Center).Children(func() {
 			box := ui.Box(c).Width(d).Height(d).Radius(3).Margin((size*lh-d)/2, 0).
 				Justify(ui.Center).AlignItems(ui.Center)
+			if toggle != nil {
+				// A click checks it, in the text too.
+				box.Cursor(ui.CursorPointer).Unselectable().OnClick(toggle)
+			}
 			if b.marker == "☑" {
 				box.Background(p.fill).Children(func() {
 					ui.Icon(c, iconCheck).FontSize(d * 0.8).TextColor(p.fillText)

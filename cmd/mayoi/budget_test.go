@@ -92,6 +92,26 @@ func TestBudgets(t *testing.T) {
 			hs.place(d, 5000, 5000)
 			return func() { hs.tt.Type("a"); step(hs.tt) }
 		}},
+		// Live Preview styles the lines about the view each frame, from a
+		// parse that follows each edit until the next arrives.
+		{"Live Preview type frame", 4 * time.Millisecond, false, func(t *testing.T, hs *harness) func() {
+			d := bigNote(hs)
+			hs.place(d, 40000, 40000)
+			return func() { hs.tt.Type("a"); step(hs.tt) }
+		}},
+		{"Live Preview scroll frame", 5 * time.Millisecond, false, func(t *testing.T, hs *harness) func() {
+			bigNote(hs)
+			i := 0
+			return func() {
+				dy := float32(60)
+				if i/30%2 == 1 {
+					dy = -60
+				}
+				i++
+				hs.tt.Scroll(700, 400, 0, dy)
+				step(hs.tt)
+			}
+		}},
 		// The palette shows in the frame after its key, and goes in the
 		// frame after Escape: both, well within the tenth of a second
 		// that still reads as at once.
@@ -218,6 +238,22 @@ func bigDoc(hs *harness) *editor {
 	hs.settle()
 	d := hs.a.activeEditor()
 	d.vscroll.Y = 4000
+	hs.settle()
+	return d
+}
+
+// bigNote opens a Markdown note of some 6,000 lines as Live Preview,
+// scrolled into its middle, once parsed, and returns its editor.
+func bigNote(hs *harness) *editor {
+	part := "## Section\n\nSome **bold**, *italic* and `code` text with a [link](https://example.com) and ==marks==.\n\n" +
+		"- [ ] a task\n- [x] done\n- an item\n  - nested\n\n> A quote of some length.\n\n```go\nfunc f() int { return 1 }\n```\n\n" +
+		"| a | b |\n|---|---|\n| 1 | 2 |\n\n"
+	os.WriteFile(hs.path("big.md"), []byte(strings.Repeat(part, 250)), 0o644)
+	hs.a.settings.MarkdownMode = "live"
+	hs.a.openFile(hs.path("big.md"), true)
+	d := hs.a.activeEditor()
+	hs.until("the note parsed", func() bool { l := d.document.live; return l != nil && l.doc != nil && !l.quick })
+	d.vscroll.Y = 40000
 	hs.settle()
 	return d
 }

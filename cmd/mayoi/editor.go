@@ -234,6 +234,12 @@ func (a *app) editorView(c *ui.Context, d *editor) {
 	d.version = snap.Version()
 	lines := snap.LineCount()
 	gutterW := a.editorGutterWidth(lines)
+	// Live Preview has no line numbers: its text stands in the middle,
+	// as the Reading view's does.
+	live := a.livePreview(d)
+	if live {
+		gutterW = 0
+	}
 	d.gutterW = gutterW
 	view := d.hscroll.Bounds(c)
 	if view.H > 0 {
@@ -244,7 +250,11 @@ func (a *app) editorView(c *ui.Context, d *editor) {
 		view = d.lastView
 	}
 	d.vim.viewH = view.H
-	textX := gutterW + gutterGap
+	textX, padR := gutterW+gutterGap, float32(textPadR)
+	if live {
+		a.followLive(d.document)
+		textX, padR = a.liveMargins(c, d.document, view.W)
+	}
 	// Vim's normal and visual modes take the keys as commands: the area
 	// types nothing, and shows a block for its caret.
 	vimKeys := a.prefs().Vim && d.vim.mode != vimInsert
@@ -271,10 +281,20 @@ func (a *app) editorView(c *ui.Context, d *editor) {
 	}
 
 	ui.ScrollHorizontal(c).TrackScroll(&d.hscroll).Fill().Background(p.editor).Children(func() {
-		area := ui.TextAreaBufferBase(c, d.buf).
-			Font(f.family).FontSize(f.size).FontWeight(f.weight).FontFeatures(f.featureList()...).FixedLineHeight(f.lineH).TextColor(p.text).
+		area := ui.TextAreaBufferBase(c, d.buf)
+		if live {
+			// The text in the app's font, as it reads, its lines as high as
+			// what they hold.
+			area.Font(c.Theme().Font).FontSize(a.settings.FontSize).LineHeight(a.settings.LineHeight)
+			if p.mono {
+				area.FontWeight(f.weight).FontFeatures(f.featureList()...)
+			}
+		} else {
+			area.Font(f.family).FontSize(f.size).FontWeight(f.weight).FontFeatures(f.featureList()...).FixedLineHeight(f.lineH)
+		}
+		area.TextColor(p.text).
 			TabSize(float32(f.tabSize)).FillHeight().
-			Padding(editorPadY, textPadR, editorPadY, textX).
+			Padding(editorPadY, padR, editorPadY, textX).
 			Label(locales.EditorLabel(d.name())).
 			ReadOnly(vimKeys || a.chording() || d.locked())
 		a.takeKeys(area, placeEditor, func(ev ui.InputEvent) bool {
@@ -484,6 +504,15 @@ func (a *app) editorView(c *ui.Context, d *editor) {
 			d.vscroll.Focus(c)
 		}
 
+		if live {
+			area.SelectionColor(p.selected)
+			if !focused {
+				area.SelectionColor(p.selectedDim)
+			}
+			a.liveArea(c, d, area, liveFrame{snap: snap, g: g, first: first, last: last, left: textX,
+				width: max(1, contentW-textX-padR), anchor: anchor, caret: caret, vimKeys: vimKeys, focused: focused})
+			return
+		}
 		// The ==highlighted== and ~~struck~~ runs of Markdown in view.
 		var highlights, strikes []lineRun
 		if d.hl != nil && d.hl.Lexer() != nil {

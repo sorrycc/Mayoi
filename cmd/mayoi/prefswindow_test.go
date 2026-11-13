@@ -36,7 +36,7 @@ func newPrefsHarness(t *testing.T) *prefsHarness {
 	s := settings.Load(path)
 	// Finish delayed writes before TempDir removes the settings directory.
 	t.Cleanup(s.Flush)
-	s.MarkdownPreview = false
+	s.MarkdownMode = ""
 	hs.a.settings = s
 	hs.a.window = s.NewWindow()
 	hs.a.window.Folder = hs.root

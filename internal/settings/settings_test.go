@@ -631,3 +631,27 @@ func TestEdited(t *testing.T) {
 		t.Error("an edit taken is an edit again")
 	}
 }
+
+// markdownPreview, which opened Markdown rendered, is markdownMode
+// "reading" now, in the settings' file and in a folder's.
+func TestMigrateMarkdownPreview(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "settings.json")
+	os.WriteFile(path, []byte(`{"markdownPreview": true}`), 0o644)
+	if s := Load(path); s.MarkdownMode != "reading" {
+		t.Errorf("markdownPreview migrated to %q", s.MarkdownMode)
+	}
+	os.WriteFile(path, []byte(`{"markdownPreview": true, "markdownMode": "live"}`), 0o644)
+	if s := Load(path); s.MarkdownMode != "live" {
+		t.Errorf("markdownMode %q, chosen live", s.MarkdownMode)
+	}
+	os.WriteFile(path, []byte(`{"markdownMode": "other"}`), 0o644)
+	if s := Load(path); s.MarkdownMode != "" {
+		t.Errorf("an unknown markdownMode is %q", s.MarkdownMode)
+	}
+	os.MkdirAll(filepath.Join(dir, FolderDir), 0o755)
+	os.WriteFile(FolderPath(dir), []byte(`{"markdownPreview": true}`), 0o644)
+	if p := LoadFolder(dir).Apply(Default().Prefs); p.MarkdownMode != "reading" {
+		t.Errorf("a folder's markdownPreview applied as %q", p.MarkdownMode)
+	}
+}

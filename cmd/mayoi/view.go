@@ -970,7 +970,10 @@ func (a *app) breadcrumbs(c *ui.Context, col *column, t *colTab) {
 					b.Menu(a.reviewMenu)
 				}
 			}
-			if canPreview(d.document) {
+			switch {
+			case isMarkdown(d.document):
+				a.markdownModeButtons(c, t, d)
+			case canPreview(d.document):
 				a.previewButton(c, t, d)
 			}
 		}
@@ -1005,6 +1008,52 @@ func (a *app) previewButton(c *ui.Context, t *colTab, d *editor) {
 			}
 		})
 	}
+}
+
+// markdownModeButtons choose how a Markdown document shows: its source,
+// Live Preview or the Reading view, the one it shows marked.
+func (a *app) markdownModeButtons(c *ui.Context, t *colTab, d *editor) {
+	p := a.pal
+	mode := markdownMode(d)
+	modes := []struct {
+		mode, label, cmd string
+		icon             *ui.SVG
+	}{
+		{"", locales.MarkdownModeSource(), "view.toggleLivePreview", iconFileCode},
+		{"live", locales.MarkdownModeLive(), "view.toggleLivePreview", iconPencil},
+		{"reading", locales.MarkdownModeReading(), "view.togglePreview", iconFileText},
+	}
+	ui.Row(c.Key("markdown-modes")).Height(crumbsH - 4).Padding(1).Gap(1).Radius(5).Background(p.hover.Alpha(0.5)).
+		AlignItems(ui.Center).Shrink(0).Label(locales.MarkdownModes()).Children(func() {
+		for _, m := range modes {
+			label := a.withKey(m.label, m.cmd)
+			on := m.mode == mode
+			b := ui.ButtonBase(c.Key("mode:"+m.mode)).Height(crumbsH-6).Padding(0, 6).Radius(4).
+				AlignItems(ui.Center).Label(label).Tooltip(label).Selected(on)
+			col := p.muted
+			switch {
+			case on:
+				// The mode shown is marked by color, not by weight, so the
+				// buttons hold still.
+				b.Background(p.editor)
+				col = p.text
+			case b.Hovered():
+				b.Background(p.hover)
+			}
+			b.Transition(hoverFade)
+			pressPose(b)
+			b.Children(func() { ui.Icon(c, m.icon).FontSize(13).TextColor(col) })
+			if b.Clicked() && !on {
+				mode := m.mode
+				a.post(func() {
+					if col, i := a.locate(t); col != nil {
+						a.activate(col, i, true)
+					}
+					a.setMarkdownMode(mode)
+				})
+			}
+		}
+	})
 }
 
 // statusVisibility is which of the parts of the status bar that can go

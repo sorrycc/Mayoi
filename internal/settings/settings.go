@@ -77,19 +77,21 @@ type oldLayout struct {
 }
 
 // legacy is what an older version kept in the settings' file besides the
-// state: DiffSplit, which DiffLayout "split" is now, and the window as a
+// state: DiffSplit, which DiffLayout "split" is now, MarkdownPreview,
+// which MarkdownMode "reading" is now, and the window as a
 // version with one window kept it, Folder, Columns, Column, PanelOpen and
 // TerminalOpen, with OpenFiles and ActiveFile its tabs as a version
 // without columns kept them. Load makes a window of them.
 type legacy struct {
-	DiffSplit    bool     `json:"diffSplit"`
-	Folder       string   `json:"folder"`
-	Columns      []Column `json:"columns"`
-	Column       int      `json:"column"`
-	PanelOpen    bool     `json:"panelOpen"`
-	TerminalOpen bool     `json:"terminalOpen"`
-	OpenFiles    []string `json:"openFiles"`
-	ActiveFile   string   `json:"activeFile"`
+	DiffSplit       bool     `json:"diffSplit"`
+	MarkdownPreview bool     `json:"markdownPreview"`
+	Folder          string   `json:"folder"`
+	Columns         []Column `json:"columns"`
+	Column          int      `json:"column"`
+	PanelOpen       bool     `json:"panelOpen"`
+	TerminalOpen    bool     `json:"terminalOpen"`
+	OpenFiles       []string `json:"openFiles"`
+	ActiveFile      string   `json:"activeFile"`
 }
 
 // PluginSource is where a plugin installed from Git came from.
@@ -139,9 +141,10 @@ type Prefs struct {
 	// PreviewMath draws the TeX math of a Markdown preview, between $ and
 	// $, $$ and $$, or in a block of math, as the formulas it makes.
 	PreviewMath bool `json:"previewMath"`
-	// MarkdownPreview opens a Markdown file, .mdx included, rendered
-	// rather than as text; ⇧⌘V still shows the text.
-	MarkdownPreview bool `json:"markdownPreview,omitempty"`
+	// MarkdownMode is how a Markdown file, .mdx included, opens: "" as
+	// its source, "live" as Live Preview, its source styled as it reads,
+	// or "reading" rendered.
+	MarkdownMode string `json:"markdownMode,omitempty"`
 	// DiffLayout is how diffs show: "split" side by side, "inline" in
 	// one column, or "" side by side when they are wide enough to.
 	DiffLayout string `json:"diffLayout,omitempty"`
@@ -449,8 +452,11 @@ type Tab struct {
 	// "" for none.
 	Agent   string `json:"agent,omitempty"`
 	Session string `json:"session,omitempty"`
-	// Preview is set for an SVG shown as a picture rather than as text.
+	// Preview is set for an SVG shown as a picture rather than as text,
+	// or a Markdown file shown rendered, and Live for one shown as Live
+	// Preview.
 	Preview bool `json:"preview,omitempty"`
+	Live    bool `json:"live,omitempty"`
 	// Transient is set for the preview tab of its column, which the next
 	// file previewed replaces.
 	Transient bool `json:"transient,omitempty"`
@@ -523,6 +529,9 @@ func Load(path string) *Settings {
 	}
 	if old.DiffSplit && s.DiffLayout == "" {
 		s.DiffLayout = "split"
+	}
+	if old.MarkdownPreview && s.MarkdownMode == "" {
+		s.MarkdownMode = "reading"
 	}
 	s.normalize()
 	if moved {
@@ -608,6 +617,9 @@ func (p *Prefs) normalize() {
 	}
 	if p.TerminalBackend != "hc" {
 		p.TerminalBackend = ""
+	}
+	if p.MarkdownMode != "live" && p.MarkdownMode != "reading" {
+		p.MarkdownMode = ""
 	}
 	// The themes were appearances once.
 	if p.Appearance == "matrix" || p.Appearance == "claude" {

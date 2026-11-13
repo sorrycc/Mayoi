@@ -43,7 +43,10 @@ type document struct {
 	kept        string
 	keptVersion uint64
 	buf         *ui.TextBuffer
-	saved       uint64 // the buffer's version on disk
+	// live is the document's Live Preview, nil until an editor shows it
+	// so.
+	live  *liveState
+	saved uint64 // the buffer's version on disk
 	// savedSnap is the text on disk, which undoing back to makes the
 	// document clean again.
 	savedSnap ui.TextSnapshot
@@ -216,6 +219,13 @@ type editor struct {
 	// preview shows a rendered document in the editor's place,
 	// nil while it shows the text.
 	preview *viewer
+	// live shows a Markdown document's text as Live Preview, styled as it
+	// reads, rather than as its source; liveHits are the tasks' boxes the
+	// last frame drew, by where they show in the text area, and liveAt
+	// where the area showed.
+	live     bool
+	liveHits []liveHit
+	liveAt   ui.Point
 	// gutterW is how wide the line numbers were in the last frame; peek
 	// the first line of the hunk whose box shows under it, -1 for none.
 	gutterW float32

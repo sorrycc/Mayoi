@@ -211,8 +211,8 @@ func newHarness(t testing.TB, dark bool) *harness {
 	root := workspaceFixture(t)
 	s := settings.Default()
 	// The tests open Markdown as text, the editor they drive, in case
-	// markdownPreview's default changes.
-	s.MarkdownPreview = false
+	// markdownMode's default changes.
+	s.MarkdownMode = ""
 	w := s.NewWindow()
 	w.Folder = root
 	h := &fakeHost{folder: root}
@@ -677,7 +677,7 @@ func TestNewFileAndRenameFromTheTree(t *testing.T) {
 		t.Run(fmt.Sprintf("markdownPreview=%v", preview), func(t *testing.T) {
 			hs := newHarness(t, false)
 			a, tt := hs.a, hs.tt
-			a.settings.MarkdownPreview = preview
+			a.settings.MarkdownMode = map[bool]string{true: "reading"}[preview]
 			a.askNewEntry(hs.root, false)
 			hs.settle()
 			tt.Type("notes/todo.md")
@@ -763,7 +763,7 @@ func TestOpenTextRestoresState(t *testing.T) {
 		t.Fatal("a failed open left openingText set")
 	}
 	// The flag, not the file, decides: source under it, preview after.
-	a.settings.MarkdownPreview = true
+	a.settings.MarkdownMode = "reading"
 	a.openText(func() { a.openFile(hs.path("README.md"), true) })
 	hs.settle()
 	if d := a.activeEditor(); d == nil || d.preview != nil {

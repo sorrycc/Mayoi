@@ -11,6 +11,9 @@ import (
 // wraps reports whether an editor wraps its lines: as its tab chose, or
 // else as the settings say.
 func (a *app) wraps(d *editor) bool {
+	if a.livePreview(d) {
+		return true // Live Preview's text reads as a page
+	}
 	if d.wrap != nil && d.wrapGen == a.settings.WrapGen {
 		return *d.wrap
 	}

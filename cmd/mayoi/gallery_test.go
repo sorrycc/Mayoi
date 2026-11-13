@@ -109,6 +109,19 @@ var galleryStates = []struct {
 		}
 		hs.a.showSessions()
 	}},
+	{"live-preview", func(hs *harness) {
+		// A note as Live Preview: its marks hidden but where the caret is,
+		// its tasks, quote, code and table drawn.
+		src := "# Notes\n\nSome **bold** and `code`, a [link](https://example.com).\n\n- [ ] open\n- [x] done\n\n" +
+			"> [!TIP]\n> A tip.\n\n```go\nfunc main() {}\n```\n\n| Key | Value |\n|-----|-------|\n| a   | 1     |\n"
+		os.WriteFile(hs.path("notes.md"), []byte(src), 0o644)
+		hs.a.settings.MarkdownMode = "live"
+		hs.a.openFile(hs.path("notes.md"), true)
+		d := hs.a.activeEditor()
+		hs.until("the note parsed", func() bool { l := d.document.live; return l != nil && l.doc != nil && !l.quick })
+		at := strings.Index(src, "bold")
+		hs.place(d, at, at)
+	}},
 	{"unsaved", func(hs *harness) {
 		hs.a.openFile(hs.path("main.go"), true)
 		hs.settle()

@@ -211,6 +211,9 @@ type mathNode struct {
 	ast.BaseInline
 	tex     string
 	display bool
+	// start and stop are where the formula and its $s are in the source,
+	// which Live Preview hides them by.
+	start, stop int
 }
 
 var kindMath = ast.NewNodeKind("Math")
@@ -231,6 +234,7 @@ func (mathParser) Trigger() []byte { return []byte{'$'} }
 func (mathParser) Parse(parent ast.Node, block text.Reader, pc parser.Context) ast.Node {
 	l, pos := block.Position()
 	line, _ := block.PeekLine()
+	start := pos.Start
 	fence := 1
 	if len(line) > 1 && line[1] == '$' {
 		fence = 2
@@ -267,7 +271,8 @@ func (mathParser) Parse(parent ast.Node, block text.Reader, pc parser.Context) a
 				return nil
 			}
 			block.Advance(i + fence)
-			return &mathNode{tex: string(bytes.TrimSpace(tex)), display: fence == 2}
+			_, end := block.Position()
+			return &mathNode{tex: string(bytes.TrimSpace(tex)), display: fence == 2, start: start, stop: end.Start}
 		}
 		tex = append(tex, line...)
 		block.AdvanceLine()

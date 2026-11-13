@@ -202,7 +202,10 @@ func (a *app) commandsIn(t locales.Messages) []command {
 		{"view.wordWrapTab", t.CmdViewWordWrapTab(), "Alt+Z", a.toggleTabWrap},
 		{"view.togglePreview", t.CmdViewTogglePreview(), "Shift+CmdOrCtrl+V", a.togglePreview},
 		{"view.previewToSide", t.CmdViewPreviewToSide(), "", a.previewToSide},
-		{"view.markdownPreview", t.CmdViewMarkdownPreview(), "", a.toggleMarkdownPreview},
+		{"view.toggleLivePreview", t.CmdViewToggleLivePreview(), "Alt+CmdOrCtrl+V", a.toggleLivePreview},
+		{"view.markdownOpen.source", t.CmdViewMarkdownOpenSource(), "", func() { a.setMarkdownOpen("") }},
+		{"view.markdownOpen.live", t.CmdViewMarkdownOpenLive(), "", func() { a.setMarkdownOpen("live") }},
+		{"view.markdownOpen.reading", t.CmdViewMarkdownOpenReading(), "", func() { a.setMarkdownOpen("reading") }},
 		// The whole window, independent of the focused pane.
 		{"view.zoomIn", t.CmdViewZoomIn(), "CmdOrCtrl+=", func() { a.zoom(1) }},
 		{"view.zoomOut", t.CmdViewZoomOut(), "CmdOrCtrl+-", func() { a.zoom(-1) }},
@@ -635,8 +638,12 @@ func (a *app) menu(cli bool, run func(id string, win *mygo.Window)) *mygo.Menu {
 		{Label: locales.MenuView(), Submenu: []*mygo.MenuItem{
 			item("view.sidebar"), checkbox("view.sidebarRight", a.settings.SidebarRight), item("view.explorer"), item("view.search"), item("view.scm"), item("view.sessions"), mygo.Separator(),
 			checkbox("view.compactFolders", a.settings.ExplorerCompactFolders), mygo.Separator(),
-			checkbox("view.wordWrap", a.prefs().WordWrap), item("view.wordWrapTab"), item("view.togglePreview"), item("view.previewToSide"),
-			checkbox("view.markdownPreview", a.prefs().MarkdownPreview), mygo.Separator(),
+			checkbox("view.wordWrap", a.prefs().WordWrap), item("view.wordWrapTab"), item("view.togglePreview"), item("view.toggleLivePreview"), item("view.previewToSide"),
+			{Label: locales.MenuOpenMarkdownAs(), Submenu: []*mygo.MenuItem{
+				radio("view.markdownOpen.source", a.prefs().MarkdownMode == ""),
+				radio("view.markdownOpen.live", a.prefs().MarkdownMode == "live"),
+				radio("view.markdownOpen.reading", a.prefs().MarkdownMode == "reading"),
+			}}, mygo.Separator(),
 			checkbox("view.vim", a.prefs().Vim), checkbox("view.projectTabs", a.settings.ProjectTabs), mygo.Separator(),
 			item("view.splitRight"), item("view.nextColumn"), item("view.prevColumn"),
 			item("view.moveTabNext"), item("view.moveTabPrev"), mygo.Separator(),

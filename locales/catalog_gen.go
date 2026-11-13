@@ -3156,16 +3156,6 @@ func (msgs Messages) CmdViewLockColumn() string {
 	return Catalog.Format(msgs.locale, "cmdViewLockColumn", nil)
 }
 
-// CmdViewMarkdownPreview says "Preview Markdown on Open"
-// in the language the app shows.
-func CmdViewMarkdownPreview() string { return In(i18n.Locale()).CmdViewMarkdownPreview() }
-
-// CmdViewMarkdownPreview says "Preview Markdown on Open"
-// in the language of msgs.
-func (msgs Messages) CmdViewMarkdownPreview() string {
-	return Catalog.Format(msgs.locale, "cmdViewMarkdownPreview", nil)
-}
-
 // CmdViewMoveTabNext says "Move Tab to Next Column"
 // in the language the app shows.
 func CmdViewMoveTabNext() string { return In(i18n.Locale()).CmdViewMoveTabNext() }
@@ -3434,6 +3424,96 @@ func CmdViewTogglePreview() string { return In(i18n.Locale()).CmdViewTogglePrevi
 // in the language of msgs.
 func (msgs Messages) CmdViewTogglePreview() string {
 	return Catalog.Format(msgs.locale, "cmdViewTogglePreview", nil)
+}
+
+// CmdViewToggleLivePreview says "Toggle Live Preview"
+// in the language the app shows.
+func CmdViewToggleLivePreview() string { return In(i18n.Locale()).CmdViewToggleLivePreview() }
+
+// CmdViewToggleLivePreview says "Toggle Live Preview"
+// in the language of msgs.
+func (msgs Messages) CmdViewToggleLivePreview() string {
+	return Catalog.Format(msgs.locale, "cmdViewToggleLivePreview", nil)
+}
+
+// CmdViewMarkdownOpenSource says "Source"
+// in the language the app shows.
+func CmdViewMarkdownOpenSource() string { return In(i18n.Locale()).CmdViewMarkdownOpenSource() }
+
+// CmdViewMarkdownOpenSource says "Source"
+// in the language of msgs.
+func (msgs Messages) CmdViewMarkdownOpenSource() string {
+	return Catalog.Format(msgs.locale, "cmdViewMarkdownOpenSource", nil)
+}
+
+// CmdViewMarkdownOpenLive says "Live Preview"
+// in the language the app shows.
+func CmdViewMarkdownOpenLive() string { return In(i18n.Locale()).CmdViewMarkdownOpenLive() }
+
+// CmdViewMarkdownOpenLive says "Live Preview"
+// in the language of msgs.
+func (msgs Messages) CmdViewMarkdownOpenLive() string {
+	return Catalog.Format(msgs.locale, "cmdViewMarkdownOpenLive", nil)
+}
+
+// CmdViewMarkdownOpenReading says "Reading View"
+// in the language the app shows.
+func CmdViewMarkdownOpenReading() string { return In(i18n.Locale()).CmdViewMarkdownOpenReading() }
+
+// CmdViewMarkdownOpenReading says "Reading View"
+// in the language of msgs.
+func (msgs Messages) CmdViewMarkdownOpenReading() string {
+	return Catalog.Format(msgs.locale, "cmdViewMarkdownOpenReading", nil)
+}
+
+// MenuOpenMarkdownAs says "Open Markdown As"
+// in the language the app shows.
+func MenuOpenMarkdownAs() string { return In(i18n.Locale()).MenuOpenMarkdownAs() }
+
+// MenuOpenMarkdownAs says "Open Markdown As"
+// in the language of msgs.
+func (msgs Messages) MenuOpenMarkdownAs() string {
+	return Catalog.Format(msgs.locale, "menuOpenMarkdownAs", nil)
+}
+
+// MarkdownModeSource says "Source"
+// in the language the app shows.
+func MarkdownModeSource() string { return In(i18n.Locale()).MarkdownModeSource() }
+
+// MarkdownModeSource says "Source"
+// in the language of msgs.
+func (msgs Messages) MarkdownModeSource() string {
+	return Catalog.Format(msgs.locale, "markdownModeSource", nil)
+}
+
+// MarkdownModeLive says "Live Preview"
+// in the language the app shows.
+func MarkdownModeLive() string { return In(i18n.Locale()).MarkdownModeLive() }
+
+// MarkdownModeLive says "Live Preview"
+// in the language of msgs.
+func (msgs Messages) MarkdownModeLive() string {
+	return Catalog.Format(msgs.locale, "markdownModeLive", nil)
+}
+
+// MarkdownModeReading says "Reading View"
+// in the language the app shows.
+func MarkdownModeReading() string { return In(i18n.Locale()).MarkdownModeReading() }
+
+// MarkdownModeReading says "Reading View"
+// in the language of msgs.
+func (msgs Messages) MarkdownModeReading() string {
+	return Catalog.Format(msgs.locale, "markdownModeReading", nil)
+}
+
+// MarkdownModes says "Markdown view"
+// in the language the app shows.
+func MarkdownModes() string { return In(i18n.Locale()).MarkdownModes() }
+
+// MarkdownModes says "Markdown view"
+// in the language of msgs.
+func (msgs Messages) MarkdownModes() string {
+	return Catalog.Format(msgs.locale, "markdownModes", nil)
 }
 
 // CmdViewVim says "Vim Mode"
@@ -14334,24 +14414,54 @@ func (msgs Messages) PrefDescEditorAgentContext() string {
 	return Catalog.Format(msgs.locale, "prefDescEditorAgentContext", nil)
 }
 
-// PrefTitleMarkdownPreview says "Preview Markdown on Open"
+// PrefTitleMarkdownMode says "Open Markdown As"
 // in the language the app shows.
-func PrefTitleMarkdownPreview() string { return In(i18n.Locale()).PrefTitleMarkdownPreview() }
+func PrefTitleMarkdownMode() string { return In(i18n.Locale()).PrefTitleMarkdownMode() }
 
-// PrefTitleMarkdownPreview says "Preview Markdown on Open"
+// PrefTitleMarkdownMode says "Open Markdown As"
 // in the language of msgs.
-func (msgs Messages) PrefTitleMarkdownPreview() string {
-	return Catalog.Format(msgs.locale, "prefTitleMarkdownPreview", nil)
+func (msgs Messages) PrefTitleMarkdownMode() string {
+	return Catalog.Format(msgs.locale, "prefTitleMarkdownMode", nil)
 }
 
-// PrefDescMarkdownPreview says "Opens Markdown files rendered, rather than as text."
+// PrefDescMarkdownMode says "Opens Markdown files as their source, as Live Preview, which you edit as it reads, or rendered."
 // in the language the app shows.
-func PrefDescMarkdownPreview() string { return In(i18n.Locale()).PrefDescMarkdownPreview() }
+func PrefDescMarkdownMode() string { return In(i18n.Locale()).PrefDescMarkdownMode() }
 
-// PrefDescMarkdownPreview says "Opens Markdown files rendered, rather than as text."
+// PrefDescMarkdownMode says "Opens Markdown files as their source, as Live Preview, which you edit as it reads, or rendered."
 // in the language of msgs.
-func (msgs Messages) PrefDescMarkdownPreview() string {
-	return Catalog.Format(msgs.locale, "prefDescMarkdownPreview", nil)
+func (msgs Messages) PrefDescMarkdownMode() string {
+	return Catalog.Format(msgs.locale, "prefDescMarkdownMode", nil)
+}
+
+// PrefOptMarkdownModeLive says "Live Preview"
+// in the language the app shows.
+func PrefOptMarkdownModeLive() string { return In(i18n.Locale()).PrefOptMarkdownModeLive() }
+
+// PrefOptMarkdownModeLive says "Live Preview"
+// in the language of msgs.
+func (msgs Messages) PrefOptMarkdownModeLive() string {
+	return Catalog.Format(msgs.locale, "prefOptMarkdownModeLive", nil)
+}
+
+// PrefOptMarkdownModeReading says "Reading view"
+// in the language the app shows.
+func PrefOptMarkdownModeReading() string { return In(i18n.Locale()).PrefOptMarkdownModeReading() }
+
+// PrefOptMarkdownModeReading says "Reading view"
+// in the language of msgs.
+func (msgs Messages) PrefOptMarkdownModeReading() string {
+	return Catalog.Format(msgs.locale, "prefOptMarkdownModeReading", nil)
+}
+
+// PrefDefaultMarkdownMode says "Source"
+// in the language the app shows.
+func PrefDefaultMarkdownMode() string { return In(i18n.Locale()).PrefDefaultMarkdownMode() }
+
+// PrefDefaultMarkdownMode says "Source"
+// in the language of msgs.
+func (msgs Messages) PrefDefaultMarkdownMode() string {
+	return Catalog.Format(msgs.locale, "prefDefaultMarkdownMode", nil)
 }
 
 // PrefTitlePreviewMermaid says "Mermaid Diagrams"

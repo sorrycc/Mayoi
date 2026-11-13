@@ -154,6 +154,10 @@ type editor struct {
 	// quiet has the next frame make the pending selection without
 	// scrolling to it, as selecting all does.
 	quiet bool
+	// typedSel has the next frame make the pending selection as typing moves
+	// the caret, as closing a bracket typed does: the view follows it as
+	// it follows typing, not as it goes to a selection asked for.
+	typedSel bool
 	// areaInput is whether the text area took input since the frame read
 	// its selection, which may have moved it.
 	areaInput bool
@@ -441,7 +445,7 @@ func (d *editor) editedAt(snap ui.TextSnapshot) (int, bool) {
 // scrolls the editor to show them, nearer its top than its bottom when
 // center is set or they are out of view.
 func (d *editor) selectRange(start, end int, center bool) {
-	d.pending, d.center = &[2]int{start, end}, center
+	d.pending, d.center, d.typedSel = &[2]int{start, end}, center, false
 }
 
 // landFor is how long the line a jump lands on stays lit.

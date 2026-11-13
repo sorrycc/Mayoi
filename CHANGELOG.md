@@ -6,6 +6,7 @@ needs a `## <version>` section here, or its build fails.
 ## Unreleased
 
 - A folder holding many Git repositories no longer makes the window sluggish.
+- Typing a bracket or quote that closes itself no longer scrolls or shakes the editor.
 
 ## 0.20.1
 

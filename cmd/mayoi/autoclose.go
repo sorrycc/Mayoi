@@ -51,7 +51,7 @@ func (d *editor) autoClose(old, now ui.TextSnapshot, sel [2]int) bool {
 		if c, ok := autoPairs[r]; ok && next == c && paired && now.Slice(a-1, a) == string(c) {
 			d.dropCloser(a - 1)
 			d.buf.Replace(a-1, a, "")
-			d.selectRange(a-1, a-1, false)
+			d.selectTyped(a-1, a-1)
 			return true
 		}
 	case a < b && m == n-(b-a)+1:
@@ -67,8 +67,7 @@ func (d *editor) autoClose(old, now ui.TextSnapshot, sel [2]int) bool {
 		inner := old.Slice(a, b)
 		d.buf.Replace(a+1, a+1, inner+string(c))
 		k := utf8.RuneCountInString(inner)
-		d.selectRange(a+1, a+1+k, false)
-		d.sel = [2]int{a + 1, a + 1 + k}
+		d.selectTyped(a+1, a+1+k)
 		return true
 	default:
 		d.closers = d.closers[:0]
@@ -83,8 +82,7 @@ func (d *editor) typed(now ui.TextSnapshot, at int, r rune) bool {
 	if d.isCloser(at+1) && next == r {
 		d.dropCloser(at + 1)
 		d.buf.Replace(at+1, at+2, "")
-		d.selectRange(at+1, at+1, false)
-		d.sel = [2]int{at + 1, at + 1}
+		d.selectTyped(at+1, at+1)
 		return true
 	}
 	c, ok := autoPairs[r]
@@ -116,9 +114,15 @@ func (d *editor) typed(now ui.TextSnapshot, at int, r rune) bool {
 	}
 	d.buf.Replace(at+1, at+1, string(c))
 	d.closers = append(d.closers, at+1)
-	d.selectRange(at+1, at+1, false)
-	d.sel = [2]int{at + 1, at + 1}
+	d.selectTyped(at+1, at+1)
 	return true
+}
+
+// selectTyped selects runes start up to end in the next frame, as typing
+// moves the caret, without the scrolling of a selection asked for.
+func (d *editor) selectTyped(start, end int) {
+	d.selectRange(start, end, false)
+	d.sel, d.typedSel = [2]int{start, end}, true
 }
 
 // shiftClosers moves the closing brackets the editor put after offset at

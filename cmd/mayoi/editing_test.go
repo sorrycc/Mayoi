@@ -833,6 +833,71 @@ func TestEditsAtTheEdgeScrollALine(t *testing.T) {
 	}
 }
 
+// A bracket typed, which closes, leaves the view where it is, as typing
+// does, wherever its line shows: closing it is an edit of the app's, and
+// the caret it moves is not a jump to it.
+func TestAutoCloseKeepsTheView(t *testing.T) {
+	for _, wrap := range []bool{false, true} {
+		hs := newHarness(t, true)
+		a, tt := hs.a, hs.tt
+		a.settings.WordWrap = wrap
+		var b strings.Builder
+		for i := range 300 {
+			fmt.Fprintf(&b, "- item %d %s\n", i, strings.Repeat("word ", i%5*20))
+		}
+		p := hs.path("notes.md")
+		if err := os.WriteFile(p, []byte(b.String()), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		a.openFile(p, true)
+		hs.settle()
+		d := a.activeEditor()
+		d.vscroll.Y = 1500
+		hs.settle()
+		caretY := func() float32 {
+			r, _ := tt.TextCaret()
+			return r.Y
+		}
+		typed := 0
+		for line := range 120 {
+			snap := d.buf.Snapshot()
+			_, e := snap.LineRange(line)
+			if !a.inView(d, a.geometry(d, snap.LineCount()), snap, e, d.vim.viewH) {
+				continue
+			}
+			y := d.vscroll.Y
+			hs.place(d, e, e)
+			if d.vscroll.Y != y {
+				continue // the end of the line is out of view
+			}
+			tt.Type(" ")
+			hs.settle()
+			at := caretY()
+			tt.Type("[")
+			for i := range 4 {
+				if i < 3 {
+					step(tt)
+				} else {
+					hs.settle()
+				}
+				// The caret stays, or goes down the row the bracket wraps to.
+				if got := caretY(); got < at-2 || got > at+a.font.lineH+2 {
+					t.Fatalf("wrap %v, line %d: the caret went from y %v to %v", wrap, line, at, got)
+				}
+			}
+			if s, _ := snap.LineRange(line); !strings.HasSuffix(d.buf.Snapshot().Slice(s, d.sel[1]+1), " []") {
+				t.Fatalf("wrap %v, line %d: no closing bracket", wrap, line)
+			}
+			tt.Type("]")
+			hs.settle()
+			typed++
+		}
+		if typed < 5 {
+			t.Fatalf("wrap %v: typed on %d lines", wrap, typed)
+		}
+	}
+}
+
 // Edits the app makes, which have the text area forget the heights of its
 // rows, leave the lines where they show while the lines wrap.
 func TestWrappedEditsKeepTheCaretOnScreen(t *testing.T) {

@@ -224,6 +224,11 @@ func (a *app) editorView(c *ui.Context, d *editor) {
 	d.lateLine = -1
 	// What was typed since the last frame, for undo.
 	d.observe()
+	if d.typedSel && keepLine < 0 {
+		// A bracket typed closed: an edit of the app's, which keeps the
+		// line at the top where it shows.
+		keepLine, keepY = a.topLine(d)
+	}
 	snap := d.buf.Snapshot()
 	edited := snap.Version() != d.version
 	d.version = snap.Version()
@@ -326,7 +331,8 @@ func (a *app) editorView(c *ui.Context, d *editor) {
 			d.resync = true // moved while it was out of sight
 		}
 		quiet := d.pending != nil && d.quiet
-		jump := d.pending != nil && !quiet
+		// A bracket typed that closes moves the caret as typing does.
+		jump := d.pending != nil && !quiet && !d.typedSel
 		// A jump asked for goes a third of the way down from an edge of
 		// the view too; an edit's selection only from well out of view: a
 		// line typed at the edge scrolls the view a line.
@@ -347,7 +353,7 @@ func (a *app) editorView(c *ui.Context, d *editor) {
 		} else if r != nil {
 			// A jump asked for goes where it goes: no pin puts it back.
 			area.SetTextSelection(r[0], r[1])
-			d.pending, d.resync, d.parked, d.pinFrame = nil, false, -1, 0
+			d.pending, d.typedSel, d.resync, d.parked, d.pinFrame = nil, false, false, -1, 0
 			if d.landing {
 				d.landing, d.landLine, d.landAt = false, snap.LineAt(min(r[0], snap.Len())), c.Now()
 			}
@@ -857,12 +863,7 @@ func (a *app) editorView(c *ui.Context, d *editor) {
 // when the app edits its text, and guesses them again. The line is -1
 // when there was no edit, or one scrolled where it goes.
 func (a *app) runCmds(d *editor) (keepLine int, keepY float32) {
-	keepLine = -1
-	if a.wraps(d) {
-		g := a.geometry(d, d.buf.Snapshot().LineCount())
-		keepLine = g.at(d.vscroll.Y - editorPadY)
-		keepY = editorPadY + g.top(keepLine) - d.vscroll.Y
-	}
+	keepLine, keepY = a.topLine(d)
 	y, version := d.vscroll.Y, d.buf.Snapshot().Version()
 	cmds := d.cmds
 	d.cmds = nil
@@ -874,6 +875,17 @@ func (a *app) runCmds(d *editor) (keepLine int, keepY float32) {
 	}
 	a.invalidate()
 	return keepLine, keepY
+}
+
+// topLine returns the line at the top of the view and where it shows,
+// while the lines wrap, -1 otherwise: an edit of the app's keeps it there.
+func (a *app) topLine(d *editor) (line int, y float32) {
+	if !a.wraps(d) {
+		return -1, 0
+	}
+	g := a.geometry(d, d.buf.Snapshot().LineCount())
+	line = g.at(d.vscroll.Y - editorPadY)
+	return line, editorPadY + g.top(line) - d.vscroll.Y
 }
 
 // linesInView returns the first and last lines that show, a little of

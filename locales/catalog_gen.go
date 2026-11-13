@@ -8862,6 +8862,36 @@ func (msgs Messages) QuickIndexing() string {
 	return Catalog.Format(msgs.locale, "quickIndexing", nil)
 }
 
+// QuickPathChecking says "Checking path… You can keep typing."
+// in the language the app shows.
+func QuickPathChecking() string { return In(i18n.Locale()).QuickPathChecking() }
+
+// QuickPathChecking says "Checking path… You can keep typing."
+// in the language of msgs.
+func (msgs Messages) QuickPathChecking() string {
+	return Catalog.Format(msgs.locale, "quickPathChecking", nil)
+}
+
+// QuickPathError says "Cannot access this path. Check permissions or edit the path to try again."
+// in the language the app shows.
+func QuickPathError() string { return In(i18n.Locale()).QuickPathError() }
+
+// QuickPathError says "Cannot access this path. Check permissions or edit the path to try again."
+// in the language of msgs.
+func (msgs Messages) QuickPathError() string {
+	return Catalog.Format(msgs.locale, "quickPathError", nil)
+}
+
+// QuickPathMissing says "No file at this path. Enter a file path."
+// in the language the app shows.
+func QuickPathMissing() string { return In(i18n.Locale()).QuickPathMissing() }
+
+// QuickPathMissing says "No file at this path. Enter a file path."
+// in the language of msgs.
+func (msgs Messages) QuickPathMissing() string {
+	return Catalog.Format(msgs.locale, "quickPathMissing", nil)
+}
+
 // QuickLine says "line"
 // in the language the app shows.
 func QuickLine() string { return In(i18n.Locale()).QuickLine() }

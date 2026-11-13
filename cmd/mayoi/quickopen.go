@@ -29,6 +29,7 @@ type quickOpen struct {
 	shown   string // the query the results are of
 	path    string // the file the query shown names by its path, if any
 	pathAt  [2]int // the line and column after that path, if any
+	probe   quickPathProbe
 	stale   bool
 	moved   bool     // the choice changed, to scroll into view once
 	used    []string // the commands the palette ran last, the last first
@@ -44,6 +45,7 @@ func (q *quickOpen) resetResults(query string) {
 
 func (a *app) openQuick(query string) {
 	q := &a.quick
+	q.probe.epoch++
 	q.open, q.query, q.sel, q.stale = true, query, 0, true
 	if a.index == nil {
 		a.indexRead.Invalidate()
@@ -52,6 +54,7 @@ func (a *app) openQuick(query string) {
 }
 
 func (a *app) closeQuick() {
+	a.quick.probe.epoch++
 	a.quick.open = false
 	if a.focus != paneTerminal {
 		a.focusColumn()
@@ -82,10 +85,16 @@ func gotoLine(query string) (line, col int, ok bool) {
 // is "" for any other query, a path that is not a file, or a folder on a
 // host, whose paths are the host's.
 func quickPath(root, query string) (name string, line, col int) {
+	result := probeQuickPath(quickPathName(root, query), os.Stat)
+	return result.name, result.at[0], result.at[1]
+}
+
+// quickPathName only parses text; it must never touch the filesystem.
+func quickPathName(root, query string) string {
 	if remote.Is(root) {
-		return "", 0, 0
+		return ""
 	}
-	name = strings.TrimSpace(query)
+	name := strings.TrimSpace(query)
 	if len(name) >= 2 && (name[0] == '\'' || name[0] == '"') && name[len(name)-1] == name[0] {
 		name = name[1 : len(name)-1]
 	} else if filepath.Separator != '\\' && strings.Contains(name, `\`) {
@@ -101,32 +110,19 @@ func quickPath(root, query string) (name string, line, col int) {
 	if rest, ok := strings.CutPrefix(name, "~"); ok && rest != "" && os.IsPathSeparator(rest[0]) {
 		home := homeDir()
 		if home == "" {
-			return "", 0, 0
+			return ""
 		}
 		name = filepath.Join(home, rest[1:])
 	}
 	if !filepath.IsAbs(name) {
-		return "", 0, 0
+		return ""
 	}
-	// A path on a share that is gone can keep Stat a while; it runs once a
-	// query, as the query is typed.
-	file := func(name string) bool {
-		info, err := os.Stat(name)
-		return err == nil && info.Mode().IsRegular()
-	}
-	name = filepath.Clean(name)
-	if file(name) {
-		return name, 0, 0
-	}
-	// Otherwise it may be a path printed with a line, as compilers do.
-	if rest, line, col, ok := cutLineSuffix(name); ok && file(rest) {
-		return rest, line, col
-	}
-	return "", 0, 0
+	return filepath.Clean(name)
 }
 
 func (a *app) quickOpenView(c *ui.Context) {
 	q := &a.quick
+	a.refreshQuickPath()
 	if !q.open {
 		return
 	}
@@ -142,13 +138,12 @@ func (a *app) quickOpenView(c *ui.Context) {
 		return
 	}
 	if !isLine && (q.stale || q.shown != q.query) {
-		// Once a query, as the path is looked up on the disk.
-		var line, col int
-		q.path, line, col = quickPath(a.root, q.query)
-		q.pathAt = [2]int{line, col}
+		q.path, q.pathAt = q.probe.result.name, q.probe.result.at
 		if q.path != "" {
 			// The one result is the path, as files below lists it alone.
 			q.results = []workspace.Match{{Index: 0}}
+		} else if q.probe.name != "" {
+			q.results = nil
 		} else {
 			q.results = workspace.Fuzzy(a.index, q.query, 60)
 			if strings.TrimSpace(q.query) == "" {
@@ -163,6 +158,10 @@ func (a *app) quickOpenView(c *ui.Context) {
 	}
 	// choose opens a file of the results, to the side with side.
 	choose := func(i int, side bool) {
+		// Bound input can change during this build, before the next refresh.
+		if q.probe.key != a.quickPathKey() || q.probe.pending {
+			return
+		}
 		if i < 0 || i >= len(q.results) {
 			q.shook = c.Now()
 			return
@@ -258,6 +257,12 @@ func (a *app) quickBody(c *ui.Context, files []string, isLine bool, line, col in
 	if len(q.results) == 0 {
 		msg := locales.QuickNoFiles()
 		switch {
+		case q.probe.pending:
+			msg = locales.QuickPathChecking()
+		case q.probe.result.err != nil:
+			msg = locales.QuickPathError()
+		case q.probe.name != "":
+			msg = locales.QuickPathMissing()
 		case a.root == "":
 			msg = locales.QuickNoFolder()
 		case a.indexRead.Running() && a.index == nil:

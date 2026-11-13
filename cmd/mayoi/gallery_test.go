@@ -36,6 +36,19 @@ var galleryStates = []struct {
 	{"editor", func(hs *harness) { hs.a.openFile(hs.path("main.go"), true) }},
 	{"palette", func(hs *harness) { hs.a.run("go.commands") }},
 	{"no-match", func(hs *harness) { hs.a.openQuick("zzzz-nothing") }},
+	{"path-pending", func(hs *harness) {
+		hs.a.openQuick(hs.path("pending.go"))
+		p := &hs.a.quick.probe
+		p.key = hs.a.quickPathKey()
+		p.name, p.pending = hs.a.quick.query, true
+		p.read.Invalidate()
+		p.read.Start(p.key)
+	}},
+	{"path-missing", func(hs *harness) { hs.a.openQuick(hs.path("missing.go")) }},
+	{"path-error", func(hs *harness) {
+		hs.a.quick.probe.stat = func(string) (os.FileInfo, error) { return nil, os.ErrPermission }
+		hs.a.openQuick(hs.path("denied.go"))
+	}},
 	{"sessions", func(hs *harness) {
 		agentHome(hs.t, hs.root)
 		hs.a.sessions.all = 1

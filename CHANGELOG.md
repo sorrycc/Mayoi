@@ -5,6 +5,7 @@ needs a `## <version>` section here, or its build fails.
 
 ## Unreleased
 
+- Quick Open stays responsive while checking file paths, including unavailable network shares.
 - Filtering Quick Open, symbols or commands keeps the selected result in view.
 - A folder holding many Git repositories no longer makes the window sluggish.
 - Typing a bracket or quote that closes itself no longer scrolls or shakes the editor.

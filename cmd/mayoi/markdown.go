@@ -234,6 +234,9 @@ type markdownBlock struct {
 	// whose part of it shows, which its title's click opens.
 	embed         int
 	file, heading string
+	// embedAt is how many of the block's quotes are around the note
+	// embedded it is of, whose bars stand before the note's.
+	embedAt int
 	// slug is a heading's anchor, as GitHub makes it, which a link to
 	// #slug scrolls to.
 	slug string
@@ -983,7 +986,7 @@ func parseMarkdown(source []byte, path, root string, current func() bool, caches
 	// itself, embeds alone, ![[note]], in its place, and reports whether
 	// it did.
 	embedded := func(n ast.Node, b markdownBlock) bool {
-		if c.embeds >= markdownEmbedDepth || b.indent > 0 || b.quote > 0 || b.marker != "" || b.offset > 0 || current != nil && !current() {
+		if c.embeds >= markdownEmbedDepth || current != nil && !current() {
 			return false
 		}
 		l, ok := markdownEmbedOf(n, source)
@@ -1006,13 +1009,32 @@ func parseMarkdown(source []byte, path, root string, current func() bool, caches
 		inner := parseMarkdown(text, file, root, current, c)
 		c.embeds--
 		c.keep, c.used = keep, was
-		blocks = append(blocks, markdownBlock{kind: markdownEmbedTitle, embed: 1, line: b.line, file: file, heading: l.heading,
-			title: markdownEmbedName(file, l.heading), anchors: b.anchors})
+		// In a list or a quote, it stands where the paragraph would: its
+		// title after the item's marker, the rest under the item's text,
+		// within the quote's bars.
+		title := b
+		title.kind, title.embed, title.embedAt, title.file, title.heading = markdownEmbedTitle, 1, b.quote, file, l.heading
+		title.title, title.runs, title.tight = markdownEmbedName(file, l.heading), nil, false
+		blocks = append(blocks, title)
 		anchors = nil
 		base := len(blocks)
+		offset := b.offset
+		if b.marker != "" {
+			offset += b.markerWidth + 0.5
+		}
 		for _, ib := range inner {
 			ib.embed++
 			ib.line, ib.slug, ib.anchors = b.line, "", nil
+			ib.indent, ib.offset, ib.embedAt = ib.indent+b.indent, ib.offset+offset, ib.embedAt+b.quote
+			ib.quote += b.quote
+			if ib.alert != alertNone {
+				ib.alertAt += b.quote
+			} else {
+				ib.alert, ib.alertAt = b.alert, b.alertAt
+			}
+			if len(b.folds) > 0 {
+				ib.folds = append(slices.Clip(b.folds), ib.folds...)
+			}
 			if ib.kind == markdownTable || ib.kind == markdownTableHeader {
 				ib.table += base
 			}
@@ -1903,14 +1925,18 @@ func (a *app) markdownText(c *ui.Context, m *markdownPreview, path string, runs 
 		text.Font(a.settings.FontFamily).FontWeight(a.settings.FontWeight).FontFeatures(a.settings.FontFeatures...)
 		font = ui.Font{Family: a.settings.FontFamily, Size: size, Weight: a.settings.FontWeight, Features: strings.Join(a.settings.FontFeatures, ",")}
 	}
-	if slices.ContainsFunc(runs, func(r markdownInline) bool { return r.math != nil && r.math.err == "" }) {
-		a.markdownMath(m, text, runs, font, color, blockCode)
+	external := markdownExternalEnds(runs)
+	if external != nil || slices.ContainsFunc(runs, func(r markdownInline) bool { return r.math != nil && r.math.err == "" }) {
+		a.markdownMath(m, text, runs, external, font, color, blockCode)
 	}
 	text.Children(func() {
 		at := 0
-		for _, r := range runs {
+		for i, r := range runs {
 			spans := a.markdownSpans(r, color, size, blockCode, hits, at)
 			at += len(markdownFindRun(r))
+			if external != nil && external[i] {
+				spans = append(spans, markdownExternalSpan(size))
+			}
 			if r.link != "" {
 				if e := a.markdownLink(c, m, path, r.link, false); e.Valid() {
 					if e.Hovered() {
@@ -1930,6 +1956,28 @@ func (a *app) markdownText(c *ui.Context, m *markdownPreview, path string, runs 
 	})
 }
 
+// markdownExternalEnds reports which runs end a link to the web, which
+// its icon follows, as in Live Preview; nil for none.
+func markdownExternalEnds(runs []markdownInline) []bool {
+	var ends []bool
+	for i, r := range runs {
+		if r.image != "" || !liveExternal(r.link) || i+1 < len(runs) && runs[i+1].link == r.link {
+			continue
+		}
+		if ends == nil {
+			ends = make([]bool, len(runs))
+		}
+		ends[i] = true
+	}
+	return ends
+}
+
+// markdownExternalSpan is the room of the icon after a link to the web,
+// in text of size: as wide as Live Preview's.
+func markdownExternalSpan(size float32) ui.Span {
+	return ui.Span{Text: "\uFFFC", ObjectWidth: size * 0.9, ObjectHeight: size * 0.75}
+}
+
 // mathPlacement is where the formulas within a text stand, laid out in
 // font, width wide.
 type mathPlacement struct {
@@ -1940,15 +1988,22 @@ type mathPlacement struct {
 
 // markdownMath draws the formulas of runs, which text shows, in the boxes
 // their spans keep for them in it, in color.
-func (a *app) markdownMath(m *markdownPreview, text ui.Element, runs []markdownInline, font ui.Font, color ui.Color, blockCode bool) {
+func (a *app) markdownMath(m *markdownPreview, text ui.Element, runs []markdownInline, external []bool, font ui.Font, color ui.Color, blockCode bool) {
 	var spans []ui.Span
+	// formulas are what the objects draw, in their order: a formula, or
+	// nil for the icon after a link to the web.
 	var formulas []*mathFormula
-	for _, r := range runs {
+	for i, r := range runs {
 		spans = append(spans, a.markdownSpan(r, color, font.Size, blockCode))
 		if r.math != nil && r.math.err == "" {
 			formulas = append(formulas, r.math)
 		}
+		if external != nil && external[i] {
+			spans = append(spans, markdownExternalSpan(font.Size))
+			formulas = append(formulas, nil)
+		}
 	}
+	accent := a.pal.accent
 	lh := font.Size * a.settings.LineHeight
 	text.Draw(func(pt *ui.Painter, r ui.Rect) {
 		var places []ui.Rect
@@ -1967,10 +2022,16 @@ func (a *app) markdownMath(m *markdownPreview, text ui.Element, runs []markdownI
 			}
 		}
 		for i, at := range places {
-			if i < len(formulas) {
-				f := formulas[i]
-				f.draw(pt, ui.Rect{X: r.X + at.X, Y: r.Y + at.Y, W: at.W, H: at.H + f.depth*font.Size}, color)
+			if i >= len(formulas) {
+				break
 			}
+			if f := formulas[i]; f != nil {
+				f.draw(pt, ui.Rect{X: r.X + at.X, Y: r.Y + at.Y, W: at.W, H: at.H + f.depth*font.Size}, color)
+				continue
+			}
+			// The icon after a link to the web, as Live Preview draws it.
+			is := font.Size * 0.68
+			pt.Icon(iconExternal, ui.Rect{X: r.X + at.X + font.Size*0.12, Y: r.Y + at.Y + at.H - font.Size*0.78, W: is, H: is}, accent.Alpha(0.7))
 		}
 	})
 }
@@ -2403,17 +2464,25 @@ func (a *app) markdownRow(c *ui.Context, v *viewer, i int, width float32, font u
 		inner.Children(func() {
 			// A note embedded stands after a bar of the accent, as in
 			// Obsidian.
-			for range b.embed {
-				ui.Box(c).Width(2).AlignSelf(ui.Stretch).Background(p.accent.Alpha(0.7)).Margin(0, size, 0, 0)
-			}
-			for i := range b.quote {
+			// The bars of the quotes it is embedded in stand before it.
+			quoteBar := func(i int) {
 				bar := p.guideNow
 				if b.alert != alertNone && i == b.alertAt-1 {
 					bar = a.markdownColor(b.alert)
 				}
 				ui.Box(c).Width(3).AlignSelf(ui.Stretch).Background(bar).Margin(0, size*0.25, 0, 0)
 			}
-			if b.marker != "" {
+			outer := min(b.embedAt, b.quote)
+			if b.embed == 0 {
+				outer = 0
+			}
+			for i := range outer {
+				quoteBar(i)
+			}
+			marker := func() {
+				if b.marker == "" {
+					return
+				}
 				ms := size
 				if b.footnote {
 					ms = a.markdownSize(b)
@@ -2423,6 +2492,20 @@ func (a *app) markdownRow(c *ui.Context, v *viewer, i int, width float32, font u
 					toggle = func() { a.toggleReadingTask(v, i) }
 				}
 				a.markdownMarker(c, b, ms, toggle)
+			}
+			// A note embedded as an item's text stands after its marker.
+			title := b.kind == markdownEmbedTitle
+			if title {
+				marker()
+			}
+			for range b.embed {
+				ui.Box(c).Width(2).AlignSelf(ui.Stretch).Background(p.accent.Alpha(0.7)).Margin(0, size, 0, 0)
+			}
+			for i := outer; i < b.quote; i++ {
+				quoteBar(i)
+			}
+			if !title {
+				marker()
 			}
 
 			align := ui.Start
@@ -2513,7 +2596,8 @@ func (a *app) markdownRow(c *ui.Context, v *viewer, i int, width float32, font u
 					// headings take the theme's color for them, as the
 					// editor gives their lines.
 					color := p.text
-					if b.quote > b.alertAt || b.kind == markdownHeading && b.level == 6 || b.footnote {
+					// A note embedded in a quote reads as itself, but for its own.
+					if b.quote > max(b.alertAt, outer) || b.kind == markdownHeading && b.level == 6 || b.footnote {
 						color = p.muted
 					} else if b.kind == markdownHeading {
 						color = p.syntax[highlight.Heading]

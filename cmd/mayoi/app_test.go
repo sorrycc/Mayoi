@@ -300,6 +300,14 @@ func backgroundStacks() string {
 func (hs *harness) busy() (running, queued bool) {
 	// A job posts before it stops counting: sample the work before its queue.
 	running = bg.Running() > hs.held
+	// A parse of Live Preview waits on a timer of the wall clock for the
+	// edits to pause, which the tester's clock does not count: it is work
+	// to come, as the parse it starts.
+	for _, doc := range hs.a.docs {
+		if l := doc.live; l != nil && (l.pending || l.running) {
+			running = true
+		}
+	}
 	hs.a.mu.Lock()
 	n := len(hs.a.queue)
 	hs.a.mu.Unlock()

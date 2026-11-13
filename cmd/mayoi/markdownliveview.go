@@ -422,7 +422,9 @@ func (a *app) liveArea(c *ui.Context, d *editor, area ui.Element, f liveFrame) {
 	if !area.Hovered() {
 		d.liveBox = 0
 	}
-	if d.liveHover != 0 && d.liveCmd || d.liveBox != 0 {
+	// ⌘ as the frame sees it, which draws again as it is pressed or let
+	// go, the pointer still.
+	if d.liveHover != 0 && c.Modifiers() == ui.Cmd || d.liveBox != 0 {
 		area.Cursor(ui.CursorPointer)
 	}
 	if doc != nil {
@@ -466,7 +468,7 @@ func (a *app) liveArea(c *ui.Context, d *editor, area ui.Element, f liveFrame) {
 						if marker == 0 {
 							marker = s.start + 1
 						}
-					case objQuote, objExternal:
+					case objQuote, objExternal, objNoteDef:
 						ranges = append(ranges, ui.TextRange{Start: s.start, End: s.end, Color: markColor(s)})
 						return
 					case objTask, objTaskDone:
@@ -487,6 +489,9 @@ func (a *app) liveArea(c *ui.Context, d *editor, area ui.Element, f liveFrame) {
 				w, h, dsc := a.liveObjectSize(l, snap, s, size, f.width, family)
 				drawn := liveDrawn{s: s, shown: shown, fade: 1}
 				switch {
+				case s.obj == objNoteDef:
+					// As wide as its source, which shows as the caret comes.
+					w = l.width(snap.Slice(s.start, s.end), textFont)
 				case task:
 					// As wide as its source, which shows as the caret comes;
 					// one of an ordered list, its box alone, no narrower than
@@ -566,6 +571,8 @@ func (a *app) liveArea(c *ui.Context, d *editor, area ui.Element, f liveFrame) {
 		// fade how far it faded in, and pad how much higher its source is
 		// than its drawing, whose room keeps it.
 		clip, fade, pad float32
+		// inset is how far it stands in, in a list or a quote.
+		inset float32
 	}
 	var blocks []shown
 	// The callouts folded, but one the caret is in, which shows its
@@ -582,6 +589,9 @@ func (a *app) liveArea(c *ui.Context, d *editor, area ui.Element, f liveFrame) {
 			}
 		}
 		return false
+	}
+	if doc != nil {
+		area.TextGaps(a.liveGaps(doc, snap, from, to, hidden)...)
 	}
 	if doc != nil {
 		if l.views == nil {
@@ -685,9 +695,10 @@ func (a *app) liveArea(c *ui.Context, d *editor, area ui.Element, f liveFrame) {
 				lv.v = &viewer{doc: d.document, markdown: m, loaded: true}
 			}
 			lv.frame = a.frame
-			lv.v.markdown.measure = f.width
+			inset := a.liveInset(l, snap, b, size, textFont)
+			lv.v.markdown.measure = max(1, f.width-inset)
 			height := room(lv, first, last)
-			sh := shown{b: b, lv: lv, first: first, fade: 1, pad: height - lv.height - size}
+			sh := shown{b: b, lv: lv, first: first, fade: 1, pad: height - lv.height - size, inset: inset}
 			// One shown first fades in once measured, until then not there.
 			if !lv.measured {
 				sh.fade = 0
@@ -821,6 +832,9 @@ func (a *app) liveArea(c *ui.Context, d *editor, area ui.Element, f liveFrame) {
 					pt.Fill(ui.Rect{X: x, Y: (y0 + y1) / 2, W: f.width, H: 2}, p.border, 1)
 				}
 			case decoHeading:
+				if !dc.ruled {
+					return
+				}
 				// Into the blank line after it, as far below its text as the
 				// Reading view's, or along its foot.
 				y := y1 - 1
@@ -844,6 +858,13 @@ func (a *app) liveArea(c *ui.Context, d *editor, area ui.Element, f liveFrame) {
 			}
 		})
 		drawBars()
+		// The markers of the items whose text is a note embedded, by its
+		// title, as a bullet stands by its item's text.
+		for _, sb := range blocks {
+			if sb.b.bullet {
+				a.liveEmbedMarker(pt, snap, sb.b, ui.Rect{X: x, Y: lineY(r, sb.first) + size/2}, size, family, sb.fade)
+			}
+		}
 	})
 	area.DrawObjects(func(pt *ui.Painter, at int, r ui.Rect) {
 		o, ok := objects[at]
@@ -922,6 +943,13 @@ func (a *app) liveArea(c *ui.Context, d *editor, area ui.Element, f liveFrame) {
 			span := ui.Span{Text: liveNoteLabel(snap, s), Font: family, Size: size * liveNoteSize, Color: p.accent}
 			_, th := pt.MeasureText(0, span)
 			pt.RichText(r.X+size*0.05, r.Y+r.H-size*0.4-th*0.8, 0, span)
+		case objNoteDef:
+			// Its number, as the Reading view's list of footnotes, which
+			// stands in from the text: by the text, in the room its source
+			// takes.
+			span := ui.Span{Text: s.drawn.note, Font: family, Size: size, Color: p.muted}
+			tw, th := pt.MeasureText(0, span)
+			pt.RichText(r.X+max(0, r.W-tw-size*0.4), r.Y+r.H-th*0.8, 0, span)
 		case objExternal:
 			// Small, after the link's text, as Obsidian draws it.
 			is := size * 0.68
@@ -1004,7 +1032,7 @@ func (a *app) liveArea(c *ui.Context, d *editor, area ui.Element, f liveFrame) {
 			y := editorPadY + f.g.top(s.first) - d.vscroll.Y + size/2 + s.pad/2
 			// Clipped to the room it has while that grows, its drawing
 			// measured whole.
-			room := ui.Box(c.Key("live-room:" + s.b.key)).Absolute().Top(y).Left(f.left).Width(f.width)
+			room := ui.Box(c.Key("live-room:" + s.b.key)).Absolute().Top(y).Left(f.left + s.inset).Width(max(1, f.width-s.inset))
 			if s.clip > 0 {
 				room.Height(s.clip).Clip()
 			}
@@ -1012,7 +1040,7 @@ func (a *app) liveArea(c *ui.Context, d *editor, area ui.Element, f liveFrame) {
 				room.Opacity(s.fade)
 			}
 			room.Children(func() {
-				box := ui.Column(c.Key("live-block:" + s.b.key)).Width(f.width).Bind(&lv.box)
+				box := ui.Column(c.Key("live-block:" + s.b.key)).Width(max(1, f.width-s.inset)).Bind(&lv.box)
 				box.HandleInput(func(ev ui.InputEvent) bool {
 					switch ev.Kind {
 					case ui.InputScroll:
@@ -1035,7 +1063,7 @@ func (a *app) liveArea(c *ui.Context, d *editor, area ui.Element, f liveFrame) {
 				box.Children(func() {
 					font := ui.Font{Family: c.Theme().Font, Size: size}
 					for i := range lv.v.markdown.blocks {
-						a.markdownRow(c, lv.v, i, f.width, font, nil)
+						a.markdownRow(c, lv.v, i, max(1, f.width-s.inset), font, nil)
 					}
 				})
 			})
@@ -1052,6 +1080,78 @@ func (a *app) liveArea(c *ui.Context, d *editor, area ui.Element, f liveFrame) {
 			}
 		}
 	})
+}
+
+// liveGaps is the room above the headings of the lines from up to to, as
+// the Reading view leaves above them, but for one on the text's first
+// line: the room is there wherever the caret is, so a heading's line
+// keeps its place as the caret comes to it.
+func (a *app) liveGaps(doc *liveDoc, snap ui.TextSnapshot, from, to int, hidden func(int) bool) []ui.TextGap {
+	n := snap.Len()
+	var gaps []ui.TextGap
+	doc.eachDeco(from, to, func(dc liveDeco) {
+		if dc.kind != decoHeading {
+			return
+		}
+		if line := snap.LineAt(min(dc.start, n)); line > 0 && !hidden(line) {
+			gaps = append(gaps, ui.TextGap{Para: line, Height: a.settings.FontSize * liveGap(dc.depth)})
+		}
+	})
+	return gaps
+}
+
+// liveGap is the room above a heading of level, in the text's size: more
+// above the larger.
+func liveGap(level int) float32 {
+	switch {
+	case level <= 2:
+		return 0.9
+	case level == 3:
+		return 0.65
+	}
+	return 0.45
+}
+
+// liveInset is how far a note embedded, b, stands in from the text's
+// left, in text of size in font: past the quotes and the markers of the
+// lists it is in, where the text of its item stands.
+func (a *app) liveInset(l *liveState, snap ui.TextSnapshot, b *liveBlock, size float32, font ui.Font) float32 {
+	if !b.embed {
+		return 0
+	}
+	w := float32(b.quote) * size * 0.9
+	if b.list > 0 {
+		w += a.liveHang(l, snap, &liveSpan{from: b.mark, to: b.text, look: liveLook{hang: b.list}}, size, font)
+	}
+	return w
+}
+
+// liveEmbedMarker paints the marker of the item a note embedded, b, is
+// the text of, by the note's title, which stands at at: a bullet's dot,
+// a ring in a list in another, or an ordered list's number, faded in by
+// fade.
+func (a *app) liveEmbedMarker(pt *ui.Painter, snap ui.TextSnapshot, b *liveBlock, at ui.Rect, size float32, family string, fade float32) {
+	p := a.pal
+	if b.text > snap.Len() || b.mark >= b.text {
+		return
+	}
+	marker := strings.TrimSpace(snap.Slice(b.mark, b.text))
+	x := at.X + float32(b.quote)*size*0.9 + liveIndent*float32(b.list-1)*size
+	// The middle of the title's row, as the Reading view draws it.
+	cy := at.Y + size*a.settings.LineHeight*0.45
+	if marker != "" && marker[0] >= '0' && marker[0] <= '9' {
+		span := ui.Span{Text: marker, Font: family, Size: size, Color: p.muted.Alpha(fade)}
+		_, th := pt.MeasureText(0, span)
+		pt.RichText(x, cy-th/2, 0, span)
+		return
+	}
+	dot := size * 0.32
+	box := ui.Rect{X: x + (size*1.1-dot)/2, Y: cy - dot/2, W: dot, H: dot}
+	if b.list > 1 {
+		pt.Stroke(box, p.muted.Alpha(fade), dot/2, 1.25)
+	} else {
+		pt.Fill(box, p.muted.Alpha(fade), dot/2)
+	}
 }
 
 // liveLinkLook reports whether a span of look is the text of a link,
@@ -1386,6 +1486,8 @@ func (a *app) liveObjectSize(l *liveState, snap ui.TextSnapshot, s *liveSpan, si
 	case objMath:
 		f := s.drawn.formula
 		return f.w * size, f.ascent * size, f.depth * size
+	case objNoteDef:
+		return size, size * 0.75, 0
 	case objExternal:
 		return size * 0.9, size * 0.75, 0
 	case objNote:
@@ -1488,8 +1590,7 @@ func (a *app) liveClick(d *editor, x, y float32) bool {
 }
 
 // livePointer notes the task's box the pointer moved over in an editor of
-// Live Preview, and whether ⌘ is held, for the next frame to show; a drag
-// selecting shows neither.
+// Live Preview, for the next frame to show; a drag selecting shows none.
 func (a *app) livePointer(d *editor, ev ui.InputEvent) {
 	box := 0
 	for _, h := range d.liveHits {
@@ -1497,8 +1598,8 @@ func (a *app) livePointer(d *editor, ev ui.InputEvent) {
 			box = h.at + 1
 		}
 	}
-	if cmd := ev.Mods == ui.Cmd; box != d.liveBox || cmd != d.liveCmd {
-		d.liveBox, d.liveCmd = box, cmd
+	if box != d.liveBox {
+		d.liveBox = box
 		a.invalidate()
 	}
 }

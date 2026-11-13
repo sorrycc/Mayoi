@@ -998,3 +998,30 @@ func TestFeatLivePreviewDetails(t *testing.T) {
 		hs.tt.HoldModifiers(0)
 	})
 }
+
+// Notes embedded in a list and in a quote, in Live Preview and the
+// Reading view.
+func TestFeatLiveNestedEmbeds(t *testing.T) {
+	featBoth(t, func(t *testing.T, dark bool) {
+		root := t.TempDir()
+		hs := featHarness(t, dark, featOpts{root: root, w: 1000, h: 900})
+		a := hs.a
+		os.WriteFile(hs.path("recipe.md"), []byte("Mix **flour**, milk and eggs.\n\n- [ ] Rest the batter\n"), 0o644)
+		os.WriteFile(hs.path("nested.md"), []byte("# Embeds, nested\n\n- Shopping\n- ![[recipe]]\n  - ![[recipe]]\n\n> A quote with a note:\n>\n> ![[recipe]]\n\nAfter.\n"), 0o644)
+		a.settings.MarkdownMode = "live"
+		a.openFile(hs.path("nested.md"), true)
+		d := a.activeEditor()
+		hs.until("the note parsed", func() bool { l := d.document.live; return l != nil && l.doc != nil && !l.quick && len(l.views) > 0 })
+		hs.caretAt(d, "After.", 0, 0)
+		hs.settle()
+		time.Sleep(300 * time.Millisecond)
+		hs.settle()
+		hs.fshot("live-nested-embeds", dark)
+		a.setMarkdownMode("reading")
+		hs.until("the reading view", func() bool { return d.preview != nil && d.preview.loaded })
+		hs.settle()
+		time.Sleep(300 * time.Millisecond)
+		hs.settle()
+		hs.fshot("reading-nested-embeds", dark)
+	})
+}

@@ -1590,8 +1590,16 @@ func TestMarkdownToggleKeepsPlace(t *testing.T) {
 		}
 		return ""
 	}
-	if h := topHeading(); h != "Section 60" {
-		t.Fatalf("the preview opened at %q, not section 60", h)
+	// Its rows measure as they show, over some frames: where it settles.
+	opened := ""
+	for range 20 {
+		if opened = topHeading(); opened == "Section 60" {
+			break
+		}
+		hs.settle()
+	}
+	if opened != "Section 60" {
+		t.Fatalf("the preview opened at %q, not section 60", opened)
 	}
 	// The text opens where the preview was.
 	for range 20 {
@@ -1600,10 +1608,15 @@ func TestMarkdownToggleKeepsPlace(t *testing.T) {
 	}
 	heading := topHeading()
 	a.run("view.togglePreview")
-	hs.settle()
-	hs.settle()
-	top := a.geometry(d, d.buf.Snapshot().LineCount()).at(d.vscroll.Y - editorPadY)
-	if want := lineOf(heading); top < want-4 || top > want+4 {
+	want := lineOf(heading)
+	top := -1
+	for range 20 {
+		hs.settle()
+		if top = a.geometry(d, d.buf.Snapshot().LineCount()).at(d.vscroll.Y - editorPadY); top >= want-4 && top <= want+4 {
+			break
+		}
+	}
+	if top < want-4 || top > want+4 {
 		t.Fatalf("the text opened at line %d, the preview was at %q, line %d", top, heading, want)
 	}
 }
@@ -1838,12 +1851,13 @@ func TestMarkdownCalloutFolds(t *testing.T) {
 
 // A note embedded alone in its paragraph shows in place, after a line
 // naming it, or the part of it under a heading; one embedded in it, a
-// note not found and one in a list are links.
+// note not found is a link; one in a list or a quote stands where the
+// item's text or the quote's does.
 func TestMarkdownEmbeds(t *testing.T) {
 	dir := t.TempDir()
 	os.WriteFile(filepath.Join(dir, "other.md"), []byte("---\ntags: x\n---\n# Other\n\nHello **there**.\n\n## Part\n\nIn part.\n\n### Deeper\n\nStill in.\n\n## Next\n\nOut.\n\n![[third]]\n"), 0o644)
 	os.WriteFile(filepath.Join(dir, "third.md"), []byte("Third.\n"), 0o644)
-	src := "Before.\n\n![[other]]\n\n![[other#Part]]\n\n![[missing]]\n\n- ![[other]]\n"
+	src := "Before.\n\n![[other]]\n\n![[other#Part]]\n\n![[missing]]\n\n- ![[third]]\n\n> ![[third]]\n"
 	blocks := parseMarkdown([]byte(src), filepath.Join(dir, "note.md"), dir, nil)
 	var got []string
 	for _, b := range blocks {
@@ -1856,13 +1870,34 @@ func TestMarkdownEmbeds(t *testing.T) {
 	want := []string{"0:Before.",
 		"1:[other]", "1:Other", "1:Hello there.", "1:Part", "1:In part.", "1:Deeper", "1:Still in.", "1:Next", "1:Out.", "1:third",
 		"1:[other › Part]", "1:Part", "1:In part.", "1:Deeper", "1:Still in.",
-		"0:missing", "0:other"}
+		"0:missing", "1:[third]", "1:Third.", "1:[third]", "1:Third."}
 	if strings.Join(got, "|") != strings.Join(want, "|") {
 		t.Fatalf("embeds:\n got %q\nwant %q", got, want)
+	}
+	n := len(blocks)
+	if item, text := blocks[n-4], blocks[n-3]; item.marker == "" || item.indent != 1 || text.marker != "" || text.offset < item.markerWidth {
+		t.Errorf("in a list, the title's marker %q indent %d, the text's offset %v", item.marker, item.indent, text.offset)
+	}
+	if title, text := blocks[n-2], blocks[n-1]; title.quote != 1 || text.quote != 1 || text.embedAt != 1 {
+		t.Errorf("in a quote, the title's quotes %d, the text's %d, %d of them around the note", title.quote, text.quote, text.embedAt)
 	}
 	for _, b := range blocks {
 		if b.embed > 0 && b.slug != "" {
 			t.Errorf("an embedded heading %q has an anchor", b.slug)
 		}
+	}
+}
+
+// A link to the web ends in its icon in the Reading view, as in Live
+// Preview: after its last run, not after a link within the note.
+func TestMarkdownExternalEnds(t *testing.T) {
+	runs := []markdownInline{{text: "a "}, {text: "web", link: "https://x.dev"}, {text: " bold", link: "https://x.dev", bold: true},
+		{text: " and "}, {text: "note", link: "other.md"}, {text: "pic", link: "https://y.dev", image: "p.png"}}
+	got := markdownExternalEnds(runs)
+	if fmt.Sprint(got) != "[false false true false false false]" {
+		t.Errorf("icons after %v", got)
+	}
+	if markdownExternalEnds(runs[:1]) != nil {
+		t.Error("text without links has icons")
 	}
 }

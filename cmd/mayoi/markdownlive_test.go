@@ -68,7 +68,7 @@ func TestParseLive(t *testing.T) {
 		{"para\n\n***\n", []string{"mark:***"}},
 		{"a \\*not\\* it\n", []string{"mark:\\"}},
 		{"see #tag/sub, (#two) end\n", []string{"style:#tag/sub", "style:#two"}},
-		{"said[^1] so\n\n[^1]: x\n", []string{"object:[^1]"}},
+		{"said[^1] so\n\n[^1]: x\n", []string{"object:[^1]", "object:[^1]: ", "style:[^1]: x"}},
 		{"> [!tip] Own title\n> body\n", []string{"object:[!tip]", "style:[!tip] Own title"}},
 		{"> [!info]-\n> body\n", []string{"object:[!info]-"}},
 	} {
@@ -710,6 +710,17 @@ func TestLiveLinkHover(t *testing.T) {
 		t.Fatalf("over the link, hover is %d, not %d", d.liveHover, at)
 	}
 	hs.settle()
+	if hs.tt.Cursor() == ui.CursorPointer {
+		t.Error("over the link without Cmd, the pointer is a hand")
+	}
+	// With Cmd held, as a click follows the link, the pointer is a hand.
+	hs.tt.HoldModifiers(ui.Cmd)
+	hs.settle()
+	if hs.tt.Cursor() != ui.CursorPointer {
+		t.Errorf("over the link with Cmd held, the pointer is %v", hs.tt.Cursor())
+	}
+	hs.tt.HoldModifiers(0)
+	hs.settle()
 	hs.tt.Move(d.liveAt.X+2, y+h*4)
 	step(hs.tt)
 	if d.liveHover != 0 || d.liveHoverWas != at {
@@ -847,5 +858,84 @@ func TestLivePictureArrives(t *testing.T) {
 	hs.settle()
 	if o := picture(); o.fade < 1 || len(l.pics) != 0 {
 		t.Errorf("the picture settled at %v faded in, %d cards kept", o.fade, len(l.pics))
+	}
+}
+
+// A heading has room above it, as in the Reading view, but on the text's
+// first line, and its line keeps its place as the caret comes to it.
+func TestLiveHeadingGaps(t *testing.T) {
+	hs := newHarness(t, true)
+	a := hs.a
+	src := "# Top\n\ntext\n\n## Section\n\nmore\n"
+	path := hs.path("gaps.md")
+	os.WriteFile(path, []byte(src), 0o644)
+	a.settings.MarkdownMode = "live"
+	a.openFile(path, true)
+	d := a.activeEditor()
+	hs.until("Live Preview parsed", func() bool {
+		l := d.document.live
+		return a.livePreview(d) && l != nil && l.doc != nil && !l.quick
+	})
+	hs.place(d, len("# Top\n\nt"), len("# Top\n\nt"))
+	hs.settle()
+	g := a.geometry(d, d.buf.LineCount())
+	if top := g.top(0); top > 0.5 {
+		t.Errorf("the first heading stands %v below the text's top", top)
+	}
+	before := []float32{g.top(4), g.top(5), g.top(6)}
+	at := strings.Index(src, "## Section") + 3
+	hs.place(d, at, at)
+	hs.settle()
+	for i, was := range before {
+		if now := g.top(4 + i); now-was > 0.5 || was-now > 0.5 {
+			t.Errorf("line %d moved from %v to %v as the caret came to the heading", 4+i, was, now)
+		}
+	}
+	if _, y, _, _ := d.lines.Caret(at); y-g.top(4) < a.settings.FontSize*liveGap(2)-0.5 {
+		t.Errorf("the caret on the heading stands %v below its line's top, in the room above it", y-g.top(4))
+	}
+}
+
+// A footnote's definition is muted, its label drawn as its number, and
+// the text between two definitions apart keeps its look.
+func TestParseLiveFootnoteDefs(t *testing.T) {
+	src := "a[^n] b[^m]\n\n[^n]: first\n\nbetween\n\n[^m]: second\n"
+	doc := liveParse(src)
+	r := []rune(src)
+	var labels []string
+	doc.visit(0, len(r), func(sp *liveSpan) {
+		if sp.obj == objNoteDef && sp.kind == liveObject {
+			labels = append(labels, string(r[sp.start:sp.end])+"="+sp.drawn.note)
+		}
+		if sp.kind == liveStyle && sp.look.color == liveMuted && strings.Contains(string(r[sp.start:sp.end]), "between") {
+			t.Errorf("the text between footnotes is muted: %q", string(r[sp.start:sp.end]))
+		}
+	})
+	if fmt.Sprint(labels) != "[[^n]: =1. [^m]: =2.]" {
+		t.Errorf("labels %q", labels)
+	}
+}
+
+// A note embedded in an item of a list or in a quote shows in place too,
+// standing in where the item's text or the quote's does.
+func TestParseLiveNestedEmbeds(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(dir+"/other.md", []byte("Hello.\n"), 0o644)
+	src := "- ![[other]]\n\n> ![[other]]\n\n1. item\n\n   ![[other]]\n\n| ![[other]] |\n|---|\n"
+	doc := parseLive(src, dir+"/note.md", dir, true, &markdownCache{})
+	var got []string
+	for _, b := range doc.blocks {
+		if b.embed {
+			got = append(got, fmt.Sprintf("%s q%d l%d %v", strings.TrimSpace(string([]rune(src)[b.start:b.end])), b.quote, b.list, b.bullet))
+		}
+	}
+	want := "[- ![[other]] q0 l1 true > ![[other]] q1 l0 false ![[other]] q0 l1 false]"
+	if fmt.Sprint(got) != want {
+		t.Errorf("embeds %q, want %q", got, want)
+	}
+	for _, b := range doc.blocks {
+		if b.embed && b.source != "![[other]]" {
+			t.Errorf("an embed's source is %q", b.source)
+		}
 	}
 }

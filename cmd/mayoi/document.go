@@ -236,9 +236,8 @@ type editor struct {
 	liveHits []liveHit
 	liveAt   ui.Point
 	// liveBox is the task's box the pointer is over, as its rune plus
-	// one, 0 for none, and liveCmd set while ⌘ is held over the text.
+	// one, 0 for none.
 	liveBox int
-	liveCmd bool
 	// liveRanges and liveObjects are the ranges and the objects of Live
 	// Preview's last frame, kept for the next to fill again.
 	liveRanges  []ui.TextRange

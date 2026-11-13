@@ -29,7 +29,8 @@ The order: it works, then it is easy, then it looks good. Polish never covers a 
   bar and find's count (`TestStatusPositionHoldsItsWidth`).
 - Hover never moves what is clicked.
 - In Live Preview, the marks of what the caret touches show, and a block it goes into shows its source: only the
-  caret's lines change, and a mark shows at the size of its text, so a heading's line keeps its height. The marks of
+  caret's lines change, and a mark shows at the size of its text, so a heading's line keeps its height. A heading
+  has room above it wherever the caret is, so its line never moves as the caret comes (`TestLiveHeadingGaps`). The marks of
   the lines the caret comes to fade in over `motionHover`, a block it leaves over `motionShow`; their room shows at
   once. The indent of a nested list keeps its width wherever the caret is, and so do a bullet and a task's box: the
   caret at them shows their source in the same room, an ordered task's box too. A block whose source is higher than
@@ -39,7 +40,8 @@ The order: it works, then it is easy, then it looks good. Polish never covers a 
   `TestLiveGlideTurnsBack`, `TestLiveGlideWithoutBlank`, `TestLiveMathHoldsStill`). A callout folded or opened by its
   chevron glides the same way, its chevron turning over `motionHover` (`TestLiveCalloutFolds`). A link's underline
   fills in under the pointer over `motionHover`, and nothing else about it changes (`TestLiveLinkHover`); with ⌘
-  held, and over a task's box, the pointer is a hand, and a box's edge darkens.
+  held, and over a task's box, the pointer is a hand, and a box's edge darkens. A footnote's label drawn as its
+  number keeps the room of its source.
 - What loads keeps a place: a picture of the web on its way in Live Preview is a card where it goes, which the
   picture fades in over as its room glides to its own (`TestLivePictureArrives`); a rendered block shows once it is
   measured, fading in over `motionShow`.

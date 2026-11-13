@@ -38,6 +38,11 @@ needs a `## <version>` section here, or its build fails.
 - A click on a task's box in the Reading view checks it in the file.
 - A picture from the web in Live Preview shows a card in its place while it loads, then fades in.
 - Symbols such as `⌘` and wide characters keep a table's columns lined up in its Live Preview source.
+- Headings in Live Preview have room above them, and their lines stay put as the caret reaches them.
+- Footnote definitions like `[^1]: text` show as their number in Live Preview until the caret reaches them.
+- Links to web pages in Reading view end with the same external-link icon as in Live Preview.
+- Embedded notes like `![[note]]` now show in place inside list items and quotes, in both views.
+- Holding `⌘` over a link in Live Preview shows a pointing hand at once, and letting go hides it.
 - Buttons at the right of a Markdown tab's path switch it between source, Live Preview and the Reading view.
 - Switching between source, Live Preview and the Reading view fades the new view in.
 - **View → Toggle Live Preview** (`⌥⌘V`) switches a Markdown tab between Live Preview and its source.

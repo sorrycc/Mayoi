@@ -112,6 +112,10 @@ const (
 	objGlyph
 	// objExternal is the ) of a link to the web, drawn as an icon.
 	objExternal
+	// objNoteDef is the label of a footnote's definition, [^1]: , drawn
+	// as its number, as the Reading view numbers its footnotes, in the
+	// room of its source.
+	objNoteDef
 )
 
 // liveSpan is a run of runes that Live Preview styles, hides or draws.
@@ -157,8 +161,9 @@ const (
 	decoQuote liveDecoKind = iota
 	decoCode
 	decoRule
-	// decoHeading is the hairline under a heading of the first two
-	// levels, as the Reading view draws it.
+	// decoHeading is a heading's line, of the level depth, with room
+	// above it, and the hairline under it, ruled, of the first two levels,
+	// as the Reading view draws it.
 	decoHeading
 )
 
@@ -172,6 +177,8 @@ type liveDeco struct {
 	// fenced is set for a block of code between fences, whose first line
 	// is its fence and its language.
 	fenced bool
+	// ruled is set for a heading with a hairline under it.
+	ruled bool
 }
 
 // liveBlock is a run of lines that Live Preview shows rendered in their
@@ -190,6 +197,13 @@ type liveBlock struct {
 	// takes, to draw it again once the note changed.
 	embed   bool
 	version string
+	// quote is how many quotes a note embedded is in, and list how deep in
+	// lists, whose item's marker is mark up to text, the item's text: it
+	// stands where the item's text does, after the marker drawn, bullet,
+	// when the marker is on its line.
+	quote, list uint8
+	mark, text  int
+	bullet      bool
 }
 
 // liveCallout is a callout that folds, [!faq]- or [!faq]+, from the start
@@ -232,6 +246,10 @@ var liveListMarker = regexp.MustCompile(`^((?:[ \t]*>)*[ \t]*)([-*+]|\d{1,9}[.)]
 
 // liveRule is a thematic break's line.
 var liveRule = regexp.MustCompile(`(?m)^ {0,3}([-*_])(?:[ \t]*[-*_]){2,}[ \t]*\r?$`)
+
+// liveNoteDef is the label of a footnote's definition at the start of
+// its line, with the white space after it.
+var liveNoteDef = regexp.MustCompile(`^ {0,3}\[\^[^\]\s]+\]:[ \t]*`)
 
 // liveQuoteMarks are the > of the quotes a line opens with, with a space
 // after each.
@@ -669,9 +687,7 @@ func parseLive(source string, path, root string, full bool, cache *markdownCache
 					}
 					style(s, first, look)
 					lineMark(s, at)
-					if x.Level <= 2 {
-						deco(s, first, liveDeco{kind: decoHeading})
-					}
+					deco(s, first, liveDeco{kind: decoHeading, depth: x.Level, ruled: x.Level <= 2})
 					if end := bytes.TrimRight(src[at:first], " \t"); bytes.HasSuffix(end, []byte{'#'}) {
 						trimmed := bytes.TrimRight(end, "#")
 						if len(trimmed) == 0 || trimmed[len(trimmed)-1] == ' ' {
@@ -681,6 +697,7 @@ func parseLive(source string, path, root string, full bool, cache *markdownCache
 				} else {
 					// Title over a line of = or -, which shows faint.
 					style(s, e, look)
+					deco(s, lineEnd(s), liveDeco{kind: decoHeading, depth: x.Level})
 					next := lineEnd(e + 1)
 					if e+1 < len(src) {
 						style(e+1, next, liveLook{color: liveFaint})
@@ -688,9 +705,21 @@ func parseLive(source string, path, root string, full bool, cache *markdownCache
 				}
 				walkInline(x)
 			case *ast.Paragraph, *ast.TextBlock:
-				if v, ok := liveEmbed(x, src, off, path, root, full); ok {
-					if s, e := linesOf(x); s >= 0 {
-						doc.blocks = append(doc.blocks, liveBlock{start: s, end: e, source: string(src[s:e]), embed: true, version: v})
+				if v, at, ok := liveEmbed(x, src, off, path, root, full); ok {
+					if s, e := linesOf(x); s >= 0 && at >= s && at < e {
+						b := liveBlock{start: s, end: e, source: string(src[at:e]), embed: true, version: v}
+						b.quote = uint8(min(255, bytes.Count(liveQuoteMarks.Find(src[s:lineEnd(s)]), []byte{'>'})))
+						if item := liveItemOf(x); item != nil {
+							is, _ := linesOf(item)
+							if m := liveListMarker.FindSubmatchIndex(src[is:lineEnd(is)]); is >= 0 && m != nil {
+								text := is + m[1]
+								for text < len(src) && (src[text] == ' ' || src[text] == '\t') {
+									text++
+								}
+								b.list, b.mark, b.text, b.bullet = uint8(min(255, liveDepth(item))), is+m[4], text, is == s && m[8] < 0
+							}
+						}
+						doc.blocks = append(doc.blocks, b)
 					}
 				}
 				if b, ok := liveMathBlock(x); ok && full {
@@ -807,9 +836,22 @@ func parseLive(source string, path, root string, full bool, cache *markdownCache
 					doc.blocks = append(doc.blocks, liveBlock{start: s, end: e, source: string(src[s:e])})
 				}
 			case *east.FootnoteList:
-				s, e := linesOf(x)
-				if s >= 0 {
+				// Each footnote on its own lines, which need not be together:
+				// muted, its label drawn as its number.
+				for ch := x.FirstChild(); ch != nil; ch = ch.NextSibling() {
+					fn, ok := ch.(*east.Footnote)
+					if !ok {
+						continue
+					}
+					s, e := linesOf(fn)
+					if s < 0 {
+						continue
+					}
 					style(s, e, liveLook{color: liveMuted})
+					if m := liveNoteDef.Find(src[s:lineEnd(s)]); m != nil {
+						add(liveSpan{start: s, end: s + len(m), kind: liveObject, from: s, to: s + len(m), byLine: true,
+							obj: objNoteDef, drawn: &livePicture{note: strconv.Itoa(fn.Index) + "."}})
+					}
 				}
 				walk(x)
 			default:
@@ -860,6 +902,9 @@ func parseLive(source string, path, root string, full bool, cache *markdownCache
 		}
 		b.blocks, blocks[k] = parsed, parsed
 		b.start, b.end = runeAt(b.start), runeAt(b.end)
+		if b.list > 0 {
+			b.mark, b.text = runeAt(b.mark), runeAt(b.text)
+		}
 	}
 	cache.keep = false
 	// The spans by start, those that start together the larger first, so
@@ -916,25 +961,52 @@ func codeTicks(src []byte, s, e int) (before, after int) {
 }
 
 // liveEmbed reports whether paragraph x of src, from off, embeds a note
-// alone, ![[note]], that shows in a full parse, and the version of the
-// note: its time and size.
-func liveEmbed(x ast.Node, src []byte, off int, path, root string, full bool) (string, bool) {
-	if _, top := x.Parent().(*ast.Document); !full || root == "" || !top {
-		return "", false
+// alone, ![[note]], that shows in a full parse, at the top of the text,
+// in a list or in a quote; the version of the note, its time and size;
+// and where in src its link starts.
+func liveEmbed(x ast.Node, src []byte, off int, path, root string, full bool) (string, int, bool) {
+	if !full || root == "" || !liveEmbedHost(x) {
+		return "", 0, false
 	}
 	l, ok := markdownEmbedOf(x, src[off:])
 	if !ok {
-		return "", false
+		return "", 0, false
 	}
 	file := markdownEmbedFile(root, path, l)
 	if file == "" {
-		return "", false
+		return "", 0, false
 	}
 	info, err := vfs.Stat(file)
 	if err != nil || info.Size() > markdownEmbedMax {
-		return "", false
+		return "", 0, false
 	}
-	return file + "\x00" + info.ModTime().String() + "\x00" + strconv.FormatInt(info.Size(), 10), true
+	return file + "\x00" + info.ModTime().String() + "\x00" + strconv.FormatInt(info.Size(), 10), off + l.start, true
+}
+
+// liveEmbedHost reports whether a paragraph may embed a note: one of the
+// text, of an item of a list, or of a quote, not of a table or a
+// footnote.
+func liveEmbedHost(x ast.Node) bool {
+	for n := x.Parent(); n != nil; n = n.Parent() {
+		switch n.(type) {
+		case *ast.Document:
+			return true
+		case *ast.ListItem, *ast.List, *ast.Blockquote:
+		default:
+			return false
+		}
+	}
+	return false
+}
+
+// liveItemOf is the item of a list a block is in, nil for none.
+func liveItemOf(x ast.Node) ast.Node {
+	for n := x.Parent(); n != nil; n = n.Parent() {
+		if _, ok := n.(*ast.ListItem); ok {
+			return n
+		}
+	}
+	return nil
 }
 
 // liveExternal reports whether a link's destination is on the web.
@@ -1227,6 +1299,7 @@ func (doc *liveDoc) eachBlock(from, to int, fn func(b *liveBlock)) {
 				continue
 			}
 			b.start, b.end = e.start(b.start), e.end(b.end, true)
+			b.mark, b.text = e.start(b.mark), e.start(b.text)
 		}
 		if b.end >= from && b.start <= to {
 			fn(&b)

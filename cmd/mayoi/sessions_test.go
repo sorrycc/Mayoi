@@ -113,15 +113,86 @@ func TestHCAgentsTiesTerminalsToSessions(t *testing.T) {
 		}
 		return nil, errors.New("unexpected")
 	})
-	got := hcAgents([]string{root})
+	got, loose := hcAgents([]string{root})
 	if len(got) != 2 {
 		t.Fatalf("running %+v, want c1 and x1", got)
+	}
+	// Qoder names no session: it runs one of its folder.
+	if len(loose) != 1 || loose[0].addr != "t4" || loose[0].harness != agents.Qoder || loose[0].cwd != "/s" {
+		t.Errorf("loose %+v, want t4 of Qoder in /s", loose)
 	}
 	if r := got[liveKey(agents.Claude, "c1")]; r.addr != "t1" || r.state != terminal.StatusBlocked {
 		t.Errorf("c1 %+v", r)
 	}
 	if r := got[liveKey(agents.Codex, "x1")]; r.addr != "t2" || r.state != terminal.StatusDone || r.cwd != "/q" {
 		t.Errorf("x1 %+v", r)
+	}
+}
+
+// An agent whose session nothing names runs the newest session of its
+// agent and folder that no other runs: two in one folder run the newest
+// two.
+func TestPlaceLoose(t *testing.T) {
+	t0 := time.Date(2026, 11, 13, 17, 0, 0, 0, time.UTC)
+	ss := []agents.Session{
+		{Harness: agents.Qoder, ID: "old", Dir: "/p", Updated: t0},
+		{Harness: agents.Qoder, ID: "new", Dir: "/p/", Updated: t0.Add(2 * time.Minute)},
+		{Harness: agents.Qoder, ID: "mid", Dir: "/p", Updated: t0.Add(time.Minute)},
+		{Harness: agents.Codex, ID: "cx", Dir: "/p", Updated: t0.Add(3 * time.Minute)},
+		{Harness: agents.Qoder, ID: "elsewhere", Dir: "/q", Updated: t0.Add(4 * time.Minute)},
+	}
+	running := map[string]hcAgent{liveKey(agents.Claude, "c1"): {addr: "t0", harness: agents.Claude}}
+	loose := []hcAgent{
+		{addr: "t1", cwd: "/p", harness: agents.Qoder, state: terminal.StatusBlocked},
+		{addr: "t2", cwd: "/p", harness: agents.Qoder},
+		{addr: "t3", cwd: "/r", harness: agents.Qoder},
+	}
+	got := placeLoose(running, loose, ss)
+	if len(got) != 3 {
+		t.Fatalf("running %+v, want c1, new and mid", got)
+	}
+	if r := got[liveKey(agents.Qoder, "new")]; r.addr != "t1" || r.state != terminal.StatusBlocked {
+		t.Errorf("new %+v, want t1", r)
+	}
+	if r := got[liveKey(agents.Qoder, "mid")]; r.addr != "t2" {
+		t.Errorf("mid %+v, want t2", r)
+	}
+	if len(running) != 1 {
+		t.Errorf("running changed: %+v", running)
+	}
+}
+
+// A program here that says it is an agent (OSC 7501) runs the session it
+// resumed, or else the newest of its folder, which says what it does.
+func TestPlaceLiveOfTerminalsHere(t *testing.T) {
+	hs := newHarness(t, true)
+	a := hs.a
+	t0 := time.Now()
+	resumed := agents.Session{Harness: agents.Claude, Root: "/h/.claude", ID: "c1", Dir: hs.root, Updated: t0}
+	a.sessions.sessions = []agents.Session{
+		resumed,
+		{Harness: agents.Claude, Root: "/h/.claude", ID: "c2", Dir: hs.root, Updated: t0.Add(time.Minute)},
+		{Harness: agents.Qoder, ID: "q1", Dir: hs.root, Updated: t0},
+	}
+	c := &session{dir: hs.root, resumed: resumed.Key()}
+	c.status.Records = []terminal.StatusRecord{{State: terminal.StatusWorking, App: "claude-code", Progress: -1}}
+	q := &session{dir: hs.root}
+	q.status.Records = []terminal.StatusRecord{{State: terminal.StatusBlocked, App: "qodercli", Progress: -1}}
+	sh := &session{dir: hs.root}
+	a.terms = append(a.terms, c, q, sh)
+	a.placeLive(t0)
+	if r := a.sessions.running[liveKey(agents.Claude, "c1")]; r.term != c {
+		t.Errorf("c1 runs in %+v, want the terminal that resumed it", r)
+	}
+	if _, ok := a.sessions.running[liveKey(agents.Claude, "c2")]; ok {
+		t.Error("c2 runs, want only c1 of Claude Code")
+	}
+	r := a.sessions.running[liveKey(agents.Qoder, "q1")]
+	if r.term != q {
+		t.Fatalf("q1 runs in %+v, want the Qoder terminal", r)
+	}
+	if got := a.liveRecord(r); got.State != terminal.StatusBlocked || got.App != "qodercli" {
+		t.Errorf("q1 says %+v, want what its terminal says", got)
 	}
 }
 

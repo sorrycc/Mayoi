@@ -2,9 +2,11 @@ package main
 
 import (
 	"cmp"
+	"maps"
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -28,16 +30,16 @@ import (
 // agent's icon, and Enter resumes one in a terminal of its folder, in a tab
 // of the column that has the keyboard, titled after the session until the
 // agent names it. A row drags the file of its transcript, to a column or
-// a terminal, as a file of the explorer. With the terminal backend "hc", a
-// session that runs in a terminal of herdr-core says what it does, and
-// resuming it shows that terminal, in a tab.
+// a terminal, as a file of the explorer. A session that runs, in a
+// terminal of herdr-core or here, says what it does, as its agent says
+// it (OSC 7501), and resuming it shows that terminal, in a tab.
 
 // agentScanner reads the sessions for every window, and keeps what it
 // read of each file.
 var agentScanner = agents.NewScanner()
 
 // sessionsEvery is how often the sessions are read again while the view
-// shows, and sessionsLiveEvery what hc says runs.
+// shows, and sessionsLiveEvery what runs.
 const (
 	sessionsEvery     = 5 * time.Second
 	sessionsLiveEvery = 3 * time.Second
@@ -118,9 +120,14 @@ type sessionsState struct {
 	// dropped as they go.
 	goneLooks map[string]*sessionLook
 
-	live     bg.Poller[string]
-	running  map[string]hcAgent
-	liveSeen bool
+	// running are the sessions that run, by liveKey: those hc says run in
+	// herdr-core, hcRunning, those hc only says an agent of runs, hcLoose,
+	// and those the terminals here run, placed in the sessions read.
+	live      bg.Poller[string]
+	running   map[string]hcAgent
+	hcRunning map[string]hcAgent
+	hcLoose   []hcAgent
+	liveSeen  bool
 	// liveSince is when each session that runs, by liveKey, took the
 	// state hc says it is in, which its dot calls out for a while.
 	liveSince map[string]time.Time
@@ -153,6 +160,7 @@ func (a *app) readSessions() {
 				}
 				st.sessions, st.loaded = ss, true
 				st.version++
+				a.placeLive(time.Now())
 				st.read.Keep("", sessionsEvery, a.invalidate)
 				if st.readAgain {
 					st.readAgain = false
@@ -161,24 +169,73 @@ func (a *app) readSessions() {
 			})
 		})
 	}
-	if !a.hcBackend() {
-		st.running, st.liveSeen, st.liveSince = nil, false, nil
-		return
-	}
 	if st.live.Start("", sessionsLiveEvery) {
+		hc := a.hcBackend()
 		roots := a.agentEnv().ClaudeRoots()
 		bg.Go(func() {
-			running := hcAgents(roots)
+			var running map[string]hcAgent
+			var loose []hcAgent
+			if hc {
+				running, loose = hcAgents(roots)
+			}
 			a.post(func() {
 				if !st.live.Done("") {
 					return
 				}
-				st.noteLive(running, time.Now())
-				st.running, st.liveSeen = running, true
+				st.hcRunning, st.hcLoose, st.liveSeen = running, loose, true
+				a.placeLive(time.Now())
 				st.live.Keep("", sessionsLiveEvery, a.invalidate)
 			})
 		})
 	}
+}
+
+// placeLive finds again, at now, the sessions that run: those hc names,
+// those terminals here resumed, and, for the agents that run but name
+// none, the newest of their agent and folder.
+func (a *app) placeLive(now time.Time) {
+	st := &a.sessions
+	running := maps.Clone(st.hcRunning)
+	if running == nil {
+		running = map[string]hcAgent{}
+	}
+	loose := slices.Clone(st.hcLoose)
+	for _, ag := range a.localAgents() {
+		if ag.term.resumed == "" {
+			loose = append(loose, ag)
+			continue
+		}
+		for _, s := range st.sessions {
+			if s.Key() == ag.term.resumed {
+				running[liveKey(s.Harness, s.ID)] = ag
+				break
+			}
+		}
+	}
+	running = placeLoose(running, loose, st.sessions)
+	st.noteLive(running, now)
+	st.running = running
+}
+
+// localAgents are the agents that say what they do (OSC 7501) in the
+// terminals that run here, in their folders.
+func (a *app) localAgents() []hcAgent {
+	var out []hcAgent
+	for _, t := range a.terms {
+		if t.hc != "" || t.attach != "" {
+			continue
+		}
+		r, ok := t.status.Top()
+		if !ok {
+			continue
+		}
+		h, ok := agents.HarnessOfApp(r.App)
+		if !ok {
+			continue
+		}
+		out = append(out, hcAgent{cwd: t.dir, harness: h, state: r.State, term: t})
+	}
+	return out
 }
 
 // readSessionsNow has the sessions read again at once, as the agents
@@ -818,7 +875,6 @@ func (a *app) sessionsView(c *ui.Context) {
 	quiet.Accent, quiet.AccentText, quiet.SurfaceHover = ui.Color{}, p.text, ui.Color{}
 	c.SetTheme(&quiet)
 	var action func()
-	dots := a.hcBackend()
 	pre := st.row
 	// Page Up and Page Down only scroll a list of macOS, and elsewhere put
 	// its choice at the edge of what shows, under the pinned head at the
@@ -843,7 +899,7 @@ func (a *app) sessionsView(c *ui.Context) {
 				choice = &sessionChoice{keyed: listKeys, held: listKeys || queryKeys, loose: loose}
 				choice.y, choice.there = a.glideTo(rows, i, now, c.Preferences().ReduceMotion)
 			}
-			row := a.sessionRow(c, r, now, dots, choice, &action)
+			row := a.sessionRow(c, r, now, choice, &action)
 			if choice != nil {
 				st.choiceHovered = row.Hovered()
 			}
@@ -1034,14 +1090,14 @@ func (a *app) sessionsEmpty(c *ui.Context) {
 // resume it and copy how to, as its menu does; keyed, as the row chosen
 // while the list has the keyboard, it shows them too. The words of the
 // query are marked in the title, in the accent, and in the agent and
-// folder, in the color of text. With dots, as hc says which sessions run,
-// a dot before it says it runs. The chosen row has the background of the
+// folder, in the color of text. A dot before it says what it does while
+// it runs. The chosen row has the background of the
 // choice; the one under the pointer fades its own in with its buttons. A
 // row that came with a reading of the sessions fades in as it opens its
 // place, and the rows under it slide down; one a reading dropped fades out
 // as it closes its place, and they slide up. It drags the file of its
 // transcript while there is one.
-func (a *app) sessionRow(c *ui.Context, l sessionLine, now time.Time, dots bool, choice *sessionChoice, action *func()) ui.Element {
+func (a *app) sessionRow(c *ui.Context, l sessionLine, now time.Time, choice *sessionChoice, action *func()) ui.Element {
 	p := a.pal
 	st := &a.sessions
 	s := l.s
@@ -1135,30 +1191,28 @@ func (a *app) sessionRow(c *ui.Context, l sessionLine, now time.Time, dots bool,
 		}
 		// The dot's place is kept for a session that runs in none, so
 		// that rows don't move as one starts or stops.
-		if dots {
-			dot := ui.Box(c.Key("dot")).Size(7, 7).Shrink(0)
-			if running {
-				dot.Children(func() {
-					on := ui.Box(c.Key("on")).Size(7, 7).Transition(dotPop).Tooltip(progLine(rec))
-					col := on.AnimateColor("col", a.progColor(rec.State), ui.Smooth)
-					// It breathes while the agent works, and calls for a
-					// while as it begins to wait for the user; it stays
-					// still for those who ask for less motion.
-					var pulse time.Time
-					breathe := false
-					if !c.Preferences().ReduceMotion {
-						switch rec.State {
-						case terminal.StatusWorking:
-							breathe = true
-						case terminal.StatusBlocked:
-							if since := st.liveSince[lk]; now.Sub(since) < pulseFor {
-								pulse = since
-							}
+		dot := ui.Box(c.Key("dot")).Size(7, 7).Shrink(0)
+		if running {
+			dot.Children(func() {
+				on := ui.Box(c.Key("on")).Size(7, 7).Transition(dotPop).Tooltip(progLine(rec))
+				col := on.AnimateColor("col", a.progColor(rec.State), ui.Smooth)
+				// It breathes while the agent works, and calls for a
+				// while as it begins to wait for the user; it stays
+				// still for those who ask for less motion.
+				var pulse time.Time
+				breathe := false
+				if !c.Preferences().ReduceMotion {
+					switch rec.State {
+					case terminal.StatusWorking:
+						breathe = true
+					case terminal.StatusBlocked:
+						if since := st.liveSince[lk]; now.Sub(since) < pulseFor {
+							pulse = since
 						}
 					}
-					on.Draw(func(pt *ui.Painter, r ui.Rect) { liveDot(pt, r, col, pulse, breathe) })
-				})
-			}
+				}
+				on.Draw(func(pt *ui.Painter, r ui.Rect) { liveDot(pt, r, col, pulse, breathe) })
+			})
 		}
 		ui.Column(c).Grow(1).MinWidth(0).Gap(3).Children(func() {
 			ui.RichText(c, look.title...).FontSize(12.5).SingleLine().ClipX()
@@ -1481,6 +1535,11 @@ func (a *app) sessionMeta(s agents.Session) string {
 // liveRecord is what a session running in herdr-core does, as its
 // terminal here says it, or else as hc does.
 func (a *app) liveRecord(live hcAgent) terminal.StatusRecord {
+	if live.term != nil {
+		if r, ok := live.term.status.Top(); ok {
+			return r
+		}
+	}
 	for _, t := range a.terms {
 		if t.hc == live.addr && live.addr != "" {
 			if r, ok := t.status.Top(); ok {
@@ -1529,8 +1588,14 @@ func (a *app) copyTranscript(path string) {
 // agent's command that resumes it.
 func (a *app) resumeSession(s agents.Session) {
 	if live, ok := a.sessions.running[liveKey(s.Harness, s.ID)]; ok {
-		a.showHCTerminal(live.addr, live.cwd, s.Harness)
-		return
+		if live.term != nil && slices.Contains(a.terms, live.term) {
+			a.terminalInColumn(live.term, false)
+			return
+		}
+		if live.addr != "" {
+			a.showHCTerminal(live.addr, live.cwd, s.Harness)
+			return
+		}
 	}
 	key := s.Key()
 	for _, t := range a.terms {

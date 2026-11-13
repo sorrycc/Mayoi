@@ -518,7 +518,11 @@ is gone say so instead. The view reads only the start and end of each transcript
 With `terminalBackend` set to `"hc"`, a session that runs in a terminal of herdr-core, in this window, another or the
 Herdr app, has a dot in the color of what it says it does (OSC 7501), and says it: working, waiting for you, done or
 failed. Resuming it shows that terminal, attaching it here when no terminal of the window does. hc names the session that
-an agent reports to it; for Claude Code, its process names it too.
+an agent reports to it; for Claude Code, its process names it too. An agent whose session neither names, as Qoder or
+Codex, runs the newest session of its agent in its folder.
+
+A terminal of this window that runs an agent saying what it does (OSC 7501) shows on its session the same way, with
+either backend: the session it resumed, or else the newest of its agent in its folder.
 
 ## Quick open
 

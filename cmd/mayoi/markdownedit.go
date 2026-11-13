@@ -318,6 +318,16 @@ func toggleMdTask(d *editor) {
 	}
 }
 
+// mdTaskKey reports whether ⌘Enter toggles a task in an editor: in
+// Markdown, its caret outside code.
+func mdTaskKey(d *editor) bool {
+	if !isMarkdown(d.document) {
+		return false
+	}
+	snap := d.buf.Snapshot()
+	return !inFence(snap, snap.LineAt(min(d.sel[1], snap.Len())))
+}
+
 // toggleMdList makes the lines of a selection items of a bulleted list,
 // those of one a numbered list, and those of a numbered list text, as
 // its first line is.

@@ -72,15 +72,32 @@ func TestEnterOutsideMarkdownKeepsIndentOnly(t *testing.T) {
 	expectText(t, d, "- one\n")
 }
 
-func TestMarkdownInsertLineCarriesMarker(t *testing.T) {
+func TestMarkdownInsertLineAboveCarriesMarker(t *testing.T) {
 	hs, d := editHarness(t, "notes.md", "3. three")
-	hs.place(d, 2, 2)
-	hs.key(ui.Cmd, ui.KeyEnter)
-	expectText(t, d, "3. three\n4. ")
 	hs.place(d, 3, 3)
 	hs.key(ui.Cmd|ui.Shift, ui.KeyEnter)
-	expectText(t, d, "2. \n3. three\n4. ")
+	expectText(t, d, "2. \n3. three")
 	expectSel(t, d, 3, 3)
+}
+
+func TestMarkdownCmdEnterTogglesTask(t *testing.T) {
+	hs, d := editHarness(t, "notes.md", "- one")
+	hs.place(d, 5, 5)
+	for _, want := range []string{"- [ ] one", "- [x] one", "- one"} {
+		hs.key(ui.Cmd, ui.KeyEnter)
+		expectText(t, d, want)
+		expectSel(t, d, len(want), len(want))
+	}
+
+	hs, d = editHarness(t, "notes.md", "plain")
+	hs.place(d, 0, 0)
+	hs.key(ui.Cmd, ui.KeyEnter)
+	expectText(t, d, "- [ ] plain")
+
+	hs, d = editHarness(t, "notes.md", "```\n- code")
+	hs.place(d, 10, 10)
+	hs.key(ui.Cmd, ui.KeyEnter)
+	expectText(t, d, "```\n- code\n")
 }
 
 func TestMarkdownTabIndentsItem(t *testing.T) {

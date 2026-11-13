@@ -584,6 +584,8 @@ func (a *app) editorKey(d *editor, ev ui.InputEvent) bool {
 		cmd = func(d *editor) { tab(d, outdent) }
 	case ev.Key == ui.KeyEnter && m == 0:
 		cmd = newline
+	case ev.Key == ui.KeyEnter && m == cmdKey && mdTaskKey(d):
+		cmd = toggleMdTask
 	case ev.Key == ui.KeyEnter && (m == cmdKey || m == cmdKey|ui.Shift):
 		above := m&ui.Shift != 0
 		cmd = func(d *editor) { insertLine(d, above) }

@@ -82,8 +82,9 @@ var viewKeys = map[string]string{
 	"sel.moveUp": "Alt+Up", "sel.moveDown": "Alt+Down",
 	"sel.copyUp": "Shift+Alt+Up", "sel.copyDown": "Shift+Alt+Down",
 	"sel.lineBelow": "CmdOrCtrl+Enter", "sel.lineAbove": "Shift+CmdOrCtrl+Enter",
-	"file.openRecent": "Ctrl+R",
-	"sel.complete":    "Ctrl+Space",
+	"markdown.toggleTask": "CmdOrCtrl+Enter",
+	"file.openRecent":     "Ctrl+R",
+	"sel.complete":        "Ctrl+Space",
 }
 
 // paletteEntries are the commands the palette runs, by title, made once

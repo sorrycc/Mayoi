@@ -31,6 +31,8 @@ type hcAgent struct {
 	harness   agents.Harness
 	state     terminal.StatusState
 	term      *session
+	// owner is the project whose terminal term is.
+	owner *app
 	// since is when the agent was first seen to run, which a session it
 	// runs but nothing names was written after; zero for any.
 	since time.Time

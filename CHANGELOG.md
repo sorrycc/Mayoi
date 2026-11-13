@@ -5,6 +5,10 @@ needs a `## <version>` section here, or its build fails.
 
 ## Unreleased
 
+- The sidebar's width and whether it's shown now stay the same as you switch projects and windows.
+- **Sessions** keeps **All Projects** chosen as you switch projects.
+- **Sessions** marks a session that's open in a terminal in any project with a terminal icon.
+- Clicking such a session switches to its project and shows that terminal.
 - Opening local files keeps the window responsive while their tabs show loading progress.
 - A file on a network share that stops answering no longer keeps other files from opening.
 - Files that fail to open keep their tabs, error details and a **Try Again** action.

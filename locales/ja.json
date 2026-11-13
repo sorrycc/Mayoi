@@ -1681,6 +1681,7 @@
   "sessionsYesterday": "昨日",
   "sessionsPreviousWeek": "過去 7 日間",
   "sessionsOlder": "それ以前",
+  "sessionsTerminalOpen": "ターミナルで開いています。クリックで表示します。",
   "sessionsResume": "再開",
   "sessionsCopyCommand": "再開コマンドをコピー",
   "sessionsCopyID": "セッション ID をコピー",

@@ -57,7 +57,11 @@ func (a *app) openSession(dir string) {
 	a.window.Columns, a.window.Column, a.window.FileColumn, a.window.Expanded = ses.Columns, ses.Column, ses.FileColumn, ses.Expanded
 	a.window.Review = ses.Review
 	if ses.SidebarWidth != 0 {
+		// How wide the sidebar is and whether it is closed are every
+		// project's, not the folder's.
+		width, closed := a.window.SidebarWidth, a.window.SidebarClosed
 		a.window.Layout = ses.Layout
+		a.window.SidebarWidth, a.window.SidebarClosed = width, closed
 	}
 	a.restoreTabs()
 }

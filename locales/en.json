@@ -1909,6 +1909,7 @@
   "sessionsYesterday": "Yesterday",
   "sessionsPreviousWeek": "Previous 7 Days",
   "sessionsOlder": "Older",
+  "sessionsTerminalOpen": "Open in a terminal. Click to show it.",
   "sessionsResume": "Resume",
   "sessionsCopyCommand": "Copy Resume Command",
   "sessionsCopyID": "Copy Session ID",

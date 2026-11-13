@@ -16994,6 +16994,16 @@ func (msgs Messages) SessionsOlder() string {
 	return Catalog.Format(msgs.locale, "sessionsOlder", nil)
 }
 
+// SessionsTerminalOpen says "Open in a terminal. Click to show it."
+// in the language the app shows.
+func SessionsTerminalOpen() string { return In(i18n.Locale()).SessionsTerminalOpen() }
+
+// SessionsTerminalOpen says "Open in a terminal. Click to show it."
+// in the language of msgs.
+func (msgs Messages) SessionsTerminalOpen() string {
+	return Catalog.Format(msgs.locale, "sessionsTerminalOpen", nil)
+}
+
 // SessionsResume says "Resume"
 // in the language the app shows.
 func SessionsResume() string { return In(i18n.Locale()).SessionsResume() }

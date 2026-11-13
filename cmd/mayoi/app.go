@@ -127,6 +127,10 @@ type host interface {
 	otherProjects() []*app
 	projectOf(t *colTab) *app
 	carryTab(t *colTab, to *app, copy bool)
+	// everyProject are the projects of every window, this one among
+	// them, and showApp shows the project to in its window, in front.
+	everyProject() []*app
+	showApp(to *app)
 	// nativeDrags reports whether a drag can leave the app as a system
 	// drag other apps read. The headless test host has no system
 	// pasteboard, and says no, which keeps drags in-process value drags
@@ -402,6 +406,10 @@ type app struct {
 	// rail builds the rail of project tabs left of the sidebar, nil for
 	// none.
 	rail func(c *ui.Context)
+	// shared is the sidebar this project last shared with the others,
+	// once it has (sharedSeen).
+	shared     sidebarShare
+	sharedSeen bool
 	// alert is what a terminal of the project last asked attention for,
 	// by its bell, a notification or work that finished or failed, until
 	// the project shows: the rail marks its square, in the color of

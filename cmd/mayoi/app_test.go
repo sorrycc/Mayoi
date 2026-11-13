@@ -21,6 +21,10 @@ import (
 // fakeHost answers the app's dialogs as a test says.
 type fakeHost struct {
 	folder string
+	// projects are what everyProject says, and showed the project
+	// showApp showed last.
+	projects []*app
+	showed   *app
 	// signedIn is the name settings sync syncs for, and signIns, syncs
 	// and signOuts count the commands of settings sync.
 	signedIn                 string
@@ -154,6 +158,8 @@ func (h *fakeHost) nativeDrags() bool            { return false }
 func (h *fakeHost) otherProjects() []*app        { return nil }
 func (h *fakeHost) projectOf(*colTab) *app       { return nil }
 func (h *fakeHost) carryTab(*colTab, *app, bool) {}
+func (h *fakeHost) everyProject() []*app         { return h.projects }
+func (h *fakeHost) showApp(to *app)              { h.showed = to }
 
 // Off screen, the pull request of the branch is not asked of gh.
 func (h *fakeHost) shown() bool { return false }

@@ -92,6 +92,10 @@ type mayoi struct {
 	update      string
 	// prefs is the settings window, nil while it is closed.
 	prefs *prefsWindow
+	// sidebar is what of the sidebar every project shares, once one has
+	// (sidebarSeen).
+	sidebar     sidebarShare
+	sidebarSeen bool
 }
 
 func (h *desktop) openFolder(done func(string)) {

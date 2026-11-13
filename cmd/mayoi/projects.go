@@ -223,7 +223,11 @@ func (f *frame) view(c *ui.Context) {
 	// frame after it shows, the first to have its elements under the
 	// pointer.
 	_, over := a.dragOver(root)
+	// What another project changed of the sidebar shows here, and what
+	// this one changes, there.
+	f.m.shareSidebar(a)
 	root.Children(func() { a.view(c) })
+	f.m.shareSidebar(a)
 	if a.carried != nil && !over && !a.dragSeen && !switched {
 		a.carried = nil
 		a.invalidate()
@@ -381,6 +385,23 @@ func (h *desktop) carryTab(t *colTab, to *app, copy bool) {
 	for _, d := range h.f.tabs {
 		if d.a == to {
 			h.f.carryTab(t, d, copy)
+		}
+	}
+}
+
+func (h *desktop) everyProject() []*app {
+	out := make([]*app, len(h.m.wins))
+	for i, d := range h.m.wins {
+		out[i] = d.a
+	}
+	return out
+}
+
+func (h *desktop) showApp(to *app) {
+	for _, d := range h.m.wins {
+		if d.a == to {
+			d.show()
+			return
 		}
 	}
 }

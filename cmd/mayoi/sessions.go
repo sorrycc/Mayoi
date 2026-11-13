@@ -135,6 +135,15 @@ type sessionsState struct {
 	// liveSince is when each session that runs, by liveKey, took the
 	// state hc says it is in, which its dot calls out for a while.
 	liveSince map[string]time.Time
+	// open are the terminals of every project that show a session, by
+	// liveKey: one it was resumed in, or one its agent runs in.
+	open map[string]openTerm
+}
+
+// openTerm is a terminal of a project that shows a session.
+type openTerm struct {
+	owner *app
+	t     *session
 }
 
 // sessionsKey is what the sessions shown depend on.
@@ -238,11 +247,76 @@ func (a *app) placeLive(now time.Time) {
 	running = placeLoose(running, loose, st.sessions)
 	st.noteLive(running, now)
 	st.running = running
+	st.open = a.openTerms(running)
+}
+
+// projects are the projects of every window, this one among them.
+func (a *app) projects() []*app {
+	if ps := a.host.everyProject(); len(ps) > 0 {
+		return ps
+	}
+	return []*app{a}
+}
+
+// openTerms are the terminals of every project that show the sessions
+// read: those that resumed one, and those an agent of running runs in.
+func (a *app) openTerms(running map[string]hcAgent) map[string]openTerm {
+	open := map[string]openTerm{}
+	var resumed map[string]openTerm
+	for _, p := range a.projects() {
+		for _, t := range p.terms {
+			for k, ag := range running {
+				if ag.term == t || ag.term == nil && ag.addr != "" && t.hc == ag.addr {
+					open[k] = openTerm{p, t}
+				}
+			}
+			if t.resumed != "" {
+				if resumed == nil {
+					resumed = map[string]openTerm{}
+				}
+				resumed[t.resumed] = openTerm{p, t}
+			}
+		}
+	}
+	if resumed != nil {
+		for _, s := range a.sessions.sessions {
+			k := liveKey(s.Harness, s.ID)
+			if o, ok := resumed[s.Key()]; ok && open[k].t == nil {
+				open[k] = o
+			}
+		}
+	}
+	return open
+}
+
+// showOpen shows the terminal o of a project, in front, with the
+// keyboard in it, and reports whether it is open still.
+func (a *app) showOpen(o openTerm) bool {
+	if o.owner == nil || !slices.Contains(o.owner.terms, o.t) {
+		return false
+	}
+	if o.owner == a {
+		a.terminalInColumn(o.t, false)
+		return true
+	}
+	a.host.showApp(o.owner)
+	o.owner.post(func() { o.owner.terminalInColumn(o.t, false) })
+	return true
 }
 
 // localAgents are the agents that say what they do (OSC 7501) in the
-// terminals that run here, in their folders.
+// terminals that run in every project, in their folders.
 func (a *app) localAgents() []hcAgent {
+	var out []hcAgent
+	for _, p := range a.projects() {
+		out = append(out, p.ownAgents()...)
+	}
+	return out
+}
+
+// ownAgents are the agents that say what they do in the terminals of
+// the project.
+func (a *app) ownAgents() []hcAgent {
 	var out []hcAgent
 	for _, t := range a.terms {
 		if t.hc != "" || t.attach != "" {
@@ -262,7 +336,7 @@ func (a *app) localAgents() []hcAgent {
 				dir = reported
 			}
 		}
-		out = append(out, hcAgent{cwd: dir, harness: h, state: r.State, term: t})
+		out = append(out, hcAgent{cwd: dir, harness: h, state: r.State, term: t, owner: a})
 	}
 	return out
 }
@@ -934,10 +1008,20 @@ func (a *app) sessionsView(c *ui.Context) {
 			}
 			// Taking the drag of its transcript, the row takes the clicks
 			// from the list too: one chooses it, two resume it.
+			// One click on a session open in a terminal shows that
+			// terminal, in its project.
+			o, open := st.open[liveKey(r.s.Harness, r.s.ID)]
 			switch double, clicked := row.DoubleClicked(), row.Clicked(); {
 			case action != nil:
 			case double:
 				action = func() { a.resumeSession(r.s) }
+			case clicked && open && row.ClickModifiers() == 0:
+				a.selectSessionRow(rows, i, 0)
+				action = func() {
+					if !a.showOpen(o) {
+						a.resumeSession(r.s)
+					}
+				}
 			case clicked:
 				a.selectSessionRow(rows, i, row.ClickModifiers())
 				st.list.Focus(c)
@@ -1258,6 +1342,11 @@ func (a *app) sessionRow(c *ui.Context, l sessionLine, now time.Time, choice *se
 				}
 				ui.RichText(c.Key("meta"), look.meta...).FontSize(11).SingleLine().ClipX().Shrink(1).Transition(slideAlong)
 				ui.Spacer(c)
+				if _, open := st.open[lk]; open && !going {
+					// A terminal of a project shows it, which a click shows.
+					ui.Icon(c.Key("open"), iconTerminal).FontSize(sessionIconSize).TextColor(p.muted).Shrink(0).
+						Tooltip(locales.SessionsTerminalOpen()).Transition(wordIn).Opacity(1 - reveal)
+				}
 				ui.Text(c, look.agoAt(s.Updated, now)).FontSize(11).FontFeatures("tnum").TextColor(p.faint).SingleLine().Shrink(0).Padding(0, 0, 0, 6).
 					Opacity(1 - reveal)
 			})
@@ -1569,10 +1658,12 @@ func (a *app) liveRecord(live hcAgent) terminal.StatusRecord {
 			return r
 		}
 	}
-	for _, t := range a.terms {
-		if t.hc == live.addr && live.addr != "" {
-			if r, ok := t.status.Top(); ok {
-				return r
+	for _, p := range a.projects() {
+		for _, t := range p.terms {
+			if t.hc == live.addr && live.addr != "" {
+				if r, ok := t.status.Top(); ok {
+					return r
+				}
 			}
 		}
 	}
@@ -1616,21 +1707,22 @@ func (a *app) copyTranscript(path string) {
 // folder starts in the column that has the keyboard, which runs the
 // agent's command that resumes it.
 func (a *app) resumeSession(s agents.Session) {
-	if live, ok := a.sessions.running[liveKey(s.Harness, s.ID)]; ok {
-		if live.term != nil && slices.Contains(a.terms, live.term) {
-			a.terminalInColumn(live.term, false)
-			return
-		}
+	k := liveKey(s.Harness, s.ID)
+	if o, ok := a.sessions.open[k]; ok && a.showOpen(o) {
+		return
+	}
+	if live, ok := a.sessions.running[k]; ok {
 		if live.addr != "" {
 			a.showHCTerminal(live.addr, live.cwd, s.Harness)
 			return
 		}
 	}
 	key := s.Key()
-	for _, t := range a.terms {
-		if t.resumed == key {
-			a.terminalInColumn(t, false)
-			return
+	for _, p := range a.projects() {
+		for _, t := range p.terms {
+			if t.resumed == key && a.showOpen(openTerm{p, t}) {
+				return
+			}
 		}
 	}
 	if fi, err := os.Stat(s.Dir); s.Dir == "" || err != nil || !fi.IsDir() {

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -9,6 +10,58 @@ import (
 
 	"mayoi/internal/remote"
 )
+
+// Editing a query after navigating below the fold must reveal the new
+// Return target, even when enough matches remain to keep the old scroll.
+func TestQuickSelectionVisibleAfterFiltering(t *testing.T) {
+	for _, mode := range []string{"files", "commands", "symbols"} {
+		t.Run(mode, func(t *testing.T) {
+			source := "package example\n"
+			for i := range 60 {
+				source += fmt.Sprintf("func target%02d() {}\n", i)
+			}
+			hs, _ := editHarness(t, "example.go", source)
+			a, tt := hs.a, hs.tt
+			query, label := "", "target00.go"
+			if mode == "commands" {
+				query, label = ">", "Target 00"
+			} else if mode == "symbols" {
+				query, label = "@", "target00"
+			}
+			a.openQuick(query)
+			hs.settle()
+			a.index = nil
+			a.palette = nil
+			for i := range 60 {
+				a.index = append(a.index, fmt.Sprintf("target%02d.go", i))
+				a.palette = append(a.palette, paletteEntry{id: fmt.Sprintf("test.%d", i), title: fmt.Sprintf("Target %02d", i)})
+			}
+			a.quick.query, a.quick.stale = query, true
+			hs.settle()
+			first, ok := tt.Find(label)
+			if !ok {
+				t.Fatal("first result missing")
+			}
+			for range 25 {
+				hs.key(0, ui.KeyDown)
+			}
+			tt.Type("target")
+			hs.settle()
+			after, ok := tt.Find(label)
+			if !ok || after.H != first.H || after.Y < first.Y-6 || after.Y > first.Y || a.quick.sel != 0 {
+				t.Fatalf("new Return target is not at the top: before=%+v after=%+v found=%v selection=%d", first, after, ok, a.quick.sel)
+			}
+			// An unchanged frame must not force the list back after a
+			// deliberate pointer scroll.
+			tt.Scroll(after.X+20, after.Y+10, 0, 200)
+			hs.settle()
+			scrolled, visible := tt.Find(label)
+			if visible && scrolled.H > 0 && scrolled.Y >= after.Y {
+				t.Fatal("pointer scrolling was overridden")
+			}
+		})
+	}
+}
 
 func TestQuickPath(t *testing.T) {
 	home := t.TempDir()

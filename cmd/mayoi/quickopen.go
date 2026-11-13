@@ -30,10 +30,16 @@ type quickOpen struct {
 	path    string // the file the query shown names by its path, if any
 	pathAt  [2]int // the line and column after that path, if any
 	stale   bool
-	moved   bool     // the choice moved by keys, to scroll into view
+	moved   bool     // the choice changed, to scroll into view once
 	used    []string // the commands the palette ran last, the last first
 	// shook is when Return found nothing to open, which shakes the box.
 	shook time.Time
+}
+
+// resetResults reveals the new Return target after filtering, including
+// when the old list was scrolled far below its first row.
+func (q *quickOpen) resetResults(query string) {
+	q.shown, q.stale, q.sel, q.moved = query, false, 0, true
 }
 
 func (a *app) openQuick(query string) {
@@ -149,8 +155,7 @@ func (a *app) quickOpenView(c *ui.Context) {
 				q.results = a.recentFirst(q.results)
 			}
 		}
-		q.shown, q.stale = q.query, false
-		q.sel = 0
+		q.resetResults(q.query)
 	}
 	files := a.index
 	if q.path != "" {
@@ -424,7 +429,7 @@ func (a *app) quickSymbols(c *ui.Context, query string) {
 	key := "@" + query
 	if q.stale || q.shown != key {
 		q.results = workspace.Fuzzy(names, query, 200)
-		q.shown, q.stale, q.sel = key, false, 0
+		q.resetResults(key)
 	}
 	choose := func(i int) {
 		if i < 0 || i >= len(q.results) {

@@ -252,7 +252,7 @@ func (a *app) quickCommands(c *ui.Context, query string) {
 			})
 			q.results = append(first, rest...)
 		}
-		q.shown, q.stale, q.sel = key, false, 0
+		q.resetResults(key)
 	}
 	choose := func(i int) {
 		if i < 0 || i >= len(q.results) {

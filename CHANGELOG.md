@@ -3,7 +3,7 @@
 The update window shows the section of the version it offers. Every release
 needs a `## <version>` section here, or its build fails.
 
-## Unreleased
+## 0.20.1
 
 - In **Sessions**, `⌘`-click, `Shift`-click, `Shift`+arrows and `⌘A` select several sessions.
 - **Copy Session ID** on one of several selected sessions copies all their IDs, one per line.

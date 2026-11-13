@@ -3,6 +3,9 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"slices"
+	"strconv"
+	"strings"
 	"testing"
 )
 
@@ -65,5 +68,43 @@ func BenchmarkMarkdownScrollFrame(b *testing.B) {
 		}
 		hs.tt.Scroll(600, 400, 0, dy)
 		step(hs.tt)
+	}
+}
+
+// The Reading view's parse a moment after a key typed, as it parses the
+// whole note with the cache of the last parse, which keeps what each of
+// its blocks of code, formulas and diagrams drew: against one with none.
+// go test -short -run XXX -bench MarkdownReparse
+func BenchmarkMarkdownReparse(b *testing.B) {
+	// Each section's code and formula its own, as a note's are.
+	var src []byte
+	for i, part := range strings.SplitAfter(liveBench(), "## Section\n") {
+		part = strings.ReplaceAll(part, "x^2", "x^{"+strconv.Itoa(i)+"}")
+		src = append(src, strings.ReplaceAll(part, "return 1", "return "+strconv.Itoa(i))...)
+	}
+	for _, warm := range []bool{true, false} {
+		name := "cold"
+		if warm {
+			name = "warm"
+		}
+		b.Run(name, func(b *testing.B) {
+			cache := &markdownCache{math: true}
+			parseMarkdown(src, "/note.md", "", nil, cache)
+			edited := append(slices.Clone(src), "a\n"...)
+			b.ReportAllocs()
+			b.SetBytes(int64(len(src)))
+			for i := 0; b.Loop(); i++ {
+				c := cache
+				if !warm {
+					c = &markdownCache{math: true}
+				}
+				// One parse of the text before the key, the next of after.
+				text := src
+				if i%2 == 1 {
+					text = edited
+				}
+				parseMarkdown(text, "/note.md", "", nil, c)
+			}
+		})
 	}
 }

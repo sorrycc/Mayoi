@@ -866,6 +866,7 @@ const featLiveMD = "# Field notes\n\n" +
 	"## Lists\n\n" +
 	"- A first item, long enough to wrap onto a second line of the column so its indent shows\n" +
 	"- A second item\n" +
+	"  continued on a line of its own\n" +
 	"  - nested, one level\n" +
 	"  - and another\n\n" +
 	"1. Ordered\n2. Lists\n\n" +
@@ -876,7 +877,7 @@ const featLiveMD = "# Field notes\n\n" +
 	"---\n\n" +
 	"## Code and tables\n\n" +
 	"```go\nfunc main() {\n\tfmt.Println(\"hello\")\n}\n```\n\n" +
-	"| Key | Action |\n|-----|--------|\n| ⌘P | Quick open |\n| ⇧⌘F | Find in files |\n\n" +
+	"| Key  | Action        |\n|------|---------------|\n| ⌘P   | Quick open    |\n| ⇧⌘F  | Find in files |\n\n" +
 	"Inline math $e^{i\\pi}+1=0$ sits in its line.\n\n" +
 	"#### A fourth level\n\nAnd its paragraph.\n"
 
@@ -895,6 +896,12 @@ func TestFeatLivePreview(t *testing.T) {
 		time.Sleep(300 * time.Millisecond)
 		hs.settle()
 		hs.fshot("live-preview", dark)
+		// The caret at a bullet shows its mark in the dot's room.
+		hs.caretAt(d, "- A second", 0, 0)
+		hs.settle()
+		time.Sleep(300 * time.Millisecond)
+		hs.settle()
+		hs.fshot("live-preview-marker", dark)
 		// The caret in the table shows its source, the rest as it was.
 		hs.caretAt(d, "| ⌘P", 2, 0)
 		hs.settle()

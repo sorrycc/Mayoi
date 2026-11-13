@@ -12,6 +12,8 @@ import (
 
 	"github.com/egoist/mygo/ui"
 
+	"golang.org/x/text/width"
+
 	"mayoi/internal/bg"
 	"mayoi/internal/highlight"
 	"mayoi/internal/linediff"
@@ -43,6 +45,45 @@ type liveState struct {
 	// view's column, so that switching keeps its lines.
 	measure  float32
 	measured ui.Font
+	// widths are how wide runs of text are in their fonts, as measured.
+	widths map[liveWidthKey]float32
+	// in is the block the caret is in, or left last.
+	in liveIn
+}
+
+// liveWidthKey is a run of text in a font.
+type liveWidthKey struct {
+	text string
+	font ui.Font
+}
+
+// width is how wide text is in font.
+func (l *liveState) width(text string, font ui.Font) float32 {
+	k := liveWidthKey{text, font}
+	if w, ok := l.widths[k]; ok {
+		return w
+	}
+	if l.widths == nil || len(l.widths) >= 512 {
+		l.widths = map[liveWidthKey]float32{}
+	}
+	w, _ := ui.ShapeText(text, font, 0).Size()
+	l.widths[k] = w
+	return w
+}
+
+// liveIn is the block the caret went into, by its first line and its last,
+// and when; or, once it left, when it did. Its height glides from what it
+// showed as to what it shows as now, so that the text below it moves over
+// rather than jumps: source is the height of its lines of source, drawn
+// that of its drawing, with its margin, and blank that of the blank line
+// after it, which takes the room the drawing gives up as it glides.
+type liveIn struct {
+	first, last int
+	in          bool
+	at          time.Time
+	source      float32
+	drawn       float32
+	blank       float32
 }
 
 // liveView is a block Live Preview shows rendered: its preview, where it
@@ -53,10 +94,9 @@ type liveView struct {
 	at     ui.Rect
 	height float32
 	frame  int
-	// editing is set while the caret is in its source, and shownAt when
-	// it showed again once the caret left, from which it fades in.
-	editing bool
-	shownAt time.Time
+	// source is how high its lines of source showed last, 0 before they
+	// did.
+	source float32
 }
 
 // liveHit is a task's box the last frame drew, where it showed, and the
@@ -304,15 +344,24 @@ func (a *app) liveArea(c *ui.Context, d *editor, area ui.Element, f liveFrame) {
 	}
 
 	codeFont, family := a.settings.FontFamily, c.Theme().Font
+	textFont := ui.Font{Family: family, Size: size}
 	var ranges []ui.TextRange
-	objects := map[int]*liveSpan{}
+	objects := map[int]liveDrawn{}
 	var codes []liveDeco
+	// The bullet whose mark shows first, as at+1, to fade between them.
+	marker := 0
 	if doc != nil {
 		// The spans that reach the lines about the view.
 		doc.visit(from, to, func(s *liveSpan) {
 			switch s.kind {
 			case liveStyle:
-				ranges = append(ranges, a.liveRange(s, size, codeFont))
+				r := a.liveRange(s, size, codeFont)
+				if s.look.hang > 0 {
+					if w := a.liveHang(l, snap, s, size, textFont); w > 0 {
+						r.ObjectWidth, r.ObjectHeight = w/float32(s.end-s.start), 1
+					}
+				}
+				ranges = append(ranges, r)
 			case liveMark:
 				if revealed(s) {
 					ranges = append(ranges, ui.TextRange{Start: s.start, End: s.end, Color: faint})
@@ -320,18 +369,42 @@ func (a *app) liveArea(c *ui.Context, d *editor, area ui.Element, f liveFrame) {
 					ranges = append(ranges, ui.TextRange{Start: s.start, End: s.end, Hidden: true})
 				}
 			case liveObject:
-				if revealed(s) {
-					if s.obj == objQuote || s.obj == objBullet || s.obj == objRing {
-						ranges = append(ranges, ui.TextRange{Start: s.start, End: s.end, Color: faint})
+				shown := revealed(s)
+				task := s.obj == objTask || s.obj == objTaskDone
+				if task {
+					if r, ok := a.liveStrike(d, snap, s, now); ok {
+						ranges = append(ranges, r)
 					}
-					return
+				}
+				if shown {
+					switch s.obj {
+					case objBullet, objRing:
+						// A bullet keeps its room, its mark drawn in its place.
+						if marker == 0 {
+							marker = s.start + 1
+						}
+					case objQuote:
+						ranges = append(ranges, ui.TextRange{Start: s.start, End: s.end, Color: faint})
+						return
+					default:
+						return
+					}
 				}
 				w, h, dsc := a.liveObjectSize(s, size, f.width, family)
+				if task {
+					// As wide as its source, which shows as the caret comes;
+					// one of an ordered list, its box alone, no narrower than
+					// a bullet.
+					w = l.width(snap.Slice(s.from, s.end), textFont)
+					if s.from == s.start {
+						w = max(w, size*1.1)
+					}
+				}
 				ranges = append(ranges, ui.TextRange{Start: s.start, End: s.start + 1, ObjectWidth: w, ObjectHeight: h, ObjectDescent: dsc})
 				if s.end > s.start+1 {
 					ranges = append(ranges, ui.TextRange{Start: s.start + 1, End: s.end, Hidden: true})
 				}
-				objects[s.start] = s
+				objects[s.start] = liveDrawn{s: s, shown: shown}
 			}
 		})
 		for _, dc := range doc.decos {
@@ -339,6 +412,24 @@ func (a *app) liveArea(c *ui.Context, d *editor, area ui.Element, f liveFrame) {
 				codes = append(codes, dc)
 			}
 		}
+	}
+	if marker != d.liveMarker {
+		d.liveMarkerWas, d.liveMarker, d.liveMarkerAt = d.liveMarker, marker, now
+	}
+	// markerIn is how far the bullet at has turned into its mark, or back.
+	markerIn := func(at int, shown bool) float32 {
+		since := now.Sub(d.liveMarkerAt)
+		if since < 0 || since >= motionHover || at+1 != d.liveMarker && at+1 != d.liveMarkerWas {
+			if shown {
+				return 1
+			}
+			return 0
+		}
+		k := ui.EaseOut(float32(since) / float32(motionHover))
+		if !shown {
+			return 1 - k
+		}
+		return k
 	}
 	// The code of blocks of code in its language's colors.
 	if d.hl != nil && d.hl.Lexer() != nil && len(codes) > 0 {
@@ -377,6 +468,9 @@ func (a *app) liveArea(c *ui.Context, d *editor, area ui.Element, f liveFrame) {
 		b     *liveBlock
 		lv    *liveView
 		first int
+		// clip is how high it shows while its room grows, 0 for all of it,
+		// and fade how far it faded in.
+		clip, fade float32
 	}
 	var blocks []shown
 	if doc != nil {
@@ -384,23 +478,63 @@ func (a *app) liveArea(c *ui.Context, d *editor, area ui.Element, f liveFrame) {
 			l.views = map[string]*liveView{}
 		}
 		lineH := size * a.settings.LineHeight
+		in, glide := &l.in, !c.Preferences().ReduceMotion
+		caretIn := false
 		for i := range doc.blocks {
 			b := &doc.blocks[i]
 			if b.end < from || b.start > to || len(b.blocks) == 0 {
 				continue
 			}
+			first, last := snap.LineAt(b.start), snap.LineAt(b.end)
+			lv := l.views[b.key]
 			if onLines(b.start, b.end) {
-				if lv := l.views[b.key]; lv != nil {
-					lv.editing = true
+				if caretIn {
+					continue
 				}
+				caretIn = true
+				if !in.in || in.first != first {
+					// Gone in: the drawing's room it gives up glides away
+					// below its source.
+					drawn := in.drawn
+					if lv != nil {
+						drawn = lv.height + size
+					} else if in.first != first {
+						drawn = 0
+					}
+					source := float32(last-first+1) * f.g.lineH
+					if lv != nil && lv.source > 0 {
+						source = lv.source
+					}
+					*in = liveIn{first: first, in: true, at: now, source: source, drawn: drawn,
+						blank: f.g.top(last+2) - f.g.top(last+1)}
+				} else {
+					// Its lines showed as source in the last frame.
+					in.source = f.g.top(last+1) - f.g.top(first)
+				}
+				in.last = last
+				if lv != nil {
+					lv.source = in.source
+				}
+				gap := in.drawn - in.source
+				since := now.Sub(in.at)
+				if glide && gap > 0.5 && since >= 0 && since < motionMove && last+1 < snap.LineCount() &&
+					strings.TrimSpace(snap.Line(last+1)) == "" {
+					k := ui.EaseInOut(float32(since) / float32(motionMove))
+					area.TextBlocks(ui.TextBlock{First: last + 1, Last: last + 1, Height: in.blank + gap*(1-k)})
+					c.AnimationFrame()
+				}
+				area.TextRanges(a.liveGlyphs(l, snap, max(first, f.first-liveSlack), min(last, f.last+liveSlack), size, codeFont, objects)...)
 				continue
 			}
-			lv := l.views[b.key]
 			if lv == nil {
 				m := &markdownPreview{blocks: b.blocks, lines: strings.Count(b.source, "\n") + 1}
 				lv = &liveView{v: &viewer{doc: d.document, markdown: m, loaded: true}}
-				lines := snap.LineAt(b.end) - snap.LineAt(b.start) + 1
-				lv.height = float32(lines) * lineH * 1.4
+				lv.height = float32(last-first+1) * lineH * 1.4
+				if in.first == first && in.drawn > size {
+					// Its source edited: as high as it drew before, until
+					// it shows how high it draws now.
+					lv.height = in.drawn - size
+				}
 				l.views[b.key] = lv
 			} else if &lv.v.markdown.blocks[0] != &b.blocks[0] {
 				// Drawn again, as in another theme's colors: the view shows
@@ -409,13 +543,33 @@ func (a *app) liveArea(c *ui.Context, d *editor, area ui.Element, f liveFrame) {
 				lv.v = &viewer{doc: d.document, markdown: m, loaded: true}
 			}
 			lv.frame = a.frame
-			if lv.editing {
-				lv.editing, lv.shownAt = false, now
-			}
 			lv.v.markdown.measure = f.width
-			first, last := snap.LineAt(b.start), snap.LineAt(b.end)
-			area.TextBlocks(ui.TextBlock{First: first, Last: last, Height: lv.height + size})
-			blocks = append(blocks, shown{b, lv, first})
+			sh := shown{b: b, lv: lv, first: first, fade: 1}
+			height := lv.height + size
+			if in.first == first {
+				if in.in {
+					// Left: its room glides from its source's to its
+					// drawing's, and the drawing fades in over it.
+					in.in, in.at = false, now
+				}
+				since := now.Sub(in.at)
+				if since >= 0 && since < motionShow {
+					sh.fade = ui.EaseOut(float32(since) / float32(motionShow))
+					c.AnimationFrame()
+				}
+				if glide && in.source > 0 && since >= 0 && since < motionMove {
+					k := ui.EaseInOut(float32(since) / float32(motionMove))
+					height = in.source + (height-in.source)*k
+					sh.clip = max(1, height-size)
+					c.AnimationFrame()
+				}
+			}
+			area.TextBlocks(ui.TextBlock{First: first, Last: last, Height: height})
+			blocks = append(blocks, sh)
+		}
+		if in.in && !caretIn && (lineFrom < in.first || lineFrom > in.last) {
+			// Gone from it with the block out of view: nothing glides.
+			*in = liveIn{first: -1}
 		}
 		// The blocks out of view for long are let go.
 		for k, lv := range l.views {
@@ -499,22 +653,37 @@ func (a *app) liveArea(c *ui.Context, d *editor, area ui.Element, f liveFrame) {
 		drawBars()
 	})
 	area.DrawObjects(func(pt *ui.Painter, at int, r ui.Rect) {
-		s := objects[at]
-		if s == nil {
+		o, ok := objects[at]
+		if !ok {
 			return
 		}
+		s := o.s
 		switch s.obj {
 		case objBullet, objRing:
+			// The dot, or the mark it stands for while the caret is at it,
+			// one fading into the other.
+			k := markerIn(at, o.shown)
+			if k > 0 && k < 1 {
+				pt.AnimationFrame()
+			}
 			dot := size * 0.32
 			box := ui.Rect{X: r.X + (r.W-dot)/2, Y: r.Y + r.H - size*0.36 - dot/2, W: dot, H: dot}
-			if s.obj == objRing {
-				pt.Stroke(box, p.muted, dot/2, 1.25)
-			} else {
-				pt.Fill(box, p.muted, dot/2)
+			if k < 1 {
+				if s.obj == objRing {
+					pt.Stroke(box, p.muted.Alpha(1-k), dot/2, 1.25)
+				} else {
+					pt.Fill(box, p.muted.Alpha(1-k), dot/2)
+				}
+			}
+			if k > 0 {
+				span := ui.Span{Text: snap.Slice(at, at+1), Font: family, Size: size, Color: faint.Alpha(k)}
+				tw, th := pt.MeasureText(0, span)
+				pt.RichText(r.X+(r.W-tw)/2, r.Y+r.H-th*0.78, 0, span)
 			}
 		case objTask, objTaskDone:
+			// Where a bullet's dot is, in the room its source takes.
 			b := size * 0.9
-			box := ui.Rect{X: r.X + (r.W-b)/2, Y: r.Y + (r.H-b)/2, W: b, H: b}
+			box := ui.Rect{X: r.X + min((r.W-b)/2, size*0.1), Y: r.Y + (r.H-b)/2, W: b, H: b}
 			// A box just checked fills in, its check growing from half its
 			// size; one unchecked empties.
 			k := float32(1)
@@ -533,9 +702,14 @@ func (a *app) liveArea(c *ui.Context, d *editor, area ui.Element, f liveFrame) {
 			}
 			d.liveHits = append(d.liveHits, liveHit{ui.Rect{X: box.X - d.liveAt.X, Y: box.Y - d.liveAt.Y, W: b, H: b}, at})
 		case objImage:
-			pt.Image(s.image.bitmap, r, ui.Contain)
+			pt.Image(s.drawn.image.bitmap, r, ui.Contain)
 		case objMath:
-			s.formula.draw(pt, r, p.text)
+			s.drawn.formula.draw(pt, r, p.text)
+		case objGlyph:
+			// In the middle of the columns it takes.
+			span := ui.Span{Text: o.glyph, Font: codeFont, Size: size * 0.9, Color: p.text}
+			tw, th := pt.MeasureText(0, span)
+			pt.RichText(r.X+(r.W-tw)/2, r.Y+(r.H-th)/2, 0, span)
 		case objAlert:
 			// An alert with no title of its own is titled by its kind.
 			icon, title := markdownAlertHead(s.alert)
@@ -599,36 +773,42 @@ func (a *app) liveArea(c *ui.Context, d *editor, area ui.Element, f liveFrame) {
 			s := s
 			lv := s.lv
 			y := editorPadY + f.g.top(s.first) - d.vscroll.Y + size/2
-			box := ui.Column(c.Key("live-block:" + s.b.key)).Absolute().Top(y).Left(f.left).Width(f.width).Bind(&lv.box)
-			// Shown again as the caret leaves its source, it fades in over it.
-			if since := now.Sub(lv.shownAt); !lv.shownAt.IsZero() && since >= 0 && since < motionShow {
-				box.Opacity(ui.EaseOut(float32(since) / float32(motionShow)))
-				c.AnimationFrame()
+			// Clipped to the room it has while that grows, its drawing
+			// measured whole.
+			room := ui.Box(c.Key("live-room:" + s.b.key)).Absolute().Top(y).Left(f.left).Width(f.width)
+			if s.clip > 0 {
+				room.Height(s.clip).Clip()
 			}
-			box.HandleInput(func(ev ui.InputEvent) bool {
-				switch ev.Kind {
-				case ui.InputScroll:
-					// The text scrolls under the block as over its text.
-					d.vscroll.Y = clamp(d.vscroll.Y+ev.DY, 0, d.vscroll.MaxY)
-					a.invalidate()
-					return true
-				case ui.InputPointerDown:
-					if ev.Button == 0 && ev.Clicks == 1 {
-						// A click edits its source.
-						at := s.b.start
-						d.cmds = append(d.cmds, func(d *editor) { d.selectRange(at, at, false) })
-						d.focusNext = true
+			if s.fade < 1 {
+				room.Opacity(s.fade)
+			}
+			room.Children(func() {
+				box := ui.Column(c.Key("live-block:" + s.b.key)).Width(f.width).Bind(&lv.box)
+				box.HandleInput(func(ev ui.InputEvent) bool {
+					switch ev.Kind {
+					case ui.InputScroll:
+						// The text scrolls under the block as over its text.
+						d.vscroll.Y = clamp(d.vscroll.Y+ev.DY, 0, d.vscroll.MaxY)
 						a.invalidate()
 						return true
+					case ui.InputPointerDown:
+						if ev.Button == 0 && ev.Clicks == 1 {
+							// A click edits its source.
+							at := s.b.start
+							d.cmds = append(d.cmds, func(d *editor) { d.selectRange(at, at, false) })
+							d.focusNext = true
+							a.invalidate()
+							return true
+						}
 					}
-				}
-				return false
-			})
-			box.Children(func() {
-				font := ui.Font{Family: c.Theme().Font, Size: size}
-				for i := range lv.v.markdown.blocks {
-					a.markdownRow(c, lv.v, i, f.width, font, nil)
-				}
+					return false
+				})
+				box.Children(func() {
+					font := ui.Font{Family: c.Theme().Font, Size: size}
+					for i := range lv.v.markdown.blocks {
+						a.markdownRow(c, lv.v, i, f.width, font, nil)
+					}
+				})
 			})
 			lv.at = lv.box.Bounds(c)
 			// Not the room the Reading view keeps below its last row: the
@@ -640,6 +820,96 @@ func (a *app) liveArea(c *ui.Context, d *editor, area ui.Element, f liveFrame) {
 			}
 		}
 	})
+}
+
+// liveDrawn is an object a frame of Live Preview draws: its span, whether
+// it shows as its source, as a bullet's mark does, and the rune it draws
+// for objGlyph.
+type liveDrawn struct {
+	s     *liveSpan
+	shown bool
+	glyph string
+}
+
+// liveHang is how wide the white space s, which continues an item of a
+// list on a line of its own, is to stand the line under the item's text,
+// in text of font: as wide as the item's indent, its marker as it draws,
+// and the space after it.
+func (a *app) liveHang(l *liveState, snap ui.TextSnapshot, s *liveSpan, size float32, font ui.Font) float32 {
+	if s.to <= s.from || s.to > snap.Len() {
+		return 0
+	}
+	prefix := snap.Slice(s.from, s.to)
+	m := liveListMarker.FindStringSubmatch(prefix)
+	if m == nil {
+		return 0
+	}
+	w := liveIndent*float32(s.look.hang-1)*size + l.width(prefix, font)
+	ordered := m[2][0] >= '0' && m[2][0] <= '9'
+	switch {
+	case m[4] == "" && !ordered:
+		w += size*1.1 - l.width(m[2], font) // a bullet's dot
+	case m[4] != "" && ordered:
+		w += max(0, size*1.1-l.width(m[4], font)) // its box
+	}
+	return w
+}
+
+// liveStrike is how the text of the task whose box is s shows: struck
+// through and faint once done, from the frame its box is checked, which
+// fades it there, or back.
+func (a *app) liveStrike(d *editor, snap ui.TextSnapshot, s *liveSpan, now time.Time) (ui.TextRange, bool) {
+	p := a.pal
+	done := s.obj == objTaskDone
+	k := float32(1)
+	if since := now.Sub(d.liveTickAt); s.start == d.liveTicked && !d.liveTickAt.IsZero() && since >= 0 && since < motionShow {
+		k = ui.EaseOut(float32(since) / float32(motionShow))
+	}
+	if !done {
+		if k >= 1 {
+			return ui.TextRange{}, false
+		}
+		k = 1 - k
+	}
+	n := min(s.end, snap.Len())
+	_, end := snap.LineRange(snap.LineAt(n))
+	line := snap.Slice(n, end)
+	start := n + utf8.RuneCountInString(line) - utf8.RuneCountInString(strings.TrimLeft(line, " \t"))
+	if start >= end {
+		return ui.TextRange{}, false
+	}
+	return ui.TextRange{Start: start, End: end, Strikethrough: true, Color: p.text.Mix(p.faint, k), DecorationColor: p.faint.Alpha(k)}, true
+}
+
+// liveGlyphs are the ranges that draw the runes of lines first to last of
+// a block's source as wide as the columns they take, those whose font
+// draws them otherwise, as ⌘ or 中, so that a table's pipes line up. It
+// notes them in objects to draw.
+func (a *app) liveGlyphs(l *liveState, snap ui.TextSnapshot, first, last int, size float32, codeFont string, objects map[int]liveDrawn) []ui.TextRange {
+	var ranges []ui.TextRange
+	font := ui.Font{Family: codeFont, Size: size * 0.9}
+	var cell float32
+	for i := first; i <= last; i++ {
+		at, _ := snap.LineRange(i)
+		for _, r := range snap.Line(i) {
+			if r >= utf8.RuneSelf && r != '\t' {
+				if cell == 0 {
+					cell = l.width("0", font)
+				}
+				cols := float32(1)
+				if k := width.LookupRune(r).Kind(); k == width.EastAsianWide || k == width.EastAsianFullwidth {
+					cols = 2
+				}
+				glyph := string(r)
+				if w := cols * cell; max(l.width(glyph, font)-w, w-l.width(glyph, font)) > 0.5 {
+					ranges = append(ranges, ui.TextRange{Start: at, End: at + 1, ObjectWidth: w, ObjectHeight: font.Size * 0.8, ObjectDescent: font.Size * 0.2})
+					objects[at] = liveDrawn{s: &liveSpan{start: at, end: at + 1, kind: liveObject, obj: objGlyph}, glyph: glyph}
+				}
+			}
+			at++
+		}
+	}
+	return ranges
 }
 
 // liveRange is the range a span of style gives its runes, in text of
@@ -695,20 +965,20 @@ func (a *app) liveObjectSize(s *liveSpan, size, width float32, family string) (w
 	case objTask, objTaskDone:
 		return size * 1.4, size * 0.95, size * 0.2
 	case objQuote:
-		return size * 0.9 * float32(max(1, s.depth)), size * 0.7, 0
+		return size * 0.9 * float32(max(1, int(s.depth))), size * 0.7, 0
 	case objImage:
-		iw, ih := s.image.w, s.image.h
+		iw, ih := s.drawn.image.w, s.drawn.image.h
 		if iw <= 0 || ih <= 0 {
 			return 1, 1, 0
 		}
 		w = iw
-		if s.width > 0 {
-			w = s.width
+		if s.drawn.width > 0 {
+			w = s.drawn.width
 		}
 		w = min(w, max(1, width))
 		return w, w * ih / iw, 0
 	case objMath:
-		f := s.formula
+		f := s.drawn.formula
 		return f.w * size, f.ascent * size, f.depth * size
 	case objAlert:
 		_, title := markdownAlertHead(s.alert)

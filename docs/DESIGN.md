@@ -30,7 +30,9 @@ The order: it works, then it is easy, then it looks good. Polish never covers a 
 - In Live Preview, the marks of what the caret touches show, and a block it goes into shows its source: only the
   caret's lines change, and a mark shows at the size of its text, so a heading's line keeps its height. The marks of
   the lines the caret comes to fade in over `motionHover`, a block it leaves over `motionShow`; their room shows at
-  once. The indent of a nested list keeps its width wherever the caret is.
+  once. The indent of a nested list keeps its width wherever the caret is, and so do a bullet and a task's box: the
+  caret at them shows their source in the same room. The room a block's drawing gives up as the caret goes in, and
+  takes as it leaves, glides over `motionMove`, so the text below moves over (`TestLiveMarkersHoldStill`, `TestLiveBlockGlides`).
 
 ## States
 

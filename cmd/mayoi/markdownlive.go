@@ -73,6 +73,9 @@ type liveLook struct {
 	// in another, to as many times the text's size, for the item to stand
 	// under its parent's text, as in the Reading view.
 	indent float32
+	// hang is the depth of the list whose item a line of white space
+	// continues, which widens to stand the line under the item's text.
+	hang uint8
 }
 
 // liveObj is what a liveObject draws.
@@ -90,28 +93,39 @@ const (
 	// objAlert is the marker of an alert with no title, as [!NOTE],
 	// drawn as its icon and its kind.
 	objAlert
+	// objGlyph is a rune of a block's source drawn as wide as the columns
+	// it takes, so that a table's pipes line up.
+	objGlyph
 )
 
 // liveSpan is a run of runes that Live Preview styles, hides or draws.
+// A parse of a long note has some hundreds of thousands, so it keeps
+// what only some draw, a picture or a formula, apart.
 type liveSpan struct {
 	start, end int
-	kind       liveKind
 	// from and to are the element the span is of, whose marks show while
 	// the caret or the selection touches it, or, with byLine, while the
 	// caret is on its lines.
 	from, to int
-	byLine   bool
 	look     liveLook
-	obj      liveObj
-	// image is a picture's bitmap and size, and width the width its wiki
-	// link asked for, 0 for its own.
+	// drawn is the picture or the formula of objImage and objMath.
+	drawn  *livePicture
+	kind   liveKind
+	byLine bool
+	obj    liveObj
+	// depth is how many quotes the > of objQuote are of, and alert the
+	// kind of objAlert.
+	depth uint8
+	alert markdownAlert
+}
+
+// livePicture is what objImage and objMath draw: a picture's bitmap and
+// size, and the width its wiki link asked for, 0 for its own; or a
+// formula.
+type livePicture struct {
 	image   markdownInline
 	width   float32
 	formula *mathFormula
-	// depth is how many quotes the > of objQuote are of, and alert the
-	// kind of objAlert.
-	depth int
-	alert markdownAlert
 }
 
 // liveDecoKind is what Live Preview paints behind a run of lines.
@@ -474,7 +488,7 @@ func parseLive(source string, path, root string, full bool, cache *markdownCache
 						image = markdownPicture(cache, used, path, root, dest)
 					}
 					if image.bitmap != nil {
-						add(liveSpan{start: s, end: e, kind: liveObject, from: s, to: e, obj: objImage, image: image})
+						add(liveSpan{start: s, end: e, kind: liveObject, from: s, to: e, obj: objImage, drawn: &livePicture{image: image}})
 					} else {
 						is, ie := inner(ch)
 						style(is, ie, liveLook{color: liveLink})
@@ -495,7 +509,7 @@ func parseLive(source string, path, root string, full bool, cache *markdownCache
 						f = formula(x.tex, x.display)
 					}
 					if f != nil && f.err == "" && f.w > 0 {
-						add(liveSpan{start: s, end: e, kind: liveObject, from: s, to: e, obj: objMath, formula: f})
+						add(liveSpan{start: s, end: e, kind: liveObject, from: s, to: e, obj: objMath, drawn: &livePicture{formula: f}})
 					} else {
 						style(s, e, liveLook{code: true, color: liveMuted})
 					}
@@ -664,10 +678,38 @@ func parseLive(source string, path, root string, full bool, cache *markdownCache
 				}
 				walk(x)
 			case *ast.List:
+				depth := liveDepth(x)
 				for item := x.FirstChild(); item != nil; item = item.NextSibling() {
 					s, _ := linesOf(item)
-					if s >= 0 {
-						liveItem(src, s, lineEnd(s), x.IsOrdered(), liveDepth(x), add, style)
+					if s < 0 {
+						continue
+					}
+					ms, text := liveItem(src, s, lineEnd(s), x.IsOrdered(), depth, add, style)
+					if ms < 0 {
+						continue
+					}
+					// The lines of its paragraphs after its first stand under
+					// its text, their white space as wide as its marker.
+					for ch := item.FirstChild(); ch != nil; ch = ch.NextSibling() {
+						switch ch.(type) {
+						case *ast.Paragraph, *ast.TextBlock:
+						default:
+							continue
+						}
+						ps, pe := linesOf(ch)
+						for at := ps; at >= 0 && at <= pe && at < len(src); at = lineEnd(at) + 1 {
+							if at == s {
+								continue
+							}
+							ws := at + len(liveQuoteMarks.Find(src[at:lineEnd(at)]))
+							we := ws
+							for we < len(src) && (src[we] == ' ' || src[we] == '\t') {
+								we++
+							}
+							if we > ws {
+								add(liveSpan{start: ws, end: we, kind: liveStyle, from: ms, to: text, look: liveLook{hang: uint8(min(depth, 255))}})
+							}
+						}
 					}
 				}
 				walk(x)
@@ -825,11 +867,16 @@ const liveIndent = 1.45
 
 // liveItem styles the marker of a list's item on the line src[s:e]: a dot
 // for a bullet, a ring in a list inside another, a box for a task, the
-// number of an ordered list muted.
-func liveItem(src []byte, s, e int, ordered bool, depth int, add func(liveSpan), style func(int, int, liveLook)) {
+// number of an ordered list muted. It returns where its marker starts and
+// its text, -1 for no marker.
+func liveItem(src []byte, s, e int, ordered bool, depth int, add func(liveSpan), style func(int, int, liveLook)) (int, int) {
 	m := liveListMarker.FindSubmatchIndex(src[s:e])
 	if m == nil {
-		return
+		return -1, -1
+	}
+	text := s + m[1]
+	for text < e && (src[text] == ' ' || src[text] == '\t') {
+		text++
 	}
 	ms, me := s+m[4], s+m[5]
 	task := m[8] >= 0
@@ -853,23 +900,23 @@ func liveItem(src []byte, s, e int, ordered bool, depth int, add func(liveSpan),
 		add(liveSpan{start: ms, end: me, kind: liveObject, from: ms, to: me, obj: obj})
 	}
 	if task {
+		// A task done reads faint, struck through, as the frame styles it
+		// from its box: at once as the box is checked.
 		bs, be := s+m[8], s+m[9]
 		obj := objTask
 		if src[bs+1] != ' ' {
 			obj = objTaskDone
-			// A task done reads faint, struck through.
-			at := be
-			for at < e && (src[at] == ' ' || src[at] == '\t') {
-				at++
-			}
-			style(at, e, liveLook{strike: true, color: liveFaint})
 		}
+		from := bs
 		if !ordered {
-			// The task's box stands for the bullet.
+			// The task's box stands for the bullet, and shows as its source
+			// with it: as wide as both, so the line holds still.
+			from = ms
 			add(liveSpan{start: ms, end: s + m[7], kind: liveMark, from: ms, to: be})
 		}
-		add(liveSpan{start: bs, end: be, kind: liveObject, from: bs, to: be, obj: obj})
+		add(liveSpan{start: bs, end: be, kind: liveObject, from: from, to: be, obj: obj})
 	}
+	return ms, text
 }
 
 // liveQuote styles the lines src[s:e] of a quote: each line's > take the
@@ -883,7 +930,7 @@ func liveQuote(src []byte, s, e int, alert markdownAlert, lineEnd func(int) int,
 		marks := liveQuoteMarks.Find(src[at:end])
 		if n := bytes.Count(marks, []byte{'>'}); n > 0 {
 			depth = n
-			add(liveSpan{start: at, end: at + len(marks), kind: liveObject, from: at, to: at + len(marks), byLine: true, obj: objQuote, depth: n})
+			add(liveSpan{start: at, end: at + len(marks), kind: liveObject, from: at, to: at + len(marks), byLine: true, obj: objQuote, depth: uint8(min(n, 255))})
 		}
 		deco(at, end, liveDeco{kind: decoQuote, depth: depth, alert: alert})
 		if alert == alertNone {
@@ -922,10 +969,10 @@ func liveWikiLink(src []byte, s, e int, x *wikiLinkNode, path, root string, imag
 		if file := wikiLinkFile(root, path, x.target); file != "" && isImage(file) {
 			image := markdownPicture(cache, used, path, root, wikiLinkDest(path, file, ""))
 			if image.bitmap != nil {
-				sp := liveSpan{start: s, end: e, kind: liveObject, from: s, to: e, obj: objImage, image: image}
+				sp := liveSpan{start: s, end: e, kind: liveObject, from: s, to: e, obj: objImage, drawn: &livePicture{image: image}}
 				w, _, _ := strings.Cut(x.label, "x")
 				if n, err := strconv.Atoi(w); err == nil && n > 0 {
-					sp.width = float32(n)
+					sp.drawn.width = float32(n)
 				}
 				add(sp)
 				return

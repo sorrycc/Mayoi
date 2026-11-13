@@ -39,6 +39,12 @@ needs a `## <version>` section here, or its build fails.
 - Nested lists in Live Preview stand under their parent's text, as in the Reading view.
 - Quotes in Live Preview have one unbroken bar, and the largest headings a hairline below, as in Reading.
 - Switching between source, Live Preview and the Reading view fades the new view in.
+- In Live Preview, a bullet or task box keeps its width as the caret reaches it, so the line holds still.
+- Text below a table or diagram in Live Preview glides as its source shows or hides, rather than jumping.
+- A task checked in Live Preview is struck through at once, its strike fading in.
+- Lines that continue a list item in Live Preview stand under the item's text.
+- Symbols such as `⌘` and wide characters keep a table's columns lined up in its Live Preview source.
+- Live Preview parses long notes faster and with half the memory.
 
 ## 0.20.1
 

@@ -142,8 +142,13 @@ note as in a short one; a task's box checked stays a box. The first frame parses
 pictures, formulas or blocks. Tables, diagrams and formulas in display style are blocks: `TextBlocks` keeps their lines
 as high as the block renders, and the block, drawn by `markdownRow`, covers them, until the caret goes in, which shows
 their source. A parse takes the blocks of the same source as the last drew (`markdownCache.blocks`), so only those
-edited are drawn again: a parse of a 250 KB note full of them takes some 16 ms (`BenchmarkParseLive`). Blocks of code
-are cards painted behind their lines, colored by the highlighter.
+edited are drawn again: a parse of a 250 KB note full of them takes some 13 ms and 30 MB (`BenchmarkParseLive`), a
+span keeping a picture or a formula behind a pointer. As the caret goes into a block or leaves it, its room glides
+between the drawing's height and its source's (`liveIn`), the blank line after it taking the difference, so the text
+below moves over rather than jumps. A bullet and a task's box keep the width of their source, which shows in their
+room as the caret comes to them, so the line holds still. Blocks of code are cards painted behind their lines, colored
+by the highlighter. The Reading view parses a note whole, with the cache of its last parse, so a parse after a key
+takes some 13 ms where one without would take 550 (`BenchmarkMarkdownReparse`).
 
 ## Git
 

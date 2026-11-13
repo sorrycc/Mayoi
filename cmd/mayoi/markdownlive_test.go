@@ -5,6 +5,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/egoist/mygo/ui"
 )
@@ -54,7 +55,8 @@ func TestParseLive(t *testing.T) {
 		{"to [[note#h|Label]] now\n", []string{"style:Label", "mark:[[note#h|", "mark:]]"}},
 		{"~~gone~~ and ==lit==\n", []string{"style:gone", "mark:~~", "style:lit", "mark:=="}},
 		{"- one\n  - two\n1. three\n", []string{"object:-", "style:1."}},
-		{"- [ ] todo\n- [x] done\n", []string{"object:[ ]", "object:[x]", "mark:- ", "style:done"}},
+		{"- [ ] todo\n- [x] done\n", []string{"object:[ ]", "object:[x]", "mark:- "}},
+		{"- item\n  more of it\n", []string{"object:-", "style:  "}},
 		{"> quoted\n> more\n", []string{"object:> ", "style:quoted"}},
 		{"> [!NOTE]\n> text\n", []string{"object:[!NOTE]"}},
 		{"```go\nx := 1\n```\n", []string{"mark:```", "style:go"}},
@@ -325,5 +327,116 @@ func TestParseLiveKeepsBlocks(t *testing.T) {
 	}
 	if len(cache.formulas) != 1 {
 		t.Errorf("the cache keeps %d formulas, not the one", len(cache.formulas))
+	}
+}
+
+// A bullet and a task's box keep their room as the caret comes to them
+// and their source shows, so the text after them holds still; the line
+// that continues an item stands under its text.
+func TestLiveMarkersHoldStill(t *testing.T) {
+	hs := newHarness(t, true)
+	a := hs.a
+	src := "intro\n\n- bullet item\n  continued line\n- [ ] task item\n\nend\n"
+	path := hs.path("marks.md")
+	os.WriteFile(path, []byte(src), 0o644)
+	a.settings.MarkdownMode = "live"
+	a.openFile(path, true)
+	d := a.activeEditor()
+	hs.until("Live Preview parsed", func() bool {
+		l := d.document.live
+		return a.livePreview(d) && l != nil && l.doc != nil && !l.quick
+	})
+	runeOf := func(s string) int { return len([]rune(src[:strings.Index(src, s)])) }
+	x := func(at int) float32 {
+		x, _, _, _ := d.lines.Caret(at)
+		return x
+	}
+	hs.place(d, 0, 0)
+	hs.settle()
+	if b, c := x(runeOf("bullet item")), x(runeOf("continued")); b-c > 0.5 || c-b > 0.5 {
+		t.Errorf("the continued line starts at %v, its item's text at %v", c, b)
+	}
+	for _, tc := range []struct{ marker, text string }{{"- bullet", "bullet item"}, {"- [ ]", "task item"}} {
+		hs.place(d, 0, 0)
+		hs.settle()
+		before := x(runeOf(tc.text))
+		if before <= 0 {
+			t.Fatalf("%q laid out at %v", tc.text, before)
+		}
+		at := runeOf(tc.marker)
+		hs.place(d, at, at)
+		hs.settle()
+		if after := x(runeOf(tc.text)); after-before > 0.5 || before-after > 0.5 {
+			t.Errorf("%q moved from %v to %v as the caret came to its marker", tc.text, before, after)
+		}
+	}
+}
+
+// A task's text is struck through as its box shows checked, before the
+// text is parsed again, and fades back as it is unchecked.
+func TestLiveStrike(t *testing.T) {
+	a := &app{pal: darkPalette()}
+	src := "- [x] done it\n"
+	var b ui.TextBuffer
+	b.Set(src)
+	snap := b.Snapshot()
+	box := &liveSpan{start: 2, end: 5, kind: liveObject, obj: objTaskDone}
+	d := &editor{}
+	now := time.Now()
+	r, ok := a.liveStrike(d, snap, box, now)
+	if !ok || !r.Strikethrough || snap.Slice(r.Start, r.End) != "done it" {
+		t.Fatalf("the task done struck %v %q", ok, snap.Slice(r.Start, r.End))
+	}
+	box.obj = objTask
+	if _, ok := a.liveStrike(d, snap, box, now); ok {
+		t.Error("a task to do is struck through")
+	}
+	d.liveTicked, d.liveTickAt = 2, now
+	if r, ok := a.liveStrike(d, snap, box, now.Add(motionShow/2)); !ok || r.DecorationColor.A == 0 {
+		t.Error("a task just unchecked is not fading its strike out")
+	}
+}
+
+// The text below a table glides to its place as the caret goes into the
+// table and its source shows, and back as the caret leaves, rather than
+// jumps.
+func TestLiveBlockGlides(t *testing.T) {
+	hs := newHarness(t, true)
+	a := hs.a
+	src := "intro\n\n| a | b |\n|---|---|\n| 1 | 2 |\n| 3 | 4 |\n| 5 | 6 |\n\nend\n"
+	path := hs.path("glide.md")
+	os.WriteFile(path, []byte(src), 0o644)
+	a.settings.MarkdownMode = "live"
+	a.openFile(path, true)
+	d := a.activeEditor()
+	l := func() *liveState { return d.document.live }
+	hs.until("the table rendered", func() bool { return l() != nil && l().doc != nil && !l().quick && len(l().views) == 1 })
+	hs.settle()
+	end := d.buf.Snapshot().LineCount() - 2
+	drawn := d.lines.Top(end)
+
+	at := len([]rune(src[:strings.Index(src, "| 3")]))
+	d.selectRange(at, at, false)
+	step(hs.tt)
+	step(hs.tt)
+	first := d.lines.Top(end)
+	hs.settle()
+	source := d.lines.Top(end)
+	if source >= drawn-1 {
+		t.Fatalf("the table's source is as high as its drawing: %v, %v", source, drawn)
+	}
+	if first < drawn-(drawn-source)/2 {
+		t.Errorf("the text below jumped from %v to %v, not gliding to %v", drawn, first, source)
+	}
+
+	d.selectRange(0, 0, false)
+	step(hs.tt)
+	step(hs.tt)
+	if back := d.lines.Top(end); back > source+(drawn-source)/2 {
+		t.Errorf("the text below jumped back from %v to %v, not gliding to %v", source, back, drawn)
+	}
+	hs.settle()
+	if back := d.lines.Top(end); back < drawn-1 || back > drawn+1 {
+		t.Errorf("the text below settled at %v, not %v", back, drawn)
 	}
 }

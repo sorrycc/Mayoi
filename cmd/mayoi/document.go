@@ -236,6 +236,12 @@ type editor struct {
 	liveTicked int
 	tickNow    bool
 	liveTickAt time.Time
+	// liveMarker is the bullet whose mark showed first in the last frame,
+	// as its rune plus one, 0 for none, liveMarkerWas the one before it,
+	// and liveMarkerAt when it changed, from which one fades into the
+	// other.
+	liveMarker, liveMarkerWas int
+	liveMarkerAt              time.Time
 	// shownMode is how the editor showed its document in the last frame,
 	// as markdownMode says, and modeAt when that last changed, from which
 	// the view fades in; modeSeen is set once it showed.

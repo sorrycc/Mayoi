@@ -390,7 +390,7 @@ func (a *app) liveArea(c *ui.Context, d *editor, area ui.Element, f liveFrame) {
 						return
 					}
 				}
-				w, h, dsc := a.liveObjectSize(s, size, f.width, family)
+				w, h, dsc := a.liveObjectSize(l, snap, s, size, f.width, family)
 				if task {
 					// As wide as its source, which shows as the caret comes;
 					// one of an ordered list, its box alone, no narrower than
@@ -594,6 +594,35 @@ func (a *app) liveArea(c *ui.Context, d *editor, area ui.Element, f liveFrame) {
 		if doc == nil {
 			return
 		}
+		// An alert's lines are tinted its color, as Obsidian's callouts are,
+		// one box from its first line to its last, where the caret is too.
+		var tint liveDeco
+		var tintFrom, tintTo int
+		drawTint := func() {
+			if tintTo > tintFrom {
+				inset := float32(tint.depth-1) * quote
+				y0, y1 := lineY(r, tintFrom), lineY(r, tintTo)
+				pt.Fill(ui.Rect{X: x + inset, Y: y0, W: f.width - inset, H: y1 - y0}, a.markdownColor(tint.alert).Alpha(alertTint), 4)
+			}
+			tintFrom, tintTo = 0, 0
+		}
+		for _, dc := range doc.decos {
+			if dc.kind != decoQuote || dc.end < from || dc.start > to {
+				continue
+			}
+			l0, l1 := snap.LineAt(min(dc.start, n)), snap.LineAt(min(dc.end, n))
+			if tintTo > tintFrom && (tintTo != l0 || tint.alert != dc.alert) {
+				drawTint()
+			}
+			if dc.alert == alertNone {
+				continue
+			}
+			if tintTo <= tintFrom {
+				tint, tintFrom = dc, l0
+			}
+			tintTo = l1 + 1
+		}
+		drawTint()
 		// The bars of quotes, one from the first line of a run of a quote's
 		// lines to its last, rather than one a line.
 		var bars liveDeco
@@ -705,6 +734,11 @@ func (a *app) liveArea(c *ui.Context, d *editor, area ui.Element, f liveFrame) {
 			pt.Image(s.drawn.image.bitmap, r, ui.Contain)
 		case objMath:
 			s.drawn.formula.draw(pt, r, p.text)
+		case objNote:
+			// Raised to the top of its line's text.
+			span := ui.Span{Text: liveNoteLabel(snap, s), Font: family, Size: size * liveNoteSize, Color: p.accent}
+			_, th := pt.MeasureText(0, span)
+			pt.RichText(r.X+size*0.05, r.Y+r.H-size*0.4-th*0.8, 0, span)
 		case objGlyph:
 			// In the middle of the columns it takes.
 			span := ui.Span{Text: o.glyph, Font: codeFont, Size: size * 0.9, Color: p.text}
@@ -716,6 +750,9 @@ func (a *app) liveArea(c *ui.Context, d *editor, area ui.Element, f liveFrame) {
 			col := a.markdownColor(s.alert)
 			is := size * 1.1
 			pt.Icon(icon, ui.Rect{X: r.X, Y: r.Y + r.H - size*0.95, W: is, H: is}, col)
+			if s.depth == 1 {
+				break // its title follows
+			}
 			span := ui.Span{Text: title, Font: family, Size: size, Weight: 600, Color: col}
 			_, th := pt.MeasureText(0, span)
 			pt.RichText(r.X+is+size*0.45, r.Y+r.H-th*0.8, 0, span)
@@ -933,6 +970,9 @@ func (a *app) liveRange(s *liveSpan, size float32, codeFont string) ui.TextRange
 	if look.mark {
 		r.Background, r.Radius = p.modified.Alpha(0.3), 3
 	}
+	if look.tag {
+		r.Background, r.Radius = p.accent.Alpha(0.12), size*0.6
+	}
 	if look.indent > 0 {
 		// An object that draws nothing, low enough to leave its line as
 		// high as its text.
@@ -947,6 +987,13 @@ func (a *app) liveRange(s *liveSpan, size float32, codeFont string) ui.TextRange
 		r.Color = p.syntax[highlight.Heading]
 	case liveLink:
 		r.Color = p.accent
+		if !look.tag {
+			// Underlined, faint, as Obsidian's links are.
+			r.Underline, r.DecorationColor = true, p.accent.Alpha(0.4)
+		}
+	case liveUnresolved:
+		r.Color = p.accent.Alpha(0.65)
+		r.Underline, r.DecorationColor = true, p.accent.Alpha(0.2)
 	case liveAlert:
 		r.Color = a.markdownColor(look.alert)
 	}
@@ -958,7 +1005,7 @@ func (a *app) liveRange(s *liveSpan, size float32, codeFont string) ui.TextRange
 
 // liveObjectSize is the box of an object in text of size, in a column
 // width wide: its width, its height above the baseline, and below it.
-func (a *app) liveObjectSize(s *liveSpan, size, width float32, family string) (w, h, below float32) {
+func (a *app) liveObjectSize(l *liveState, snap ui.TextSnapshot, s *liveSpan, size, width float32, family string) (w, h, below float32) {
 	switch s.obj {
 	case objBullet, objRing:
 		return size * 1.1, size * 0.75, 0
@@ -980,12 +1027,28 @@ func (a *app) liveObjectSize(s *liveSpan, size, width float32, family string) (w
 	case objMath:
 		f := s.drawn.formula
 		return f.w * size, f.ascent * size, f.depth * size
+	case objNote:
+		return l.width(liveNoteLabel(snap, s), ui.Font{Family: family, Size: size * liveNoteSize}) + size*0.15, size * 0.75, 0
 	case objAlert:
+		if s.depth == 1 {
+			return size * 1.35, size * 0.95, size * 0.25 // its icon
+		}
 		_, title := markdownAlertHead(s.alert)
 		tw, _ := ui.ShapeText(title, ui.Font{Family: family, Size: size, Weight: 600}, 0).Size()
 		return size*1.55 + tw, size * 0.95, size * 0.25
 	}
 	return size, size, 0
+}
+
+// liveNoteSize is the scale of a footnote's reference to its text.
+const liveNoteSize = 0.72
+
+// liveNoteLabel is the label of the reference to a footnote s, [^label].
+func liveNoteLabel(snap ui.TextSnapshot, s *liveSpan) string {
+	if s.end > snap.Len() || s.end-s.start < 4 {
+		return ""
+	}
+	return snap.Slice(s.start+2, s.end-1)
 }
 
 // toggleTask checks the task whose box is at rune at of an editor's text,

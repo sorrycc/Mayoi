@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"unicode"
 	"unicode/utf8"
 
 	"github.com/egoist/mygo/ui"
@@ -52,6 +53,9 @@ const (
 	liveHeading
 	liveLink
 	liveAlert
+	// liveUnresolved is a link to a note there is not, as Obsidian shows
+	// one: the link's color, fainter.
+	liveUnresolved
 )
 
 // liveLook is how a span styles its runes.
@@ -65,7 +69,9 @@ type liveLook struct {
 	// block is code of a block, on its card rather than a chip.
 	block bool
 	// mark is ==highlighted== text, on a marker's yellow.
-	mark  bool
+	mark bool
+	// tag is a #tag, on a pill of the link's color.
+	tag   bool
 	color liveColor
 	// alert is the kind of the alert whose color an alert's title takes.
 	alert markdownAlert
@@ -93,6 +99,9 @@ const (
 	// objAlert is the marker of an alert with no title, as [!NOTE],
 	// drawn as its icon and its kind.
 	objAlert
+	// objNote is a reference to a footnote, [^1], drawn as its label
+	// raised, as a superscript.
+	objNote
 	// objGlyph is a rune of a block's source drawn as wide as the columns
 	// it takes, so that a table's pipes line up.
 	objGlyph
@@ -114,7 +123,8 @@ type liveSpan struct {
 	byLine bool
 	obj    liveObj
 	// depth is how many quotes the > of objQuote are of, and alert the
-	// kind of objAlert.
+	// kind of objAlert, whose depth is 1 for an alert with a title of its
+	// own, drawn as its icon alone.
 	depth uint8
 	alert markdownAlert
 }
@@ -430,8 +440,20 @@ func parseLive(source string, path, root string, full bool, cache *markdownCache
 
 	var walkInline func(n ast.Node)
 	walkInline = func(n ast.Node) {
+		// last is where the child before ended, -1 before the first.
+		last := -1
+		if n.Type() == ast.TypeBlock {
+			if l := n.Lines(); l != nil && l.Len() > 0 {
+				last = off + l.At(0).Start
+			}
+		} else {
+			last, _ = extent(n)
+		}
 		for ch := n.FirstChild(); ch != nil; ch = ch.NextSibling() {
 			s, e := extent(ch)
+			if e > last {
+				last = e
+			}
 			switch x := ch.(type) {
 			case *ast.Emphasis:
 				if s >= 0 {
@@ -469,6 +491,25 @@ func parseLive(source string, path, root string, full bool, cache *markdownCache
 					mark(s, is, s, e)
 					mark(ie, e, s, e)
 				}
+			case *ast.Text:
+				if s >= 0 {
+					liveRunText(src, s, e, x.Parent(), style, mark)
+				}
+				continue
+			case *east.FootnoteLink:
+				// [^1], which the parse does not place: after what came before.
+				if at := max(0, last); at < len(src) {
+					if i := bytes.Index(src[at:min(len(src), at+256)], []byte("[^")); i >= 0 {
+						ls := at + i + 2
+						if j := bytes.IndexByte(src[ls:min(len(src), ls+128)], ']'); j > 0 {
+							le := ls + j
+							style(ls-2, le+1, liveLook{color: liveLink})
+							add(liveSpan{start: ls - 2, end: le + 1, kind: liveObject, from: ls - 2, to: le + 1, obj: objNote})
+							last = le + 1
+						}
+					}
+				}
+				continue
 			case *ast.AutoLink:
 				if s >= 0 {
 					is, ie := s, e
@@ -673,7 +714,7 @@ func parseLive(source string, path, root string, full bool, cache *markdownCache
 			case *ast.Blockquote:
 				s, e := linesOf(x)
 				if s >= 0 {
-					alert, _ := markdownAlertOf(x, body)
+					alert, _, _ := markdownAlertOf(x, body)
 					liveQuote(src, s, e, alert, lineEnd, add, deco, style)
 				}
 				walk(x)
@@ -936,17 +977,17 @@ func liveQuote(src []byte, s, e int, alert markdownAlert, lineEnd func(int) int,
 		if alert == alertNone {
 			style(at+len(marks), end, liveLook{color: liveMuted})
 		} else if at == s {
-			// [!NOTE] is the title's mark: the title is the alert's name.
-			rest := src[at+len(marks) : end]
-			if i := bytes.IndexByte(rest, ']'); i >= 0 {
-				ms := at + len(marks)
+			// [!NOTE] draws as the alert's icon and kind; one with a title of
+			// its own, as Obsidian's [!tip] Title, as its icon before it.
+			ms := at + len(marks)
+			rest := string(src[ms:end])
+			if _, n := markdownAlertMarker(rest); n > 0 {
 				style(ms, end, liveLook{weight: 600, color: liveAlert, alert: alert})
-				if len(bytes.TrimSpace(rest[i+1:])) == 0 {
-					// No title of its own: the marker reads as the kind.
-					add(liveSpan{start: ms, end: ms + i + 1, kind: liveObject, from: ms, to: end, byLine: true, obj: objAlert, alert: alert})
-				} else {
-					add(liveSpan{start: ms, end: ms + i + 1, kind: liveMark, from: ms, to: end, byLine: true})
+				sp := liveSpan{start: ms, end: ms + n, kind: liveObject, from: ms, to: end, byLine: true, obj: objAlert, alert: alert}
+				if strings.TrimSpace(rest[n:]) != "" {
+					sp.depth = 1
 				}
+				add(sp)
 			}
 		}
 		at = end + 1
@@ -983,7 +1024,11 @@ func liveWikiLink(src []byte, s, e int, x *wikiLinkNode, path, root string, imag
 	if i := bytes.LastIndexByte(src[open:close], '|'); i >= 0 {
 		label = open + i + 1
 	}
-	style(label, close, liveLook{color: liveLink})
+	look := liveLook{color: liveLink}
+	if images && root != "" && x.target != "" && wikiLinkFile(root, path, x.target) == "" {
+		look.color = liveUnresolved
+	}
+	style(label, close, look)
 	mark(s, label, s, e)
 	mark(close, e, s, e)
 }
@@ -1154,4 +1199,63 @@ func liveTask(line string) (int, bool) {
 		return -1, false
 	}
 	return utf8.RuneCountInString(line[:m[8]+1]), line[m[8]+1] != ' '
+}
+
+// liveRunText styles what a run of text src[s:e], a child of parent, holds:
+// the \ that escapes a mark, hidden as a mark of its own, and #tags, as
+// pills, but in a link's text.
+func liveRunText(src []byte, s, e int, parent ast.Node, style func(int, int, liveLook), mark func(int, int, int, int)) {
+	tags := true
+	switch parent.(type) {
+	case *ast.Link, *ast.Image:
+		tags = false
+	}
+	for i := s; i < e; i++ {
+		switch c := src[i]; {
+		case c == '\\' && i+1 < e && liveEscapable(src[i+1]):
+			mark(i, i+1, i, i+2)
+			i++
+		case c == '#' && tags && (i == 0 || liveTagAfter(src[i-1])):
+			if j := liveTagEnd(src, i+1, e); j > i+1 {
+				style(i, j, liveLook{tag: true, color: liveLink})
+				i = j - 1
+			}
+		}
+	}
+}
+
+// liveEscapable reports whether a \ before c escapes it: an ASCII mark.
+func liveEscapable(c byte) bool {
+	return c < utf8.RuneSelf && strings.IndexByte("!\"#$%&'()*+,-./:;<=>?@[\\]^_`{|}~", c) >= 0
+}
+
+// liveTagAfter reports whether a # after c may open a tag: at a word's
+// start.
+func liveTagAfter(c byte) bool {
+	return c == ' ' || c == '\t' || c == '\n' || c == '(' || c == '\r'
+}
+
+// liveTagEnd is where the tag whose name starts at src[s] ends, before
+// e, as Obsidian reads one: letters, digits, _, - and /, not all digits;
+// s for none.
+func liveTagEnd(src []byte, s, e int) int {
+	i, word := s, false
+	for i < e {
+		r, n := utf8.DecodeRune(src[i:e])
+		switch {
+		case r == '_' || r == '-' || r == '/' || unicode.IsLetter(r) || unicode.Is(unicode.Mn, r):
+			word = true
+		case unicode.IsDigit(r):
+		default:
+			if !word {
+				return s
+			}
+			return i
+		}
+		i += n
+	}
+	if !word {
+		return s
+	}
+	return i
 }

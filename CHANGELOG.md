@@ -5,6 +5,12 @@ needs a `## <version>` section here, or its build fails.
 
 ## Unreleased
 
+- Live Preview shows `#tags` as colored pills, as in Obsidian.
+- Live Preview raises footnote references like `[^1]` as small superscript numbers.
+- Live Preview hides the backslash of escaped characters like `\*` until the caret reaches them.
+- Links in Live Preview are underlined, and wikilinks to notes that don't exist yet look faded.
+- Callouts like `> [!tip] My title` show their own title, and Obsidian's callout types are recognized.
+- Callouts are tinted in their color in both Live Preview and Reading view.
 - The sidebar's width and whether it's shown now stay the same as you switch projects and windows.
 - **Sessions** keeps **All Projects** chosen as you switch projects.
 - **Sessions** marks a session that's open in a terminal in any project with a terminal icon.

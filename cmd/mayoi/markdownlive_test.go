@@ -63,6 +63,11 @@ func TestParseLive(t *testing.T) {
 		{"a $x^2$ b\n", []string{"object:$x^2$"}},
 		{"---\nkey: v\n---\n# T\n", []string{"style:---\nkey: v\n---", "mark:# "}},
 		{"para\n\n***\n", []string{"mark:***"}},
+		{"a \\*not\\* it\n", []string{"mark:\\"}},
+		{"see #tag/sub, (#two) end\n", []string{"style:#tag/sub", "style:#two"}},
+		{"said[^1] so\n\n[^1]: x\n", []string{"object:[^1]"}},
+		{"> [!tip] Own title\n> body\n", []string{"object:[!tip]", "style:[!tip] Own title"}},
+		{"> [!info]-\n> body\n", []string{"object:[!info]-"}},
 	} {
 		got := liveSpans(liveParse(tc.src), tc.src)
 		for _, w := range tc.want {
@@ -438,5 +443,42 @@ func TestLiveBlockGlides(t *testing.T) {
 	hs.settle()
 	if back := d.lines.Top(end); back < drawn-1 || back > drawn+1 {
 		t.Errorf("the text below settled at %v, not %v", back, drawn)
+	}
+}
+
+// A # is a tag at a word's start, of more than digits; not in code, a
+// heading's marks or a link's text.
+func TestParseLiveTags(t *testing.T) {
+	src := "# C#sharp #123 `#code` [#link](x) x#y #ok #a1\n"
+	r := []rune(src)
+	var tags []string
+	for _, sp := range liveParse(src).spans {
+		if sp.look.tag {
+			tags = append(tags, string(r[sp.start:sp.end]))
+		}
+	}
+	if fmt.Sprint(tags) != "[#ok #a1]" {
+		t.Errorf("tags %q", tags)
+	}
+}
+
+// A wiki link to a note there is not reads fainter than one to a note
+// there is, as in Obsidian.
+func TestParseLiveUnresolved(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(dir+"/there.md", []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	src := "[[there]] and [[nowhere]]\n"
+	doc := parseLive(src, dir+"/note.md", dir, true, &markdownCache{})
+	r := []rune(src)
+	looks := map[string]liveColor{}
+	for _, sp := range doc.spans {
+		if sp.kind == liveStyle {
+			looks[string(r[sp.start:sp.end])] = sp.look.color
+		}
+	}
+	if looks["there"] != liveLink || looks["nowhere"] != liveUnresolved {
+		t.Errorf("looks %v", looks)
 	}
 }

@@ -1745,3 +1745,22 @@ func TestMarkdownSplitKeepsPreviewPlace(t *testing.T) {
 		})
 	}
 }
+
+// Obsidian's callouts are alerts: by their own names, with a title of
+// their own, folded or not.
+func TestMarkdownCallouts(t *testing.T) {
+	src := "> [!tip]- Own *title*\n> Body.\n\n> [!danger]\n> Risky.\n\n> [!NOTE]x\n> Not one.\n"
+	blocks := parseMarkdown([]byte(src), "test.md", "", nil)
+	var got []string
+	for _, b := range blocks {
+		if b.kind == markdownAlertTitle {
+			got = append(got, "title:"+strconv.Itoa(int(b.alert))+":"+b.title)
+		} else {
+			got = append(got, strconv.Itoa(int(b.alert))+":"+markdownRunsText(b.runs))
+		}
+	}
+	want := []string{"title:2:Own title", "2:Body.", "title:5:", "5:Risky.", "0:[!NOTE]x Not one."}
+	if strings.Join(got, "|") != strings.Join(want, "|") {
+		t.Fatalf("callouts:\n got %q\nwant %q", got, want)
+	}
+}

@@ -127,8 +127,14 @@ const (
 	alertCaution
 )
 
+// markdownAlerts are the kinds of alerts by their markers: GitHub's five,
+// and Obsidian's callouts, as [!info] or [!danger], as the closest of them.
 var markdownAlerts = map[string]markdownAlert{
 	"NOTE": alertNote, "TIP": alertTip, "IMPORTANT": alertImportant, "WARNING": alertWarning, "CAUTION": alertCaution,
+	"INFO": alertNote, "ABSTRACT": alertNote, "SUMMARY": alertNote, "TLDR": alertNote, "TODO": alertNote, "QUOTE": alertNote, "CITE": alertNote,
+	"HINT": alertTip, "SUCCESS": alertTip, "CHECK": alertTip, "DONE": alertTip,
+	"QUESTION": alertImportant, "HELP": alertImportant, "FAQ": alertImportant, "EXAMPLE": alertImportant,
+	"ATTENTION": alertWarning, "DANGER": alertCaution, "ERROR": alertCaution, "FAILURE": alertCaution, "FAIL": alertCaution, "MISSING": alertCaution, "BUG": alertCaution,
 }
 
 type markdownImageKey struct {
@@ -183,6 +189,9 @@ type markdownBlock struct {
 	// depth of its quote.
 	alert   markdownAlert
 	alertAt int
+	// title is an alert's own title, as Obsidian's [!NOTE] Title, which
+	// stands for the word of its kind.
+	title string
 	// slug is a heading's anchor, as GitHub makes it, which a link to
 	// #slug scrolls to.
 	slug string
@@ -812,7 +821,8 @@ func parseMarkdown(source []byte, path, root string, current func() bool, caches
 		return out
 	}
 	// alert and alertAt are those of the alert being walked; strip is the
-	// length of its marker, which its first paragraph drops.
+	// length of its marker, which its first paragraph drops, or less that
+	// for one with a title of its own, whose first line goes with it.
 	alert, alertAt, strip := alertNone, 0, 0
 	slugs := map[string]int{}
 	// anchor gives a heading its slug, numbered after the first of a text.
@@ -898,6 +908,19 @@ func parseMarkdown(source []byte, path, root string, current func() bool, caches
 			anchor(&b)
 		case *ast.Paragraph, *ast.TextBlock:
 			b.kind = markdownParagraph
+			if strip < 0 {
+				// An alert's title, its first line, is its title's row, after
+				// its marker, as it reads.
+				if t := len(blocks) - 1; t >= 0 && blocks[t].kind == markdownAlertTitle {
+					head := ast.NewParagraph()
+					markdownDropFirstLine(n, head)
+					title := markdownTrimRuns(inline(head, markdownInline{}), -strip)
+					if text := strings.TrimSpace(markdownRunsText(title)); text != "" {
+						blocks[t].title = text
+					}
+				}
+				strip = 0
+			}
 			b.runs = inline(n, markdownInline{})
 			if strip > 0 {
 				b.runs = markdownTrimRuns(b.runs, strip)
@@ -941,10 +964,14 @@ func parseMarkdown(source []byte, path, root string, current func() bool, caches
 			return
 		case *ast.Blockquote:
 			outer, outerAt := alert, alertAt
-			if k, n := markdownAlertOf(x, source); k != alertNone {
+			if k, title, n := markdownAlertOf(x, source); k != alertNone {
 				alert, alertAt, strip = k, quote+1, n
+				if title != "" {
+					// Its first line goes, whatever its marks: -n.
+					strip = -n
+				}
 				blocks = append(blocks, markdownBlock{kind: markdownAlertTitle, indent: indent, quote: quote + 1, marker: marker, tight: tight,
-					offset: offset, markerWidth: markerWidth, alert: k, alertAt: quote + 1, line: b.line})
+					offset: offset, markerWidth: markerWidth, alert: k, alertAt: quote + 1, title: title, line: b.line})
 				if marker != "" {
 					offset += markerWidth + 0.5
 					markerWidth = 0
@@ -1114,18 +1141,78 @@ func markdownStart(n ast.Node) int {
 }
 
 // markdownAlertOf returns the kind of the alert a quote is, by the marker
-// alone on its first line, as [!NOTE], and the marker's length in runes.
-func markdownAlertOf(q *ast.Blockquote, source []byte) (markdownAlert, int) {
+// its first line opens with, as [!NOTE], the title after it, as Obsidian's
+// callouts have, and the marker's length in runes. A - or + after the
+// marker, which folds an Obsidian callout, is part of it.
+func markdownAlertOf(q *ast.Blockquote, source []byte) (markdownAlert, string, int) {
 	p, ok := q.FirstChild().(*ast.Paragraph)
 	if !ok || p.Lines().Len() == 0 {
-		return alertNone, 0
+		return alertNone, "", 0
 	}
 	seg := p.Lines().At(0)
 	line := strings.TrimSpace(string(seg.Value(source)))
-	if len(line) < 4 || !strings.HasPrefix(line, "[!") || !strings.HasSuffix(line, "]") {
+	k, n := markdownAlertMarker(line)
+	if k == alertNone {
+		return alertNone, "", 0
+	}
+	return k, strings.TrimSpace(line[n:]), utf8.RuneCountInString(line[:n])
+}
+
+// markdownDropFirstLine moves the inline nodes of a paragraph's first
+// line from it to head.
+func markdownDropFirstLine(p, head ast.Node) {
+	if p.Lines().Len() == 0 {
+		return
+	}
+	end := p.Lines().At(0).Stop
+	for ch := p.FirstChild(); ch != nil; {
+		next := ch.NextSibling()
+		if at := markdownNodeStart(ch); at >= end {
+			return
+		}
+		p.RemoveChild(p, ch)
+		head.AppendChild(head, ch)
+		ch = next
+	}
+}
+
+// markdownNodeStart is where an inline node's text starts, -1 for unknown.
+func markdownNodeStart(n ast.Node) int {
+	switch x := n.(type) {
+	case *ast.Text:
+		return x.Segment.Start
+	case *wikiLinkNode:
+		return x.start
+	case *mathNode:
+		return x.start
+	}
+	for ch := n.FirstChild(); ch != nil; ch = ch.NextSibling() {
+		if at := markdownNodeStart(ch); at >= 0 {
+			return at
+		}
+	}
+	return -1
+}
+
+// markdownAlertMarker is the kind of the alert whose marker line opens
+// with, and the marker's length in bytes, with the - or + that folds it.
+func markdownAlertMarker(line string) (markdownAlert, int) {
+	if !strings.HasPrefix(line, "[!") {
 		return alertNone, 0
 	}
-	return markdownAlerts[strings.ToUpper(line[2:len(line)-1])], utf8.RuneCountInString(line)
+	i := strings.IndexByte(line, ']')
+	if i < 3 {
+		return alertNone, 0
+	}
+	k := markdownAlerts[strings.ToUpper(line[2:i])]
+	n := i + 1
+	if n < len(line) && (line[n] == '-' || line[n] == '+') {
+		n++
+	}
+	if k == alertNone || n < len(line) && line[n] != ' ' && line[n] != '\t' {
+		return alertNone, 0
+	}
+	return k, n
 }
 
 // markdownTrimRuns drops the first n runes of the text of runs, and the
@@ -1547,6 +1634,9 @@ func (a *app) markdownColor(k markdownAlert) ui.Color {
 	}
 	return ui.Hex(light[k])
 }
+
+// alertTint is how strongly an alert's color tints its lines.
+const alertTint = 0.08
 
 // markdownAlertHead is the icon and the word that open an alert.
 func markdownAlertHead(k markdownAlert) (*ui.SVG, string) {
@@ -2042,7 +2132,12 @@ func (a *app) markdownRow(c *ui.Context, v *viewer, i int, width float32, font u
 		row.Bind(bind)
 	}
 	row.WidthPercent(100).Justify(ui.Center).Margin(0, 0, outside, 0).Children(func() {
-		ui.Row(c).WidthPercent(100).MaxWidth(m.measure).AlignItems(ui.Start).Padding(0, 0, 0, b.offset*size).Gap(size * 0.5).Children(func() {
+		inner := ui.Row(c).WidthPercent(100).MaxWidth(m.measure).AlignItems(ui.Start).Padding(0, 0, 0, b.offset*size).Gap(size * 0.5)
+		if b.alert != alertNone && b.quote >= b.alertAt {
+			// An alert is tinted its color, as Obsidian's callouts are.
+			inner.Background(a.markdownColor(b.alert).Alpha(alertTint))
+		}
+		inner.Children(func() {
 			for i := range b.quote {
 				bar := p.guideNow
 				if b.alert != alertNone && i == b.alertAt-1 {
@@ -2105,6 +2200,9 @@ func (a *app) markdownRow(c *ui.Context, v *viewer, i int, width float32, font u
 					a.markdownTableRow(c, m, path, i, size, width, font)
 				case markdownAlertTitle:
 					icon, title := markdownAlertHead(b.alert)
+					if b.title != "" {
+						title = b.title
+					}
 					col := a.markdownColor(b.alert)
 					ui.Row(c).AlignItems(ui.Center).Gap(size * 0.45).Height(size * lh).Children(func() {
 						ui.Icon(c, icon).FontSize(size * 1.1).TextColor(col)

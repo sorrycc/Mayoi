@@ -862,7 +862,8 @@ const featKeys = `// Keyboard shortcuts, in VS Code's format: "key" is a key or 
 const featLiveMD = "# Field notes\n\n" +
 	"Mayoi edits Markdown *as it reads*: the marks of **what the caret touches** show, faint, and the rest " +
 	"hide away. Code like `go test ./...`, ==highlights== and ~~struck text~~ keep their look; " +
-	"[links](https://example.com) stay links.\n\n" +
+	"[links](https://example.com) stay links, [[notes]] and [[a note to write]] too; tags read as #pills " +
+	"and footnotes stay small.[^1]\n\n" +
 	"## Lists\n\n" +
 	"- A first item, long enough to wrap onto a second line of the column so its indent shows\n" +
 	"- A second item\n" +
@@ -874,12 +875,13 @@ const featLiveMD = "# Field notes\n\n" +
 	"- [x] Draw the boxes\n- [ ] Animate them\n\n" +
 	"> A quote reads muted, behind a bar,\n> over as many lines as it takes.\n\n" +
 	"> [!NOTE]\n> An alert takes its kind's color.\n\n" +
+	"> [!tip] Callouts have titles\n> As Obsidian's do, tinted their color.\n\n" +
 	"---\n\n" +
 	"## Code and tables\n\n" +
 	"```go\nfunc main() {\n\tfmt.Println(\"hello\")\n}\n```\n\n" +
 	"| Key  | Action        |\n|------|---------------|\n| ⌘P   | Quick open    |\n| ⇧⌘F  | Find in files |\n\n" +
 	"Inline math $e^{i\\pi}+1=0$ sits in its line.\n\n" +
-	"#### A fourth level\n\nAnd its paragraph.\n"
+	"#### A fourth level\n\nAnd its paragraph.\n\n[^1]: A footnote.\n"
 
 // Live Preview of a note, the caret in its first paragraph.
 func TestFeatLivePreview(t *testing.T) {

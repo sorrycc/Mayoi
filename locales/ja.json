@@ -1703,5 +1703,13 @@
   "sessionsCopiedTranscript": "トランスクリプトをコピーしました",
   "sessionsDirGone": "{dir} がないため、そこでセッションを再開できません",
   "prefTitleAgentSessionsClaudeDirs": "その他の Claude Code フォルダ",
-  "prefDescAgentSessionsClaudeDirs": "~/.claude、各 ~/.claude-* フォルダ、$CLAUDE_CONFIG_DIR のほかに、セッションビューがセッションを一覧する Claude Code の設定フォルダ。"
+  "prefDescAgentSessionsClaudeDirs": "~/.claude、各 ~/.claude-* フォルダ、$CLAUDE_CONFIG_DIR のほかに、セッションビューがセッションを一覧する Claude Code の設定フォルダ。",
+  "cmdMarkdownToggleTask": "タスクを切り替え",
+  "cmdMarkdownToggleList": "箇条書き・番号付きリストを切り替え",
+  "cmdMarkdownToggleQuote": "引用を切り替え",
+  "cmdMarkdownHeading": "見出し {level} を切り替え",
+  "cmdMarkdownClearFormatting": "行の書式をクリア",
+  "cmdMarkdownToggleEmbed": "埋め込みを切り替え",
+  "cmdSelJoinLines": "行を結合",
+  "menuMarkdown": "Markdown"
 }

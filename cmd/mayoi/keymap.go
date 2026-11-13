@@ -229,6 +229,7 @@ var vscodeCommands = map[string]string{
 	"expandLineSelection":                        "sel.line",
 	"editor.action.indentUsingTabs":              "sel.indentTabs",
 	"editor.action.transformToCamelcase":         "sel.camelCase",
+	"editor.action.joinLines":                    "sel.joinLines",
 	"editor.action.sortLinesAscending":           "sel.sortAsc",
 	"editor.action.sortLinesDescending":          "sel.sortDesc",
 	"editor.action.jumpToBracket":                "go.bracket",

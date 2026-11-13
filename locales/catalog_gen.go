@@ -17227,3 +17227,83 @@ func PrefDescAgentSessionsClaudeDirs() string {
 func (msgs Messages) PrefDescAgentSessionsClaudeDirs() string {
 	return Catalog.Format(msgs.locale, "prefDescAgentSessionsClaudeDirs", nil)
 }
+
+// CmdMarkdownToggleTask says "Toggle Task"
+// in the language the app shows.
+func CmdMarkdownToggleTask() string { return In(i18n.Locale()).CmdMarkdownToggleTask() }
+
+// CmdMarkdownToggleTask says "Toggle Task"
+// in the language of msgs.
+func (msgs Messages) CmdMarkdownToggleTask() string {
+	return Catalog.Format(msgs.locale, "cmdMarkdownToggleTask", nil)
+}
+
+// CmdMarkdownToggleList says "Toggle Bulleted or Numbered List"
+// in the language the app shows.
+func CmdMarkdownToggleList() string { return In(i18n.Locale()).CmdMarkdownToggleList() }
+
+// CmdMarkdownToggleList says "Toggle Bulleted or Numbered List"
+// in the language of msgs.
+func (msgs Messages) CmdMarkdownToggleList() string {
+	return Catalog.Format(msgs.locale, "cmdMarkdownToggleList", nil)
+}
+
+// CmdMarkdownToggleQuote says "Toggle Quote"
+// in the language the app shows.
+func CmdMarkdownToggleQuote() string { return In(i18n.Locale()).CmdMarkdownToggleQuote() }
+
+// CmdMarkdownToggleQuote says "Toggle Quote"
+// in the language of msgs.
+func (msgs Messages) CmdMarkdownToggleQuote() string {
+	return Catalog.Format(msgs.locale, "cmdMarkdownToggleQuote", nil)
+}
+
+// CmdMarkdownHeading says "Toggle Heading {level}"
+// in the language the app shows.
+func CmdMarkdownHeading(level string) string { return In(i18n.Locale()).CmdMarkdownHeading(level) }
+
+// CmdMarkdownHeading says "Toggle Heading {level}"
+// in the language of msgs.
+func (msgs Messages) CmdMarkdownHeading(level string) string {
+	return Catalog.Format(msgs.locale, "cmdMarkdownHeading", map[string]any{"level": level})
+}
+
+// CmdMarkdownClearFormatting says "Clear Line Formatting"
+// in the language the app shows.
+func CmdMarkdownClearFormatting() string { return In(i18n.Locale()).CmdMarkdownClearFormatting() }
+
+// CmdMarkdownClearFormatting says "Clear Line Formatting"
+// in the language of msgs.
+func (msgs Messages) CmdMarkdownClearFormatting() string {
+	return Catalog.Format(msgs.locale, "cmdMarkdownClearFormatting", nil)
+}
+
+// CmdMarkdownToggleEmbed says "Toggle Embed"
+// in the language the app shows.
+func CmdMarkdownToggleEmbed() string { return In(i18n.Locale()).CmdMarkdownToggleEmbed() }
+
+// CmdMarkdownToggleEmbed says "Toggle Embed"
+// in the language of msgs.
+func (msgs Messages) CmdMarkdownToggleEmbed() string {
+	return Catalog.Format(msgs.locale, "cmdMarkdownToggleEmbed", nil)
+}
+
+// CmdSelJoinLines says "Join Lines"
+// in the language the app shows.
+func CmdSelJoinLines() string { return In(i18n.Locale()).CmdSelJoinLines() }
+
+// CmdSelJoinLines says "Join Lines"
+// in the language of msgs.
+func (msgs Messages) CmdSelJoinLines() string {
+	return Catalog.Format(msgs.locale, "cmdSelJoinLines", nil)
+}
+
+// MenuMarkdown says "Markdown"
+// in the language the app shows.
+func MenuMarkdown() string { return In(i18n.Locale()).MenuMarkdown() }
+
+// MenuMarkdown says "Markdown"
+// in the language of msgs.
+func (msgs Messages) MenuMarkdown() string {
+	return Catalog.Format(msgs.locale, "menuMarkdown", nil)
+}

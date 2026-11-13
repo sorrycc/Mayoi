@@ -208,8 +208,11 @@ func outdentWidth(line string, style indentStyle) int {
 }
 
 // tab indents: the lines of a selection over several, or else the caret
-// to the next stop.
+// to the next stop. In Markdown, items of a list indent whole.
 func tab(d *editor, outdent bool) {
+	if mdIndent(d, outdent) {
+		return
+	}
 	snap := d.buf.Snapshot()
 	a, b := min(d.sel[0], d.sel[1]), max(d.sel[0], d.sel[1])
 	if outdent || snap.LineAt(min(a, snap.Len())) != snap.LineAt(min(b, snap.Len())) {
@@ -232,8 +235,11 @@ var pairs = map[byte]byte{'{': '}', '[': ']', '(': ')'}
 // newline breaks the line at the caret, indenting the new line as the
 // one it leaves, and a level more after an opening bracket or a colon
 // that starts a block. Between brackets, the closing one goes to a line
-// of its own.
+// of its own. In Markdown, an item of a list or a quote goes on.
 func newline(d *editor) {
+	if mdNewline(d) {
+		return
+	}
 	snap := d.buf.Snapshot()
 	a, b := min(d.sel[0], d.sel[1]), max(d.sel[0], d.sel[1])
 	line := snap.LineAt(a)
@@ -437,8 +443,12 @@ func selectAll(d *editor) {
 	d.quiet = true
 }
 
-// insertLine opens a line below the caret's, or above, with its indent.
+// insertLine opens a line below the caret's, or above, with its indent,
+// and in Markdown as an item of its list or quote.
 func insertLine(d *editor, above bool) {
+	if mdInsertLine(d, above) {
+		return
+	}
 	snap := d.buf.Snapshot()
 	caret := min(d.sel[1], snap.Len())
 	line := snap.LineAt(caret)

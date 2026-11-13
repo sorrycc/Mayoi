@@ -1931,5 +1931,13 @@
   "sessionsCopiedTranscript": "Copied the transcript",
   "sessionsDirGone": "{dir} is gone, so the session can't resume in it",
   "prefTitleAgentSessionsClaudeDirs": "More Claude Code Folders",
-  "prefDescAgentSessionsClaudeDirs": "Config folders of Claude Code whose sessions the Sessions view lists, besides ~/.claude, each ~/.claude-* folder and $CLAUDE_CONFIG_DIR."
+  "prefDescAgentSessionsClaudeDirs": "Config folders of Claude Code whose sessions the Sessions view lists, besides ~/.claude, each ~/.claude-* folder and $CLAUDE_CONFIG_DIR.",
+  "cmdMarkdownToggleTask": "Toggle Task",
+  "cmdMarkdownToggleList": "Toggle Bulleted or Numbered List",
+  "cmdMarkdownToggleQuote": "Toggle Quote",
+  "cmdMarkdownHeading": "Toggle Heading {level}",
+  "cmdMarkdownClearFormatting": "Clear Line Formatting",
+  "cmdMarkdownToggleEmbed": "Toggle Embed",
+  "cmdSelJoinLines": "Join Lines",
+  "menuMarkdown": "Markdown"
 }

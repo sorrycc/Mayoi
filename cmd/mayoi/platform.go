@@ -33,6 +33,13 @@ var otherAccels = map[string]string{
 	"view.prevColumn":        "",
 	"git.collapseAllFiles":   "",
 	"git.expandAllFiles":     "",
+	// Control and Alt with a digit show a project of the rail there.
+	"markdown.heading1": "",
+	"markdown.heading2": "",
+	"markdown.heading3": "",
+	"markdown.heading4": "",
+	"markdown.heading5": "",
+	"markdown.heading6": "",
 }
 
 // platformAccel is a command's accelerator on the system: on Windows and

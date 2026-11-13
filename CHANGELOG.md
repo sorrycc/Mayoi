@@ -16,6 +16,12 @@ needs a `## <version>` section here, or its build fails.
 - Filtering Quick Open, symbols or commands keeps the selected result in view.
 - A folder holding many Git repositories no longer makes the window sluggish.
 - Typing a bracket or quote that closes itself no longer scrolls or shakes the editor.
+- In Markdown, `Enter` continues a list, task list or quote, and on an empty item ends it.
+- In Markdown, `⌘Enter` and `⇧⌘Enter` open a new item of the list or quote below or above.
+- In Markdown, `Tab` and `⇧Tab` indent or outdent a whole list item wherever the caret is.
+- **Edit ▸ Markdown** toggles tasks, lists, quotes, headings and embeds, and clears a line's formatting.
+- `⌥⌘1` to `⌥⌘6` toggle a Markdown heading of that level on macOS.
+- **Selection ▸ Join Lines** joins the selected lines, or the caret's line with the next, into one.
 - **Sessions** shows what Qoder and Codex sessions do, as it does for Claude Code sessions.
 - **Sessions** shows what sessions running in Mayoi's own terminals do, without `terminalBackend` set to `"hc"`.
 - New Live Preview edits Markdown as it reads: headings, emphasis, links and code styled, their marks hidden.

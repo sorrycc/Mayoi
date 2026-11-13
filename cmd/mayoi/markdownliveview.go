@@ -52,6 +52,10 @@ type liveState struct {
 	// rooms are how high the lines of callouts that fold showed below
 	// their titles, by their keys, the room that glides as one folds.
 	rooms map[string]float32
+	// titles are the keys of the callouts that fold, by the runes their
+	// lines start at, as the last frame saw them, by which one keeps
+	// whether it is folded as its title is edited.
+	titles map[int]string
 }
 
 // liveWidthKey is a run of text in a font.
@@ -356,12 +360,29 @@ func (a *app) liveArea(c *ui.Context, d *editor, area ui.Element, f liveFrame) {
 	var codes []liveDeco
 	// The bullet whose mark shows first, as at+1, to fade between them.
 	marker := 0
+	// The link under the pointer, whose underline fills in.
+	if hover := a.liveHovered(d, area, doc, f); hover != d.liveHover {
+		d.liveHoverWas, d.liveHover, d.liveHoverAt = d.liveHover, hover, now
+	}
+	hoverIn := float32(1)
+	if since := now.Sub(d.liveHoverAt); since >= 0 && since < motionHover {
+		hoverIn = ui.EaseOut(float32(since) / float32(motionHover))
+		c.AnimationFrame()
+	}
 	if doc != nil {
 		// The spans that reach the lines about the view.
 		doc.visit(from, to, func(s *liveSpan) {
 			switch s.kind {
 			case liveStyle:
 				r := a.liveRange(s, size, codeFont)
+				if liveLinkLook(s.look) {
+					switch s.start + 1 {
+					case d.liveHover:
+						r.DecorationColor = r.DecorationColor.Mix(r.Color, hoverIn)
+					case d.liveHoverWas:
+						r.DecorationColor = r.DecorationColor.Mix(r.Color, 1-hoverIn)
+					}
+				}
 				if s.look.hang > 0 {
 					if w := a.liveHang(l, snap, s, size, textFont); w > 0 {
 						r.ObjectWidth, r.ObjectHeight = w/float32(s.end-s.start), 1
@@ -906,6 +927,48 @@ func (a *app) liveArea(c *ui.Context, d *editor, area ui.Element, f liveFrame) {
 	})
 }
 
+// liveLinkLook reports whether a span of look is the text of a link,
+// underlined.
+func liveLinkLook(look liveLook) bool {
+	return !look.tag && (look.color == liveLink || look.color == liveUnresolved)
+}
+
+// liveHovered is the link of Live Preview the pointer is over in an
+// editor's text area, as the rune its text starts at plus one, 0 for none
+// or while the pointer selects.
+func (a *app) liveHovered(d *editor, area ui.Element, doc *liveDoc, f liveFrame) int {
+	px, py, over := area.PointerPosition()
+	if !over || doc == nil || f.g.lines == nil || d.selecting {
+		return 0
+	}
+	x, y := px-f.left, py+d.vscroll.Y-editorPadY
+	line := f.g.at(y)
+	ls, le := f.snap.LineRange(line)
+	hover := 0
+	doc.visit(ls, le, func(s *liveSpan) {
+		if hover != 0 || s.kind != liveStyle || !liveLinkLook(s.look) || s.start < ls || s.end > le {
+			return
+		}
+		x0, y0, h0, ok := d.lines.Caret(s.start)
+		x1, y1, h1, ok1 := d.lines.Caret(s.end)
+		if !ok || !ok1 {
+			return
+		}
+		var in bool
+		if y0 == y1 {
+			in = y >= y0 && y < y0+h0 && x >= x0 && x <= x1
+		} else {
+			// Wrapped: from its start to the end of its first row, the rows
+			// between, and its last row up to its end.
+			in = y >= y0 && y < y0+h0 && x >= x0 || y >= y0+h0 && y < y1 || y >= y1 && y < y1+h1 && x <= x1
+		}
+		if in {
+			hover = s.start + 1
+		}
+	})
+	return hover
+}
+
 // liveDrawn is an object a frame of Live Preview draws: its span, whether
 // it shows as its source, as a bullet's mark does, and the rune it draws
 // for objGlyph.
@@ -1041,6 +1104,8 @@ func (a *app) liveRange(s *liveSpan, size float32, codeFont string) ui.TextRange
 	case liveUnresolved:
 		r.Color = p.accent.Alpha(0.65)
 		r.Underline, r.DecorationColor = true, p.accent.Alpha(0.2)
+	case liveNote:
+		r.Color = p.accent
 	case liveAlert:
 		r.Color = a.markdownColor(look.alert)
 	}
@@ -1092,8 +1157,12 @@ func (a *app) liveObjectSize(l *liveState, snap ui.TextSnapshot, s *liveSpan, si
 // liveNoteSize is the scale of a footnote's reference to its text.
 const liveNoteSize = 0.72
 
-// liveNoteLabel is the label of the reference to a footnote s, [^label].
+// liveNoteLabel is how the reference to a footnote s, [^label], reads:
+// the footnote's number, as the Reading view numbers it, or its label.
 func liveNoteLabel(snap ui.TextSnapshot, s *liveSpan) string {
+	if s.drawn != nil && s.drawn.note != "" {
+		return s.drawn.note
+	}
 	if s.end > snap.Len() || s.end-s.start < 4 {
 		return ""
 	}
@@ -1258,7 +1327,7 @@ func (a *app) liveFolds(c *ui.Context, d *editor, l *liveState, doc *liveDoc, ar
 	now := c.Now()
 	var folds []liveFold
 	for _, co := range doc.callouts {
-		if co.end < from || co.start > to || co.start >= n || onLines(co.start, co.end) {
+		if co.end < from || co.start > to || co.start >= n {
 			continue
 		}
 		title, last := snap.LineAt(co.start), snap.LineAt(min(co.end, n))
@@ -1266,6 +1335,10 @@ func (a *app) liveFolds(c *ui.Context, d *editor, l *liveState, doc *liveDoc, ar
 		alert, _ := markdownAlertMarker(key)
 		if alert == alertNone || markdownAlertFold(key) == 0 {
 			continue // edited since the parse
+		}
+		liveRetitle(d.document, l, co.start, key)
+		if onLines(co.start, co.end) {
+			continue
 		}
 		_, end := snap.LineRange(title)
 		fd := liveFold{title: title, end: end, last: last, key: key, fold: co.fold, alert: alert}
@@ -1305,6 +1378,31 @@ func (a *app) liveFolds(c *ui.Context, d *editor, l *liveState, doc *liveDoc, ar
 		folds = append(folds, fd)
 	}
 	return folds
+}
+
+// liveRetitle notes that the callout whose line starts at rune start has
+// the key key, and if its title was edited since the last frame, moves
+// whether it is folded from its old key to it: unless its - or + changed,
+// which says anew how it shows.
+func liveRetitle(doc *document, l *liveState, start int, key string) {
+	was, ok := l.titles[start]
+	if ok && was != key && markdownAlertFold(was) == markdownAlertFold(key) {
+		if folded, set := doc.folds[was]; set {
+			if _, taken := doc.folds[key]; !taken {
+				doc.folds[key] = folded
+				delete(doc.folds, was)
+				if doc.foldKey == was {
+					doc.foldKey = key
+				}
+			}
+		}
+	}
+	if !ok || was != key {
+		if l.titles == nil || len(l.titles) > 256 {
+			l.titles = map[int]string{}
+		}
+		l.titles[start] = key
+	}
 }
 
 // liveCalloutKey is the marker line of the callout whose title is line,

@@ -33,7 +33,8 @@ The order: it works, then it is easy, then it looks good. Polish never covers a 
   once. The indent of a nested list keeps its width wherever the caret is, and so do a bullet and a task's box: the
   caret at them shows their source in the same room. The room a block's drawing gives up as the caret goes in, and
   takes as it leaves, glides over `motionMove`, so the text below moves over (`TestLiveMarkersHoldStill`, `TestLiveBlockGlides`). A callout folded or
-  opened by its chevron glides the same way, its chevron turning over `motionHover` (`TestLiveCalloutFolds`).
+  opened by its chevron glides the same way, its chevron turning over `motionHover` (`TestLiveCalloutFolds`). A link's
+  underline fills in under the pointer over `motionHover`, and nothing else about it changes (`TestLiveLinkHover`).
 
 ## States
 

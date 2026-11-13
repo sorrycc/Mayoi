@@ -10,10 +10,10 @@ import (
 	"github.com/yuin/goldmark/ast"
 )
 
-// A note embedded, ![[note]] or ![[note#heading]] alone in its paragraph,
-// shows in place, as Obsidian shows it: the note, or the part of it under
-// the heading, after a bar of the accent, under a line naming it, which a
-// click opens. A note embedded in one embedded is a link, and so is one
+// A note embedded, ![[note]], ![[note#heading]] or ![[note#^id]] alone in
+// its paragraph, shows in place, as Obsidian shows it: the note, the part
+// of it under the heading, or the block of the id, after a bar of the
+// accent, under a line naming it, which a click opens. A note embedded in one embedded is a link, and so is one
 // not found.
 
 // markdownEmbedMax is the most of a note, in bytes, that shows embedded.
@@ -69,8 +69,8 @@ func markdownEmbedText(file, heading string) ([]byte, bool) {
 	if heading == "" {
 		return data, true
 	}
-	if strings.HasPrefix(heading, "^") {
-		return nil, false // a block's id, which needs Obsidian's index
+	if id, ok := strings.CutPrefix(heading, "^"); ok {
+		return markdownBlockText(data, id)
 	}
 	line := markdownHeadingLine(data, heading)
 	if line < 0 {
@@ -128,4 +128,98 @@ func markdownEmbedName(file, heading string) string {
 		name += " › " + heading
 	}
 	return name
+}
+
+// markdownBlockID is where the id of a block, ^id, starts at the end of
+// line, after white space or alone on it, as Obsidian marks a block to
+// link to; -1 for none.
+func markdownBlockID(line []byte) int {
+	i := len(line)
+	for i > 0 && (line[i-1] == '-' || line[i-1] >= '0' && line[i-1] <= '9' || line[i-1]|0x20 >= 'a' && line[i-1]|0x20 <= 'z') {
+		i--
+	}
+	if i == len(line) || i == 0 || line[i-1] != '^' {
+		return -1
+	}
+	at := i - 1
+	if at > 0 && line[at-1] != ' ' && line[at-1] != '\t' {
+		return -1
+	}
+	return at
+}
+
+// markdownBlockIDIn is where the id of a block starts in the run of text
+// src[s:e], which ends its line, -1 for none.
+func markdownBlockIDIn(src []byte, s, e int) int {
+	if e < len(src) && src[e] != '\n' && src[e] != '\r' {
+		return -1
+	}
+	at := markdownBlockID(src[s:e])
+	switch {
+	case at < 0:
+		return -1
+	case at == 0 && s > 0 && src[s-1] != ' ' && src[s-1] != '\t' && src[s-1] != '\n':
+		return -1
+	}
+	return s + at
+}
+
+// markdownBlockText is the block of data whose id is id, without it: the
+// paragraph or the item of a list whose last line ends in ^id, with the
+// items in it, or the block above a line of ^id alone; false for none.
+func markdownBlockText(data []byte, id string) ([]byte, bool) {
+	if id == "" {
+		return nil, false
+	}
+	lines := strings.SplitAfter(string(data), "\n")
+	blank := func(i int) bool { return strings.TrimSpace(lines[i]) == "" }
+	for i, line := range lines {
+		body := strings.TrimRight(line, "\r\n")
+		at := markdownBlockID([]byte(body))
+		if at < 0 || body[at+1:] != id {
+			continue
+		}
+		if strings.TrimSpace(body[:at]) == "" {
+			// ^id alone: the block above it.
+			end := i
+			for end > 0 && blank(end-1) {
+				end--
+			}
+			start := end
+			for start > 0 && !blank(start-1) {
+				start--
+			}
+			if start == end {
+				return nil, false
+			}
+			return []byte(strings.Join(lines[start:end], "")), true
+		}
+		lines[i] = strings.TrimRight(body[:at], " \t") + line[len(body):]
+		if m := liveListMarker.FindStringSubmatchIndex(lines[i]); m != nil {
+			// An item, with those under it, from its marker.
+			indent := len(lines[i][:m[4]]) - len(strings.TrimLeft(lines[i][:m[4]], " \t"))
+			end := i + 1
+			for end < len(lines) && !blank(end) {
+				rest := strings.TrimLeft(lines[end], " \t")
+				if len(lines[end])-len(rest) <= indent {
+					break
+				}
+				end++
+			}
+			out := make([]string, 0, end-i)
+			for _, l := range lines[i:end] {
+				out = append(out, l[min(indent, len(l)-len(strings.TrimLeft(l, " \t"))):])
+			}
+			return []byte(strings.Join(out, "")), true
+		}
+		// A paragraph, from the line after the blank line, heading or item
+		// above it.
+		opens := func(l string) bool { return markdownHashes(l) > 0 || liveListMarker.MatchString(l) }
+		start := i
+		for start > 0 && !blank(start-1) && !opens(lines[start-1]) {
+			start--
+		}
+		return []byte(strings.Join(lines[start:i+1], "")), true
+	}
+	return nil, false
 }

@@ -58,6 +58,9 @@ const (
 	// liveUnresolved is a link to a note there is not, as Obsidian shows
 	// one: the link's color, fainter.
 	liveUnresolved
+	// liveNote is the reference to a footnote, in the link's color, but
+	// not underlined, as it draws raised.
+	liveNote
 )
 
 // liveLook is how a span styles its runes.
@@ -133,13 +136,14 @@ type liveSpan struct {
 	alert markdownAlert
 }
 
-// livePicture is what objImage and objMath draw: a picture's bitmap and
-// size, and the width its wiki link asked for, 0 for its own; or a
-// formula.
+// livePicture is what objImage, objMath and objNote draw: a picture's
+// bitmap and size, and the width its wiki link asked for, 0 for its own;
+// a formula; or the number of a footnote, as the Reading view numbers it.
 type livePicture struct {
 	image   markdownInline
 	width   float32
 	formula *mathFormula
+	note    string
 }
 
 // liveDecoKind is what Live Preview paints behind a run of lines.
@@ -523,13 +527,15 @@ func parseLive(source string, path, root string, full bool, cache *markdownCache
 				continue
 			case *east.FootnoteLink:
 				// [^1], which the parse does not place: after what came before.
+				// It draws as its footnote's number, as the Reading view does.
 				if at := max(0, last); at < len(src) {
 					if i := bytes.Index(src[at:min(len(src), at+256)], []byte("[^")); i >= 0 {
 						ls := at + i + 2
 						if j := bytes.IndexByte(src[ls:min(len(src), ls+128)], ']'); j > 0 {
 							le := ls + j
-							style(ls-2, le+1, liveLook{color: liveLink})
-							add(liveSpan{start: ls - 2, end: le + 1, kind: liveObject, from: ls - 2, to: le + 1, obj: objNote})
+							style(ls-2, le+1, liveLook{color: liveNote})
+							add(liveSpan{start: ls - 2, end: le + 1, kind: liveObject, from: ls - 2, to: le + 1, obj: objNote,
+								drawn: &livePicture{note: strconv.Itoa(x.Index)}})
 							last = le + 1
 						}
 					}
@@ -1288,26 +1294,44 @@ func liveTask(line string) (int, bool) {
 }
 
 // liveRunText styles what a run of text src[s:e], a child of parent, holds:
-// the \ that escapes a mark, hidden as a mark of its own, and #tags, as
-// pills, but in a link's text.
+// the \ that escapes a mark, hidden as a mark of its own, #tags, as pills,
+// but in a link's text, and the id of a block, ^id, faint.
 func liveRunText(src []byte, s, e int, parent ast.Node, style func(int, int, liveLook), mark func(int, int, int, int)) {
-	tags := true
+	if id := markdownBlockIDIn(src, s, e); id >= 0 {
+		style(id, e, liveLook{color: liveFaint})
+		e = id
+	}
+	for i := s; i < e; i++ {
+		if src[i] == '\\' && i+1 < e && liveEscapable(src[i+1]) {
+			mark(i, i+1, i, i+2)
+			i++
+		}
+	}
 	switch parent.(type) {
 	case *ast.Link, *ast.Image:
-		tags = false
+		return
 	}
+	for _, t := range markdownTagsIn(src, s, e) {
+		style(t[0], t[1], liveLook{tag: true, color: liveLink})
+	}
+}
+
+// markdownTagsIn are the #tags of the run of text src[s:e], as Live
+// Preview finds them: not escaped, at a word's start.
+func markdownTagsIn(src []byte, s, e int) [][2]int {
+	var tags [][2]int
 	for i := s; i < e; i++ {
 		switch c := src[i]; {
 		case c == '\\' && i+1 < e && liveEscapable(src[i+1]):
-			mark(i, i+1, i, i+2)
 			i++
-		case c == '#' && tags && (i == 0 || liveTagAfter(src[i-1])):
+		case c == '#' && (i == 0 || liveTagAfter(src[i-1])):
 			if j := liveTagEnd(src, i+1, e); j > i+1 {
-				style(i, j, liveLook{tag: true, color: liveLink})
+				tags = append(tags, [2]int{i, j})
 				i = j - 1
 			}
 		}
 	}
+	return tags
 }
 
 // liveEscapable reports whether a \ before c escapes it: an ASCII mark.

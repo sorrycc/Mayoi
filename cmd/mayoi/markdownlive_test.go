@@ -481,6 +481,14 @@ func TestParseLiveUnresolved(t *testing.T) {
 	if looks["there"] != liveLink || looks["nowhere"] != liveUnresolved {
 		t.Errorf("looks %v", looks)
 	}
+	// The Reading view shows them alike.
+	missing := map[string]bool{}
+	for _, run := range parseMarkdown([]byte(src), dir+"/note.md", dir, nil)[0].runs {
+		missing[run.text] = run.missing
+	}
+	if missing["there"] || !missing["nowhere"] {
+		t.Errorf("Reading view: missing %v", missing)
+	}
 }
 
 // A callout of - shows its title alone in Live Preview, its lines below
@@ -564,5 +572,144 @@ func TestParseLiveEmbeds(t *testing.T) {
 	again := parseLive(src, dir+"/note.md", dir, true, cache)
 	if again.blocks[0].key == b.key || markdownRunsText(again.blocks[0].blocks[2].runs) != "Changed, longer." {
 		t.Errorf("not drawn again: %q", markdownRunsText(again.blocks[0].blocks[2].runs))
+	}
+}
+
+// Tags, footnotes and the ids of blocks read alike in Live Preview and the
+// Reading view: the same #tags are pills, a footnote's reference is its
+// number, and an id, ^id, reads faint in one and hides in the other.
+func TestLiveAndReadingAgree(t *testing.T) {
+	src := "A #ok and C#x `#c` [#l](x) \\#no #a1 b[^note].\n\nEnd of it ^blk-1\n\n[^note]: The note.\n"
+	r := []rune(src)
+	doc := liveParse(src)
+	var tags []string
+	note, id := "", ""
+	for _, sp := range doc.spans {
+		switch {
+		case sp.look.tag:
+			tags = append(tags, string(r[sp.start:sp.end]))
+		case sp.obj == objNote && sp.drawn != nil:
+			note = sp.drawn.note
+		case sp.kind == liveStyle && sp.look.color == liveFaint:
+			id = string(r[sp.start:sp.end])
+		}
+	}
+	if fmt.Sprint(tags) != "[#ok #a1]" || note != "1" || id != "^blk-1" {
+		t.Errorf("Live Preview: tags %q, note %q, id %q", tags, note, id)
+	}
+	blocks := parseMarkdown([]byte(src), "", "", nil)
+	tags = nil
+	for _, run := range blocks[0].runs {
+		if run.tag {
+			tags = append(tags, run.text)
+		}
+	}
+	if fmt.Sprint(tags) != "[#ok #a1]" || !strings.Contains(markdownRunsText(blocks[0].runs), "#no #a1 b¹.") {
+		t.Errorf("Reading view: tags %q in %q", tags, markdownRunsText(blocks[0].runs))
+	}
+	if got := markdownRunsText(blocks[1].runs); got != "End of it" {
+		t.Errorf("Reading view: the block's id shows: %q", got)
+	}
+}
+
+// The id of a block is ^id at the end of its line, after white space or
+// alone.
+func TestMarkdownBlockID(t *testing.T) {
+	for line, want := range map[string]int{
+		"Text ^abc":  5,
+		"^abc":       0,
+		"Text^abc":   -1,
+		"Text ^":     -1,
+		"Text ^a_b":  -1,
+		"Text ^A-9z": 5,
+		"Text":       -1,
+	} {
+		if got := markdownBlockID([]byte(line)); got != want {
+			t.Errorf("%q: %d, want %d", line, got, want)
+		}
+	}
+}
+
+// ![[note#^id]] shows the block of the id: a paragraph, an item with the
+// items under it, or the block above a line of ^id alone.
+func TestMarkdownBlockText(t *testing.T) {
+	note := "# Title\nFirst line\nsecond line ^para\n\n- one\n- two ^item\n  - under\n- three\n\n| a | b |\n| - | - |\n| 1 | 2 |\n\n^table\n"
+	for id, want := range map[string]string{
+		"para":    "First line\nsecond line\n",
+		"item":    "- two\n  - under\n",
+		"table":   "| a | b |\n| - | - |\n| 1 | 2 |\n",
+		"missing": "",
+	} {
+		got, ok := markdownBlockText([]byte(note), id)
+		if string(got) != want || ok != (want != "") {
+			t.Errorf("^%s: %q %v, want %q", id, got, ok, want)
+		}
+	}
+	dir := t.TempDir()
+	os.WriteFile(dir+"/other.md", []byte(note), 0o644)
+	blocks := parseMarkdown([]byte("![[other#^item]]\n"), dir+"/note.md", dir, nil)
+	var got []string
+	for _, b := range blocks {
+		if b.kind == markdownEmbedTitle {
+			got = append(got, "["+b.title+"]")
+		} else {
+			got = append(got, markdownRunsText(b.runs))
+		}
+	}
+	if strings.Join(got, "|") != "[other › ^item]|two|under" {
+		t.Errorf("embedded %q", got)
+	}
+}
+
+// A callout folded keeps folded as its title is edited, in Live Preview,
+// unless its - or + changes, which says anew how it shows.
+func TestLiveCalloutKeepsFoldAsRetitled(t *testing.T) {
+	doc := &document{folds: map[string]bool{"[!faq]- Why?": false}, foldKey: "[!faq]- Why?"}
+	l := &liveState{}
+	liveRetitle(doc, l, 10, "[!faq]- Why?")
+	liveRetitle(doc, l, 10, "[!faq]- Why not?")
+	if folded, ok := doc.folds["[!faq]- Why not?"]; !ok || folded || doc.foldKey != "[!faq]- Why not?" {
+		t.Errorf("retitled, it lost whether it is folded: %v", doc.folds)
+	}
+	if _, ok := doc.folds["[!faq]- Why?"]; ok {
+		t.Errorf("the old title is kept: %v", doc.folds)
+	}
+	liveRetitle(doc, l, 10, "[!faq]+ Why not?")
+	if _, ok := doc.folds["[!faq]+ Why not?"]; ok {
+		t.Errorf("its + took how its - showed: %v", doc.folds)
+	}
+}
+
+// The underline of a link of Live Preview fills in under the pointer,
+// over motionHover, and fades as it leaves.
+func TestLiveLinkHover(t *testing.T) {
+	hs := newHarness(t, true)
+	a := hs.a
+	src := "Some text before [a link here](https://example.com) and after.\n"
+	path := hs.path("hover.md")
+	os.WriteFile(path, []byte(src), 0o644)
+	a.settings.MarkdownMode = "live"
+	a.openFile(path, true)
+	d := a.activeEditor()
+	hs.until("parsed", func() bool { l := d.document.live; return l != nil && l.doc != nil && !l.quick })
+	hs.settle()
+	_, y0, h, ok := d.lines.Caret(0)
+	if !ok {
+		t.Fatal("not laid out")
+	}
+	y := d.liveAt.Y + editorPadY + y0 + h/2 - d.vscroll.Y
+	at := len([]rune("Some text before [")) + 1
+	for x := d.liveAt.X; x < d.liveAt.X+1200 && d.liveHover != at; x += 6 {
+		hs.tt.Move(x, y)
+		step(hs.tt)
+	}
+	if d.liveHover != at {
+		t.Fatalf("over the link, hover is %d, not %d", d.liveHover, at)
+	}
+	hs.settle()
+	hs.tt.Move(d.liveAt.X+2, y+h*4)
+	step(hs.tt)
+	if d.liveHover != 0 || d.liveHoverWas != at {
+		t.Errorf("off the link, hover is %d, was %d", d.liveHover, d.liveHoverWas)
 	}
 }

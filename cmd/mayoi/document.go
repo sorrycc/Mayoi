@@ -251,6 +251,12 @@ type editor struct {
 	// other.
 	liveMarker, liveMarkerWas int
 	liveMarkerAt              time.Time
+	// liveHover is the link the pointer is over, as the rune its text
+	// starts at plus one, 0 for none, liveHoverWas the one before it, and
+	// liveHoverAt when it changed, from which the underline of one fills
+	// in and the other's fades.
+	liveHover, liveHoverWas int
+	liveHoverAt             time.Time
 	// shownMode is how the editor showed its document in the last frame,
 	// as markdownMode says, and modeAt when that last changed, from which
 	// the view fades in; modeSeen is set once it showed.

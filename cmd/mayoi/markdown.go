@@ -89,9 +89,12 @@ type markdownPreview struct {
 type markdownInline struct {
 	text, link, image                     string
 	bold, italic, strike, mark, code, raw bool
-	bitmap                                ui.ImageSource
-	w, h                                  float32
-	kind                                  highlight.Kind
+	// tag is a #tag, on a pill of the accent, as Live Preview shows it,
+	// and missing a wiki link to a note there is not, fainter than a link.
+	tag, missing bool
+	bitmap       ui.ImageSource
+	w, h         float32
+	kind         highlight.Kind
 	// math is the formula the run draws, its text its source.
 	math *mathFormula
 }
@@ -745,15 +748,50 @@ func parseMarkdown(source []byte, path, root string, current func() bool, caches
 			s := cur
 			switch x := ch.(type) {
 			case *ast.Text:
-				s.text = string(x.Segment.Value(source))
-				if !x.IsRaw() && strings.ContainsAny(s.text, "\\&") {
-					s.text = html.UnescapeString(string(util.UnescapePunctuations([]byte(s.text))))
+				start, stop := x.Segment.Start, x.Segment.Stop
+				if x.NextSibling() == nil && n.Type() == ast.TypeBlock {
+					// The id of a block, ^id, at its end, which only links to
+					// it, as Obsidian hides it.
+					if id := markdownBlockIDIn(source, start, stop); id >= 0 {
+						stop = len(bytes.TrimRight(source[:id], " \t"))
+						if stop <= start {
+							continue
+						}
+					}
 				}
+				unescape := func(t []byte) string {
+					if !x.IsRaw() && bytes.ContainsAny(t, "\\&") {
+						return html.UnescapeString(string(util.UnescapePunctuations(t)))
+					}
+					return string(t)
+				}
+				brk := ""
 				if x.HardLineBreak() {
-					s.text += "\n"
+					brk = "\n"
 				} else if x.SoftLineBreak() {
-					s.text += " "
+					brk = " "
 				}
+				if tags := markdownTagsIn(source, start, stop); len(tags) > 0 && s.link == "" && !s.code && !x.IsRaw() {
+					// Its #tags are pills, as Live Preview shows them.
+					at := start
+					for _, t := range tags {
+						if t[0] > at {
+							r := s
+							r.text = unescape(source[at:t[0]])
+							out = append(out, r)
+						}
+						r := s
+						r.text, r.tag = string(source[t[0]:t[1]]), true
+						out = append(out, r)
+						at = t[1]
+					}
+					s.text = unescape(source[at:stop]) + brk
+					if s.text == "" {
+						continue
+					}
+					break
+				}
+				s.text = unescape(source[start:stop]) + brk
 			case *ast.String:
 				s.text = string(x.Value)
 			case *ast.Emphasis:
@@ -814,7 +852,9 @@ func parseMarkdown(source []byte, path, root string, current func() bool, caches
 				case x.target == "":
 					s.link = wikiLinkDest(path, "", x.heading)
 				case file == "":
-					// A note not found is its text alone.
+					// A note not found is its text, faint as a link, as Live
+					// Preview shows it.
+					s.missing = root != "" && (current == nil || current())
 				case x.embed && isImage(file):
 					// ![[picture|300]] is 300 wide, and |300x200 that high.
 					t := markdownTag{name: "img", attrs: map[string]string{"src": wikiLinkDest(path, file, "")}}
@@ -1426,7 +1466,7 @@ func markdownMerge(runs []markdownInline) []markdownInline {
 		if n := len(out); n > 0 {
 			l := &out[n-1]
 			if r.bitmap == nil && l.bitmap == nil && r.math == nil && l.math == nil && r.image == "" && l.image == "" && r.link == l.link && r.kind == l.kind &&
-				r.bold == l.bold && r.italic == l.italic && r.strike == l.strike && r.mark == l.mark && r.code == l.code && r.raw == l.raw {
+				r.bold == l.bold && r.italic == l.italic && r.strike == l.strike && r.mark == l.mark && r.code == l.code && r.raw == l.raw && r.tag == l.tag && r.missing == l.missing {
 				l.text += r.text
 				continue
 			}
@@ -1652,6 +1692,18 @@ func (a *app) markdownSpan(r markdownInline, color ui.Color, size float32, block
 	}
 	if r.link != "" && r.image == "" {
 		span.Color = p.accent
+		if !r.strike && !strings.HasPrefix(r.link, "#user-content-fn") {
+			// Underlined, faint, as Live Preview's links are; one struck
+			// through, under the pointer alone.
+			span.Underline, span.DecorationColor = true, p.accent.Alpha(0.4)
+		}
+	}
+	if r.tag {
+		span.Color, span.Background, span.Radius = p.accent, p.accent.Alpha(0.12), size*0.6
+	}
+	if r.missing && r.link == "" {
+		span.Color = p.accent.Alpha(0.65)
+		span.Underline, span.DecorationColor = true, p.accent.Alpha(0.2)
 	}
 	if r.strike {
 		span.DecorationColor = span.Color
@@ -1861,6 +1913,14 @@ func (a *app) markdownText(c *ui.Context, m *markdownPreview, path string, runs 
 			at += len(markdownFindRun(r))
 			if r.link != "" {
 				if e := a.markdownLink(c, m, path, r.link, false); e.Valid() {
+					if e.Hovered() {
+						// Its faint underline full under the pointer.
+						for i := range spans {
+							if spans[i].Underline && spans[i].DecorationThickness == 0 {
+								spans[i].DecorationColor = p.accent
+							}
+						}
+					}
 					e.Children(func() { ui.RichText(c, spans...) })
 					continue
 				}

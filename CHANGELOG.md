@@ -17,6 +17,13 @@ needs a `## <version>` section here, or its build fails.
 - Click the name above an embedded note to open it.
 - `%%comments%%` look faint in Live Preview and are hidden in Reading view.
 - Links to web pages in Live Preview end with a small external-link icon.
+- Reading view shows `#tags` as pills, as Live Preview does.
+- Footnote references show the same number in Live Preview as in Reading view.
+- Links in Reading view are faintly underlined, and wikilinks to missing notes look faded, as in Live Preview.
+- In Live Preview, a link's underline fills in as the pointer moves over it.
+- A folded callout stays folded when you edit its title.
+- Block embeds like `![[note#^id]]` show that paragraph, list item or block in place.
+- Block ids like `^id` look faint in Live Preview and are hidden in Reading view.
 - The sidebar's width and whether it's shown now stay the same as you switch projects and windows.
 - **Sessions** keeps **All Projects** chosen as you switch projects.
 - **Sessions** marks a session that's open in a terminal in any project with a terminal icon.

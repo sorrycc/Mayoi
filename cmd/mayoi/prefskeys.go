@@ -72,7 +72,7 @@ var keyGroups = []struct {
 	prefixes []string
 }{
 	{locales.MenuFile, []string{"file.", "remote."}},
-	{locales.MenuEdit, []string{"edit."}},
+	{locales.MenuEdit, []string{"edit.", "markdown."}},
 	{locales.MenuSelection, []string{"sel."}},
 	{locales.MenuView, []string{"view.", "editor.", "image.", "mermaid."}},
 	{locales.MenuGo, []string{"go."}},

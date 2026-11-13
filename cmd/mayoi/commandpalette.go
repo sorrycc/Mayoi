@@ -81,7 +81,7 @@ var viewKeys = map[string]string{
 	"edit.undo": "CmdOrCtrl+Z", "edit.redo": "Shift+CmdOrCtrl+Z",
 	"sel.moveUp": "Alt+Up", "sel.moveDown": "Alt+Down",
 	"sel.copyUp": "Shift+Alt+Up", "sel.copyDown": "Shift+Alt+Down",
-	"sel.lineBelow": "CmdOrCtrl+Enter", "sel.lineAbove": "Shift+CmdOrCtrl+Enter",
+	"sel.lineAbove":       "Shift+CmdOrCtrl+Enter",
 	"markdown.toggleTask": "CmdOrCtrl+Enter",
 	"file.openRecent":     "Ctrl+R",
 	"sel.complete":        "Ctrl+Space",

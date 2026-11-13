@@ -371,6 +371,14 @@ func (a *app) goToLine(line, col int) {
 	if d == nil {
 		return
 	}
+	d.goToLine(line, col)
+}
+
+func (d *editor) goToLine(line, col int) {
+	if d.unread() {
+		d.loadedTarget = func(ed *editor) { ed.goToLine(line, col) }
+		return
+	}
 	snap := d.buf.Snapshot()
 	l := max(0, min(line-1, snap.LineCount()-1))
 	s, e := snap.LineRange(l)

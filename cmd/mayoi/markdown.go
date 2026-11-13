@@ -1687,6 +1687,14 @@ func (a *app) openMarkdownAt(path, heading string) {
 	if d == nil || d.path != path {
 		return
 	}
+	a.markdownAt(d, heading)
+}
+
+func (a *app) markdownAt(d *editor, heading string) {
+	if d.unread() {
+		d.loadedTarget = func(ed *editor) { a.markdownAt(ed, heading) }
+		return
+	}
 	line := markdownHeadingLine([]byte(d.buf.String()), heading)
 	if line < 0 {
 		return

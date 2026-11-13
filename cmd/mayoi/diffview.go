@@ -2302,11 +2302,7 @@ func (a *app) openFileAt(path string, line int, focus bool) {
 		if a.review.ed == d {
 			a.keepDraft()
 		}
-		snap := d.buf.Snapshot()
-		line = min(max(line, 0), snap.LineCount()-1)
-		s, _ := snap.LineRange(line)
-		d.selectRange(s, s, true)
-		d.lightLanding()
+		d.goToLine(line+1, 1)
 	}
 }
 

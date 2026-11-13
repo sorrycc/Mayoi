@@ -125,10 +125,20 @@ func (a *app) reopenClosed() {
 			return
 		}
 		if ed := col.tab().ed; ed != nil {
-			ed.sel, ed.caret = c.sel, c.caret
-			ed.vscroll.Y, ed.hscroll.X = c.y, c.x
-			ed.wrap, ed.wrapGen = c.wrap, c.wrapGen
-			a.setPreview(ed, c.preview)
+			restore := func(ed *editor) {
+				ed.sel, ed.caret = c.sel, c.caret
+				ed.vscroll.Y, ed.hscroll.X = c.y, c.x
+				if ed.hidden {
+					ed.hiddenY, ed.hiddenPlaced = c.y, false
+				}
+				ed.wrap, ed.wrapGen = c.wrap, c.wrapGen
+				a.setPreview(ed, c.preview)
+			}
+			if ed.unread() {
+				ed.loadedTarget = restore
+			} else {
+				restore(ed)
+			}
 			a.focusTab(col.tab())
 		}
 		return

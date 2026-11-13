@@ -14,7 +14,7 @@ type syncState int
 
 const (
 	syncIdle syncState = iota
-	// syncLoading: a remote file is read in the background.
+	// syncLoading: a file is read in the background.
 	syncLoading
 	// syncLoadFailed: it could not be read, loadErr says why.
 	syncLoadFailed

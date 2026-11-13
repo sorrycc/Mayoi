@@ -5,6 +5,8 @@ needs a `## <version>` section here, or its build fails.
 
 ## Unreleased
 
+- Opening local files keeps the window responsive while their tabs show loading progress.
+- Files that fail to open keep their tabs, error details and a **Try Again** action.
 - Quick Open stays responsive while checking file paths, including unavailable network shares.
 - Filtering Quick Open, symbols or commands keeps the selected result in view.
 - A folder holding many Git repositories no longer makes the window sluggish.

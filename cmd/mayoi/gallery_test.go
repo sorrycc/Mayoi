@@ -34,6 +34,12 @@ var galleryStates = []struct {
 }{
 	{"empty", func(hs *harness) {}},
 	{"editor", func(hs *harness) { hs.a.openFile(hs.path("main.go"), true) }},
+	{"file-loading", func(hs *harness) {
+		hs.a.openFile(hs.path("main.go"), true)
+		hs.settle()
+		hs.a.activeEditor().sync = syncLoading
+	}},
+	{"file-error", func(hs *harness) { hs.a.openFile(hs.path("missing.go"), true) }},
 	{"palette", func(hs *harness) { hs.a.run("go.commands") }},
 	{"no-match", func(hs *harness) { hs.a.openQuick("zzzz-nothing") }},
 	{"path-pending", func(hs *harness) {

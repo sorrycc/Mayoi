@@ -307,9 +307,8 @@ func (a *app) loadRemote(d *document) {
 	}()
 }
 
-// remoteLoaded takes the text of a remote document read, or why it could
-// not be: a file that cannot be opened closes its tabs, as one of this
-// machine never opens; one that could not be reached says so.
+// remoteLoaded installs a file read in the background. Local failures
+// retain their tab; remote failures follow the host's existing policy.
 func (a *app) remoteLoaded(d *document, path string, info fs.FileInfo, data []byte, err error) {
 	if !slices.Contains(a.docs, d) || d.path != path {
 		return
@@ -321,6 +320,9 @@ func (a *app) remoteLoaded(d *document, path string, info fs.FileInfo, data []by
 	}
 	if err != nil {
 		d.sync, d.loadErr = syncLoadFailed, err
+		if !remote.Is(path) {
+			return // Keep local failures in their tabs with their context and retry.
+		}
 		if errors.Is(err, remote.ErrOffline) || !remote.IsConnected(path) {
 			d.loadErr = remote.ErrOffline
 			return
@@ -357,6 +359,20 @@ func (a *app) remoteLoaded(d *document, path string, info fs.FileInfo, data []by
 		if ts := ed.restoreTab; ts != nil {
 			ed.restoreTab = nil
 			a.restoreEditor(ed, *ts)
+		}
+		if target := ed.loadedTarget; target != nil {
+			ed.loadedTarget = nil
+			target(ed)
+		}
+		// Reuse the caret landing fade to mark the transition to ready.
+		// It changes color only, including with Reduce Motion, and never
+		// delays input or moves the editor or its neighbours.
+		if !remote.Is(path) {
+			if ed.pending == nil {
+				ed.selectRange(ed.sel[0], ed.sel[1], false)
+			}
+			ed.lightLanding()
+			ed.landDuration = motionShow
 		}
 	}
 	a.find.stale = true
@@ -684,25 +700,42 @@ func (a *app) remoteStatus(c *ui.Context, text func(string) ui.Element) {
 	})
 }
 
-// loadingView shows in place of the editor of a remote file not read yet:
+// loadingView shows in place of the editor of a file not read yet:
 // that it is being read, or why it could not be, with a button to try
 // again.
 func (a *app) loadingView(c *ui.Context, d *editor) {
 	p := a.pal
 	ui.Column(c).Fill().Center().Gap(10).Background(p.editor).Padding(24).Children(func() {
 		if d.sync == syncLoading {
-			ui.Spinner(c).Size(16, 16)
+			if !c.Preferences().ReduceMotion {
+				ui.Spinner(c).Size(16, 16)
+			} else {
+				ui.Icon(c, iconOpenFile).Size(16, 16)
+			}
 			ui.Text(c, locales.RemoteReading(d.name())).FontSize(13).TextColor(p.muted)
+			if d.loadErr != nil {
+				ui.Text(c, d.loadErr.Error()).FontSize(12).TextColor(p.muted).MaxWidth(420)
+			}
 			return
 		}
-		ui.Icon(c, iconServer).FontSize(20).TextColor(p.muted)
+		glyph := iconOpenFile
+		if remote.Is(d.path) {
+			glyph = iconServer
+		}
+		ui.Icon(c, glyph).FontSize(20).TextColor(p.muted)
 		msg := locales.RemoteCouldNotRead(d.name(), d.loadErr.Error())
 		if errors.Is(d.loadErr, remote.ErrOffline) {
 			msg = locales.RemoteShowsOnce(d.name(), remote.HostOf(d.path))
 		}
+		if errors.Is(d.loadErr, errBinary) {
+			msg = locales.FailBinary(d.name())
+		} else if errors.Is(d.loadErr, errLongLine) {
+			msg = locales.FailLongLine(d.name())
+		}
 		ui.Text(c, msg).FontSize(13).TextColor(p.muted).MaxWidth(420)
+		ui.Text(c, d.path).FontSize(12).TextColor(p.muted).MaxWidth(420)
 		if !errors.Is(d.loadErr, remote.ErrOffline) && ui.Button(c.Key("retry:"+d.path), locales.RemoteTryAgain()).Clicked() {
-			a.loadRemote(d.document)
+			a.loadFile(d.document)
 		}
 	})
 }
@@ -710,6 +743,7 @@ func (a *app) loadingView(c *ui.Context, d *editor) {
 // shutdown stops watching the folder and lets go of its connection, as
 // the project closes for good.
 func (a *app) shutdown() {
+	a.loadsClosed = true
 	a.docClosed(nil)
 	if a.tree != nil {
 		a.tree.Close()

@@ -70,12 +70,13 @@ type document struct {
 	autoSave      autoSave
 
 	// sync is where the document is in reading and writing its file, and
-	// loadErr why a remote one could not be read. Until it is read the
+	// loadErr why it could not be read. Until it is read the
 	// document is read-only, as while offline, while its host is not
 	// connected. stamp is what stat said of the file as it was last read
 	// or written, and restored is set for a tab of the last session.
 	sync              syncState
 	loadErr           error
+	localQueued       bool
 	stamp             *fileStamp
 	offline, restored bool
 	// waiters are the saves the write under way answers, or the question
@@ -122,9 +123,10 @@ type editor struct {
 
 	// landing is whether the jump asked for lights up the line it lands
 	// on, which landLine is, from landAt.
-	landing  bool
-	landLine int
-	landAt   time.Time
+	landing      bool
+	landDuration time.Duration
+	landLine     int
+	landAt       time.Time
 
 	vscroll ui.ScrollState // the text area's
 	hscroll ui.ScrollState // the container that scrolls it sideways
@@ -221,9 +223,12 @@ type editor struct {
 	vim     vimState
 	// vimShown are the matches of vim's search the editor highlighted last.
 	vimShown vimShownMatches
-	// restoreTab is where a tab of the last session was, which a remote file
+	// restoreTab is where a tab of the last session was, which a file
 	// takes once it is read.
 	restoreTab *settings.Tab
+	// loadedTarget belongs to this view, never to whichever tab is active
+	// when the read finishes. A later navigation replaces the older target.
+	loadedTarget func(*editor)
 }
 
 // newEditor makes an editor of doc, its caret at the start.
@@ -269,11 +274,11 @@ func (d *document) name() string {
 
 func (d *document) dirty() bool { return d.buf.Version() != d.saved || d.crlf != d.diskCRLF }
 
-// unread reports whether the text of a remote document is not read yet,
+// unread reports whether the text of a document is not read yet,
 // or could not be.
 func (d *document) unread() bool { return d.sync == syncLoading || d.sync == syncLoadFailed }
 
-// locked reports whether the document cannot be edited: its remote file
+// locked reports whether the document cannot be edited: its file
 // is not read, or its host not connected.
 func (d *document) locked() bool { return d.unread() || d.offline }
 
@@ -454,4 +459,4 @@ const landFor = 650 * time.Millisecond
 // lightLanding has the line the selection asked for lands on light up,
 // and fade, as the editor gets there: a jump from elsewhere, as going to
 // a line or to a match of a search, shows where it went.
-func (d *editor) lightLanding() { d.landing = true }
+func (d *editor) lightLanding() { d.landing, d.landDuration = true, landFor }

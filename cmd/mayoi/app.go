@@ -248,9 +248,12 @@ type app struct {
 	// docs are the documents open, each in a tab or several; cols the
 	// columns of the editor area, and col the one that has the keyboard,
 	// or had it last, which commands are for.
-	docs []*document
-	cols []*column
-	col  int
+	docs        []*document
+	localReads  int
+	localRead   localReader
+	loadsClosed bool
+	cols        []*column
+	col         int
 	// findCol is the column the find widget shows in, the one with the
 	// keyboard as the frame's columns began: a click on another's tab as
 	// they draw moves col, and the widget's input binds one control.
@@ -752,7 +755,7 @@ func (a *app) diskChanged(changed, removed []string) {
 		}
 		d := a.docs[i]
 		d.diskGone = false
-		if d.dirty() {
+		if d.dirty() || d.unread() {
 			continue
 		}
 		a.reloadDoc(d)

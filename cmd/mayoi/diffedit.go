@@ -502,6 +502,24 @@ func diffBreaks(shown string, cols int, wrap bool) []int {
 	return breaks
 }
 
+// openFileForEdit retains the immediate read required by diff transactions.
+// Ordinary navigation uses openFile's background loading instead.
+func (a *app) openFileForEdit(path string) {
+	if a.docIndex(path) < 0 && !remote.Is(path) {
+		a.nextID++
+		doc, err := readDocument(a.nextID, path, a.invalidate)
+		if err != nil {
+			a.fail("%s", locales.FailOpen(filepath.Base(path), err.Error()))
+			return
+		}
+		a.docs = append(a.docs, doc)
+		if a.tree != nil {
+			a.tree.Watch(path)
+		}
+	}
+	a.openText(func() { a.openFile(path, false) })
+}
+
 // diffEditDoc returns the document a file of a diff is edited in, reading
 // the work tree's file into one when no editor has it, and whether its
 // text is what the diff compared.

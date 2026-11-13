@@ -615,8 +615,8 @@ func (a *app) editorView(c *ui.Context, d *editor) {
 				pt.Fill(ui.Rect{X: r.X, Y: y, W: r.W, H: lineHeight(caretLine)}, p.line, 0)
 			}
 			// The line a jump landed on, lit, fading as the eye finds it.
-			if since := pt.Now().Sub(d.landAt); !d.landAt.IsZero() && since >= 0 && since < landFor && d.landLine < lines {
-				t := float32(since) / float32(landFor)
+			if since := pt.Now().Sub(d.landAt); !d.landAt.IsZero() && since >= 0 && since < d.landDuration && d.landLine < lines {
+				t := float32(since) / float32(d.landDuration)
 				pt.Fill(ui.Rect{X: r.X, Y: lineY(r, d.landLine), W: r.W, H: lineHeight(d.landLine)}, p.accent.Alpha(0.26*(1-t*t)), 0)
 				pt.AnimationFrame()
 			}

@@ -205,7 +205,7 @@ func (a *app) startSearch() {
 	s.seen = map[string]uint64{}
 	texts := map[string]string{}
 	for _, d := range a.docs {
-		if d.path == "" {
+		if d.path == "" || d.unread() {
 			continue
 		}
 		s.seen[d.path] = d.buf.Version()
@@ -541,7 +541,7 @@ func (a *app) searchAgain(paths []string) {
 		if !shown && !slices.Contains(a.index, rel) {
 			continue // a file search does not look in
 		}
-		if i := a.docIndex(p); i >= 0 {
+		if i := a.docIndex(p); i >= 0 && !a.docs[i].unread() {
 			texts[rel] = a.docs[i].buf.String()
 		}
 		rels = append(rels, rel)
@@ -563,7 +563,7 @@ func (a *app) searchTick() {
 	}
 	var edited []string
 	for _, d := range a.docs {
-		if d.path == "" {
+		if d.path == "" || d.unread() {
 			continue
 		}
 		v := d.buf.Version()
@@ -624,6 +624,14 @@ func (a *app) selectMatch(path string, m searchMatch) {
 	if d.preview != nil {
 		// The match is in the text.
 		a.setPreview(d, false)
+	}
+	d.selectMatch(m)
+}
+
+func (d *editor) selectMatch(m searchMatch) {
+	if d.unread() {
+		d.loadedTarget = func(ed *editor) { ed.selectMatch(m) }
+		return
 	}
 	snap := d.buf.Snapshot()
 	if m.line >= snap.LineCount() {

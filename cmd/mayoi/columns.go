@@ -1,7 +1,6 @@
 package main
 
 import (
-	"errors"
 	"os"
 	"path/filepath"
 	"slices"
@@ -281,32 +280,12 @@ func (a *app) openFileIn(col *column, at int, path string, focus bool) {
 			}
 			return
 		}
-	} else if remote.Is(path) {
+	} else {
 		// Read in the background, the tab showing that it is.
 		a.nextID++
 		doc = newDocument(a.nextID, path, "", highlight.New(highlight.Lexer(path), a.invalidate))
 		a.docs = append(a.docs, doc)
-		a.loadRemote(doc)
-		if a.tree != nil {
-			a.tree.Watch(path)
-		}
-	} else {
-		a.nextID++
-		d, err := readDocument(a.nextID, path, a.invalidate)
-		if errors.Is(err, errBinary) {
-			a.fail("%s", locales.FailBinary(filepath.Base(path)))
-			return
-		}
-		if errors.Is(err, errLongLine) {
-			a.fail("%s", locales.FailLongLine(filepath.Base(path)))
-			return
-		}
-		if err != nil {
-			a.fail("%s", locales.FailOpen(filepath.Base(path), err.Error()))
-			return
-		}
-		doc = d
-		a.docs = append(a.docs, doc)
+		a.loadFile(doc)
 		if a.tree != nil {
 			a.tree.Watch(path)
 		}

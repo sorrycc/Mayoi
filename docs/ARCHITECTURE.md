@@ -137,9 +137,12 @@ mark, and objects, the first rune of a bullet, a task's box, a picture or a form
 reach the text area as MyGo's `TextRange`s, for the lines about the view only. Until the next parse arrives, the last
 one follows the edits made since (`liveDoc.mapTo`): the texts are compared from both ends, what was before the change
 stays, what was after moves with it, a style grows with what is typed at its end and a mark does not, so that typing
-never lands in a hidden mark. The first frame parses on the main thread, quickly, without pictures, formulas or blocks.
-Tables, diagrams and formulas in display style are blocks: `TextBlocks` keeps their lines as high as the block renders,
-and the block, drawn by `markdownRow`, covers them, until the caret goes in, which shows their source. Blocks of code
+never lands in a hidden mark. Only the spans a frame styles move (`liveDoc.visit`), so a key costs the same in a long
+note as in a short one; a task's box checked stays a box. The first frame parses on the main thread, quickly, without
+pictures, formulas or blocks. Tables, diagrams and formulas in display style are blocks: `TextBlocks` keeps their lines
+as high as the block renders, and the block, drawn by `markdownRow`, covers them, until the caret goes in, which shows
+their source. A parse takes the blocks of the same source as the last drew (`markdownCache.blocks`), so only those
+edited are drawn again: a parse of a 250 KB note full of them takes some 16 ms (`BenchmarkParseLive`). Blocks of code
 are cards painted behind their lines, colored by the highlighter.
 
 ## Git

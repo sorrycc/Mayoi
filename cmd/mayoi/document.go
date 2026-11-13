@@ -226,6 +226,22 @@ type editor struct {
 	live     bool
 	liveHits []liveHit
 	liveAt   ui.Point
+	// liveLines are the lines the caret's marks showed on in the last
+	// frame, and liveRevealAt when the caret came to them, from which the
+	// marks there fade in.
+	liveLines    [2]int
+	liveRevealAt time.Time
+	// liveTicked is the rune of the [ of the task whose box was checked
+	// or unchecked last, tickNow set until a frame notes when, liveTickAt.
+	liveTicked int
+	tickNow    bool
+	liveTickAt time.Time
+	// shownMode is how the editor showed its document in the last frame,
+	// as markdownMode says, and modeAt when that last changed, from which
+	// the view fades in; modeSeen is set once it showed.
+	shownMode string
+	modeSeen  bool
+	modeAt    time.Time
 	// gutterW is how wide the line numbers were in the last frame; peek
 	// the first line of the hunk whose box shows under it, -1 for none.
 	gutterW float32

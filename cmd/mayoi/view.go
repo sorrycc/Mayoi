@@ -611,7 +611,11 @@ func (a *app) columnView(c *ui.Context, col *column) {
 	over := a.takeFiles(body, col)
 	body.Children(func() {
 		if shown != nil {
-			ui.Column(c.Key(shown.id)).Absolute().Top(0).Left(0).Right(0).Bottom(0).Children(func() {
+			page := ui.Column(c.Key(shown.id)).Absolute().Top(0).Left(0).Right(0).Bottom(0)
+			if ed := shown.ed; ed != nil {
+				a.modeFade(c, page, ed)
+			}
+			page.Children(func() {
 				switch {
 				case shown.term != nil:
 					a.terminalView(c, shown.term)

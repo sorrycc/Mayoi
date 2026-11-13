@@ -53,6 +53,10 @@ type liveView struct {
 	at     ui.Rect
 	height float32
 	frame  int
+	// editing is set while the caret is in its source, and shownAt when
+	// it showed again once the caret left, from which it fades in.
+	editing bool
+	shownAt time.Time
 }
 
 // liveHit is a task's box the last frame drew, where it showed, and the
@@ -190,14 +194,21 @@ func (a *app) parseLive(doc *document, l *liveState, want *mermaidStyle, math bo
 		if generation != l.generation || l.running || !slices.Contains(a.docs, doc) {
 			return
 		}
+		arrived := l.stale
 		l.running, l.stale = true, false
 		snap := doc.buf.Snapshot()
 		source, path, workspace := snap.String(), doc.path, a.folder()
 		// The worker has its own copy of the cache, which it hands back.
 		cache := &markdownCache{images: maps.Clone(l.cache.images), code: maps.Clone(l.cache.code), arrived: l.cache.arrived,
 			mermaid: want, math: math, formulas: maps.Clone(l.cache.formulas)}
-		if want != nil && l.cache.mermaid != nil && *want == *l.cache.mermaid {
+		sameStyle := (want == nil) == (l.cache.mermaid == nil) && (want == nil || *want == *l.cache.mermaid)
+		if want != nil && sameStyle {
 			cache.diagrams = maps.Clone(l.cache.diagrams)
+		}
+		// The blocks drawn as they were, unless drawn otherwise now, or
+		// a picture they may show arrived since.
+		if sameStyle && math == l.cache.math && !arrived {
+			cache.blocks = l.cache.blocks
 		}
 		bg.Go(func() {
 			defer recoverCrash()
@@ -274,37 +285,46 @@ func (a *app) liveArea(c *ui.Context, d *editor, area ui.Element, f liveFrame) {
 		}
 		return selFrom <= s.to && selTo >= s.from
 	}
+	// The marks of the lines the caret comes to fade in, rather than
+	// blink: only their color, as their room shows at once.
+	now := c.Now()
+	if lines := [2]int{lineFrom, lineTo}; lines != d.liveLines {
+		if d.liveLines != [2]int{} || !d.liveRevealAt.IsZero() {
+			d.liveRevealAt = now
+		}
+		d.liveLines = lines
+	}
+	faint := p.faint
+	if since := now.Sub(d.liveRevealAt); since >= 0 && since < motionHover {
+		faint = p.faint.Alpha(ui.EaseOut(float32(since) / float32(motionHover)))
+		c.AnimationFrame()
+	}
+	if d.tickNow {
+		d.tickNow, d.liveTickAt = false, now
+	}
 
 	codeFont, family := a.settings.FontFamily, c.Theme().Font
 	var ranges []ui.TextRange
 	objects := map[int]*liveSpan{}
 	var codes []liveDeco
 	if doc != nil {
-		// The first span that reaches the lines about the view.
-		k := sort.Search(len(doc.reach), func(i int) bool { return doc.reach[i] > from })
-		for i := k; i < len(doc.spans); i++ {
-			s := &doc.spans[i]
-			if s.start > to {
-				break
-			}
-			if s.end <= from {
-				continue
-			}
+		// The spans that reach the lines about the view.
+		doc.visit(from, to, func(s *liveSpan) {
 			switch s.kind {
 			case liveStyle:
 				ranges = append(ranges, a.liveRange(s, size, codeFont))
 			case liveMark:
 				if revealed(s) {
-					ranges = append(ranges, ui.TextRange{Start: s.start, End: s.end, Color: p.faint})
+					ranges = append(ranges, ui.TextRange{Start: s.start, End: s.end, Color: faint})
 				} else {
 					ranges = append(ranges, ui.TextRange{Start: s.start, End: s.end, Hidden: true})
 				}
 			case liveObject:
 				if revealed(s) {
 					if s.obj == objQuote || s.obj == objBullet || s.obj == objRing {
-						ranges = append(ranges, ui.TextRange{Start: s.start, End: s.end, Color: p.faint})
+						ranges = append(ranges, ui.TextRange{Start: s.start, End: s.end, Color: faint})
 					}
-					continue
+					return
 				}
 				w, h, dsc := a.liveObjectSize(s, size, f.width, family)
 				ranges = append(ranges, ui.TextRange{Start: s.start, End: s.start + 1, ObjectWidth: w, ObjectHeight: h, ObjectDescent: dsc})
@@ -313,7 +333,7 @@ func (a *app) liveArea(c *ui.Context, d *editor, area ui.Element, f liveFrame) {
 				}
 				objects[s.start] = s
 			}
-		}
+		})
 		for _, dc := range doc.decos {
 			if dc.kind == decoCode && dc.end >= from && dc.start <= to {
 				codes = append(codes, dc)
@@ -323,6 +343,12 @@ func (a *app) liveArea(c *ui.Context, d *editor, area ui.Element, f liveFrame) {
 	// The code of blocks of code in its language's colors.
 	if d.hl != nil && d.hl.Lexer() != nil && len(codes) > 0 {
 		d.hl.Request(snap, f.first, f.last)
+		// Not the fence's line, whose language reads faint.
+		for i, dc := range codes {
+			if dc.fenced {
+				_, codes[i].start = snap.LineRange(snap.LineAt(min(dc.start, n)))
+			}
+		}
 		for _, r := range d.colors.ranges(d.hl, p, snap, f.first, f.last, a.font.bold()) {
 			if slices.ContainsFunc(codes, func(dc liveDeco) bool { return r.Start >= dc.start && r.End <= dc.end }) {
 				ranges = append(ranges, ui.TextRange{Start: r.Start, End: r.End, Color: r.Color})
@@ -360,7 +386,13 @@ func (a *app) liveArea(c *ui.Context, d *editor, area ui.Element, f liveFrame) {
 		lineH := size * a.settings.LineHeight
 		for i := range doc.blocks {
 			b := &doc.blocks[i]
-			if b.end < from || b.start > to || len(b.blocks) == 0 || onLines(b.start, b.end) {
+			if b.end < from || b.start > to || len(b.blocks) == 0 {
+				continue
+			}
+			if onLines(b.start, b.end) {
+				if lv := l.views[b.key]; lv != nil {
+					lv.editing = true
+				}
 				continue
 			}
 			lv := l.views[b.key]
@@ -370,8 +402,16 @@ func (a *app) liveArea(c *ui.Context, d *editor, area ui.Element, f liveFrame) {
 				lines := snap.LineAt(b.end) - snap.LineAt(b.start) + 1
 				lv.height = float32(lines) * lineH * 1.4
 				l.views[b.key] = lv
+			} else if &lv.v.markdown.blocks[0] != &b.blocks[0] {
+				// Drawn again, as in another theme's colors: the view shows
+				// the new drawing, at the height it had.
+				m := &markdownPreview{blocks: b.blocks, lines: lv.v.markdown.lines}
+				lv.v = &viewer{doc: d.document, markdown: m, loaded: true}
 			}
 			lv.frame = a.frame
+			if lv.editing {
+				lv.editing, lv.shownAt = false, now
+			}
 			lv.v.markdown.measure = f.width
 			first, last := snap.LineAt(b.start), snap.LineAt(b.end)
 			area.TextBlocks(ui.TextBlock{First: first, Last: last, Height: lv.height + size})
@@ -400,6 +440,24 @@ func (a *app) liveArea(c *ui.Context, d *editor, area ui.Element, f liveFrame) {
 		if doc == nil {
 			return
 		}
+		// The bars of quotes, one from the first line of a run of a quote's
+		// lines to its last, rather than one a line.
+		var bars liveDeco
+		var barFrom, barTo int
+		drawBars := func() {
+			if barTo <= barFrom {
+				return
+			}
+			y0, y1 := lineY(r, barFrom), lineY(r, barTo)
+			for k := range bars.depth {
+				bar := p.guideNow
+				if bars.alert != alertNone && k == bars.depth-1 {
+					bar = a.markdownColor(bars.alert)
+				}
+				pt.Fill(ui.Rect{X: x + float32(k)*quote + 1, Y: y0, W: 3, H: y1 - y0}, bar, 1.5)
+			}
+			barFrom, barTo = 0, 0
+		}
 		for _, dc := range doc.decos {
 			if dc.end < from || dc.start > to {
 				continue
@@ -409,26 +467,36 @@ func (a *app) liveArea(c *ui.Context, d *editor, area ui.Element, f liveFrame) {
 			switch dc.kind {
 			case decoCode:
 				pad := size * 0.6
-				pt.Fill(ui.Rect{X: x - pad, Y: y0, W: f.width + 2*pad, H: y1 - y0}, p.chrome, 6)
-				pt.Stroke(ui.Rect{X: x - pad, Y: y0, W: f.width + 2*pad, H: y1 - y0}, p.border, 6, 1)
+				pt.Fill(ui.Rect{X: x - pad, Y: y0, W: f.width + 2*pad, H: y1 - y0}, p.chrome, 8)
+				pt.Stroke(ui.Rect{X: x - pad, Y: y0, W: f.width + 2*pad, H: y1 - y0}, p.border, 8, 1)
 			case decoRule:
 				if !onLines(dc.start, dc.end) {
 					pt.Fill(ui.Rect{X: x, Y: (y0 + y1) / 2, W: f.width, H: 2}, p.border, 1)
 				}
+			case decoHeading:
+				// Into the blank line after it, as far below its text as the
+				// Reading view's, or along its foot.
+				y := y1 - 1
+				if l1+1 < snap.LineCount() && strings.TrimSpace(snap.Line(l1+1)) == "" {
+					y = y1 + size*0.25
+				}
+				pt.Fill(ui.Rect{X: x, Y: y, W: f.width, H: 1}, p.border, 0)
 			case decoQuote:
 				// The bars of a line whose > shows are the >.
 				if onLines(dc.start, dc.end) && l0 == l1 && liveQuoteMarks.MatchString(snap.Line(l0)) {
+					drawBars()
 					continue
 				}
-				for k := range dc.depth {
-					bar := p.guideNow
-					if dc.alert != alertNone && k == dc.depth-1 {
-						bar = a.markdownColor(dc.alert)
-					}
-					pt.Fill(ui.Rect{X: x + float32(k)*quote + 1, Y: y0, W: 3, H: y1 - y0}, bar, 1.5)
+				if barTo > barFrom && (barTo != l0 || bars.depth != dc.depth || bars.alert != dc.alert) {
+					drawBars()
 				}
+				if barTo <= barFrom {
+					bars, barFrom = dc, l0
+				}
+				barTo = l1 + 1
 			}
 		}
+		drawBars()
 	})
 	area.DrawObjects(func(pt *ui.Painter, at int, r ui.Rect) {
 		s := objects[at]
@@ -447,10 +515,20 @@ func (a *app) liveArea(c *ui.Context, d *editor, area ui.Element, f liveFrame) {
 		case objTask, objTaskDone:
 			b := size * 0.9
 			box := ui.Rect{X: r.X + (r.W-b)/2, Y: r.Y + (r.H-b)/2, W: b, H: b}
+			// A box just checked fills in, its check growing from half its
+			// size; one unchecked empties.
+			k := float32(1)
+			if since := pt.Now().Sub(d.liveTickAt); at == d.liveTicked && !d.liveTickAt.IsZero() && since >= 0 && since < motionShow {
+				k = ui.EaseOut(float32(since) / float32(motionShow))
+				pt.AnimationFrame()
+			}
 			if s.obj == objTaskDone {
-				pt.Fill(box, p.fill, 3)
-				pt.Icon(iconCheck, ui.Rect{X: box.X + b*0.1, Y: box.Y + b*0.1, W: b * 0.8, H: b * 0.8}, p.fillText)
+				pt.Stroke(box, p.muted.Alpha(1-k), 3, 1.25)
+				pt.Fill(box, p.fill.Alpha(k), 3)
+				cw := b * 0.8 * (0.5 + 0.5*k)
+				pt.Icon(iconCheck, ui.Rect{X: box.X + (b-cw)/2, Y: box.Y + (b-cw)/2, W: cw, H: cw}, p.fillText.Alpha(k))
 			} else {
+				pt.Fill(box, p.fill.Alpha(1-k), 3)
 				pt.Stroke(box, p.muted, 3, 1.25)
 			}
 			d.liveHits = append(d.liveHits, liveHit{ui.Rect{X: box.X - d.liveAt.X, Y: box.Y - d.liveAt.Y, W: b, H: b}, at})
@@ -522,6 +600,11 @@ func (a *app) liveArea(c *ui.Context, d *editor, area ui.Element, f liveFrame) {
 			lv := s.lv
 			y := editorPadY + f.g.top(s.first) - d.vscroll.Y + size/2
 			box := ui.Column(c.Key("live-block:" + s.b.key)).Absolute().Top(y).Left(f.left).Width(f.width).Bind(&lv.box)
+			// Shown again as the caret leaves its source, it fades in over it.
+			if since := now.Sub(lv.shownAt); !lv.shownAt.IsZero() && since >= 0 && since < motionShow {
+				box.Opacity(ui.EaseOut(float32(since) / float32(motionShow)))
+				c.AnimationFrame()
+			}
 			box.HandleInput(func(ev ui.InputEvent) bool {
 				switch ev.Kind {
 				case ui.InputScroll:
@@ -548,7 +631,10 @@ func (a *app) liveArea(c *ui.Context, d *editor, area ui.Element, f liveFrame) {
 				}
 			})
 			lv.at = lv.box.Bounds(c)
-			if h := lv.at.H; h > 0 && h != lv.height {
+			// Not the room the Reading view keeps below its last row: the
+			// blank line after it is that room here.
+			bottom, outside := a.markdownBelow(lv.v.markdown, len(lv.v.markdown.blocks)-1)
+			if h := lv.at.H - bottom - outside; lv.at.H > 0 && h != lv.height {
 				lv.height = h
 				a.invalidate()
 			}
@@ -576,6 +662,11 @@ func (a *app) liveRange(s *liveSpan, size float32, codeFont string) ui.TextRange
 	}
 	if look.mark {
 		r.Background, r.Radius = p.modified.Alpha(0.3), 3
+	}
+	if look.indent > 0 {
+		// An object that draws nothing, low enough to leave its line as
+		// high as its text.
+		r.ObjectWidth, r.ObjectHeight = size*look.indent, 1
 	}
 	switch look.color {
 	case liveMuted:
@@ -645,6 +736,7 @@ func (a *app) toggleTask(d *editor, at int) {
 		mark = " "
 	}
 	d.edit(d.sel, textEdit{s + box, s + box + 1, mark})
+	d.liveTicked, d.tickNow = at, true
 }
 
 // toggleReadingTask checks the task of block i of a Reading view, or
@@ -737,5 +829,22 @@ func (a *app) followLiveLink(d *editor) {
 		default:
 			a.openFile(local, true)
 		}
+	}
+}
+
+// modeFade fades an editor's page in as it switches between its source,
+// Live Preview and the Reading view, which lay its text out anew: from
+// faint, as the page it was gives way.
+func (a *app) modeFade(c *ui.Context, page ui.Element, d *editor) {
+	mode, now := markdownMode(d), c.Now()
+	if mode != d.shownMode {
+		if d.modeSeen {
+			d.modeAt = now
+		}
+		d.shownMode, d.modeSeen = mode, true
+	}
+	if since := now.Sub(d.modeAt); !d.modeAt.IsZero() && since >= 0 && since < motionShow {
+		page.Opacity(0.4 + 0.6*ui.EaseOut(float32(since)/float32(motionShow)))
+		c.AnimationFrame()
 	}
 }

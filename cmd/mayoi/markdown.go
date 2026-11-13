@@ -156,6 +156,12 @@ type markdownCache struct {
 	// fetched, for the preview to parse again; without it, those pictures
 	// are not fetched.
 	arrived func()
+	// keep is set while one parse of Live Preview parses each of its
+	// blocks, which then let go of nothing the others drew; blocks are
+	// those blocks, by their source, which the next parse takes as they
+	// are.
+	keep   bool
+	blocks map[string][]markdownBlock
 }
 
 // markdownBlock is a paragraph-sized row, including its enclosing lists and quotes.
@@ -553,7 +559,7 @@ func parseMarkdown(source []byte, path, root string, current func() bool, caches
 	usedDiagrams := map[string]bool{}
 	usedFormulas := map[mathKey]bool{}
 	defer func() {
-		if current != nil && !current() {
+		if c.keep || current != nil && !current() {
 			return
 		}
 		for k := range cache {

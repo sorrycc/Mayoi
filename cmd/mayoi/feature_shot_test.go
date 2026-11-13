@@ -857,3 +857,49 @@ const featKeys = `// Keyboard shortcuts, in VS Code's format: "key" is a key or 
   { "key": "cmd+shift+d", "command": "editor.action.copyLinesDownAction" }
 ]
 `
+
+// featLiveMD is a note of every kind of Markdown Live Preview draws.
+const featLiveMD = "# Field notes\n\n" +
+	"Mayoi edits Markdown *as it reads*: the marks of **what the caret touches** show, faint, and the rest " +
+	"hide away. Code like `go test ./...`, ==highlights== and ~~struck text~~ keep their look; " +
+	"[links](https://example.com) stay links.\n\n" +
+	"## Lists\n\n" +
+	"- A first item, long enough to wrap onto a second line of the column so its indent shows\n" +
+	"- A second item\n" +
+	"  - nested, one level\n" +
+	"  - and another\n\n" +
+	"1. Ordered\n2. Lists\n\n" +
+	"### Tasks\n\n" +
+	"- [x] Draw the boxes\n- [ ] Animate them\n\n" +
+	"> A quote reads muted, behind a bar,\n> over as many lines as it takes.\n\n" +
+	"> [!NOTE]\n> An alert takes its kind's color.\n\n" +
+	"---\n\n" +
+	"## Code and tables\n\n" +
+	"```go\nfunc main() {\n\tfmt.Println(\"hello\")\n}\n```\n\n" +
+	"| Key | Action |\n|-----|--------|\n| ⌘P | Quick open |\n| ⇧⌘F | Find in files |\n\n" +
+	"Inline math $e^{i\\pi}+1=0$ sits in its line.\n\n" +
+	"#### A fourth level\n\nAnd its paragraph.\n"
+
+// Live Preview of a note, the caret in its first paragraph.
+func TestFeatLivePreview(t *testing.T) {
+	featBoth(t, func(t *testing.T, dark bool) {
+		hs := featHarness(t, dark, featOpts{root: t.TempDir(), w: 1100, h: 1300})
+		a := hs.a
+		os.WriteFile(hs.path("notes.md"), []byte(featLiveMD), 0o644)
+		a.settings.MarkdownMode = "live"
+		a.openFile(hs.path("notes.md"), true)
+		d := a.activeEditor()
+		hs.until("the note parsed", func() bool { l := d.document.live; return l != nil && l.doc != nil && !l.quick })
+		hs.caretAt(d, "what the caret", 4, 0)
+		hs.settle()
+		time.Sleep(300 * time.Millisecond)
+		hs.settle()
+		hs.fshot("live-preview", dark)
+		// The caret in the table shows its source, the rest as it was.
+		hs.caretAt(d, "| ⌘P", 2, 0)
+		hs.settle()
+		time.Sleep(300 * time.Millisecond)
+		hs.settle()
+		hs.fshot("live-preview-table", dark)
+	})
+}

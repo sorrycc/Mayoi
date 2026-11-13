@@ -99,6 +99,22 @@ func TestBudgets(t *testing.T) {
 			hs.place(d, 40000, 40000)
 			return func() { hs.tt.Type("a"); step(hs.tt) }
 		}},
+		// The caret moving from line to line shows the marks of the line it
+		// goes to and hides those of the line it leaves.
+		{"Live Preview caret frame", 4 * time.Millisecond, true, func(t *testing.T, hs *harness) func() {
+			d := bigNote(hs)
+			hs.place(d, 40000, 40000)
+			i := 0
+			return func() {
+				key := ui.KeyDown
+				if i/20%2 == 1 {
+					key = ui.KeyUp
+				}
+				i++
+				hs.tt.Key(0, key)
+				step(hs.tt)
+			}
+		}},
 		{"Live Preview scroll frame", 5 * time.Millisecond, false, func(t *testing.T, hs *harness) func() {
 			bigNote(hs)
 			i := 0

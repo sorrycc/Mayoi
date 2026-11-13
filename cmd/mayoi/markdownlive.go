@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"regexp"
 	"slices"
+	"sort"
 	"strconv"
 	"strings"
 	"unicode/utf8"
@@ -68,6 +69,10 @@ type liveLook struct {
 	color liveColor
 	// alert is the kind of the alert whose color an alert's title takes.
 	alert markdownAlert
+	// indent widens each rune, the white space before an item of a list
+	// in another, to as many times the text's size, for the item to stand
+	// under its parent's text, as in the Reading view.
+	indent float32
 }
 
 // liveObj is what a liveObject draws.
@@ -116,6 +121,9 @@ const (
 	decoQuote liveDecoKind = iota
 	decoCode
 	decoRule
+	// decoHeading is the hairline under a heading of the first two
+	// levels, as the Reading view draws it.
+	decoHeading
 )
 
 // liveDeco is a run of lines with something painted behind them: a quote's
@@ -125,6 +133,9 @@ type liveDeco struct {
 	kind       liveDecoKind
 	depth      int
 	alert      markdownAlert
+	// fenced is set for a block of code between fences, whose first line
+	// is its fence and its language.
+	fenced bool
 }
 
 // liveBlock is a run of lines that Live Preview shows rendered in their
@@ -150,6 +161,9 @@ type liveDoc struct {
 	reach  []int
 	decos  []liveDeco
 	blocks []liveBlock
+	// edit is the edit made to the parse's text since, which its spans
+	// follow as visit finds them; nil for a parse.
+	edit *liveEdit
 }
 
 // index finds how far the spans reach.
@@ -561,6 +575,9 @@ func parseLive(source string, path, root string, full bool, cache *markdownCache
 					}
 					style(s, first, look)
 					lineMark(s, at)
+					if x.Level <= 2 {
+						deco(s, first, liveDeco{kind: decoHeading})
+					}
 					if end := bytes.TrimRight(src[at:first], " \t"); bytes.HasSuffix(end, []byte{'#'}) {
 						trimmed := bytes.TrimRight(end, "#")
 						if len(trimmed) == 0 || trimmed[len(trimmed)-1] == ' ' {
@@ -614,7 +631,7 @@ func parseLive(source string, path, root string, full bool, cache *markdownCache
 					continue
 				}
 				style(s, e, liveLook{code: true, block: true})
-				deco(s, e, liveDeco{kind: decoCode})
+				deco(s, e, liveDeco{kind: decoCode, fenced: true})
 				// The fences are marks of the block, its language faint.
 				open := lineEnd(s)
 				ticks := s
@@ -673,6 +690,10 @@ func parseLive(source string, path, root string, full bool, cache *markdownCache
 	walk(tree)
 
 	seen := map[string]int{}
+	// A block of the same source as one the last parse drew is drawn as
+	// it was: only those edited are parsed, and drawn, again.
+	blocks := map[string][]markdownBlock{}
+	cache.keep = true
 	for i := range doc.blocks {
 		b := &doc.blocks[i]
 		b.key = b.source + "\x00" + strconv.Itoa(seen[b.source])
@@ -680,9 +701,17 @@ func parseLive(source string, path, root string, full bool, cache *markdownCache
 		// Its source, where the caret is, is code, so a table's pipes
 		// line up.
 		style(b.start, b.end, liveLook{code: true, block: true})
-		b.blocks = parseMarkdown([]byte(b.source), path, root, nil, cache)
+		parsed, ok := cache.blocks[b.source]
+		if !ok {
+			parsed, ok = blocks[b.source]
+		}
+		if !ok {
+			parsed = parseMarkdown([]byte(b.source), path, root, nil, cache)
+		}
+		b.blocks, blocks[b.source] = parsed, parsed
 		b.start, b.end = runeAt(b.start), runeAt(b.end)
 	}
+	cache.keep = false
 	// The spans by start, those that start together the larger first, so
 	// that the marks inside an element style over it.
 	slices.SortStableFunc(doc.spans, func(x, y liveSpan) int {
@@ -692,12 +721,26 @@ func parseLive(source string, path, root string, full bool, cache *markdownCache
 		return y.end - x.end
 	})
 	doc.index()
-	if images {
+	if full {
+		// The blocks hold what they drew: the cache keeps what the text
+		// itself draws, and the diagrams of the blocks it has.
+		cache.blocks = blocks
 		for k := range cache.images {
 			if !used[k] {
 				delete(cache.images, k)
 			}
 		}
+		for k := range cache.formulas {
+			if !usedFormulas[k] {
+				delete(cache.formulas, k)
+			}
+		}
+		for k := range cache.diagrams {
+			if !slices.ContainsFunc(doc.blocks, func(b liveBlock) bool { return strings.Contains(b.source, k) }) {
+				delete(cache.diagrams, k)
+			}
+		}
+		clear(cache.code)
 	}
 	return doc
 }
@@ -776,6 +819,10 @@ func liveDepth(n ast.Node) int {
 	return d
 }
 
+// liveIndent is how far, in the text's size, an item of a list stands in
+// from its parent's: past a bullet and its space.
+const liveIndent = 1.45
+
 // liveItem styles the marker of a list's item on the line src[s:e]: a dot
 // for a bullet, a ring in a list inside another, a box for a task, the
 // number of an ordered list muted.
@@ -786,6 +833,16 @@ func liveItem(src []byte, s, e int, ordered bool, depth int, add func(liveSpan),
 	}
 	ms, me := s+m[4], s+m[5]
 	task := m[8] >= 0
+	// Its white space, after its quotes' >, as wide as its parents' markers.
+	if depth > 1 {
+		ws := ms
+		for ws > s && (src[ws-1] == ' ' || src[ws-1] == '\t') {
+			ws--
+		}
+		if ws < ms {
+			style(ws, ms, liveLook{indent: liveIndent * float32(depth-1) / float32(ms-ws)})
+		}
+	}
 	if ordered {
 		style(ms, me, liveLook{color: liveMuted})
 	} else if !task {
@@ -884,56 +941,65 @@ func liveWikiLink(src []byte, s, e int, x *wikiLinkNode, path, root string, imag
 	mark(close, e, s, e)
 }
 
-// mapTo returns the parse with its spans moved to snap, a text that the
-// edits made since the parse changed: what was before the edits stays,
-// what was after moves with them, and what they replaced goes. A span
-// that styles text grows with what is typed at its end; a mark does not.
+// liveEdit is where a text changed since a parse: it agreed up to rune p,
+// and from rune q of the parse's text and r of the text now to their
+// ends.
+type liveEdit struct{ p, q, r int }
+
+// start is where rune x of the parse's text is now, as the start of a
+// span: what was before the edit stays, what was after moves with it, and
+// what it replaced goes to its end.
+func (e liveEdit) start(x int) int {
+	switch {
+	case x < e.p:
+		return x
+	case x >= e.q:
+		return x + e.r - e.q
+	}
+	return e.r
+}
+
+// end is where rune x is now as the end of a span, which grows with what
+// was typed at its end if it grows.
+func (e liveEdit) end(x int, grows bool) int {
+	switch {
+	case x < e.p, x == e.p && (e.p < e.q || !grows):
+		return x
+	case x >= e.q:
+		return x + e.r - e.q
+	}
+	if grows {
+		return e.r
+	}
+	return e.p
+}
+
+// before is the last rune of the parse's text that is at or before rune
+// x of the text now.
+func (e liveEdit) before(x int) int {
+	switch {
+	case x < e.p:
+		return x
+	case x >= e.r:
+		return x - (e.r - e.q)
+	}
+	return e.p
+}
+
+// mapTo returns the parse moved to snap, a text that the edits made since
+// the parse changed: what was before the edits stays, what was after
+// moves with them, and what they replaced goes. A span that styles text
+// grows with what is typed at its end; a mark does not. Its spans move
+// only as visit finds them, as a frame needs those about the view alone.
 func (doc *liveDoc) mapTo(snap ui.TextSnapshot) *liveDoc {
 	if doc.snap.Version() == snap.Version() && doc.snap.Len() == snap.Len() {
 		return doc
 	}
 	p, q, r := snapDiff(doc.snap, snap)
-	delta := r - q
-	start := func(x int) int {
-		switch {
-		case x < p:
-			return x
-		case x >= q:
-			return x + delta
-		}
-		return r
-	}
-	end := func(x int, grows bool) int {
-		switch {
-		case x < p, x == p && (p < q || !grows):
-			return x
-		case x > q || x == q:
-			return x + delta
-		}
-		if grows {
-			return r
-		}
-		return p
-	}
-	out := &liveDoc{snap: snap}
-	out.spans = make([]liveSpan, 0, len(doc.spans))
-	for _, s := range doc.spans {
-		grows := s.kind == liveStyle
-		if s.kind == liveObject && s.start < q && s.end > p {
-			continue // a picture or a box edited is text until parsed
-		}
-		s.start, s.end = start(s.start), end(s.end, grows)
-		s.from, s.to = start(s.from), end(s.to, true)
-		if s.end > s.start {
-			out.spans = append(out.spans, s)
-		}
-	}
-	// Moved, they are still by start, but for those the edits took to
-	// the same rune.
-	slices.SortStableFunc(out.spans, func(x, y liveSpan) int { return x.start - y.start })
-	out.index()
+	e := liveEdit{p, q, r}
+	out := &liveDoc{snap: snap, spans: doc.spans, reach: doc.reach, edit: &e}
 	for _, d := range doc.decos {
-		d.start, d.end = start(d.start), end(d.end, true)
+		d.start, d.end = e.start(d.start), e.end(d.end, true)
 		if d.end >= d.start {
 			out.decos = append(out.decos, d)
 		}
@@ -942,10 +1008,52 @@ func (doc *liveDoc) mapTo(snap ui.TextSnapshot) *liveDoc {
 		if b.start < q && b.end >= p {
 			continue // edited: its text until parsed
 		}
-		b.start, b.end = start(b.start), end(b.end, true)
+		b.start, b.end = e.start(b.start), e.end(b.end, true)
 		out.blocks = append(out.blocks, b)
 	}
 	return out
+}
+
+// visit calls fn with each span that reaches runes from up to to, by
+// their starts, moved to the text as it is.
+func (doc *liveDoc) visit(from, to int, fn func(s *liveSpan)) {
+	e := doc.edit
+	oldFrom, oldTo := from, to
+	if e != nil {
+		oldFrom, oldTo = e.before(from), e.before(to)
+	}
+	k := sort.Search(len(doc.reach), func(i int) bool { return doc.reach[i] > oldFrom })
+	for i := k; i < len(doc.spans); i++ {
+		s := doc.spans[i]
+		if s.start > oldTo {
+			break
+		}
+		if e != nil {
+			edited := s.kind == liveObject && s.start < e.q && s.end > e.p
+			if edited {
+				// A task's box checked or unchecked shows so at once; a
+				// picture or a formula edited is text until parsed.
+				if s.obj != objTask && s.obj != objTaskDone {
+					continue
+				}
+				start, end := e.start(s.start), e.end(s.end, true)
+				switch doc.snap.Slice(start, min(end, doc.snap.Len())) {
+				case "[ ]":
+					s.obj = objTask
+				case "[x]", "[X]":
+					s.obj = objTaskDone
+				default:
+					continue
+				}
+			}
+			s.start, s.end = e.start(s.start), e.end(s.end, s.kind == liveStyle || edited)
+			s.from, s.to = e.start(s.from), e.end(s.to, true)
+		}
+		if s.end <= s.start || s.end <= from || s.start > to {
+			continue
+		}
+		fn(&s)
+	}
 }
 
 // snapDiff returns where two texts differ: they agree up to rune p, and

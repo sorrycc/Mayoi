@@ -22,10 +22,10 @@ func liveParse(s string) *liveDoc {
 func liveSpans(doc *liveDoc, s string) []string {
 	r := []rune(s)
 	var out []string
-	for _, sp := range doc.spans {
+	doc.visit(0, len(r), func(sp *liveSpan) {
 		kind := map[liveKind]string{liveStyle: "style", liveMark: "mark", liveObject: "object"}[sp.kind]
 		out = append(out, kind+":"+string(r[sp.start:sp.end]))
-	}
+	})
 	return out
 }
 
@@ -133,11 +133,11 @@ func TestLiveMapTo(t *testing.T) {
 	b.Replace(20, 20, "!")
 	after := b.Snapshot()
 	r := []rune(after.String())
-	for _, sp := range doc.mapTo(after).spans {
+	doc.mapTo(after).visit(0, len(r), func(sp *liveSpan) {
 		if sp.kind == liveMark && strings.Contains(string(r[sp.start:sp.end]), "!") {
 			t.Errorf("the mark %q took what was typed after it", string(r[sp.start:sp.end]))
 		}
-	}
+	})
 }
 
 func TestSnapDiff(t *testing.T) {
@@ -242,5 +242,88 @@ func TestLivePreview(t *testing.T) {
 	hs.settle()
 	if a.livePreview(d) || d.gutterW == 0 {
 		t.Error("the source has no line numbers")
+	}
+}
+
+// liveBench is a note of some 24,000 lines, of every kind of Markdown
+// Live Preview styles.
+func liveBench() string {
+	part := "## Section\n\nSome **bold**, *italic* and `code` text with a [link](https://example.com) and ==marks==.\n\n" +
+		"- [ ] a task\n- [x] done\n- an item\n  - nested\n\n> A quote of some length.\n\n```go\nfunc f() int { return 1 }\n```\n\n" +
+		"| a | b |\n|---|---|\n| 1 | 2 |\n\n$$\nx^2\n$$\n\n"
+	return strings.Repeat(part, 1000)
+}
+
+// The parse in the background, a moment after each edit.
+func BenchmarkParseLive(b *testing.B) {
+	src := liveBench()
+	cache := &markdownCache{math: true}
+	b.SetBytes(int64(len(src)))
+	for b.Loop() {
+		parseLive(src, "/note.md", "", true, cache)
+	}
+}
+
+// The quick parse of the first frame.
+func BenchmarkParseLiveQuick(b *testing.B) {
+	src := liveBench()
+	b.SetBytes(int64(len(src)))
+	for b.Loop() {
+		parseLive(src, "/note.md", "", false, &markdownCache{math: true})
+	}
+}
+
+// The spans following a key typed, until the next parse.
+func BenchmarkLiveMapTo(b *testing.B) {
+	src := liveBench()
+	var buf ui.TextBuffer
+	buf.Set(src)
+	doc := parseLive(src, "/note.md", "", true, &markdownCache{math: true})
+	doc.snap = buf.Snapshot()
+	at := len(src) / 2
+	buf.Replace(at, at, "a")
+	edited := buf.Snapshot()
+	for b.Loop() {
+		doc.mapTo(edited)
+	}
+}
+
+// A task's box checked shows checked at once, before the text is parsed
+// again, rather than as its [x].
+func TestLiveMapToTask(t *testing.T) {
+	src := "- [ ] task\n"
+	var b ui.TextBuffer
+	b.Set(src)
+	doc := parseLive(src, "/note.md", "", false, &markdownCache{})
+	doc.snap = b.Snapshot()
+	b.Replace(3, 4, "x")
+	var got []liveObj
+	doc.mapTo(b.Snapshot()).visit(0, b.Snapshot().Len(), func(s *liveSpan) {
+		if s.kind == liveObject {
+			got = append(got, s.obj)
+		}
+	})
+	if len(got) != 1 || got[0] != objTaskDone {
+		t.Fatalf("the box checked is %v, not checked", got)
+	}
+}
+
+// A parse draws again only the blocks edited since the last: the others
+// it takes as they were.
+func TestParseLiveKeepsBlocks(t *testing.T) {
+	src := "| a | b |\n|---|---|\n| 1 | 2 |\n\n$$\nx^2\n$$\n\ntext\n"
+	cache := &markdownCache{math: true}
+	first := parseLive(src, "/note.md", "", true, cache)
+	again := parseLive(src+"more\n", "/note.md", "", true, cache)
+	if len(first.blocks) != 2 || len(again.blocks) != 2 {
+		t.Fatalf("blocks: %d, then %d", len(first.blocks), len(again.blocks))
+	}
+	for i := range first.blocks {
+		if &first.blocks[i].blocks[0] != &again.blocks[i].blocks[0] {
+			t.Errorf("block %d was drawn again", i)
+		}
+	}
+	if len(cache.formulas) != 1 {
+		t.Errorf("the cache keeps %d formulas, not the one", len(cache.formulas))
 	}
 }

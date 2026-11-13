@@ -27,6 +27,12 @@ needs a `## <version>` section here, or its build fails.
 - **View → Toggle Live Preview** (`⌥⌘V`) switches a Markdown tab between Live Preview and its source.
 - **View → Open Markdown As** chooses source, Live Preview or the Reading view for files you open.
 - A click on a task's box in the Reading view checks it in the file.
+- Live Preview stays smooth as you type in long notes full of tables, math and diagrams.
+- In Live Preview, marks fade in as the caret moves to their line, and a table fades back in as it leaves.
+- A task's box in Live Preview fills in as you check it, and no longer flashes `[x]` first.
+- Nested lists in Live Preview stand under their parent's text, as in the Reading view.
+- Quotes in Live Preview have one unbroken bar, and the largest headings a hairline below, as in Reading.
+- Switching between source, Live Preview and the Reading view fades the new view in.
 
 ## 0.20.1
 

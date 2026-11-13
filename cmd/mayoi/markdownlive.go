@@ -10,6 +10,8 @@ import (
 	"unicode"
 	"unicode/utf8"
 
+	"mayoi/internal/vfs"
+
 	"github.com/egoist/mygo/ui"
 	"github.com/yuin/goldmark/ast"
 	east "github.com/yuin/goldmark/extension/ast"
@@ -105,6 +107,8 @@ const (
 	// objGlyph is a rune of a block's source drawn as wide as the columns
 	// it takes, so that a table's pipes line up.
 	objGlyph
+	// objExternal is the ) of a link to the web, drawn as an icon.
+	objExternal
 )
 
 // liveSpan is a run of runes that Live Preview styles, hides or draws.
@@ -173,6 +177,18 @@ type liveBlock struct {
 	key string
 	// blocks are its source as the Reading view shows it.
 	blocks []markdownBlock
+	// embed is set for a note embedded, ![[note]], whose source is a wiki
+	// link rather than code, and version is the note's, which its key
+	// takes, to draw it again once the note changed.
+	embed   bool
+	version string
+}
+
+// liveCallout is a callout that folds, [!faq]- or [!faq]+, from the start
+// of its first line, its title's, to the end of its last.
+type liveCallout struct {
+	start, end int
+	fold       byte
 }
 
 // liveDoc is a parse of a Markdown text for Live Preview, in runes of
@@ -185,6 +201,8 @@ type liveDoc struct {
 	reach  []int
 	decos  []liveDeco
 	blocks []liveBlock
+	// callouts are the callouts that fold.
+	callouts []liveCallout
 	// edit is the edit made to the parse's text since, which its spans
 	// follow as visit finds them; nil for a parse.
 	edit *liveEdit
@@ -489,7 +507,14 @@ func parseLive(source string, path, root string, full bool, cache *markdownCache
 					is, ie := inner(ch)
 					style(is, ie, liveLook{color: liveLink})
 					mark(s, is, s, e)
-					mark(ie, e, s, e)
+					if liveExternal(string(x.Destination)) && e-ie >= 3 && src[e-1] == ')' {
+						// A link to the web ends in its icon, drawn in the
+						// room of its ).
+						mark(ie, e-1, s, e)
+						add(liveSpan{start: e - 1, end: e, kind: liveObject, from: s, to: e, obj: objExternal})
+					} else {
+						mark(ie, e, s, e)
+					}
 				}
 			case *ast.Text:
 				if s >= 0 {
@@ -649,6 +674,11 @@ func parseLive(source string, path, root string, full bool, cache *markdownCache
 				}
 				walkInline(x)
 			case *ast.Paragraph, *ast.TextBlock:
+				if v, ok := liveEmbed(x, src, off, path, root, full); ok {
+					if s, e := linesOf(x); s >= 0 {
+						doc.blocks = append(doc.blocks, liveBlock{start: s, end: e, source: string(src[s:e]), embed: true, version: v})
+					}
+				}
 				if b, ok := liveMathBlock(x); ok && full {
 					s, e := linesOf(x)
 					f := formula(b.tex, true)
@@ -716,6 +746,9 @@ func parseLive(source string, path, root string, full bool, cache *markdownCache
 				if s >= 0 {
 					alert, _, _ := markdownAlertOf(x, body)
 					liveQuote(src, s, e, alert, lineEnd, add, deco, style)
+					if fold := markdownAlertFold(markdownAlertLine(x, body)); alert != alertNone && fold != 0 {
+						doc.callouts = append(doc.callouts, liveCallout{start: runeAt(s), end: runeAt(e), fold: fold})
+					}
 				}
 				walk(x)
 			case *ast.List:
@@ -771,6 +804,20 @@ func parseLive(source string, path, root string, full bool, cache *markdownCache
 		}
 	}
 	walk(tree)
+	// Comments, %%like this%%, read faint, their marks too, as their
+	// source: what is in them is not styled.
+	if comments := markdownComments(body); len(comments) > 0 {
+		in := func(s, e int) bool {
+			k := sort.Search(len(comments), func(i int) bool { return runeAt(off+comments[i][1]) > s })
+			return k < len(comments) && runeAt(off+comments[k][0]) <= s && e <= runeAt(off+comments[k][1])
+		}
+		doc.spans = slices.DeleteFunc(doc.spans, func(sp liveSpan) bool { return in(sp.start, sp.end) })
+		doc.decos = slices.DeleteFunc(doc.decos, func(d liveDeco) bool { return in(d.start, d.end) })
+		doc.blocks = slices.DeleteFunc(doc.blocks, func(b liveBlock) bool { return in(runeAt(b.start), runeAt(b.end)) })
+		for _, cm := range comments {
+			style(off+cm[0], off+cm[1], liveLook{color: liveFaint})
+		}
+	}
 
 	seen := map[string]int{}
 	// A block of the same source as one the last parse drew is drawn as
@@ -779,19 +826,25 @@ func parseLive(source string, path, root string, full bool, cache *markdownCache
 	cache.keep = true
 	for i := range doc.blocks {
 		b := &doc.blocks[i]
-		b.key = b.source + "\x00" + strconv.Itoa(seen[b.source])
-		seen[b.source]++
-		// Its source, where the caret is, is code, so a table's pipes
-		// line up.
-		style(b.start, b.end, liveLook{code: true, block: true})
-		parsed, ok := cache.blocks[b.source]
+		k := b.source
+		if b.embed {
+			k += "\x00" + b.version
+		}
+		b.key = k + "\x00" + strconv.Itoa(seen[k])
+		seen[k]++
+		if !b.embed {
+			// Its source, where the caret is, is code, so a table's pipes
+			// line up.
+			style(b.start, b.end, liveLook{code: true, block: true})
+		}
+		parsed, ok := cache.blocks[k]
 		if !ok {
-			parsed, ok = blocks[b.source]
+			parsed, ok = blocks[k]
 		}
 		if !ok {
 			parsed = parseMarkdown([]byte(b.source), path, root, nil, cache)
 		}
-		b.blocks, blocks[b.source] = parsed, parsed
+		b.blocks, blocks[k] = parsed, parsed
 		b.start, b.end = runeAt(b.start), runeAt(b.end)
 	}
 	cache.keep = false
@@ -846,6 +899,33 @@ func codeTicks(src []byte, s, e int) (before, after int) {
 		a++
 	}
 	return s - b, a - e
+}
+
+// liveEmbed reports whether paragraph x of src, from off, embeds a note
+// alone, ![[note]], that shows in a full parse, and the version of the
+// note: its time and size.
+func liveEmbed(x ast.Node, src []byte, off int, path, root string, full bool) (string, bool) {
+	if _, top := x.Parent().(*ast.Document); !full || root == "" || !top {
+		return "", false
+	}
+	l, ok := markdownEmbedOf(x, src[off:])
+	if !ok {
+		return "", false
+	}
+	file := markdownEmbedFile(root, path, l)
+	if file == "" {
+		return "", false
+	}
+	info, err := vfs.Stat(file)
+	if err != nil || info.Size() > markdownEmbedMax {
+		return "", false
+	}
+	return file + "\x00" + info.ModTime().String() + "\x00" + strconv.FormatInt(info.Size(), 10), true
+}
+
+// liveExternal reports whether a link's destination is on the web.
+func liveExternal(dest string) bool {
+	return strings.HasPrefix(dest, "https://") || strings.HasPrefix(dest, "http://")
 }
 
 // liveMathBlock reports whether a paragraph is a formula in display style
@@ -1094,6 +1174,12 @@ func (doc *liveDoc) mapTo(snap ui.TextSnapshot) *liveDoc {
 		d.start, d.end = e.start(d.start), e.end(d.end, true)
 		if d.end >= d.start {
 			out.decos = append(out.decos, d)
+		}
+	}
+	for _, c := range doc.callouts {
+		c.start, c.end = e.start(c.start), e.end(c.end, true)
+		if c.end >= c.start {
+			out.callouts = append(out.callouts, c)
 		}
 	}
 	for _, b := range doc.blocks {

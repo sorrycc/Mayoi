@@ -45,8 +45,17 @@ type document struct {
 	buf         *ui.TextBuffer
 	// live is the document's Live Preview, nil until an editor shows it
 	// so.
-	live  *liveState
-	saved uint64 // the buffer's version on disk
+	live *liveState
+	// folds are the callouts that fold, [!faq]- or [!faq]+, folded or
+	// opened by a click, by their marker lines, as both Live Preview and
+	// the Reading view show them; foldKey is the one folded or opened
+	// last, at foldAt, from which its chevron turns, foldNow set until
+	// a frame notes when.
+	folds   map[string]bool
+	foldKey string
+	foldAt  time.Time
+	foldNow bool
+	saved   uint64 // the buffer's version on disk
 	// savedSnap is the text on disk, which undoing back to makes the
 	// document clean again.
 	savedSnap ui.TextSnapshot

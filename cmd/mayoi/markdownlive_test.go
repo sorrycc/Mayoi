@@ -50,7 +50,7 @@ func TestParseLive(t *testing.T) {
 		{"a **bold** and *it* é\n", []string{"style:bold", "mark:**", "style:it", "mark:*"}},
 		{"中文**粗体**结束\n", []string{"style:粗体", "mark:**"}},
 		{"use `code` here\n", []string{"style:code", "mark:`"}},
-		{"see [label](https://x.dev/a_(b)) ok\n", []string{"style:label", "mark:[", "mark:](https://x.dev/a_(b))"}},
+		{"see [label](https://x.dev/a_(b)) ok\n", []string{"style:label", "mark:[", "mark:](https://x.dev/a_(b)", "object:)"}},
 		{"<https://x.dev> and https://y.dev\n", []string{"style:https://x.dev", "mark:<", "style:https://y.dev"}},
 		{"to [[note#h|Label]] now\n", []string{"style:Label", "mark:[[note#h|", "mark:]]"}},
 		{"~~gone~~ and ==lit==\n", []string{"style:gone", "mark:~~", "style:lit", "mark:=="}},
@@ -480,5 +480,89 @@ func TestParseLiveUnresolved(t *testing.T) {
 	}
 	if looks["there"] != liveLink || looks["nowhere"] != liveUnresolved {
 		t.Errorf("looks %v", looks)
+	}
+}
+
+// A callout of - shows its title alone in Live Preview, its lines below
+// taking no room; its chevron opens it, gliding the text below down, and
+// the caret in it shows its source.
+func TestLiveCalloutFolds(t *testing.T) {
+	hs := newHarness(t, true)
+	a := hs.a
+	src := "intro\n\n> [!faq]- Why?\n> One.\n> Two.\n> Three.\n\nend\n"
+	path := hs.path("fold.md")
+	os.WriteFile(path, []byte(src), 0o644)
+	a.settings.MarkdownMode = "live"
+	a.openFile(path, true)
+	d := a.activeEditor()
+	hs.until("parsed", func() bool { l := d.document.live; return l != nil && l.doc != nil && !l.quick })
+	hs.settle()
+	end := d.buf.Snapshot().LineCount() - 2
+	title := 2
+	folded := d.lines.Top(end) - d.lines.Top(title+1)
+	if lineH := d.lines.Top(1) - d.lines.Top(0); folded > lineH*1.5 {
+		t.Fatalf("folded, the callout's lines take %v, more than its blank line", folded)
+	}
+	var chevron *liveHit
+	for i := range d.liveHits {
+		if d.liveHits[i].fold != 0 {
+			chevron = &d.liveHits[i]
+		}
+	}
+	if chevron == nil || chevron.key != "[!faq]- Why?" {
+		t.Fatalf("no chevron: %+v", d.liveHits)
+	}
+	r := chevron.r
+	if !a.liveClick(d, r.X+r.W/2, r.Y+r.H/2) {
+		t.Fatal("the chevron took no click")
+	}
+	step(hs.tt)
+	step(hs.tt)
+	gliding := d.lines.Top(end) - d.lines.Top(title+1)
+	hs.settle()
+	open := d.lines.Top(end) - d.lines.Top(title+1)
+	if open < folded+3*(d.lines.Top(1)-d.lines.Top(0))-1 {
+		t.Fatalf("opened, its lines take %v", open)
+	}
+	if gliding <= folded || gliding >= open {
+		t.Errorf("the text below jumped from %v to %v, not gliding to %v", folded, gliding, open)
+	}
+	// Folded again, then the caret in it: its source shows.
+	a.toggleCallout(d.document, chevron.key, chevron.fold)
+	hs.settle()
+	at := len([]rune(src[:strings.Index(src, "Two")]))
+	d.selectRange(at, at, false)
+	hs.settle()
+	if got := d.lines.Top(end) - d.lines.Top(title+1); got < open-1 {
+		t.Errorf("with the caret in it, its lines take %v, not %v", got, open)
+	}
+}
+
+// A note embedded shows rendered in Live Preview, its source a wiki link,
+// not code, and drawn again once the note changes.
+func TestParseLiveEmbeds(t *testing.T) {
+	dir := t.TempDir()
+	other := dir + "/other.md"
+	os.WriteFile(other, []byte("# Other\n\nHello.\n"), 0o644)
+	src := "Intro.\n\n![[other]]\n\n![[nowhere]]\n"
+	cache := &markdownCache{}
+	doc := parseLive(src, dir+"/note.md", dir, true, cache)
+	if len(doc.blocks) != 1 {
+		t.Fatalf("blocks %+v", doc.blocks)
+	}
+	b := doc.blocks[0]
+	if !b.embed || b.blocks[0].kind != markdownEmbedTitle || markdownRunsText(b.blocks[2].runs) != "Hello." {
+		t.Fatalf("embed %+v", b)
+	}
+	for _, sp := range doc.spans {
+		if sp.look.code && sp.start < b.end && sp.end > b.start {
+			t.Errorf("its source is code: %+v", sp)
+		}
+	}
+	os.WriteFile(other, []byte("# Other\n\nChanged, longer.\n"), 0o644)
+	os.Chtimes(other, time.Now().Add(time.Minute), time.Now().Add(time.Minute))
+	again := parseLive(src, dir+"/note.md", dir, true, cache)
+	if again.blocks[0].key == b.key || markdownRunsText(again.blocks[0].blocks[2].runs) != "Changed, longer." {
+		t.Errorf("not drawn again: %q", markdownRunsText(again.blocks[0].blocks[2].runs))
 	}
 }

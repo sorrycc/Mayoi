@@ -912,3 +912,42 @@ func TestFeatLivePreview(t *testing.T) {
 		hs.fshot("live-preview-table", dark)
 	})
 }
+
+// featCalloutsMD is a note of Obsidian's callouts, folded and open, a note
+// embedded and a comment.
+const featCalloutsMD = "# Callouts and embeds\n\n" +
+	"> [!info] Each kind has its color\n> And its own icon, as in Obsidian.\n\n" +
+	"> [!success]\n> Done, in green.\n\n" +
+	"> [!faq]- Folded until opened\n> Hidden below the title.\n> Over lines.\n\n" +
+	"> [!bug]+ Open until folded\n> A click on the chevron folds it.\n\n" +
+	"> [!example]\n> Purple, with a list.\n\n" +
+	"Text with a %%quiet comment%% in it, and a [link to the web](https://example.com).\n\n" +
+	"![[recipe]]\n\n" +
+	"After the embed.\n"
+
+// Callouts of each kind, folded and open, a note embedded and a comment,
+// in Live Preview and the Reading view.
+func TestFeatLiveCallouts(t *testing.T) {
+	featBoth(t, func(t *testing.T, dark bool) {
+		root := t.TempDir()
+		hs := featHarness(t, dark, featOpts{root: root, w: 1000, h: 1100})
+		a := hs.a
+		os.WriteFile(hs.path("recipe.md"), []byte("## Pancakes\n\nMix **flour**, milk and eggs.\n\n- [ ] Rest the batter\n- [x] Heat the pan\n"), 0o644)
+		os.WriteFile(hs.path("callouts.md"), []byte(featCalloutsMD), 0o644)
+		a.settings.MarkdownMode = "live"
+		a.openFile(hs.path("callouts.md"), true)
+		d := a.activeEditor()
+		hs.until("the note parsed", func() bool { l := d.document.live; return l != nil && l.doc != nil && !l.quick && len(l.views) > 0 })
+		hs.caretAt(d, "After the embed", 0, 0)
+		hs.settle()
+		time.Sleep(300 * time.Millisecond)
+		hs.settle()
+		hs.fshot("live-callouts", dark)
+		a.setMarkdownMode("reading")
+		hs.until("the reading view", func() bool { return d.preview != nil && d.preview.loaded })
+		hs.settle()
+		time.Sleep(300 * time.Millisecond)
+		hs.settle()
+		hs.fshot("reading-callouts", dark)
+	})
+}

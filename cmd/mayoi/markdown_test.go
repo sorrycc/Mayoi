@@ -1263,7 +1263,7 @@ const markdownPartsFixture = "## Alerts\n\n" +
 	"---\n\n```js\nconst a = 1 // a comment\n```\n\n```\nplain\n```\n"
 
 func TestMarkdownAlerts(t *testing.T) {
-	src := "> [!NOTE]\n> Read this.\n\n> [!warning]\n> Careful **now**.\n> > Nested quote.\n\n> [!FOO]\n> Not an alert.\n\n> [!TIP]\n\n> Plain.\n"
+	src := "> [!NOTE]\n> Read this.\n\n> [!warning]\n> Careful **now**.\n> > Nested quote.\n\n> [!no such]\n> Not an alert.\n\n> [!TIP]\n\n> Plain.\n"
 	blocks := parseMarkdown([]byte(src), "test.md", "", nil)
 	var got []string
 	for _, b := range blocks {
@@ -1277,7 +1277,7 @@ func TestMarkdownAlerts(t *testing.T) {
 	want := []string{
 		"title:1", "1@1/1:Read this.",
 		"title:4", "4@1/1:Careful now.", "4@1/2:Nested quote.",
-		"0@0/1:[!FOO] Not an alert.",
+		"0@0/1:[!no such] Not an alert.",
 		"title:2",
 		"0@0/1:Plain.",
 	}
@@ -1759,8 +1759,110 @@ func TestMarkdownCallouts(t *testing.T) {
 			got = append(got, strconv.Itoa(int(b.alert))+":"+markdownRunsText(b.runs))
 		}
 	}
-	want := []string{"title:2:Own title", "2:Body.", "title:5:", "5:Risky.", "0:[!NOTE]x Not one."}
+	danger := strconv.Itoa(int(alertDanger))
+	want := []string{"title:2:Own title", "2:Body.", "title:" + danger + ":", danger + ":Risky.", "0:[!NOTE]x Not one."}
 	if strings.Join(got, "|") != strings.Join(want, "|") {
 		t.Fatalf("callouts:\n got %q\nwant %q", got, want)
+	}
+}
+
+// Each of Obsidian's callouts has its own kind, by its name and its
+// aliases, a name of no kind known being a note, titled as typed.
+func TestMarkdownCalloutKinds(t *testing.T) {
+	for _, c := range []struct {
+		line  string
+		kind  markdownAlert
+		title string
+	}{
+		{"[!NOTE]", alertNote, "Note"},
+		{"[!tip]", alertTip, "Tip"},
+		{"[!summary]", alertAbstract, "Summary"},
+		{"[!info]", alertInfo, "Info"},
+		{"[!todo]", alertTodo, "Todo"},
+		{"[!done]+", alertSuccess, "Done"},
+		{"[!FAQ]-", alertQuestion, "Faq"},
+		{"[!missing]", alertFailure, "Missing"},
+		{"[!error]", alertDanger, "Error"},
+		{"[!bug]", alertBug, "Bug"},
+		{"[!example]", alertExample, "Example"},
+		{"[!cite]", alertQuote, "Cite"},
+		{"[!my-kind]", alertNote, "My-kind"},
+	} {
+		k, n := markdownAlertMarker(c.line + " Title")
+		if k != c.kind || n != len(c.line) {
+			t.Errorf("%s: kind %d, %d bytes; want %d, %d", c.line, k, n, c.kind, len(c.line))
+		}
+		word, _ := markdownAlertType(c.line)
+		if _, title := markdownAlertHead(k, word); title != c.title {
+			t.Errorf("%s: titled %q, want %q", c.line, title, c.title)
+		}
+	}
+	for _, line := range []string{"[!two words]", "[!]", "[!note]x", "[note]"} {
+		if k, _ := markdownAlertMarker(line); k != alertNone {
+			t.Errorf("%s is a callout", line)
+		}
+	}
+}
+
+// A callout of - shows its title alone until a click opens it, one of +
+// all until a click folds it, and the blocks in it hide with it.
+func TestMarkdownCalloutFolds(t *testing.T) {
+	src := "> [!faq]- Why?\n> Because.\n> > [!note]+ Inner\n> > Deep.\n\nAfter.\n"
+	blocks := parseMarkdown([]byte(src), "test.md", "", nil)
+	doc := &document{}
+	shown := func() string {
+		var got []string
+		for _, b := range blocks {
+			if !calloutHidden(doc, b.folds) {
+				got = append(got, b.title+markdownRunsText(b.runs))
+			}
+		}
+		return strings.Join(got, "|")
+	}
+	if b := blocks[0]; b.kind != markdownAlertTitle || b.fold != '-' || b.foldKey != "[!faq]- Why?" || b.word != "faq" {
+		t.Fatalf("title %+v", b)
+	}
+	if got := shown(); got != "Why?|After." {
+		t.Fatalf("folded shows %q", got)
+	}
+	a := &app{}
+	a.toggleCallout(doc, "[!faq]- Why?", '-')
+	if got := shown(); got != "Why?|Because.|Inner|Deep.|After." {
+		t.Fatalf("opened shows %q", got)
+	}
+	a.toggleCallout(doc, "[!note]+ Inner", '+')
+	if got := shown(); got != "Why?|Because.|Inner|After." {
+		t.Fatalf("inner folded shows %q", got)
+	}
+}
+
+// A note embedded alone in its paragraph shows in place, after a line
+// naming it, or the part of it under a heading; one embedded in it, a
+// note not found and one in a list are links.
+func TestMarkdownEmbeds(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "other.md"), []byte("---\ntags: x\n---\n# Other\n\nHello **there**.\n\n## Part\n\nIn part.\n\n### Deeper\n\nStill in.\n\n## Next\n\nOut.\n\n![[third]]\n"), 0o644)
+	os.WriteFile(filepath.Join(dir, "third.md"), []byte("Third.\n"), 0o644)
+	src := "Before.\n\n![[other]]\n\n![[other#Part]]\n\n![[missing]]\n\n- ![[other]]\n"
+	blocks := parseMarkdown([]byte(src), filepath.Join(dir, "note.md"), dir, nil)
+	var got []string
+	for _, b := range blocks {
+		text := markdownRunsText(b.runs)
+		if b.kind == markdownEmbedTitle {
+			text = "[" + b.title + "]"
+		}
+		got = append(got, strconv.Itoa(b.embed)+":"+text)
+	}
+	want := []string{"0:Before.",
+		"1:[other]", "1:Other", "1:Hello there.", "1:Part", "1:In part.", "1:Deeper", "1:Still in.", "1:Next", "1:Out.", "1:third",
+		"1:[other › Part]", "1:Part", "1:In part.", "1:Deeper", "1:Still in.",
+		"0:missing", "0:other"}
+	if strings.Join(got, "|") != strings.Join(want, "|") {
+		t.Fatalf("embeds:\n got %q\nwant %q", got, want)
+	}
+	for _, b := range blocks {
+		if b.embed > 0 && b.slug != "" {
+			t.Errorf("an embedded heading %q has an anchor", b.slug)
+		}
 	}
 }

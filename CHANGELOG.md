@@ -11,6 +11,12 @@ needs a `## <version>` section here, or its build fails.
 - Links in Live Preview are underlined, and wikilinks to notes that don't exist yet look faded.
 - Callouts like `> [!tip] My title` show their own title, and Obsidian's callout types are recognized.
 - Callouts are tinted in their color in both Live Preview and Reading view.
+- Each Obsidian callout type, like `[!bug]` or `[!example]`, now has its own color and icon.
+- Callouts marked `[!faq]-` start folded and `[!faq]+` start open; click the chevron to fold or open them.
+- Embedded notes like `![[note]]` or `![[note#Heading]]` show their content in place, in both views.
+- Click the name above an embedded note to open it.
+- `%%comments%%` look faint in Live Preview and are hidden in Reading view.
+- Links to web pages in Live Preview end with a small external-link icon.
 - The sidebar's width and whether it's shown now stay the same as you switch projects and windows.
 - **Sessions** keeps **All Projects** chosen as you switch projects.
 - **Sessions** marks a session that's open in a terminal in any project with a terminal icon.

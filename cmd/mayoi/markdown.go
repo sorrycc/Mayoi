@@ -112,10 +112,14 @@ const (
 	// markdownMathBlock is a formula in display style, in a block of math
 	// or alone in its paragraph between $$ and $$.
 	markdownMathBlock
+	// markdownEmbedTitle is the line over a note embedded, ![[note]],
+	// which names it.
+	markdownEmbedTitle
 )
 
 // markdownAlert is the kind of a GitHub alert, a quote that opens with
-// [!NOTE] or another of them, 0 for a plain quote.
+// [!NOTE] or another of them, or of an Obsidian callout, as [!bug]; 0
+// for a plain quote.
 type markdownAlert uint8
 
 const (
@@ -125,16 +129,33 @@ const (
 	alertImportant
 	alertWarning
 	alertCaution
+	// Obsidian's callouts beyond GitHub's five, each in its own color,
+	// with its own icon.
+	alertAbstract
+	alertInfo
+	alertTodo
+	alertSuccess
+	alertQuestion
+	alertFailure
+	alertDanger
+	alertBug
+	alertExample
+	alertQuote
 )
 
 // markdownAlerts are the kinds of alerts by their markers: GitHub's five,
-// and Obsidian's callouts, as [!info] or [!danger], as the closest of them.
+// and Obsidian's callouts, as [!info] or [!danger], with their aliases. A
+// marker of no kind known is a note, as Obsidian takes one.
 var markdownAlerts = map[string]markdownAlert{
 	"NOTE": alertNote, "TIP": alertTip, "IMPORTANT": alertImportant, "WARNING": alertWarning, "CAUTION": alertCaution,
-	"INFO": alertNote, "ABSTRACT": alertNote, "SUMMARY": alertNote, "TLDR": alertNote, "TODO": alertNote, "QUOTE": alertNote, "CITE": alertNote,
-	"HINT": alertTip, "SUCCESS": alertTip, "CHECK": alertTip, "DONE": alertTip,
-	"QUESTION": alertImportant, "HELP": alertImportant, "FAQ": alertImportant, "EXAMPLE": alertImportant,
-	"ATTENTION": alertWarning, "DANGER": alertCaution, "ERROR": alertCaution, "FAILURE": alertCaution, "FAIL": alertCaution, "MISSING": alertCaution, "BUG": alertCaution,
+	"HINT": alertTip, "ATTENTION": alertWarning,
+	"ABSTRACT": alertAbstract, "SUMMARY": alertAbstract, "TLDR": alertAbstract,
+	"INFO": alertInfo, "TODO": alertTodo,
+	"SUCCESS": alertSuccess, "CHECK": alertSuccess, "DONE": alertSuccess,
+	"QUESTION": alertQuestion, "HELP": alertQuestion, "FAQ": alertQuestion,
+	"FAILURE": alertFailure, "FAIL": alertFailure, "MISSING": alertFailure,
+	"DANGER": alertDanger, "ERROR": alertDanger, "BUG": alertBug, "EXAMPLE": alertExample,
+	"QUOTE": alertQuote, "CITE": alertQuote,
 }
 
 type markdownImageKey struct {
@@ -168,6 +189,10 @@ type markdownCache struct {
 	// are.
 	keep   bool
 	blocks map[string][]markdownBlock
+	// embeds is how deep in notes embedded a parse is, and used the
+	// pictures the text's parse used, which those of notes embedded add to.
+	embeds int
+	used   map[markdownImageKey]bool
 }
 
 // markdownBlock is a paragraph-sized row, including its enclosing lists and quotes.
@@ -190,8 +215,22 @@ type markdownBlock struct {
 	alert   markdownAlert
 	alertAt int
 	// title is an alert's own title, as Obsidian's [!NOTE] Title, which
-	// stands for the word of its kind.
-	title string
+	// stands for the word of its kind, and word the type its marker is
+	// of, as typed, "faq" of [!faq].
+	title, word string
+	// fold is how the callout an alert's title opens folds, '-' or '+', 0
+	// for one that does not, and foldKey its marker line, by which its
+	// document keeps whether it is folded. folds are the keys of the
+	// callouts that fold that the block is in, which hide it while one
+	// is folded.
+	fold    byte
+	foldKey string
+	folds   []string
+	// embed is how deep in notes embedded the block is, 0 for one of the
+	// text itself; file is the note it is of, and heading the heading
+	// whose part of it shows, which its title's click opens.
+	embed         int
+	file, heading string
 	// slug is a heading's anchor, as GitHub makes it, which a link to
 	// #slug scrolls to.
 	slug string
@@ -564,6 +603,9 @@ func parseMarkdown(source []byte, path, root string, current func() bool, caches
 	}
 	cache := c.images
 	used := map[markdownImageKey]bool{}
+	if c.used != nil {
+		used = c.used // a note embedded's, which its text's parse keeps
+	}
 	usedCode := map[[2]string]bool{}
 	usedDiagrams := map[string]bool{}
 	usedFormulas := map[mathKey]bool{}
@@ -632,6 +674,7 @@ func parseMarkdown(source []byte, path, root string, current func() bool, caches
 		return runs
 	}
 	source, skip := markdownSkipFrontMatter(source)
+	source = markdownStripComments(source)
 	// An .mdx file's top-level import and export statements blank out:
 	// they are code, not text the preview shows.
 	if strings.EqualFold(filepath.Ext(path), ".mdx") {
@@ -824,6 +867,9 @@ func parseMarkdown(source []byte, path, root string, current func() bool, caches
 	// length of its marker, which its first paragraph drops, or less that
 	// for one with a title of its own, whose first line goes with it.
 	alert, alertAt, strip := alertNone, 0, 0
+	// folds are the keys of the callouts that fold that the blocks being
+	// walked are in.
+	var folds []string
 	slugs := map[string]int{}
 	// anchor gives a heading its slug, numbered after the first of a text.
 	anchor := func(b *markdownBlock) {
@@ -893,11 +939,52 @@ func parseMarkdown(source []byte, path, root string, current func() bool, caches
 		}
 		blocks = append(blocks, b)
 	}
+	// embedded shows the note that paragraph n, a block b of the text
+	// itself, embeds alone, ![[note]], in its place, and reports whether
+	// it did.
+	embedded := func(n ast.Node, b markdownBlock) bool {
+		if c.embeds >= markdownEmbedDepth || b.indent > 0 || b.quote > 0 || b.marker != "" || b.offset > 0 || current != nil && !current() {
+			return false
+		}
+		l, ok := markdownEmbedOf(n, source)
+		if !ok {
+			return false
+		}
+		file := markdownEmbedFile(root, path, l)
+		if file == "" {
+			return false
+		}
+		text, ok := markdownEmbedText(file, l.heading)
+		if !ok {
+			return false
+		}
+		// Its pictures and code are kept for the text's parse, which
+		// lets go of what it drew no longer.
+		keep, was := c.keep, c.used
+		c.embeds++
+		c.keep, c.used = true, used
+		inner := parseMarkdown(text, file, root, current, c)
+		c.embeds--
+		c.keep, c.used = keep, was
+		blocks = append(blocks, markdownBlock{kind: markdownEmbedTitle, embed: 1, line: b.line, file: file, heading: l.heading,
+			title: markdownEmbedName(file, l.heading), anchors: b.anchors})
+		anchors = nil
+		base := len(blocks)
+		for _, ib := range inner {
+			ib.embed++
+			ib.line, ib.slug, ib.anchors = b.line, "", nil
+			if ib.kind == markdownTable || ib.kind == markdownTableHeader {
+				ib.table += base
+			}
+			blocks = append(blocks, ib)
+		}
+		return true
+	}
 	// footnote is whether the blocks being walked are of a footnote.
 	footnote := false
 	var walk func(ast.Node, int, int, string, bool, float32, float32)
 	walk = func(n ast.Node, indent, quote int, marker string, tight bool, offset, markerWidth float32) {
-		b := markdownBlock{indent: indent, quote: quote, marker: marker, tight: tight, offset: offset, markerWidth: markerWidth, alert: alert, alertAt: alertAt, center: markdownCentered(boxes), footnote: footnote}
+		b := markdownBlock{indent: indent, quote: quote, marker: marker, tight: tight, offset: offset, markerWidth: markerWidth, alert: alert, alertAt: alertAt, center: markdownCentered(boxes), footnote: footnote, folds: folds}
 		if _, doc := n.(*ast.Document); !doc {
 			b.line = lineOf(n)
 		}
@@ -908,6 +995,9 @@ func parseMarkdown(source []byte, path, root string, current func() bool, caches
 			anchor(&b)
 		case *ast.Paragraph, *ast.TextBlock:
 			b.kind = markdownParagraph
+			if embedded(n, b) {
+				return
+			}
 			if strip < 0 {
 				// An alert's title, its first line, is its title's row, after
 				// its marker, as it reads.
@@ -963,15 +1053,23 @@ func parseMarkdown(source []byte, path, root string, current func() bool, caches
 			markdownHTMLBlock(raw, b, &boxes, emit, anchor, htmlImage)
 			return
 		case *ast.Blockquote:
-			outer, outerAt := alert, alertAt
+			outer, outerAt, outerFolds := alert, alertAt, folds
 			if k, title, n := markdownAlertOf(x, source); k != alertNone {
 				alert, alertAt, strip = k, quote+1, n
 				if title != "" {
 					// Its first line goes, whatever its marks: -n.
 					strip = -n
 				}
-				blocks = append(blocks, markdownBlock{kind: markdownAlertTitle, indent: indent, quote: quote + 1, marker: marker, tight: tight,
-					offset: offset, markerWidth: markerWidth, alert: k, alertAt: quote + 1, title: title, line: b.line})
+				line := markdownAlertLine(x, source)
+				word, _ := markdownAlertType(line)
+				t := markdownBlock{kind: markdownAlertTitle, indent: indent, quote: quote + 1, marker: marker, tight: tight,
+					offset: offset, markerWidth: markerWidth, alert: k, alertAt: quote + 1, title: title, word: word, line: b.line,
+					fold: markdownAlertFold(line), folds: folds}
+				if t.fold != 0 {
+					t.foldKey = line
+					folds = append(slices.Clip(folds), line)
+				}
+				blocks = append(blocks, t)
 				if marker != "" {
 					offset += markerWidth + 0.5
 					markerWidth = 0
@@ -986,7 +1084,7 @@ func parseMarkdown(source []byte, path, root string, current func() bool, caches
 				}
 				marker = ""
 			}
-			alert, alertAt, strip = outer, outerAt, 0
+			alert, alertAt, strip, folds = outer, outerAt, 0, outerFolds
 			return
 		case *ast.List:
 			i := x.Start
@@ -1145,17 +1243,23 @@ func markdownStart(n ast.Node) int {
 // callouts have, and the marker's length in runes. A - or + after the
 // marker, which folds an Obsidian callout, is part of it.
 func markdownAlertOf(q *ast.Blockquote, source []byte) (markdownAlert, string, int) {
-	p, ok := q.FirstChild().(*ast.Paragraph)
-	if !ok || p.Lines().Len() == 0 {
-		return alertNone, "", 0
-	}
-	seg := p.Lines().At(0)
-	line := strings.TrimSpace(string(seg.Value(source)))
+	line := markdownAlertLine(q, source)
 	k, n := markdownAlertMarker(line)
 	if k == alertNone {
 		return alertNone, "", 0
 	}
 	return k, strings.TrimSpace(line[n:]), utf8.RuneCountInString(line[:n])
+}
+
+// markdownAlertLine is the first line of a quote's text, trimmed, which
+// opens an alert with its marker.
+func markdownAlertLine(q *ast.Blockquote, source []byte) string {
+	p, ok := q.FirstChild().(*ast.Paragraph)
+	if !ok || p.Lines().Len() == 0 {
+		return ""
+	}
+	seg := p.Lines().At(0)
+	return strings.TrimSpace(string(seg.Value(source)))
 }
 
 // markdownDropFirstLine moves the inline nodes of a paragraph's first
@@ -1197,22 +1301,51 @@ func markdownNodeStart(n ast.Node) int {
 // markdownAlertMarker is the kind of the alert whose marker line opens
 // with, and the marker's length in bytes, with the - or + that folds it.
 func markdownAlertMarker(line string) (markdownAlert, int) {
-	if !strings.HasPrefix(line, "[!") {
+	word, n := markdownAlertType(line)
+	if word == "" {
 		return alertNone, 0
+	}
+	k, ok := markdownAlerts[strings.ToUpper(word)]
+	if !ok {
+		k = alertNote
+	}
+	return k, n
+}
+
+// markdownAlertType is the type a callout's marker line opens with, as
+// typed, "faq" of [!faq]-, and the marker's length in bytes, with the -
+// or + that folds it; "" for none.
+func markdownAlertType(line string) (string, int) {
+	if !strings.HasPrefix(line, "[!") {
+		return "", 0
 	}
 	i := strings.IndexByte(line, ']')
 	if i < 3 {
-		return alertNone, 0
+		return "", 0
 	}
-	k := markdownAlerts[strings.ToUpper(line[2:i])]
+	word := line[2:i]
+	for _, r := range word {
+		if r != '-' && r != '_' && !unicode.IsLetter(r) && !unicode.IsDigit(r) {
+			return "", 0
+		}
+	}
 	n := i + 1
 	if n < len(line) && (line[n] == '-' || line[n] == '+') {
 		n++
 	}
-	if k == alertNone || n < len(line) && line[n] != ' ' && line[n] != '\t' {
-		return alertNone, 0
+	if n < len(line) && line[n] != ' ' && line[n] != '\t' {
+		return "", 0
 	}
-	return k, n
+	return word, n
+}
+
+// markdownAlertFold is how a callout whose marker line is line folds: '-'
+// folded until opened, '+' open until folded, 0 for one that does not.
+func markdownAlertFold(line string) byte {
+	if _, n := markdownAlertType(line); n > 0 && (line[n-1] == '-' || line[n-1] == '+') {
+		return line[n-1]
+	}
+	return 0
 }
 
 // markdownTrimRuns drops the first n runes of the text of runs, and the
@@ -1331,7 +1464,7 @@ func markdownWords(blocks []markdownBlock) (words, minutes int) {
 		}
 	}
 	for _, b := range blocks {
-		if b.kind == markdownCodeBlock || b.kind == markdownMathBlock {
+		if b.kind == markdownCodeBlock || b.kind == markdownMathBlock || b.embed > 0 {
 			continue
 		}
 		count(b.runs)
@@ -1595,7 +1728,9 @@ func (a *app) markdownBelow(m *markdownPreview, i int) (bottom, outside float32)
 	if b.tight && (end || !m.blocks[i+1].tight) || b.kind == markdownTable && (end || m.blocks[i+1].kind != markdownTable) {
 		bottom = size * lh * 0.75
 	}
-	if b.quote > 0 && (end || m.blocks[i+1].quote < b.quote) {
+	// A quote ends where the text after it is not in it, or where another
+	// alert starts.
+	if b.quote > 0 && (end || m.blocks[i+1].quote < b.quote || m.blocks[i+1].kind == markdownAlertTitle && m.blocks[i+1].quote <= b.quote) {
 		outside, bottom = max(bottom, size*lh*0.75), 0
 	}
 	return bottom, outside
@@ -1617,18 +1752,26 @@ func (a *app) markdownSpacing(b markdownBlock) (top, bottom float32) {
 		}
 	case markdownAlertTitle:
 		bottom = gap * 0.3
+	case markdownEmbedTitle:
+		bottom = gap * 0.2
 	}
 	return
 }
 
-// markdownColor is the color of an alert of a kind, GitHub's.
+// markdownColor is the color of an alert of a kind: GitHub's for its
+// five, Obsidian's for its callouts.
 func (a *app) markdownColor(k markdownAlert) ui.Color {
 	p := a.pal
 	if p.mono {
 		return p.accent
 	}
-	dark := [...]string{"", "#4493f8", "#3fb950", "#ab7df8", "#d29922", "#f85149"}
-	light := [...]string{"", "#0969da", "#1a7f37", "#8250df", "#9a6700", "#d1242f"}
+	dark := [...]string{"", "#4493f8", "#3fb950", "#ab7df8", "#d29922", "#f85149",
+		"#53dfdd", "#4493f8", "#4493f8", "#44cf6e", "#e9973f", "#fb464c", "#fb464c", "#fb464c", "#a882ff", "#9e9e9e"}
+	light := [...]string{"", "#0969da", "#1a7f37", "#8250df", "#9a6700", "#d1242f",
+		"#00a3a0", "#086ddd", "#086ddd", "#08a345", "#d26a00", "#e93147", "#e93147", "#e93147", "#7852ee", "#7d7d7d"}
+	if int(k) >= len(dark) {
+		k = alertNote
+	}
 	if p.dark {
 		return ui.Hex(dark[k])
 	}
@@ -1638,19 +1781,66 @@ func (a *app) markdownColor(k markdownAlert) ui.Color {
 // alertTint is how strongly an alert's color tints its lines.
 const alertTint = 0.08
 
-// markdownAlertHead is the icon and the word that open an alert.
-func markdownAlertHead(k markdownAlert) (*ui.SVG, string) {
+// markdownAlertHead is the icon and the word that open an alert of kind
+// k whose marker is of word: the word of GitHub's five in the language of
+// the app, and that of any other as typed, capitalized, as Obsidian
+// titles [!faq] "Faq".
+func markdownAlertHead(k markdownAlert, word string) (*ui.SVG, string) {
+	icon := iconInfo
 	switch k {
 	case alertTip:
-		return iconLightbulb, locales.AlertTip()
+		icon = iconLightbulb
 	case alertImportant:
-		return iconMessageAlert, locales.AlertImportant()
+		icon = iconMessageAlert
 	case alertWarning:
-		return iconTriangleAlert, locales.AlertWarning()
+		icon = iconTriangleAlert
 	case alertCaution:
-		return iconOctagonAlert, locales.AlertCaution()
+		icon = iconOctagonAlert
+	case alertAbstract:
+		icon = iconClipboardList
+	case alertTodo:
+		icon = iconCircleCheck
+	case alertSuccess:
+		icon = iconCheck
+	case alertQuestion:
+		icon = iconCircleHelp
+	case alertFailure:
+		icon = iconX
+	case alertDanger:
+		icon = iconZap
+	case alertBug:
+		icon = iconBug
+	case alertExample:
+		icon = iconList
+	case alertQuote:
+		icon = iconQuote
 	}
-	return iconInfo, locales.AlertNote()
+	switch strings.ToUpper(word) {
+	case "NOTE":
+		return icon, locales.AlertNote()
+	case "TIP":
+		return icon, locales.AlertTip()
+	case "IMPORTANT":
+		return icon, locales.AlertImportant()
+	case "WARNING":
+		return icon, locales.AlertWarning()
+	case "CAUTION":
+		return icon, locales.AlertCaution()
+	case "":
+		switch k {
+		case alertTip:
+			return icon, locales.AlertTip()
+		case alertImportant:
+			return icon, locales.AlertImportant()
+		case alertWarning:
+			return icon, locales.AlertWarning()
+		case alertCaution:
+			return icon, locales.AlertCaution()
+		}
+		return icon, locales.AlertNote()
+	}
+	r, n := utf8.DecodeRuneInString(word)
+	return icon, string(unicode.ToUpper(r)) + strings.ToLower(word[n:])
 }
 
 func (a *app) markdownText(c *ui.Context, m *markdownPreview, path string, runs []markdownInline, size float32, color ui.Color, blockCode bool, hits []markdownHit) {
@@ -2116,16 +2306,29 @@ func (a *app) markdownRow(c *ui.Context, v *viewer, i int, width float32, font u
 	size, lh := a.settings.FontSize, a.settings.LineHeight
 	path := v.doc.path
 	b := m.blocks[i]
+	if calloutHidden(v.doc, b.folds) {
+		// In a callout folded: no room.
+		row := ui.Box(c).WidthPercent(100).Height(0)
+		if bind != nil {
+			row.Bind(bind)
+		}
+		return
+	}
 	top, _ := a.markdownSpacing(b)
 	bottom, outside := a.markdownBelow(m, i)
 	switch {
-	case i == 0:
+	case i == 0, m.blocks[i-1].kind == markdownEmbedTitle:
 		top = 0
 	case b.kind == markdownHeading:
 		// The room above a heading takes in the room below the block
 		// before it, as CSS's margins collapse.
 		below, out := a.markdownBelow(m, i-1)
 		top = max(0, top-below-out)
+	}
+	if b.kind == markdownAlertTitle && calloutFolded(v.doc, b.foldKey, b.fold) {
+		// Folded, its title is all of it: the room below it is the room
+		// below the callout.
+		bottom, outside = size*lh*0.2, max(outside, size*lh*0.75)
 	}
 	row := ui.Row(c)
 	if bind != nil {
@@ -2138,6 +2341,11 @@ func (a *app) markdownRow(c *ui.Context, v *viewer, i int, width float32, font u
 			inner.Background(a.markdownColor(b.alert).Alpha(alertTint))
 		}
 		inner.Children(func() {
+			// A note embedded stands after a bar of the accent, as in
+			// Obsidian.
+			for range b.embed {
+				ui.Box(c).Width(2).AlignSelf(ui.Stretch).Background(p.accent.Alpha(0.7)).Margin(0, size, 0, 0)
+			}
 			for i := range b.quote {
 				bar := p.guideNow
 				if b.alert != alertNone && i == b.alertAt-1 {
@@ -2151,7 +2359,7 @@ func (a *app) markdownRow(c *ui.Context, v *viewer, i int, width float32, font u
 					ms = a.markdownSize(b)
 				}
 				var toggle func()
-				if bind != nil && (b.marker == "☐" || b.marker == "☑") {
+				if bind != nil && b.embed == 0 && (b.marker == "☐" || b.marker == "☑") {
 					toggle = func() { a.toggleReadingTask(v, i) }
 				}
 				a.markdownMarker(c, b, ms, toggle)
@@ -2198,15 +2406,46 @@ func (a *app) markdownRow(c *ui.Context, v *viewer, i int, width float32, font u
 					}
 				case markdownTable, markdownTableHeader:
 					a.markdownTableRow(c, m, path, i, size, width, font)
+				case markdownEmbedTitle:
+					// The note's name, muted, which a click opens.
+					file, heading := b.file, b.heading
+					ui.Row(c).AlignItems(ui.Center).Gap(size * 0.35).Height(size * lh * 0.9).Cursor(ui.CursorPointer).Unselectable().
+						OnClick(func() {
+							if heading != "" {
+								a.openMarkdownAt(file, heading)
+							} else {
+								a.openFile(file, true)
+							}
+						}).
+						Children(func() {
+							ui.Icon(c, iconFileText).FontSize(size * 0.85).TextColor(p.faint)
+							ui.Text(c, b.title).FontSize(size * 0.85).FontWeight(500).TextColor(p.muted).SingleLine()
+						})
 				case markdownAlertTitle:
-					icon, title := markdownAlertHead(b.alert)
+					icon, title := markdownAlertHead(b.alert, b.word)
 					if b.title != "" {
 						title = b.title
 					}
 					col := a.markdownColor(b.alert)
-					ui.Row(c).AlignItems(ui.Center).Gap(size * 0.45).Height(size * lh).Children(func() {
+					head := ui.Row(c).AlignItems(ui.Center).Gap(size * 0.45).Height(size * lh)
+					if b.fold != 0 {
+						// A click on the title of one that folds folds it, or
+						// opens it, its chevron turning.
+						doc, key, fold := v.doc, b.foldKey, b.fold
+						head.Cursor(ui.CursorPointer).Unselectable().OnClick(func() { a.toggleCallout(doc, key, fold) })
+					}
+					head.Children(func() {
 						ui.Icon(c, icon).FontSize(size * 1.1).TextColor(col)
 						ui.Text(c, title).FontSize(size).FontWeight(600).TextColor(col).SingleLine()
+						if b.fold != 0 {
+							turn, turning := calloutTurn(v.doc, b.foldKey, calloutFolded(v.doc, b.foldKey, b.fold), c.Now())
+							if turning {
+								c.AnimationFrame()
+							}
+							ui.Box(c).Size(size, size).Shrink(0).Draw(func(pt *ui.Painter, r ui.Rect) {
+								drawChevron(pt, r, turn, col)
+							})
+						}
 					})
 				default:
 					// Quotes and the smallest headings are muted, as on

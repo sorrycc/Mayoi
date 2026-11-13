@@ -50,7 +50,7 @@ func markdownFindText(runs []markdownInline) string {
 func (m *markdownPreview) markdownFindTexts(i int) []string {
 	b := m.blocks[i]
 	switch b.kind {
-	case markdownRule, markdownImageBlock, markdownAlertTitle:
+	case markdownRule, markdownImageBlock, markdownAlertTitle, markdownEmbedTitle:
 		return nil
 	case markdownCodeBlock:
 		if d := b.diagram; d != nil && d.err == "" && !m.sources[b.line] {

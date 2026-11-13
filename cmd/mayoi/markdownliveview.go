@@ -49,6 +49,9 @@ type liveState struct {
 	widths map[liveWidthKey]float32
 	// in is the block the caret is in, or left last.
 	in liveIn
+	// rooms are how high the lines of callouts that fold showed below
+	// their titles, by their keys, the room that glides as one folds.
+	rooms map[string]float32
 }
 
 // liveWidthKey is a run of text in a font.
@@ -100,10 +103,13 @@ type liveView struct {
 }
 
 // liveHit is a task's box the last frame drew, where it showed, and the
-// rune of its [.
+// rune of its [; or, with fold set, the chevron of a callout that folds,
+// of key.
 type liveHit struct {
-	r  ui.Rect
-	at int
+	r    ui.Rect
+	at   int
+	fold byte
+	key  string
 }
 
 // liveDelay is how long after the last edit the text is parsed again.
@@ -383,7 +389,7 @@ func (a *app) liveArea(c *ui.Context, d *editor, area ui.Element, f liveFrame) {
 						if marker == 0 {
 							marker = s.start + 1
 						}
-					case objQuote:
+					case objQuote, objExternal:
 						ranges = append(ranges, ui.TextRange{Start: s.start, End: s.end, Color: faint})
 						return
 					default:
@@ -473,6 +479,21 @@ func (a *app) liveArea(c *ui.Context, d *editor, area ui.Element, f liveFrame) {
 		clip, fade float32
 	}
 	var blocks []shown
+	// The callouts folded, but one the caret is in, which shows its
+	// source: their lines below their titles take no room, which glides
+	// away as one folds and back as it opens.
+	var folds []liveFold
+	if doc != nil {
+		folds = a.liveFolds(c, d, l, doc, area, f, from, to, onLines)
+	}
+	hidden := func(line int) bool {
+		for _, fd := range folds {
+			if fd.hides && line > fd.title && line <= fd.last {
+				return true
+			}
+		}
+		return false
+	}
 	if doc != nil {
 		if l.views == nil {
 			l.views = map[string]*liveView{}
@@ -486,6 +507,9 @@ func (a *app) liveArea(c *ui.Context, d *editor, area ui.Element, f liveFrame) {
 				continue
 			}
 			first, last := snap.LineAt(b.start), snap.LineAt(b.end)
+			if hidden(first) {
+				continue
+			}
 			lv := l.views[b.key]
 			if onLines(b.start, b.end) {
 				if caretIn {
@@ -593,6 +617,25 @@ func (a *app) liveArea(c *ui.Context, d *editor, area ui.Element, f liveFrame) {
 		}
 		if doc == nil {
 			return
+		}
+		// The chevrons of the callouts that fold, after their titles.
+		for _, fd := range folds {
+			if hidden(fd.title) {
+				continue
+			}
+			cs := size * 1.1
+			cx := r.X + f.left + f.width - cs
+			cy := lineY(r, fd.title) + (lineY(r, fd.title+1)-lineY(r, fd.title)-cs)/2
+			if x0, _, _, ok := d.lines.Caret(fd.end); ok {
+				cx = min(cx, r.X+f.left+x0+size*0.35)
+			}
+			box := ui.Rect{X: cx, Y: cy, W: cs, H: cs}
+			turn, turning := calloutTurn(d.document, fd.key, fd.folded, pt.Now())
+			if turning {
+				pt.AnimationFrame()
+			}
+			drawChevron(pt, box, turn, a.markdownColor(fd.alert))
+			d.liveHits = append(d.liveHits, liveHit{r: ui.Rect{X: box.X - d.liveAt.X - 3, Y: box.Y - d.liveAt.Y - 3, W: cs + 6, H: cs + 6}, fold: fd.fold, key: fd.key})
 		}
 		// An alert's lines are tinted its color, as Obsidian's callouts are,
 		// one box from its first line to its last, where the caret is too.
@@ -729,7 +772,7 @@ func (a *app) liveArea(c *ui.Context, d *editor, area ui.Element, f liveFrame) {
 				pt.Fill(box, p.fill.Alpha(1-k), 3)
 				pt.Stroke(box, p.muted, 3, 1.25)
 			}
-			d.liveHits = append(d.liveHits, liveHit{ui.Rect{X: box.X - d.liveAt.X, Y: box.Y - d.liveAt.Y, W: b, H: b}, at})
+			d.liveHits = append(d.liveHits, liveHit{r: ui.Rect{X: box.X - d.liveAt.X, Y: box.Y - d.liveAt.Y, W: b, H: b}, at: at})
 		case objImage:
 			pt.Image(s.drawn.image.bitmap, r, ui.Contain)
 		case objMath:
@@ -739,6 +782,10 @@ func (a *app) liveArea(c *ui.Context, d *editor, area ui.Element, f liveFrame) {
 			span := ui.Span{Text: liveNoteLabel(snap, s), Font: family, Size: size * liveNoteSize, Color: p.accent}
 			_, th := pt.MeasureText(0, span)
 			pt.RichText(r.X+size*0.05, r.Y+r.H-size*0.4-th*0.8, 0, span)
+		case objExternal:
+			// Small, after the link's text, as Obsidian draws it.
+			is := size * 0.68
+			pt.Icon(iconExternal, ui.Rect{X: r.X + size*0.12, Y: r.Y + r.H - size*0.78, W: is, H: is}, p.accent.Alpha(0.7))
 		case objGlyph:
 			// In the middle of the columns it takes.
 			span := ui.Span{Text: o.glyph, Font: codeFont, Size: size * 0.9, Color: p.text}
@@ -746,7 +793,7 @@ func (a *app) liveArea(c *ui.Context, d *editor, area ui.Element, f liveFrame) {
 			pt.RichText(r.X+(r.W-tw)/2, r.Y+(r.H-th)/2, 0, span)
 		case objAlert:
 			// An alert with no title of its own is titled by its kind.
-			icon, title := markdownAlertHead(s.alert)
+			icon, title := markdownAlertHead(s.alert, liveAlertWord(snap, s))
 			col := a.markdownColor(s.alert)
 			is := size * 1.1
 			pt.Icon(icon, ui.Rect{X: r.X, Y: r.Y + r.H - size*0.95, W: is, H: is}, col)
@@ -1027,13 +1074,15 @@ func (a *app) liveObjectSize(l *liveState, snap ui.TextSnapshot, s *liveSpan, si
 	case objMath:
 		f := s.drawn.formula
 		return f.w * size, f.ascent * size, f.depth * size
+	case objExternal:
+		return size * 0.9, size * 0.75, 0
 	case objNote:
 		return l.width(liveNoteLabel(snap, s), ui.Font{Family: family, Size: size * liveNoteSize}) + size*0.15, size * 0.75, 0
 	case objAlert:
 		if s.depth == 1 {
 			return size * 1.35, size * 0.95, size * 0.25 // its icon
 		}
-		_, title := markdownAlertHead(s.alert)
+		_, title := markdownAlertHead(s.alert, liveAlertWord(snap, s))
 		tw, _ := ui.ShapeText(title, ui.Font{Family: family, Size: size, Weight: 600}, 0).Size()
 		return size*1.55 + tw, size * 0.95, size * 0.25
 	}
@@ -1105,6 +1154,12 @@ func (a *app) liveClick(d *editor, x, y float32) bool {
 	for _, h := range d.liveHits {
 		r := h.r
 		if x >= r.X-2 && x <= r.X+r.W+2 && y >= r.Y-2 && y <= r.Y+r.H+2 {
+			if h.fold != 0 {
+				// A callout's chevron folds it, or opens it, the caret
+				// where it was.
+				a.toggleCallout(d.document, h.key, h.fold)
+				return true
+			}
 			at := h.at
 			d.cmds = append(d.cmds, func(d *editor) { a.toggleTask(d, at) })
 			// The editor takes the keyboard, as a click on its text does.
@@ -1180,4 +1235,92 @@ func (a *app) modeFade(c *ui.Context, page ui.Element, d *editor) {
 		page.Opacity(0.4 + 0.6*ui.EaseOut(float32(since)/float32(motionShow)))
 		c.AnimationFrame()
 	}
+}
+
+// liveFold is a callout that folds, shown in a frame of Live Preview: its
+// title's line, the rune its title ends at, its last line, its key and
+// alert, whether it shows folded and whether its lines below its title
+// take no room, or less than their own, as it folds.
+type liveFold struct {
+	title, end, last int
+	key              string
+	fold             byte
+	alert            markdownAlert
+	folded, hides    bool
+}
+
+// liveFolds are the callouts that fold about the view, but those the caret
+// is in, which show their source; it gives the area the room the lines of
+// each below its title take, none folded, and less as it glides.
+func (a *app) liveFolds(c *ui.Context, d *editor, l *liveState, doc *liveDoc, area ui.Element, f liveFrame, from, to int, onLines func(int, int) bool) []liveFold {
+	snap := f.snap
+	n := snap.Len()
+	now := c.Now()
+	var folds []liveFold
+	for _, co := range doc.callouts {
+		if co.end < from || co.start > to || co.start >= n || onLines(co.start, co.end) {
+			continue
+		}
+		title, last := snap.LineAt(co.start), snap.LineAt(min(co.end, n))
+		key := liveCalloutKey(snap, title)
+		alert, _ := markdownAlertMarker(key)
+		if alert == alertNone || markdownAlertFold(key) == 0 {
+			continue // edited since the parse
+		}
+		_, end := snap.LineRange(title)
+		fd := liveFold{title: title, end: end, last: last, key: key, fold: co.fold, alert: alert}
+		fd.folded = calloutFolded(d.document, key, co.fold)
+		if last <= title {
+			folds = append(folds, fd)
+			continue
+		}
+		since := calloutSince(d.document, now)
+		glide := key == d.document.foldKey && since >= 0 && since < motionMove && !c.Preferences().ReduceMotion
+		room, ok := l.rooms[key]
+		if !ok {
+			room = float32(last-title) * f.g.lineH
+		}
+		height := float32(0)
+		switch {
+		case glide:
+			k := ui.EaseInOut(float32(since) / float32(motionMove))
+			if fd.folded {
+				k = 1 - k
+			}
+			height = room * k
+			c.AnimationFrame()
+		case !fd.folded:
+			// Open: its lines show, as high as they lay out.
+			if l.rooms == nil || len(l.rooms) > 256 {
+				l.rooms = map[string]float32{}
+			}
+			if h := f.g.top(last+1) - f.g.top(title+1); h > 0 {
+				l.rooms[key] = h
+			}
+			folds = append(folds, fd)
+			continue
+		}
+		fd.hides = true
+		area.TextBlocks(ui.TextBlock{First: title + 1, Last: last, Height: height})
+		folds = append(folds, fd)
+	}
+	return folds
+}
+
+// liveCalloutKey is the marker line of the callout whose title is line,
+// as its document keeps whether it is folded: the line after its quotes'
+// >, trimmed.
+func liveCalloutKey(snap ui.TextSnapshot, line int) string {
+	text := snap.Line(line)
+	return strings.TrimSpace(text[len(liveQuoteMarks.FindString(text)):])
+}
+
+// liveAlertWord is the type of the callout whose marker is the object s,
+// as typed.
+func liveAlertWord(snap ui.TextSnapshot, s *liveSpan) string {
+	if s.end > snap.Len() {
+		return ""
+	}
+	word, _ := markdownAlertType(snap.Slice(s.start, s.end))
+	return word
 }

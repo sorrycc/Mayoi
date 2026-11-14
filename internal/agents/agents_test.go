@@ -63,11 +63,19 @@ func TestScanReadsEachAgent(t *testing.T) {
 		`{"info":{"id":"g1","cwd":"/t"},"generated_title":"Grok's","last_active_at":"2026-11-11T04:27:35Z"}`)
 	write(t, filepath.Join(home, ".grok/sessions/%2Ft/g2/summary.json"),
 		`{"info":{"id":"g2","cwd":"/t"},"generated_title":"Cron","session_kind":"headless"}`)
+	write(t, filepath.Join(home, ".pi/agent/sessions/--u--/2026-11-14T09-00-00-000Z_p1.jsonl"),
+		`{"type":"session","version":3,"id":"p1","cwd":"/u"}
+{"type":"message","id":"a1","parentId":null,"message":{"role":"user","content":"pi it"}}
+{"type":"session_info","name":"Pi's"}
+`)
+	// A transcript of nothing asked is no session.
+	write(t, filepath.Join(home, ".pi/agent/sessions/--u--/empty.jsonl"),
+		`{"type":"session","version":3,"id":"pe","cwd":"/u"}`+"\n")
 
 	e := &Env{Home: home}
 	ss := byID(NewScanner().Scan(e))
-	if len(ss) != 5 {
-		t.Fatalf("sessions %v, want c1 c2 q1 x1 g1", ss)
+	if len(ss) != 6 {
+		t.Fatalf("sessions %v, want c1 c2 q1 x1 g1 p1", ss)
 	}
 	want := map[string]Session{
 		"c1": {Harness: Claude, Root: filepath.Join(home, ".claude"), Title: "Bug fix", Prompt: "fix the bug", Dir: "/p"},
@@ -75,6 +83,7 @@ func TestScanReadsEachAgent(t *testing.T) {
 		"q1": {Harness: Qoder, Prompt: "hi", Dir: "/r"},
 		"x1": {Harness: Codex, Title: "Renamed", Prompt: "analyze it", Dir: "/s"},
 		"g1": {Harness: Grok, Title: "Grok's", Dir: "/t"},
+		"p1": {Harness: Pi, Title: "Pi's", Prompt: "pi it", Dir: "/u"},
 	}
 	for id, w := range want {
 		s := ss[id]

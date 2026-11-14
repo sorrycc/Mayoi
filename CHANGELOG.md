@@ -5,6 +5,7 @@ needs a `## <version>` section here, or its build fails.
 
 ## Unreleased
 
+- **Sessions** lists Pi's sessions from `~/.pi/agent/sessions`, resume with `pi --session`.
 - The sidebar's width and whether it's shown now stay the same as you switch projects and windows.
 - **Sessions** keeps **All Projects** chosen as you switch projects.
 - **Sessions** marks a session that's open in a terminal in any project with a terminal icon.

@@ -318,6 +318,60 @@ func readCodexIndex(path string) map[string]string {
 	return titles
 }
 
+// piSessions are Pi's transcripts: a folder for each folder it ran in,
+// a file for each session in it.
+func piSessions(dir string) []string {
+	var out []string
+	filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
+		if err == nil && !d.IsDir() && strings.HasSuffix(d.Name(), ".jsonl") {
+			out = append(out, path)
+		}
+		return nil
+	})
+	return out
+}
+
+// readPi reads a transcript of Pi: its first line says the session and
+// where it ran, its first message of the user what was asked, and its
+// lines of session_info what it is named, the last of them winning.
+func readPi(path string) (Session, bool) {
+	s := Session{Harness: Pi}
+	f, err := os.Open(path)
+	if err != nil {
+		return s, false
+	}
+	defer f.Close()
+	eachLine(f, headMax, func(line []byte) bool {
+		var v struct {
+			Type    string
+			ID      string
+			Cwd     string
+			Name    string
+			Message struct {
+				Role    string
+				Content json.RawMessage
+			}
+		}
+		if json.Unmarshal(line, &v) != nil {
+			return true
+		}
+		switch v.Type {
+		case "session":
+			s.ID, s.Dir = v.ID, v.Cwd
+		case "session_info":
+			if v.Name != "" {
+				s.Title = v.Name
+			}
+		case "message":
+			if s.Prompt == "" && v.Message.Role == "user" {
+				s.Prompt = promptOf(v.Message.Content)
+			}
+		}
+		return s.ID == "" || s.Prompt == "" || s.Title == ""
+	})
+	return s, s.ID != "" && (s.Prompt != "" || s.Title != "")
+}
+
 // grokSummaries are Grok's summaries of its sessions: a folder for each
 // folder it ran in, named by its path escaped, and one for each session
 // in it.

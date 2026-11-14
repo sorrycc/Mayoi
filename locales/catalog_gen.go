@@ -17054,11 +17054,11 @@ func (msgs Messages) SessionsNoMatch() string {
 	return Catalog.Format(msgs.locale, "sessionsNoMatch", nil)
 }
 
-// SessionsHint says "Sessions of Claude Code, Qoder, Codex and Grok show here, the latest first."
+// SessionsHint says "Sessions of Claude Code, Qoder, Codex, Grok and Pi show here, the latest first."
 // in the language the app shows.
 func SessionsHint() string { return In(i18n.Locale()).SessionsHint() }
 
-// SessionsHint says "Sessions of Claude Code, Qoder, Codex and Grok show here, the latest first."
+// SessionsHint says "Sessions of Claude Code, Qoder, Codex, Grok and Pi show here, the latest first."
 // in the language of msgs.
 func (msgs Messages) SessionsHint() string {
 	return Catalog.Format(msgs.locale, "sessionsHint", nil)

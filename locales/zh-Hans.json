@@ -1687,7 +1687,7 @@
   "sessionsNone": "这个文件夹里还没有智能体会话。",
   "sessionsNoneAll": "这台 Mac 上还没有智能体会话。",
   "sessionsNoMatch": "没有匹配的会话。",
-  "sessionsHint": "Claude Code、Qoder、Codex 和 Grok 的会话会显示在这里，最近的在前。",
+  "sessionsHint": "Claude Code、Qoder、Codex、Grok 和 Pi 的会话会显示在这里，最近的在前。",
   "sessionsToday": "今天",
   "sessionsYesterday": "昨天",
   "sessionsPreviousWeek": "过去 7 天",

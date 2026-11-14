@@ -3,7 +3,7 @@
 The update window shows the section of the version it offers. Every release
 needs a `## <version>` section here, or its build fails.
 
-## Unreleased
+## 0.21.0
 
 - Typing `[[` in a note suggests the vault's notes and files as you type, as in Obsidian.
 - In `[[` suggestions, `↑`/`↓` choose, `Enter` or `Tab` links, `Shift-Enter` links as typed, `Esc` closes.

@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"mayoi/internal/agents"
+	"mayoi/internal/settings"
 )
 
 // The sidebar's width, whether it is closed and the scope of the Sessions
@@ -42,6 +43,20 @@ func TestSidebarSharedAcrossProjects(t *testing.T) {
 	step(tt)
 	if !a.window.SidebarClosed || a.window.SidebarView != "sessions" {
 		t.Errorf("back: closed %v, view %q; want closed, sessions", a.window.SidebarClosed, a.window.SidebarView)
+	}
+}
+
+// A remote folder lists no sessions, as those read are of this machine:
+// it doesn't take the Sessions view of every folder from another.
+func TestRemoteProjectHasNoSessions(t *testing.T) {
+	a := &app{root: "/ssh:box/home/me/proj", window: &settings.Window{SidebarView: "git"}}
+	a.setSidebarShare(sidebarShare{all: 1, allSessions: true})
+	if a.window.SidebarView != "git" || a.hasSessions() {
+		t.Errorf("view %q, has sessions %v; want git, none", a.window.SidebarView, a.hasSessions())
+	}
+	a.showSessions()
+	if a.window.SidebarView != "git" {
+		t.Errorf("showSessions shows %q in a remote project", a.window.SidebarView)
 	}
 }
 

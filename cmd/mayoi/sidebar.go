@@ -24,7 +24,7 @@ func (a *app) sidebar(c *ui.Context) {
 	sb := ui.Column(c).Fill().Background(p.chrome)
 	hovered := sb.Hovered()
 	view := a.window.SidebarView
-	if a.root == "" {
+	if a.root == "" || view == "sessions" && !a.hasSessions() {
 		view = ""
 	}
 	scm, search, sessions := view == "git", view == "search", view == "sessions"
@@ -35,7 +35,9 @@ func (a *app) sidebar(c *ui.Context) {
 				a.sidebarSwitch(c, iconFiles, a.withKey(locales.SidebarExplorer(), "view.explorer"), !scm && !search && !sessions && !pluginView, 0, a.showExplorer)
 				a.sidebarSwitch(c, iconSearch, a.withKey(locales.SidebarSearch(), "edit.findInFiles"), search, 0, func() { a.showSearch(false) })
 				a.sidebarSwitch(c, iconBranch, a.withKey(locales.SidebarScm(), "view.scm"), scm, a.changeCount(), a.showSourceControl)
-				a.sidebarSwitch(c, iconClock, a.withKey(locales.CmdViewSessions(), "view.sessions"), sessions, 0, a.showSessions)
+				if a.hasSessions() {
+					a.sidebarSwitch(c, iconClock, a.withKey(locales.CmdViewSessions(), "view.sessions"), sessions, 0, a.showSessions)
+				}
 				a.pluginSwitches(c)
 			}
 			title, short, actions := locales.SidebarTitleExplorer(), "", 0
@@ -59,7 +61,10 @@ func (a *app) sidebar(c *ui.Context) {
 			// take the rest of the row.
 			room := a.window.SidebarWidth - 1 - 14 - 6 - float32(actions)*28
 			if a.root != "" {
-				n := float32(4 + len(pluginSlots()))
+				n := float32(3 + len(pluginSlots()))
+				if a.hasSessions() {
+					n++
+				}
 				room -= n*26 + (n-1)*3
 			}
 			size, spacing := p.titleLook(11, titleSpacing)

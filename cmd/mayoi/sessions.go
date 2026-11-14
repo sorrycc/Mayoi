@@ -19,6 +19,7 @@ import (
 
 	"mayoi/internal/agents"
 	"mayoi/internal/bg"
+	"mayoi/internal/remote"
 	"mayoi/locales"
 )
 
@@ -1784,9 +1785,18 @@ func (a *app) showHCTerminal(addr, dir string, agent agents.Harness) {
 	}
 }
 
+// hasSessions is whether the project lists sessions: those read are of
+// this machine, which a remote folder's are not.
+func (a *app) hasSessions() bool {
+	return a.root != "" && !remote.Is(a.root)
+}
+
 // showSessions shows the sessions in the sidebar, with the keyboard in
 // their query.
 func (a *app) showSessions() {
+	if !a.hasSessions() {
+		return
+	}
 	a.window.SidebarClosed, a.window.SidebarView = false, "sessions"
 	a.settings.Changed()
 	a.sessions.input.Focus()

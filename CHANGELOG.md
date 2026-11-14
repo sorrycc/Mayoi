@@ -18,6 +18,7 @@ needs a `## <version>` section here, or its build fails.
 - The sidebar's width and whether it's shown now stay the same as you switch projects and windows.
 - **Sessions** keeps **All Projects** chosen as you switch projects.
 - With **All Projects** chosen, **Sessions** stays open in the sidebar as you switch projects.
+- Projects on a remote (SSH) folder no longer show **Sessions**, which listed this Mac's sessions.
 - **Sessions** marks a session that's open in a terminal in any project with a terminal icon.
 - Clicking such a session switches to its project and shows that terminal.
 - Opening local files keeps the window responsive while their tabs show loading progress.

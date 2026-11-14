@@ -568,6 +568,9 @@ func (a *app) menu(cli bool, run func(id string, win *mygo.Window)) *mygo.Menu {
 	if runtime.GOOS != "darwin" {
 		file = append(file, item("file.settings"))
 	}
+	// The sessions listed are of this machine, as a folder's own settings.
+	sessions := item("view.sessions")
+	sessions.Disabled = !a.hasSessions()
 	// A folder's own settings are of a folder on this machine.
 	folderSettings := item("file.folderSettings")
 	folderSettings.Disabled = a.root == "" || remote.Is(a.root)
@@ -657,7 +660,7 @@ func (a *app) menu(cli bool, run func(id string, win *mygo.Window)) *mygo.Menu {
 			item("sel.format"), item("sel.insertSnippet"), item("sel.complete"),
 		}},
 		{Label: locales.MenuView(), Submenu: []*mygo.MenuItem{
-			item("view.sidebar"), checkbox("view.sidebarRight", a.settings.SidebarRight), item("view.explorer"), item("view.search"), item("view.scm"), item("view.sessions"), mygo.Separator(),
+			item("view.sidebar"), checkbox("view.sidebarRight", a.settings.SidebarRight), item("view.explorer"), item("view.search"), item("view.scm"), sessions, mygo.Separator(),
 			checkbox("view.compactFolders", a.settings.ExplorerCompactFolders), mygo.Separator(),
 			checkbox("view.wordWrap", a.prefs().WordWrap), item("view.wordWrapTab"), item("view.togglePreview"), item("view.toggleLivePreview"), item("view.previewToSide"),
 			{Label: locales.MenuOpenMarkdownAs(), Submenu: []*mygo.MenuItem{

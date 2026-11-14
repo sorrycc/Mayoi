@@ -24,14 +24,14 @@ func (a *app) sidebarShare() sidebarShare {
 }
 
 // setSidebarShare gives the project's sidebar the shared state. It shows
-// the sessions of every folder as another did, and keeps its own view
-// otherwise.
+// the sessions of every folder as another did, but for a remote folder,
+// and keeps its own view otherwise.
 func (a *app) setSidebarShare(s sidebarShare) {
 	if s.width != 0 {
 		a.window.SidebarWidth = s.width
 	}
 	a.window.SidebarClosed, a.sessions.all = s.closed, s.all
-	if s.allSessions {
+	if s.allSessions && a.hasSessions() {
 		a.window.SidebarView = "sessions"
 	}
 }

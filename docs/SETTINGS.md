@@ -460,7 +460,9 @@ parse is left alone until it does, and a key or a condition Mayoi can't read is 
   `runCommands` runs its `commands` in order, each once the edits and the Git commands of the one before are done, and
   stops at an error. `vscode.open` opens the file of its `args`: an absolute path, one from `~`, or one in the folder.
   `type` types the `text` of its `args` in the editor or the terminal, and `workbench.action.terminal.sendSequence`
-  sends it to the terminal. Pressing the key of a command Mayoi doesn't have says so.
+  sends it to the terminal. A command that `mayoi run` gives an argument after `=` takes it as its `args`, as
+  `{ "key": "ctrl+. g n", "command": "file.openFolder", "args": "~/Projects/notes" }`. Pressing the key of a command
+  Mayoi doesn't have says so.
 - **`when`** is when it applies: `editorTextFocus`, `editorFocus`, `inputFocus`, `textInputFocus`,
   `filesExplorerFocus`, `terminalFocus`, `terminalHasBeenCreated`, `terminalIsOpen`, `sideBarVisible`,
   `editorHasSelection`, `isMac`, `isLinux` and `isWindows`, with `!`, `&&`, `||` and parentheses. Other names don't hold.

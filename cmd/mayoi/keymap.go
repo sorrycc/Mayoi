@@ -389,6 +389,18 @@ func (a *app) runBinding(name string, args json.RawMessage, where keyPlace) {
 			a.tell(note{message: locales.KeymapNoCommand(name)})
 			return
 		}
+		// A command the mayoi command gives an argument takes its args
+		// the same way, as file.openFolder a folder.
+		var arg string
+		if c, ok := commandArgs[id]; ok && json.Unmarshal(args, &arg) == nil && arg != "" {
+			run, err := c.take(a, arg, a.root)
+			if err != nil {
+				a.fail("%s", err)
+				return
+			}
+			run()
+			return
+		}
 		a.run(id)
 	}
 }

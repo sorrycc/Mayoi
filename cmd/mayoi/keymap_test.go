@@ -195,6 +195,34 @@ func TestKeymapRunCommands(t *testing.T) {
 	}
 }
 
+func TestKeymapCommandArgs(t *testing.T) {
+	hs := newHarness(t, false)
+	a, tt := hs.a, hs.tt
+	a.settings.ProjectTabs = true
+	dir := t.TempDir()
+	withKeys(t, a, `[
+	{ "key": "ctrl+. g n", "command": "file.openFolder", "args": "`+dir+`" },
+	{ "key": "ctrl+. g x", "command": "file.openFolder", "args": "`+dir+`/none" },
+]`)
+	// file.openFolder opens the folder of its args, as mayoi run's.
+	tt.Key(ui.Ctrl, ui.KeyPeriod)
+	tt.Key(0, ui.KeyG)
+	tt.Key(0, ui.KeyN)
+	hs.settle()
+	if !slices.Equal(hs.h.windows, []string{dir}) || len(hs.h.asked) > 0 {
+		t.Errorf("opened %q, asked %q", hs.h.windows, hs.h.asked)
+	}
+
+	// A folder that isn't there says so.
+	tt.Key(ui.Ctrl, ui.KeyPeriod)
+	tt.Key(0, ui.KeyG)
+	tt.Key(0, ui.KeyX)
+	hs.settle()
+	if len(hs.h.windows) != 1 || !tt.HasText("is not a folder") {
+		t.Errorf("opened %q, texts %q", hs.h.windows, tt.Texts())
+	}
+}
+
 func TestCamelCaseAndSort(t *testing.T) {
 	for in, want := range map[string]string{
 		"foo_bar baz": "fooBarBaz",

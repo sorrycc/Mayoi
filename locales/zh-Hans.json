@@ -1712,6 +1712,7 @@
   "sessionsCopyTranscript": "复制会话记录",
   "sessionsOpenTranscript": "在编辑器中打开会话记录",
   "sessionsCopiedTranscript": "已复制会话记录",
+  "sessionsCopiedTranscripts": "{count, plural, other {已复制 # 份会话记录}}",
   "sessionsDirGone": "{dir} 已不存在，无法在其中恢复会话",
   "prefTitleAgentSessionsClaudeDirs": "更多 Claude Code 文件夹",
   "prefDescAgentSessionsClaudeDirs": "除了 ~/.claude、各个 ~/.claude-* 文件夹和 $CLAUDE_CONFIG_DIR，会话视图还要列出其会话的 Claude Code 配置文件夹。",

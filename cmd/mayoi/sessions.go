@@ -1127,8 +1127,9 @@ func (a *app) sessionsView(c *ui.Context) {
 			st.input.Focus()
 		}
 	}
-	// Copy of the Edit menu, which takes ⌘C, copies the command that
-	// resumes the session chosen while the list has the keyboard, and
+	// Copy of the Edit menu, which takes ⌘C, copies the transcripts of the
+	// sessions chosen while the list has the keyboard, as a drag of them
+	// does, and
 	// Select All, which takes ⌘A, chooses every session.
 	out.HandleInput(func(ev ui.InputEvent) bool {
 		if ev.Kind != ui.InputCommand {
@@ -1143,7 +1144,11 @@ func (a *app) sessionsView(c *ui.Context) {
 			if st.row < 0 || st.row >= len(rows) || !rows[st.row].session() {
 				return false
 			}
-			a.copyText(a.agentEnv().ResumeCommand(rows[st.row].s))
+			paths := transcriptsOf(st.pickedSessions(rows, rows[st.row]))
+			if len(paths) == 0 {
+				return false
+			}
+			a.copyTranscripts(paths)
 			return true
 		}
 		return false
@@ -1289,7 +1294,7 @@ func (a *app) sessionRow(c *ui.Context, l sessionLine, now time.Time, choice *se
 			*action = func() { a.resumeSession(s) }
 		}
 		m.Separator()
-		if m.Item(locales.SessionsCopyCommand()).Shortcut(ui.Cmd, ui.KeyC).Chosen() {
+		if m.Item(locales.SessionsCopyCommand()).Chosen() {
 			cmd := a.agentEnv().ResumeCommand(s)
 			*action = func() { a.copyText(cmd) }
 		}
@@ -1302,11 +1307,13 @@ func (a *app) sessionRow(c *ui.Context, l sessionLine, now time.Time, choice *se
 		if m.Item(label).Chosen() {
 			*action = func() { a.copySessionIDs(ids) }
 		}
-		// What was said in it, of an agent that keeps it in a file.
+		// What was said in it, of an agent that keeps it in a file, and of
+		// several chosen, in theirs, as a drag of the row offers them.
 		m.Separator()
 		none := !isFile(s.Transcript)
-		if m.Item(locales.SessionsCopyTranscript()).Disabled(none).Chosen() {
-			*action = func() { a.copyTranscript(s.Transcript) }
+		paths := transcriptsOf(ids)
+		if m.Item(locales.SessionsCopyTranscript()).Shortcut(ui.Cmd, ui.KeyC).Disabled(len(paths) == 0).Chosen() {
+			*action = func() { a.copyTranscripts(paths) }
 		}
 		if m.Item(locales.SessionsOpenTranscript()).Disabled(none).Chosen() {
 			*action = func() { a.openFile(s.Transcript, true) }
@@ -1734,14 +1741,30 @@ func (a *app) copySessionIDs(ss []agents.Session) {
 	a.tell(note{message: locales.SessionsCopiedIDs(len(ids))})
 }
 
-// copyTranscript puts the file of a session's transcript on the
-// clipboard, and says so.
-func (a *app) copyTranscript(path string) {
-	if err := a.host.copyFiles([]string{path}); err != nil {
+// transcriptsOf are the files of the transcripts of sessions, of those
+// that have one.
+func transcriptsOf(ss []agents.Session) []string {
+	var paths []string
+	for _, s := range ss {
+		if isFile(s.Transcript) {
+			paths = append(paths, s.Transcript)
+		}
+	}
+	return paths
+}
+
+// copyTranscripts puts the files of sessions' transcripts on the
+// clipboard, as a drag of them offers them, and says so.
+func (a *app) copyTranscripts(paths []string) {
+	if err := a.host.copyFiles(paths); err != nil {
 		a.fail("%s", locales.FailCopy(err.Error()))
 		return
 	}
-	a.tell(note{message: locales.SessionsCopiedTranscript()})
+	if len(paths) == 1 {
+		a.tell(note{message: locales.SessionsCopiedTranscript()})
+		return
+	}
+	a.tell(note{message: locales.SessionsCopiedTranscripts(len(paths))})
 }
 
 // resumeSession resumes a session in a tab of an editor column, with the

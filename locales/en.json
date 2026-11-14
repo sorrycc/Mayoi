@@ -1940,6 +1940,7 @@
   "sessionsCopyTranscript": "Copy Transcript",
   "sessionsOpenTranscript": "Open Transcript in Editor",
   "sessionsCopiedTranscript": "Copied the transcript",
+  "sessionsCopiedTranscripts": "{count, plural, one {Copied # transcript} other {Copied # transcripts}}",
   "sessionsDirGone": "{dir} is gone, so the session can't resume in it",
   "prefTitleAgentSessionsClaudeDirs": "More Claude Code Folders",
   "prefDescAgentSessionsClaudeDirs": "Config folders of Claude Code whose sessions the Sessions view lists, besides ~/.claude, each ~/.claude-* folder and $CLAUDE_CONFIG_DIR.",

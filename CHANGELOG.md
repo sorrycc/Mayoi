@@ -13,6 +13,7 @@ needs a `## <version>` section here, or its build fails.
 - When CI on HEAD finishes, Mayoi tells you, with a system notification if it is in the background.
 - Windows directory junctions show as folders in the file tree, and copy with what they hold.
 - Commits made with an AI agent, like Claude, show the agent's mark on the author's avatar in the history.
+- `⌘C` in the sessions list copies the chosen sessions' transcript files, like dragging them.
 - Hovering a commit in the history shows a card with its author, co-authors, files changed and branch.
 - A commit's tab names its co-authors beside the author, in place of the `Co-authored-by` lines.
 - Clicking a session of another project in **All Projects** chooses it in that project's Sessions view.

@@ -17306,6 +17306,18 @@ func (msgs Messages) SessionsCopiedTranscript() string {
 	return Catalog.Format(msgs.locale, "sessionsCopiedTranscript", nil)
 }
 
+// SessionsCopiedTranscripts says "{count, plural, one {Copied # transcript} other {Copied # transcripts}}"
+// in the language the app shows.
+func SessionsCopiedTranscripts(count int) string {
+	return In(i18n.Locale()).SessionsCopiedTranscripts(count)
+}
+
+// SessionsCopiedTranscripts says "{count, plural, one {Copied # transcript} other {Copied # transcripts}}"
+// in the language of msgs.
+func (msgs Messages) SessionsCopiedTranscripts(count int) string {
+	return Catalog.Format(msgs.locale, "sessionsCopiedTranscripts", map[string]any{"count": count})
+}
+
 // SessionsDirGone says "{dir} is gone, so the session can't resume in it"
 // in the language the app shows.
 func SessionsDirGone(dir string) string { return In(i18n.Locale()).SessionsDirGone(dir) }

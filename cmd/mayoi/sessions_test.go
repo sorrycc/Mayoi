@@ -509,12 +509,12 @@ func TestWordSpansMarkTheQuery(t *testing.T) {
 }
 
 // The row chosen while the list has the keyboard shows its buttons, and
-// Copy of the Edit menu copies the command that resumes its session.
+// Copy of the Edit menu copies its transcript as a file, as a drag does.
 func TestSessionsListKeysShowAndCopy(t *testing.T) {
 	skipOnWindows(t, "the sessions' folders are POSIX paths")
 	hs := newHarness(t, true)
 	a := hs.a
-	agentHome(t, hs.root)
+	home := agentHome(t, hs.root)
 	a.showSessions()
 	hs.settle()
 	if _, ok := hs.tt.Find(locales.SessionsCopyCommand()); ok {
@@ -527,8 +527,9 @@ func TestSessionsListKeysShowAndCopy(t *testing.T) {
 		t.Error("the chosen row shows no buttons with the keyboard in the list")
 	}
 	hs.command("copy")
-	if got := hs.tt.Clipboard(); !strings.Contains(got, "--resume") || !strings.Contains(got, "here") {
-		t.Errorf("the clipboard has %q, want the command that resumes here", got)
+	file := filepath.Join(home, ".claude", "projects", "p-here", "here.jsonl")
+	if host := a.host.(*fakeHost); !slices.Equal(host.clipboard, []string{file}) {
+		t.Errorf("copied %v, want the transcript %s", host.clipboard, file)
 	}
 }
 

@@ -8,22 +8,34 @@ import (
 )
 
 // The sidebar's width, whether it is closed and the scope of the Sessions
-// view follow from one project to the next; what it shows is each one's.
+// view follow from one project to the next; what it shows is each one's,
+// but for the sessions of every folder.
 func TestSidebarSharedAcrossProjects(t *testing.T) {
 	root, other := workspaceFixture(t), workspaceFixture(t)
 	f, hs, tt := railFixture(t, root, other)
 	a, b := hs[0].a, hs[1].a
 	a.showSessions()
-	a.window.SidebarWidth, a.sessions.all = 300, 1
+	a.window.SidebarWidth = 300
 	step(tt)
 	f.activate(hs[1])
 	step(tt)
-	if b.window.SidebarWidth != 300 || b.sessions.all != 1 || b.window.SidebarClosed {
-		t.Fatalf("other project: width %v, all %d, closed %v; want 300, 1, open", b.window.SidebarWidth, b.sessions.all, b.window.SidebarClosed)
+	if b.window.SidebarWidth != 300 || b.sessions.all != 0 || b.window.SidebarClosed {
+		t.Fatalf("other project: width %v, all %d, closed %v; want 300, 0, open", b.window.SidebarWidth, b.sessions.all, b.window.SidebarClosed)
 	}
 	if b.window.SidebarView == "sessions" {
 		t.Errorf("other project shows %q, want its own view", b.window.SidebarView)
 	}
+	f.activate(hs[0])
+	step(tt)
+	a.sessions.all = 1
+	step(tt)
+	f.activate(hs[1])
+	step(tt)
+	if b.sessions.all != 1 || b.window.SidebarView != "sessions" {
+		t.Fatalf("other project: all %d, view %q; want 1, sessions", b.sessions.all, b.window.SidebarView)
+	}
+	b.window.SidebarView = ""
+	step(tt)
 	b.window.SidebarClosed = true
 	step(tt)
 	f.activate(hs[0])

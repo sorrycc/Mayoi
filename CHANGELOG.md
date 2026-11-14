@@ -17,6 +17,7 @@ needs a `## <version>` section here, or its build fails.
 - **Sessions** lists Pi's sessions too, by name or first prompt, and resumes one in a terminal tab.
 - The sidebar's width and whether it's shown now stay the same as you switch projects and windows.
 - **Sessions** keeps **All Projects** chosen as you switch projects.
+- With **All Projects** chosen, **Sessions** stays open in the sidebar as you switch projects.
 - **Sessions** marks a session that's open in a terminal in any project with a terminal icon.
 - Clicking such a session switches to its project and shows that terminal.
 - Opening local files keeps the window responsive while their tabs show loading progress.

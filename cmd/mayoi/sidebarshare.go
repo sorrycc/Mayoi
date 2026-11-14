@@ -1,26 +1,39 @@
 package main
 
 // sidebarShare is what of the sidebar every project of every window
-// shares: how wide it is, whether it is closed, and whether the Sessions
-// view lists the sessions of every folder. What it shows is each
-// project's own.
+// shares: how wide it is, whether it is closed, whether the Sessions
+// view lists the sessions of every folder, and whether it shows them so.
+// What it shows otherwise is each project's own.
 type sidebarShare struct {
 	width  float32
 	closed bool
 	all    int
+	// allSessions is whether the sidebar shows the sessions of every
+	// folder: the next project shows them too.
+	allSessions bool
 }
 
 // sidebarShare is what the project's sidebar has of the shared state.
 func (a *app) sidebarShare() sidebarShare {
-	return sidebarShare{width: a.window.SidebarWidth, closed: a.window.SidebarClosed, all: a.sessions.all}
+	return sidebarShare{
+		width:       a.window.SidebarWidth,
+		closed:      a.window.SidebarClosed,
+		all:         a.sessions.all,
+		allSessions: a.window.SidebarView == "sessions" && a.sessions.all == 1,
+	}
 }
 
-// setSidebarShare gives the project's sidebar the shared state.
+// setSidebarShare gives the project's sidebar the shared state. It shows
+// the sessions of every folder as another did, and keeps its own view
+// otherwise.
 func (a *app) setSidebarShare(s sidebarShare) {
 	if s.width != 0 {
 		a.window.SidebarWidth = s.width
 	}
 	a.window.SidebarClosed, a.sessions.all = s.closed, s.all
+	if s.allSessions {
+		a.window.SidebarView = "sessions"
+	}
 }
 
 // shareSidebar shares what a project changed of its sidebar since it

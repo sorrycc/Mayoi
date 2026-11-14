@@ -312,7 +312,7 @@ func fetchInto(src, dir string, p *remote.Progress) (string, error) {
 // copyInto copies the file or folder at src into dir, under a name of
 // its own there, and returns where it went.
 func copyInto(src, dir string) (string, error) {
-	info, err := os.Lstat(src)
+	info, err := lstatJunction(src)
 	if err != nil {
 		return "", err
 	}
@@ -347,10 +347,22 @@ func freeName(dir, name string, isDir bool) string {
 	}
 }
 
+// lstatJunction is os.Lstat, but for a directory junction of Windows,
+// which it calls irregular, the folder the junction points to.
+func lstatJunction(path string) (os.FileInfo, error) {
+	info, err := os.Lstat(path)
+	if err == nil && info.Mode()&os.ModeIrregular != 0 {
+		if target, err := os.Stat(path); err == nil && target.IsDir() {
+			return target, nil
+		}
+	}
+	return info, err
+}
+
 // copyEntry copies a file, a link or a folder with all it has, keeping
 // their modes.
 func copyEntry(src, dst string) error {
-	info, err := os.Lstat(src)
+	info, err := lstatJunction(src)
 	if err != nil {
 		return err
 	}

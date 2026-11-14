@@ -482,9 +482,6 @@ func parseLive(source string, path, root string, full bool, cache *markdownCache
 		return inner(n)
 	}
 
-	// scale is the size of the text walkInline walks, a heading's or 1,
-	// for its code to stay a size smaller than the text around it.
-	scale := float32(1)
 	var walkInline func(n ast.Node)
 	walkInline = func(n ast.Node) {
 		// last is where the child before ended, -1 before the first.
@@ -526,11 +523,7 @@ func parseLive(source string, path, root string, full bool, cache *markdownCache
 			case *ast.CodeSpan:
 				if s >= 0 {
 					is, ie := inner(ch)
-					look := liveLook{code: true}
-					if scale != 1 {
-						look.size = scale * 0.9
-					}
-					style(is, ie, look)
+					style(is, ie, liveLook{code: true})
 					mark(s, is, s, e)
 					mark(ie, e, s, e)
 				}
@@ -710,9 +703,7 @@ func parseLive(source string, path, root string, full bool, cache *markdownCache
 						style(e+1, next, liveLook{color: liveFaint})
 					}
 				}
-				scale = look.size
 				walkInline(x)
-				scale = 1
 			case *ast.Paragraph, *ast.TextBlock:
 				if v, at, ok := liveEmbed(x, src, off, path, root, full, cache); ok {
 					if s, e := linesOf(x); s >= 0 && at >= s && at < e {

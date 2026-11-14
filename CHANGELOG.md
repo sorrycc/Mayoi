@@ -5,13 +5,13 @@ needs a `## <version>` section here, or its build fails.
 
 ## Unreleased
 
-- Inline code in a heading in Live Preview now shows at the heading's size, as in the Reading view.
 - `[[` suggestions list notes changed most recently first, after the ones you opened recently.
 - Pushed commits in the Source Control history show a ✓, ✗ or clock for how their GitHub CI checks went.
 - Clicking a commit's CI icon, or **Show Checks…** in its menu, lists its checks with logs and re-run.
 - A commit's tab shows how many of its checks passed, failed or are running.
 - The status bar shows HEAD's CI checks when the branch has no pull request.
 - When CI on HEAD finishes, Mayoi tells you, with a system notification if it is in the background.
+- Windows directory junctions show as folders in the file tree, and copy with what they hold.
 
 ## 0.21.0
 

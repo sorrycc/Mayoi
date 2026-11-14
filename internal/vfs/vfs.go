@@ -230,7 +230,9 @@ func ReadDir(dir string) ([]Entry, error) {
 	out := make([]Entry, 0, len(entries))
 	for _, e := range entries {
 		isDir := e.IsDir()
-		if e.Type()&os.ModeSymlink != 0 {
+		// Windows calls a directory junction irregular: neither a link nor
+		// a folder.
+		if e.Type()&(os.ModeSymlink|os.ModeIrregular) != 0 {
 			if info, err := os.Stat(filepath.Join(dir, e.Name())); err == nil && info.IsDir() {
 				isDir = true
 			}

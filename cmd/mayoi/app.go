@@ -742,6 +742,20 @@ func (a *app) diskChanged(changed, removed []string) {
 	}
 	a.indexRead.Invalidate()
 	a.ignoredRead.Invalidate()
+	// A note made or removed may be one a wiki link names: the previews
+	// find their links again.
+	if wikiFilesChanged(changed, removed) {
+		for _, d := range a.docs {
+			if d.live != nil && d.live.cache.arrived != nil {
+				d.live.cache.arrived()
+			}
+		}
+		for _, v := range a.imageViewers() {
+			if v.markdown != nil && v.markdown.cache.arrived != nil {
+				v.markdown.cache.arrived()
+			}
+		}
+	}
 	a.diffsOnDisk(append(changed, removed...))
 	a.searchAgain(append(changed, removed...))
 	// An image shows the file's new picture, or that it is gone.

@@ -5,6 +5,10 @@ needs a `## <version>` section here, or its build fails.
 
 ## Unreleased
 
+- `[[links]]` find notes anywhere in an Obsidian vault, even in a folder with its own git repository.
+- `[[links]]` in notes on a remote (SSH) folder find notes anywhere in the workspace, not only beside the note.
+- `[[links]]` match notes whatever their case, and pick up notes made or deleted outside the editor.
+- Live Preview stays smooth in notes with many `[[links]]` and in large vaults.
 - In Live Preview, clicking a link opens it, as in Obsidian; move the caret into a link to edit it.
 - Clicking a `[[link]]` to a note that doesn't exist yet creates the note beside the current one and opens it.
 - `[[note#^block]]` links open the note at the marked block.

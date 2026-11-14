@@ -1,10 +1,10 @@
 package main
 
 import (
-	"io/fs"
 	"net/url"
 	pathpkg "path"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -13,6 +13,7 @@ import (
 	"mayoi/internal/bg"
 	"mayoi/internal/remote"
 	"mayoi/internal/vfs"
+	"mayoi/internal/workspace"
 	"mayoi/locales"
 
 	"github.com/yuin/goldmark/ast"
@@ -128,10 +129,13 @@ func (wikiLinkParser) Parse(parent ast.Node, block text.Reader, pc parser.Contex
 }
 
 // wikiLinkFile is the file a wiki link's target names, as Obsidian finds
-// it: next to the note at path, at root, or else the shortest path under
-// root that ends in it, whatever its case; "" for none. A target without
-// an extension is a note, of .md.
-func wikiLinkFile(root, path, target string) string {
+// it, whatever its case: at its path from the note at path, or from
+// root, or else the file under root whose path ends in it, the shortest
+// path first; "" for none. A target without an extension is a note, of
+// .md. The files under root are those of its index, which calls arrived
+// once a read of it in the background finds them changed. Without a
+// root, only the note's folder is looked in.
+func wikiLinkFile(root, path, target string, arrived func()) string {
 	if target == "" {
 		return ""
 	}
@@ -139,36 +143,62 @@ func wikiLinkFile(root, path, target string) string {
 	if filepath.Ext(target) != "" {
 		names = []string{target, target + ".md"}
 	}
-	for _, name := range names {
-		for _, dir := range []string{filepath.Dir(path), root} {
-			if dir == "" {
-				continue
-			}
-			if p := filepath.Join(dir, filepath.FromSlash(name)); isFile(p) {
+	ix := wikiFiles(root, arrived)
+	if ix == nil || len(ix.files) == 0 {
+		for _, name := range names {
+			if p := filepath.Join(filepath.Dir(path), filepath.FromSlash(name)); isFile(p) {
 				return p
 			}
 		}
-	}
-	if root == "" || remote.Is(root) {
 		return ""
 	}
-	byName := wikiFiles(root)
+	dir, inRoot := "", false
+	if rel, err := filepath.Rel(root, filepath.Dir(path)); err == nil && filepath.IsLocal(rel) {
+		dir, inRoot = strings.ToLower(filepath.ToSlash(rel)), true
+	}
+	found := func(f string) string { return filepath.Join(root, filepath.FromSlash(f)) }
 	for _, name := range names {
-		want := strings.ToLower(filepath.ToSlash(name))
+		want := strings.ToLower(pathpkg.Clean(filepath.ToSlash(name)))
+		if inRoot {
+			if f, ok := ix.byPath[pathpkg.Join(dir, want)]; ok {
+				return found(f)
+			}
+		}
+		if f, ok := ix.byPath[want]; ok {
+			return found(f)
+		}
 		best := ""
-		for _, f := range byName[pathpkg.Base(want)] {
-			if lf := strings.ToLower(f); lf != want && !strings.HasSuffix(lf, "/"+want) {
+		for _, f := range ix.byName[pathpkg.Base(want)] {
+			if !strings.HasSuffix(strings.ToLower(f), "/"+want) {
 				continue
 			}
 			if best == "" || len(f) < len(best) || len(f) == len(best) && f < best {
 				best = f
 			}
 		}
-		if p := filepath.Join(root, filepath.FromSlash(best)); best != "" && isFile(p) {
-			return p
+		if best != "" {
+			return found(best)
 		}
 	}
 	return ""
+}
+
+// wikiLinkFile is the file a wiki link's target names, as the package
+// function finds it, once for each folder and target in a parse.
+func (c *markdownCache) wikiLinkFile(root, path, target string) string {
+	if c == nil {
+		return wikiLinkFile(root, path, target, nil)
+	}
+	k := [3]string{root, filepath.Dir(path), target}
+	if f, ok := c.links[k]; ok {
+		return f
+	}
+	f := wikiLinkFile(root, path, target, c.arrived)
+	if c.links == nil {
+		c.links = map[[3]string]string{}
+	}
+	c.links[k] = f
+	return f
 }
 
 func isFile(p string) bool {
@@ -195,67 +225,170 @@ func wikiLinkDest(path, file, heading string) string {
 	return u.String()
 }
 
-// wikiIndex is the files under a folder, by their names in lower case,
-// as paths from it with slashes, and when it was read.
-type wikiIndex struct {
-	at     time.Time
+// wikiFileSet is the files under a folder, as paths from it with
+// slashes, but those in hidden folders: by their names in lower case, by
+// their paths in lower case, and in order.
+type wikiFileSet struct {
 	byName map[string][]string
+	byPath map[string]string
+	files  []string
 }
 
-// wikiIndexes are the folders read for wiki links, by their paths, read
-// again once wikiIndexAge old. A folder holds up to wikiIndexMax files,
-// the rest unread.
+// wikiIndex is the files under a folder as last read, when, whether a
+// read is under way, and what to call should it find them changed. ready
+// closes once the first read is done.
+type wikiIndex struct {
+	set     *wikiFileSet
+	at      time.Time
+	reading bool
+	ready   chan struct{}
+	arrived []func()
+}
+
+// wikiIndexes are the folders read for wiki links, by their paths. A
+// folder is read again in the background once wikiIndexAge old, or
+// remoteIndexEvery for one on a host, its last read serving meanwhile.
 var wikiIndexes struct {
 	sync.Mutex
-	m map[string]wikiIndex
+	m map[string]*wikiIndex
 }
 
-const (
-	wikiIndexAge = 10 * time.Second
-	wikiIndexMax = 200_000
-)
+const wikiIndexAge = 10 * time.Second
 
-// wikiFiles is the files under root by their names in lower case, read
-// again when the last read is old. Hidden folders and node_modules are
-// left out.
-func wikiFiles(root string) map[string][]string {
-	wikiIndexes.Lock()
-	ix, ok := wikiIndexes.m[root]
-	wikiIndexes.Unlock()
-	if ok && time.Since(ix.at) < wikiIndexAge {
-		return ix.byName
-	}
-	ix = wikiIndex{at: time.Now(), byName: map[string][]string{}}
-	n := 0
-	_ = filepath.WalkDir(root, func(p string, e fs.DirEntry, err error) error {
-		if err != nil {
-			return nil
-		}
-		name := e.Name()
-		if e.IsDir() {
-			if p != root && (strings.HasPrefix(name, ".") || name == "node_modules") {
-				return filepath.SkipDir
-			}
-			return nil
-		}
-		if n++; n > wikiIndexMax {
-			return filepath.SkipAll
-		}
-		rel, err := filepath.Rel(root, p)
-		if err != nil {
-			return nil
-		}
-		k := strings.ToLower(name)
-		ix.byName[k] = append(ix.byName[k], filepath.ToSlash(rel))
+// wikiFiles is the files under root, nil without one. The first read
+// waits for the files; later ones take those last read, and read them
+// again in the background when old, calling arrived if they changed.
+func wikiFiles(root string, arrived func()) *wikiFileSet {
+	if root == "" {
 		return nil
-	})
+	}
 	wikiIndexes.Lock()
 	if wikiIndexes.m == nil {
-		wikiIndexes.m = map[string]wikiIndex{}
+		wikiIndexes.m = map[string]*wikiIndex{}
 	}
-	wikiIndexes.m[root] = ix
+	ix := wikiIndexes.m[root]
+	if ix == nil {
+		ix = &wikiIndex{ready: make(chan struct{}), reading: true}
+		wikiIndexes.m[root] = ix
+		wikiIndexes.Unlock()
+		set := readWikiFiles(root)
+		wikiIndexes.Lock()
+		ix.set, ix.at, ix.reading = set, time.Now(), false
+		close(ix.ready)
+		wikiIndexes.Unlock()
+		return set
+	}
 	wikiIndexes.Unlock()
-	return ix.byName
+	<-ix.ready
+	wikiIndexes.Lock()
+	defer wikiIndexes.Unlock()
+	age := wikiIndexAge
+	if remote.Is(root) {
+		age = remoteIndexEvery
+	}
+	if !ix.reading && time.Since(ix.at) >= age {
+		ix.reading = true
+		bg.Go(func() { readWikiFilesAgain(root, ix) })
+	}
+	if ix.reading && arrived != nil {
+		ix.arrived = append(ix.arrived, arrived)
+	}
+	return ix.set
+}
+
+// readWikiFilesAgain reads the files of index ix of root again, and
+// calls those waiting if they changed. A host that lists none, as one
+// that cannot be reached, keeps those read before.
+func readWikiFilesAgain(root string, ix *wikiIndex) {
+	defer recoverCrash()
+	var set *wikiFileSet
+	defer func() {
+		wikiIndexes.Lock()
+		changed := set != nil && !slices.Equal(set.files, ix.set.files) && (len(set.files) > 0 || !remote.Is(root))
+		if changed {
+			ix.set = set
+		}
+		ix.at, ix.reading = time.Now(), false
+		calls := ix.arrived
+		ix.arrived = nil
+		wikiIndexes.Unlock()
+		if changed {
+			for _, f := range calls {
+				f()
+			}
+		}
+	}()
+	set = readWikiFiles(root)
+}
+
+// readWikiFiles reads the files under root, leaving out hidden folders
+// and those the index of the workspace leaves out.
+func readWikiFiles(root string) *wikiFileSet {
+	set := &wikiFileSet{byName: map[string][]string{}, byPath: map[string]string{}}
+	for _, f := range workspace.Walk(root) {
+		if wikiHidden(f) {
+			continue
+		}
+		lf := strings.ToLower(f)
+		set.byName[pathpkg.Base(lf)] = append(set.byName[pathpkg.Base(lf)], f)
+		set.byPath[lf] = f
+		set.files = append(set.files, f)
+	}
+	slices.Sort(set.files)
+	return set
+}
+
+// wikiHidden reports whether the file at rel, a path with slashes, is in
+// a hidden folder, as .obsidian or .trash, which links do not find.
+func wikiHidden(rel string) bool {
+	dir, _, ok := strings.Cut(rel, "/")
+	for ok {
+		if strings.HasPrefix(dir, ".") {
+			return true
+		}
+		rel = rel[len(dir)+1:]
+		dir, _, ok = strings.Cut(rel, "/")
+	}
+	return false
+}
+
+// forgetWikiFiles drops the files read under root, for the next link to
+// read them anew.
+func forgetWikiFiles(root string) {
+	wikiIndexes.Lock()
+	delete(wikiIndexes.m, root)
+	wikiIndexes.Unlock()
+}
+
+// wikiFilesChanged marks old the folders read for wiki links that may
+// have a file made or removed among changed and removed, as the watch of
+// the workspace reports them: one they do not hold changed, or any
+// removed, which may be a folder. It reports whether any did.
+func wikiFilesChanged(changed, removed []string) bool {
+	wikiIndexes.Lock()
+	defer wikiIndexes.Unlock()
+	any := false
+	for root, ix := range wikiIndexes.m {
+		if ix.set == nil {
+			continue
+		}
+		old := false
+		for i, p := range append(slices.Clone(changed), removed...) {
+			rel, err := filepath.Rel(root, p)
+			if err != nil || !filepath.IsLocal(rel) || wikiHidden(filepath.ToSlash(rel)) {
+				continue
+			}
+			if _, ok := ix.set.byPath[strings.ToLower(filepath.ToSlash(rel))]; !ok || i >= len(changed) {
+				old = true
+				break
+			}
+		}
+		if old {
+			ix.at = time.Time{}
+			any = true
+		}
+	}
+	return any
 }
 
 // followWikiLink opens the note of the wiki link the caret is in, as a
@@ -282,16 +415,14 @@ func (a *app) openWikiLink(path string, l wikiLink) {
 	bg.Go(func() {
 		defer recoverCrash()
 		root := markdownRoot(path, workspace)
-		file := wikiLinkFile(root, path, l.target)
+		file := wikiLinkFile(root, path, l.target, nil)
 		made := false
 		var err error
 		if file == "" {
 			if file = wikiLinkNew(path, l.target); file != "" {
 				if err = vfs.Create(file); err == nil {
 					made = true
-					wikiIndexes.Lock()
-					delete(wikiIndexes.m, root)
-					wikiIndexes.Unlock()
+					forgetWikiFiles(root)
 				}
 			}
 		}

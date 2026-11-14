@@ -64,6 +64,12 @@ func gitFiles(root string) ([]string, bool) {
 	return files, true
 }
 
+// Walk lists the files under root by reading its directories, on its
+// host for a remote root, as Index does outside a Git work tree, with
+// the files of the repositories nested in it. It runs in the caller's
+// goroutine.
+func Walk(root string) []string { return walk(root) }
+
 // walk lists the files under root by reading its directories.
 func walk(root string) []string {
 	if vfs.IsRemote(root) {

@@ -45,9 +45,9 @@ func markdownEmbedOf(n ast.Node, source []byte) (*wikiLinkNode, bool) {
 }
 
 // markdownEmbedFile is the note a wiki link embeds, "" for none, as a
-// file of Markdown found from the note at path.
-func markdownEmbedFile(root, path string, l *wikiLinkNode) string {
-	file := wikiLinkFile(root, path, l.target)
+// file of Markdown found from the note at path, by the parse of cache c.
+func markdownEmbedFile(c *markdownCache, root, path string, l *wikiLinkNode) string {
+	file := c.wikiLinkFile(root, path, l.target)
 	if file == "" || !isMarkdownPath(file) || filepath.Clean(file) == filepath.Clean(path) {
 		return ""
 	}

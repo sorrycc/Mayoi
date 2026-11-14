@@ -705,7 +705,7 @@ func parseLive(source string, path, root string, full bool, cache *markdownCache
 				}
 				walkInline(x)
 			case *ast.Paragraph, *ast.TextBlock:
-				if v, at, ok := liveEmbed(x, src, off, path, root, full); ok {
+				if v, at, ok := liveEmbed(x, src, off, path, root, full, cache); ok {
 					if s, e := linesOf(x); s >= 0 && at >= s && at < e {
 						b := liveBlock{start: s, end: e, source: string(src[at:e]), embed: true, version: v}
 						b.quote = uint8(min(255, bytes.Count(liveQuoteMarks.Find(src[s:lineEnd(s)]), []byte{'>'})))
@@ -964,7 +964,7 @@ func codeTicks(src []byte, s, e int) (before, after int) {
 // alone, ![[note]], that shows in a full parse, at the top of the text,
 // in a list or in a quote; the version of the note, its time and size;
 // and where in src its link starts.
-func liveEmbed(x ast.Node, src []byte, off int, path, root string, full bool) (string, int, bool) {
+func liveEmbed(x ast.Node, src []byte, off int, path, root string, full bool, cache *markdownCache) (string, int, bool) {
 	if !full || root == "" || !liveEmbedHost(x) {
 		return "", 0, false
 	}
@@ -972,7 +972,7 @@ func liveEmbed(x ast.Node, src []byte, off int, path, root string, full bool) (s
 	if !ok {
 		return "", 0, false
 	}
-	file := markdownEmbedFile(root, path, l)
+	file := markdownEmbedFile(cache, root, path, l)
 	if file == "" {
 		return "", 0, false
 	}
@@ -1173,7 +1173,7 @@ func liveWikiLink(src []byte, s, e int, x *wikiLinkNode, path, root string, imag
 		return
 	}
 	if x.embed && images && x.target != "" {
-		if file := wikiLinkFile(root, path, x.target); file != "" && isImage(file) {
+		if file := cache.wikiLinkFile(root, path, x.target); file != "" && isImage(file) {
 			image := markdownPicture(cache, used, path, root, wikiLinkDest(path, file, ""))
 			if image.bitmap != nil {
 				sp := liveSpan{start: s, end: e, kind: liveObject, from: s, to: e, obj: objImage, drawn: &livePicture{image: image}}
@@ -1191,7 +1191,7 @@ func liveWikiLink(src []byte, s, e int, x *wikiLinkNode, path, root string, imag
 		label = open + i + 1
 	}
 	look := liveLook{color: liveLink}
-	if images && root != "" && x.target != "" && wikiLinkFile(root, path, x.target) == "" {
+	if images && root != "" && x.target != "" && cache.wikiLinkFile(root, path, x.target) == "" {
 		look.color = liveUnresolved
 	}
 	style(label, close, look)

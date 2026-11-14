@@ -139,3 +139,78 @@ func TestWikiLinkNested(t *testing.T) {
 		}
 	}
 }
+
+func TestWikiLinkVault(t *testing.T) {
+	top := t.TempDir()
+	vault := filepath.Join(top, "vault")
+	write := func(rel string) string {
+		p := filepath.Join(top, filepath.FromSlash(rel))
+		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(p, nil, 0o644); err != nil {
+			t.Fatal(err)
+		}
+		return p
+	}
+	write("vault/.obsidian/app.json")
+	write("vault/repo/.git/HEAD")
+	note := write("vault/repo/daily/today.md")
+	write("vault/People/Ada.md")
+	write("vault/a/b/c/today2.md")
+	write("vault/repo/daily/Near.md")
+	write("vault/z/near.md")
+	write("vault/.trash/gone.md")
+	write("plain/.git/HEAD")
+	plain := write("plain/sub/.git/HEAD")
+	plainNote := write("plain/sub/n.md")
+
+	// The vault, over the repository inside it and the workspace.
+	if r := markdownRoot(note, top); r != vault {
+		t.Fatalf("root %q, want the vault %q", r, vault)
+	}
+	// Without a vault, the workspace over a repository nested in it.
+	if r := markdownRoot(plainNote, filepath.Join(top, "plain")); r != filepath.Join(top, "plain") {
+		t.Fatalf("root %q, want the workspace", r)
+	}
+	if r := markdownRoot(plainNote, ""); r != filepath.Dir(filepath.Dir(plain)) {
+		t.Fatalf("root %q, want the repository", r)
+	}
+
+	for target, want := range map[string]string{
+		"ada":           "vault/People/Ada.md",
+		"people/ADA":    "vault/People/Ada.md",
+		"today2":        "vault/a/b/c/today2.md",
+		"near":          "vault/repo/daily/Near.md",
+		"z/near":        "vault/z/near.md",
+		"gone":          "",
+		"app.json":      "",
+		"daily/today":   "vault/repo/daily/today.md",
+		"missing":       "",
+		"People/Ada.md": "vault/People/Ada.md",
+	} {
+		got := wikiLinkFile(vault, note, target, nil)
+		if want != "" {
+			want = filepath.Join(top, filepath.FromSlash(want))
+		}
+		if got != want {
+			t.Errorf("%q: got %q, want %q", target, got, want)
+		}
+	}
+
+	// A note made shows up once the watch reports it; one only edited
+	// does not read the folder again.
+	if wikiFilesChanged([]string{note}, nil) {
+		t.Fatal("an edited note marked the files old")
+	}
+	made := write("vault/new/Fresh.md")
+	if !wikiFilesChanged([]string{made}, nil) {
+		t.Fatal("a note made left the files as they were")
+	}
+	called := make(chan struct{}, 1)
+	wikiLinkFile(vault, note, "fresh", func() { called <- struct{}{} })
+	<-called
+	if got := wikiLinkFile(vault, note, "fresh", nil); got != made {
+		t.Fatalf("fresh: got %q", got)
+	}
+}

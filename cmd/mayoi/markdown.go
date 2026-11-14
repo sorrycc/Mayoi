@@ -13,6 +13,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 	"unicode"
@@ -196,6 +197,9 @@ type markdownCache struct {
 	// pictures the text's parse used, which those of notes embedded add to.
 	embeds int
 	used   map[markdownImageKey]bool
+	// links are the files of the wiki links a parse found, by the root,
+	// the folder of the note and the target, for each to be found once.
+	links map[[3]string]string
 }
 
 // markdownBlock is a paragraph-sized row, including its enclosing lists and quotes.
@@ -381,16 +385,32 @@ func markdownPath(root, path, dest string) string {
 	return filepath.Join(filepath.Dir(path), filepath.FromSlash(u.Path))
 }
 
-// markdownRoot is the Git repository holding path, or else the workspace
-// when it holds path, or "".
+// markdownRoot is the folder the links of the note at path are found
+// from, as Obsidian finds them: the vault holding it, the nearest folder
+// with .obsidian; or else the workspace when it holds path; or else its
+// Git repository; or "". Of a remote note, only a vault in the workspace
+// is looked for, at one round trip kept remoteIndexEvery.
 func markdownRoot(path, workspace string) string {
-	// Of a remote file, the workspace, rather than a round trip to its
-	// host for each folder above it.
+	inside := false
+	if rel, err := filepath.Rel(workspace, path); workspace != "" && err == nil && filepath.IsLocal(rel) {
+		inside = true
+	}
 	if remote.Is(path) {
-		if rel, err := filepath.Rel(workspace, path); workspace != "" && err == nil && filepath.IsLocal(rel) {
-			return workspace
+		if !inside {
+			return ""
 		}
-		return ""
+		return markdownRemoteVault(filepath.Dir(path), workspace)
+	}
+	for dir := filepath.Dir(path); ; dir = filepath.Dir(dir) {
+		if info, err := os.Stat(filepath.Join(dir, ".obsidian")); err == nil && info.IsDir() {
+			return dir
+		}
+		if parent := filepath.Dir(dir); parent == dir {
+			break
+		}
+	}
+	if inside {
+		return workspace
 	}
 	for dir := filepath.Dir(path); ; dir = filepath.Dir(dir) {
 		if _, err := os.Stat(filepath.Join(dir, ".git")); err == nil {
@@ -400,10 +420,57 @@ func markdownRoot(path, workspace string) string {
 			break
 		}
 	}
-	if rel, err := filepath.Rel(workspace, path); workspace != "" && err == nil && filepath.IsLocal(rel) {
+	return ""
+}
+
+// markdownVaults are the roots of the links of remote notes, by their
+// folder and workspace, and when each was found.
+var markdownVaults struct {
+	sync.Mutex
+	m map[[2]string]markdownVault
+}
+
+type markdownVault struct {
+	root string
+	at   time.Time
+}
+
+// markdownRemoteVault is the nearest folder from dir up to workspace, on
+// a host, with .obsidian, or else workspace.
+func markdownRemoteVault(dir, workspace string) string {
+	key := [2]string{dir, workspace}
+	markdownVaults.Lock()
+	v, ok := markdownVaults.m[key]
+	markdownVaults.Unlock()
+	if ok && time.Since(v.at) < remoteIndexEvery {
+		return v.root
+	}
+	var dirs, marks []string
+	for d := dir; ; d = filepath.Dir(d) {
+		dirs = append(dirs, d)
+		marks = append(marks, filepath.Join(d, ".obsidian"))
+		if d == workspace || filepath.Dir(d) == d {
+			break
+		}
+	}
+	infos, err := vfs.StatMany(marks)
+	if err != nil {
 		return workspace
 	}
-	return ""
+	root := workspace
+	for i, m := range marks {
+		if info, ok := infos[m]; ok && info.IsDir() {
+			root = dirs[i]
+			break
+		}
+	}
+	markdownVaults.Lock()
+	if markdownVaults.m == nil {
+		markdownVaults.m = map[[2]string]markdownVault{}
+	}
+	markdownVaults.m[key] = markdownVault{root: root, at: time.Now()}
+	markdownVaults.Unlock()
+	return root
 }
 
 // markdownSkipFrontMatter is source without its front matter, and the
@@ -849,7 +916,7 @@ func parseMarkdown(source []byte, path, root string, current func() bool, caches
 				s.text = x.text()
 				file := ""
 				if x.target != "" && (current == nil || current()) {
-					file = wikiLinkFile(root, path, x.target)
+					file = c.wikiLinkFile(root, path, x.target)
 				}
 				switch {
 				case x.target == "":
@@ -993,7 +1060,7 @@ func parseMarkdown(source []byte, path, root string, current func() bool, caches
 		if !ok {
 			return false
 		}
-		file := markdownEmbedFile(root, path, l)
+		file := markdownEmbedFile(c, root, path, l)
 		if file == "" {
 			return false
 		}

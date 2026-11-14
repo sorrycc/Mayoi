@@ -3,7 +3,7 @@
 The update window shows the section of the version it offers. Every release
 needs a `## <version>` section here, or its build fails.
 
-## Unreleased
+## 0.21.1
 
 - `[[` suggestions list notes changed most recently first, after the ones you opened recently.
 - Pushed commits in the Source Control history show a ✓, ✗ or clock for how their GitHub CI checks went.

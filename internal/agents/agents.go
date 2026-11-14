@@ -206,6 +206,37 @@ func HarnessOfApp(app string) (Harness, bool) {
 	return "", false
 }
 
+// agentDomains are the domains of the emails the agents sign the commits
+// they help with.
+var agentDomains = map[string]Harness{
+	"anthropic.com": Claude,
+	"openai.com":    Codex,
+	"x.ai":          Grok,
+	"qoder.com":     Qoder,
+}
+
+// HarnessOfCoAuthor is the agent a commit's co-author is, by the email
+// it signs with, or by its name's first word for one of no email or a
+// noreply one; false for a person.
+func HarnessOfCoAuthor(name, email string) (Harness, bool) {
+	email = strings.ToLower(email)
+	if _, domain, ok := strings.Cut(email, "@"); ok {
+		if h, ok := agentDomains[domain]; ok {
+			return h, true
+		}
+	}
+	if email != "" && !strings.Contains(email, "noreply") {
+		return "", false
+	}
+	first, _, _ := strings.Cut(strings.ToLower(strings.TrimSpace(name)), " ")
+	for _, ag := range All() {
+		if first != "" && (first == string(ag.ID) || first == strings.ToLower(ag.App)) {
+			return ag.ID, true
+		}
+	}
+	return "", false
+}
+
 // Session is a conversation of an agent that can be resumed.
 type Session struct {
 	Harness Harness

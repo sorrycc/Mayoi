@@ -1170,14 +1170,29 @@ func (a *app) layOutCommitCard(c *ui.Context, v *diffView, w float32) *commitCar
 		return a.finishCommitCard(c, v, k, w, pieces)
 	}
 	author := label(info.Author, 600, p.text)
-	col := avatarColor(p, info.Email+info.Author)
-	pieces = append(pieces, cardPiece{w: 18 + 6 + measure(author), show: func() {
+	aw := 18 + 6 + measure(author)
+	var with ui.Span
+	// The mark of an agent that helped stands out of the avatar: the
+	// name keeps clear of it.
+	var past float32
+	if len(info.CoAuthors) > 0 {
+		with = label(locales.CardCoAuthors(coAuthorNames(info.CoAuthors)), 400, p.muted)
+		aw += 6 + measure(with)
+		if _, ok := coAuthorAgent(info.CoAuthors); ok {
+			past = 6
+		}
+	}
+	aw += past
+	pieces = append(pieces, cardPiece{w: aw, show: func() {
 		ui.Row(c).Gap(6).AlignItems(ui.Center).Shrink(1).MinWidth(0).Children(func() {
-			ui.Box(c).Size(18, 18).Shrink(0).Draw(func(pt *ui.Painter, b ui.Rect) {
-				pt.Fill(b, col.Alpha(0.22), 9)
-				paintInitials(pt, b, info.Author, 8.5, col)
-			})
+			a.commitAvatar(c, info.Author, info.Email, info.CoAuthors, 18, p.editor)
+			if past > 0 {
+				ui.Box(c).Width(0).Shrink(0) // a gap more, past the mark
+			}
 			ui.RichText(c, author).SingleLine().Shrink(1).MinWidth(0)
+			if with.Text != "" {
+				ui.RichText(c, with).SingleLine().Shrink(1).MinWidth(0)
+			}
 		})
 	}})
 	if !info.Time.IsZero() {
@@ -1280,7 +1295,12 @@ func (a *app) finishCommitCard(c *ui.Context, v *diffView, k *commitCard, w floa
 	k.meta = append(k.meta, line)
 	h := 2*cardPadY + k.subjectH + cardGap + float32(len(k.meta))*cardMetaH
 	// The rest of the message, folded past its first lines.
-	if body := strings.TrimRight(info.Body, "\n"); body != "" {
+	body := info.Body
+	if len(info.CoAuthors) > 0 {
+		// Who helped shows by the author: their lines would say it again.
+		body = withoutCoAuthorLines(body)
+	}
+	if body = strings.TrimRight(body, "\n"); body != "" {
 		k.body = ui.Span{Text: body, Font: a.font.family, Size: a.font.size - 1, Color: p.muted}
 		_, k.bodyH = c.MeasureText(w, k.body)
 		if one := lineOf(k.body); k.bodyH > maxCardBody*one+0.5 {

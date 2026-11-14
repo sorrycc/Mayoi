@@ -119,6 +119,9 @@ type scmState struct {
 	// for.
 	openCommits map[string]bool
 	commitFiles map[string]*commitFilesRead
+	// commitStats are how much the commits whose cards showed changed,
+	// by hash, each read once.
+	commitStats map[string]*commitStatRead
 	commitsGen  int
 	rowsCommits int
 	// rowsGen counts the rows made; appear follows them as they come, as
@@ -1209,12 +1212,24 @@ func (a *gitContext) scmCommit(c *ui.Context, r scmRow, action *func()) {
 	head := g.status != nil && g.status.Head == cm.Hash
 	badges := refBadges(cm.Refs)
 	prs := a.prHeadsAt(cm.Hash)
-	tip := fmt.Sprintf("%s\n%s · %s · %s", cm.Subject, cm.Author, ago(cm.Time, time.Now()), cm.Short())
+	// What the card says past its fields, which the row's description
+	// says too, for those who do not see the card.
+	var extra []string
 	if unpushed {
-		tip += locales.ScmNotPushed()
+		extra = append(extra, strings.TrimPrefix(locales.ScmNotPushed(), " · "))
 	}
 	if len(cm.Parents) > 1 {
-		tip += locales.ScmMerge()
+		extra = append(extra, strings.TrimPrefix(locales.ScmMerge(), " · "))
+	}
+	for _, pr := range prs {
+		extra = append(extra, prHeadTip(pr))
+	}
+	if st, ok := a.checksOf(cm.Hash); ok {
+		extra = append(extra, checksSummary(st))
+	}
+	tip := fmt.Sprintf("%s\n%s · %s · %s", cm.Subject, cm.Author, ago(cm.Time, time.Now()), cm.Short())
+	if len(cm.CoAuthors) > 0 {
+		tip += "\n" + locales.ScmCoAuthoredWith(coAuthorNames(cm.CoAuthors))
 	}
 	if len(badges) > 0 {
 		names := make([]string, len(badges))
@@ -1223,11 +1238,8 @@ func (a *gitContext) scmCommit(c *ui.Context, r scmRow, action *func()) {
 		}
 		tip += "\n" + strings.Join(names, ", ")
 	}
-	for _, pr := range prs {
-		tip += "\n" + prHeadTip(pr)
-	}
-	if st, ok := a.checksOf(cm.Hash); ok {
-		tip += "\n" + checksSummary(st)
+	for _, s := range extra {
+		tip += "\n" + s
 	}
 	indent := float32(6)
 	if r.at < 0 {
@@ -1237,8 +1249,9 @@ func (a *gitContext) scmCommit(c *ui.Context, r scmRow, action *func()) {
 	if wait := scmScrollQuiet - c.Now().Sub(a.scm.scrolledAt); wait > 0 {
 		c.After(wait)
 	} else {
-		row.Tooltip(tip)
+		a.commitHoverCard(c, row, cm, extra)
 	}
+	row.Description(tip)
 	a.scmFade(c, row, r.key)
 	if a.scm.selection.Has(r.key) {
 		row.Background(p.active)
@@ -1271,11 +1284,11 @@ func (a *gitContext) scmCommit(c *ui.Context, r scmRow, action *func()) {
 				}
 			})
 		}
-		author := avatarColor(p, cm.Email+cm.Author)
-		ui.Box(c).Size(15, 15).Shrink(0).Draw(func(pt *ui.Painter, b ui.Rect) {
-			pt.Fill(b, author.Alpha(0.22), b.W/2)
-			paintInitials(pt, b, cm.Author, 7, author)
-		})
+		ring := p.chrome
+		if a.scm.selection.Has(r.key) {
+			ring = mix(p.chrome, p.active.Alpha(1), float32(p.active.A)/255)
+		}
+		a.app.commitAvatar(c, cm.Author, cm.Email, cm.CoAuthors, 15, ring)
 		lane := p.accent
 		if gr != nil {
 			lane = graphColor(p, gr.color)

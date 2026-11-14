@@ -12,6 +12,9 @@ needs a `## <version>` section here, or its build fails.
 - The status bar shows HEAD's CI checks when the branch has no pull request.
 - When CI on HEAD finishes, Mayoi tells you, with a system notification if it is in the background.
 - Windows directory junctions show as folders in the file tree, and copy with what they hold.
+- Commits made with an AI agent, like Claude, show the agent's mark on the author's avatar in the history.
+- Hovering a commit in the history shows a card with its author, co-authors, files changed and branch.
+- A commit's tab names its co-authors beside the author, in place of the `Co-authored-by` lines.
 
 ## 0.21.0
 

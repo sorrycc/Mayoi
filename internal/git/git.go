@@ -5,6 +5,7 @@ package git
 
 import (
 	"bytes"
+	"cmp"
 	"errors"
 	"fmt"
 	"io"
@@ -792,6 +793,46 @@ type Commit struct {
 	Subject string
 	Body    string // the message after the subject, trimmed
 	Refs    []Ref  // the branches and tags at the commit
+	// CoAuthors are those the message's Co-authored-by trailers name,
+	// each once, in their order, the author left out.
+	CoAuthors []Person
+}
+
+// Person is someone a commit names: their name and email.
+type Person struct{ Name, Email string }
+
+// parseCoAuthors reads the "Co-authored-by: Name <email>" lines of a
+// commit's message, of any case, leaving out the author's and those
+// named twice.
+func parseCoAuthors(body, author, email string) []Person {
+	var out []Person
+	seen := map[string]bool{strings.ToLower(email): email != "", strings.ToLower(author): author != ""}
+	for _, line := range strings.Split(body, "\n") {
+		k, v, ok := strings.Cut(strings.TrimSpace(line), ":")
+		if !ok || !strings.EqualFold(strings.TrimSpace(k), "Co-authored-by") {
+			continue
+		}
+		v = strings.TrimSpace(v)
+		var p Person
+		if i := strings.LastIndex(v, "<"); i >= 0 && strings.HasSuffix(v, ">") {
+			p = Person{Name: strings.TrimSpace(v[:i]), Email: strings.TrimSpace(v[i+1 : len(v)-1])}
+		} else {
+			p = Person{Name: v}
+		}
+		if p.Name == "" {
+			p.Name = p.Email
+		}
+		if p.Name == "" {
+			continue
+		}
+		key := strings.ToLower(cmp.Or(p.Email, p.Name))
+		if seen[key] || seen[strings.ToLower(p.Name)] && p.Email == "" {
+			continue
+		}
+		seen[key] = true
+		out = append(out, p)
+	}
+	return out
 }
 
 // RefKind is what a ref names.
@@ -859,6 +900,7 @@ func parseCommit(rec string) (Commit, bool) {
 	}
 	c := Commit{Hash: f[0], Parents: strings.Fields(f[1]), Author: f[2], Email: f[3], Subject: f[5],
 		Refs: parseRefs(f[6]), Body: strings.TrimSpace(f[7])}
+	c.CoAuthors = parseCoAuthors(c.Body, c.Author, c.Email)
 	if s, err := strconv.ParseInt(f[4], 10, 64); err == nil {
 		c.Time = time.Unix(s, 0)
 	}
@@ -973,6 +1015,44 @@ func (r *Repo) CommitFiles(c Commit) ([]CommitFile, error) {
 	}
 	slices.SortFunc(fs, func(x, y CommitFile) int { return strings.Compare(x.Path, y.Path) })
 	return fs, nil
+}
+
+// CommitStat is how much a commit changed: its files, and the lines it
+// added and deleted, those of binary files not counted.
+type CommitStat struct{ Files, Added, Deleted int }
+
+// CommitStat returns how much a commit changed from its first parent, or
+// the first commit added.
+func (r *Repo) CommitStat(c Commit) (CommitStat, error) {
+	args := []string{"diff-tree", "-r", "-M", "--numstat", "--no-commit-id"}
+	if len(c.Parents) == 0 {
+		args = append(args, "--root", c.Hash)
+	} else {
+		args = append(args, c.Parents[0], c.Hash)
+	}
+	out, err := r.run(nil, args...)
+	if err != nil {
+		return CommitStat{}, err
+	}
+	return parseNumstat(string(out)), nil
+}
+
+// parseNumstat adds up the lines git's --numstat prints, "added\tdeleted
+// \tpath", "-" for the counts of a binary file.
+func parseNumstat(out string) CommitStat {
+	var st CommitStat
+	for _, line := range strings.Split(out, "\n") {
+		f := strings.SplitN(line, "\t", 3)
+		if len(f) < 3 {
+			continue
+		}
+		st.Files++
+		add, _ := strconv.Atoi(f[0])
+		del, _ := strconv.Atoi(f[1])
+		st.Added += add
+		st.Deleted += del
+	}
+	return st
 }
 
 // Fetch fetches from the remotes.

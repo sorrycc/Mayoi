@@ -10766,6 +10766,76 @@ func (msgs Messages) ScmInitRepo() string {
 	return Catalog.Format(msgs.locale, "scmInitRepo", nil)
 }
 
+// ScmCoAuthoredWith says "Co-authored with {names}"
+// in the language the app shows.
+func ScmCoAuthoredWith(names string) string { return In(i18n.Locale()).ScmCoAuthoredWith(names) }
+
+// ScmCoAuthoredWith says "Co-authored with {names}"
+// in the language of msgs.
+func (msgs Messages) ScmCoAuthoredWith(names string) string {
+	return Catalog.Format(msgs.locale, "scmCoAuthoredWith", map[string]any{"names": names})
+}
+
+// ScmCardCommit says "Commit"
+// in the language the app shows.
+func ScmCardCommit() string { return In(i18n.Locale()).ScmCardCommit() }
+
+// ScmCardCommit says "Commit"
+// in the language of msgs.
+func (msgs Messages) ScmCardCommit() string {
+	return Catalog.Format(msgs.locale, "scmCardCommit", nil)
+}
+
+// ScmCardChanged says "Changed"
+// in the language the app shows.
+func ScmCardChanged() string { return In(i18n.Locale()).ScmCardChanged() }
+
+// ScmCardChanged says "Changed"
+// in the language of msgs.
+func (msgs Messages) ScmCardChanged() string {
+	return Catalog.Format(msgs.locale, "scmCardChanged", nil)
+}
+
+// ScmCardCommitted says "Committed"
+// in the language the app shows.
+func ScmCardCommitted() string { return In(i18n.Locale()).ScmCardCommitted() }
+
+// ScmCardCommitted says "Committed"
+// in the language of msgs.
+func (msgs Messages) ScmCardCommitted() string {
+	return Catalog.Format(msgs.locale, "scmCardCommitted", nil)
+}
+
+// ScmCardBranch says "Branch"
+// in the language the app shows.
+func ScmCardBranch() string { return In(i18n.Locale()).ScmCardBranch() }
+
+// ScmCardBranch says "Branch"
+// in the language of msgs.
+func (msgs Messages) ScmCardBranch() string {
+	return Catalog.Format(msgs.locale, "scmCardBranch", nil)
+}
+
+// ScmCardFiles says "{count, plural, one {# file} other {# files}}"
+// in the language the app shows.
+func ScmCardFiles(count int) string { return In(i18n.Locale()).ScmCardFiles(count) }
+
+// ScmCardFiles says "{count, plural, one {# file} other {# files}}"
+// in the language of msgs.
+func (msgs Messages) ScmCardFiles(count int) string {
+	return Catalog.Format(msgs.locale, "scmCardFiles", map[string]any{"count": count})
+}
+
+// CardCoAuthors says "with {names}"
+// in the language the app shows.
+func CardCoAuthors(names string) string { return In(i18n.Locale()).CardCoAuthors(names) }
+
+// CardCoAuthors says "with {names}"
+// in the language of msgs.
+func (msgs Messages) CardCoAuthors(names string) string {
+	return Catalog.Format(msgs.locale, "cardCoAuthors", map[string]any{"names": names})
+}
+
 // ScmMerge says " · merge"
 // in the language the app shows.
 func ScmMerge() string { return In(i18n.Locale()).ScmMerge() }

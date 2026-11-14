@@ -665,6 +665,7 @@ func (a *app) columnView(c *ui.Context, col *column) {
 						a.findView(c, shown.ed)
 					}
 					a.vimLineView(c, shown.ed)
+					a.wikiSuggestView(c, shown.ed)
 				}
 			})
 		}

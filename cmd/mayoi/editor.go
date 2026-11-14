@@ -255,6 +255,7 @@ func (a *app) editorView(c *ui.Context, d *editor) {
 		a.followLive(d.document)
 		textX, padR = a.liveMargins(c, d.document, view.W)
 	}
+	d.textX = textX
 	// Vim's normal and visual modes take the keys as commands: the area
 	// types nothing, and shows a block for its caret.
 	vimKeys := a.prefs().Vim && d.vim.mode != vimInsert

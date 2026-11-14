@@ -1713,5 +1713,11 @@
   "cmdMarkdownClearFormatting": "行の書式をクリア",
   "cmdMarkdownToggleEmbed": "埋め込みを切り替え",
   "cmdSelJoinLines": "行を結合",
-  "menuMarkdown": "Markdown"
+  "menuMarkdown": "Markdown",
+  "wikiSuggestLabel": "リンクの候補",
+  "wikiSuggestReading": "ノートを読み込み中…",
+  "wikiSuggestNoFile": "一致するファイルはありません。Shift-Enter で入力どおりにリンクします。",
+  "wikiSuggestNoHeading": "一致する見出しはありません。",
+  "wikiSuggestNoBlock": "一致するブロックはありません。",
+  "wikiSuggestHint": "# で見出し · ^ でブロック · | で表示テキストを変更"
 }

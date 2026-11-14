@@ -17327,3 +17327,63 @@ func MenuMarkdown() string { return In(i18n.Locale()).MenuMarkdown() }
 func (msgs Messages) MenuMarkdown() string {
 	return Catalog.Format(msgs.locale, "menuMarkdown", nil)
 }
+
+// WikiSuggestLabel says "Link suggestions"
+// in the language the app shows.
+func WikiSuggestLabel() string { return In(i18n.Locale()).WikiSuggestLabel() }
+
+// WikiSuggestLabel says "Link suggestions"
+// in the language of msgs.
+func (msgs Messages) WikiSuggestLabel() string {
+	return Catalog.Format(msgs.locale, "wikiSuggestLabel", nil)
+}
+
+// WikiSuggestReading says "Reading the notes…"
+// in the language the app shows.
+func WikiSuggestReading() string { return In(i18n.Locale()).WikiSuggestReading() }
+
+// WikiSuggestReading says "Reading the notes…"
+// in the language of msgs.
+func (msgs Messages) WikiSuggestReading() string {
+	return Catalog.Format(msgs.locale, "wikiSuggestReading", nil)
+}
+
+// WikiSuggestNoFile says "No file matches. Shift-Enter links it as typed."
+// in the language the app shows.
+func WikiSuggestNoFile() string { return In(i18n.Locale()).WikiSuggestNoFile() }
+
+// WikiSuggestNoFile says "No file matches. Shift-Enter links it as typed."
+// in the language of msgs.
+func (msgs Messages) WikiSuggestNoFile() string {
+	return Catalog.Format(msgs.locale, "wikiSuggestNoFile", nil)
+}
+
+// WikiSuggestNoHeading says "No heading matches."
+// in the language the app shows.
+func WikiSuggestNoHeading() string { return In(i18n.Locale()).WikiSuggestNoHeading() }
+
+// WikiSuggestNoHeading says "No heading matches."
+// in the language of msgs.
+func (msgs Messages) WikiSuggestNoHeading() string {
+	return Catalog.Format(msgs.locale, "wikiSuggestNoHeading", nil)
+}
+
+// WikiSuggestNoBlock says "No block matches."
+// in the language the app shows.
+func WikiSuggestNoBlock() string { return In(i18n.Locale()).WikiSuggestNoBlock() }
+
+// WikiSuggestNoBlock says "No block matches."
+// in the language of msgs.
+func (msgs Messages) WikiSuggestNoBlock() string {
+	return Catalog.Format(msgs.locale, "wikiSuggestNoBlock", nil)
+}
+
+// WikiSuggestHint says "# links a heading · ^ a block · | changes its text"
+// in the language the app shows.
+func WikiSuggestHint() string { return In(i18n.Locale()).WikiSuggestHint() }
+
+// WikiSuggestHint says "# links a heading · ^ a block · | changes its text"
+// in the language of msgs.
+func (msgs Messages) WikiSuggestHint() string {
+	return Catalog.Format(msgs.locale, "wikiSuggestHint", nil)
+}

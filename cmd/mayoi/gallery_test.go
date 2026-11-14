@@ -122,6 +122,25 @@ var galleryStates = []struct {
 		at := strings.Index(src, "bold")
 		hs.place(d, at, at)
 	}},
+	{"wiki-suggest", func(hs *harness) {
+		// [[ typed in a note of a vault: the notes it may link to, under it.
+		os.MkdirAll(hs.path(".obsidian"), 0o755)
+		for _, name := range []string{"ideas.md", "projects/plan.md", "projects/roadmap.md", "daily/2026-11-14.md"} {
+			os.MkdirAll(filepath.Dir(hs.path(name)), 0o755)
+			os.WriteFile(hs.path(name), []byte("# "+name+"\n"), 0o644)
+		}
+		os.WriteFile(hs.path("notes.md"), []byte("# Notes\n\nSee \n"), 0o644)
+		hs.t.Cleanup(func() { forgetWikiFiles(hs.root) })
+		hs.a.settings.MarkdownMode = "live"
+		hs.a.openFile(hs.path("notes.md"), true)
+		d := hs.a.activeEditor()
+		hs.until("the note parsed", func() bool { l := d.document.live; return l != nil && l.doc != nil && !l.quick })
+		hs.place(d, 13, 13)
+		hs.insert("[")
+		hs.insert("[")
+		hs.insert("p")
+		hs.until("the suggestions", func() bool { s := &hs.a.wikiSug; return s.open && !s.loading && len(s.items) > 0 })
+	}},
 	{"unsaved", func(hs *harness) {
 		hs.a.openFile(hs.path("main.go"), true)
 		hs.settle()

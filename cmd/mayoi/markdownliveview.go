@@ -282,7 +282,7 @@ func (a *app) parseLive(doc *document, l *liveState, want *mermaidStyle, math bo
 		source, path, workspace := snap.String(), doc.path, a.folder()
 		// The worker has its own copy of the cache, which it hands back.
 		cache := &markdownCache{images: maps.Clone(l.cache.images), code: maps.Clone(l.cache.code), arrived: l.cache.arrived,
-			mermaid: want, math: math, formulas: maps.Clone(l.cache.formulas)}
+			mermaid: want, math: math, formulas: maps.Clone(l.cache.formulas), typing: a.wikiTyping(doc)}
 		sameStyle := (want == nil) == (l.cache.mermaid == nil) && (want == nil || *want == *l.cache.mermaid)
 		if want != nil && sameStyle {
 			cache.diagrams = maps.Clone(l.cache.diagrams)

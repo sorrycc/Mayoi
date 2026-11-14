@@ -1713,5 +1713,11 @@
   "cmdMarkdownClearFormatting": "清除行格式",
   "cmdMarkdownToggleEmbed": "切换嵌入",
   "cmdSelJoinLines": "合并行",
-  "menuMarkdown": "Markdown"
+  "menuMarkdown": "Markdown",
+  "wikiSuggestLabel": "链接建议",
+  "wikiSuggestReading": "正在读取笔记…",
+  "wikiSuggestNoFile": "没有匹配的文件。按 Shift-Enter 按原样链接。",
+  "wikiSuggestNoHeading": "没有匹配的标题。",
+  "wikiSuggestNoBlock": "没有匹配的块。",
+  "wikiSuggestHint": "# 链接标题 · ^ 链接块 · | 更改显示文字"
 }

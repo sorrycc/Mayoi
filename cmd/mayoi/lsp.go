@@ -478,6 +478,10 @@ func (a *app) complete() {
 	if d == nil {
 		return
 	}
+	// In a wiki link of a note, the notes it may link to.
+	if a.wikiSuggestNow(d) {
+		return
+	}
 	s := a.lspFor(d.document, false)
 	if s == nil {
 		a.tell(note{message: locales.LspNone(languageOf(d.document))})

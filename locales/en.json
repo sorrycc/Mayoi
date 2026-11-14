@@ -1941,5 +1941,11 @@
   "cmdMarkdownClearFormatting": "Clear Line Formatting",
   "cmdMarkdownToggleEmbed": "Toggle Embed",
   "cmdSelJoinLines": "Join Lines",
-  "menuMarkdown": "Markdown"
+  "menuMarkdown": "Markdown",
+  "wikiSuggestLabel": "Link suggestions",
+  "wikiSuggestReading": "Reading the notes…",
+  "wikiSuggestNoFile": "No file matches. Shift-Enter links it as typed.",
+  "wikiSuggestNoHeading": "No heading matches.",
+  "wikiSuggestNoBlock": "No block matches.",
+  "wikiSuggestHint": "# links a heading · ^ a block · | changes its text"
 }

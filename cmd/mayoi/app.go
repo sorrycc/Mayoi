@@ -242,6 +242,8 @@ type app struct {
 	index     []string
 	recent    []string // the files shown last, latest first
 	indexRead bg.Refresher[folderKey]
+	// wikiSug is the box of suggestions of a wiki link being typed.
+	wikiSug wikiSuggest
 	// opening is set while a file opens as a preview tab.
 	opening bool
 	// openingText is set while a file opens for its text — a search

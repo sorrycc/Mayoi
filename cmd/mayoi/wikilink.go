@@ -137,6 +137,12 @@ func (wikiLinkParser) Parse(parent ast.Node, block text.Reader, pc parser.Contex
 // root, only the note's folder is looked in; of this machine, the note's
 // folder and root are also looked in for a file the index does not have.
 func wikiLinkFile(root, path, target string, arrived func()) string {
+	return wikiLinkFileIn(root, path, target, arrived, true)
+}
+
+// wikiLinkFileIn is wikiLinkFile, looking on disk for a file the index
+// does not have only with disk set.
+func wikiLinkFileIn(root, path, target string, arrived func(), disk bool) string {
 	if target == "" {
 		return ""
 	}
@@ -156,6 +162,9 @@ func wikiLinkFile(root, path, target string, arrived func()) string {
 	}
 	ix := wikiFiles(root, arrived)
 	if ix == nil || len(ix.files) == 0 {
+		if !disk {
+			return ""
+		}
 		return onDisk(filepath.Dir(path))
 	}
 	dir, inRoot := "", false
@@ -187,7 +196,7 @@ func wikiLinkFile(root, path, target string, arrived func()) string {
 		}
 	}
 	// A file the index leaves out, or has not read yet.
-	if remote.Is(root) {
+	if remote.Is(root) || !disk {
 		return ""
 	}
 	return onDisk(filepath.Dir(path), root)
@@ -203,7 +212,9 @@ func (c *markdownCache) wikiLinkFile(root, path, target string) string {
 	if f, ok := c.links[k]; ok {
 		return f
 	}
-	f := wikiLinkFile(root, path, target, c.arrived)
+	// The link being typed changes with each key: the index alone finds
+	// it, without looking on disk for each of its prefixes.
+	f := wikiLinkFileIn(root, path, target, c.arrived, target != c.typing)
 	if c.links == nil {
 		c.links = map[[3]string]string{}
 	}
@@ -242,6 +253,9 @@ type wikiFileSet struct {
 	byName map[string][]string
 	byPath map[string]string
 	files  []string
+	// names are the files' paths, as those of files, without .md, which
+	// a link leaves out, for suggestions to match.
+	names []string
 }
 
 // wikiIndex is the files under a folder as last read, when, whether a
@@ -345,6 +359,13 @@ func readWikiFiles(root string) *wikiFileSet {
 		set.files = append(set.files, f)
 	}
 	slices.Sort(set.files)
+	set.names = make([]string, len(set.files))
+	for i, f := range set.files {
+		if strings.EqualFold(pathpkg.Ext(f), ".md") {
+			f = f[:len(f)-3]
+		}
+		set.names[i] = f
+	}
 	return set
 }
 

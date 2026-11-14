@@ -115,6 +115,31 @@ func TestBudgets(t *testing.T) {
 				step(hs.tt)
 			}
 		}},
+		// Typing a wiki link in a vault of 10,000 notes: the box follows
+		// each key, its suggestions found away from the frame.
+		{"Live Preview type frame with link suggestions", 4 * time.Millisecond, false, func(t *testing.T, hs *harness) func() {
+			os.MkdirAll(hs.path(".obsidian"), 0o755)
+			for i := range 10000 {
+				p := hs.path(fmt.Sprintf("vault/%d/note %d.md", i/100, i))
+				os.MkdirAll(filepath.Dir(p), 0o755)
+				os.WriteFile(p, nil, 0o644)
+			}
+			t.Cleanup(func() { forgetWikiFiles(hs.root) })
+			d := bigNote(hs)
+			hs.place(d, 40000, 40000)
+			hs.tt.Type("[")
+			hs.tt.Type("[")
+			hs.until("the suggestions", func() bool { s := &hs.a.wikiSug; return s.open && len(s.items) > 0 })
+			i := 0
+			return func() {
+				if i++; i%8 == 0 {
+					hs.tt.Key(0, ui.KeyBackspace)
+				} else {
+					hs.tt.Type("n")
+				}
+				step(hs.tt)
+			}
+		}},
 		{"Live Preview scroll frame", 5 * time.Millisecond, false, func(t *testing.T, hs *harness) func() {
 			bigNote(hs)
 			i := 0

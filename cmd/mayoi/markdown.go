@@ -200,6 +200,8 @@ type markdownCache struct {
 	// links are the files of the wiki links a parse found, by the root,
 	// the folder of the note and the target, for each to be found once.
 	links map[[3]string]string
+	// typing is the target of the wiki link being typed, "" for none.
+	typing string
 }
 
 // markdownBlock is a paragraph-sized row, including its enclosing lists and quotes.

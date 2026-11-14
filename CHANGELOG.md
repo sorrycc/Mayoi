@@ -5,6 +5,12 @@ needs a `## <version>` section here, or its build fails.
 
 ## Unreleased
 
+- Typing `[[` in a note suggests the vault's notes and files as you type, as in Obsidian.
+- In `[[` suggestions, `↑`/`↓` choose, `Enter` or `Tab` links, `Shift-Enter` links as typed, `Esc` closes.
+- After `#` the suggestions are the note's headings, and after `^` its blocks, giving a block an id.
+- `[[#` and `[[^` suggest the headings and blocks of the note itself.
+- Chosen links follow the vault's `newLinkFormat`, the shortest path by default, without `.md`.
+- `Ctrl+Space` inside a `[[link]]` shows its suggestions again.
 - `[[links]]` also find notes in hidden folders like `.claude`, but not `.obsidian` or `.trash`.
 - `[[links]]` find notes anywhere in an Obsidian vault, even in a folder with its own git repository.
 - `[[links]]` in notes on a remote (SSH) folder find notes anywhere in the workspace, not only beside the note.

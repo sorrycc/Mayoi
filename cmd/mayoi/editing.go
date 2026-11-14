@@ -585,6 +585,11 @@ func (a *app) editorKey(d *editor, ev ui.InputEvent) bool {
 	if ev.Kind != ui.InputKeyDown {
 		return false
 	}
+	// The suggestions of a wiki link being typed take the keys that
+	// choose among them.
+	if a.wikiKey(d, ev) {
+		return true
+	}
 	if ev.Key == ui.KeyEscape && ev.Mods == 0 && d.peek >= 0 {
 		d.peek = -1
 		return true

@@ -6,6 +6,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/egoist/mygo/ui"
 )
@@ -507,8 +508,20 @@ func TestReviewKept(t *testing.T) {
 	b := newApp(&fakeHost{folder: hs.root}, a.settings, a.window)
 	t.Cleanup(b.shutdown)
 	tt := ui.NewTester(b.view, 1200, 760)
+	// The file reopens in the background: a note is found again only in
+	// its text as read.
+	loaded := func() bool {
+		i := b.docIndex(hs.path("t.txt"))
+		return i >= 0 && b.docs[i].sync != syncLoading
+	}
+	for deadline := time.Now().Add(settleTimeout); !loaded() && time.Now().Before(deadline); {
+		step(tt)
+		time.Sleep(5 * time.Millisecond)
+	}
 	step(tt)
-	step(tt)
+	if !loaded() {
+		t.Fatal("t.txt did not load")
+	}
 	if len(b.review.notes) != 1 {
 		t.Fatalf("notes %d", len(b.review.notes))
 	}

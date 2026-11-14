@@ -12,8 +12,9 @@ import (
 func TestOverlaidKnowsEveryBox(t *testing.T) {
 	// The parts with an open flag that are not boxes over the window.
 	inline := map[string]bool{
-		"find":   true, // the find widget, in its column
-		"crumbs": true, // a popover at the breadcrumbs
+		"find":    true, // the find widget, in its column
+		"crumbs":  true, // a popover at the breadcrumbs
+		"wikiSug": true, // the wiki link suggestions, under the caret
 	}
 	a := &app{}
 	if a.overlaid() {

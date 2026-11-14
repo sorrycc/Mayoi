@@ -6,6 +6,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/egoist/mygo/ui"
 )
@@ -160,6 +161,36 @@ func TestWikiSuggestionsFiles(t *testing.T) {
 	wikiFormats.Unlock()
 	if got := links("plan"); len(got) == 0 || got[0] != "projects/plan" {
 		t.Errorf("absolute plan: %q", got)
+	}
+}
+
+func TestWikiSuggestionsLatestChanged(t *testing.T) {
+	root := wikiVault(t, map[string]string{
+		"here.md": "", "old.md": "", "new.md": "", "mid.md": "", "seen.md": "",
+	})
+	base := time.Now().Add(-time.Hour)
+	for i, name := range []string{"here.md", "old.md", "seen.md", "mid.md", "new.md"} {
+		at := base.Add(time.Duration(i) * time.Minute)
+		if err := os.Chtimes(filepath.Join(root, name), at, at); err != nil {
+			t.Fatal(err)
+		}
+	}
+	path := filepath.Join(root, "here.md")
+	links := func(query string, recent ...string) []string {
+		var out []string
+		for _, it := range wikiSuggestions(wikiInput{path: path, mode: wikiFilesMode, query: query, recent: recent}) {
+			out = append(out, it.link)
+		}
+		return out
+	}
+	// The files shown last first, then the latest changed first.
+	got := links("", filepath.Join(root, "seen.md"))
+	if want := []string{"seen", "new", "mid", "old", "here"}; !slices.Equal(got, want) {
+		t.Errorf("empty query %q, want %q", got, want)
+	}
+	// Of equal matches, the latest changed first.
+	if got := links("d"); len(got) < 2 || got[0] != "mid" || got[1] != "old" {
+		t.Errorf("d: %q", got)
 	}
 }
 

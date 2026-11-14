@@ -3,6 +3,10 @@
 The update window shows the section of the version it offers. Every release
 needs a `## <version>` section here, or its build fails.
 
+## Unreleased
+
+- `[[` suggestions list notes changed most recently first, after the ones you opened recently.
+
 ## 0.21.0
 
 - Typing `[[` in a note suggests the vault's notes and files as you type, as in Obsidian.

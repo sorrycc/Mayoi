@@ -367,8 +367,9 @@ func wikiSuggestions(in wikiInput) []wikiItem {
 	return wikiBlockItems("", "", wikiBlocksOf(src), in.query)
 }
 
-// wikiFileItems are the files of root the query matches, the files
-// shown last first without one.
+// wikiFileItems are the files of root the query matches, the latest
+// changed first of equal matches; without one, the files shown last
+// first, then the others, the latest changed first.
 func wikiFileItems(root string, in wikiInput) []wikiItem {
 	set := wikiFiles(root, in.arrived)
 	if set == nil || len(set.files) == 0 {
@@ -413,15 +414,20 @@ func wikiFileItems(root string, in wikiInput) []wikiItem {
 				}
 			}
 		}
-		for i := 0; i < len(set.files) && len(out) < wikiMost; i++ {
+		for _, i := range set.byMod {
+			if len(out) >= wikiMost {
+				break
+			}
 			if !seen[i] {
 				out = append(out, item(i, nil))
 			}
 		}
 		return out
 	}
-	for _, m := range workspace.Fuzzy(set.names, query, wikiMost) {
-		out = append(out, item(m.Index, m.Positions))
+	// Matched in the order latest changed first, of equal matches the
+	// latest changed ranks first.
+	for _, m := range workspace.Fuzzy(set.modNames, query, wikiMost) {
+		out = append(out, item(set.byMod[m.Index], m.Positions))
 	}
 	return out
 }

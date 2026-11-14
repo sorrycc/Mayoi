@@ -1,7 +1,9 @@
 package main
 
 import (
+	"cmp"
 	"net/url"
+	"os"
 	pathpkg "path"
 	"path/filepath"
 	"slices"
@@ -256,6 +258,12 @@ type wikiFileSet struct {
 	// names are the files' paths, as those of files, without .md, which
 	// a link leaves out, for suggestions to match.
 	names []string
+	// mod is when each of files last changed, in Unix nanoseconds, 0 on
+	// a host; byMod are the indexes of files, the latest changed first,
+	// and modNames their names in that order.
+	mod      []int64
+	byMod    []int
+	modNames []string
 }
 
 // wikiIndex is the files under a folder as last read, when, whether a
@@ -328,7 +336,8 @@ func readWikiFilesAgain(root string, ix *wikiIndex) {
 	var set *wikiFileSet
 	defer func() {
 		wikiIndexes.Lock()
-		changed := set != nil && !slices.Equal(set.files, ix.set.files) && (len(set.files) > 0 || !remote.Is(root))
+		changed := set != nil && (!slices.Equal(set.files, ix.set.files) || !slices.Equal(set.mod, ix.set.mod)) &&
+			(len(set.files) > 0 || !remote.Is(root))
 		if changed {
 			ix.set = set
 		}
@@ -365,6 +374,25 @@ func readWikiFiles(root string) *wikiFileSet {
 			f = f[:len(f)-3]
 		}
 		set.names[i] = f
+	}
+	// The files latest changed first, those changed at once by name; on
+	// a host, by name alone.
+	set.mod = make([]int64, len(set.files))
+	set.byMod = make([]int, len(set.files))
+	local := !remote.Is(root)
+	for i, f := range set.files {
+		set.byMod[i] = i
+		if !local {
+			continue
+		}
+		if info, err := os.Stat(filepath.Join(root, filepath.FromSlash(f))); err == nil {
+			set.mod[i] = info.ModTime().UnixNano()
+		}
+	}
+	slices.SortStableFunc(set.byMod, func(x, y int) int { return cmp.Compare(set.mod[y], set.mod[x]) })
+	set.modNames = make([]string, len(set.byMod))
+	for k, i := range set.byMod {
+		set.modNames[k] = set.names[i]
 	}
 	return set
 }

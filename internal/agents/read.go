@@ -333,7 +333,8 @@ func piSessions(dir string) []string {
 
 // readPi reads a transcript of Pi: its first line says the session and
 // where it ran, its first message of the user what was asked, and its
-// lines of session_info what it is named, the last of them winning.
+// lines of session_info what it is named, the last of them winning, so
+// its end is read too.
 func readPi(path string) (Session, bool) {
 	s := Session{Harness: Pi}
 	f, err := os.Open(path)
@@ -341,12 +342,28 @@ func readPi(path string) (Session, bool) {
 		return s, false
 	}
 	defer f.Close()
+	fi, err := f.Stat()
+	if err != nil {
+		return s, false
+	}
+	name := func(line []byte) {
+		if !bytes.Contains(line, []byte(`"session_info"`)) {
+			return
+		}
+		var v struct{ Type, Name string }
+		if json.Unmarshal(line, &v) == nil && v.Type == "session_info" && v.Name != "" {
+			s.Title = v.Name
+		}
+	}
 	eachLine(f, headMax, func(line []byte) bool {
+		name(line)
+		if s.ID != "" && s.Prompt != "" {
+			return true
+		}
 		var v struct {
 			Type    string
 			ID      string
 			Cwd     string
-			Name    string
 			Message struct {
 				Role    string
 				Content json.RawMessage
@@ -355,20 +372,18 @@ func readPi(path string) (Session, bool) {
 		if json.Unmarshal(line, &v) != nil {
 			return true
 		}
-		switch v.Type {
-		case "session":
+		switch {
+		case v.Type == "session" && s.ID == "":
 			s.ID, s.Dir = v.ID, v.Cwd
-		case "session_info":
-			if v.Name != "" {
-				s.Title = v.Name
-			}
-		case "message":
-			if s.Prompt == "" && v.Message.Role == "user" {
-				s.Prompt = promptOf(v.Message.Content)
-			}
+		case v.Type == "message" && s.Prompt == "" && v.Message.Role == "user":
+			s.Prompt = promptOf(v.Message.Content)
 		}
-		return s.ID == "" || s.Prompt == "" || s.Title == ""
+		return true
 	})
+	if fi.Size() > headMax {
+		tail(f, fi.Size(), tailMax, name)
+	}
+	// A transcript of nothing asked yet is no session to go back to.
 	return s, s.ID != "" && (s.Prompt != "" || s.Title != "")
 }
 

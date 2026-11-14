@@ -66,6 +66,7 @@ func TestScanReadsEachAgent(t *testing.T) {
 	write(t, filepath.Join(home, ".pi/agent/sessions/--u--/2026-11-14T09-00-00-000Z_p1.jsonl"),
 		`{"type":"session","version":3,"id":"p1","cwd":"/u"}
 {"type":"message","id":"a1","parentId":null,"message":{"role":"user","content":"pi it"}}
+{"type":"session_info","name":"First"}
 {"type":"session_info","name":"Pi's"}
 `)
 	// A transcript of nothing asked is no session.
@@ -317,5 +318,20 @@ func TestSlowListComesLate(t *testing.T) {
 	}
 	if got := sc.Scan(&Env{Home: t.TempDir()}); len(got) != 1 || got[0].Harness != "slow.agent" {
 		t.Errorf("the next scan has %+v", got)
+	}
+}
+
+// A Pi session named late in a long transcript takes that name.
+func TestReadPiNameAtEnd(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "s.jsonl")
+	pad := `{"type":"message","message":{"role":"assistant","content":"` + strings.Repeat("x", 1000) + `"}}` + "\n"
+	write(t, path, `{"type":"session","version":3,"id":"p1","cwd":"/u"}`+"\n"+
+		`{"type":"message","message":{"role":"user","content":[{"type":"text","text":"go"}]}}`+"\n"+
+		`{"type":"session_info","name":"Early"}`+"\n"+
+		strings.Repeat(pad, headMax/1000+10)+
+		`{"type":"session_info","name":"Late"}`+"\n")
+	s, ok := readPi(path)
+	if !ok || s.ID != "p1" || s.Dir != "/u" || s.Prompt != "go" || s.Title != "Late" {
+		t.Fatalf("readPi = %+v, %v", s, ok)
 	}
 }

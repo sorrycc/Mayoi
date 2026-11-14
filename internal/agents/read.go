@@ -318,6 +318,75 @@ func readCodexIndex(path string) map[string]string {
 	return titles
 }
 
+// piSessions are Pi's transcripts: a folder for each folder it ran in,
+// a file for each session in it.
+func piSessions(dir string) []string {
+	var out []string
+	filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
+		if err == nil && !d.IsDir() && strings.HasSuffix(d.Name(), ".jsonl") {
+			out = append(out, path)
+		}
+		return nil
+	})
+	return out
+}
+
+// readPi reads a transcript of Pi: its first line says the session and
+// where it ran, its first message of the user what was asked, and its
+// lines of session_info what it is named, the last of them winning, so
+// its end is read too.
+func readPi(path string) (Session, bool) {
+	s := Session{Harness: Pi}
+	f, err := os.Open(path)
+	if err != nil {
+		return s, false
+	}
+	defer f.Close()
+	fi, err := f.Stat()
+	if err != nil {
+		return s, false
+	}
+	name := func(line []byte) {
+		if !bytes.Contains(line, []byte(`"session_info"`)) {
+			return
+		}
+		var v struct{ Type, Name string }
+		if json.Unmarshal(line, &v) == nil && v.Type == "session_info" && v.Name != "" {
+			s.Title = v.Name
+		}
+	}
+	eachLine(f, headMax, func(line []byte) bool {
+		name(line)
+		if s.ID != "" && s.Prompt != "" {
+			return true
+		}
+		var v struct {
+			Type    string
+			ID      string
+			Cwd     string
+			Message struct {
+				Role    string
+				Content json.RawMessage
+			}
+		}
+		if json.Unmarshal(line, &v) != nil {
+			return true
+		}
+		switch {
+		case v.Type == "session" && s.ID == "":
+			s.ID, s.Dir = v.ID, v.Cwd
+		case v.Type == "message" && s.Prompt == "" && v.Message.Role == "user":
+			s.Prompt = promptOf(v.Message.Content)
+		}
+		return true
+	})
+	if fi.Size() > headMax {
+		tail(f, fi.Size(), tailMax, name)
+	}
+	// A transcript of nothing asked yet is no session to go back to.
+	return s, s.ID != "" && (s.Prompt != "" || s.Title != "")
+}
+
 // grokSummaries are Grok's summaries of its sessions: a folder for each
 // folder it ran in, named by its path escaped, and one for each session
 // in it.

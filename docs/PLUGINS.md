@@ -430,7 +430,7 @@ aliases for definitions and diagnostics. Standard declarations remain valid.
 
 ### Coding agents
 
-The **Sessions** view lists the sessions of Claude Code, Qoder, Codex and Grok. A plugin adds another agent, whose
+The **Sessions** view lists the sessions of Claude Code, Qoder, Codex, Grok and Pi. A plugin adds another agent, whose
 sessions show there with its icon and resume in a terminal tab as theirs do:
 
 ```jsonc

@@ -25,6 +25,7 @@ const (
 	Qoder  Harness = "qoder"
 	Codex  Harness = "codex"
 	Grok   Harness = "grok"
+	Pi     Harness = "pi"
 )
 
 // Agent is what is known of an agent: its id, its names, its mark, how
@@ -136,6 +137,15 @@ var Known = []Agent{
 			}
 			return chat
 		},
+	},
+	{
+		ID: Pi, Name: "Pi", App: "pi",
+		// A pi: a bar and two legs, the right one swept.
+		Icon:   `<path d="M4.5 7h15"/><path d="M7.5 7v11"/><path d="M17.5 7c.5 5-1 11-5.5 11"/>`,
+		Tint:   [2]string{"#8b7cf6", "#6d5ce0"},
+		Resume: ResumeTemplate("pi --session {id}"),
+		Files:  func(e *Env) []File { return files(piSessions(filepath.Join(e.Home, ".pi", "agent", "sessions"))) },
+		Read:   readPi,
 	},
 }
 

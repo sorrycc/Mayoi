@@ -139,6 +139,11 @@ type sessionsState struct {
 	// open are the terminals of every project that show a session, by
 	// liveKey: one it was resumed in, or one its agent runs in.
 	open map[string]openTerm
+	// reveal is the key of the session another project showed the
+	// terminal of here, which the choice goes to, and the list shows,
+	// once it lists it; revealVersion the reading it was asked in.
+	reveal        string
+	revealVersion int
 }
 
 // openTerm is a terminal of a project that shows a session.
@@ -291,8 +296,9 @@ func (a *app) openTerms(running map[string]hcAgent) map[string]openTerm {
 }
 
 // showOpen shows the terminal o of a project, in front, with the
-// keyboard in it, and reports whether it is open still.
-func (a *app) showOpen(o openTerm) bool {
+// keyboard in it, and reports whether it is open still. The project's
+// Sessions view chooses the session of key, which the terminal shows.
+func (a *app) showOpen(o openTerm, key string) bool {
 	if o.owner == nil || !slices.Contains(o.owner.terms, o.t) {
 		return false
 	}
@@ -300,6 +306,7 @@ func (a *app) showOpen(o openTerm) bool {
 		a.terminalInColumn(o.t, false)
 		return true
 	}
+	o.owner.sessions.chooseSession(key)
 	a.host.showApp(o.owner)
 	o.owner.post(func() { o.owner.terminalInColumn(o.t, false) })
 	return true
@@ -517,6 +524,37 @@ func sessionStep(lines []sessionLine, i, d int) int {
 	return i
 }
 
+// chooseSession has the view choose the session of key, and show it, as
+// soon as it lists it, rather than the one chosen when it last showed.
+func (st *sessionsState) chooseSession(key string) {
+	st.reveal, st.revealVersion = key, st.version
+	st.selection.Clear()
+	st.anchor, st.cursor = "", ""
+}
+
+// revealChoice puts the choice on the session another project showed the
+// terminal of, at once, and scrolls the list to it. A query that hides it
+// is cleared. One no reading since lists is let go.
+func (a *app) revealChoice(lines []sessionLine) {
+	st := &a.sessions
+	k := st.reveal
+	if i := slices.IndexFunc(lines, func(l sessionLine) bool { return l.session() && l.key() == k }); i >= 0 {
+		st.row, st.rowKey, st.reveal = i, k, ""
+		// It shows there, rather than gliding from the row chosen before.
+		st.glide.key = ""
+		st.showChoice(lines, 0)
+		return
+	}
+	read := slices.ContainsFunc(st.sessions, func(s agents.Session) bool { return s.Key() == k })
+	switch {
+	case read && st.query != "":
+		st.query = ""
+		a.invalidate()
+	case !read && st.loaded && st.version > st.revealVersion:
+		st.reveal = ""
+	}
+}
+
 // keepChoice returns the lines the list shows, those a reading dropped
 // among them as they go, and keeps the choice on the session it was on
 // as they change, or on the session nearest its row once that one is
@@ -552,6 +590,9 @@ func (a *app) keepChoice(lines []sessionLine, now time.Time) []sessionLine {
 		st.shownGen = st.linesGen
 	}
 	lines = st.shown
+	if st.reveal != "" {
+		a.revealChoice(lines)
+	}
 	if len(lines) == 0 {
 		return lines
 	}
@@ -641,6 +682,7 @@ func (a *app) selectSessionRow(lines []sessionLine, i int, mods ui.Modifiers) {
 	if mods&(ui.Shift|ui.Cmd) != 0 {
 		st.glide.key = ""
 	}
+	st.reveal = ""
 	st.row = i
 	st.noteChoice(lines)
 	st.cursor = st.rowKey
@@ -932,7 +974,7 @@ func (a *app) sessionsView(c *ui.Context) {
 			return true
 		})
 		if in.Changed() {
-			st.row, st.rowKey = 0, ""
+			st.row, st.rowKey, st.reveal = 0, "", ""
 		}
 		if in.Submitted() && len(rows) > 0 {
 			if i := sessionAt(rows, st.row); i >= 0 {
@@ -1019,7 +1061,7 @@ func (a *app) sessionsView(c *ui.Context) {
 			case clicked && open && row.ClickModifiers() == 0:
 				a.selectSessionRow(rows, i, 0)
 				action = func() {
-					if !a.showOpen(o) {
+					if !a.showOpen(o, r.s.Key()) {
 						a.resumeSession(r.s)
 					}
 				}
@@ -1709,7 +1751,7 @@ func (a *app) copyTranscript(path string) {
 // agent's command that resumes it.
 func (a *app) resumeSession(s agents.Session) {
 	k := liveKey(s.Harness, s.ID)
-	if o, ok := a.sessions.open[k]; ok && a.showOpen(o) {
+	if o, ok := a.sessions.open[k]; ok && a.showOpen(o, s.Key()) {
 		return
 	}
 	if live, ok := a.sessions.running[k]; ok {
@@ -1721,7 +1763,7 @@ func (a *app) resumeSession(s agents.Session) {
 	key := s.Key()
 	for _, p := range a.projects() {
 		for _, t := range p.terms {
-			if t.resumed == key && a.showOpen(openTerm{p, t}) {
+			if t.resumed == key && a.showOpen(openTerm{p, t}, key) {
 				return
 			}
 		}

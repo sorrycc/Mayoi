@@ -15,6 +15,7 @@ needs a `## <version>` section here, or its build fails.
 - Commits made with an AI agent, like Claude, show the agent's mark on the author's avatar in the history.
 - Hovering a commit in the history shows a card with its author, co-authors, files changed and branch.
 - A commit's tab names its co-authors beside the author, in place of the `Co-authored-by` lines.
+- Clicking a session of another project in **All Projects** chooses it in that project's Sessions view.
 
 ## 0.21.0
 

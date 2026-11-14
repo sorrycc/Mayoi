@@ -401,6 +401,55 @@ func TestSessionsChoiceFollowsItsSession(t *testing.T) {
 	}
 }
 
+// A session another project showed the terminal of is chosen here at
+// once, its query cleared when it hides it, and let go once a reading
+// doesn't list it.
+func TestSessionsChooseSessionOfAnotherProject(t *testing.T) {
+	hs := newHarness(t, true)
+	a := hs.a
+	st := &a.sessions
+	now := time.Date(2026, 3, 10, 9, 0, 0, 0, time.Local)
+	at := func(id string, ago time.Duration) agents.Session {
+		return agents.Session{Harness: agents.Codex, ID: id, Updated: now.Add(-ago)}
+	}
+	read := func(ss ...agents.Session) []sessionLine {
+		st.rowsKey.version++
+		return a.keepChoice(a.sessionLines(ss, now), now)
+	}
+	all := []agents.Session{at("a", time.Hour), at("b", 2*time.Hour)}
+	st.sessions, st.loaded = all, true
+	lines := read(all...)
+	st.selection.Add(lines[1].key())
+	st.chooseSession(all[1].Key())
+	if st.selection.Len() != 0 {
+		t.Error("the sessions chosen before stay chosen")
+	}
+	lines = read(all...)
+	if got := lines[st.row].s.ID; got != "b" || st.reveal != "" || st.glide.key != "" {
+		t.Errorf("the choice is on %q, reveal %q, glide %q; want b at once", got, st.reveal, st.glide.key)
+	}
+
+	// A query that hides it is cleared.
+	st.query = "a"
+	st.chooseSession(all[1].Key())
+	read(all[0])
+	if st.query != "" || st.reveal == "" {
+		t.Errorf("query %q, reveal %q; want the query cleared, the reveal kept", st.query, st.reveal)
+	}
+
+	// One no reading since lists is let go.
+	st.chooseSession(at("gone", 0).Key())
+	read(all...)
+	if st.reveal == "" {
+		t.Error("let go before a reading")
+	}
+	st.version++
+	read(all...)
+	if st.reveal != "" {
+		t.Error("kept after a reading that doesn't list it")
+	}
+}
+
 // Down and Up in the query move the choice among the sessions, and leave
 // the keyboard in the query.
 func TestSessionsQueryKeysMoveTheChoice(t *testing.T) {

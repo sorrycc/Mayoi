@@ -20,15 +20,18 @@ const (
 	checksEvery   = 30 * time.Second
 )
 
-// checksPicker is the box of the checks of the branch's pull request: ↵
-// sends the log of a failed job to the terminal, ⌘↵ runs it again.
+// checksPicker is the box of the checks of the branch's pull request, or
+// of a commit: ↵ sends the log of a failed job to the terminal, ⌘↵ runs it
+// again.
 type checksPicker struct {
 	repoRoot string
 	open     bool
-	number   int
-	query    string
-	sel      int
-	moved    bool
+	// number is the pull request's, hash the commit's when it is not one.
+	number int
+	hash   string
+	query  string
+	sel    int
+	moved  bool
 	// checks are those gh listed, and err why it could not; poll asks gh
 	// again while one of them runs.
 	checks []git.Check
@@ -36,17 +39,48 @@ type checksPicker struct {
 	err    string
 }
 
-// checksAsked is what gh was asked the checks of: a pull request of a
-// work tree.
+// checksAsked is what gh was asked the checks of: a pull request, or a
+// commit, of a work tree.
 type checksAsked struct {
 	repoRoot string
 	number   int
+	hash     string
 }
 
-func (p *checksPicker) asked() checksAsked { return checksAsked{p.repoRoot, p.number} }
+func (p *checksPicker) asked() checksAsked { return checksAsked{p.repoRoot, p.number, p.hash} }
 
-// openChecks shows the box of the checks of the branch's pull request.
+// name is what the box is of: #12, or a commit's short hash.
+func (p *checksPicker) name() string {
+	if p.hash != "" {
+		return git.ShortHash(p.hash)
+	}
+	return "#" + strconv.Itoa(p.number)
+}
+
+// openChecks shows the box of the checks of the branch's pull request,
+// else of the commit at HEAD, once pushed.
 func (a *gitContext) openChecks() {
+	if !a.live() {
+		return
+	}
+	if pr := a.currentPR(); pr != nil {
+		if !a.app.online() {
+			a.app.fail("%s", locales.NotConnectedTo(a.app.conn.Host))
+			return
+		}
+		a.app.checks = checksPicker{open: true, repoRoot: a.git.repo.Root, number: pr.Number}
+		a.readChecks()
+		return
+	}
+	if st := a.git.status; st != nil && st.Head != "" && !a.git.unpushed[st.Head] {
+		a.openCommitChecks(st.Head)
+		return
+	}
+	a.app.fail("%s", locales.PrNoneForBranch())
+}
+
+// openCommitChecks shows the box of the checks of commit hash.
+func (a *gitContext) openCommitChecks(hash string) {
 	if !a.live() {
 		return
 	}
@@ -54,12 +88,7 @@ func (a *gitContext) openChecks() {
 		a.app.fail("%s", locales.NotConnectedTo(a.app.conn.Host))
 		return
 	}
-	pr := a.currentPR()
-	if pr == nil {
-		a.app.fail("%s", locales.PrNoneForBranch())
-		return
-	}
-	a.app.checks = checksPicker{open: true, repoRoot: a.git.repo.Root, number: pr.Number}
+	a.app.checks = checksPicker{open: true, repoRoot: a.git.repo.Root, hash: hash}
 	a.readChecks()
 }
 
@@ -72,10 +101,16 @@ func (a *gitContext) readChecks() {
 	if !pick.poll.Start(key, 0) {
 		return
 	}
-	r, g, number := a.git.repo, a.git, pick.number
+	r, g, number, hash := a.git.repo, a.git, pick.number, pick.hash
 	bg.Go(func() {
 		defer recoverCrash()
-		checks, err := r.PRChecks(number)
+		var checks []git.Check
+		var err error
+		if hash != "" {
+			checks, err = r.CommitCheckList(hash)
+		} else {
+			checks, err = r.PRChecks(number)
+		}
 		a.app.post(func() {
 			if !pick.poll.Done(key) {
 				return
@@ -130,8 +165,9 @@ func checkFailed(ch git.Check) bool {
 
 // sendCheckLog reads the end of the log of a failed job and pastes it into
 // the terminal used last, as a message to the agent in it, without
-// pressing Enter; with no terminal, or with copyOnly, it copies it.
-func (a *gitContext) sendCheckLog(ch git.Check, number int, copyOnly bool) {
+// pressing Enter; with no terminal, or with copyOnly, it copies it. where
+// is what the check is of, as "pull request #12".
+func (a *gitContext) sendCheckLog(ch git.Check, where string, copyOnly bool) {
 	r := a.git.repo
 	a.app.tell(note{message: locales.ChecksReadingLog(ch.Title())})
 	bg.Go(func() {
@@ -142,7 +178,7 @@ func (a *gitContext) sendCheckLog(ch git.Check, number int, copyOnly bool) {
 				a.app.fail("%s", locales.ChecksLogFailed(ch.Title(), err.Error()))
 				return
 			}
-			text := formatCheckLog(ch, number, log)
+			text := formatCheckLog(ch, where, log)
 			switch {
 			case copyOnly:
 				a.app.services.WriteClipboard(text)
@@ -158,11 +194,11 @@ func (a *gitContext) sendCheckLog(ch git.Check, number int, copyOnly bool) {
 }
 
 // formatCheckLog is the log of a failed job as a message to an agent: what
-// failed, then the lines of the log.
-func formatCheckLog(ch git.Check, number int, log string) string {
+// failed, and where, then the lines of the log.
+func formatCheckLog(ch git.Check, where string, log string) string {
 	lines := strings.Split(log, "\n")
 	var b strings.Builder
-	fmt.Fprintf(&b, "The CI check %q failed on pull request #%d", ch.Title(), number)
+	fmt.Fprintf(&b, "The CI check %q failed on %s", ch.Title(), where)
 	if ch.Link != "" {
 		b.WriteString(": " + ch.Link)
 	}
@@ -172,9 +208,10 @@ func formatCheckLog(ch git.Check, number int, log string) string {
 	return b.String()
 }
 
-// rerunCheck runs the job of a check again, then reads the checks and the
-// pull request again to show it running.
-func (a *gitContext) rerunCheck(ch git.Check) {
+// rerunCheck runs the job of a check of commit hash, "" for the pull
+// request's, again, then reads the checks, the pull request and the
+// commit's again to show it running.
+func (a *gitContext) rerunCheck(ch git.Check, hash string) {
 	r, g := a.git.repo, a.git
 	bg.Go(func() {
 		defer recoverCrash()
@@ -187,6 +224,10 @@ func (a *gitContext) rerunCheck(ch git.Check) {
 			a.app.tell(note{message: locales.ChecksRerunning(ch.Title())})
 			if g.repo == r {
 				g.prPoll.Expire()
+				if hash == "" && g.status != nil {
+					hash = g.status.Head
+				}
+				a.recheckCommit(hash)
 			}
 			if pick := &a.app.checks; pick.open && pick.repoRoot == r.Root {
 				a.readChecks()
@@ -227,23 +268,29 @@ func (a *app) prChecksView(c *ui.Context) {
 	choices := a.checkChoices()
 	pick.sel = min(max(pick.sel, 0), max(len(choices)-1, 0))
 	p := a.pal
-	number := pick.number
+	hash, name := pick.hash, pick.name()
+	where := "pull request " + name
+	title := locales.ChecksTitle(name)
+	none := locales.ChecksNone()
+	if hash != "" {
+		where = "commit " + hash
+		title, none = locales.ChecksOfCommit(name), locales.ChecksNoneOfCommit()
+	}
 	run := func(do func()) {
 		pick.open = false
 		a.post(do)
 	}
-	send := func(ch git.Check) { run(func() { g.sendCheckLog(ch, number, false) }) }
-	copyLog := func(ch git.Check) { run(func() { g.sendCheckLog(ch, number, true) }) }
-	rerun := func(ch git.Check) { run(func() { g.rerunCheck(ch) }) }
+	send := func(ch git.Check) { run(func() { g.sendCheckLog(ch, where, false) }) }
+	copyLog := func(ch git.Check) { run(func() { g.sendCheckLog(ch, where, true) }) }
+	rerun := func(ch git.Check) { run(func() { g.rerunCheck(ch, hash) }) }
 	openLink := func(ch git.Check) { run(func() { a.services.OpenURL(ch.Link) }) }
-	title := locales.ChecksTitle("#" + strconv.Itoa(number))
 	ui.Overlay(c, func() {
 		back := a.dialogBack(c)
 		back.Children(func() {
 			box := a.floating(c, ui.Column(c).Width(600).MaxWidthPercent(92).Margin(titleBarH+8, 0, 0, 0).Radius(10), true).Clip().Role(ui.RoleDialog).Label(title)
 			box.Children(func() {
 				ui.Row(c).Padding(10, 14).BorderWidth(0, 0, 1, 0).BorderColor(p.border).Children(func() {
-					in := a.textKeys(ui.TextInputBase(c.Key("checks-input"), &pick.query)).Grow(1).FontSize(14).AutoFocus().Placeholder(locales.ChecksFind("#" + strconv.Itoa(number))).Label(title)
+					in := a.textKeys(ui.TextInputBase(c.Key("checks-input"), &pick.query)).Grow(1).FontSize(14).AutoFocus().Placeholder(locales.ChecksFind(name)).Label(title)
 					if in.Changed() {
 						pick.sel = 0
 					}
@@ -278,7 +325,7 @@ func (a *app) prChecksView(c *ui.Context) {
 					case pick.err != "" && len(pick.checks) == 0:
 						ui.Text(c, pick.err).FontSize(13).TextColor(p.muted).Padding(7, 10)
 					case len(pick.checks) == 0:
-						ui.Text(c, locales.ChecksNone()).FontSize(13).TextColor(p.muted).Padding(7, 10)
+						ui.Text(c, none).FontSize(13).TextColor(p.muted).Padding(7, 10)
 					case len(choices) == 0:
 						ui.Text(c, locales.ChecksNoMatch()).FontSize(13).TextColor(p.muted).Padding(7, 10)
 					}

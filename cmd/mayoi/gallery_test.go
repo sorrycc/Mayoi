@@ -11,12 +11,15 @@ import (
 	"fmt"
 	"html"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/egoist/mygo/i18n"
 	"github.com/egoist/mygo/ui"
+	"mayoi/internal/git"
 )
 
 // galleryThemes are the themes of the gallery, "" for Mayoi's own.
@@ -141,11 +144,45 @@ var galleryStates = []struct {
 		hs.insert("p")
 		hs.until("the suggestions", func() bool { s := &hs.a.wikiSug; return s.open && !s.loading && len(s.items) > 0 })
 	}},
+	{"commit-checks", func(hs *harness) {
+		pick := commitChecksBox(hs)
+		pick.checks = []git.Check{
+			{Name: "Unit", Workflow: "Test", Bucket: "fail", JobID: 1, Link: "https://github.com/o/r/actions/runs/1/job/1"},
+			{Name: "Build", Workflow: "Test", Bucket: "pending"},
+			{Name: "Lint", Workflow: "Test", Bucket: "pass"},
+			{Name: "ci/other", Bucket: "pass", Description: "Fine"},
+		}
+		pick.poll.Start(pick.asked(), 0)
+		pick.poll.Done(pick.asked())
+		pick.poll.Keep(pick.asked(), time.Hour, func() {})
+	}},
+	{"commit-checks-loading", func(hs *harness) {
+		pick := commitChecksBox(hs)
+		pick.poll.Start(pick.asked(), 0)
+	}},
+	{"commit-checks-none", func(hs *harness) {
+		pick := commitChecksBox(hs)
+		pick.poll.Start(pick.asked(), 0)
+		pick.poll.Done(pick.asked())
+		pick.poll.Keep(pick.asked(), time.Hour, func() {})
+	}},
 	{"unsaved", func(hs *harness) {
 		hs.a.openFile(hs.path("main.go"), true)
 		hs.settle()
 		hs.insert("// more\n")
 	}},
+}
+
+// commitChecksBox makes the test folder a work tree, and shows the box of
+// the checks of a commit of it, read of none yet.
+func commitChecksBox(hs *harness) *checksPicker {
+	if out, err := exec.Command("git", "init", "-q", hs.root).CombinedOutput(); err != nil {
+		hs.t.Fatalf("git init: %v %s", err, out)
+	}
+	hs.a.git.looked = false
+	hs.until("the work tree", func() bool { return hs.a.git.repo != nil })
+	hs.a.checks = checksPicker{open: true, repoRoot: hs.a.git.repo.Root, hash: "0123456789abcdef0123456789abcdef01234567"}
+	return &hs.a.checks
 }
 
 func TestGallery(t *testing.T) {

@@ -188,6 +188,28 @@ func (h *desktop) nativeDrags() bool       { return true }
 func (h *desktop) shown() bool {
 	return h.f.active == h && h.f.win.IsVisible() && !h.f.win.IsMinimized()
 }
+func (h *desktop) focused() bool {
+	return h.f.active == h && h.f.win.IsFocused()
+}
+
+// notify shows a notification of the system, when the app may show them.
+func (h *desktop) notify(title, body string, onClick func()) {
+	go func() {
+		if !mygo.NotificationsSupported() {
+			return
+		}
+		n := mygo.NewNotification(mygo.NotificationOptions{Title: title, Body: body})
+		n.OnClick(func() {
+			h.do(func() {
+				h.show()
+				if onClick != nil {
+					onClick()
+				}
+			})
+		})
+		n.Show()
+	}()
+}
 func (h *desktop) reveal(path string) {
 	if !remote.Is(path) {
 		mygo.Shell.ShowItemInFolder(path)

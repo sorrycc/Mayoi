@@ -270,6 +270,48 @@ func (msgs Messages) ChecksRerunning(name string) string {
 	return Catalog.Format(msgs.locale, "checksRerunning", map[string]any{"name": name})
 }
 
+// ChecksOfCommit says "Checks of commit {hash}"
+// in the language the app shows.
+func ChecksOfCommit(hash string) string { return In(i18n.Locale()).ChecksOfCommit(hash) }
+
+// ChecksOfCommit says "Checks of commit {hash}"
+// in the language of msgs.
+func (msgs Messages) ChecksOfCommit(hash string) string {
+	return Catalog.Format(msgs.locale, "checksOfCommit", map[string]any{"hash": hash})
+}
+
+// ChecksNoneOfCommit says "The commit has no checks."
+// in the language the app shows.
+func ChecksNoneOfCommit() string { return In(i18n.Locale()).ChecksNoneOfCommit() }
+
+// ChecksNoneOfCommit says "The commit has no checks."
+// in the language of msgs.
+func (msgs Messages) ChecksNoneOfCommit() string {
+	return Catalog.Format(msgs.locale, "checksNoneOfCommit", nil)
+}
+
+// ChecksPassedOn says "Checks passed on {hash}"
+// in the language the app shows.
+func ChecksPassedOn(hash string) string { return In(i18n.Locale()).ChecksPassedOn(hash) }
+
+// ChecksPassedOn says "Checks passed on {hash}"
+// in the language of msgs.
+func (msgs Messages) ChecksPassedOn(hash string) string {
+	return Catalog.Format(msgs.locale, "checksPassedOn", map[string]any{"hash": hash})
+}
+
+// ChecksFailedOn says "{count, plural, one {# check failed} other {# checks failed}} on {hash}"
+// in the language the app shows.
+func ChecksFailedOn(count int, hash string) string {
+	return In(i18n.Locale()).ChecksFailedOn(count, hash)
+}
+
+// ChecksFailedOn says "{count, plural, one {# check failed} other {# checks failed}} on {hash}"
+// in the language of msgs.
+func (msgs Messages) ChecksFailedOn(count int, hash string) string {
+	return Catalog.Format(msgs.locale, "checksFailedOn", map[string]any{"count": count, "hash": hash})
+}
+
 // BusyOpeningPR says "Opening the pull request…"
 // in the language the app shows.
 func BusyOpeningPR() string { return In(i18n.Locale()).BusyOpeningPR() }

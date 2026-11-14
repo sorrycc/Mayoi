@@ -1189,6 +1189,12 @@ func (a *app) layOutCommitCard(c *ui.Context, v *diffView, w float32) *commitCar
 		pieces = append(pieces, text(label(when, 400, p.muted), false))
 	}
 	pieces = append(pieces, hashChip(cm.hash, true))
+	if ctx := a.diffContext(v); ctx.git.repo != nil && !ctx.git.unpushed[cm.hash] {
+		ctx.wantChecks(cm.hash)
+		if st, ok := ctx.checksOf(cm.hash); ok {
+			pieces = append(pieces, a.checksPiece(c, ctx, cm.hash, st, label, measure))
+		}
+	}
 	for i, b := range refBadges(info.Refs) {
 		fg, bg := p.accent, p.accent.Alpha(0.14)
 		switch b.Kind {
@@ -1217,6 +1223,29 @@ func (a *app) layOutCommitCard(c *ui.Context, v *diffView, w float32) *commitCar
 	}
 	pieces = append(pieces, text(label(locales.CardFilesChanged(len(v.files)), 400, p.muted), true))
 	return a.finishCommitCard(c, v, k, w, pieces)
+}
+
+// checksPiece is the piece of a commit's card that says how its checks
+// went, which a click lists.
+func (a *app) checksPiece(c *ui.Context, ctx *gitContext, hash string, st git.CommitStatus, label func(string, int, ui.Color) ui.Span, measure func(ui.Span) float32) cardPiece {
+	p := a.pal
+	icon, col := prChecksIcon(p, st.Checks)
+	span := label(checksSummary(st), 500, p.muted)
+	return cardPiece{w: measure(span) + 11 + 5 + 12, dot: true, show: func() {
+		b := ui.ButtonBase(c.Key("card-checks:"+hash)).Height(18).Padding(0, 6).Gap(5).Radius(5).AlignItems(ui.Center).Shrink(1).MinWidth(0).
+			Label(locales.PrShowChecks()).Tooltip(locales.PrShowChecks())
+		if b.Hovered() {
+			b.Background(p.hover)
+		}
+		if b.Clicked() {
+			a.post(func() { ctx.openCommitChecks(hash) })
+		}
+		b.Transition(hoverFade)
+		b.Children(func() {
+			ui.Icon(c, icon).FontSize(11).TextColor(col).Shrink(0)
+			ui.RichText(c, span).SingleLine().Shrink(1).MinWidth(0)
+		})
+	}}
 }
 
 // finishCommitCard wraps the pieces of a card's lines to its width w,

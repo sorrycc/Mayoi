@@ -118,6 +118,31 @@ type gitState struct {
 	prHeadsRepo *git.Repo
 	prHeadsPoll bg.Poller[prHeadsAsked]
 	prHeadsOff  bool
+
+	// commitChecks is how the checks of the commits of commitChecksRepo
+	// went, as GitHub last told, by hash, and commitChecksRead when each
+	// was asked, those with no checks too; commitChecksPoll asks again for
+	// those of the history that are new, still run or got old, and
+	// commitChecksOff is set once gh could not tell, commitChecksRunning
+	// while the checks of one of them run. headChecksRunning is
+	// the commit at HEAD while its checks were seen running, to tell once
+	// they end. checksWanted are the commits a tab shows whose checks are
+	// to be read, which the history may not have.
+	commitChecks        map[string]git.CommitStatus
+	checksWanted        map[string]bool
+	commitChecksRead    map[string]time.Time
+	commitChecksRepo    *git.Repo
+	commitChecksPoll    bg.Poller[commitChecksAsked]
+	commitChecksOff     bool
+	commitChecksRunning bool
+	headChecksRunning   string
+}
+
+// commitChecksAsked is what GitHub was asked the checks of: the commits
+// of a work tree's history, as of its reads and its refs' changes.
+type commitChecksAsked struct {
+	repo          *git.Repo
+	history, refs int
 }
 
 // prAsked is what gh was asked the pull request of: a work tree, and its

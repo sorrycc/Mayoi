@@ -25,6 +25,9 @@ type fakeHost struct {
 	// showApp showed last.
 	projects []*app
 	showed   *app
+	// notified are the notifications of the system shown, as their
+	// titles and bodies.
+	notified []string
 	// signedIn is the name settings sync syncs for, and signIns, syncs
 	// and signOuts count the commands of settings sync.
 	signedIn                 string
@@ -160,6 +163,11 @@ func (h *fakeHost) projectOf(*colTab) *app       { return nil }
 func (h *fakeHost) carryTab(*colTab, *app, bool) {}
 func (h *fakeHost) everyProject() []*app         { return h.projects }
 func (h *fakeHost) showApp(to *app)              { h.showed = to }
+
+func (h *fakeHost) focused() bool { return true }
+func (h *fakeHost) notify(title, body string, onClick func()) {
+	h.notified = append(h.notified, title+": "+body)
+}
 
 // Off screen, the pull request of the branch is not asked of gh.
 func (h *fakeHost) shown() bool { return false }

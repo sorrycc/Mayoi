@@ -64,6 +64,12 @@ type host interface {
 	// setLocale shows the windows in the language of tag, or of the
 	// system for "".
 	setLocale(tag string)
+	// focused is whether the window is the one the keys go to, of the
+	// app in front.
+	focused() bool
+	// notify shows a notification of the system, which a click brings
+	// the window to the front for, then runs onClick on its app.
+	notify(title, body string, onClick func())
 	// showFolder brings the other window that has dir open to the front,
 	// and reports whether there is one.
 	showFolder(dir string) bool

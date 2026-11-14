@@ -1226,6 +1226,9 @@ func (a *gitContext) scmCommit(c *ui.Context, r scmRow, action *func()) {
 	for _, pr := range prs {
 		tip += "\n" + prHeadTip(pr)
 	}
+	if st, ok := a.checksOf(cm.Hash); ok {
+		tip += "\n" + checksSummary(st)
+	}
 	indent := float32(6)
 	if r.at < 0 {
 		indent = scmPanelContentIndent(r.depth)
@@ -1309,6 +1312,9 @@ func (a *gitContext) scmCommit(c *ui.Context, r scmRow, action *func()) {
 		ui.Spacer(c)
 		if unpushed {
 			ui.Icon(c, iconArrowUp).FontSize(11).TextColor(p.accent).Shrink(0)
+		} else if a.hasCommitChecks() {
+			// How its checks went, in room every pushed row keeps.
+			a.commitChecksIcon(c, cm.Hash, action)
 		}
 		ui.Text(c, shortAgo(cm.Time, time.Now())).FontSize(11).TextColor(p.faint).Shrink(0).Padding(0, 2, 0, 0)
 	})
@@ -1531,6 +1537,11 @@ func (a *gitContext) scmCommitMenu(m *ui.Menu, cm *git.Commit, head bool, action
 	in := a.inHead(cm.Hash)
 	if m.Item(locales.CmdGitOpenChanges()).Chosen() {
 		*action = func() { a.showCommit(*cm, true) }
+	}
+	if _, ok := a.checksOf(cm.Hash); ok || a.git.ghOK {
+		if m.Item(locales.PrShowChecks()).Disabled(!ok).Chosen() {
+			*action = func() { a.openCommitChecks(cm.Hash) }
+		}
 	}
 	m.Separator()
 	if m.Item(locales.ScmCheckOutEllipsis()).Disabled(moving || head).Chosen() {

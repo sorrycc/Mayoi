@@ -1184,6 +1184,8 @@ func (a *app) statusFit(c *ui.Context, width float32) statusVisibility {
 		number := measure("#"+strconv.Itoa(pr.Number), false)
 		used += number
 		add(&v.prDetail, measure(prBadgeLabel(pr), false)-number+4*4)
+	} else if _, ok := a.repository().headChecks(); ok {
+		used += 2*6 + 11 // the icon of HEAD's checks
 	}
 	if repo := a.repository(); repo.gitSyncVisible() {
 		used += 2*6 + 12 + 2 // the sync icon stays beside the branch
@@ -1370,6 +1372,7 @@ func (a *app) statusBar(c *ui.Context) {
 				repo.openBranchPicker()
 			}
 			repo.prBadge(c, true, !visible.prDetail)
+			repo.headChecksBadge(c)
 		}
 		repo.gitSyncStatus(c, visible.gitSyncCounts)
 		a.transferStatus(c, text)

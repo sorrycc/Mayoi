@@ -5,6 +5,10 @@ needs a `## <version>` section here, or its build fails.
 
 ## Unreleased
 
+- In Live Preview, clicking a link opens it, as in Obsidian; move the caret into a link to edit it.
+- Clicking a `[[link]]` to a note that doesn't exist yet creates the note beside the current one and opens it.
+- `[[note#^block]]` links open the note at the marked block.
+- `[[note#Heading#Subheading]]` links open the note at the heading under the other heading.
 - **Sessions** lists Pi's sessions too, by name or first prompt, and resumes one in a terminal tab.
 - The sidebar's width and whether it's shown now stay the same as you switch projects and windows.
 - **Sessions** keeps **All Projects** chosen as you switch projects.

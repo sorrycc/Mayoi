@@ -264,6 +264,10 @@ type editor struct {
 	// in and the other's fades.
 	liveHover, liveHoverWas int
 	liveHoverAt             time.Time
+	// liveLink is the runes of the whole link the pointer is over, its
+	// marks with its text, which a click opens while they are hidden, and
+	// liveLinkPress the one pressed, which opens as it is let go over it.
+	liveLink, liveLinkPress [2]int
 	// shownMode is how the editor showed its document in the last frame,
 	// as markdownMode says, and modeAt when that last changed, from which
 	// the view fades in; modeSeen is set once it showed.

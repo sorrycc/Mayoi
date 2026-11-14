@@ -104,4 +104,38 @@ func TestMarkdownHeadingLine(t *testing.T) {
 			t.Errorf("%q: got line %d, want %d", heading, got, want)
 		}
 	}
+
+	// A#B is heading B under heading A; ^id the block marked so.
+	source = []byte("# A\n\n## Notes\n\n# B\n\n## Notes\n\nA line. ^line\n\n- one\n- two\n\n^list\n")
+	for heading, want := range map[string]int{"B#Notes": 6, "A#Notes": 2, "Notes": 2, "A#Nope": -1, "B#A": -1, "^line": 8, "^list": 10, "^nope": -1} {
+		if got := markdownHeadingLine(source, heading); got != want {
+			t.Errorf("%q: got line %d, want %d", heading, got, want)
+		}
+	}
+}
+
+func TestWikiLinkNested(t *testing.T) {
+	if l, _ := wikiLinkAt("[[note#A#B]]"); l.heading != "A#B" || l.text() != "note > A > B" {
+		t.Errorf("nested heading: %+v shows %q", l, l.text())
+	}
+	path := filepath.Join("/notes", "day.md")
+	if got := wikiLinkDest(path, "", "A#B"); got != "day.md#A%23B" {
+		t.Errorf("a heading under another of the note itself goes to %q", got)
+	}
+	if got := wikiLinkDest(path, "", "Plain"); got != "#plain" {
+		t.Errorf("a heading of the note itself goes to %q", got)
+	}
+	for target, want := range map[string]string{
+		"Missing":        filepath.Join("/notes", "Missing.md"),
+		"sub/Missing":    filepath.Join("/notes", "sub", "Missing.md"),
+		"v1.2":           filepath.Join("/notes", "v1.2.md"),
+		"Done.md":        filepath.Join("/notes", "Done.md"),
+		"pic.png":        "",
+		"../outside":     "",
+		"/abs/elsewhere": "",
+	} {
+		if got := wikiLinkNew(path, target); got != want {
+			t.Errorf("a link to %q makes %q, want %q", target, got, want)
+		}
+	}
 }

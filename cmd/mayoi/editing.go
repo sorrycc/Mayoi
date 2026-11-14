@@ -552,6 +552,23 @@ func (a *app) editorKey(d *editor, ev ui.InputEvent) bool {
 	if ev.Kind == ui.InputPointerDown && ev.Button == 0 && ev.Clicks == 1 && ev.Mods == 0 && a.livePreview(d) && a.liveClick(d, ev.X, ev.Y) {
 		return true
 	}
+	// A click on a link in Live Preview whose source is hidden opens it as
+	// it is let go over the link, as in Obsidian, the caret staying where
+	// it is.
+	if ev.Kind == ui.InputPointerDown && ev.Button == 0 && ev.Clicks == 1 && (ev.Mods == 0 || ev.Mods == ui.Cmd) && a.livePreview(d) {
+		if link, ok := a.liveLinkPressed(d); ok {
+			d.liveLinkPress = link
+			return true
+		}
+	}
+	if ev.Kind == ui.InputPointerUp && ev.Button == 0 && d.liveLinkPress != [2]int{} {
+		press := d.liveLinkPress
+		d.liveLinkPress = [2]int{}
+		if d.liveHover != 0 && d.liveLink == press {
+			a.openLiveLink(d, press)
+		}
+		return true
+	}
 	// A Cmd-click on a wiki link of a note opens what it links to, once the
 	// click put the caret in it, as does one on a link in Live Preview.
 	if ev.Kind == ui.InputPointerDown && ev.Button == 0 && ev.Clicks == 1 && ev.Mods == ui.Cmd && isMarkdown(d.document) {

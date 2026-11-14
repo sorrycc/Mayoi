@@ -710,10 +710,26 @@ func TestLiveLinkHover(t *testing.T) {
 		t.Fatalf("over the link, hover is %d, not %d", d.liveHover, at)
 	}
 	hs.settle()
-	if hs.tt.Cursor() == ui.CursorPointer {
-		t.Error("over the link without Cmd, the pointer is a hand")
+	// Its source hidden, a click opens it: the pointer is a hand.
+	if hs.tt.Cursor() != ui.CursorPointer {
+		t.Errorf("over the link, the pointer is %v", hs.tt.Cursor())
 	}
-	// With Cmd held, as a click follows the link, the pointer is a hand.
+	// Its source showing, a click puts the caret in it, and ⌘ makes the
+	// pointer a hand, as a ⌘-click follows it.
+	d.selectRange(at+1, at+1, false)
+	hs.settle()
+	// Its [ shows, the text further along.
+	for x := d.liveAt.X; x < d.liveAt.X+1200 && d.liveHover != at; x += 6 {
+		hs.tt.Move(x, y)
+		step(hs.tt)
+	}
+	hs.settle()
+	if d.liveHover != at {
+		t.Fatalf("over the link showing its source, hover is %d, not %d", d.liveHover, at)
+	}
+	if hs.tt.Cursor() == ui.CursorPointer {
+		t.Error("over the link showing its source without Cmd, the pointer is a hand")
+	}
 	hs.tt.HoldModifiers(ui.Cmd)
 	hs.settle()
 	if hs.tt.Cursor() != ui.CursorPointer {
@@ -725,6 +741,66 @@ func TestLiveLinkHover(t *testing.T) {
 	step(hs.tt)
 	if d.liveHover != 0 || d.liveHoverWas != at {
 		t.Errorf("off the link, hover is %d, was %d", d.liveHover, d.liveHoverWas)
+	}
+}
+
+// A click on a wiki link of Live Preview whose source is hidden opens its
+// note, as in Obsidian, at its block; one to a note not there makes it.
+func TestLiveLinkClick(t *testing.T) {
+	hs := newHarness(t, true)
+	a := hs.a
+	other := hs.path("other.md")
+	os.WriteFile(other, []byte("# Other\n\nFirst.\n\nThe block. ^b\n"), 0o644)
+	src := "See [[other#^b|the other]] and [[Missing]] too.\n"
+	path := hs.path("click.md")
+	os.WriteFile(path, []byte(src), 0o644)
+	a.settings.MarkdownMode = "live"
+	click := func(label string) {
+		t.Helper()
+		a.openFile(path, true)
+		d := a.activeEditor()
+		hs.until("parsed", func() bool { l := d.document.live; return l != nil && l.doc != nil && !l.quick })
+		d.selectRange(0, 0, false)
+		hs.settle()
+		at := strings.Index(src, label) + 1
+		_, y0, h, ok := d.lines.Caret(at - 1)
+		if !ok {
+			t.Fatal("not laid out")
+		}
+		y := d.liveAt.Y + editorPadY + y0 + h/2 - d.vscroll.Y
+		x := d.liveAt.X
+		for ; x < d.liveAt.X+1200 && d.liveHover != at; x += 6 {
+			hs.tt.Move(x, y)
+			step(hs.tt)
+		}
+		if d.liveHover != at {
+			t.Fatalf("over %q, hover is %d, not %d", label, d.liveHover, at)
+		}
+		hs.tt.ClickAt(x, y)
+		hs.settle()
+		if d.sel != [2]int{0, 0} {
+			t.Errorf("clicking %q moved the caret to %v", label, d.sel)
+		}
+	}
+
+	click("the other")
+	hs.until("the other note open at its block", func() bool {
+		d := a.activeEditor()
+		if d == nil || d.path != other || d.unread() {
+			return false
+		}
+		s, _ := d.buf.Snapshot().LineRange(4)
+		return d.sel == [2]int{s, s}
+	})
+
+	click("Missing")
+	missing := hs.path("Missing.md")
+	hs.until("the missing note made and open", func() bool {
+		d := a.activeEditor()
+		return d != nil && d.path == missing
+	})
+	if !isFile(missing) {
+		t.Error("the missing note was not made")
 	}
 }
 

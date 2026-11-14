@@ -409,22 +409,24 @@ func (a *app) liveArea(c *ui.Context, d *editor, area ui.Element, f liveFrame) {
 	// The bullet whose mark shows first, as at+1, to fade between them.
 	marker := 0
 	// The link under the pointer, whose underline fills in.
-	if hover := a.liveHovered(d, area, doc, f); hover != d.liveHover {
+	hover, link := a.liveHovered(d, area, doc, f)
+	if hover != d.liveHover {
 		d.liveHoverWas, d.liveHover, d.liveHoverAt = d.liveHover, hover, now
 	}
+	d.liveLink = link
 	hoverIn := float32(1)
 	if since := now.Sub(d.liveHoverAt); since >= 0 && since < motionHover {
 		hoverIn = ui.EaseOut(float32(since) / float32(motionHover))
 		c.AnimationFrame()
 	}
-	// A hand over a task's box, which a click checks, and over a link with
-	// ⌘ held, which a ⌘-click opens.
+	// A hand over a task's box, which a click checks, and over a link,
+	// which a click opens, or a ⌘-click once its source shows.
 	if !area.Hovered() {
 		d.liveBox = 0
 	}
 	// ⌘ as the frame sees it, which draws again as it is pressed or let
 	// go, the pointer still.
-	if d.liveHover != 0 && c.Modifiers() == ui.Cmd || d.liveBox != 0 {
+	if d.liveHover != 0 && (c.Modifiers() == ui.Cmd || !liveLinkShown(d.liveLink, selFrom, selTo)) || d.liveBox != 0 {
 		area.Cursor(ui.CursorPointer)
 	}
 	if doc != nil {
@@ -1162,16 +1164,17 @@ func liveLinkLook(look liveLook) bool {
 
 // liveHovered is the link of Live Preview the pointer is over in an
 // editor's text area, as the rune its text starts at plus one, 0 for none
-// or while the pointer selects.
-func (a *app) liveHovered(d *editor, area ui.Element, doc *liveDoc, f liveFrame) int {
+// or while the pointer selects, and the runes of the whole link, its
+// marks with its text, which a click opens while they are hidden.
+func (a *app) liveHovered(d *editor, area ui.Element, doc *liveDoc, f liveFrame) (int, [2]int) {
 	px, py, over := area.PointerPosition()
 	if !over || doc == nil || f.g.lines == nil || d.selecting {
-		return 0
+		return 0, [2]int{}
 	}
 	x, y := px-f.left, py+d.vscroll.Y-editorPadY
 	line := f.g.at(y)
 	ls, le := f.snap.LineRange(line)
-	hover := 0
+	hover, link := 0, [2]int{}
 	doc.visit(ls, le, func(s *liveSpan) {
 		if hover != 0 || s.kind != liveStyle || !liveLinkLook(s.look) || s.start < ls || s.end > le {
 			return
@@ -1190,10 +1193,20 @@ func (a *app) liveHovered(d *editor, area ui.Element, doc *liveDoc, f liveFrame)
 			in = y >= y0 && y < y0+h0 && x >= x0 || y >= y0+h0 && y < y1 || y >= y1 && y < y1+h1 && x <= x1
 		}
 		if in {
-			hover = s.start + 1
+			hover, link = s.start+1, [2]int{s.start, s.end}
 		}
 	})
-	return hover
+	if hover != 0 {
+		// The marks about its text are of the whole link; a bare URL has
+		// none, its text the whole of it.
+		text := link
+		doc.visit(ls, le, func(s *liveSpan) {
+			if s.kind == liveMark && !s.byLine && (s.end == text[0] || s.start == text[1]) && s.from <= text[0] && s.to >= text[1] {
+				link = [2]int{s.from, s.to}
+			}
+		})
+	}
+	return hover, link
 }
 
 // liveDrawn is an object a frame of Live Preview draws: its span, whether
@@ -1631,10 +1644,51 @@ func (a *app) followLiveLink(d *editor) {
 	snap := d.buf.Snapshot()
 	caret := min(d.sel[1], snap.Len())
 	s, e := snap.LineRange(snap.LineAt(caret))
-	dest, ok := markdownLinkIn(snap.Slice(s, e), caret-s)
-	if !ok {
+	if dest, ok := markdownLinkIn(snap.Slice(s, e), caret-s); ok {
+		a.openLiveDest(d, dest)
+	}
+}
+
+// liveLinkShown reports whether a link of Live Preview, the runes
+// link, shows its source, as the caret or the selection from to touches it.
+func liveLinkShown(link [2]int, from, to int) bool {
+	return from <= link[1] && to >= link[0]
+}
+
+// liveLinkPressed is the link of Live Preview under the pointer that a
+// click opens, as in Obsidian: one whose source is hidden, with or without
+// ⌘. A click on one whose source shows puts the caret in it.
+func (a *app) liveLinkPressed(d *editor) ([2]int, bool) {
+	link := d.liveLink
+	if d.liveHover == 0 || link[0] >= link[1] {
+		return link, false
+	}
+	n := d.buf.Snapshot().Len()
+	if link[1] > n || liveLinkShown(link, min(d.sel[0], d.sel[1], n), min(max(d.sel[0], d.sel[1]), n)) {
+		return link, false
+	}
+	return link, true
+}
+
+// openLiveLink opens the link of Live Preview at the runes link: a wiki
+// link, a link of Markdown or a bare URL.
+func (a *app) openLiveLink(d *editor, link [2]int) {
+	snap := d.buf.Snapshot()
+	if link[1] > snap.Len() {
 		return
 	}
+	text := snap.Slice(link[0], link[1])
+	if l, size := wikiLinkAt(text); size > 0 {
+		a.openWikiLink(d.path, l)
+	} else if dest, ok := markdownLinkIn(text, 0); ok {
+		a.openLiveDest(d, dest)
+	}
+}
+
+// openLiveDest opens the destination of a link of Markdown in an
+// editor's note: a page in the browser, a file in Mayoi, or a heading of
+// a note.
+func (a *app) openLiveDest(d *editor, dest string) {
 	u, err := url.Parse(dest)
 	switch {
 	case err == nil && (u.Scheme == "http" || u.Scheme == "https"):

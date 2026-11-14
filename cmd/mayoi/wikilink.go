@@ -13,6 +13,7 @@ import (
 	"mayoi/internal/bg"
 	"mayoi/internal/remote"
 	"mayoi/internal/vfs"
+	"mayoi/locales"
 
 	"github.com/yuin/goldmark/ast"
 	"github.com/yuin/goldmark/parser"
@@ -27,17 +28,18 @@ type wikiLink struct {
 }
 
 // text is what a wiki link shows: its label, or else its target and
-// heading, as note > heading.
+// heading, as note > heading, and a heading under another as A > B.
 func (l wikiLink) text() string {
+	heading := strings.ReplaceAll(l.heading, "#", " > ")
 	switch {
 	case l.label != "":
 		return l.label
 	case l.heading == "":
 		return l.target
 	case l.target == "":
-		return l.heading
+		return heading
 	}
-	return l.target + " > " + l.heading
+	return l.target + " > " + heading
 }
 
 // wikiLinkAt reads the wiki link s opens with, and the bytes it takes, 0
@@ -176,10 +178,14 @@ func isFile(p string) bool {
 
 // wikiLinkDest is the destination of a link from the note at path to
 // file at heading, as a link of Markdown has it: relative, or to #heading
-// of the note itself without a file.
+// of the note itself without a file. A heading under another, A#B, or a
+// block, ^id, of the note itself is a link to the note, which finds it.
 func wikiLinkDest(path, file, heading string) string {
-	if file == "" {
+	if file == "" && (path == "" || !strings.ContainsAny(heading, "#^")) {
 		return "#" + markdownSlug(heading)
+	}
+	if file == "" {
+		file = path
 	}
 	rel, err := filepath.Rel(filepath.Dir(path), file)
 	if err != nil {
@@ -258,22 +264,49 @@ func (a *app) followWikiLink(d *editor) {
 	snap := d.buf.Snapshot()
 	caret := min(d.sel[1], snap.Len())
 	s, e := snap.LineRange(snap.LineAt(caret))
-	l, ok := wikiLinkIn(snap.Slice(s, e), caret-s)
-	if !ok {
-		return
+	if l, ok := wikiLinkIn(snap.Slice(s, e), caret-s); ok {
+		a.openWikiLink(d.path, l)
 	}
-	path, workspace := d.path, a.folder()
+}
+
+// openWikiLink opens what a wiki link of the note at path links to: a
+// heading or block of its own, or another file, at its heading or block.
+// As in Obsidian, a note that is not there yet is made, beside the note.
+func (a *app) openWikiLink(path string, l wikiLink) {
 	if l.target == "" {
 		a.openMarkdownAt(path, l.heading)
 		return
 	}
+	workspace := a.folder()
 	// Finding it may read the folders, away from the UI thread.
 	bg.Go(func() {
 		defer recoverCrash()
-		file := wikiLinkFile(markdownRoot(path, workspace), path, l.target)
+		root := markdownRoot(path, workspace)
+		file := wikiLinkFile(root, path, l.target)
+		made := false
+		var err error
+		if file == "" {
+			if file = wikiLinkNew(path, l.target); file != "" {
+				if err = vfs.Create(file); err == nil {
+					made = true
+					wikiIndexes.Lock()
+					delete(wikiIndexes.m, root)
+					wikiIndexes.Unlock()
+				}
+			}
+		}
 		a.post(func() {
 			switch {
+			case err != nil:
+				a.fail("%s", locales.FailMake(filepath.Base(file), err.Error()))
 			case file == "":
+			case made:
+				if a.tree != nil {
+					a.tree.Refresh()
+				}
+				a.indexRead.Invalidate()
+				a.indexed = time.Time{}
+				a.openFile(file, true)
 			case l.heading != "" && isMarkdownPath(file):
 				a.openMarkdownAt(file, l.heading)
 			default:
@@ -281,4 +314,21 @@ func (a *app) followWikiLink(d *editor) {
 			}
 		})
 	})
+}
+
+// wikiLinkNew is the note a wiki link to one that is not there makes:
+// target.md beside the note at path, "" for a target that names a picture
+// or leaves the note's folder.
+func wikiLinkNew(path, target string) string {
+	if path == "" || target == "" || isImage(target) {
+		return ""
+	}
+	if !isMarkdownPath(target) {
+		target += ".md"
+	}
+	rel := filepath.FromSlash(target)
+	if filepath.IsAbs(rel) || !filepath.IsLocal(rel) {
+		return ""
+	}
+	return filepath.Join(filepath.Dir(path), rel)
 }

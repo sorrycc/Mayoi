@@ -39,9 +39,11 @@ The order: it works, then it is easy, then it looks good. Polish never covers a 
   after it, and turns back from where it is when the caret does (`TestLiveMarkersHoldStill`, `TestLiveBlockGlides`,
   `TestLiveGlideTurnsBack`, `TestLiveGlideWithoutBlank`, `TestLiveMathHoldsStill`). A callout folded or opened by its
   chevron glides the same way, its chevron turning over `motionHover` (`TestLiveCalloutFolds`). A link's underline
-  fills in under the pointer over `motionHover`, and nothing else about it changes (`TestLiveLinkHover`); with ⌘
-  held, and over a task's box, the pointer is a hand, and a box's edge darkens. A footnote's label drawn as its
-  number keeps the room of its source.
+  fills in under the pointer over `motionHover`, and nothing else about it changes (`TestLiveLinkHover`). Over a
+  link whose source is hidden the pointer is a hand, and a click opens it as it is let go, as in Obsidian, the caret
+  and the text staying still (`TestLiveLinkClick`); one whose source shows takes the caret, and is a hand with ⌘
+  held. Over a task's box the pointer is a hand too, and its edge darkens. A footnote's label drawn as its number
+  keeps the room of its source.
 - What loads keeps a place: a picture of the web on its way in Live Preview is a card where it goes, which the
   picture fades in over as its room glides to its own (`TestLivePictureArrives`); a rendered block shows once it is
   measured, fading in over `motionShow`.

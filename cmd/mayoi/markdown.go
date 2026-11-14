@@ -2133,32 +2133,90 @@ func (a *app) markdownAt(d *editor, heading string) {
 
 // markdownHeadingLine is the line of source, from 0, of the heading
 // named, by its text or its anchor, as GitHub numbers the anchors of a
-// text's headings after the first; -1 for none.
+// text's headings after the first; -1 for none. As in Obsidian, A#B is
+// heading B under heading A, and ^id the block marked ^id.
 func markdownHeadingLine(source []byte, heading string) int {
-	want := markdownSlug(heading)
+	if id, ok := strings.CutPrefix(heading, "^"); ok {
+		return markdownBlockLine(source, id)
+	}
+	var want []string
+	for _, part := range strings.Split(heading, "#") {
+		if part = strings.TrimSpace(part); part != "" {
+			want = append(want, markdownSlug(part))
+		}
+	}
+	if len(want) == 0 {
+		return -1
+	}
 	source, skip := markdownSkipFrontMatter(source)
 	tree := markdownParser(false).Parse(text.NewReader(source))
 	slugs := map[string]int{}
 	line := -1
+	// How many headings of want are found, and the level of the last.
+	found, level := 0, 0
 	_ = ast.Walk(tree, func(n ast.Node, entering bool) (ast.WalkStatus, error) {
 		h, ok := n.(*ast.Heading)
 		if !ok || !entering {
 			return ast.WalkContinue, nil
 		}
-		slug := markdownSlug(markdownNodeText(h, source))
+		name := markdownSlug(markdownNodeText(h, source))
+		slug := name
 		if k := slugs[slug]; k > 0 {
 			slugs[slug] = k + 1
 			slug += "-" + strconv.Itoa(k)
 		} else {
 			slugs[slug] = 1
 		}
-		if at := markdownStart(h); slug == want && at >= 0 {
-			line = skip + bytes.Count(source[:at], []byte{'\n'})
-			return ast.WalkStop, nil
+		if found > 0 && h.Level <= level {
+			// Past the section of the last found: from the first again.
+			found, level = 0, 0
+		}
+		// Under another, a heading goes by its name, whatever its number.
+		match := slug == want[found] || found > 0 && name == want[found]
+		if at := markdownStart(h); match && at >= 0 {
+			if found++; found == len(want) {
+				line = skip + bytes.Count(source[:at], []byte{'\n'})
+				return ast.WalkStop, nil
+			}
+			level = h.Level
 		}
 		return ast.WalkSkipChildren, nil
 	})
 	return line
+}
+
+// markdownBlockLine is the line of source, from 0, that the block marked
+// ^id starts on, as a link to note#^id lands; -1 for none.
+func markdownBlockLine(source []byte, id string) int {
+	if id == "" {
+		return -1
+	}
+	lines := strings.Split(string(source), "\n")
+	blank := func(i int) bool { return strings.TrimSpace(lines[i]) == "" }
+	for i, line := range lines {
+		body := strings.TrimRight(line, "\r")
+		at := markdownBlockID([]byte(body))
+		if at < 0 || body[at+1:] != id {
+			continue
+		}
+		if strings.TrimSpace(body[:at]) != "" {
+			return i
+		}
+		// ^id alone: the block above it.
+		end := i
+		for end > 0 && blank(end-1) {
+			end--
+		}
+		start := end
+		for start > 0 && !blank(start-1) {
+			start--
+		}
+		if start == end {
+			return i
+		}
+		return start
+	}
+	return -1
 }
 
 // markdownNodeText is the text a node shows, without its markup.

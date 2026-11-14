@@ -5,6 +5,7 @@ needs a `## <version>` section here, or its build fails.
 
 ## Unreleased
 
+- Inline code in a heading in Live Preview now shows at the heading's size, as in the Reading view.
 - `[[` suggestions list notes changed most recently first, after the ones you opened recently.
 - Pushed commits in the Source Control history show a ✓, ✗ or clock for how their GitHub CI checks went.
 - Clicking a commit's CI icon, or **Show Checks…** in its menu, lists its checks with logs and re-run.

@@ -465,6 +465,22 @@ func TestParseLiveTags(t *testing.T) {
 	}
 }
 
+// Code in a heading is a size smaller than the heading, as in the Reading
+// view, and code in a paragraph is left to the text's own size.
+func TestParseLiveHeadingCode(t *testing.T) {
+	src := "# A `b`\n\nc `d`\n"
+	r := []rune(src)
+	sizes := map[string]float32{}
+	for _, sp := range liveParse(src).spans {
+		if sp.look.code {
+			sizes[string(r[sp.start:sp.end])] = sp.look.size
+		}
+	}
+	if sizes["b"] != liveSizes[1]*0.9 || sizes["d"] != 0 {
+		t.Errorf("sizes %v", sizes)
+	}
+}
+
 // A wiki link to a note there is not reads fainter than one to a note
 // there is, as in Obsidian.
 func TestParseLiveUnresolved(t *testing.T) {

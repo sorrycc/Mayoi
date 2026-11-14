@@ -46,6 +46,24 @@ func TestSidebarSharedAcrossProjects(t *testing.T) {
 	}
 }
 
+// A project not shown yet, which starts as it shows, takes the Sessions
+// view of every folder too, and keeps it for the others.
+func TestUnstartedProjectTakesAllSessions(t *testing.T) {
+	f, hs, tt := railFixture(t, workspaceFixture(t), workspaceFixture(t))
+	a, b := hs[0].a, hs[1].a
+	a.showSessions()
+	a.sessions.all = 1
+	step(tt)
+	if b.started {
+		t.Fatal("other project started before it showed")
+	}
+	f.activate(hs[1])
+	step(tt)
+	if b.window.SidebarView != "sessions" || !f.m.sidebar.allSessions {
+		t.Errorf("other project: view %q, shared %v; want sessions, true", b.window.SidebarView, f.m.sidebar.allSessions)
+	}
+}
+
 // A remote folder lists no sessions, as those read are of this machine:
 // it doesn't take the Sessions view of every folder from another.
 func TestRemoteProjectHasNoSessions(t *testing.T) {
@@ -57,6 +75,11 @@ func TestRemoteProjectHasNoSessions(t *testing.T) {
 	a.showSessions()
 	if a.window.SidebarView != "git" {
 		t.Errorf("showSessions shows %q in a remote project", a.window.SidebarView)
+	}
+	// It passes the view on to the next project rather than ending it.
+	a.shared, a.sessions.all = sidebarShare{all: 1, allSessions: true}, 1
+	if !a.sidebarShare().allSessions {
+		t.Error("remote project stops sharing the Sessions view of every folder")
 	}
 }
 

@@ -1786,9 +1786,11 @@ func (a *app) showHCTerminal(addr, dir string, agent agents.Harness) {
 }
 
 // hasSessions is whether the project lists sessions: those read are of
-// this machine, which a remote folder's are not.
+// this machine, which a remote folder's are not. It knows so before the
+// project starts and opens its folder.
 func (a *app) hasSessions() bool {
-	return a.root != "" && !remote.Is(a.root)
+	dir := a.folder()
+	return dir != "" && !remote.Is(dir)
 }
 
 // showSessions shows the sessions in the sidebar, with the keyboard in

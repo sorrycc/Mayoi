@@ -15,12 +15,18 @@ type sidebarShare struct {
 
 // sidebarShare is what the project's sidebar has of the shared state.
 func (a *app) sidebarShare() sidebarShare {
-	return sidebarShare{
+	s := sidebarShare{
 		width:       a.window.SidebarWidth,
 		closed:      a.window.SidebarClosed,
 		all:         a.sessions.all,
 		allSessions: a.window.SidebarView == "sessions" && a.sessions.all == 1,
 	}
+	// A project that lists no sessions passes on what it was given: it
+	// can't show them, but the next one can.
+	if !a.hasSessions() {
+		s.allSessions = a.shared.allSessions && a.sessions.all == 1
+	}
+	return s
 }
 
 // setSidebarShare gives the project's sidebar the shared state. It shows

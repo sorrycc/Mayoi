@@ -600,6 +600,9 @@ func (a *app) editorKey(d *editor, ev ui.InputEvent) bool {
 		cmd = func(d *editor) { d.undo() }
 	case ev.Key == ui.KeyZ && m == cmdKey|ui.Shift, ev.Key == ui.KeyY && m == ui.Ctrl && cmdKey == ui.Ctrl:
 		cmd = func(d *editor) { d.redo() }
+	case (ev.Key == ui.KeyUp || ev.Key == ui.KeyDown) && m == cmdKey|ui.Shift && mdMoveKey(d):
+		down := ev.Key == ui.KeyDown
+		cmd = func(d *editor) { mdMoveItem(d, down) }
 	case (ev.Key == ui.KeyUp || ev.Key == ui.KeyDown) && (m == ui.Alt || m == ui.Alt|ui.Shift):
 		down := ev.Key == ui.KeyDown
 		if m&ui.Shift != 0 {

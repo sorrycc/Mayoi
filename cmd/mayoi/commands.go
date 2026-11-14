@@ -107,6 +107,8 @@ func (a *app) commandsIn(t locales.Messages) []command {
 		// ⌃Space, which the editor takes itself, so that a terminal keeps it.
 		{"sel.complete", t.CmdSelComplete(), "", a.complete},
 		{"markdown.toggleTask", t.CmdMarkdownToggleTask(), "", a.editActive(toggleMdTask)},
+		{"markdown.moveItemUp", t.CmdMarkdownMoveItemUp(), "", a.editActive(func(d *editor) { mdMoveItem(d, false) })},
+		{"markdown.moveItemDown", t.CmdMarkdownMoveItemDown(), "", a.editActive(func(d *editor) { mdMoveItem(d, true) })},
 		{"markdown.toggleList", t.CmdMarkdownToggleList(), "", a.editActive(toggleMdList)},
 		{"markdown.toggleQuote", t.CmdMarkdownToggleQuote(), "", a.editActive(toggleMdQuote)},
 		{"markdown.heading1", t.CmdMarkdownHeading("1"), "Alt+CmdOrCtrl+1", a.editActive(func(d *editor) { toggleMdHeading(d, 1) })},
@@ -640,6 +642,7 @@ func (a *app) menu(cli bool, run func(id string, win *mygo.Window)) *mygo.Menu {
 			item("edit.findInFiles"), item("edit.replaceInFiles"), mygo.Separator(),
 			{Label: locales.MenuMarkdown(), Submenu: []*mygo.MenuItem{
 				item("markdown.toggleTask"), item("markdown.toggleList"), item("markdown.toggleQuote"), mygo.Separator(),
+				item("markdown.moveItemUp"), item("markdown.moveItemDown"), mygo.Separator(),
 				item("markdown.heading1"), item("markdown.heading2"), item("markdown.heading3"),
 				item("markdown.heading4"), item("markdown.heading5"), item("markdown.heading6"), mygo.Separator(),
 				item("markdown.clearFormatting"), item("markdown.toggleEmbed"),

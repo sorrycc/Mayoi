@@ -1705,6 +1705,8 @@
   "prefTitleAgentSessionsClaudeDirs": "その他の Claude Code フォルダ",
   "prefDescAgentSessionsClaudeDirs": "~/.claude、各 ~/.claude-* フォルダ、$CLAUDE_CONFIG_DIR のほかに、セッションビューがセッションを一覧する Claude Code の設定フォルダ。",
   "cmdMarkdownToggleTask": "タスクを切り替え",
+  "cmdMarkdownMoveItemUp": "リスト項目を上へ移動",
+  "cmdMarkdownMoveItemDown": "リスト項目を下へ移動",
   "cmdMarkdownToggleList": "箇条書き・番号付きリストを切り替え",
   "cmdMarkdownToggleQuote": "引用を切り替え",
   "cmdMarkdownHeading": "見出し {level} を切り替え",

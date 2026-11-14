@@ -227,6 +227,192 @@ func mdIndent(d *editor, outdent bool) bool {
 	return true
 }
 
+// mdLevel is where an item of a list sits: how many quotes it is in,
+// and how wide its indent is, a tab four columns.
+type mdLevel struct{ quotes, width int }
+
+func mdLevelOf(l mdLine) mdLevel {
+	w := 0
+	for _, r := range l.indent {
+		if r == '\t' {
+			w += 4 - w%4
+		} else {
+			w++
+		}
+	}
+	return mdLevel{strings.Count(l.quote, ">"), w}
+}
+
+// mdItemHead reports whether line i of snap is an item of a list, and
+// its level.
+func mdItemHead(snap ui.TextSnapshot, i int) (mdLevel, bool) {
+	text := snap.Line(i)
+	l := parseMdLine(text)
+	if !l.list() || liveRule.MatchString(text) {
+		return mdLevel{}, false
+	}
+	return mdLevelOf(l), true
+}
+
+// mdMoveKey reports whether ⌘⇧↑ and ⌘⇧↓ move items of a list in an
+// editor: in Markdown, the selection starting on an item outside code.
+func mdMoveKey(d *editor) bool {
+	if !isMarkdown(d.document) {
+		return false
+	}
+	snap := d.buf.Snapshot()
+	first, _ := lineSpan(snap, d.sel)
+	_, ok := mdItemHead(snap, first)
+	return ok && !inFence(snap, first)
+}
+
+// mdItemEnd is the last line of the item of a list at line i of level
+// lv: its own, or that of the last line indented under it, blank lines
+// between them.
+func mdItemEnd(snap ui.TextSnapshot, i int, lv mdLevel) int {
+	end := i
+	for j := i + 1; j < snap.LineCount(); j++ {
+		text := snap.Line(j)
+		if strings.TrimSpace(text) == "" {
+			continue
+		}
+		in := mdLevelOf(parseMdLine(text))
+		if in.quotes != lv.quotes || in.width <= lv.width {
+			break
+		}
+		end = j
+	}
+	return end
+}
+
+// mdMoveItem moves the items of a list a selection covers, with the
+// lines under them, past the item before them at their level, or after,
+// renumbering a numbered list. It reports whether it did: not at the
+// first or last item of their list.
+func mdMoveItem(d *editor, down bool) bool {
+	if !mdMoveKey(d) {
+		return false
+	}
+	snap := d.buf.Snapshot()
+	first, last := lineSpan(snap, d.sel)
+	lv, _ := mdItemHead(snap, first)
+	sibling := func(i int) bool {
+		in, ok := mdItemHead(snap, i)
+		return ok && in == lv
+	}
+	// next is the item after the one ending at end at the level, or -1.
+	next := func(end int) int {
+		for j := end + 1; j < snap.LineCount(); j++ {
+			if strings.TrimSpace(snap.Line(j)) != "" {
+				if sibling(j) {
+					return j
+				}
+				return -1
+			}
+		}
+		return -1
+	}
+	end := mdItemEnd(snap, first, lv)
+	for end < last {
+		j := next(end)
+		if j < 0 {
+			return false
+		}
+		end = mdItemEnd(snap, j, lv)
+	}
+	// The items move as a block, swapped with the other's, the blank lines
+	// between them staying.
+	var top, upEnd, lowStart, bottom int
+	if down {
+		j := next(end)
+		if j < 0 {
+			return true
+		}
+		top, upEnd, lowStart, bottom = first, end, j, mdItemEnd(snap, j, lv)
+	} else {
+		j := -1
+		for k := first - 1; k >= 0; k-- {
+			text := snap.Line(k)
+			if strings.TrimSpace(text) == "" {
+				continue
+			}
+			if sibling(k) {
+				j = k
+				break
+			}
+			if in := mdLevelOf(parseMdLine(text)); in.quotes != lv.quotes || in.width <= lv.width {
+				break
+			}
+		}
+		if j < 0 || inFence(snap, j) {
+			return true
+		}
+		top, upEnd, lowStart, bottom = j, mdItemEnd(snap, j, lv), first, end
+	}
+	// order is the lines of the old text in their new order.
+	var order []int
+	for i := lowStart; i <= bottom; i++ {
+		order = append(order, i)
+	}
+	for i := upEnd + 1; i < lowStart; i++ {
+		order = append(order, i)
+	}
+	for i := top; i <= upEnd; i++ {
+		order = append(order, i)
+	}
+	// A numbered list's items take the numbers in the order they had.
+	var markers []string
+	for i := top; i <= bottom; i++ {
+		if sibling(i) {
+			markers = append(markers, parseMdLine(snap.Line(i)).marker)
+		}
+	}
+	ordered := parseMdLine(snap.Line(first)).ordered()
+	lines := make([]string, len(order))
+	grow := map[int]int{} // runes a head's marker grew, by old line
+	k := 0
+	for n, i := range order {
+		text := snap.Line(i)
+		if ordered && sibling(i) {
+			l := parseMdLine(text)
+			at := len(l.quote) + len(l.indent)
+			text = text[:at] + markers[k] + text[at+len(l.marker):]
+			grow[i] = utf8.RuneCountInString(markers[k]) - utf8.RuneCountInString(l.marker)
+			k++
+		}
+		lines[n] = text
+	}
+	// The selection stays on its text, at its new place.
+	starts := map[int]int{} // where each old line starts now
+	from, _ := snap.LineRange(top)
+	at := from
+	for n, i := range order {
+		starts[i] = at
+		at += utf8.RuneCountInString(lines[n]) + 1
+	}
+	sel := d.sel
+	for n, x := range sel {
+		x = min(x, snap.Len())
+		i := snap.LineAt(x)
+		s, _ := snap.LineRange(i)
+		col := x - s
+		if i > last {
+			// At the start of the line after the selection's: after its
+			// last line's newline.
+			s, e := snap.LineRange(last)
+			i, col = last, e-s+1
+		}
+		l := parseMdLine(snap.Line(i))
+		if col > utf8.RuneCountInString(l.quote+l.indent) {
+			col = max(utf8.RuneCountInString(l.quote+l.indent), col+grow[i])
+		}
+		sel[n] = starts[i] + col
+	}
+	_, to := snap.LineRange(bottom)
+	d.edit(sel, textEdit{from, to, strings.Join(lines, "\n")})
+	return true
+}
+
 // mdRow is a line of a selection being rewritten.
 type mdRow struct {
 	s     int

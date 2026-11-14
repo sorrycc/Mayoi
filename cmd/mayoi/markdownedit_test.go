@@ -209,3 +209,48 @@ func TestJoinLines(t *testing.T) {
 	expectText(t, d, "  one two three four\nfive")
 	expectSel(t, d, 0, 20)
 }
+
+func TestMarkdownMoveListItem(t *testing.T) {
+	for _, c := range []struct {
+		name, text string
+		from, to   int
+		down       bool
+		want       string
+		selFrom    int
+		selTo      int
+	}{
+		{"down with children", "- a\n  - a1\n- b\n- c", 2, 2, true, "- b\n- a\n  - a1\n- c", 6, 6},
+		{"up with children", "- a\n- b\n  - b1\n- c", 6, 6, false, "- b\n  - b1\n- a\n- c", 2, 2},
+		{"past children", "- a\n  - a1\n- b", 13, 13, false, "- b\n- a\n  - a1", 2, 2},
+		{"nested stays in parent", "- a\n  - a1\n- b", 9, 9, true, "- a\n  - a1\n- b", 9, 9},
+		{"first stays", "- a\n- b", 2, 2, false, "- a\n- b", 2, 2},
+		{"renumbers", "1. a\n2. b\n3. c", 3, 3, true, "1. b\n2. a\n3. c", 8, 8},
+		{"renumbers wider", "9. a\n10. b", 3, 3, true, "9. b\n10. a", 9, 9},
+		{"selection of two", "- a\n- b\n- c", 2, 6, true, "- c\n- a\n- b", 6, 10},
+		{"keeps blank between", "- a\n\n- b", 2, 2, true, "- b\n\n- a", 7, 7},
+		{"in quote", "> - a\n> - b", 4, 4, true, "> - b\n> - a", 10, 10},
+		{"line below selected", "- a\n- b\n- c", 0, 4, true, "- b\n- a\n- c", 4, 8},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			hs, d := editHarness(t, "notes.md", c.text)
+			hs.place(d, c.from, c.to)
+			key := ui.KeyUp
+			if c.down {
+				key = ui.KeyDown
+			}
+			hs.key(ui.Cmd|ui.Shift, key)
+			expectText(t, d, c.want)
+			expectSel(t, d, c.selFrom, c.selTo)
+		})
+	}
+}
+
+func TestMarkdownMoveKeySelectsOutsideLists(t *testing.T) {
+	hs, d := editHarness(t, "notes.md", "text\n- a\n- b")
+	hs.place(d, 4, 4)
+	hs.key(ui.Cmd|ui.Shift, ui.KeyDown)
+	expectText(t, d, "text\n- a\n- b")
+	if d.sel == [2]int{4, 4} {
+		t.Errorf("selection stayed at %v", d.sel)
+	}
+}

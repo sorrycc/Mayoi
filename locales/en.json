@@ -1933,6 +1933,8 @@
   "prefTitleAgentSessionsClaudeDirs": "More Claude Code Folders",
   "prefDescAgentSessionsClaudeDirs": "Config folders of Claude Code whose sessions the Sessions view lists, besides ~/.claude, each ~/.claude-* folder and $CLAUDE_CONFIG_DIR.",
   "cmdMarkdownToggleTask": "Toggle Task",
+  "cmdMarkdownMoveItemUp": "Move List Item Up",
+  "cmdMarkdownMoveItemDown": "Move List Item Down",
   "cmdMarkdownToggleList": "Toggle Bulleted or Numbered List",
   "cmdMarkdownToggleQuote": "Toggle Quote",
   "cmdMarkdownHeading": "Toggle Heading {level}",

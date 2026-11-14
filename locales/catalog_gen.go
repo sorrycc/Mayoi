@@ -17238,6 +17238,26 @@ func (msgs Messages) CmdMarkdownToggleTask() string {
 	return Catalog.Format(msgs.locale, "cmdMarkdownToggleTask", nil)
 }
 
+// CmdMarkdownMoveItemUp says "Move List Item Up"
+// in the language the app shows.
+func CmdMarkdownMoveItemUp() string { return In(i18n.Locale()).CmdMarkdownMoveItemUp() }
+
+// CmdMarkdownMoveItemUp says "Move List Item Up"
+// in the language of msgs.
+func (msgs Messages) CmdMarkdownMoveItemUp() string {
+	return Catalog.Format(msgs.locale, "cmdMarkdownMoveItemUp", nil)
+}
+
+// CmdMarkdownMoveItemDown says "Move List Item Down"
+// in the language the app shows.
+func CmdMarkdownMoveItemDown() string { return In(i18n.Locale()).CmdMarkdownMoveItemDown() }
+
+// CmdMarkdownMoveItemDown says "Move List Item Down"
+// in the language of msgs.
+func (msgs Messages) CmdMarkdownMoveItemDown() string {
+	return Catalog.Format(msgs.locale, "cmdMarkdownMoveItemDown", nil)
+}
+
 // CmdMarkdownToggleList says "Toggle Bulleted or Numbered List"
 // in the language the app shows.
 func CmdMarkdownToggleList() string { return In(i18n.Locale()).CmdMarkdownToggleList() }

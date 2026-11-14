@@ -19,6 +19,7 @@ needs a `## <version>` section here, or its build fails.
 - Typing a bracket or quote that closes itself no longer scrolls or shakes the editor.
 - In Markdown, `Enter` continues a list, task list or quote, and on an empty item ends it.
 - In Markdown, `⌘Enter` switches a line between a list item, an empty task and a checked task.
+- In Markdown, `⌘⇧↑` and `⌘⇧↓` move a list item and its sub-items past the item above or below.
 - **Settings ▸ Shortcuts** lists `⌘Enter` for **Toggle Task**, not **Insert Line Below**.
 - In Markdown, `⇧⌘Enter` opens a new item of the list or quote above.
 - In Markdown, `Tab` and `⇧Tab` indent or outdent a whole list item wherever the caret is.

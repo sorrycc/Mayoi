@@ -1705,6 +1705,8 @@
   "prefTitleAgentSessionsClaudeDirs": "更多 Claude Code 文件夹",
   "prefDescAgentSessionsClaudeDirs": "除了 ~/.claude、各个 ~/.claude-* 文件夹和 $CLAUDE_CONFIG_DIR，会话视图还要列出其会话的 Claude Code 配置文件夹。",
   "cmdMarkdownToggleTask": "切换任务",
+  "cmdMarkdownMoveItemUp": "上移列表项",
+  "cmdMarkdownMoveItemDown": "下移列表项",
   "cmdMarkdownToggleList": "切换无序或有序列表",
   "cmdMarkdownToggleQuote": "切换引用",
   "cmdMarkdownHeading": "切换 {level} 级标题",

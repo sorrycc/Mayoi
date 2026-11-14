@@ -6,6 +6,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/egoist/mygo/ui"
 
@@ -23,6 +24,21 @@ func allTabNames(a *app) []string {
 	return out
 }
 
+// stepUntilRead draws frames until the active editor's file is read, as
+// it is in the background.
+func stepUntilRead(t *testing.T, a *app, tt *ui.Tester) {
+	t.Helper()
+	read := func() bool { d := a.activeEditor(); return d != nil && d.sync != syncLoading && !d.unread() }
+	for deadline := time.Now().Add(settleTimeout); !read() && time.Now().Before(deadline); {
+		step(tt)
+		time.Sleep(5 * time.Millisecond)
+	}
+	if !read() {
+		t.Fatal("the file was not read")
+	}
+	step(tt)
+}
+
 // Switching a window's folder keeps the tabs of the one it had, where
 // they were, and the folders open in its explorer, which come back as it
 // opens that folder again.
@@ -36,7 +52,7 @@ func TestSwitchFolderSwapsSessions(t *testing.T) {
 	a.openFolder(root)
 	a.openFile(filepath.Join(root, "main.go"), true)
 	a.openFile(filepath.Join(root, "README.md"), true)
-	step(tt)
+	stepUntilRead(t, a, tt)
 	a.activeEditor().pending = &[2]int{2, 6}
 	a.files.Open.Add(filepath.Join(root, "internal"))
 	step(tt)
@@ -56,7 +72,7 @@ func TestSwitchFolderSwapsSessions(t *testing.T) {
 
 	a.switchFolder(root)
 	step(tt)
-	step(tt)
+	stepUntilRead(t, a, tt)
 	if a.root != root || !slices.Equal(allTabNames(a), []string{"main.go", "README.md"}) || a.activeEditor().name() != "README.md" {
 		t.Fatalf("back: folder %q, tabs %v", a.root, allTabNames(a))
 	}

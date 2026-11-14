@@ -134,7 +134,8 @@ func (wikiLinkParser) Parse(parent ast.Node, block text.Reader, pc parser.Contex
 // path first; "" for none. A target without an extension is a note, of
 // .md. The files under root are those of its index, which calls arrived
 // once a read of it in the background finds them changed. Without a
-// root, only the note's folder is looked in.
+// root, only the note's folder is looked in; of this machine, the note's
+// folder and root are also looked in for a file the index does not have.
 func wikiLinkFile(root, path, target string, arrived func()) string {
 	if target == "" {
 		return ""
@@ -143,14 +144,19 @@ func wikiLinkFile(root, path, target string, arrived func()) string {
 	if filepath.Ext(target) != "" {
 		names = []string{target, target + ".md"}
 	}
-	ix := wikiFiles(root, arrived)
-	if ix == nil || len(ix.files) == 0 {
+	onDisk := func(dirs ...string) string {
 		for _, name := range names {
-			if p := filepath.Join(filepath.Dir(path), filepath.FromSlash(name)); isFile(p) {
-				return p
+			for _, dir := range dirs {
+				if p := filepath.Join(dir, filepath.FromSlash(name)); dir != "" && isFile(p) {
+					return p
+				}
 			}
 		}
 		return ""
+	}
+	ix := wikiFiles(root, arrived)
+	if ix == nil || len(ix.files) == 0 {
+		return onDisk(filepath.Dir(path))
 	}
 	dir, inRoot := "", false
 	if rel, err := filepath.Rel(root, filepath.Dir(path)); err == nil && filepath.IsLocal(rel) {
@@ -180,7 +186,11 @@ func wikiLinkFile(root, path, target string, arrived func()) string {
 			return found(best)
 		}
 	}
-	return ""
+	// A file the index leaves out, or has not read yet.
+	if remote.Is(root) {
+		return ""
+	}
+	return onDisk(filepath.Dir(path), root)
 }
 
 // wikiLinkFile is the file a wiki link's target names, as the package
@@ -321,8 +331,8 @@ func readWikiFilesAgain(root string, ix *wikiIndex) {
 	set = readWikiFiles(root)
 }
 
-// readWikiFiles reads the files under root, leaving out hidden folders
-// and those the index of the workspace leaves out.
+// readWikiFiles reads the files under root, leaving out those wikiHidden
+// names and the folders the index of the workspace leaves out.
 func readWikiFiles(root string) *wikiFileSet {
 	set := &wikiFileSet{byName: map[string][]string{}, byPath: map[string]string{}}
 	for _, f := range workspace.Walk(root) {
@@ -339,11 +349,12 @@ func readWikiFiles(root string) *wikiFileSet {
 }
 
 // wikiHidden reports whether the file at rel, a path with slashes, is in
-// a hidden folder, as .obsidian or .trash, which links do not find.
+// a folder of Obsidian's own, .obsidian or .trash, which links do not
+// find. Other hidden folders, as .claude, hold notes links find.
 func wikiHidden(rel string) bool {
 	dir, _, ok := strings.Cut(rel, "/")
 	for ok {
-		if strings.HasPrefix(dir, ".") {
+		if dir == ".obsidian" || dir == ".trash" {
 			return true
 		}
 		rel = rel[len(dir)+1:]

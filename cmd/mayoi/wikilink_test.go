@@ -74,7 +74,7 @@ func TestMarkdownWikiLinks(t *testing.T) {
 		}
 	}
 	want := "[near](near.md) [top](../top.md) [王健康](../people/%E7%8E%8B%E5%81%A5%E5%BA%B7/%E8%AF%84%E4%BC%B0.md) " +
-		"[mixed case > Some Heading](../Notes/Mixed%20Case.md#Some%20Heading) gone secret [Local Heading](#local-heading) [[code]]"
+		"[mixed case > Some Heading](../Notes/Mixed%20Case.md#Some%20Heading) gone [secret](../.hidden/secret.md) [Local Heading](#local-heading) [[code]]"
 	if got.String() != want {
 		t.Fatalf("got\n%s\nwant\n%s", got.String(), want)
 	}
@@ -161,6 +161,8 @@ func TestWikiLinkVault(t *testing.T) {
 	write("vault/repo/daily/Near.md")
 	write("vault/z/near.md")
 	write("vault/.trash/gone.md")
+	digest := write("vault/.claude/skills/digest/digests/131840003151/2026-11-11-2348.md")
+	write("vault/.claude/skills/digest/digests/131840003151/2026-11-10-0900.md")
 	write("plain/.git/HEAD")
 	plain := write("plain/sub/.git/HEAD")
 	plainNote := write("plain/sub/n.md")
@@ -188,6 +190,8 @@ func TestWikiLinkVault(t *testing.T) {
 		"daily/today":   "vault/repo/daily/today.md",
 		"missing":       "",
 		"People/Ada.md": "vault/People/Ada.md",
+		// A note in a hidden folder other than Obsidian's.
+		"2026-11-11-2348": "vault/.claude/skills/digest/digests/131840003151/2026-11-11-2348.md",
 	} {
 		got := wikiLinkFile(vault, note, target, nil)
 		if want != "" {
@@ -196,6 +200,16 @@ func TestWikiLinkVault(t *testing.T) {
 		if got != want {
 			t.Errorf("%q: got %q, want %q", target, got, want)
 		}
+	}
+
+	// From beside it, in its hidden folder.
+	if got, want := wikiLinkFile(vault, digest, "2026-11-10-0900", nil), filepath.Join(filepath.Dir(digest), "2026-11-10-0900.md"); got != want {
+		t.Errorf("beside a hidden note: got %q, want %q", got, want)
+	}
+	// One the index has not read yet is found on disk, beside the note.
+	late := write("vault/repo/daily/late.md")
+	if got := wikiLinkFile(vault, note, "late", nil); got != late {
+		t.Errorf("late: got %q, want %q", got, late)
 	}
 
 	// A note made shows up once the watch reports it; one only edited

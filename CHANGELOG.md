@@ -5,6 +5,7 @@ needs a `## <version>` section here, or its build fails.
 
 ## Unreleased
 
+- `[[links]]` also find notes in hidden folders like `.claude`, but not `.obsidian` or `.trash`.
 - `[[links]]` find notes anywhere in an Obsidian vault, even in a folder with its own git repository.
 - `[[links]]` in notes on a remote (SSH) folder find notes anywhere in the workspace, not only beside the note.
 - `[[links]]` match notes whatever their case, and pick up notes made or deleted outside the editor.

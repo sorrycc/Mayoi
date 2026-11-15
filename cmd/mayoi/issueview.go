@@ -469,7 +469,7 @@ func (a *app) issueCard(c *ui.Context, key, author, avatar string, at time.Time,
 				a.services.OpenURL(link)
 			}
 		})
-		ui.Column(c).Padding(10, 14, 12, 14).Gap(8).Children(func() {
+		ui.Column(c).Padding(10, 14, 12, 14).Gap(8).Selectable().Children(func() {
 			if len(blocks) == 0 {
 				ui.Text(c, locales.GhNoDescription()).FontSize(13).TextColor(p.faint).Italic()
 				return
@@ -493,7 +493,7 @@ func (a *app) issueMarkdown(c *ui.Context, blocks []markdownBlock) {
 		}
 		row.Children(func() {
 			if b.marker != "" {
-				ui.Text(c, b.marker).FontSize(size).TextColor(p.muted).Shrink(0).MinWidth(12)
+				ui.Text(c, b.marker).FontSize(size).TextColor(p.muted).Shrink(0).MinWidth(12).Unselectable()
 			}
 			ui.Column(c).Grow(1).Shrink(1).MinWidth(0).Children(func() {
 				switch b.kind {
@@ -507,7 +507,7 @@ func (a *app) issueMarkdown(c *ui.Context, blocks []markdownBlock) {
 					for _, r := range b.runs {
 						spans = append(spans, a.markdownSpan(r, p.text, size*0.9, true))
 					}
-					ui.RichText(c, spans...).FontSize(size*0.9).Background(p.chrome).Padding(8, 10).Radius(6).Selectable()
+					ui.RichText(c, spans...).FontSize(size*0.9).Background(p.chrome).Padding(8, 10).Radius(6)
 				case markdownImageBlock:
 					for _, r := range b.runs {
 						if r.bitmap != nil && r.w > 0 {

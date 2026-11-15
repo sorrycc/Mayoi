@@ -1,6 +1,6 @@
 # A Mayoi plugin
 
-This folder is a plugin for [Mayoi](https://github.com/mayoi-editor/mayoi), a code editor written in Go. Notes for
+This folder is a plugin for [Mayoi](https://github.com/sorrycc/Mayoi), a code editor written in Go. Notes for
 agents and people working on it.
 
 ## How it runs

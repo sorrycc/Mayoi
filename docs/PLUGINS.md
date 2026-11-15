@@ -11,12 +11,12 @@ The API is new and may still change before 1.0. A plugin says which versions of 
 ### Installing
 
 ```sh
-mayoi plugin install mayoi-editor/plugin-prettier         # owner/repo of GitHub
+mayoi plugin install me/word-stats                         # owner/repo of GitHub
 mayoi plugin install https://git.example.com/me/tool.git@v1.2.0
-mayoi plugin install prettier                              # a name of the index
+mayoi plugin install word-stats                            # a name of the index
 mayoi plugin list
 mayoi plugin update                                        # all, or name...
-mayoi plugin remove prettier
+mayoi plugin remove word-stats
 ```
 
 Or choose **Plugins → Manage Plugins…**, or the **Plugins** page of the settings window: install from a Git URL or

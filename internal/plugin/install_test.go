@@ -115,6 +115,22 @@ func TestFetchIndexNotFound(t *testing.T) {
 	}
 }
 
+func TestCLISearchEmptyIndex(t *testing.T) {
+	srv := httptest.NewServer(http.NotFoundHandler())
+	defer srv.Close()
+	old := IndexURL
+	IndexURL = srv.URL
+	defer func() { IndexURL = old }()
+	_, _, dirs := newRegistry(t)
+	var out, errb strings.Builder
+	if code := RunCLI([]string{"search"}, dirs, &out, &errb); code != 0 {
+		t.Fatalf("search = %d: %s", code, errb.String())
+	}
+	if !strings.Contains(out.String(), "no plugins yet") {
+		t.Fatalf("search printed %q; want it to say the index is empty", out.String())
+	}
+}
+
 func TestSplitSpec(t *testing.T) {
 	if url, ref, byName := SplitSpec("me/thing@v2"); url != "https://github.com/me/thing" || ref != "v2" || byName {
 		t.Fatalf("SplitSpec = %s %s %v", url, ref, byName)

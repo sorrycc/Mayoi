@@ -45,7 +45,7 @@ Commands:
 
 Examples:
   mayoi plugin new word-count
-  mayoi plugin install mayoi-editor/plugin-prettier
+  mayoi plugin install me/my-plugin
   mayoi plugin install https://github.com/me/my-plugin.git@v1.2.0
 `
 
@@ -184,6 +184,9 @@ func RunCLI(args []string, dirs Dirs, stdout, stderr io.Writer) int {
 		entries, err := FetchIndex(ctx, nil)
 		if err != nil {
 			return fail("reading the index: %v", err)
+		}
+		if len(entries) == 0 {
+			fmt.Fprintln(stdout, "The index lists no plugins yet.")
 		}
 		q := strings.ToLower(strings.Join(rest, " "))
 		tw := tabwriter.NewWriter(stdout, 0, 0, 2, ' ', 0)

@@ -24,8 +24,8 @@ how:
 - **Bundled plugins** are Word Count and TODOs, and start off: their `plugin.json` says `"enabled": false`, which the
   settings' `enabled` overrides. Mermaid and math stayed in Go but run on moejs now, so goja is gone;
   Mayoi's themes stayed in Go, and plugin themes join them.
-- **The index** is read from `mayoi-editor/plugins`, which does not exist yet: the Plugins page and `mayoi plugin
-  search` say so until it does.
+- **The index** is read from `mayoi-editor/plugins`, whose `index.json` lists no plugins yet: the Plugins page and
+  `mayoi plugin search` say so until it does.
 
 ## Goals
 

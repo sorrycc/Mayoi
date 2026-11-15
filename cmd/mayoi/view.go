@@ -504,6 +504,12 @@ func (a *app) commandCenter(c *ui.Context) {
 // iconButton is a small square button showing an icon, its tooltip the
 // label.
 func (a *app) iconButton(c *ui.Context, icon *ui.SVG, label string, on bool) ui.Element {
+	return a.iconButtonOf(c, label, on, func(col ui.Color) { ui.Icon(c, icon).FontSize(15).TextColor(col) })
+}
+
+// iconButtonOf is iconButton with what face draws in col in place of its
+// icon, as a ring that turns while what it started runs.
+func (a *app) iconButtonOf(c *ui.Context, label string, on bool, face func(col ui.Color)) ui.Element {
 	p := a.pal
 	b := ui.ButtonBase(c).Size(26, 24).Radius(5).Justify(ui.Center).AlignItems(ui.Center).Label(label).Tooltip(label)
 	col := p.muted
@@ -520,7 +526,7 @@ func (a *app) iconButton(c *ui.Context, icon *ui.SVG, label string, on bool) ui.
 	}
 	b.Transition(revealFade)
 	pressPose(b)
-	b.Children(func() { ui.Icon(c, icon).FontSize(15).TextColor(col) })
+	b.Children(func() { face(col) })
 	return b
 }
 

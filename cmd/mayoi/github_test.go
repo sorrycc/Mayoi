@@ -7,6 +7,7 @@ import (
 	"image"
 	"image/color"
 	"os"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -974,5 +975,109 @@ func TestGitHubAvatarsKept(t *testing.T) {
 	close(release)
 	if n != ghAvatarsKept || !first || second || !fresh {
 		t.Errorf("kept %d (on its way kept %v, least lately kept %v, new kept %v)", n, first, second, fresh)
+	}
+}
+
+// TestGitHubRefreshSaysSo: a refresh the view asks for on its own shows
+// nothing; Refresh is answering at once, and shows the line once it took
+// readingShows; GitHub's answer ends both.
+func TestGitHubRefreshSaysSo(t *testing.T) {
+	o := ghOverviewFixture()
+	hs := githubHarness(t, o, nil)
+	hs.a.showGitHub()
+	hs.settle()
+	release := make(chan struct{})
+	fetchGitHubOverview = func(*git.Repo) (*git.GHOverview, error) { <-release; return o, nil }
+	ctx := hs.a.repository()
+	g := &ctx.git.gh
+	g.poll.Expire()
+	for range 30 {
+		step(hs.tt)
+	}
+	if !g.loading {
+		t.Fatal("GitHub was not asked again")
+	}
+	if _, ok := hs.tt.Find(locales.GhReading()); ok || g.refreshing() {
+		t.Error("a refresh the view asked for on its own says so")
+	}
+	release <- struct{}{}
+	hs.settle()
+
+	ctx.refreshGitHubNow()
+	step(hs.tt)
+	if !g.refreshing() {
+		t.Error("Refresh is not answering within a frame")
+	}
+	if _, ok := hs.tt.Find(locales.GhReading()); ok {
+		t.Error("the line shows before readingShows, where it would flicker")
+	}
+	for range 30 {
+		step(hs.tt)
+	}
+	if _, ok := hs.tt.Find(locales.GhReading()); !ok {
+		t.Error("no line while a refresh asked for runs long")
+	}
+	close(release)
+	hs.settle()
+	if _, ok := hs.tt.Find(locales.GhReading()); ok || g.refreshing() {
+		t.Error("the refresh still shows once GitHub answered")
+	}
+}
+
+// TestGitHubSameAnswerBuildsNothing: an answer that tells what the last
+// did keeps it, and the rows built of it; one that tells otherwise does not.
+func TestGitHubSameAnswerBuildsNothing(t *testing.T) {
+	o := ghOverviewFixture()
+	answer := o
+	hs := githubHarness(t, o, nil)
+	fetchGitHubOverview = func(*git.Repo) (*git.GHOverview, error) { c := *answer; return &c, nil }
+	hs.a.showGitHub()
+	hs.settle()
+	ctx := hs.a.repository()
+	gp := &hs.a.github
+	was, rows := ctx.githubOverview(), &gp.rows[0]
+	ctx.refreshGitHubNow()
+	hs.settle()
+	if ctx.githubOverview() != was {
+		t.Error("an answer that tells the same took the place of the last")
+	}
+	if &gp.rows[0] != rows {
+		t.Error("the rows were built again of an answer that tells the same")
+	}
+	next := *o
+	next.PRs = slices.Clone(o.PRs)
+	next.PRs[0].Title = "Speed up the tree more"
+	answer = &next
+	ctx.refreshGitHubNow()
+	hs.settle()
+	if _, ok := hs.tt.Find("Speed up the tree more"); !ok {
+		t.Error("an answer that tells otherwise is not shown")
+	}
+}
+
+// TestGitHubQueryWhileReading: as the view reads its rows the first time,
+// its query shows, and what is typed in it finds the rows once they come.
+func TestGitHubQueryWhileReading(t *testing.T) {
+	hs := githubHarness(t, ghOverviewFixture(), nil)
+	release := make(chan struct{})
+	fetchGitHubOverview = func(*git.Repo) (*git.GHOverview, error) { <-release; return ghOverviewFixture(), nil }
+	g := &hs.a.repository().git.gh
+	g.overview, g.overviewOf = nil, nil
+	hs.a.showGitHub()
+	for range 10 {
+		step(hs.tt)
+	}
+	if _, ok := hs.tt.Find(locales.GhFind()); !ok {
+		t.Fatal("no query while the rows are read")
+	}
+	hs.tt.Type("crash")
+	step(hs.tt)
+	close(release)
+	hs.settle()
+	if _, ok := hs.tt.Find("Crash on open"); !ok {
+		t.Error("the row the query typed early finds is not shown")
+	}
+	if _, ok := hs.tt.Find("Wider sidebar"); ok {
+		t.Error("a row the query typed early does not find is shown")
 	}
 }

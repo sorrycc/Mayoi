@@ -76,6 +76,29 @@ func TestParseOverview(t *testing.T) {
 	}
 }
 
+func TestOverviewSame(t *testing.T) {
+	read := func(title string) *GHOverview {
+		o, err := parseOverview([]byte(`{"data":{"viewer":{"login":"me"},"repository":{"nameWithOwner":"o/r",
+			"pullRequests":{"totalCount":1,"nodes":[{"number":7,"title":"` + title + `","updatedAt":"2026-11-14T12:00:00Z",
+				"author":{"login":"ann","avatarUrl":"https://a/ann"},"labels":{"nodes":[{"name":"bug","color":"d73a4a"}]}}]},
+			"issues":{"totalCount":0,"nodes":[]}}}}`))
+		if err != nil {
+			t.Fatal(err)
+		}
+		return o
+	}
+	a, b := read("Fix it"), read("Fix it")
+	if a == b || !a.Same(b) {
+		t.Error("two answers that tell the same are not the same")
+	}
+	if a.Same(read("Fix it again")) {
+		t.Error("an answer with another title is the same")
+	}
+	if a.Same(nil) || !(*GHOverview)(nil).Same(nil) {
+		t.Error("nil is the same as an answer, or not as itself")
+	}
+}
+
 func TestParseIssue(t *testing.T) {
 	is, err := parseIssue([]byte(`{"data":{"repository":{"issueOrPullRequest":{"__typename":"Issue","id":"I_1","number":3,
 		"title":"Crash","url":"u","state":"CLOSED","stateReason":"NOT_PLANNED","body":"It **crashes**","createdAt":"2026-11-01T00:00:00Z",

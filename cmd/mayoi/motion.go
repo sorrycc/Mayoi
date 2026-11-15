@@ -39,8 +39,9 @@ const (
 )
 
 // motionSpin is how long a ring that turns while something runs takes to
-// turn once, as the checks of a pull request that run; spinRate is how
-// many times a second it is painted, which looks as smooth at its size.
+// turn once, as the checks of a pull request that run, and the shapes of
+// what loads to pulse once; spinRate is how many times a second they are
+// painted, which looks as smooth at their size.
 const (
 	motionSpin = 1200 * time.Millisecond
 	spinRate   = 30
@@ -257,3 +258,46 @@ func popUp(e ui.Element) ui.Element {
 // fieldFocus is how a field's border follows the keyboard: the accent
 // fades in as the field takes it, and out as it leaves.
 var fieldFocus = ui.ElementTransition{Colors: true, Duration: motionHover}
+
+// spinRing is a ring size across, of col, with an arc of it that turns
+// once each motionSpin while something runs, as the checks of a pull
+// request that run. It is painted again without the view being built,
+// and only while it shows.
+func spinRing(c *ui.Context, key any, size float32, col ui.Color) ui.Element {
+	return ui.Box(c.Key(key)).Size(size, size).Shrink(0).Draw(func(pt *ui.Painter, b ui.Rect) {
+		pt.AnimationFrameRate(spinRate)
+		const width, arc, steps = 1.5, 0.3, 12
+		cx, cy, r := b.X+b.W/2, b.Y+b.H/2, b.W/2-width/2-0.5
+		var track ui.Path
+		track.Circle(cx, cy, r)
+		pt.StrokePath(&track, width, col.Alpha(0.25))
+		turn := float64(pt.Now().UnixNano()%int64(motionSpin)) / float64(motionSpin)
+		var path ui.Path
+		for i := range steps + 1 {
+			t := 2*math.Pi*(turn+arc*float64(i)/steps) - math.Pi/2
+			x, y := cx+r*float32(math.Cos(t)), cy+r*float32(math.Sin(t))
+			if i == 0 {
+				path.MoveTo(x, y)
+			} else {
+				path.LineTo(x, y)
+			}
+		}
+		pt.StrokePath(&path, width, col)
+	})
+}
+
+// pulseShape paints e as a shape of what loads, in col, the k-th from the
+// top: it brightens and dims once each motionSpin while it shows, each a
+// little after the one above, so that a wave runs down them. It is painted
+// again without the view being built; with less motion, it stays still.
+func pulseShape(e ui.Element, col ui.Color, radius float32, k int, reduce bool) ui.Element {
+	return e.Draw(func(pt *ui.Painter, b ui.Rect) {
+		glow := float32(1)
+		if !reduce {
+			pt.AnimationFrameRate(spinRate)
+			turn := float64(pt.Now().UnixNano()%int64(motionSpin))/float64(motionSpin) - 0.06*float64(k)
+			glow += 0.8 * float32(0.5-0.5*math.Cos(2*math.Pi*turn))
+		}
+		pt.Fill(b, col.Alpha(glow), radius)
+	})
+}

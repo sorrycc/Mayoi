@@ -9,7 +9,7 @@ The order: it works, then it is easy, then it looks good. Polish never covers a 
 
 - Every animation takes its length from a token in `cmd/mayoi/motion.go`: `motionTap` (100 ms), `motionLeave`
   (110), `motionHover` (120), `motionShow` (150), `motionMove` (200) and `motionEnter` (240); a ring that turns while something runs, once each `motionSpin`
-  (1200). `TestMotionUsesTokens` fails on a length
+  (1200), and the shapes of what loads the first time pulse at that pace too (`spinRing`, `pulseShape`). `TestMotionUsesTokens` fails on a length
   written out anywhere else.
 - What a person does a hundred times a day does not move. A dialog opened by a key (the command palette, Quick Open,
   a picker) shows at once (`keyedOpen`); opened with the pointer, it fades in over `motionShow`. The chosen row of a
@@ -20,6 +20,8 @@ The order: it works, then it is easy, then it looks good. Polish never covers a 
 - With Reduce Motion on, nothing moves: colors fade at most (`shake` and `Keyframes` already stop). In Live Preview,
   blocks and pictures take their new room at once and a task's check fades in without growing.
 - Something visible changes within a frame of the key or click, even when the work takes longer.
+- What refreshes on its own does so quietly; work a person asked for says so, after `readingShows` (300 ms), so that
+  what answers sooner shows nothing that flickers.
 
 ## Stability
 

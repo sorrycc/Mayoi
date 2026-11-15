@@ -44,6 +44,10 @@ needs a `## <version>` section here, or its build fails.
 - When GitHub doesn't answer in time, the GitHub view keeps what it showed and tries again within a minute.
 - While checks run, a pull request's row and card show a turning ring, held still by Reduce Motion.
 - Issue and pull request tabs show pictures of the author, assignees and everyone who commented.
+- The GitHub view refreshes quietly on its own; only **Refresh** or **Retry** shows a progress line, and only if slow.
+- The GitHub view's Refresh button turns into a spinning ring until GitHub answers.
+- You can type in the GitHub view's search field while it first loads; its placeholder rows pulse meanwhile.
+- A GitHub view refresh that finds nothing new no longer redraws the list.
 - Labels in an issue's tab use the same chips as the GitHub view, and a failed read offers **Try Again** on a card.
 - Mayoi sends an anonymous count once a day and on each update, with only its version and system.
 - Turn the count off with `usageStats` in **Settings → General**, or by setting `DO_NOT_TRACK=1`.

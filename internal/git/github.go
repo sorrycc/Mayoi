@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/url"
 	"os/exec"
+	"reflect"
 	"slices"
 	"strconv"
 	"strings"
@@ -100,6 +101,12 @@ func (o *GHOverview) CanTriage() bool {
 		return true
 	}
 	return false
+}
+
+// Same reports whether p tells what o does, as a refresh that found
+// nothing changed: the view keeps o, and builds nothing again.
+func (o *GHOverview) Same(p *GHOverview) bool {
+	return o == p || o != nil && p != nil && reflect.DeepEqual(*o, *p)
 }
 
 // GHProblem is why the GitHub CLI cannot answer for a repository.

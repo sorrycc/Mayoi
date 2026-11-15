@@ -3,7 +3,6 @@ package main
 import (
 	"errors"
 	"fmt"
-	"math"
 	"slices"
 	"strconv"
 	"strings"
@@ -39,16 +38,25 @@ type githubState struct {
 	remotesOf      string
 	readingRemotes bool
 	// overview is what GitHub told of overviewOf, nil until it told;
-	// problem and err why it could not tell last, poll asks again, and gen
-	// counts the refreshes asked for.
+	// problem and err why it could not tell last, poll asks again, gen
+	// counts the refreshes asked for and answered those GitHub answered.
+	// loading is set while it is asked; loadingAt is when the view first
+	// showed it so, zero until it did.
 	overview   *git.GHOverview
 	overviewOf *git.Repo
 	problem    git.GHProblem
 	err        string
 	poll       bg.Poller[ghAsked]
 	gen        int
+	answered   int
 	loading    bool
+	loadingAt  time.Time
 }
+
+// refreshing reports whether a refresh the person asked for, by Refresh or
+// Retry, is yet to be answered: the view says so, where it keeps quiet as
+// it asks again on its own.
+func (g *githubState) refreshing() bool { return g.answered < g.gen }
 
 // ghAsked is what GitHub was asked of: a work tree, as of its refs'
 // changes and the refreshes asked for.
@@ -198,7 +206,7 @@ func (a *gitContext) refreshGitHub() {
 	if g.gh.overviewOf != r {
 		g.gh.overview, g.gh.problem, g.gh.err = nil, git.GHFine, ""
 	}
-	g.gh.loading = true
+	g.gh.loading, g.gh.loadingAt = true, time.Time{}
 	bg.Go(func() {
 		defer recoverCrash()
 		o, err := fetchGitHubOverview(r)
@@ -206,13 +214,21 @@ func (a *gitContext) refreshGitHub() {
 			if !g.gh.poll.Done(key) || g.repo != r {
 				return
 			}
-			g.gh.loading = false
+			g.gh.loading, g.gh.answered = false, max(g.gh.answered, key.gen)
 			switch {
 			case err == nil:
+				// An answer that tells what the last did keeps it, so that
+				// nothing of the view is built again.
+				same := g.gh.overviewOf == r && o.Same(g.gh.overview)
+				if same {
+					o = g.gh.overview
+				}
+				// The history marks the heads of the pull requests listed.
+				if !same || g.prHeadsRepo != r || g.prHeadsOff {
+					g.prHeads, g.prHeadsRepo, g.prHeadsOff = o.PRHeads(), r, false
+				}
 				g.gh.overview, g.gh.overviewOf, g.gh.problem, g.gh.err = o, r, git.GHFine, ""
 				g.ghOK = true
-				// The history marks the heads of the pull requests listed.
-				g.prHeads, g.prHeadsRepo, g.prHeadsOff = o.PRHeads(), r, false
 			case errors.Is(err, remote.ErrOffline):
 				// The host is away: what was read stays until it is back.
 			default:
@@ -526,27 +542,74 @@ func (a *app) githubView(c *ui.Context) {
 	ctx := a.repository()
 	g := ctx.git
 	o := ctx.githubOverview()
-	if g.gh.loading {
-		ui.Progress(c.Key("gh-activity"), -1).Height(2).Radius(0).Label(locales.GhReading())
-	} else {
-		ui.Box(c.Key("gh-activity")).Height(2)
-	}
+	now := c.Now()
+	a.githubActivity(c, &g.gh, now)
 	if o == nil {
 		if !a.online() {
 			a.githubNote(c, iconWifiOff, locales.NotConnectedTo(a.conn.Host), "", nil)
 		}
 		switch {
 		case !ctx.githubKnown() || g.gh.problem == git.GHFine:
+			// The query keeps its place and what is typed in it, and the
+			// keyboard, as the rows are read the first time.
+			a.githubQuery(c, ctx, nil, nil)
 			a.githubSkeleton(c)
 		default:
 			a.githubProblem(c, ctx)
 		}
 		return
 	}
-	now := c.Now()
 	rows := a.githubRows(ctx, o, now)
-	queryKeys := false
-	ui.Column(c).Padding(0, 12, 6, 12).Children(func() {
+	queryKeys := a.githubQuery(c, ctx, o, rows)
+	// What was read stays, with a line at the foot of the view that says
+	// why it is not read again: its host is away, or GitHub failed. It
+	// floats over the list, which keeps its place as it comes and goes.
+	var bar func()
+	switch {
+	case !a.online():
+		bar = func() { a.githubBar(c, iconWifiOff, locales.NotConnectedTo(a.conn.Host), "", nil) }
+	case g.gh.problem != git.GHFine:
+		bar = func() {
+			a.githubBar(c, iconTriangleAlert, locales.GhStale(g.gh.ghShownError()), locales.GhRetry(), ctx.refreshGitHubNow)
+		}
+	}
+	ui.Column(c.Key("gh-body")).Grow(1).MinHeight(0).Children(func() {
+		a.githubList(c, ctx, o, rows, now, bar != nil, queryKeys)
+		if bar != nil {
+			bar()
+		}
+	})
+}
+
+// githubActivity is the line at the head of the view that runs while a
+// refresh asked for is read, once it took readingShows: one answered
+// sooner, as most are, shows nothing that flickers. A refresh the view
+// asks for on its own says nothing, as what it read stays meanwhile.
+func (a *app) githubActivity(c *ui.Context, gh *githubState, now time.Time) {
+	show := false
+	if gh.loading {
+		if gh.loadingAt.IsZero() {
+			gh.loadingAt = now
+		}
+		if wait := readingShows - now.Sub(gh.loadingAt); gh.refreshing() && wait > 0 {
+			c.After(wait)
+		} else {
+			show = gh.refreshing()
+		}
+	}
+	if show {
+		ui.Progress(c.Key("gh-activity"), -1).Height(2).Radius(0).Label(locales.GhReading())
+	} else {
+		ui.Box(c.Key("gh-activity")).Height(2)
+	}
+}
+
+// githubQuery is the query of the view, over its list, and its keys: those
+// that move the choice and run the chosen row's actions, while it has the
+// keyboard, which it reports. Without rows yet, it takes only what is typed.
+func (a *app) githubQuery(c *ui.Context, ctx *gitContext, o *git.GHOverview, rows []ghRow) (queryKeys bool) {
+	gp := &a.github
+	ui.Column(c.Key("gh-query-row")).Padding(0, 12, 6, 12).Children(func() {
 		in := a.searchField(c, "gh-query", &gp.query, locales.GhFind(), &gp.input, nil)
 		queryKeys = in.Focused()
 		if in.Changed() {
@@ -571,24 +634,7 @@ func (a *app) githubView(c *ui.Context) {
 			}
 		}
 	})
-	// What was read stays, with a line at the foot of the view that says
-	// why it is not read again: its host is away, or GitHub failed. It
-	// floats over the list, which keeps its place as it comes and goes.
-	var bar func()
-	switch {
-	case !a.online():
-		bar = func() { a.githubBar(c, iconWifiOff, locales.NotConnectedTo(a.conn.Host), "", nil) }
-	case g.gh.problem != git.GHFine:
-		bar = func() {
-			a.githubBar(c, iconTriangleAlert, locales.GhStale(g.gh.ghShownError()), locales.GhRetry(), ctx.refreshGitHubNow)
-		}
-	}
-	ui.Column(c.Key("gh-body")).Grow(1).MinHeight(0).Children(func() {
-		a.githubList(c, ctx, o, rows, now, bar != nil, queryKeys)
-		if bar != nil {
-			bar()
-		}
-	})
+	return queryKeys
 }
 
 // githubList is the list of the GitHub view, under its query: its
@@ -1070,34 +1116,14 @@ func (a *app) ghChecks(c *ui.Context, it *git.GHItem, room bool, now time.Time) 
 
 // ghChecksMark is the icon of checks that went as state, 11 across: for
 // checks that run, a faint ring with an arc of it that turns, once each
-// motionSpin. It is painted again without the view being built, and only
-// while it shows, so that a list with none running asks for no frame;
-// with less motion, it is the clock, still.
+// motionSpin, as spinRing paints it: a list with none running asks for no
+// frame. With less motion, it is the clock, still.
 func (a *app) ghChecksMark(c *ui.Context, key string, state git.Checks, reduce bool) ui.Element {
 	ic, col := prChecksIcon(a.pal, state)
 	if state != git.ChecksPending || reduce {
 		return ui.Icon(c.Key(key), ic).FontSize(11).TextColor(col).Shrink(0).Width(11)
 	}
-	return ui.Box(c.Key(key)).Size(11, 11).Shrink(0).Draw(func(pt *ui.Painter, b ui.Rect) {
-		pt.AnimationFrameRate(spinRate)
-		const width, arc, steps = 1.5, 0.3, 12
-		cx, cy, r := b.X+b.W/2, b.Y+b.H/2, b.W/2-width/2-0.5
-		var track ui.Path
-		track.Circle(cx, cy, r)
-		pt.StrokePath(&track, width, col.Alpha(0.25))
-		turn := float64(pt.Now().UnixNano()%int64(motionSpin)) / float64(motionSpin)
-		var path ui.Path
-		for i := range steps + 1 {
-			t := 2*math.Pi*(turn+arc*float64(i)/steps) - math.Pi/2
-			x, y := cx+r*float32(math.Cos(t)), cy+r*float32(math.Sin(t))
-			if i == 0 {
-				path.MoveTo(x, y)
-			} else {
-				path.LineTo(x, y)
-			}
-		}
-		pt.StrokePath(&path, width, col)
-	})
+	return spinRing(c, key, 11, col)
 }
 
 // ghItemIcon is the icon of an issue or a pull request, in the color of
@@ -1524,34 +1550,48 @@ func (a *app) githubTitleActions(c *ui.Context, hovered bool) {
 	if a.iconButton(c, iconExternal, locales.GhOpenRepo(), false).Disabled(o == nil).Clicked() {
 		a.services.OpenURL(o.URL)
 	}
-	if a.iconButton(c, iconRefresh, locales.GhRefresh(), false).Clicked() {
+	// Its arrow turns to a ring that turns until GitHub answers, so that
+	// the click shows at once however long that takes; with less motion,
+	// the arrow only dims.
+	refreshing := ctx.git.gh.refreshing() && a.online()
+	reduce := c.Preferences().ReduceMotion
+	b := a.iconButtonOf(c, locales.GhRefresh(), false, func(col ui.Color) {
+		switch {
+		case !refreshing:
+			ui.Icon(c.Key("refresh"), iconRefresh).FontSize(15).TextColor(col)
+		case reduce:
+			ui.Icon(c.Key("refresh"), iconRefresh).FontSize(15).TextColor(a.pal.faint)
+		default:
+			spinRing(c, "refreshing", 13, col).Transition(revealFade)
+		}
+	})
+	if b.Clicked() && !refreshing {
 		ctx.refreshGitHubNow()
 	}
 }
 
-// githubSkeleton is the shapes of the view, while it reads its rows the
-// first time: its query's field, a section's header and its rows, each
-// where the real one goes, so that nothing moves as they come.
+// githubSkeleton is the shapes of the view's list, under its query, while
+// it reads its rows the first time: a section's header and its rows, each
+// where the real one goes, so that nothing moves as they come. A wave runs
+// down them while they wait.
 func (a *app) githubSkeleton(c *ui.Context) {
 	p := a.pal
 	a.github.skeleton = true
 	bar := p.text.Alpha(0.07)
-	ui.Column(c.Key("gh-skeleton")).Grow(1).Label(locales.GhReading()).Children(func() {
-		ui.Box(c).Height(26).Margin(0, 12, 6, 12).Radius(5).Background(p.editor).Border(1, p.border)
-		ui.Column(c).Padding(0, 6, 8, 6).Children(func() {
-			ui.Row(c).Height(scmRowHeight).Padding(0, 0, 0, 16).AlignItems(ui.Center).Children(func() {
-				ui.Box(c).Size(84, 7).Radius(3.5).Background(bar)
-			})
-			for i, w := range []float32{0.8, 0.62, 0.88, 0.55, 0.72} {
-				ui.Column(c.Key(i)).Height(ghItemH).Padding(3, 8, 3, 6).Gap(7).Justify(ui.Center).Children(func() {
-					ui.Row(c).Gap(6).AlignItems(ui.Center).Children(func() {
-						ui.Box(c).Size(13, 13).Radius(6.5).Background(bar)
-						ui.Box(c).WidthPercent(w * 90).Height(8).Radius(4).Background(bar)
-					})
-					ui.Box(c).Size(90, 6).Radius(3).Background(bar).Margin(0, 0, 0, ghTitleIndent-6)
-				})
-			}
+	reduce := c.Preferences().ReduceMotion
+	ui.Column(c.Key("gh-skeleton")).Grow(1).Padding(0, 6, 8, 6).Label(locales.GhReading()).Children(func() {
+		ui.Row(c).Height(scmRowHeight).Padding(0, 0, 0, 16).AlignItems(ui.Center).Children(func() {
+			pulseShape(ui.Box(c).Size(84, 7), bar, 3.5, 0, reduce)
 		})
+		for i, w := range []float32{0.8, 0.62, 0.88, 0.55, 0.72} {
+			ui.Column(c.Key(i)).Height(ghItemH).Padding(3, 8, 3, 6).Gap(7).Justify(ui.Center).Children(func() {
+				ui.Row(c).Gap(6).AlignItems(ui.Center).Children(func() {
+					pulseShape(ui.Box(c).Size(13, 13), bar, 6.5, i+1, reduce)
+					pulseShape(ui.Box(c).WidthPercent(w*90).Height(8), bar, 4, i+1, reduce)
+				})
+				pulseShape(ui.Box(c).Size(90, 6).Margin(0, 0, 0, ghTitleIndent-6), bar, 3, i+1, reduce)
+			})
+		}
 	})
 }
 

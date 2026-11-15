@@ -3,7 +3,7 @@
 The update window shows the section of the version it offers. Every release
 needs a `## <version>` section here, or its build fails.
 
-## Unreleased
+## 0.22.0
 
 - The Matrix and Claude themes use the same interface font as the other themes, not the code's font.
 - **View → Theme** adds GTA VI: the game's HUD in graphite, white and mission gold, always dark.

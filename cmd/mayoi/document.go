@@ -60,11 +60,13 @@ type document struct {
 	// document clean again.
 	savedSnap ui.TextSnapshot
 	crlf      bool // saved with CRLF line endings
-	diskCRLF  bool // the file on disk has CRLF line endings
-	hl        *highlight.Highlighter
-	indent    indentStyle
-	hist      history
-	git       gitmarks.Marks
+	// encoding is the one the file is written in, nil for UTF-8.
+	encoding *textEncoding
+	diskCRLF bool // the file on disk has CRLF line endings
+	hl       *highlight.Highlighter
+	indent   indentStyle
+	hist     history
+	git      gitmarks.Marks
 	// marks are vim mode's marks in the text, which move with its edits:
 	// those of m, and ' for where the cursor jumped from. changed is where
 	// the last change was, the mark . of vim. tracked are offsets that a
@@ -355,11 +357,9 @@ func readDocument(id int, path string, notify func()) (*document, error) {
 	if err != nil {
 		return nil, err
 	}
-	if isBinary(data) {
-		return nil, errBinary
-	}
-	if hasLongLine(data) {
-		return nil, errLongLine
+	data, enc, err := decodeFile(data)
+	if err != nil {
+		return nil, err
 	}
 	crlf := bytes.Contains(data, []byte("\r\n"))
 	if crlf {
@@ -367,6 +367,7 @@ func readDocument(id int, path string, notify func()) (*document, error) {
 	}
 	d := newDocument(id, path, string(data), highlight.New(highlight.Lexer(path), notify))
 	d.crlf, d.diskCRLF = crlf, crlf
+	d.encoding = enc
 	return d, nil
 }
 
@@ -415,7 +416,10 @@ func hasLongLine(data []byte) bool {
 // save writes the document to its path, beside it first and renamed, so
 // that a failure keeps the old file.
 func (d *document) save() error {
-	snap, data := d.encode()
+	snap, data, err := d.encode()
+	if err != nil {
+		return err
+	}
 	if _, err := vfs.WriteFile(d.path, data, 0o644); err != nil {
 		return err
 	}
@@ -424,8 +428,8 @@ func (d *document) save() error {
 }
 
 // encode returns the text to save and the bytes of it, with the line
-// endings of the document.
-func (d *document) encode() (ui.TextSnapshot, []byte) {
+// endings and in the encoding of the document.
+func (d *document) encode() (ui.TextSnapshot, []byte, error) {
 	snap := d.buf.Snapshot()
 	var b bytes.Buffer
 	b.Grow(snap.ByteLen())
@@ -434,7 +438,8 @@ func (d *document) encode() (ui.TextSnapshot, []byte) {
 	if d.crlf {
 		data = bytes.ReplaceAll(data, []byte("\n"), []byte("\r\n"))
 	}
-	return snap, data
+	data, err := encodeText(data, d.encoding)
+	return snap, data, err
 }
 
 // wrote marks the text snap, with line endings crlf, the file's.

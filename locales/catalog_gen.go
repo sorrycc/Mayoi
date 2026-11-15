@@ -5278,6 +5278,16 @@ func (msgs Messages) ErrBinaryFile() string {
 	return Catalog.Format(msgs.locale, "errBinaryFile", nil)
 }
 
+// ErrCannotEncode says "the text has characters {encoding} cannot hold"
+// in the language the app shows.
+func ErrCannotEncode(encoding string) string { return In(i18n.Locale()).ErrCannotEncode(encoding) }
+
+// ErrCannotEncode says "the text has characters {encoding} cannot hold"
+// in the language of msgs.
+func (msgs Messages) ErrCannotEncode(encoding string) string {
+	return Catalog.Format(msgs.locale, "errCannotEncode", map[string]any{"encoding": encoding})
+}
+
 // ErrCommitSince says "a commit has been made since, so this one is no longer the last to undo"
 // in the language the app shows.
 func ErrCommitSince() string { return In(i18n.Locale()).ErrCommitSince() }

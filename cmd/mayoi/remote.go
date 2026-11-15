@@ -314,10 +314,9 @@ func (a *app) remoteLoaded(d *document, path string, info fs.FileInfo, data []by
 		return
 	}
 	defer d.readDone()
-	if err == nil && isBinary(data) {
-		err = errBinary
-	} else if err == nil && hasLongLine(data) {
-		err = errLongLine
+	var enc *textEncoding
+	if err == nil {
+		data, enc, err = decodeFile(data)
 	}
 	if err != nil {
 		d.sync, d.loadErr = syncLoadFailed, err
@@ -353,6 +352,7 @@ func (a *app) remoteLoaded(d *document, path string, info fs.FileInfo, data []by
 	d.hist = history{}
 	d.markSaved()
 	d.crlf, d.diskCRLF = crlf, crlf
+	d.encoding = enc
 	d.indent = detectIndent(d.buf.Snapshot(), path)
 	d.measureWidest()
 	d.stamp = stampOf(info)
@@ -406,7 +406,11 @@ func (a *app) reloadRemote(d *document) {
 			return
 		}
 		info, data, err := vfs.ReadFileInfo(path, maxOpenBytes)
-		if err != nil || isBinary(data) || hasLongLine(data) {
+		if err != nil {
+			return
+		}
+		data, enc, err := decodeFile(data)
+		if err != nil {
 			return
 		}
 		a.post(func() {
@@ -414,7 +418,7 @@ func (a *app) reloadRemote(d *document) {
 			if !slices.Contains(a.docs, d) || d.path != path || d.sync != syncIdle && d.sync != syncConflict || d.dirty() || d.stamp != old {
 				return
 			}
-			d.takeText(data)
+			d.takeText(data, enc)
 			d.stamp = stampOf(info)
 			// The file's text, unchanged here, settles a conflict.
 			if d.sync == syncConflict {
@@ -440,7 +444,12 @@ func (a *app) writeRemote(d *document) {
 		return
 	}
 	d.sync = syncSaving
-	snap, data := d.encode()
+	snap, data, err := d.encode()
+	if err != nil {
+		d.sync = syncIdle
+		a.answerSaves(d, err)
+		return
+	}
 	crlf, path := d.crlf, d.path
 	// The file as it was read, unless it changed on the host since.
 	expect := ""
@@ -805,15 +814,16 @@ func (a *app) revertRemote(d *document) {
 				a.fail("%s", locales.RemoteCouldNotRead(d.name(), err.Error()))
 				return
 			}
-			if isBinary(data) {
+			data, enc, err := decodeFile(data)
+			if errors.Is(err, errBinary) {
 				a.fail("%s", locales.FailBinaryNow(d.name()))
 				return
 			}
-			if hasLongLine(data) {
+			if err != nil {
 				a.fail("%s", locales.FailLongLine(d.name()))
 				return
 			}
-			d.takeText(data)
+			d.takeText(data, enc)
 			d.stamp = stampOf(info)
 		})
 	}()

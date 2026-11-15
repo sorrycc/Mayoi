@@ -1176,7 +1176,7 @@ func (a *app) statusFit(c *ui.Context, width float32) statusVisibility {
 		if d.crlf {
 			eol = "CRLF"
 		}
-		add(&v.encoding, measure("UTF-8", false))
+		add(&v.encoding, measure(d.encoding.label(), false))
 		folder()
 		add(&v.lines, measure(locales.LinesCount(n), false))
 		add(&v.eol, measure(eol, false))
@@ -1496,7 +1496,7 @@ func (a *app) statusBar(c *ui.Context) {
 			}
 		})
 		if visible.encoding {
-			item("enc", "UTF-8", "", nil, nil)
+			item("enc", d.encoding.label(), "", nil, nil)
 		}
 		eol := "LF"
 		if d.crlf {

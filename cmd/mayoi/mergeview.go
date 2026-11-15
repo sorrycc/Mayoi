@@ -592,7 +592,7 @@ func (a *app) makeMergeResult(v *mergeView, data []byte, diskErr error) {
 		// The file open already, as the raw text of the conflict: it
 		// becomes the result, as a step of undo.
 		v.doc = a.docs[i]
-		v.doc.takeText([]byte(text))
+		v.doc.takeText([]byte(text), v.doc.encoding)
 	} else {
 		a.nextID++
 		v.doc = newDocument(a.nextID, v.path, text, highlight.New(highlight.Lexer(v.path), a.invalidate))

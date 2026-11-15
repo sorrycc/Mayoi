@@ -749,6 +749,7 @@
   "enterNameNoSlashes": "Enter a name without slashes.",
   "enterPathFromRoot": "Enter a path from /.",
   "errBinaryFile": "binary file",
+  "errCannotEncode": "the text has characters {encoding} cannot hold",
   "errCommitSince": "a commit has been made since, so this one is no longer the last to undo",
   "errImageEmpty": "the image is empty",
   "errImageNotRegular": "the image is not a regular file",

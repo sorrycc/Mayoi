@@ -830,17 +830,22 @@ func (a *app) reloadDoc(d *document) {
 		return
 	}
 	data, err := os.ReadFile(d.path)
-	if err != nil || isBinary(data) || hasLongLine(data) {
+	if err != nil {
 		return
 	}
-	d.takeText(data)
+	data, enc, err := decodeFile(data)
+	if err != nil {
+		return
+	}
+	d.takeText(data, enc)
 }
 
-// takeText makes a document's text data, read from its file, as a step of
-// undo, and clean. Only the part that changed is replaced, so that the
+// takeText makes a document's text data, read from its file in enc, as a
+// step of undo, and clean. Only the part that changed is replaced, so that the
 // selections stay on their text, and the editors stay where they are
 // scrolled, the line at the top of each on its text too.
-func (d *document) takeText(data []byte) {
+func (d *document) takeText(data []byte, enc *textEncoding) {
+	d.encoding = enc
 	data = bytes.ReplaceAll(data, []byte("\r\n"), []byte("\n"))
 	if old := d.buf.String(); string(data) != old {
 		if ed := d.main(); ed != nil {

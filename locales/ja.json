@@ -484,6 +484,7 @@
   "enterNameNoSlashes": "スラッシュを含まない名前を入力してください。",
   "enterPathFromRoot": "/ から始まるパスを入力してください。",
   "errBinaryFile": "バイナリ ファイル",
+  "errCannotEncode": "テキストに {encoding} で保存できない文字があります",
   "errCommitSince": "その後にコミットが作成されたため、このコミットは取り消せる最後のコミットではありません",
   "errImageEmpty": "画像が空です",
   "errImageNotRegular": "画像は通常のファイルではありません",

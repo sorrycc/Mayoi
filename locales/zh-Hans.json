@@ -484,6 +484,7 @@
   "enterNameNoSlashes": "请输入不含斜杠的名称。",
   "enterPathFromRoot": "请输入以 / 开头的路径。",
   "errBinaryFile": "二进制文件",
+  "errCannotEncode": "文本中有 {encoding} 无法保存的字符",
   "errCommitSince": "此后又有新的提交，因此此提交已不是可撤销的最后一个提交",
   "errImageEmpty": "图像为空",
   "errImageNotRegular": "图像不是普通文件",

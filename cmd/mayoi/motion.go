@@ -107,7 +107,7 @@ func (a *app) pickMark(c *ui.Context, on bool) {
 	if !on {
 		return
 	}
-	ui.Box(c.Key("pick-mark")).Absolute().Left(0).Right(0).Top(0).Bottom(0).Radius(6).Background(a.pal.active)
+	ui.Box(c.Key("pick-mark")).Absolute().Left(0).Right(0).Top(0).Bottom(0).PassThrough().Radius(6).Background(a.pal.active)
 }
 
 // riseIn brings a block of a page in as the page shows: it fades in from

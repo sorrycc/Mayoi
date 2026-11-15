@@ -1767,6 +1767,8 @@
   "ghCopyLink": "リンクをコピー",
   "ghShowDetails": "詳細を表示",
   "ghLinkCopied": "{number} のリンクをコピーしました",
+  "ghCopyLinks": "{count, plural, other {# 件のリンクをコピー}}",
+  "ghLinksCopied": "{count, plural, other {# 件のリンクをコピーしました}}",
   "ghCheckedOut": "{number} をチェックアウトしました",
   "ghNewIssue": "新しい Issue",
   "ghOpenRepo": "GitHub でリポジトリを開く",

@@ -1767,6 +1767,8 @@
   "ghCopyLink": "复制链接",
   "ghShowDetails": "显示详情",
   "ghLinkCopied": "已复制 {number} 的链接",
+  "ghCopyLinks": "{count, plural, other {复制 # 个链接}}",
+  "ghLinksCopied": "{count, plural, other {已复制 # 个链接}}",
   "ghCheckedOut": "已检出 {number}",
   "ghNewIssue": "新建议题",
   "ghOpenRepo": "在 GitHub 上打开仓库",

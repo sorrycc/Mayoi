@@ -1995,6 +1995,8 @@
   "ghCopyLink": "Copy Link",
   "ghShowDetails": "Show Details",
   "ghLinkCopied": "Copied the link of {number}",
+  "ghCopyLinks": "{count, plural, one {Copy # Link} other {Copy # Links}}",
+  "ghLinksCopied": "{count, plural, one {Copied # link} other {Copied # links}}",
   "ghCheckedOut": "Checked out {number}",
   "ghNewIssue": "New Issue",
   "ghOpenRepo": "Open Repository on GitHub",

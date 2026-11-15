@@ -560,6 +560,9 @@ func (a *app) panel(c *ui.Context) {
 		case it.file != nil && s != nil:
 			// A file of the sidebar types its path, as one from the Finder.
 			a.post(func() { a.pastePaths(s, it.file.paths()) })
+		case it.link != nil && s != nil && a.owns(it):
+			// Issues and pull requests of the GitHub view type their links.
+			a.post(func() { a.pasteLinks(s, it.link) })
 		}
 	}
 	over, _ := a.dragOver(box)
@@ -684,7 +687,7 @@ func (a *app) panel(c *ui.Context) {
 			} else {
 				a.terminalView(c, s)
 			}
-			if over.tab != nil && over.tab.term != nil || filesOver {
+			if over.tab != nil && over.tab.term != nil || over.link != nil && s != nil && a.owns(over) || filesOver {
 				a.dropMark(c)
 			}
 		})

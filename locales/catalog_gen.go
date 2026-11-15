@@ -17862,6 +17862,26 @@ func (msgs Messages) GhLinkCopied(number string) string {
 	return Catalog.Format(msgs.locale, "ghLinkCopied", map[string]any{"number": number})
 }
 
+// GhCopyLinks says "{count, plural, one {Copy # Link} other {Copy # Links}}"
+// in the language the app shows.
+func GhCopyLinks(count int) string { return In(i18n.Locale()).GhCopyLinks(count) }
+
+// GhCopyLinks says "{count, plural, one {Copy # Link} other {Copy # Links}}"
+// in the language of msgs.
+func (msgs Messages) GhCopyLinks(count int) string {
+	return Catalog.Format(msgs.locale, "ghCopyLinks", map[string]any{"count": count})
+}
+
+// GhLinksCopied says "{count, plural, one {Copied # link} other {Copied # links}}"
+// in the language the app shows.
+func GhLinksCopied(count int) string { return In(i18n.Locale()).GhLinksCopied(count) }
+
+// GhLinksCopied says "{count, plural, one {Copied # link} other {Copied # links}}"
+// in the language of msgs.
+func (msgs Messages) GhLinksCopied(count int) string {
+	return Catalog.Format(msgs.locale, "ghLinksCopied", map[string]any{"count": count})
+}
+
 // GhCheckedOut says "Checked out {number}"
 // in the language the app shows.
 func GhCheckedOut(number string) string { return In(i18n.Locale()).GhCheckedOut(number) }

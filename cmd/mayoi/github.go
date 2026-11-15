@@ -99,6 +99,12 @@ type githubPanel struct {
 	// rowKey is the key of the row chosen, for the choice to stay on it
 	// as a refresh brings rows above it or takes them.
 	rowKey string
+	// selection are the items Shift and Cmd choose with the choice, by
+	// their rows' keys, none for the item chosen alone; anchor is the one
+	// Shift chooses from, and cursor the choice they were chosen with,
+	// which, moved otherwise, lets them go. As in Sessions.
+	selection      ui.Selection[string]
+	anchor, cursor string
 	// scrolledAt is when the list last scrolled: its rows show no card
 	// until it has rested for scmScrollQuiet.
 	scrolledAt time.Time
@@ -617,6 +623,133 @@ func (gp *githubPanel) keepChoice() {
 	}
 }
 
+// selectGitHubRow chooses row i of rows as a click or a key with mods
+// does: with Shift, the items from the anchor to it; with Cmd, it as well
+// as those chosen, or no longer; else it alone. Shift and Cmd put the
+// choice there at once, rather than gliding over the rows between. Only
+// an issue's or a pull request's row is chosen with others.
+func (gp *githubPanel) selectGitHubRow(rows []ghRow, i int, mods ui.Modifiers) {
+	if i < 0 || i >= len(rows) || rows[i].item == nil || !rows[i].gone.IsZero() {
+		return
+	}
+	k := rows[i].key
+	anchor := -1
+	if gp.selection.Len() > 0 {
+		for j, r := range rows {
+			if r.key == gp.anchor && r.item != nil {
+				anchor = j
+				break
+			}
+		}
+	}
+	if anchor < 0 && gp.row >= 0 && gp.row < len(rows) && rows[gp.row].item != nil {
+		anchor = gp.row
+	}
+	switch {
+	case mods&ui.Shift != 0 && anchor >= 0:
+		gp.selection.Clear()
+		for j := min(anchor, i); j <= max(anchor, i); j++ {
+			if rows[j].item != nil && rows[j].gone.IsZero() {
+				gp.selection.Add(rows[j].key)
+			}
+		}
+		gp.anchor = rows[anchor].key
+	case mods&ui.Cmd != 0:
+		if gp.selection.Len() == 0 && anchor >= 0 {
+			gp.selection.Add(rows[anchor].key)
+		}
+		if gp.selection.Has(k) {
+			gp.selection.Remove(k)
+		} else {
+			gp.selection.Add(k)
+		}
+		gp.anchor = k
+	default:
+		gp.selection.Clear()
+		gp.anchor = k
+	}
+	if mods&(ui.Shift|ui.Cmd) != 0 {
+		gp.glide.key = ""
+	}
+	gp.row, gp.rowKey, gp.cursor = i, k, k
+}
+
+// selectAllGitHub chooses every issue and pull request of rows, the
+// choice staying where it is.
+func (gp *githubPanel) selectAllGitHub(rows []ghRow) {
+	gp.selection.Clear()
+	for _, r := range rows {
+		if r.item != nil && r.gone.IsZero() {
+			gp.selection.Add(r.key)
+		}
+	}
+	gp.cursor = gp.rowKey
+	if gp.selection.Len() > 0 && gp.anchor == "" {
+		gp.anchor = gp.rowKey
+	}
+}
+
+// keepGitHubSelection lets the items chosen go as the choice moves
+// otherwise than with them, and each as its row goes, as a refresh, the
+// query or a section folding takes it.
+func (gp *githubPanel) keepGitHubSelection(rows []ghRow) {
+	if gp.selection.Len() == 0 {
+		return
+	}
+	if gp.rowKey != gp.cursor {
+		gp.selection.Clear()
+		return
+	}
+	listed := make(map[string]bool, len(rows))
+	for _, r := range rows {
+		if r.item != nil && r.gone.IsZero() {
+			listed[r.key] = true
+		}
+	}
+	for k := range gp.selection.All() {
+		if !listed[k] {
+			gp.selection.Remove(k)
+		}
+	}
+}
+
+// pickedGitHubItems are the items of rows chosen with r, in their order,
+// when r is one of several chosen, and else r's alone. An item two
+// sections list is there once.
+func (gp *githubPanel) pickedGitHubItems(rows []ghRow, r ghRow) []*git.GHItem {
+	if gp.selection.Len() < 2 || !gp.selection.Has(r.key) {
+		return []*git.GHItem{r.item}
+	}
+	var out []*git.GHItem
+	type id struct {
+		pr bool
+		n  int
+	}
+	seen := map[id]bool{}
+	for _, m := range rows {
+		if m.item == nil || !m.gone.IsZero() || !gp.selection.Has(m.key) {
+			continue
+		}
+		if k := (id{m.item.PR, m.item.Number}); !seen[k] {
+			seen[k] = true
+			out = append(out, m.item)
+		}
+	}
+	return out
+}
+
+// ghLinks are the links of items, in their order, those with none left
+// out.
+func ghLinks(items []*git.GHItem) []string {
+	var out []string
+	for _, it := range items {
+		if it.URL != "" {
+			out = append(out, it.URL)
+		}
+	}
+	return out
+}
+
 // chooseItem puts the choice on the row of item n, and reports whether
 // rows have one.
 func (gp *githubPanel) chooseItem(rows []ghRow, n int) bool {
@@ -825,7 +958,7 @@ func (a *app) githubQuery(c *ui.Context, ctx *gitContext, o *git.GHOverview, row
 		// Copy with nothing selected in the query copies the chosen row's
 		// link, as from the list.
 		a.takeKeys(in, placeInput, func(ev ui.InputEvent) bool {
-			return ev.Kind == ui.InputCommand && ev.Text == "copy" && gp.row >= 0 && gp.row < len(rows) && a.copyGitHubRow(rows[gp.row])
+			return ev.Kind == ui.InputCommand && ev.Text == "copy" && gp.row >= 0 && gp.row < len(rows) && a.copyGitHubRow(rows, rows[gp.row])
 		})
 		if in.Changed() {
 			gp.row = ghFirstItem(rows)
@@ -911,7 +1044,8 @@ func (a *app) githubList(c *ui.Context, ctx *gitContext, o *git.GHOverview, rows
 		var choice *sessionChoice
 		if i == gp.row {
 			listKeys := gp.list.FocusWithin(c)
-			choice = &sessionChoice{keyed: listKeys, held: listKeys || queryKeys}
+			loose := gp.selection.Len() > 0 && !gp.selection.Has(rows[i].key)
+			choice = &sessionChoice{keyed: listKeys, held: listKeys || queryKeys, loose: loose}
 			choice.y, choice.there = a.ghGlide(rows, i, now, reduce)
 			if k, y := gp.ghHop(now); k > 0 {
 				choice.y, choice.there, choice.fade = y, 1-k, k
@@ -921,7 +1055,7 @@ func (a *app) githubList(c *ui.Context, ctx *gitContext, o *git.GHOverview, rows
 		case r.header:
 			a.githubHeader(c, r, now, &action)
 		case r.item != nil:
-			a.githubItem(c, ctx, o, r, choice, now, &action)
+			a.githubItem(c, ctx, o, rows, i, choice, now, &action)
 		default:
 			a.githubNoteRow(c, r, choice, now, &action)
 		}
@@ -941,6 +1075,25 @@ func (a *app) githubList(c *ui.Context, ctx *gitContext, o *git.GHOverview, rows
 	if gp.focusList && gp.list.Focus(c) {
 		gp.focusList, listKeys = false, true
 	}
+	// Shift with Up, Down, Home and End chooses the items from the anchor
+	// to the one it moves to.
+	for _, k := range []ui.Key{ui.KeyUp, ui.KeyDown, ui.KeyHome, ui.KeyEnd} {
+		if !out.Shortcut(ui.Shift, k) {
+			continue
+		}
+		to := ghItemStep(rows, gp.row, 1)
+		switch k {
+		case ui.KeyUp:
+			to = ghItemStep(rows, gp.row, -1)
+		case ui.KeyHome:
+			to = ghItemStep(rows, -1, 1)
+		case ui.KeyEnd:
+			to = ghItemStep(rows, len(rows), -1)
+		}
+		gp.selectGitHubRow(rows, to, ui.Shift)
+		gp.list.ScrollIntoView(to)
+	}
+	gp.keepGitHubSelection(rows)
 	if gp.row >= 0 && gp.row < len(rows) {
 		// The list's keys and clicks move the choice after its rows are
 		// built: it glides from the next frame on.
@@ -951,11 +1104,21 @@ func (a *app) githubList(c *ui.Context, ctx *gitContext, o *git.GHOverview, rows
 		out.Opacity(ui.EaseOut(float32(since) / float32(motionShow)))
 		c.AnimationFrame()
 	}
+	// Copy of the Edit menu, which takes ⌘C, copies the links of the items
+	// chosen, and Select All, which takes ⌘A, chooses every item.
 	out.HandleInput(func(ev ui.InputEvent) bool {
-		if ev.Kind == ui.InputScroll {
+		switch {
+		case ev.Kind == ui.InputScroll:
 			gp.scrolledAt = ev.Time
+		case ev.Kind != ui.InputCommand:
+		case ev.Text == "selectAll":
+			gp.selectAllGitHub(rows)
+			a.invalidate()
+			return true
+		case ev.Text == "copy":
+			return gp.row >= 0 && gp.row < len(rows) && a.copyGitHubRow(rows, rows[gp.row])
 		}
-		return ev.Kind == ui.InputCommand && ev.Text == "copy" && gp.row >= 0 && gp.row < len(rows) && a.copyGitHubRow(rows[gp.row])
+		return false
 	})
 	if out.Submitted() && gp.row >= 0 && gp.row < len(rows) {
 		r := rows[gp.row]
@@ -976,8 +1139,12 @@ func (a *app) githubList(c *ui.Context, ctx *gitContext, o *git.GHOverview, rows
 			action = do
 		}
 	}
-	if gp.card != "" && (out.Shortcut(0, ui.KeyEscape) || !listKeys || gp.row < 0 || gp.row >= len(rows) || rows[gp.row].key != gp.card) {
+	// Escape hides the card first, then lets the items chosen go.
+	switch esc := out.Shortcut(0, ui.KeyEscape); {
+	case gp.card != "" && (esc || !listKeys || gp.row < 0 || gp.row >= len(rows) || rows[gp.row].key != gp.card):
 		gp.card = ""
+	case esc && gp.selection.Len() > 0:
+		gp.selection.Clear()
 	}
 	if action != nil {
 		action()
@@ -1024,6 +1191,17 @@ func (a *app) githubFirstAction(ctx *gitContext, o *git.GHOverview, it *git.GHIt
 		return func() { a.workOnIssue(ctx, n) }, true
 	}
 	return nil, false
+}
+
+// ghItemStep is the row of the first issue or pull request of rows from
+// i by by, i itself for none.
+func ghItemStep(rows []ghRow, i, by int) int {
+	for k := i + by; k >= 0 && k < len(rows); k += by {
+		if rows[k].item != nil && rows[k].gone.IsZero() {
+			return k
+		}
+	}
+	return i
 }
 
 // ghStepH is how far the top of row r of the view, not a header, is from
@@ -1230,10 +1408,15 @@ const (
 // The chosen row shows the choice, which glides to it from the row it was
 // on, and its actions while the list has the keyboard, as the keys that
 // run them do; Space shows its card.
-func (a *app) githubItem(c *ui.Context, ctx *gitContext, o *git.GHOverview, r ghRow, choice *sessionChoice, now time.Time, action *func()) {
+func (a *app) githubItem(c *ui.Context, ctx *gitContext, o *git.GHOverview, rows []ghRow, i int, choice *sessionChoice, now time.Time, action *func()) {
 	p := a.pal
+	gp := &a.github
+	r := rows[i]
 	it := r.item
 	chosen := choice != nil
+	// Of several chosen, those but the choice show the background of the
+	// choice too, without its ring.
+	picked := !chosen && gp.selection.Len() > 0 && gp.selection.Has(r.key)
 	row := ui.Column(c).Grow(1).Height(ghItemH).Padding(3, 8, 3, 6).Gap(2).Justify(ui.Center).Radius(6)
 	a.ghOpenShut(c, row, r, ghItemH, now)
 	// A row that goes shows nothing of the pointer, and does nothing.
@@ -1241,7 +1424,10 @@ func (a *app) githubItem(c *ui.Context, ctx *gitContext, o *git.GHOverview, r gh
 	hovered := row.Hovered() && !going
 	// The row's hover is the only one under it, the list painting none,
 	// and the choice shows none over its own.
-	if hovered && !chosen {
+	switch {
+	case picked:
+		row.Background(p.active)
+	case hovered && !chosen:
 		row.Background(p.hover)
 	}
 	row.Transition(hoverFade)
@@ -1343,20 +1529,28 @@ func (a *app) githubItem(c *ui.Context, ctx *gitContext, o *git.GHOverview, r gh
 		return
 	}
 	row.ContextMenu(func(m *ui.Menu) {
-		a.githubItemMenu(m, ctx, o, it, action)
+		a.githubItemMenu(m, ctx, o, it, gp.pickedGitHubItems(rows, r), action)
 		m.Separator()
 		// The card of the row, chosen, as Space shows it.
 		if m.Item(locales.GhShowDetails()).Shortcut(0, ui.KeySpace).Chosen() {
 			*action = func() { a.showGitHubCard(r.key) }
 		}
 	})
+	// It drags its link, and those of the others chosen with it, to a
+	// terminal, which types them, or to a column, which opens them.
+	a.dragGitHubItems(row, ctx, func() []*git.GHItem { return gp.pickedGitHubItems(rows, r) })
 	// The row, not the list's, takes the clicks, and so the double click
-	// that keeps its tab open, as a file's row does.
-	switch {
+	// that keeps its tab open, as a file's row does. Shift and Cmd choose
+	// it with others, and open nothing.
+	switch mods := row.ClickModifiers(); {
 	case *action != nil:
 	case row.DoubleClicked():
 		*action = func() { a.openGitHubItem(ctx, it, true) }
+	case row.Clicked() && mods&(ui.Shift|ui.Cmd) != 0:
+		gp.selectGitHubRow(rows, i, mods)
+		gp.list.Focus(c)
 	case row.Clicked():
+		gp.selectGitHubRow(rows, i, 0)
 		*action = func() { a.openGitHubItem(ctx, it, false) }
 	}
 }
@@ -1533,7 +1727,7 @@ func (a *app) githubItemActions(c *ui.Context, ctx *gitContext, o *git.GHOvervie
 	if it.URL != "" {
 		acts = append(acts,
 			act{iconExternal, locales.PrOpenOnGitHub(), keyText("Alt+Enter"), false, func() { a.services.OpenURL(it.URL) }},
-			act{iconCopy, locales.GhCopyLink(), keyText("CmdOrCtrl+C"), false, func() { a.copyGitHubLink(it) }})
+			act{iconCopy, locales.GhCopyLink(), keyText("CmdOrCtrl+C"), false, func() { a.copyGitHubLinks([]*git.GHItem{it}) }})
 	}
 	if len(acts) == 0 {
 		return
@@ -1820,7 +2014,8 @@ func (a *app) showGitHubCard(key string) {
 
 // githubItemMenu is the menu of an issue or a pull request of the view,
 // with the keys of the chosen row's.
-func (a *app) githubItemMenu(m *ui.Menu, ctx *gitContext, o *git.GHOverview, it *git.GHItem, action *func()) {
+// picked are the items chosen with it, whose links it copies.
+func (a *app) githubItemMenu(m *ui.Menu, ctx *gitContext, o *git.GHOverview, it *git.GHItem, picked []*git.GHItem, action *func()) {
 	n := it.Number
 	do := func(fn func()) { *action = fn }
 	if it.PR {
@@ -1856,8 +2051,13 @@ func (a *app) githubItemMenu(m *ui.Menu, ctx *gitContext, o *git.GHOverview, it 
 	if m.Item(locales.PrOpenOnGitHub()).Shortcut(ui.Alt, ui.KeyEnter).Disabled(it.URL == "").Chosen() {
 		do(func() { a.services.OpenURL(it.URL) })
 	}
-	if m.Item(locales.GhCopyLink()).Shortcut(ui.Cmd, ui.KeyC).Disabled(it.URL == "").Chosen() {
-		do(func() { a.copyGitHubLink(it) })
+	// Of several chosen, the menu of one copies their links.
+	label := locales.GhCopyLink()
+	if links := ghLinks(picked); len(links) > 1 {
+		label = locales.GhCopyLinks(len(links))
+	}
+	if m.Item(label).Shortcut(ui.Cmd, ui.KeyC).Disabled(len(ghLinks(picked)) == 0).Chosen() {
+		do(func() { a.copyGitHubLinks(picked) })
 	}
 }
 
@@ -1884,13 +2084,14 @@ func (a *app) openGitHubItem(ctx *gitContext, it *git.GHItem, keep bool) {
 	a.openIssue(ctx, it.Number, keep)
 }
 
-// copyGitHubRow puts the link of row r on the clipboard: its issue's or
-// pull request's, or that of the list its note opens on GitHub. It
-// reports whether r has one to copy.
-func (a *app) copyGitHubRow(r ghRow) bool {
+// copyGitHubRow puts the link of row r of rows on the clipboard: its
+// issue's or pull request's, with those of the others chosen with it, or
+// that of the list its note opens on GitHub. It reports whether r has one
+// to copy.
+func (a *app) copyGitHubRow(rows []ghRow, r ghRow) bool {
 	switch {
 	case r.item != nil:
-		a.copyGitHubLink(r.item)
+		a.copyGitHubLinks(a.github.pickedGitHubItems(rows, r))
 		return true
 	case r.link != "" && r.gone.IsZero():
 		title := locales.GhPRs()
@@ -1904,14 +2105,24 @@ func (a *app) copyGitHubRow(r ghRow) bool {
 	return false
 }
 
-// copyGitHubLink puts the link of an issue or a pull request on the
-// clipboard.
-func (a *app) copyGitHubLink(it *git.GHItem) {
-	if it.URL == "" {
+// copyGitHubLinks puts the links of issues and pull requests on the
+// clipboard, between spaces, as a drag of them types them.
+func (a *app) copyGitHubLinks(items []*git.GHItem) {
+	links := ghLinks(items)
+	switch len(links) {
+	case 0:
+		return
+	case 1:
+		a.services.WriteClipboard(links[0])
+		for _, it := range items {
+			if it.URL != "" {
+				a.tell(note{message: locales.GhLinkCopied("#" + strconv.Itoa(it.Number))})
+			}
+		}
 		return
 	}
-	a.services.WriteClipboard(it.URL)
-	a.tell(note{message: locales.GhLinkCopied("#" + strconv.Itoa(it.Number))})
+	a.services.WriteClipboard(strings.Join(links, " "))
+	a.tell(note{message: locales.GhLinksCopied(len(links))})
 }
 
 // openChecksOf shows the box of the checks of pull request n.

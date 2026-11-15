@@ -1565,3 +1565,125 @@ func TestGitHubCopyLink(t *testing.T) {
 		t.Errorf("Copy on the note of more issues copied %q, want the list's link", got)
 	}
 }
+
+// TestGitHubChooseSeveral: Cmd and Shift choose several items of the
+// GitHub view, as in Sessions, without opening them; Copy copies their
+// links, and Escape lets them go.
+func TestGitHubChooseSeveral(t *testing.T) {
+	hs := githubHarness(t, ghOverviewFixture(), nil)
+	hs.a.showGitHub()
+	hs.settle()
+	gp := &hs.a.github
+	if err := hs.tt.Click("Speed up the tree"); err != nil {
+		t.Fatal(err)
+	}
+	hs.settle()
+	tabs := len(hs.a.fileColumn().tabs)
+	if err := hs.tt.ClickWith(ui.Cmd, "Crash on open"); err != nil {
+		t.Fatal(err)
+	}
+	hs.settle()
+	if n := gp.selection.Len(); n != 2 {
+		t.Fatalf("Cmd-click chose %d items, want 2", n)
+	}
+	if n := len(hs.a.fileColumn().tabs); n != tabs {
+		t.Errorf("Cmd-click opened a tab: %d tabs, want %d", n, tabs)
+	}
+	hs.tt.Command("copy")
+	hs.settle()
+	if got, want := hs.tt.Clipboard(), "https://github.com/o/r/pull/7 https://github.com/o/r/issues/3"; got != want {
+		t.Errorf("Copy copied %q, want %q", got, want)
+	}
+	hs.tt.Key(0, ui.KeyEscape)
+	hs.settle()
+	if n := gp.selection.Len(); n != 0 {
+		t.Errorf("Escape left %d items chosen", n)
+	}
+	// Shift chooses the items between, each of them once however many
+	// sections list it.
+	if err := hs.tt.Click("Speed up the tree"); err != nil {
+		t.Fatal(err)
+	}
+	hs.settle()
+	if err := hs.tt.ClickWith(ui.Shift, "Wider sidebar"); err != nil {
+		t.Fatal(err)
+	}
+	hs.settle()
+	from, to := -1, -1
+	for i, r := range gp.rows {
+		if r.item != nil && r.item.Number == 7 && from < 0 {
+			from = i
+		}
+		if r.item != nil && r.item.Number == 4 {
+			to = i
+		}
+	}
+	want := 0
+	for _, r := range gp.rows[from : to+1] {
+		if r.item != nil {
+			want++
+		}
+	}
+	if n := gp.selection.Len(); n != want {
+		t.Errorf("Shift-click chose %d items, want the %d from #7 to #4", n, want)
+	}
+	seen := map[string]bool{}
+	for _, it := range gp.pickedGitHubItems(gp.rows, gp.rows[gp.row]) {
+		k := fmt.Sprint(it.PR, it.Number)
+		if seen[k] {
+			t.Errorf("#%d is picked twice", it.Number)
+		}
+		seen[k] = true
+	}
+	// A plain click chooses the row alone.
+	if err := hs.tt.Click("Mine to finish"); err != nil {
+		t.Fatal(err)
+	}
+	hs.settle()
+	if n := gp.selection.Len(); n != 0 {
+		t.Errorf("a click left %d items chosen", n)
+	}
+}
+
+// TestGitHubDragItems: items of the GitHub view dragged to an editor open
+// there, kept, and type their links into a terminal, between spaces.
+func TestGitHubDragItems(t *testing.T) {
+	hs := githubHarness(t, ghOverviewFixture(), nil)
+	a := hs.a
+	a.openFile(hs.path("main.go"), true)
+	a.showGitHub()
+	hs.settle()
+	if err := hs.tt.ClickWith(ui.Cmd, "Crash on open"); err != nil {
+		t.Fatal(err)
+	}
+	hs.settle()
+	if err := hs.tt.ClickWith(ui.Cmd, "Wider sidebar"); err != nil {
+		t.Fatal(err)
+	}
+	hs.settle()
+	gp := &a.github
+	if n := gp.selection.Len(); n < 2 {
+		t.Fatalf("Cmd-click chose %d items", n)
+	}
+	d := &linkDrag{from: a, items: func() []*git.GHItem { return gp.pickedGitHubItems(gp.rows, gp.rows[gp.row]) }}
+	// #4 has no link.
+	if got := d.text(); !strings.Contains(got, "https://github.com/o/r/issues/3 ") || strings.Count(got, "https://") != 2 {
+		t.Errorf("a terminal is typed %q, want the links of #7 and #3", got)
+	}
+	r, _ := hs.tt.Find("Wider sidebar")
+	body, ok := hs.tt.Find("Editor main.go")
+	if !ok {
+		t.Fatalf("no editor: %q", hs.tt.Texts())
+	}
+	hs.drag(r.X+r.W/2, r.Y+r.H/2, body.X+body.W/2, body.Y+body.H/2)
+	col := a.fileColumn()
+	kept := 0
+	for _, t := range col.tabs {
+		if t.issue != nil && (t.issue.number == 3 || t.issue.number == 4) && !t.transient {
+			kept++
+		}
+	}
+	if kept != 2 {
+		t.Errorf("the drag left %d of the issues' tabs kept, want 2: %q", kept, tabNames(col))
+	}
+}

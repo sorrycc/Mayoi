@@ -11,6 +11,10 @@ needs a `## <version>` section here, or its build fails.
 - Files in GBK, Big5, Shift JIS or UTF-16, such as CSVs from Excel, open as text instead of as binary.
 - Such files save back in the encoding they were read in, and the status bar shows it, as `GB18030`.
 - Drag to select and copy the text of an issue or pull request's description and comments.
+- Select several items in the GitHub view with `⌘`-click, `Shift`-click or `Shift` with the arrow keys.
+- `⌘C` and **Copy Links** in the GitHub view copy the links of every selected issue and pull request.
+- Drag issues and pull requests from the GitHub view into a terminal to type their links.
+- Drop issues and pull requests from the GitHub view on an editor to open them in tabs.
 - `mayoi plugin search` says so when the index of plugins lists none yet, instead of printing nothing.
 - The help of `mayoi plugin` no longer shows an install example for a plugin that does not exist.
 

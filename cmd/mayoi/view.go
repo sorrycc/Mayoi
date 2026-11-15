@@ -732,20 +732,25 @@ func (a *app) hideEditor(d *editor) {
 }
 
 // dragItem is what is dragged to a column: one of its tabs, or of
-// another's, a terminal of the panel, or a file of the sidebar.
+// another's, a terminal of the panel, a file of the sidebar, or issues and
+// pull requests of the GitHub view.
 type dragItem struct {
 	tab  *colTab
 	term *session
 	file *fileDrag
+	link *linkDrag
 }
 
 // owns reports whether what was dragged is this window's to take: a tab or
 // a terminal dragged from another window stays there, as its view binds
-// controls of that window, or a file, which opens in any.
+// controls of that window, as do issues and pull requests, of its
+// repository, or a file, which opens in any.
 func (a *app) owns(it dragItem) bool {
 	switch {
 	case it.file != nil:
 		return true
+	case it.link != nil:
+		return it.link.from == a
 	case it.term != nil:
 		return slices.Contains(a.terms, it.term)
 	case it.tab != nil:
@@ -771,6 +776,8 @@ func (a *app) dropInColumn(it dragItem, col *column, at int) {
 	switch {
 	case it.file != nil:
 		a.dropFile(it.file, col, at)
+	case it.link != nil:
+		a.dropLinks(it.link, col, at)
 	case it.term != nil:
 		a.terminalToColumn(it.term, col, at)
 	case it.tab != nil:
@@ -798,6 +805,10 @@ func (a *app) dropBeside(it dragItem, col *column, after bool) {
 	}
 	if it.file != nil {
 		a.dropFileBeside(it.file, col, after)
+		return
+	}
+	if it.link != nil {
+		a.dropLinksBeside(it.link, col, after)
 		return
 	}
 	if from, _ := a.locate(it.tab); from == col && len(col.tabs) == 1 {
@@ -855,6 +866,11 @@ func (a *app) dropZones(c *ui.Context, col *column, over bool) {
 		if it.file != nil {
 			// As files from another app: after the tab shown.
 			a.dropFileOnColumn(it.file, col)
+			return
+		}
+		if it.link != nil && a.owns(it) {
+			// Into the terminal shown, or after the tab shown.
+			a.dropLinksOnColumn(it.link, col)
 			return
 		}
 		a.dropInColumn(it, col, len(col.tabs))

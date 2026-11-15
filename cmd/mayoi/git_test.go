@@ -920,10 +920,19 @@ func TestDiffFolds(t *testing.T) {
 	hs.settleGit()
 	a.toggleDiffWrap(v)
 	hs.settle()
-	tall := 0
-	for _, r := range v.rows {
-		tall = max(tall, r.h)
+	tallest := func() int {
+		tall := 0
+		for _, r := range v.rows {
+			tall = max(tall, r.h)
+		}
+		return tall
 	}
+	// The diff reads the file again in the background, which on a busy
+	// machine can come after git's status has settled.
+	for deadline := time.Now().Add(settleTimeout); tallest() < 3 && time.Now().Before(deadline); {
+		hs.settleGit()
+	}
+	tall := tallest()
 	if tall < 3 || v.tops[len(v.rows)] <= len(v.rows) {
 		t.Errorf("wrapped: tallest row %d", tall)
 	}

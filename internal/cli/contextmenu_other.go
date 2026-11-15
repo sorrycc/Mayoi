@@ -6,7 +6,7 @@ import "errors"
 
 // AddContextMenu fails outside Windows, which has no Explorer.
 func AddContextMenu(string, string) error {
-	return errors.New("Explorer's context menu is of Windows")
+	return errors.New("the Explorer context menu is only on Windows")
 }
 
 // RemoveContextMenu does nothing outside Windows.

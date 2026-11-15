@@ -81,6 +81,11 @@ func TestCarryTabOverRail(t *testing.T) {
 	tab := from.column().tab()
 	step(tt)
 	ed, ok := tt.Find("Editor README.md")
+	for deadline := time.Now().Add(settleTimeout); !ok && time.Now().Before(deadline); {
+		time.Sleep(5 * time.Millisecond)
+		step(tt)
+		ed, ok = tt.Find("Editor README.md")
+	}
 	if !ok {
 		t.Fatal("no editor of the file")
 	}

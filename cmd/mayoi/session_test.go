@@ -28,7 +28,21 @@ func allTabNames(a *app) []string {
 // it is in the background.
 func stepUntilRead(t *testing.T, a *app, tt *ui.Tester) {
 	t.Helper()
-	read := func() bool { d := a.activeEditor(); return d != nil && d.sync != syncLoading && !d.unread() }
+	stepUntilEditorsRead(t, tt, a.activeEditor)
+}
+
+// stepUntilEditorsRead draws frames until the files of the editors given
+// are read, as they are in the background.
+func stepUntilEditorsRead(t *testing.T, tt *ui.Tester, eds ...func() *editor) {
+	t.Helper()
+	read := func() bool {
+		for _, ed := range eds {
+			if d := ed(); d == nil || d.sync == syncLoading || d.unread() {
+				return false
+			}
+		}
+		return true
+	}
 	for deadline := time.Now().Add(settleTimeout); !read() && time.Now().Before(deadline); {
 		step(tt)
 		time.Sleep(5 * time.Millisecond)
@@ -161,11 +175,11 @@ func TestRestoresWhereTabsWere(t *testing.T) {
 	t.Cleanup(a.shutdown)
 	tt := ui.NewTester(a.view, 1200, 760)
 	step(tt)
-	step(tt)
 	col := a.cols[0]
 	if len(col.tabs) != 3 {
 		t.Fatalf("tabs %v", allTabNames(a))
 	}
+	stepUntilEditorsRead(t, tt, func() *editor { return col.tabs[0].ed }, func() *editor { return col.tabs[1].ed })
 	if ed := col.tabs[0].ed; ed.sel != [2]int{10, 14} || !a.wraps(ed) {
 		t.Errorf("main.go: selection %v, wraps %v", ed.sel, a.wraps(ed))
 	}

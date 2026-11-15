@@ -3,7 +3,7 @@
 The update window shows the section of the version it offers. Every release
 needs a `## <version>` section here, or its build fails.
 
-## Unreleased
+## 0.22.1
 
 - Mayoi no longer stops responding about 20 seconds after it opens or after the Mac wakes from sleep.
 

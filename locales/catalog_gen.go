@@ -18062,6 +18062,36 @@ func (msgs Messages) GhCardComments() string {
 	return Catalog.Format(msgs.locale, "ghCardComments", nil)
 }
 
+// GhCardReviewers says "Reviewers"
+// in the language the app shows.
+func GhCardReviewers() string { return In(i18n.Locale()).GhCardReviewers() }
+
+// GhCardReviewers says "Reviewers"
+// in the language of msgs.
+func (msgs Messages) GhCardReviewers() string {
+	return Catalog.Format(msgs.locale, "ghCardReviewers", nil)
+}
+
+// GhReviewCommented says "Commented"
+// in the language the app shows.
+func GhReviewCommented() string { return In(i18n.Locale()).GhReviewCommented() }
+
+// GhReviewCommented says "Commented"
+// in the language of msgs.
+func (msgs Messages) GhReviewCommented() string {
+	return Catalog.Format(msgs.locale, "ghReviewCommented", nil)
+}
+
+// GhReviewPending says "Pending"
+// in the language the app shows.
+func GhReviewPending() string { return In(i18n.Locale()).GhReviewPending() }
+
+// GhReviewPending says "Pending"
+// in the language of msgs.
+func (msgs Messages) GhReviewPending() string {
+	return Catalog.Format(msgs.locale, "ghReviewPending", nil)
+}
+
 // GhNotPlanned says "Not Planned"
 // in the language the app shows.
 func GhNotPlanned() string { return In(i18n.Locale()).GhNotPlanned() }

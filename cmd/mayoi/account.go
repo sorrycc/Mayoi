@@ -621,7 +621,7 @@ func (c *cloud) picture() *ui.Bitmap {
 	c.avatarURL, c.avatar = url, nil
 	go func() {
 		defer recoverCrash()
-		bm := fetchAvatar(url)
+		bm := fetchAvatar(url, avatarSize)
 		if bm == nil {
 			return
 		}
@@ -639,8 +639,9 @@ func (c *cloud) picture() *ui.Bitmap {
 // twice the panel's, for a sharp one on a Retina display.
 const avatarSize = 96
 
-// fetchAvatar fetches and shrinks the picture at url, nil if it cannot.
-func fetchAvatar(url string) *ui.Bitmap {
+// fetchAvatar fetches the picture at url and shrinks it to px pixels
+// across, nil if it cannot.
+func fetchAvatar(url string, px int) *ui.Bitmap {
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
@@ -660,7 +661,7 @@ func fetchAvatar(url string) *ui.Bitmap {
 	if err != nil {
 		return nil
 	}
-	dst := image.NewRGBA(image.Rect(0, 0, avatarSize, avatarSize))
+	dst := image.NewRGBA(image.Rect(0, 0, px, px))
 	draw.CatmullRom.Scale(dst, dst.Bounds(), src, src.Bounds(), draw.Src, nil)
 	return ui.NewBitmap(dst)
 }

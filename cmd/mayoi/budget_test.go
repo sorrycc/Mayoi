@@ -329,10 +329,11 @@ func bigNote(hs *harness) *editor {
 }
 
 // manyGitHub shows the GitHub view of a repository with prs pull
-// requests and issues issues open, each labeled.
+// requests and issues issues open, each labeled, by people with pictures.
 func manyGitHub(t *testing.T, hs *harness, prs, issues int) {
 	o := &git.GHOverview{Viewer: "me", Repo: "o/r", URL: "https://github.com/o/r", IssuesOn: true, DefaultBranch: "main",
-		OpenPRs: prs, OpenIssues: issues}
+		OpenPRs: prs, OpenIssues: issues,
+		Avatars: map[string]string{"ann": "https://avatars.test/ann", "bob": "https://avatars.test/bob", "cat": "https://avatars.test/cat"}}
 	now := time.Now()
 	for i := range prs {
 		o.PRs = append(o.PRs, git.GHItem{Number: 1000 + i, Title: fmt.Sprintf("Pull request %d, which makes the tree faster", i),

@@ -3,8 +3,12 @@ package main
 import (
 	"errors"
 	"fmt"
+	"hash/fnv"
+	"image"
+	"image/color"
 	"os"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -22,7 +26,8 @@ func ghOverviewFixture() *git.GHOverview {
 	return &git.GHOverview{
 		Viewer: "me", Repo: "o/r", URL: "https://github.com/o/r", Permission: "WRITE", IssuesOn: true, DefaultBranch: "main",
 		PRs: []git.GHItem{
-			{Number: 7, Title: "Speed up the tree", Author: "ann", PR: true, ReviewAsked: true, Checks: git.ChecksPass, Updated: now, URL: "https://github.com/o/r/pull/7"},
+			{Number: 7, Title: "Speed up the tree", Author: "ann", PR: true, ReviewAsked: true, Checks: git.ChecksPass, Updated: now, URL: "https://github.com/o/r/pull/7",
+				Reviewers: []git.GHReviewer{{Login: "bob", State: "APPROVED"}, {Login: "cat", State: "COMMENTED"}, {Login: "me", State: "REQUESTED"}}},
 			{Number: 8, Title: "Mine to finish", Author: "me", PR: true, Draft: true, Checks: git.ChecksPending, Updated: now},
 			{Number: 9, Title: "Someone else's", Author: "bob", PR: true, Updated: now, Labels: []git.GHLabel{{Name: "docs", Color: "0075ca"}}},
 		},
@@ -31,15 +36,56 @@ func ghOverviewFixture() *git.GHOverview {
 			{Number: 4, Title: "Wider sidebar", Author: "cat", Updated: now, Labels: []git.GHLabel{{Name: "enhancement", Color: "a2eeef"}}},
 		},
 		OpenPRs: 3, OpenIssues: 30,
+		Avatars: map[string]string{"ann": "https://avatars.test/ann", "bob": "https://avatars.test/bob",
+			"cat": "https://avatars.test/cat", "me": "https://avatars.test/me"},
 	}
+}
+
+// fakeAvatar is the picture of url as GitHub's identicons are: a grid of
+// five by five, mirrored, in a color of its own.
+func fakeAvatar(url string) *ui.Bitmap {
+	h := fnv.New32a()
+	h.Write([]byte(url))
+	n := h.Sum32()
+	img := image.NewRGBA(image.Rect(0, 0, ghAvatarPx, ghAvatarPx))
+	fg := color.RGBA{uint8(60 + n%160), uint8(60 + n>>8%160), uint8(60 + n>>16%160), 255}
+	const cell, margin = 10, 7
+	for y := range ghAvatarPx {
+		for x := range ghAvatarPx {
+			img.Set(x, y, color.RGBA{240, 240, 240, 255})
+			cx, cy := (x-margin)/cell, (y-margin)/cell
+			if x < margin || y < margin || cx > 4 || cy > 4 {
+				continue
+			}
+			if cx > 2 {
+				cx = 4 - cx
+			}
+			if n>>(cx*5+cy)&1 == 1 {
+				img.Set(x, y, fg)
+			}
+		}
+	}
+	return ui.NewBitmap(img)
+}
+
+// resetGitHubAvatars forgets the pictures fetched, for a test of its own.
+func resetGitHubAvatars() {
+	ghAvatars.Lock()
+	ghAvatars.m, ghAvatars.queue = map[string]*avatarRead{}, nil
+	ghAvatars.Unlock()
 }
 
 // fakeGitHub has the harness's repository be on GitHub, as overview and
 // err say gh tells of it, and restores gh once the test ends.
 func fakeGitHub(t testing.TB, overview *git.GHOverview, err error) {
 	t.Helper()
-	remotes, fetch, issue := readGitHubRemotes, fetchGitHubOverview, fetchIssue
-	t.Cleanup(func() { readGitHubRemotes, fetchGitHubOverview, fetchIssue = remotes, fetch, issue })
+	remotes, fetch, issue, avatar := readGitHubRemotes, fetchGitHubOverview, fetchIssue, fetchGitHubAvatar
+	resetGitHubAvatars()
+	t.Cleanup(func() {
+		readGitHubRemotes, fetchGitHubOverview, fetchIssue, fetchGitHubAvatar = remotes, fetch, issue, avatar
+		resetGitHubAvatars()
+	})
+	fetchGitHubAvatar = fakeAvatar
 	readGitHubRemotes = func(*git.Repo) ([]git.GitHubRemote, error) {
 		return []git.GitHubRemote{{Name: "origin", Host: "github.com", Path: "o/r"}}, nil
 	}
@@ -637,9 +683,9 @@ func TestGitHubKeys(t *testing.T) {
 	}
 }
 
-// TestShotGitHub draws the GitHub view, light and dark: a row under the
-// pointer, the choice gliding, the card Space shows, and checks fading
-// from pending to passed. SHOTS=<dir> go test -run TestShotGitHub.
+// TestShotGitHub draws the GitHub view, light and dark, at twice the
+// size: a row under the pointer, the choice gliding, the card Space shows,
+// with its reviewers, and checks fading from pending to passed. SHOTS=<dir> go test -run TestShotGitHub.
 func TestShotGitHub(t *testing.T) {
 	if os.Getenv("SHOTS") == "" {
 		t.Skip()
@@ -651,11 +697,13 @@ func TestShotGitHub(t *testing.T) {
 		}
 		o := ghOverviewFixture()
 		o.PRs[0].HeadRef, o.PRs[0].BaseRef, o.PRs[0].Files, o.PRs[0].Added, o.PRs[0].Deleted = "ann/tree", "main", 4, 120, 30
+		o.PRs[0].Assignees = []string{"ann", "bob"}
 		o.PRs = append(o.PRs, git.GHItem{Number: 10, Title: "Also asked", Author: "dan", PR: true, ReviewAsked: true, Updated: time.Now(),
 			Checks: git.ChecksFail, URL: "https://github.com/o/r/pull/10"})
 		fakeGitHub(t, o, nil)
 		fetchGitHubOverview = func(*git.Repo) (*git.GHOverview, error) { return o, nil }
 		hs := newHarness(t, dark)
+		hs.tt.SetScale(2) // as a Retina display draws the pictures
 		hs.h.visible = true
 		hs.gitRepo()
 		hs.a.showGitHub()
@@ -692,5 +740,138 @@ func TestShotGitHub(t *testing.T) {
 		step(hs.tt)
 		step(hs.tt)
 		hs.shot(name + "-checks")
+	}
+}
+
+// TestGitHubAvatars: the rows show their authors' initials while their
+// pictures come, which take their place, each fetched once, and nothing
+// of the row moves as they do.
+func TestGitHubAvatars(t *testing.T) {
+	hs := githubHarness(t, ghOverviewFixture(), nil)
+	var mu sync.Mutex
+	calls := map[string]int{}
+	release := make(chan struct{})
+	fetchGitHubAvatar = func(url string) *ui.Bitmap {
+		mu.Lock()
+		calls[url]++
+		mu.Unlock()
+		<-release
+		return fakeAvatar(url)
+	}
+	// ann, bob and cat author the rows; the viewer's own name none.
+	hs.held = 3
+	hs.a.showGitHub()
+	hs.settle()
+	before, ok := hs.tt.Find("Someone else's")
+	if !ok {
+		t.Fatal("no row")
+	}
+	read := func(login string) *avatarRead {
+		ghAvatars.Lock()
+		defer ghAvatars.Unlock()
+		return ghAvatars.m["https://avatars.test/"+login]
+	}
+	for _, who := range []string{"ann", "bob", "cat"} {
+		if rd := read(who); rd == nil || !rd.loading || rd.bm != nil {
+			t.Errorf("%s's picture is not on its way: %+v", who, rd)
+		}
+	}
+	if rd := read("me"); rd != nil {
+		t.Error("the picture of the viewer, whose rows name no author, is fetched")
+	}
+	close(release)
+	hs.held = 0
+	hs.settle()
+	hs.settle()
+	for _, who := range []string{"ann", "bob", "cat"} {
+		if rd := read(who); rd == nil || rd.bm == nil {
+			t.Errorf("%s's picture did not come", who)
+		}
+	}
+	after, _ := hs.tt.Find("Someone else's")
+	if after != before {
+		t.Errorf("the row moved as its picture came: %+v, then %+v", before, after)
+	}
+	hs.a.repository().refreshGitHubNow()
+	hs.settle()
+	mu.Lock()
+	defer mu.Unlock()
+	for url, n := range calls {
+		if n != 1 {
+			t.Errorf("%s fetched %d times", url, n)
+		}
+	}
+}
+
+// TestGitHubCardReviewers: a pull request's card names each reviewer, by
+// how their latest review went.
+func TestGitHubCardReviewers(t *testing.T) {
+	hs := githubHarness(t, ghOverviewFixture(), nil)
+	hs.a.showGitHub()
+	hs.settle()
+	hs.a.showGitHubCard("review:7")
+	hs.settle()
+	for _, s := range []string{locales.GhCardReviewers(), "bob", locales.PrApproved(), "cat", locales.GhReviewCommented(), locales.GhReviewPending()} {
+		if _, ok := hs.tt.Find(s); !ok {
+			t.Errorf("the card does not say %q", s)
+		}
+	}
+}
+
+// TestGitHubChoiceSkipsNotes: the keys move the choice past a note that
+// only says a section has nothing.
+func TestGitHubChoiceSkipsNotes(t *testing.T) {
+	o := ghOverviewFixture()
+	o.Issues, o.OpenIssues = nil, 0
+	hs := githubHarness(t, o, nil)
+	hs.a.showGitHub()
+	hs.settle()
+	gp := &hs.a.github
+	at := func(key string) int {
+		for i, r := range gp.rows {
+			if r.key == key {
+				return i
+			}
+		}
+		t.Fatalf("no row %q", key)
+		return -1
+	}
+	at("issues:none")
+	gp.row, gp.focusList = at("mine:8"), true
+	hs.settle()
+	hs.tt.Key(0, ui.KeyDown)
+	hs.settle()
+	if k := gp.rows[gp.row].key; k != "prs:9" {
+		t.Errorf("Down went to %q, not past the note to prs:9", k)
+	}
+	hs.tt.Key(0, ui.KeyUp)
+	hs.settle()
+	if k := gp.rows[gp.row].key; k != "mine:8" {
+		t.Errorf("Up went to %q, not back past the note to mine:8", k)
+	}
+}
+
+// TestGitHubChecksKeepRoom: a pull request whose checks come moves not
+// its title, when others listed have checks.
+func TestGitHubChecksKeepRoom(t *testing.T) {
+	o := ghOverviewFixture()
+	hs := githubHarness(t, o, nil)
+	fetchGitHubOverview = func(*git.Repo) (*git.GHOverview, error) { return o, nil }
+	hs.a.showGitHub()
+	hs.settle()
+	before, ok := hs.tt.Find("Someone else's")
+	if !ok {
+		t.Fatal("no row")
+	}
+	next := ghOverviewFixture()
+	next.PRs[2].Checks = git.ChecksPending
+	o = next
+	hs.a.repository().refreshGitHubNow()
+	hs.settle()
+	if hs.a.repository().githubOverview() != next {
+		t.Fatal("the refresh did not come")
+	}
+	if after, _ := hs.tt.Find("Someone else's"); after != before {
+		t.Errorf("the title moved as its checks came: %+v, then %+v", before, after)
 	}
 }

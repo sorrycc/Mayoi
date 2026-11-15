@@ -48,6 +48,16 @@ type GHItem struct {
 	// ReviewAsked is set when the review of the signed in user is asked
 	// for, as theirs or their team's.
 	ReviewAsked bool
+	// Reviewers are those who reviewed a pull request, but its author, and
+	// those whose review is asked for, each once.
+	Reviewers []GHReviewer
+}
+
+// GHReviewer is a person who reviewed a pull request, or whose review is
+// asked for, and how: APPROVED, CHANGES_REQUESTED or COMMENTED, by their
+// latest review, or REQUESTED while it is asked for again or not given.
+type GHReviewer struct {
+	Login, State string
 }
 
 // AssignedTo reports whether login is among the item's assignees.
@@ -69,6 +79,9 @@ type GHOverview struct {
 	// OpenPRs and OpenIssues count those open, which may be more than
 	// those listed.
 	OpenPRs, OpenIssues int
+	// Avatars are the links of the pictures of the people of the items, by
+	// login: their authors, assignees and reviewers.
+	Avatars map[string]string
 }
 
 // CanTriage reports whether the signed in user may close, reopen and
@@ -237,13 +250,15 @@ const overviewQuery = `query($owner:String!,$name:String!,$review:String!){
   nameWithOwner url viewerPermission hasIssuesEnabled defaultBranchRef{name}
   pullRequests(states:OPEN,first:100,orderBy:{field:UPDATED_AT,direction:DESC}){totalCount nodes{
    number title url isDraft updatedAt headRefName headRefOid baseRefName additions deletions changedFiles
-   reviewDecision author{login} comments{totalCount}
-   labels(first:10){nodes{name color}} assignees(first:5){nodes{login}}
+   reviewDecision author{login avatarUrl(size:64)} comments{totalCount}
+   labels(first:10){nodes{name color}} assignees(first:5){nodes{login avatarUrl(size:64)}}
+   latestReviews(first:10){nodes{state author{login avatarUrl(size:64)}}}
+   reviewRequests(first:10){nodes{requestedReviewer{... on User{login avatarUrl(size:64)}}}}
    commits(last:1){nodes{commit{statusCheckRollup{state
     contexts(first:0){checkRunCountsByState{state count}statusContextCountsByState{state count}}}}}}}}
   issues(states:OPEN,first:100,orderBy:{field:UPDATED_AT,direction:DESC}){totalCount nodes{
-   number title url updatedAt author{login} comments{totalCount}
-   labels(first:10){nodes{name color}} assignees(first:5){nodes{login}}}}
+   number title url updatedAt author{login avatarUrl(size:64)} comments{totalCount}
+   labels(first:10){nodes{name color}} assignees(first:5){nodes{login avatarUrl(size:64)}}}}
  }
  review: search(query:$review,type:ISSUE,first:100){nodes{... on PullRequest{number}}}
 }`
@@ -272,7 +287,9 @@ func distinctRepos(remotes []GitHubRemote) int {
 	return len(seen)
 }
 
-type ghAuthor struct{ Login string }
+// ghAuthor is someone GitHub names, with the link of their picture
+// where it was asked for, 64 pixels across.
+type ghAuthor struct{ Login, AvatarURL string }
 
 type ghNodes[T any] struct {
 	TotalCount int
@@ -296,6 +313,11 @@ type ghListed struct {
 	Comments       struct{ TotalCount int }
 	Labels         ghNodes[GHLabel]
 	Assignees      ghNodes[ghAuthor]
+	LatestReviews  ghNodes[struct {
+		State  string
+		Author *ghAuthor
+	}]
+	ReviewRequests ghNodes[struct{ RequestedReviewer *ghAuthor }]
 	Commits        ghNodes[struct {
 		Commit struct {
 			StatusCheckRollup *struct {
@@ -309,15 +331,46 @@ type ghListed struct {
 	}]
 }
 
-func (v ghListed) item(pr bool) GHItem {
+// item is the item listed, the links of its people's pictures put in
+// avatars.
+func (v ghListed) item(pr bool, avatars map[string]string) GHItem {
 	it := GHItem{Number: v.Number, Title: v.Title, URL: v.URL, Updated: v.UpdatedAt, Comments: v.Comments.TotalCount,
 		Labels: v.Labels.Nodes, PR: pr, Draft: v.IsDraft, HeadRef: v.HeadRefName, HeadOid: v.HeadRefOid, Review: v.ReviewDecision,
 		BaseRef: v.BaseRefName, Added: v.Additions, Deleted: v.Deletions, Files: v.ChangedFiles}
-	if v.Author != nil {
-		it.Author = v.Author.Login
+	person := func(a *ghAuthor) string {
+		if a == nil {
+			return ""
+		}
+		if a.Login != "" && a.AvatarURL != "" {
+			avatars[a.Login] = a.AvatarURL
+		}
+		return a.Login
 	}
+	it.Author = person(v.Author)
 	for _, a := range v.Assignees.Nodes {
-		it.Assignees = append(it.Assignees, a.Login)
+		it.Assignees = append(it.Assignees, person(&a))
+	}
+	// Each reviewer once, by their latest review; asked again, as asked.
+	at := map[string]int{}
+	for _, r := range v.LatestReviews.Nodes {
+		switch who := person(r.Author); {
+		case who == "" || who == it.Author:
+		case r.State == "APPROVED", r.State == "CHANGES_REQUESTED", r.State == "COMMENTED":
+			at[who] = len(it.Reviewers)
+			it.Reviewers = append(it.Reviewers, GHReviewer{Login: who, State: r.State})
+		}
+	}
+	for _, q := range v.ReviewRequests.Nodes {
+		who := person(q.RequestedReviewer)
+		if who == "" {
+			continue // a team's, whose name the query does not read
+		}
+		if i, ok := at[who]; ok {
+			it.Reviewers[i].State = "REQUESTED"
+			continue
+		}
+		at[who] = len(it.Reviewers)
+		it.Reviewers = append(it.Reviewers, GHReviewer{Login: who, State: "REQUESTED"})
 	}
 	if n := len(v.Commits.Nodes); n > 0 {
 		if roll := v.Commits.Nodes[n-1].Commit.StatusCheckRollup; roll != nil {
@@ -383,7 +436,8 @@ func parseOverview(b []byte) (*GHOverview, error) {
 		return nil, fmt.Errorf("%w: the repository was not found", ErrNoGH)
 	}
 	o := &GHOverview{Viewer: v.Data.Viewer.Login, Repo: repo.NameWithOwner, URL: repo.URL, Permission: repo.ViewerPermission,
-		IssuesOn: repo.HasIssuesEnabled, OpenPRs: repo.PullRequests.TotalCount, OpenIssues: repo.Issues.TotalCount}
+		IssuesOn: repo.HasIssuesEnabled, OpenPRs: repo.PullRequests.TotalCount, OpenIssues: repo.Issues.TotalCount,
+		Avatars: map[string]string{}}
 	if repo.DefaultBranchRef != nil {
 		o.DefaultBranch = repo.DefaultBranchRef.Name
 	}
@@ -392,12 +446,12 @@ func parseOverview(b []byte) (*GHOverview, error) {
 		asked[n.Number] = true
 	}
 	for _, n := range repo.PullRequests.Nodes {
-		it := n.item(true)
+		it := n.item(true, o.Avatars)
 		it.ReviewAsked = asked[it.Number]
 		o.PRs = append(o.PRs, it)
 	}
 	for _, n := range repo.Issues.Nodes {
-		o.Issues = append(o.Issues, n.item(false))
+		o.Issues = append(o.Issues, n.item(false, o.Avatars))
 	}
 	return o, nil
 }

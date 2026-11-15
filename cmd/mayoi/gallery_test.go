@@ -66,6 +66,20 @@ var galleryStates = []struct {
 		g := hs.a.repository().git
 		g.gh.overview, g.gh.loading = nil, true
 	}},
+	{"github-avatars-loading", func(hs *harness) {
+		galleryGitHub(hs, ghOverviewFixture(), nil)
+		// The pictures on their way: the rows show their authors' initials.
+		ghAvatars.Lock()
+		for _, url := range ghOverviewFixture().Avatars {
+			ghAvatars.m[url] = &avatarRead{loading: true}
+		}
+		ghAvatars.Unlock()
+	}},
+	{"github-card", func(hs *harness) {
+		galleryGitHub(hs, ghOverviewFixture(), nil)
+		hs.settle()
+		hs.a.showGitHubCard("review:7")
+	}},
 	{"github-empty", func(hs *harness) {
 		galleryGitHub(hs, &git.GHOverview{Viewer: "me", Repo: "o/r", URL: "https://github.com/o/r", IssuesOn: true}, nil)
 	}},

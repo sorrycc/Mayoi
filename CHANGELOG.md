@@ -32,6 +32,11 @@ needs a `## <version>` section here, or its build fails.
 - `⌘Enter` checks out the selected pull request or works on the selected issue; `⌥Enter` opens it on GitHub.
 - With the GitHub view's list focused, the selected row shows its buttons, and their tooltips name their keys.
 - Commit cards in the Source Control history open toward the editor when the sidebar is on the right.
+- GitHub view rows show the author's picture, with their initials until it arrives.
+- The GitHub view's card shows pictures of the author and assignees.
+- A pull request's card lists each reviewer: approved, changes requested, commented or pending.
+- A pull request's title in the GitHub view no longer shifts when its checks first appear.
+- Arrow keys in the GitHub view skip notes such as "No issues" that have nothing to open.
 
 ## 0.21.2
 

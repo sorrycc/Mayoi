@@ -288,8 +288,13 @@ type ghRow struct {
 	item    *git.GHItem
 	number  string // an item's, as #12
 	by      string // an item's author, but the viewer's own
-	note    string
-	link    string // a note's, which a click opens
+	avatar  string // the link of by's picture
+	// checks is set for a pull request's row to keep the room of the icon
+	// of its checks, when any pull request listed has checks: one whose
+	// checks come then moves nothing.
+	checks bool
+	note   string
+	link   string // a note's, which a click opens
 }
 
 // ghSection is a section of the GitHub view, and the items in it.
@@ -401,6 +406,7 @@ func (a *app) githubRows(ctx *gitContext, o *git.GHOverview, now time.Time) []gh
 			gp.words[&o.Issues[i]] = ghWords(&o.Issues[i])
 		}
 	}
+	anyChecks := slices.ContainsFunc(o.PRs, func(it git.GHItem) bool { return it.Checks != git.ChecksNone })
 	var rows []ghRow
 	for _, s := range ctx.githubSections(o) {
 		var shown []*git.GHItem
@@ -418,9 +424,9 @@ func (a *app) githubRows(ctx *gitContext, o *git.GHOverview, now time.Time) []gh
 		}
 		for _, it := range shown {
 			n := strconv.Itoa(it.Number)
-			r := ghRow{key: s.id + ":" + n, section: s.id, item: it, number: "#" + n}
+			r := ghRow{key: s.id + ":" + n, section: s.id, item: it, number: "#" + n, checks: it.PR && anyChecks}
 			if it.Author != "" && it.Author != o.Viewer {
-				r.by = " · " + it.Author
+				r.by, r.avatar = it.Author, o.Avatars[it.Author]
 			}
 			rows = append(rows, r)
 		}
@@ -562,10 +568,8 @@ func (a *app) githubList(c *ui.Context, ctx *gitContext, o *git.GHOverview, rows
 	if gp.skeleton {
 		gp.skeleton, gp.cameAt = false, now
 	}
-	gp.row = min(max(gp.row, 0), len(rows)-1)
-	if rows[gp.row].header {
-		gp.row = ghStep(rows, gp.row, 1)
-	}
+	gp.row = ghSettle(rows, min(max(gp.row, 0), len(rows)-1), 0)
+	was := gp.row
 	gp.list.Selected = &gp.row
 	gp.list.Header = func(i int) bool { return i < len(rows) && rows[i].header }
 	gp.list.Key = func(i int) any {
@@ -611,6 +615,9 @@ func (a *app) githubList(c *ui.Context, ctx *gitContext, o *git.GHOverview, rows
 		out.Padding(0, 6, 8+ghBarRoom, 6)
 	}
 	c.SetTheme(base)
+	// The list's keys stop at a note that only says: the choice goes on
+	// past it.
+	gp.row = ghSettle(rows, gp.row, was)
 	listKeys := gp.list.FocusWithin(c)
 	if gp.focusList && gp.list.Focus(c) {
 		gp.focusList, listKeys = false, true
@@ -711,21 +718,44 @@ func (a *app) ghGlide(rows []ghRow, i int, now time.Time, reduce bool) (y, there
 	}, now, reduce)
 }
 
-// ghFirstItem is the first row of an item, 0 for none.
+// ghChoosable reports whether the choice may stop at row r: an item, or a
+// note that opens GitHub; not a header, nor a note that only says.
+func ghChoosable(r ghRow) bool { return r.item != nil || r.link != "" }
+
+// ghFirstItem is the first row the choice may stop at, 0 for none.
 func ghFirstItem(rows []ghRow) int {
 	for i, r := range rows {
-		if !r.header {
+		if ghChoosable(r) {
 			return i
 		}
 	}
 	return 0
 }
 
-// ghStep is the row by rows after row i, past the headers, or i when
-// there is none.
+// ghSettle is where the choice stops that came to row i from row from:
+// i if it may stop there, else the next row it may the way it went, or
+// the other way, or from.
+func ghSettle(rows []ghRow, i, from int) int {
+	if i < 0 || i >= len(rows) || ghChoosable(rows[i]) {
+		return i
+	}
+	by := 1
+	if i < from {
+		by = -1
+	}
+	for _, d := range [...]int{by, -by} {
+		if k := ghStep(rows, i, d); k != i {
+			return k
+		}
+	}
+	return from
+}
+
+// ghStep is the row by rows after row i the choice may stop at, past the
+// headers and the notes that only say, or i when there is none.
 func ghStep(rows []ghRow, i, by int) int {
 	for k := i + by; k >= 0 && k < len(rows); k += by {
-		if !rows[k].header {
+		if ghChoosable(rows[k]) {
 			return k
 		}
 	}
@@ -808,16 +838,21 @@ func (a *app) githubNoteRow(c *ui.Context, r ghRow, choice *sessionChoice, now t
 // over a line of its number, author, age and labels, and ghNoteH a note's.
 // ghTitleIndent is where its title starts, past its icon, and ghChipH how
 // tall a label is.
+// ghRowAvatar and ghCardAvatar are how wide a person's picture is, in a
+// row and in its card.
 const (
 	ghItemH       = 40
 	ghNoteH       = 26
 	ghTitleIndent = 25
 	ghChipH       = 15
+	ghRowAvatar   = 14
+	ghCardAvatar  = 16
 )
 
 // githubItem is the row of an issue or a pull request: its state's icon,
-// its title, and under it its number, author and age, its labels, and
-// its comments; a pull request's checks and review at the end. A click
+// its title, and under it its number, author by their picture and age,
+// its labels, and its comments; a pull request's checks and review at the
+// end, its checks' room kept. A click
 // opens it in a tab, a pull request's changes; its menu has the rest.
 // Under the pointer its actions show at its end, and its card beside it.
 //
@@ -839,11 +874,11 @@ func (a *app) githubItem(c *ui.Context, ctx *gitContext, o *git.GHOverview, r gh
 	row.Transition(hoverFade)
 	switch wait := scmScrollQuiet - now.Sub(a.github.scrolledAt); {
 	case chosen && a.github.card == r.key:
-		a.githubItemCard(c, row, r, true, now)
+		a.githubItemCard(c, o, row, r, true, now)
 	case wait > 0:
 		c.After(wait)
 	default:
-		a.githubItemCard(c, row, r, false, now)
+		a.githubItemCard(c, o, row, r, false, now)
 	}
 	icon, col := ghItemIcon(p, it)
 	row.Children(func() {
@@ -855,7 +890,7 @@ func (a *app) githubItem(c *ui.Context, ctx *gitContext, o *git.GHOverview, r gh
 			ui.Icon(c, icon).FontSize(13).TextColor(col).Shrink(0)
 			ui.Text(c, it.Title).FontSize(13).TextColor(p.text).SingleLine().Grow(1).Shrink(1).MinWidth(0)
 			if it.PR {
-				a.ghChecks(c, it, now)
+				a.ghChecks(c, it, r.checks, now)
 			}
 		})
 		ui.Row(c).AlignItems(ui.Center).Padding(0, 0, 0, ghTitleIndent-6).Children(func() {
@@ -864,6 +899,7 @@ func (a *app) githubItem(c *ui.Context, ctx *gitContext, o *git.GHOverview, r gh
 			// items name no author.
 			ui.Text(c, r.number).FontSize(11.5).TextColor(p.faint).SingleLine().Shrink(0).FontFeatures("tnum")
 			if r.by != "" {
+				a.ghAvatar(c, r.by, r.avatar, ghRowAvatar, now).Margin(0, 4, 0, 6)
 				ui.Text(c, r.by).FontSize(11.5).TextColor(p.faint).SingleLine().Shrink(0.01).MinWidth(0)
 			}
 			if !it.Updated.IsZero() {
@@ -916,14 +952,17 @@ func (a *app) githubItem(c *ui.Context, ctx *gitContext, o *git.GHOverview, r gh
 // title. As a refresh changes them, the icon of how they are fades in over
 // the one of how they were, which fades out sooner, and grows from a
 // little smaller; with less motion, it only fades.
-func (a *app) ghChecks(c *ui.Context, it *git.GHItem, now time.Time) {
+func (a *app) ghChecks(c *ui.Context, it *git.GHItem, room bool, now time.Time) {
 	p := a.pal
 	ic, col := prChecksIcon(p, it.Checks)
 	w, changed := a.github.checks[it.Number]
 	since := now.Sub(w.at)
 	if !changed || since >= motionShow || since < 0 {
-		if ic != nil {
-			ui.Icon(c, ic).FontSize(11).TextColor(col).Shrink(0)
+		switch {
+		case ic != nil:
+			ui.Icon(c, ic).FontSize(11).TextColor(col).Shrink(0).Width(11)
+		case room:
+			ui.Box(c).Size(11, 11).Shrink(0)
 		}
 		return
 	}
@@ -1022,30 +1061,35 @@ func (a *app) githubItemActions(c *ui.Context, ctx *gitContext, o *git.GHOvervie
 }
 
 // ghCardW is how wide the card of an issue or a pull request is, as wide
-// as a commit's.
-const ghCardW = commitCardW
+// as a commit's, and ghCardNameW the room of the name of its reviewers'
+// lines, before their pictures.
+const (
+	ghCardW     = commitCardW
+	ghCardNameW = 64
+)
 
 // githubItemCard is the card that shows as the pointer rests on the row of
 // an issue or a pull request, beside the sidebar: its whole title and all
-// its labels, then who made it and who it is assigned to, a pull
-// request's branch, size, checks and review, and when it was updated. It
+// its labels, then who made it and who it is assigned to, by their
+// pictures, a pull request's branch, size, checks, review and each of its
+// reviewers, and when it was updated. It
 // shows only what the view read already.
 //
 // Space shows it for the chosen row, keyed, at once, as a key opens what
 // it opens, and it stays until the choice moves.
-func (a *app) githubItemCard(c *ui.Context, row ui.Element, r ghRow, keyed bool, now time.Time) {
+func (a *app) githubItemCard(c *ui.Context, o *git.GHOverview, row ui.Element, r ghRow, keyed bool, now time.Time) {
 	if keyed {
 		ui.Overlay(c, func() {
-			a.githubCardBox(c, ui.Box(c.Key("gh-card")).Absolute().PassThrough().Role(ui.RoleTooltip), row, r, false, now)
+			a.githubCardBox(c, o, ui.Box(c.Key("gh-card")).Absolute().PassThrough().Role(ui.RoleTooltip), row, r, false, now)
 		})
 		return
 	}
-	ui.TooltipBase(c, row, func(tip ui.Element) { a.githubCardBox(c, tip, row, r, true, now) })
+	ui.TooltipBase(c, row, func(tip ui.Element) { a.githubCardBox(c, o, tip, row, r, true, now) })
 }
 
 // githubCardBox builds the card of row r in tip, by row, the side away
 // from the sidebar's edge; fading in, or at once.
-func (a *app) githubCardBox(c *ui.Context, tip, row ui.Element, r ghRow, fade bool, now time.Time) {
+func (a *app) githubCardBox(c *ui.Context, o *git.GHOverview, tip, row ui.Element, r ghRow, fade bool, now time.Time) {
 	p := a.pal
 	it := r.item
 	a.besideSidebar(tip, row)
@@ -1084,11 +1128,27 @@ func (a *app) githubCardBox(c *ui.Context, tip, row ui.Element, r ghRow, fade bo
 			text := func(s string, col ui.Color) {
 				ui.Text(c, s).FontSize(11.5).TextColor(col).FontFeatures("tnum").SingleLine().Shrink(1).MinWidth(0)
 			}
-			if it.Author != "" {
-				field(locales.GhCardAuthor(), func() { text(it.Author, p.text) })
+			person := func(login string) {
+				a.ghAvatar(c, login, o.Avatars[login], ghCardAvatar, now)
+				text(login, p.text)
 			}
-			if len(it.Assignees) > 0 {
-				field(locales.GhCardAssignees(), func() { text(strings.Join(it.Assignees, ", "), p.text) })
+			if it.Author != "" {
+				field(locales.GhCardAuthor(), func() { person(it.Author) })
+			}
+			switch len(it.Assignees) {
+			case 0:
+			case 1:
+				field(locales.GhCardAssignees(), func() { person(it.Assignees[0]) })
+			default:
+				// Their pictures side by side, their names after.
+				field(locales.GhCardAssignees(), func() {
+					ui.Row(c).Gap(2).Shrink(0).Children(func() {
+						for _, as := range it.Assignees {
+							a.ghAvatar(c.Key(as), as, o.Avatars[as], ghCardAvatar, now)
+						}
+					})
+					text(strings.Join(it.Assignees, ", "), p.text)
+				})
 			}
 			if it.PR {
 				if it.HeadRef != "" {
@@ -1117,6 +1177,24 @@ func (a *app) githubCardBox(c *ui.Context, tip, row ui.Element, r ghRow, fade bo
 					}
 					field(locales.GhCardReview(), func() { text(review, col) })
 				}
+				// Each reviewer as a line of a table by the field's name: their
+				// picture and name, and how their latest review went at the
+				// end, so that the pictures line up.
+				for k, rv := range it.Reviewers {
+					name := ""
+					if k == 0 {
+						name = locales.GhCardReviewers()
+					}
+					ui.Row(c.Key(rv.Login)).Gap(6).AlignItems(ui.Center).Height(18).Children(func() {
+						ui.Text(c, name).FontSize(11.5).TextColor(p.muted).Shrink(0).Width(ghCardNameW).SingleLine()
+						a.ghAvatar(c, rv.Login, o.Avatars[rv.Login], ghCardAvatar, now)
+						text(rv.Login, p.text)
+						ui.Spacer(c)
+						ic, word, col := a.ghReviewerState(rv.State)
+						ui.Icon(c, ic).FontSize(11).TextColor(col).Shrink(0)
+						ui.Text(c, word).FontSize(11.5).TextColor(col).SingleLine().Shrink(0).Margin(0, 0, 0, -3)
+					})
+				}
 			}
 			if it.Comments > 0 {
 				field(locales.GhCardComments(), func() { text(strconv.Itoa(it.Comments), p.text) })
@@ -1126,6 +1204,21 @@ func (a *app) githubCardBox(c *ui.Context, tip, row ui.Element, r ghRow, fade bo
 			}
 		})
 	})
+}
+
+// ghReviewerState is the icon, word and color of how a reviewer's latest
+// review went, as GHReviewer's State says.
+func (a *app) ghReviewerState(state string) (*ui.SVG, string, ui.Color) {
+	p := a.pal
+	switch state {
+	case "APPROVED":
+		return iconCheck, locales.PrApproved(), p.addedFg
+	case "CHANGES_REQUESTED":
+		return iconDiff, locales.PrChangesRequested(), p.dangerFg
+	case "COMMENTED":
+		return iconComment, locales.GhReviewCommented(), p.muted
+	}
+	return iconClock, locales.GhReviewPending(), p.modifiedFg
 }
 
 // ghCheckCounts is how the checks of a pull request went, as the card

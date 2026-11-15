@@ -14,8 +14,13 @@ func TestParseOverview(t *testing.T) {
 			"defaultBranchRef":{"name":"main"},
 			"pullRequests":{"totalCount":3,"nodes":[
 				{"number":7,"title":"Fix it","url":"https://github.com/o/r/pull/7","isDraft":false,"updatedAt":"2026-11-14T12:00:00Z",
-				 "headRefName":"fix","headRefOid":"` + head + `","baseRefName":"main","additions":12,"deletions":3,"changedFiles":2,"reviewDecision":"APPROVED","author":{"login":"ann"},
+				 "headRefName":"fix","headRefOid":"` + head + `","baseRefName":"main","additions":12,"deletions":3,"changedFiles":2,"reviewDecision":"APPROVED","author":{"login":"ann","avatarUrl":"https://a/ann"},
 				 "comments":{"totalCount":2},"labels":{"nodes":[{"name":"bug","color":"d73a4a"}]},"assignees":{"nodes":[{"login":"me"}]},
+				 "latestReviews":{"nodes":[{"state":"APPROVED","author":{"login":"bob","avatarUrl":"https://a/bob"}},
+				  {"state":"COMMENTED","author":{"login":"ann"}},{"state":"CHANGES_REQUESTED","author":{"login":"cat"}},
+				  {"state":"PENDING","author":{"login":"me"}}]},
+				 "reviewRequests":{"nodes":[{"requestedReviewer":{"login":"cat"}},{"requestedReviewer":{}},
+				  {"requestedReviewer":{"login":"dan","avatarUrl":"https://a/dan"}}]},
 				 "commits":{"nodes":[{"commit":{"statusCheckRollup":{"state":"FAILURE","contexts":{
 				  "checkRunCountsByState":[{"state":"SUCCESS","count":4},{"state":"FAILURE","count":1}],
 				  "statusContextCountsByState":[{"state":"PENDING","count":2}]}}}}]}},
@@ -42,6 +47,14 @@ func TestParseOverview(t *testing.T) {
 	if pr.BaseRef != "main" || pr.Added != 12 || pr.Deleted != 3 || pr.Files != 2 ||
 		pr.CheckCounts != (CommitStatus{Checks: ChecksFail, Passed: 4, Failed: 1, Pending: 2}) {
 		t.Fatalf("pr's base, size and checks = %+v", pr)
+	}
+	// The author's own review is not one; a review asked again is asked.
+	want := []GHReviewer{{"bob", "APPROVED"}, {"cat", "REQUESTED"}, {"dan", "REQUESTED"}}
+	if fmt.Sprint(pr.Reviewers) != fmt.Sprint(want) {
+		t.Fatalf("reviewers = %+v, want %+v", pr.Reviewers, want)
+	}
+	if o.Avatars["ann"] != "https://a/ann" || o.Avatars["bob"] != "https://a/bob" || o.Avatars["dan"] != "https://a/dan" || len(o.Avatars) != 3 {
+		t.Fatalf("avatars = %v", o.Avatars)
 	}
 	if d := o.PRs[1]; !d.Draft || !d.ReviewAsked || d.Checks != ChecksNone || d.Author != "" {
 		t.Fatalf("draft = %+v", d)

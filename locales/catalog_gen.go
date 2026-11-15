@@ -17992,6 +17992,66 @@ func (msgs Messages) GhIssueFailed(name string) string {
 	return Catalog.Format(msgs.locale, "ghIssueFailed", map[string]any{"name": name})
 }
 
+// GhCardAuthor says "Author"
+// in the language the app shows.
+func GhCardAuthor() string { return In(i18n.Locale()).GhCardAuthor() }
+
+// GhCardAuthor says "Author"
+// in the language of msgs.
+func (msgs Messages) GhCardAuthor() string {
+	return Catalog.Format(msgs.locale, "ghCardAuthor", nil)
+}
+
+// GhCardAssignees says "Assignees"
+// in the language the app shows.
+func GhCardAssignees() string { return In(i18n.Locale()).GhCardAssignees() }
+
+// GhCardAssignees says "Assignees"
+// in the language of msgs.
+func (msgs Messages) GhCardAssignees() string {
+	return Catalog.Format(msgs.locale, "ghCardAssignees", nil)
+}
+
+// GhCardChecks says "Checks"
+// in the language the app shows.
+func GhCardChecks() string { return In(i18n.Locale()).GhCardChecks() }
+
+// GhCardChecks says "Checks"
+// in the language of msgs.
+func (msgs Messages) GhCardChecks() string {
+	return Catalog.Format(msgs.locale, "ghCardChecks", nil)
+}
+
+// GhCardReview says "Review"
+// in the language the app shows.
+func GhCardReview() string { return In(i18n.Locale()).GhCardReview() }
+
+// GhCardReview says "Review"
+// in the language of msgs.
+func (msgs Messages) GhCardReview() string {
+	return Catalog.Format(msgs.locale, "ghCardReview", nil)
+}
+
+// GhCardUpdated says "Updated"
+// in the language the app shows.
+func GhCardUpdated() string { return In(i18n.Locale()).GhCardUpdated() }
+
+// GhCardUpdated says "Updated"
+// in the language of msgs.
+func (msgs Messages) GhCardUpdated() string {
+	return Catalog.Format(msgs.locale, "ghCardUpdated", nil)
+}
+
+// GhCardComments says "Comments"
+// in the language the app shows.
+func GhCardComments() string { return In(i18n.Locale()).GhCardComments() }
+
+// GhCardComments says "Comments"
+// in the language of msgs.
+func (msgs Messages) GhCardComments() string {
+	return Catalog.Format(msgs.locale, "ghCardComments", nil)
+}
+
 // GhNotPlanned says "Not Planned"
 // in the language the app shows.
 func GhNotPlanned() string { return In(i18n.Locale()).GhNotPlanned() }

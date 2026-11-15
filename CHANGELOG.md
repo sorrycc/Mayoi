@@ -21,6 +21,10 @@ needs a `## <version>` section here, or its build fails.
 - The GitHub view's sections have room between them, and their headers darken under the pointer.
 - Rows of a section you open, or that a refresh brings, fade in instead of popping in the GitHub view.
 - While the GitHub view first loads, its placeholder has the list's shape, so nothing jumps when rows arrive.
+- Hover a GitHub view row for **Check Out** or **Work on Issue**, **Open on GitHub** and **Copy Link** buttons.
+- Rest the pointer on a GitHub view row for a card with its full title, all labels, assignees and branch.
+- The GitHub view's card shows a pull request's size, each check that passed, failed or runs, and its review.
+- When GitHub can't be read again or you're offline, the GitHub view says so at its foot without moving the list.
 
 ## 0.21.2
 

@@ -34,10 +34,17 @@ type GHItem struct {
 	Draft   bool
 	HeadRef string
 	HeadOid string
+	// BaseRef is the branch it goes into; Added, Deleted and Files how much
+	// it changes.
+	BaseRef        string
+	Added, Deleted int
+	Files          int
 	// Review is APPROVED, CHANGES_REQUESTED, REVIEW_REQUIRED or "", and
-	// Checks how the checks of its last commit went.
-	Review string
-	Checks Checks
+	// Checks how the checks of its last commit went, which CheckCounts
+	// counts.
+	Review      string
+	Checks      Checks
+	CheckCounts CommitStatus
 	// ReviewAsked is set when the review of the signed in user is asked
 	// for, as theirs or their team's.
 	ReviewAsked bool
@@ -229,9 +236,11 @@ const overviewQuery = `query($owner:String!,$name:String!,$review:String!){
  repository(owner:$owner,name:$name){
   nameWithOwner url viewerPermission hasIssuesEnabled defaultBranchRef{name}
   pullRequests(states:OPEN,first:100,orderBy:{field:UPDATED_AT,direction:DESC}){totalCount nodes{
-   number title url isDraft updatedAt headRefName headRefOid reviewDecision author{login} comments{totalCount}
+   number title url isDraft updatedAt headRefName headRefOid baseRefName additions deletions changedFiles
+   reviewDecision author{login} comments{totalCount}
    labels(first:10){nodes{name color}} assignees(first:5){nodes{login}}
-   commits(last:1){nodes{commit{statusCheckRollup{state}}}}}}
+   commits(last:1){nodes{commit{statusCheckRollup{state
+    contexts(first:0){checkRunCountsByState{state count}statusContextCountsByState{state count}}}}}}}}
   issues(states:OPEN,first:100,orderBy:{field:UPDATED_AT,direction:DESC}){totalCount nodes{
    number title url updatedAt author{login} comments{totalCount}
    labels(first:10){nodes{name color}} assignees(first:5){nodes{login}}}}
@@ -278,6 +287,10 @@ type ghListed struct {
 	UpdatedAt      time.Time
 	HeadRefName    string
 	HeadRefOid     string
+	BaseRefName    string
+	Additions      int
+	Deletions      int
+	ChangedFiles   int
 	ReviewDecision string
 	Author         *ghAuthor
 	Comments       struct{ TotalCount int }
@@ -285,14 +298,21 @@ type ghListed struct {
 	Assignees      ghNodes[ghAuthor]
 	Commits        ghNodes[struct {
 		Commit struct {
-			StatusCheckRollup *struct{ State string }
+			StatusCheckRollup *struct {
+				State    string
+				Contexts struct {
+					CheckRunCountsByState      []checkCount
+					StatusContextCountsByState []checkCount
+				}
+			}
 		}
 	}]
 }
 
 func (v ghListed) item(pr bool) GHItem {
 	it := GHItem{Number: v.Number, Title: v.Title, URL: v.URL, Updated: v.UpdatedAt, Comments: v.Comments.TotalCount,
-		Labels: v.Labels.Nodes, PR: pr, Draft: v.IsDraft, HeadRef: v.HeadRefName, HeadOid: v.HeadRefOid, Review: v.ReviewDecision}
+		Labels: v.Labels.Nodes, PR: pr, Draft: v.IsDraft, HeadRef: v.HeadRefName, HeadOid: v.HeadRefOid, Review: v.ReviewDecision,
+		BaseRef: v.BaseRefName, Added: v.Additions, Deleted: v.Deletions, Files: v.ChangedFiles}
 	if v.Author != nil {
 		it.Author = v.Author.Login
 	}
@@ -302,6 +322,7 @@ func (v ghListed) item(pr bool) GHItem {
 	if n := len(v.Commits.Nodes); n > 0 {
 		if roll := v.Commits.Nodes[n-1].Commit.StatusCheckRollup; roll != nil {
 			it.Checks = rollupChecks(roll.State)
+			it.CheckCounts = countChecks(roll.Contexts.CheckRunCountsByState, roll.Contexts.StatusContextCountsByState)
 		}
 	}
 	return it

@@ -60,17 +60,13 @@ func (r *Repo) CommitChecks(hashes []string) (map[string]CommitStatus, error) {
 }
 
 func parseCommitChecks(b []byte, batch []string) (map[string]CommitStatus, error) {
-	type count struct {
-		State string
-		Count int
-	}
 	var v struct {
 		Data struct {
 			Repository map[string]*struct {
 				StatusCheckRollup *struct {
 					Contexts struct {
-						CheckRunCountsByState      []count
-						StatusContextCountsByState []count
+						CheckRunCountsByState      []checkCount
+						StatusContextCountsByState []checkCount
 					}
 				}
 			}
@@ -85,34 +81,47 @@ func parseCommitChecks(b []byte, batch []string) (map[string]CommitStatus, error
 		if err != nil || i < 0 || i >= len(batch) || c == nil || c.StatusCheckRollup == nil {
 			continue
 		}
-		var s CommitStatus
-		add := func(cs []count) {
-			for _, n := range cs {
-				switch checkStateBucket(n.State) {
-				case "pass", "skipping":
-					s.Passed += n.Count
-				case "pending":
-					s.Pending += n.Count
-				default:
-					s.Failed += n.Count
-				}
-			}
-		}
-		add(c.StatusCheckRollup.Contexts.CheckRunCountsByState)
-		add(c.StatusCheckRollup.Contexts.StatusContextCountsByState)
-		switch {
-		case s.Failed > 0:
-			s.Checks = ChecksFail
-		case s.Pending > 0:
-			s.Checks = ChecksPending
-		case s.Passed > 0:
-			s.Checks = ChecksPass
-		default:
+		s := countChecks(c.StatusCheckRollup.Contexts.CheckRunCountsByState, c.StatusCheckRollup.Contexts.StatusContextCountsByState)
+		if s.Checks == ChecksNone {
 			continue
 		}
 		out[batch[i]] = s
 	}
 	return out, nil
+}
+
+// checkCount is how many checks of a commit are in a state, as GitHub
+// counts its check runs and its commit statuses.
+type checkCount struct {
+	State string
+	Count int
+}
+
+// countChecks sums the counts of a commit's check runs and statuses up,
+// with how they went as a whole: ChecksNone for none.
+func countChecks(runs, statuses []checkCount) CommitStatus {
+	var s CommitStatus
+	for _, cs := range [][]checkCount{runs, statuses} {
+		for _, n := range cs {
+			switch checkStateBucket(n.State) {
+			case "pass", "skipping":
+				s.Passed += n.Count
+			case "pending":
+				s.Pending += n.Count
+			default:
+				s.Failed += n.Count
+			}
+		}
+	}
+	switch {
+	case s.Failed > 0:
+		s.Checks = ChecksFail
+	case s.Pending > 0:
+		s.Checks = ChecksPending
+	case s.Passed > 0:
+		s.Checks = ChecksPass
+	}
+	return s
 }
 
 // checkStateBucket sorts the state of a check run, or of a commit status,

@@ -67,6 +67,11 @@ func showIn(now bool) []ui.Keyframe {
 // Only its colors follow it after.
 var popIn = ui.ElementTransition{Duration: motionShow, Colors: true, Enter: &ui.Motion{Y: -6}, Exit: &ui.Motion{Y: -4}}
 
+// barIn is how a line that floats at the foot of a pane comes in, as the
+// GitHub view's that it could not be read: it rises a little as it fades
+// in, and sinks back as it fades out.
+var barIn = ui.ElementTransition{Duration: motionShow, Colors: true, Enter: &ui.Motion{Y: 6}, Exit: &ui.Motion{Y: 4}}
+
 // hoverFade is how a button's background follows the pointer: it fades
 // in and out rather than blinks.
 var hoverFade = ui.ElementTransition{Colors: true, Duration: motionHover}

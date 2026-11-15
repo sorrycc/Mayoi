@@ -79,6 +79,9 @@ type githubPanel struct {
 	// appear fades in the rows that come, as a section opens or a refresh
 	// brings an item.
 	appear appearing
+	// scrolledAt is when the list last scrolled: its rows show no card
+	// until it has rested for scmScrollQuiet.
+	scrolledAt time.Time
 }
 
 // ghRowsKey is what the rows of the GitHub view are of.
@@ -426,7 +429,6 @@ func (a *app) ghFade(c *ui.Context, row ui.Element, key string, now time.Time) {
 // githubView is the GitHub view: the issues and pull requests open of the
 // repository, in sections, with a query that finds them.
 func (a *app) githubView(c *ui.Context) {
-	p := a.pal
 	gp := &a.github
 	if gp.collapsed == nil {
 		gp.collapsed = map[string]bool{}
@@ -439,10 +441,10 @@ func (a *app) githubView(c *ui.Context) {
 	} else {
 		ui.Box(c.Key("gh-activity")).Height(2)
 	}
-	if !a.online() {
-		a.githubNote(c, iconWifiOff, locales.NotConnectedTo(a.conn.Host), "", nil)
-	}
 	if o == nil {
+		if !a.online() {
+			a.githubNote(c, iconWifiOff, locales.NotConnectedTo(a.conn.Host), "", nil)
+		}
 		switch {
 		case !ctx.githubKnown() || g.gh.problem == git.GHFine:
 			a.githubSkeleton(c)
@@ -450,10 +452,6 @@ func (a *app) githubView(c *ui.Context) {
 			a.githubProblem(c, ctx)
 		}
 		return
-	}
-	if g.gh.problem != git.GHFine {
-		// What was read stays, under why it could not be read again.
-		a.githubNote(c, iconTriangleAlert, locales.GhStale(g.gh.err), locales.GhRetry(), ctx.refreshGitHubNow)
 	}
 	now := c.Now()
 	rows := a.githubRows(ctx, o, now)
@@ -475,6 +473,32 @@ func (a *app) githubView(c *ui.Context) {
 			a.post(func() { a.openGitHubRow(ctx, r, true) })
 		}
 	})
+	// What was read stays, with a line at the foot of the view that says
+	// why it is not read again: its host is away, or GitHub failed. It
+	// floats over the list, which keeps its place as it comes and goes.
+	var bar func()
+	switch {
+	case !a.online():
+		bar = func() { a.githubBar(c, iconWifiOff, locales.NotConnectedTo(a.conn.Host), "", nil) }
+	case g.gh.problem != git.GHFine:
+		bar = func() {
+			a.githubBar(c, iconTriangleAlert, locales.GhStale(g.gh.err), locales.GhRetry(), ctx.refreshGitHubNow)
+		}
+	}
+	ui.Column(c.Key("gh-body")).Grow(1).MinHeight(0).Children(func() {
+		a.githubList(c, ctx, o, rows, now, bar != nil)
+		if bar != nil {
+			bar()
+		}
+	})
+}
+
+// githubList is the list of the GitHub view, under its query: its
+// sections, items and notes, or that the repository has nothing open, or
+// that nothing matches. With room kept at its foot for the line over it.
+func (a *app) githubList(c *ui.Context, ctx *gitContext, o *git.GHOverview, rows []ghRow, now time.Time, foot bool) {
+	p := a.pal
+	gp := &a.github
 	if len(o.PRs) == 0 && len(o.Issues) == 0 && o.OpenPRs == 0 && o.OpenIssues == 0 {
 		a.githubEmpty(c, ctx, o)
 		return
@@ -517,11 +541,14 @@ func (a *app) githubView(c *ui.Context) {
 		case r.header:
 			a.githubHeader(c, r, now, &action)
 		case r.item != nil:
-			a.githubItem(c, ctx, o, r, now, &action)
+			a.githubItem(c, ctx, o, r, i == gp.row, now, &action)
 		default:
 			a.githubNoteRow(c, r, now, &action)
 		}
 	}).Grow(1).Padding(0, 6, 8, 6)
+	if foot {
+		out.Padding(0, 6, 8+ghBarRoom, 6)
+	}
 	c.SetTheme(base)
 	// The rows fade in over where the shapes of them were.
 	if since := now.Sub(gp.cameAt); since < motionShow {
@@ -529,6 +556,9 @@ func (a *app) githubView(c *ui.Context) {
 		c.AnimationFrame()
 	}
 	out.HandleInput(func(ev ui.InputEvent) bool {
+		if ev.Kind == ui.InputScroll {
+			gp.scrolledAt = ev.Time
+		}
 		if ev.Kind == ui.InputCommand && ev.Text == "copy" && gp.row >= 0 && gp.row < len(rows) && rows[gp.row].item != nil {
 			a.copyGitHubLink(rows[gp.row].item)
 			return true
@@ -639,22 +669,23 @@ const (
 // its title, and under it its number, author and age, its labels, and
 // its comments; a pull request's checks and review at the end. A click
 // opens it in a tab, a pull request's changes; its menu has the rest.
-func (a *app) githubItem(c *ui.Context, ctx *gitContext, o *git.GHOverview, r ghRow, now time.Time, action *func()) {
+// Under the pointer its actions show at its end, and its card beside it.
+func (a *app) githubItem(c *ui.Context, ctx *gitContext, o *git.GHOverview, r ghRow, chosen bool, now time.Time, action *func()) {
 	p := a.pal
 	it := r.item
 	row := ui.Column(c).Grow(1).Height(ghItemH).Padding(3, 8, 3, 6).Gap(2).Justify(ui.Center).Radius(6)
 	a.ghFade(c, row, r.key, now)
-	if row.Hovered() {
+	hovered := row.Hovered()
+	if hovered {
 		row.Background(p.hover)
 	}
 	row.Transition(hoverFade)
-	icon, col := iconIssue, p.addedFg
-	if it.PR {
-		icon = iconPullRequest
-		if it.Draft {
-			col = p.muted
-		}
+	if wait := scmScrollQuiet - now.Sub(a.github.scrolledAt); wait > 0 {
+		c.After(wait)
+	} else {
+		a.githubItemCard(c, row, r, now)
 	}
+	icon, col := ghItemIcon(p, it)
 	row.Children(func() {
 		ui.Row(c).Gap(6).AlignItems(ui.Center).Children(func() {
 			ui.Icon(c, icon).FontSize(13).TextColor(col).Shrink(0)
@@ -680,7 +711,7 @@ func (a *app) githubItem(c *ui.Context, ctx *gitContext, o *git.GHOverview, r gh
 			}
 			// A label that does not fit goes whole, to a line that does
 			// not show, rather than being cut: the first too, after the
-			// empty box that holds the line.
+			// empty box that holds the line. The card shows them all.
 			if len(it.Labels) > 0 {
 				ui.Row(c).Wrap().Gap(4).Height(ghChipH).Shrink(1).MinWidth(0).Margin(0, 0, 0, 2).Clip().Children(func() {
 					ui.Box(c).Size(0, ghChipH)
@@ -700,11 +731,221 @@ func (a *app) githubItem(c *ui.Context, ctx *gitContext, o *git.GHOverview, r gh
 				})
 			}
 		})
+		if hovered {
+			a.githubItemActions(c, ctx, o, it, chosen, action)
+		}
 	})
 	row.ContextMenu(func(m *ui.Menu) { a.githubItemMenu(m, ctx, o, it, action) })
 	if row.Clicked() && *action == nil {
 		*action = func() { a.openGitHubItem(ctx, it, false) }
 	}
+}
+
+// ghItemIcon is the icon of an issue or a pull request, in the color of
+// its state.
+func ghItemIcon(p *palette, it *git.GHItem) (*ui.SVG, ui.Color) {
+	switch {
+	case !it.PR:
+		return iconIssue, p.addedFg
+	case it.Draft:
+		return iconPullRequest, p.muted
+	}
+	return iconPullRequest, p.addedFg
+}
+
+// ghActionW is how wide a button of a row's actions is, and ghActionFade
+// how far the row's text fades out before them.
+const (
+	ghActionW    = 22
+	ghActionFade = 18
+)
+
+// githubItemActions are the buttons at the end of an item's row under the
+// pointer: a pull request's Check Out, an issue's Work on Issue, then Open
+// on GitHub and Copy Link. They float over the row's end, which fades out
+// under them, so that nothing of the row moves as they come.
+func (a *app) githubItemActions(c *ui.Context, ctx *gitContext, o *git.GHOverview, it *git.GHItem, chosen bool, action *func()) {
+	p := a.pal
+	type act struct {
+		icon  *ui.SVG
+		label string
+		off   bool
+		do    func()
+	}
+	n := it.Number
+	var acts []act
+	switch {
+	case it.PR && it.HeadRef != ctx.branch():
+		acts = append(acts, act{iconCheckout, locales.GhCheckOut(), !ctx.git.canMutate(), func() { ctx.checkoutPR(n) }})
+	case !it.PR:
+		acts = append(acts, act{iconAgent, locales.GhWorkOnIssue(), !ctx.git.canMutate() || o.DefaultBranch == "", func() { a.workOnIssue(ctx, n) }})
+	}
+	if it.URL != "" {
+		acts = append(acts,
+			act{iconExternal, locales.PrOpenOnGitHub(), false, func() { a.services.OpenURL(it.URL) }},
+			act{iconCopy, locales.GhCopyLink(), false, func() { a.copyGitHubLink(it) }})
+	}
+	if len(acts) == 0 {
+		return
+	}
+	// What the row is drawn over, solid, for the text under the buttons to
+	// fade into: the list's mark of the row chosen, or of the row under the
+	// pointer, then the row's own.
+	bg := p.chrome
+	if chosen {
+		bg = p.active.Over(bg)
+	} else {
+		bg = p.hover.Over(bg)
+	}
+	bg = p.hover.Over(bg)
+	w := float32(len(acts)*ghActionW + ghActionFade + 4)
+	strip := ui.Row(c.Key("gh-actions")).Absolute().Top(0).Bottom(0).Right(0).Width(w).Padding(0, 4, 0, ghActionFade).
+		AlignItems(ui.Center).Justify(ui.End).Radius(6).
+		LinearGradient(ui.LinearGradient{From: bg.Alpha(0), To: bg, Angle: 90, End: ghActionFade / w}).Transition(revealFade)
+	strip.Children(func() {
+		for _, ac := range acts {
+			b := ui.ButtonBase(c.Key(ac.label)).Size(ghActionW, ghActionW).Radius(5).Justify(ui.Center).AlignItems(ui.Center).
+				Label(ac.label).Tooltip(ac.label).Disabled(ac.off)
+			col := p.muted
+			switch {
+			case ac.off:
+				col = p.faint
+			case b.Hovered():
+				b.Background(p.hover)
+				col = p.text
+			}
+			b.Transition(hoverFade)
+			pressPose(b)
+			b.Children(func() { ui.Icon(c, ac.icon).FontSize(13).TextColor(col).Transition(hoverFade) })
+			if b.Clicked() && !ac.off {
+				*action = ac.do
+			}
+		}
+	})
+}
+
+// ghCardW is how wide the card of an issue or a pull request is, as wide
+// as a commit's.
+const ghCardW = commitCardW
+
+// githubItemCard is the card that shows as the pointer rests on the row of
+// an issue or a pull request, beside the sidebar: its whole title and all
+// its labels, then who made it and who it is assigned to, a pull
+// request's branch, size, checks and review, and when it was updated. It
+// shows only what the view read already.
+func (a *app) githubItemCard(c *ui.Context, row ui.Element, r ghRow, now time.Time) {
+	p := a.pal
+	it := r.item
+	ui.TooltipBase(c, row, func(tip ui.Element) {
+		if a.settings.SidebarRight {
+			tip.AttachTo(row, ui.AnchorLeft, ui.AnchorRight).Margin(0, 8, 0, 0)
+		} else {
+			tip.AttachTo(row, ui.AnchorRight, ui.AnchorLeft).Margin(0, 0, 0, 8)
+		}
+		fadeIn(a.floating(c, tip, false)).Radius(10).Width(ghCardW)
+		tip.Children(func() {
+			ui.Column(c).Gap(6).Padding(12, 14, 10, 14).Children(func() {
+				ui.Row(c).Gap(6).AlignItems(ui.Center).Children(func() {
+					icon, col := ghItemIcon(p, it)
+					ui.Icon(c, icon).FontSize(13).TextColor(col).Shrink(0)
+					ui.Text(c, r.number).FontSize(11.5).TextColor(p.muted).FontFeatures("tnum").SingleLine()
+					if it.Draft {
+						ui.Text(c, locales.PrDraft()).FontSize(11).TextColor(p.muted).SingleLine()
+					}
+				})
+				ui.Text(c, it.Title).FontSize(13).FontWeight(600).TextColor(p.text).LineHeight(1.35).MaxLines(4)
+				if len(it.Labels) > 0 {
+					ui.Row(c).Wrap().Gap(4).Margin(2, 0, 0, 0).Children(func() {
+						for _, l := range it.Labels {
+							a.ghLabel(c, l, 10.5)
+						}
+					})
+				}
+			})
+			ui.Box(c).Height(1).Background(p.border).Shrink(0)
+			ui.Column(c).Gap(6).Padding(10, 14, 12, 14).Children(func() {
+				field := func(name string, value func()) {
+					ui.Row(c).Gap(12).AlignItems(ui.Center).Height(18).Children(func() {
+						ui.Text(c, name).FontSize(11.5).TextColor(p.muted).Shrink(0)
+						ui.Spacer(c)
+						ui.Row(c).Gap(6).AlignItems(ui.Center).Shrink(1).MinWidth(0).Children(value)
+					})
+				}
+				text := func(s string, col ui.Color) {
+					ui.Text(c, s).FontSize(11.5).TextColor(col).FontFeatures("tnum").SingleLine().Shrink(1).MinWidth(0)
+				}
+				if it.Author != "" {
+					field(locales.GhCardAuthor(), func() { text(it.Author, p.text) })
+				}
+				if len(it.Assignees) > 0 {
+					field(locales.GhCardAssignees(), func() { text(strings.Join(it.Assignees, ", "), p.text) })
+				}
+				if it.PR {
+					if it.HeadRef != "" {
+						field(locales.ScmCardBranch(), func() {
+							ui.Text(c, it.HeadRef).Font(a.font.family).FontSize(11.5).TextColor(p.text).SingleLine().Shrink(1).MinWidth(0)
+							if it.BaseRef != "" {
+								ui.Icon(c, iconArrowRight).FontSize(10).TextColor(p.faint).Shrink(0)
+								ui.Text(c, it.BaseRef).Font(a.font.family).FontSize(11.5).TextColor(p.muted).SingleLine().Shrink(0)
+							}
+						})
+					}
+					if it.Files > 0 {
+						field(locales.ScmCardChanged(), func() {
+							text(locales.ScmCardFiles(it.Files), p.text)
+							text("+"+strconv.Itoa(it.Added), p.addedFg)
+							text("−"+strconv.Itoa(it.Deleted), p.removedFg)
+						})
+					}
+					if it.Checks != git.ChecksNone {
+						field(locales.GhCardChecks(), func() { a.ghCheckCounts(c, it) })
+					}
+					if review := prReviewLabel(it.Review); review != "" {
+						_, col := a.ghReview(it)
+						if it.Draft || it.Review == "REVIEW_REQUIRED" {
+							col = p.text
+						}
+						field(locales.GhCardReview(), func() { text(review, col) })
+					}
+				}
+				if it.Comments > 0 {
+					field(locales.GhCardComments(), func() { text(strconv.Itoa(it.Comments), p.text) })
+				}
+				if !it.Updated.IsZero() {
+					field(locales.GhCardUpdated(), func() { text(ago(it.Updated, now), p.text) })
+				}
+			})
+		})
+	})
+}
+
+// ghCheckCounts is how the checks of a pull request went, as the card
+// shows them: how many passed, failed and run, each by its icon; or its
+// icon alone, for checks GitHub did not count.
+func (a *app) ghCheckCounts(c *ui.Context, it *git.GHItem) {
+	p := a.pal
+	st := it.CheckCounts
+	if st.Passed+st.Failed+st.Pending == 0 {
+		if ic, col := prChecksIcon(p, it.Checks); ic != nil {
+			ui.Icon(c, ic).FontSize(11).TextColor(col)
+		}
+		return
+	}
+	ui.Row(c).Gap(8).AlignItems(ui.Center).Description(checksSummary(st)).Children(func() {
+		for _, n := range []struct {
+			count int
+			state git.Checks
+		}{{st.Passed, git.ChecksPass}, {st.Failed, git.ChecksFail}, {st.Pending, git.ChecksPending}} {
+			if n.count == 0 {
+				continue
+			}
+			ic, col := prChecksIcon(p, n.state)
+			ui.Row(c).Gap(3).AlignItems(ui.Center).Children(func() {
+				ui.Icon(c, ic).FontSize(11).TextColor(col)
+				ui.Text(c, strconv.Itoa(n.count)).FontSize(11.5).TextColor(p.text).FontFeatures("tnum")
+			})
+		}
+	})
 }
 
 // ghLabel is a label, on a chip of its color.
@@ -889,6 +1130,28 @@ func (a *app) githubNote(c *ui.Context, icon *ui.SVG, text, button string, fn fu
 			ui.Text(c, text).FontSize(12).TextColor(p.muted).LineHeight(1.4).Grow(1).Shrink(1).MinWidth(0).Selectable()
 		})
 		if button != "" && ui.Button(c.Key("gh-note-button"), button).AlignSelf(ui.End).Clicked() {
+			fn()
+		}
+	})
+}
+
+// ghBarRoom is the room the list keeps at its foot for githubBar, so
+// that its last rows scroll out from under it.
+const ghBarRoom = 60
+
+// githubBar is the line at the foot of the view, over its list: that its
+// host is away, or that GitHub could not be read again, with a button that
+// tries again, by its icon so that the words of why keep the room. It rises in as it comes, and the list stays where it is.
+func (a *app) githubBar(c *ui.Context, icon *ui.SVG, text, button string, fn func()) {
+	p := a.pal
+	bar := ui.Row(c.Key("gh-bar")).Absolute().Left(8).Right(8).Bottom(8).Padding(6, 6, 6, 10).Gap(8).AlignItems(ui.Center).
+		Radius(8).Transition(barIn)
+	a.floating(c, bar, false)
+	bar.Children(func() {
+		ui.Icon(c, icon).FontSize(13).TextColor(p.modifiedFg).Shrink(0)
+		ui.Text(c, text).FontSize(12).TextColor(p.muted).LineHeight(1.35).MaxLines(3).Tooltip(text).
+			Grow(1).Shrink(1).MinWidth(0)
+		if button != "" && a.smallButton(c, iconRefresh, button) {
 			fn()
 		}
 	})

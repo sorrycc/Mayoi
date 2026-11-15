@@ -14,9 +14,11 @@ func TestParseOverview(t *testing.T) {
 			"defaultBranchRef":{"name":"main"},
 			"pullRequests":{"totalCount":3,"nodes":[
 				{"number":7,"title":"Fix it","url":"https://github.com/o/r/pull/7","isDraft":false,"updatedAt":"2026-11-14T12:00:00Z",
-				 "headRefName":"fix","headRefOid":"` + head + `","reviewDecision":"APPROVED","author":{"login":"ann"},
+				 "headRefName":"fix","headRefOid":"` + head + `","baseRefName":"main","additions":12,"deletions":3,"changedFiles":2,"reviewDecision":"APPROVED","author":{"login":"ann"},
 				 "comments":{"totalCount":2},"labels":{"nodes":[{"name":"bug","color":"d73a4a"}]},"assignees":{"nodes":[{"login":"me"}]},
-				 "commits":{"nodes":[{"commit":{"statusCheckRollup":{"state":"FAILURE"}}}]}},
+				 "commits":{"nodes":[{"commit":{"statusCheckRollup":{"state":"FAILURE","contexts":{
+				  "checkRunCountsByState":[{"state":"SUCCESS","count":4},{"state":"FAILURE","count":1}],
+				  "statusContextCountsByState":[{"state":"PENDING","count":2}]}}}}]}},
 				{"number":8,"title":"Draft","isDraft":true,"author":null,"comments":{"totalCount":0},"labels":{"nodes":[]},
 				 "assignees":{"nodes":[]},"commits":{"nodes":[{"commit":{"statusCheckRollup":null}}]}}]},
 			"issues":{"totalCount":40,"nodes":[
@@ -36,6 +38,10 @@ func TestParseOverview(t *testing.T) {
 	if !pr.PR || pr.Author != "ann" || pr.Checks != ChecksFail || pr.Review != "APPROVED" || pr.Comments != 2 ||
 		pr.Labels[0] != (GHLabel{"bug", "d73a4a"}) || !pr.AssignedTo("me") || pr.ReviewAsked || pr.Updated.IsZero() {
 		t.Fatalf("pr = %+v", pr)
+	}
+	if pr.BaseRef != "main" || pr.Added != 12 || pr.Deleted != 3 || pr.Files != 2 ||
+		pr.CheckCounts != (CommitStatus{Checks: ChecksFail, Passed: 4, Failed: 1, Pending: 2}) {
+		t.Fatalf("pr's base, size and checks = %+v", pr)
 	}
 	if d := o.PRs[1]; !d.Draft || !d.ReviewAsked || d.Checks != ChecksNone || d.Author != "" {
 		t.Fatalf("draft = %+v", d)

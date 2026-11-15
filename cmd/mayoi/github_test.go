@@ -398,3 +398,76 @@ func TestSendIssueWithNoTerminal(t *testing.T) {
 		t.Errorf("clipboard = %q", got)
 	}
 }
+
+// TestGitHubRowActions: under the pointer, the row of an item shows its
+// actions and, as the pointer rests, its card with every label, while its
+// title holds still.
+func TestGitHubRowActions(t *testing.T) {
+	o := ghOverviewFixture()
+	o.PRs[2].Labels = append(o.PRs[2].Labels, git.GHLabel{Name: "one"}, git.GHLabel{Name: "two"}, git.GHLabel{Name: "fourth label"})
+	o.PRs[2].URL, o.PRs[2].HeadRef, o.PRs[2].BaseRef = "https://github.com/o/r/pull/9", "bob/fix", "main"
+	hs := githubHarness(t, o, nil)
+	hs.a.showGitHub()
+	hs.settle()
+	at, ok := hs.tt.Find("Someone else's")
+	if !ok {
+		t.Fatal("no row")
+	}
+	if _, ok := hs.tt.Find(locales.GhCheckOut()); ok {
+		t.Fatal("the actions show with no pointer over the row")
+	}
+	hs.tt.Move(at.X+4, at.Y+at.H/2)
+	hs.settle()
+	if now, _ := hs.tt.Find("Someone else's"); now != at {
+		t.Errorf("the title moved under the pointer: %v, was %v", now, at)
+	}
+	for _, label := range []string{locales.GhCheckOut(), locales.PrOpenOnGitHub(), locales.GhCopyLink()} {
+		if _, ok := hs.tt.Find(label); !ok {
+			t.Errorf("no %q under the pointer", label)
+		}
+	}
+	for i := 0; i < 80; i++ {
+		step(hs.tt)
+	}
+	if _, ok := hs.tt.Find("fourth label"); !ok {
+		t.Error("the card does not show the labels the row has no room for")
+	}
+	if _, ok := hs.tt.Find(locales.ScmCardBranch()); !ok {
+		t.Error("the card does not show the pull request's branch")
+	}
+	tabs := len(hs.a.fileColumn().tabs)
+	if err := hs.tt.Click(locales.GhCopyLink()); err != nil {
+		t.Fatal(err)
+	}
+	hs.settle()
+	if got := hs.a.services.ReadClipboard(); got != "https://github.com/o/r/pull/9" {
+		t.Errorf("Copy Link copied %q", got)
+	}
+	if n := len(hs.a.fileColumn().tabs); n != tabs {
+		t.Errorf("a click on an action opened the row too: %d tabs, were %d", n, tabs)
+	}
+}
+
+// TestGitHubStaleHoldsTheList: the line that GitHub could not be read
+// again comes over the list, which stays where it is.
+func TestGitHubStaleHoldsTheList(t *testing.T) {
+	o := ghOverviewFixture()
+	var err error
+	hs := githubHarness(t, o, nil)
+	fetchGitHubOverview = func(*git.Repo) (*git.GHOverview, error) { return o, err }
+	hs.a.showGitHub()
+	hs.settle()
+	at, ok := hs.tt.Find("Speed up the tree")
+	if !ok {
+		t.Fatal("no row")
+	}
+	err = fmt.Errorf("%w: HTTP 502", git.ErrNoGH)
+	hs.a.repository().refreshGitHubNow()
+	hs.settle()
+	if _, ok := hs.tt.Find(locales.GhStale("HTTP 502")); !ok {
+		t.Fatal("no word that GitHub could not be read again")
+	}
+	if now, _ := hs.tt.Find("Speed up the tree"); now != at {
+		t.Errorf("the list moved as the line came: %v, was %v", now, at)
+	}
+}

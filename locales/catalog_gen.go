@@ -17742,14 +17742,24 @@ func (msgs Messages) GhFind() string {
 	return Catalog.Format(msgs.locale, "ghFind", nil)
 }
 
-// GhNoMatch says "No issue or pull request matches."
+// GhNoMatch says "No issue or pull request matches"
 // in the language the app shows.
 func GhNoMatch() string { return In(i18n.Locale()).GhNoMatch() }
 
-// GhNoMatch says "No issue or pull request matches."
+// GhNoMatch says "No issue or pull request matches"
 // in the language of msgs.
 func (msgs Messages) GhNoMatch() string {
 	return Catalog.Format(msgs.locale, "ghNoMatch", nil)
+}
+
+// GhClearSearch says "Clear Search"
+// in the language the app shows.
+func GhClearSearch() string { return In(i18n.Locale()).GhClearSearch() }
+
+// GhClearSearch says "Clear Search"
+// in the language of msgs.
+func (msgs Messages) GhClearSearch() string {
+	return Catalog.Format(msgs.locale, "ghClearSearch", nil)
 }
 
 // GhOpenConversation says "Open Conversation"

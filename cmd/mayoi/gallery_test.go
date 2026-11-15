@@ -80,6 +80,10 @@ var galleryStates = []struct {
 		hs.settle()
 		hs.a.showGitHubCard("review:7")
 	}},
+	{"github-no-match", func(hs *harness) {
+		galleryGitHub(hs, ghOverviewFixture(), nil)
+		hs.a.github.query = "zzzz"
+	}},
 	{"github-empty", func(hs *harness) {
 		galleryGitHub(hs, &git.GHOverview{Viewer: "me", Repo: "o/r", URL: "https://github.com/o/r", IssuesOn: true}, nil)
 	}},

@@ -48,6 +48,11 @@ needs a `## <version>` section here, or its build fails.
 - The GitHub view's Refresh button turns into a spinning ring until GitHub answers.
 - You can type in the GitHub view's search field while it first loads; its placeholder rows pulse meanwhile.
 - A GitHub view refresh that finds nothing new no longer redraws the list.
+- In the GitHub view, rows a refresh removes, such as a merged pull request, fade out instead of vanishing.
+- Folding or unfolding a GitHub view section slides its rows closed or open.
+- The GitHub view keeps the selected row on the same issue or pull request when a refresh adds or removes rows.
+- A GitHub search that finds nothing offers **Clear Search**.
+- **Try Again** in the GitHub view shows a spinning ring as soon as you click it, until GitHub answers.
 - Labels in an issue's tab use the same chips as the GitHub view, and a failed read offers **Try Again** on a card.
 - Mayoi sends an anonymous count once a day and on each update, with only its version and system.
 - Turn the count off with `usageStats` in **Settings → General**, or by setting `DO_NOT_TRACK=1`.

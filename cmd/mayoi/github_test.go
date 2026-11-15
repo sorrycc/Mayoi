@@ -1081,3 +1081,157 @@ func TestGitHubQueryWhileReading(t *testing.T) {
 		t.Error("a row the query typed early does not find is shown")
 	}
 }
+
+// TestGitHubRowsGo: a row a refresh takes, as a pull request merged,
+// closes its room as it fades out, and is left out once gone; the choice
+// stays on its own row, though a row above it went.
+func TestGitHubRowsGo(t *testing.T) {
+	o := ghOverviewFixture()
+	answer := o
+	hs := githubHarness(t, o, nil)
+	fetchGitHubOverview = func(*git.Repo) (*git.GHOverview, error) { return answer, nil }
+	hs.a.showGitHub()
+	hs.settle()
+	gp := &hs.a.github
+	for i, r := range gp.rows {
+		if r.key == "issues:4" {
+			gp.row = i
+		}
+	}
+	hs.settle()
+	next := *o
+	next.PRs = slices.Clone(o.PRs[1:])
+	answer = &next
+	hs.a.repository().refreshGitHubNow()
+	for range 40 {
+		step(hs.tt)
+		if gp.goneEnd.IsZero() {
+			continue
+		}
+		break
+	}
+	going := false
+	for _, r := range gp.rows {
+		if r.key == "review:7" {
+			going = !r.gone.IsZero()
+		}
+	}
+	if !going {
+		t.Fatal("the row taken is gone at once")
+	}
+	if k := gp.rows[gp.row].key; k != "issues:4" {
+		t.Errorf("the choice is on %q as a row above it goes, want issues:4", k)
+	}
+	hs.settle()
+	for _, r := range gp.rows {
+		if r.key == "review:7" || r.key == "head:review" {
+			t.Errorf("%q is still listed once gone", r.key)
+		}
+	}
+	if _, ok := hs.tt.Find("Speed up the tree"); ok {
+		t.Error("the row taken still shows")
+	}
+	if k := gp.rows[gp.row].key; k != "issues:4" {
+		t.Errorf("the choice is on %q once the row above it is gone, want issues:4", k)
+	}
+}
+
+// TestGitHubSectionFoldCloses: the rows of a section folded close their
+// room, not vanish, and are left out once gone; the choice stops at none.
+func TestGitHubSectionFoldCloses(t *testing.T) {
+	hs := githubHarness(t, ghOverviewFixture(), nil)
+	hs.a.showGitHub()
+	hs.settle()
+	gp := &hs.a.github
+	gp.collapsed["issues"] = true
+	step(hs.tt)
+	var going *ghRow
+	for i, r := range gp.rows {
+		if r.key == "issues:4" {
+			going = &gp.rows[i]
+		}
+	}
+	if going == nil || going.gone.IsZero() {
+		t.Fatal("the row of a section folded is gone at once")
+	}
+	if ghChoosable(*going) {
+		t.Error("the choice may stop at a row that goes")
+	}
+	hs.settle()
+	if _, ok := hs.tt.Find("Wider sidebar"); ok {
+		t.Error("the row of a section folded still shows")
+	}
+}
+
+// TestGitHubNoMatchClears: a query that finds nothing says so, and Clear
+// Search brings every row back with the keyboard in the query.
+func TestGitHubNoMatchClears(t *testing.T) {
+	hs := githubHarness(t, ghOverviewFixture(), nil)
+	hs.a.showGitHub()
+	hs.settle()
+	hs.a.github.query = "zzzz"
+	hs.settle()
+	if err := hs.tt.Click(locales.GhClearSearch()); err != nil {
+		t.Fatal(err)
+	}
+	hs.settle()
+	if q := hs.a.github.query; q != "" {
+		t.Errorf("the query is %q after Clear Search", q)
+	}
+	if _, ok := hs.tt.Find("Wider sidebar"); !ok {
+		t.Error("the rows are not back after Clear Search")
+	}
+}
+
+// TestGitHubRetryAnswersAtOnce: Try Again on a card turns busy within a
+// frame of the click, and is itself again once GitHub answered.
+func TestGitHubRetryAnswersAtOnce(t *testing.T) {
+	hs := githubHarness(t, nil, fmt.Errorf("%w: HTTP 502: Bad Gateway", git.ErrNoGH))
+	hs.a.showGitHub()
+	hs.settle()
+	release := make(chan struct{})
+	fetchGitHubOverview = func(*git.Repo) (*git.GHOverview, error) {
+		<-release
+		return nil, fmt.Errorf("%w: HTTP 502: Bad Gateway", git.ErrNoGH)
+	}
+	at, ok := hs.tt.Find(locales.GhRetry())
+	if !ok {
+		t.Fatal("no Try Again")
+	}
+	shot := func() []byte {
+		img := hs.tt.Image()
+		scale := float32(img.Bounds().Dx()) / 1200
+		var px []byte
+		for x := at.X - 60; x < at.X+at.W+60; x += 2 {
+			for y := at.Y; y < at.Y+at.H; y += 2 {
+				r, g, b, _ := img.At(int(x*scale), int(y*scale)).RGBA()
+				px = append(px, byte(r>>8), byte(g>>8), byte(b>>8))
+			}
+		}
+		return px
+	}
+	before := shot()
+	if err := hs.tt.Click(locales.GhRetry()); err != nil {
+		t.Fatal(err)
+	}
+	step(hs.tt)
+	g := &hs.a.repository().git.gh
+	if !g.refreshing() {
+		t.Fatal("Try Again asked nothing")
+	}
+	if slices.Equal(shot(), before) {
+		t.Error("Try Again shows nothing within a frame of the click")
+	}
+	// Busy, it asks nothing more.
+	gen := g.gen
+	hs.tt.Click(locales.GhRetry())
+	step(hs.tt)
+	if g.gen != gen {
+		t.Error("Try Again asked again while busy")
+	}
+	close(release)
+	hs.settle()
+	if g.refreshing() {
+		t.Error("Try Again is still busy once GitHub answered")
+	}
+}

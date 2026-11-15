@@ -77,18 +77,24 @@ type githubPanel struct {
 	// fade in over them from cameAt.
 	skeleton bool
 	cameAt   time.Time
-	// rows are the rows last built, of rowsOf: githubRows builds them
+	// made are the rows last built, of rowsOf: githubRows builds them
 	// again only as the overview, the branch, the query or the sections
-	// folded change. words are each item's, lowercased, for the query,
-	// as of wordsOf.
+	// folded change. rows are those shown, with those that go among them
+	// as they close their room, the first of them gone at goneEnd. words
+	// are each item's, lowercased, for the query, as of wordsOf.
+	made    []ghRow
 	rows    []ghRow
+	goneEnd time.Time
 	rowsOf  ghRowsKey
 	built   bool
 	words   map[*git.GHItem]string
 	wordsOf *git.GHOverview
-	// appear fades in the rows that come, as a section opens or a refresh
+	// appear opens the rows that come, as a section opens or a refresh
 	// brings an item.
 	appear appearing
+	// rowKey is the key of the row chosen, for the choice to stay on it
+	// as a refresh brings rows above it or takes them.
+	rowKey string
 	// scrolledAt is when the list last scrolled: its rows show no card
 	// until it has rested for scmScrollQuiet.
 	scrolledAt time.Time
@@ -332,6 +338,9 @@ type ghRow struct {
 	checks bool
 	note   string
 	link   string // a note's, which a click opens
+	// gone is when the row went, as a refresh took its item or its
+	// section folded, while it closes its room; zero for a row that stays.
+	gone time.Time
 }
 
 // ghFace is a person of a row: their login and the link of their picture.
@@ -428,6 +437,10 @@ func (a *app) githubRows(ctx *gitContext, o *git.GHOverview, now time.Time) []gh
 		}
 	}
 	if gp.built && key == gp.rowsOf {
+		if !gp.goneEnd.IsZero() && !now.Before(gp.goneEnd) {
+			gp.rows, gp.goneEnd = ghLeave(gp.rows, gp.made, now)
+			gp.keepChoice()
+		}
 		return gp.rows
 	}
 	if old := gp.rowsOf.o; gp.built && old != nil && old != o && old.Repo == o.Repo {
@@ -493,12 +506,87 @@ func (a *app) githubRows(ctx *gitContext, o *git.GHOverview, now time.Time) []gh
 			rows = append(rows, ghRow{key: s.id + ":more", section: s.id, note: locales.GhMoreOnGitHub(s.more), link: s.link})
 		}
 	}
-	// The rows that come fade in: those of a section opened, or an item
-	// a refresh brought; those of another query or repository show at once.
+	// The rows that come open their room, and those that go close it:
+	// those of a section opened or folded, or an item a refresh brought or
+	// took; those of another query or repository show at once.
 	fresh := !gp.built || key.query != gp.rowsOf.query || gp.rowsOf.o == nil || o.Repo != gp.rowsOf.o.Repo
 	gp.appear.note(len(rows), func(i int) string { return rows[i].key }, now, fresh)
-	gp.rows, gp.rowsOf, gp.built = rows, key, true
-	return rows
+	was := gp.rows
+	if fresh {
+		was = nil
+	}
+	// A row that comes back as it goes comes on from where it was.
+	for _, r := range was {
+		if !r.gone.IsZero() {
+			gp.appear.resume(r.key, gp.ghShown(r, now), now)
+		}
+	}
+	gp.made, gp.rowsOf, gp.built = rows, key, true
+	gp.rows, gp.goneEnd = ghLeave(was, rows, now)
+	gp.keepChoice()
+	return gp.rows
+}
+
+// keepChoice keeps the choice on its row, wherever the rows shown have it
+// now; one gone leaves it where it was, for the list to settle it on the
+// nearest.
+func (gp *githubPanel) keepChoice() {
+	if gp.rowKey == "" {
+		return
+	}
+	for i, r := range gp.rows {
+		if r.key == gp.rowKey && r.gone.IsZero() {
+			gp.row = i
+			return
+		}
+	}
+}
+
+// ghLeave is rows with those of was they don't have among them as they
+// go: each after the row before it that stays, gone from now unless it
+// went before, and left out once gone for motionLeave. end is when the
+// first of those among them is, zero for none.
+func ghLeave(was, rows []ghRow, now time.Time) (out []ghRow, end time.Time) {
+	if len(was) == 0 {
+		return rows, time.Time{}
+	}
+	has := make(map[string]bool, len(rows))
+	for _, r := range rows {
+		has[r.key] = true
+	}
+	var after map[string][]ghRow
+	n, prev := 0, ""
+	for _, r := range was {
+		if has[r.key] {
+			prev = r.key
+			continue
+		}
+		if r.gone.IsZero() {
+			r.gone = now
+		}
+		until := r.gone.Add(motionLeave)
+		if !now.Before(until) {
+			continue
+		}
+		if end.IsZero() || until.Before(end) {
+			end = until
+		}
+		if after == nil {
+			after = map[string][]ghRow{}
+		}
+		after[prev] = append(after[prev], r)
+		n++
+	}
+	if n == 0 {
+		return rows, time.Time{}
+	}
+	out = make([]ghRow, 0, len(rows)+n)
+	out = append(out, after[""]...)
+	for _, r := range rows {
+		out = append(out, r)
+		out = append(out, after[r.key]...)
+	}
+	return out, end
 }
 
 // noteChecks notes the pull requests of o whose checks are other than they
@@ -524,12 +612,28 @@ func (gp *githubPanel) noteChecks(old, o *git.GHOverview, now time.Time) {
 	}
 }
 
-// ghFade has a row of the GitHub view fade in as it comes.
-func (a *app) ghFade(c *ui.Context, row ui.Element, key string, now time.Time) {
-	if k := a.github.appear.shown(key, now); k < 1 {
-		row.Opacity(k)
-		c.AnimationFrame()
+// ghShown is how far in row r of the GitHub view is at now: from 0 to 1
+// as it comes, and back to 0 as it goes.
+func (gp *githubPanel) ghShown(r ghRow, now time.Time) float32 {
+	if !r.gone.IsZero() {
+		return 1 - ui.EaseOut(min(float32(now.Sub(r.gone))/float32(motionLeave), 1))
 	}
+	return gp.appear.shown(r.key, now)
+}
+
+// ghOpenShut has row r of the GitHub view, h tall, open as far as it
+// shows at now: it fades, and grows or shrinks to its height, which moves
+// the rows under it along; with less motion, it only fades.
+func (a *app) ghOpenShut(c *ui.Context, row ui.Element, r ghRow, h float32, now time.Time) {
+	k := a.github.ghShown(r, now)
+	if k >= 1 {
+		return
+	}
+	row.Opacity(k)
+	if !c.Preferences().ReduceMotion {
+		row.Height(h * k).ClipY()
+	}
+	c.AnimationFrame()
 }
 
 // githubView is the GitHub view: the issues and pull requests open of the
@@ -567,10 +671,10 @@ func (a *app) githubView(c *ui.Context) {
 	var bar func()
 	switch {
 	case !a.online():
-		bar = func() { a.githubBar(c, iconWifiOff, locales.NotConnectedTo(a.conn.Host), "", nil) }
+		bar = func() { a.githubBar(c, iconWifiOff, locales.NotConnectedTo(a.conn.Host), "", false, nil) }
 	case g.gh.problem != git.GHFine:
 		bar = func() {
-			a.githubBar(c, iconTriangleAlert, locales.GhStale(g.gh.ghShownError()), locales.GhRetry(), ctx.refreshGitHubNow)
+			a.githubBar(c, iconTriangleAlert, locales.GhStale(g.gh.ghShownError()), locales.GhRetry(), g.gh.refreshing(), ctx.refreshGitHubNow)
 		}
 	}
 	ui.Column(c.Key("gh-body")).Grow(1).MinHeight(0).Children(func() {
@@ -648,8 +752,13 @@ func (a *app) githubList(c *ui.Context, ctx *gitContext, o *git.GHOverview, rows
 		return
 	}
 	if len(rows) == 0 {
-		ui.Text(c, locales.GhNoMatch()).FontSize(12).TextColor(p.muted).Padding(10, 18, 0, 18)
+		a.githubNoMatch(c)
 		return
+	}
+	// The rows that go are left out once gone, though none shows to ask
+	// for a frame.
+	if !gp.goneEnd.IsZero() {
+		c.After(max(gp.goneEnd.Sub(now), 0))
 	}
 	if gp.skeleton {
 		gp.skeleton, gp.cameAt = false, now
@@ -704,6 +813,10 @@ func (a *app) githubList(c *ui.Context, ctx *gitContext, o *git.GHOverview, rows
 	// The list's keys stop at a note that only says: the choice goes on
 	// past it.
 	gp.row = ghSettle(rows, gp.row, was)
+	gp.rowKey = ""
+	if gp.row >= 0 && gp.row < len(rows) {
+		gp.rowKey = rows[gp.row].key
+	}
 	listKeys := gp.list.FocusWithin(c)
 	if gp.focusList && gp.list.Focus(c) {
 		gp.focusList, listKeys = false, true
@@ -755,6 +868,20 @@ func (a *app) githubList(c *ui.Context, ctx *gitContext, o *git.GHOverview, rows
 	}
 }
 
+// githubNoMatch is the view of a query that finds nothing: what to do
+// next is to clear it, which gives the keyboard back to the query.
+func (a *app) githubNoMatch(c *ui.Context) {
+	gp := &a.github
+	a.githubCard(c, "gh-no-match", iconSearch, locales.GhNoMatch(), "", func() {
+		b := ui.Button(c.Key("gh-clear"), locales.GhClearSearch())
+		pressPose(b)
+		if b.Clicked() {
+			gp.query, gp.row = "", 0
+			gp.input.Focus()
+		}
+	})
+}
+
 // githubKeys is what the keys of the chosen row's actions, as shortcut
 // reports them, ask to do with it, nil for none: ⌘Enter checks a pull
 // request out, or works on an issue, as the pickers' second action, and
@@ -799,14 +926,16 @@ func ghStepH(r ghRow) float32 {
 // another, it shows there at once.
 func (a *app) ghGlide(rows []ghRow, i int, now time.Time, reduce bool) (y, there float32) {
 	return a.github.glide.to(len(rows), i, func(j int) string { return rows[j].key }, func(j int) (float32, bool) {
-		// Not over a section's header, which it would cover on its way.
-		return ghStepH(rows[j]), !rows[j].header
+		// Not over a section's header, which it would cover on its way, nor
+		// a row that closes its room.
+		return ghStepH(rows[j]), !rows[j].header && rows[j].gone.IsZero()
 	}, now, reduce)
 }
 
 // ghChoosable reports whether the choice may stop at row r: an item, or a
-// note that opens GitHub; not a header, nor a note that only says.
-func ghChoosable(r ghRow) bool { return r.item != nil || r.link != "" }
+// note that opens GitHub; not a header, a note that only says, nor a row
+// that goes.
+func ghChoosable(r ghRow) bool { return (r.item != nil || r.link != "") && r.gone.IsZero() }
 
 // ghFirstItem is the first row the choice may stop at, 0 for none.
 func ghFirstItem(rows []ghRow) int {
@@ -862,10 +991,11 @@ func (a *app) githubHeader(c *ui.Context, r ghRow, now time.Time, action *func()
 		h, top = scmRowHeight+ghHeaderGap, ghHeaderGap
 	}
 	row := ui.Row(c).Grow(1).Gap(4).AlignItems(ui.Center).Height(h).Padding(top, 6, 0, 2).Background(p.chrome)
-	a.ghFade(c, row, r.key, now)
-	clicked := row.Clicked()
+	a.ghOpenShut(c, row, r, h, now)
+	going := !r.gone.IsZero()
+	clicked := row.Clicked() && !going
 	col := p.muted
-	if row.Hovered() {
+	if row.Hovered() && !going {
 		col = p.text
 	}
 	row.Children(func() {
@@ -889,7 +1019,7 @@ func (a *app) githubNoteRow(c *ui.Context, r ghRow, choice *sessionChoice, now t
 	p := a.pal
 	if r.link == "" {
 		row := ui.Row(c).Height(ghNoteH).AlignItems(ui.Center).Padding(0, 10, 2, ghTitleIndent)
-		a.ghFade(c, row, r.key, now)
+		a.ghOpenShut(c, row, r, ghNoteH, now)
 		row.Children(func() {
 			if choice != nil {
 				a.choiceMark(c, choice, ghNoteH)
@@ -901,9 +1031,10 @@ func (a *app) githubNoteRow(c *ui.Context, r ghRow, choice *sessionChoice, now t
 	// Under the titles, as a row of the list would be; its arrow says it
 	// opens GitHub.
 	b := ui.ButtonBase(c.Key("note")).FillWidth().Height(ghNoteH).Justify(ui.Start).Padding(0, 10, 2, ghTitleIndent).Radius(5).Label(r.note)
-	a.ghFade(c, b, r.key, now)
+	a.ghOpenShut(c, b, r, ghNoteH, now)
+	going := !r.gone.IsZero()
 	col := p.muted
-	if b.Hovered() {
+	if b.Hovered() && !going {
 		col = p.accent
 	}
 	b.Children(func() {
@@ -915,7 +1046,7 @@ func (a *app) githubNoteRow(c *ui.Context, r ghRow, choice *sessionChoice, now t
 			ui.Icon(c, iconExternal).FontSize(10).TextColor(col).Transition(hoverFade)
 		})
 	})
-	if b.Clicked() {
+	if b.Clicked() && !going {
 		*action = func() { a.services.OpenURL(r.link) }
 	}
 }
@@ -957,8 +1088,10 @@ func (a *app) githubItem(c *ui.Context, ctx *gitContext, o *git.GHOverview, r gh
 	it := r.item
 	chosen := choice != nil
 	row := ui.Column(c).Grow(1).Height(ghItemH).Padding(3, 8, 3, 6).Gap(2).Justify(ui.Center).Radius(6)
-	a.ghFade(c, row, r.key, now)
-	hovered := row.Hovered()
+	a.ghOpenShut(c, row, r, ghItemH, now)
+	// A row that goes shows nothing of the pointer, and does nothing.
+	going := !r.gone.IsZero()
+	hovered := row.Hovered() && !going
 	// The row's hover is the only one under it, the list painting none,
 	// and the choice shows none over its own.
 	if hovered && !chosen {
@@ -966,6 +1099,7 @@ func (a *app) githubItem(c *ui.Context, ctx *gitContext, o *git.GHOverview, r gh
 	}
 	row.Transition(hoverFade)
 	switch wait := scmScrollQuiet - now.Sub(a.github.scrolledAt); {
+	case going:
 	case chosen && a.github.card == r.key:
 		a.githubItemCard(c, o, row, r, true, now)
 	case wait > 0:
@@ -1044,6 +1178,9 @@ func (a *app) githubItem(c *ui.Context, ctx *gitContext, o *git.GHOverview, r gh
 			a.githubItemActions(c, ctx, o, it, bg, action)
 		}
 	})
+	if going {
+		return
+	}
 	row.ContextMenu(func(m *ui.Menu) {
 		a.githubItemMenu(m, ctx, o, it, action)
 		m.Separator()
@@ -1616,8 +1753,10 @@ const ghBarRoom = 60
 
 // githubBar is the line at the foot of the view, over its list: that its
 // host is away, or that GitHub could not be read again, with a button that
-// tries again, by its icon so that the words of why keep the room. It rises in as it comes, and the list stays where it is.
-func (a *app) githubBar(c *ui.Context, icon *ui.SVG, text, button string, fn func()) {
+// tries again, by its icon so that the words of why keep the room; while
+// busy, as it tries, its arrow is a ring that turns, from the click on.
+// It rises in as it comes, and the list stays where it is.
+func (a *app) githubBar(c *ui.Context, icon *ui.SVG, text, button string, busy bool, fn func()) {
 	p := a.pal
 	bar := ui.Row(c.Key("gh-bar")).Absolute().Left(8).Right(8).Bottom(8).Padding(6, 6, 6, 10).Gap(8).AlignItems(ui.Center).
 		Radius(8).Transition(barIn)
@@ -1626,7 +1765,13 @@ func (a *app) githubBar(c *ui.Context, icon *ui.SVG, text, button string, fn fun
 		ui.Icon(c, icon).FontSize(13).TextColor(p.modifiedFg).Shrink(0)
 		ui.Text(c, text).FontSize(12).TextColor(p.muted).LineHeight(1.35).MaxLines(3).Tooltip(text).
 			Grow(1).Shrink(1).MinWidth(0)
-		if button != "" && a.smallButton(c, iconRefresh, button) {
+		switch {
+		case button == "":
+		case busy:
+			ui.Box(c.Key(button)).Size(20, 20).Shrink(0).Justify(ui.Center).AlignItems(ui.Center).Label(button).Children(func() {
+				a.ghBusyMark(c, 13, p.muted)
+			})
+		case a.smallButton(c, iconRefresh, button):
 			fn()
 		}
 	})
@@ -1668,18 +1813,14 @@ func (a *app) githubProblem(c *ui.Context, ctx *gitContext) {
 			if ui.PrimaryButton(c, locales.GhGetCLI()).FillWidth().Clicked() {
 				a.services.OpenURL(ghGetCLI)
 			}
-			if ui.Button(c.Key("gh-retry"), locales.GhRetry()).FillWidth().Clicked() {
-				ctx.refreshGitHubNow()
-			}
+			a.ghRetryButton(c, ctx, false)
 		})
 	case git.GHSignedOut:
 		a.githubCard(c, "gh-signed-out", iconLock, locales.GhSignedOut(), locales.GhSignedOutDetail(), func() {
 			if ui.PrimaryButton(c, locales.GhSignIn()).FillWidth().Clicked() {
 				a.post(func() { a.runInTerminal(ctx.git.repo.Root, "gh auth login") })
 			}
-			if ui.Button(c.Key("gh-retry"), locales.GhRetry()).FillWidth().Clicked() {
-				ctx.refreshGitHubNow()
-			}
+			a.ghRetryButton(c, ctx, false)
 		})
 	case git.GHNoDefault:
 		a.githubCard(c, "gh-no-default", iconGitHub, locales.GhNoDefault(), locales.GhNoDefaultDetail(), func() {
@@ -1697,14 +1838,51 @@ func (a *app) githubProblem(c *ui.Context, ctx *gitContext) {
 		})
 	default:
 		a.githubCard(c, "gh-error", iconTriangleAlert, locales.GhFailed(), g.gh.ghShownError(), func() {
-			if ui.PrimaryButton(c, locales.GhRetry()).FillWidth().Clicked() {
-				ctx.refreshGitHubNow()
-			}
+			a.ghRetryButton(c, ctx, true)
 			if ui.Button(c.Key("gh-report"), locales.ReportProblem()).FillWidth().Clicked() {
 				a.reportProblem(locales.GhFailed(), g.gh.err)
 			}
 		})
 	}
+}
+
+// ghRetryButton is Try Again on a card of the view, primary or not, which
+// asks GitHub again. From the click until GitHub answers it is dimmed,
+// with a ring that turns at its start, so that the click shows at once
+// however long GitHub takes; its words keep their place.
+func (a *app) ghRetryButton(c *ui.Context, ctx *gitContext, primary bool) {
+	busy := ctx.git.gh.refreshing() && a.online()
+	ui.Box(c.Key("gh-retry")).FillWidth().Children(func() {
+		var b ui.Element
+		if primary {
+			b = ui.PrimaryButton(c, locales.GhRetry())
+		} else {
+			b = ui.Button(c.Key("button"), locales.GhRetry())
+		}
+		b.FillWidth().Disabled(busy)
+		pressPose(b)
+		if b.Clicked() && !busy {
+			ctx.refreshGitHubNow()
+		}
+		if busy {
+			col := a.pal.muted
+			if primary {
+				col = c.Theme().AccentText
+			}
+			ui.Row(c.Key("busy")).Absolute().Left(10).Top(0).Bottom(0).AlignItems(ui.Center).PassThrough().Transition(revealFade).
+				Children(func() { a.ghBusyMark(c, 12, col) })
+		}
+	})
+}
+
+// ghBusyMark is the mark of a Try Again that runs, size across: a ring
+// that turns, or with less motion, the arrow, still.
+func (a *app) ghBusyMark(c *ui.Context, size float32, col ui.Color) {
+	if c.Preferences().ReduceMotion {
+		ui.Icon(c.Key("busy-mark"), iconRefresh).FontSize(size).TextColor(col)
+		return
+	}
+	spinRing(c, "busy-mark", size, col)
 }
 
 // githubEmpty is the view of a repository with no issue or pull request

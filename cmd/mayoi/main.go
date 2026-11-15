@@ -481,6 +481,7 @@ func main() {
 		setThemeSource(themeSource(m.s.Theme, m.s.Appearance))
 		m.startCloud()
 		m.startUpdates()
+		m.startUsage()
 		if len(m.wins) == 0 {
 			return
 		}

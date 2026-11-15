@@ -15122,6 +15122,26 @@ func (msgs Messages) PrefDescCrashReports() string {
 	return Catalog.Format(msgs.locale, "prefDescCrashReports", nil)
 }
 
+// PrefTitleUsageStats says "Usage Statistics"
+// in the language the app shows.
+func PrefTitleUsageStats() string { return In(i18n.Locale()).PrefTitleUsageStats() }
+
+// PrefTitleUsageStats says "Usage Statistics"
+// in the language of msgs.
+func (msgs Messages) PrefTitleUsageStats() string {
+	return Catalog.Format(msgs.locale, "prefTitleUsageStats", nil)
+}
+
+// PrefDescUsageStats says "Sends an anonymous count once a day and on each update, with the version and system. No files or account."
+// in the language the app shows.
+func PrefDescUsageStats() string { return In(i18n.Locale()).PrefDescUsageStats() }
+
+// PrefDescUsageStats says "Sends an anonymous count once a day and on each update, with the version and system. No files or account."
+// in the language of msgs.
+func (msgs Messages) PrefDescUsageStats() string {
+	return Catalog.Format(msgs.locale, "prefDescUsageStats", nil)
+}
+
 // PrefTitleSyncIgnored says "Keep on This Machine"
 // in the language the app shows.
 func PrefTitleSyncIgnored() string { return In(i18n.Locale()).PrefTitleSyncIgnored() }

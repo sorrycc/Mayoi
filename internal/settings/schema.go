@@ -121,6 +121,7 @@ var Schema = []Field{
 
 	{Key: "locale", Category: CatGeneral, Kind: KindEnum, Options: []string{"", "en", "zh-Hans", "ja"}},
 	{Key: "crashReports", Category: CatGeneral, Kind: KindEnum, Options: []string{"", "always", "never"}},
+	{Key: "usageStats", Category: CatGeneral, Kind: KindBool},
 	{Key: "syncIgnored", Category: CatGeneral, Kind: KindList},
 }
 

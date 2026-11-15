@@ -42,6 +42,8 @@ needs a `## <version>` section here, or its build fails.
 - While checks run, a pull request's row and card show a turning ring, held still by Reduce Motion.
 - Issue and pull request tabs show pictures of the author, assignees and everyone who commented.
 - Labels in an issue's tab use the same chips as the GitHub view, and a failed read offers **Try Again** on a card.
+- Mayoi sends an anonymous count once a day and on each update, with only its version and system.
+- Turn the count off with `usageStats` in **Settings → General**, or by setting `DO_NOT_TRACK=1`.
 
 ## 0.21.2
 

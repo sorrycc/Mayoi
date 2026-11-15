@@ -1722,6 +1722,8 @@
   "prefDescLocale": "The language Mayoi shows.",
   "prefTitleCrashReports": "Crash Reports",
   "prefDescCrashReports": "What Mayoi does with the report of a crash at the next launch.",
+  "prefTitleUsageStats": "Usage Statistics",
+  "prefDescUsageStats": "Sends an anonymous count once a day and on each update, with the version and system. No files or account.",
   "prefTitleSyncIgnored": "Keep on This Machine",
   "prefDescSyncIgnored": "What settings sync leaves on this machine: keys, settings.json or keybindings.json.",
   "prefDefaultTheme": "Mayoi",

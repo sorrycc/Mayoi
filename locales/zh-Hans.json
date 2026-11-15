@@ -1494,6 +1494,8 @@
   "prefDescLocale": "Mayoi 显示的语言。",
   "prefTitleCrashReports": "崩溃报告",
   "prefDescCrashReports": "下次启动时如何处理崩溃报告。",
+  "prefTitleUsageStats": "使用统计",
+  "prefDescUsageStats": "每天一次及每次更新时匿名发送版本和系统信息，不含文件和账户。",
   "prefTitleSyncIgnored": "仅保留在本机",
   "prefDescSyncIgnored": "设置同步时留在本机的内容：键名、settings.json 或 keybindings.json。",
   "prefDefaultTheme": "Mayoi",

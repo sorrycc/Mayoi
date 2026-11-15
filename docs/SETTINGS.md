@@ -24,6 +24,7 @@ All of Mayoi's files are in one data folder:
 | `sync.json`         | Mayoi         | [Settings sync](#settings-sync): the account, and the settings as last synced     |
 | `crash.log`         | Mayoi         | Mayoi's version and system, then what ended it if it crashed, with every stack    |
 | `crashes/`          | Mayoi         | The last 10 crash logs, by time; `.sent` or `.unsent` once asked about            |
+| `usage.json`        | Mayoi         | [`usageStats`](#the-rest): the day and version of the last count sent             |
 
 Plugins, user scripts and what plugins store are in `~/.mayoi` instead: see [PLUGINS.md](PLUGINS.md#where-they-are).
 
@@ -106,6 +107,7 @@ takes its default.
 | `aiModel`               | `""`          | `""` (`deepseek-flash`), or a model of the AI gateway       | Only this file                                 |
 | `aiSecretFiles`         | none          | Patterns of files AI commit messages send by name only      | Only this file                                 |
 | `crashReports`          | `""`          | `""` (ask), `"always"`, `"never"`                           | **Don't ask again** when Mayoi asks           |
+| `usageStats`            | `true`        | `true`, `false`                                             | Only this file                                 |
 | `plugins`               | none          | Each plugin's own settings, and `"enabled": false` to turn it off | The **Plugins** page of the settings window |
 | `formatOnSave`          | none          | `true` for each language to format as it saves, or `"*"` for all | Only this file                          |
 | `formatters`            | none          | The formatter of each language, where plugins offer several | Only this file                                 |
@@ -247,6 +249,11 @@ differ in width lines them up only roughly.
   and has your home folder taken out, but not other paths, such as `/Volumes/...` or `/opt/...`. **Show Report** in
   the question opens the logs as they would be sent. Only releases send reports, and builds started with
   `MAYOI_MON_URL`. Enter answers **Don't Send**.
+- **`usageStats`** sends an anonymous count of Mayoi's use to Umami at `umami.sorrycc.dev`: an `active` event once a
+  day while Mayoi is open, and an `update` event on the first launch of a new version. Each holds only Mayoi's
+  version (and the one before, for `update`), the system and its architecture, and the language of the menus; never a
+  path, a file, a name or your account. Turn it off to send nothing. `DO_NOT_TRACK=1` in Mayoi's environment turns
+  it off too. Only releases send, and builds started with `MAYOI_UMAMI_URL`. See [PRIVACY.md](PRIVACY.md).
 - **`aiSecretFiles`** adds patterns of files whose lines **Write Commit Message with AI** never sends, after
   Mayoi's own list of `.env` files, keys and credentials. A name matches in any folder, a path such as
   `config/prod.yml` matches the end of a file's path, and `/config/prod.yml` its start. `**` is any run of folders,

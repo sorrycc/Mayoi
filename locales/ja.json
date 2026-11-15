@@ -1494,6 +1494,8 @@
   "prefDescLocale": "Mayoi の表示言語。",
   "prefTitleCrashReports": "クラッシュ レポート",
   "prefDescCrashReports": "次回起動時にクラッシュ レポートをどうするか。",
+  "prefTitleUsageStats": "利用状況の統計",
+  "prefDescUsageStats": "1 日 1 回と更新時に、バージョンとシステムだけを匿名で送信します。ファイルやアカウントは送りません。",
   "prefTitleSyncIgnored": "このマシンに残す",
   "prefDescSyncIgnored": "設定の同期でこのマシンに残すもの。キー、settings.json、keybindings.json です。",
   "prefDefaultTheme": "Mayoi",

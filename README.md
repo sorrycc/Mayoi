@@ -168,6 +168,11 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for development and testing.
 | ⇧⌘V | Toggle SVG preview |
 | ⌥Z | Toggle word wrap for the current tab |
 
+## Privacy
+
+Mayoi sends an anonymous count once a day and on each update, with only its version and system. Set `usageStats` to
+`false` to turn it off. Crash reports are sent only when you say so. See [docs/PRIVACY.md](docs/PRIVACY.md).
+
 ## License
 
 [MIT](LICENSE)

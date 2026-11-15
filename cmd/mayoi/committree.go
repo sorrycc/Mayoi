@@ -63,6 +63,24 @@ func (a *app) toggleCommitFiles() {
 // diffViewUI shows a diff, with the panel of its files beside it when it
 // is a commit's.
 func (a *app) diffViewUI(c *ui.Context, v *diffView) {
+	if cm := v.commit; cm.pending() {
+		a.pendingPRUI(c, v)
+		return
+	}
+	if cm := v.commit; cm != nil && cm.pr != nil {
+		// A line over it shows while the pull request is read again.
+		ui.Column(c.Key("pr-diff")).Fill().Children(func() {
+			a.prActivity(c, v)
+			ui.Box(c.Key("pr-diff-body")).Grow(1).Shrink(1).MinHeight(0).FillWidth().Children(func() { a.diffBodyUI(c, v) })
+		})
+		return
+	}
+	a.diffBodyUI(c, v)
+}
+
+// diffBodyUI is a diff with the panel of its files beside it when it is a
+// commit's.
+func (a *app) diffBodyUI(c *ui.Context, v *diffView) {
 	if !a.showsCommitFiles(v) {
 		a.diffPaneUI(c, v)
 		return

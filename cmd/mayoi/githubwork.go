@@ -237,7 +237,7 @@ func (a *app) terminalPrompt(c *ui.Context, s *session) {
 // openPRWithThreads opens the changes of pull request n with its review
 // threads not resolved as notes on their lines, which Send Review Items
 // to Terminal hands to an agent.
-func (a *app) openPRWithThreads(ctx *gitContext, n int) { ctx.openPullRequestWith(n, true) }
+func (a *app) openPRWithThreads(ctx *gitContext, n int) { ctx.openPullRequestWith(n, true, true, "") }
 
 // threadNotes are the notes of the review threads of a pull request not
 // resolved: each on its lines of the side it is on, the head's or the

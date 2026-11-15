@@ -112,3 +112,56 @@ func TestPRChoices(t *testing.T) {
 		t.Fatalf("number: %+v", got)
 	}
 }
+
+// A pull request opens its tab at once, a preview tab unless kept, which
+// says why it could not be read, and shows the changes once they are.
+func TestOpenPullRequestTabFirst(t *testing.T) {
+	hs := newHarness(t, true)
+	a := hs.a
+	os.WriteFile(hs.path("a.txt"), []byte("one\n"), 0o644)
+	run := hs.gitRepo()
+	base := strings.TrimSpace(run("rev-parse", "HEAD"))
+	os.WriteFile(hs.path("a.txt"), []byte("one\ntwo\n"), 0o644)
+	run("commit", "-qam", "more")
+	head := strings.TrimSpace(run("rev-parse", "HEAD"))
+	root := a.git.repo.Root
+
+	a.repository().openPullRequestWith(5, false, false, "Fix things")
+	col := a.column()
+	tab := col.tabs[col.active]
+	if tab.diff == nil || !tab.diff.commit.pending() || !tab.transient || tab.name() != "#5 Fix things" {
+		t.Fatalf("tab %q pending %v transient %v", tab.name(), tab.diff != nil && tab.diff.commit.pending(), tab.transient)
+	}
+	tabs := len(col.tabs)
+	// Opened again while read: the same tab.
+	a.repository().openPullRequestWith(5, false, false, "Fix things")
+	if len(col.tabs) != tabs {
+		t.Fatalf("tabs %d, want %d", len(col.tabs), tabs)
+	}
+	pr := tab.diff.commit.pr
+	hs.until("the pull request read", func() bool { return !pr.opening })
+	if pr.openErr == "" {
+		t.Fatal("no reason the pull request could not be read")
+	}
+	hs.settle()
+	for _, c := range a.window.Columns {
+		for _, ts := range c.Tabs {
+			if strings.HasPrefix(ts.Diff, "commit:pr:") {
+				t.Fatalf("a pending pull request kept: %+v", ts)
+			}
+		}
+	}
+
+	info := &git.PRInfo{Number: 5, ID: "PR_x", Title: "Fix things", State: "OPEN", BaseRef: "main", HeadRef: "feature", BaseOid: base, HeadOid: head}
+	a.showPullRequest(info, base, nil, root)
+	if len(col.tabs) != tabs || col.tabs[col.active] != tab || !tab.transient {
+		t.Fatalf("tabs %d, want %d, transient %v", len(col.tabs), tabs, tab.transient)
+	}
+	if tab.diff.commit.pending() || tab.diff.commit.hash != head {
+		t.Fatalf("tab %+v", tab.diff.commit)
+	}
+	hs.settleDiff(tab.diff)
+	if len(tab.diff.files) != 1 {
+		t.Fatalf("files %d", len(tab.diff.files))
+	}
+}

@@ -378,7 +378,8 @@ func (a *app) issueContent(c *ui.Context, ctx *gitContext, v *issueView) {
 			ui.Text(c, locales.GhLinkedPR("#"+strconv.Itoa(n), l.Title)).FontSize(12.5).TextColor(p.text).SingleLine().Shrink(1).MinWidth(0)
 		})
 		if b.Clicked() {
-			a.post(func() { ctx.openPullRequest(n) })
+			title := l.Title
+			a.post(func() { ctx.openPullRequestWith(n, false, true, title) })
 		}
 	}
 	if len(v.texts) > 0 {
@@ -406,7 +407,7 @@ func (a *app) issueActions(c *ui.Context, ctx *gitContext, v *issueView) {
 	ui.Row(c.Key("issue-actions")).Gap(6).Wrap().Children(func() {
 		if is.PR {
 			if ui.PrimaryButton(c, locales.PrOpenChanges()).Clicked() {
-				a.post(func() { ctx.openPullRequest(is.Number) })
+				a.post(func() { ctx.openPullRequestWith(is.Number, false, true, is.Title) })
 			}
 			if ui.Button(c.Key("issue-threads"), locales.GhAddressReview()).Clicked() {
 				a.post(func() { a.openPRWithThreads(ctx, is.Number) })

@@ -743,13 +743,17 @@ func (a *app) splitRight() {
 		return
 	case t.diff != nil:
 		v := newDiffView(t.diff.layout)
-		if cm := t.diff.commit; cm != nil {
+		if cm := t.diff.commit; cm.pending() {
+			// Read once, for each tab of it.
+			v = newPendingPR(t.diff.layout, cm.pr.number, cm.pr.title)
+			v.commit.pr.opening, v.commit.pr.threads, v.commit.pr.openErr = cm.pr.opening, cm.pr.threads, cm.pr.openErr
+		} else if cm != nil {
 			v = newCommitView(t.diff.layout, cm.key(), cm.info)
 			if cm.pr != nil {
 				// What GitHub told of the pull request, which it need not
 				// be asked again.
 				pr := *cm.pr
-				pr.reading, pr.marking = false, nil
+				pr.reading, pr.marking, pr.opening = false, nil, false
 				v.commit.pr = &pr
 			}
 		}
@@ -941,6 +945,8 @@ func (a *app) rememberTabs() {
 					// Its shell runs on, and the agent in it.
 					ts.Agent, ts.Session = string(t.term.agent), t.term.resumed
 				}
+			case t.diff != nil && t.diff.commit.pending():
+				continue // a pull request still read opens again from GitHub
 			case t.diff != nil && t.diff.commit != nil:
 				ts = settings.Tab{Diff: "commit:" + t.diff.commit.key(), Layout: t.diff.layout.key(), Transient: t.transient}
 			case t.diff != nil:

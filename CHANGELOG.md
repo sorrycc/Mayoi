@@ -18,6 +18,8 @@ needs a `## <version>` section here, or its build fails.
 - **New Issue**, in the GitHub view or **Git → New Issue…**, writes and creates an issue in a tab.
 - **Work on Issue** makes a worktree for an issue and hands it to the agent you start in its terminal.
 - **Address Review Comments** shows a pull request's open review threads as notes to send to an agent.
+- Pull requests open in a tab right away and load inside it, with any error and **Try Again** shown there.
+- Clicking a pull request in the GitHub view opens a preview tab, as clicking an issue does.
 - A review note from GitHub has **Resolve on GitHub**, which resolves its thread there.
 - A pull request's tab has **Open Conversation** to read its description and comments.
 - In the GitHub view, labels that don't fit are left out whole instead of cut off, and an item's age always shows.

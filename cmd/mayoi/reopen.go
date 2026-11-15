@@ -47,6 +47,8 @@ func (a *app) rememberClosed(t *colTab) {
 	switch {
 	case t.term != nil:
 		c.termDir = t.term.dir
+	case t.diff != nil && t.diff.commit.pending():
+		return // a pull request still read opens again from GitHub
 	case t.diff != nil:
 	case t.path() == "":
 		return

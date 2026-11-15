@@ -3,6 +3,10 @@
 The update window shows the section of the version it offers. Every release
 needs a `## <version>` section here, or its build fails.
 
+## Unreleased
+
+- Mayoi no longer stops responding about 20 seconds after it opens or after the Mac wakes from sleep.
+
 ## 0.22.0
 
 - The Matrix and Claude themes use the same interface font as the other themes, not the code's font.

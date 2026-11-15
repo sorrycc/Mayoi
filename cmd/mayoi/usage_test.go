@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"mayoi/internal/settings"
 	"mayoi/internal/usage"
 )
 
@@ -81,6 +82,33 @@ func TestReportUsage(t *testing.T) {
 	}
 	if b, _ := os.ReadFile(path); !strings.Contains(string(b), `"day":"2026-11-16"`) {
 		t.Errorf("usage.json holds %s", b)
+	}
+}
+
+// TestUsageOnWaits reads usageStats as mygo.RunOnMain runs it: on another
+// thread, waited for, which a send to the reader would deadlock.
+func TestUsageOnWaits(t *testing.T) {
+	onMain := func(fn func()) {
+		done := make(chan struct{})
+		go func() {
+			defer close(done)
+			fn()
+		}()
+		<-done
+	}
+	for _, want := range []bool{true, false} {
+		m := &mayoi{s: settings.Default()}
+		m.s.UsageStats = want
+		got := make(chan bool, 1)
+		go func() { got <- m.usageOn(onMain) }()
+		select {
+		case on := <-got:
+			if on != want {
+				t.Errorf("usageStats %v read as %v", want, on)
+			}
+		case <-time.After(5 * time.Second):
+			t.Fatal("reading usageStats on the main thread deadlocks")
+		}
 	}
 }
 

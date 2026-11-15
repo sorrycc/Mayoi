@@ -66,9 +66,7 @@ func (m *mayoi) startUsage() {
 		for {
 			select {
 			case <-timer.C:
-				on := make(chan bool)
-				mygo.RunOnMain(func() { on <- m.s.UsageStats })
-				if <-on {
+				if m.usageOn(mygo.RunOnMain) {
 					ctx, cancel := context.WithTimeout(context.Background(), usageTimeout)
 					reportUsage(ctx, c, path, appVersion(), i18n.Locale(), time.Now())
 					cancel()
@@ -80,6 +78,14 @@ func (m *mayoi) startUsage() {
 			}
 		}
 	}()
+}
+
+// usageOn reports whether usageStats is on, read on the main thread with
+// onMain, which waits for it: mygo.RunOnMain, but in tests.
+func (m *mayoi) usageOn(onMain func(fn func())) bool {
+	var on bool
+	onMain(func() { on = m.s.UsageStats })
+	return on
 }
 
 // reportUsage sends the events due at now and keeps in the file at path

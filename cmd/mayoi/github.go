@@ -1602,7 +1602,7 @@ func (a *app) ghStateChip(c *ui.Context, icon *ui.SVG, word string, col ui.Color
 		// A draft's is grey, as its icon is.
 		tint = a.pal.text.Alpha(0.07)
 	}
-	return ui.Row(c).Gap(2).AlignItems(ui.Center).Height(ghChipH).Padding(0, 5).Radius(ghChipH/2).Background(tint).Shrink(0).
+	return ui.Row(c).Gap(2).AlignItems(ui.Center).Height(ghChipH).Padding(0, 5).Radius(ghChipH / 2).Background(tint).Shrink(0).
 		Children(func() {
 			if icon != nil {
 				ui.Icon(c, icon).FontSize(9).TextColor(col)

@@ -1987,6 +1987,7 @@
   "ghWorkOnIssue": "Work on Issue",
   "ghSendIssue": "Send to Terminal",
   "ghCopyLink": "Copy Link",
+  "ghShowDetails": "Show Details",
   "ghLinkCopied": "Copied the link of {number}",
   "ghCheckedOut": "Checked out {number}",
   "ghNewIssue": "New Issue",

@@ -1759,6 +1759,7 @@
   "ghWorkOnIssue": "Issue に取り組む",
   "ghSendIssue": "ターミナルに送信",
   "ghCopyLink": "リンクをコピー",
+  "ghShowDetails": "詳細を表示",
   "ghLinkCopied": "{number} のリンクをコピーしました",
   "ghCheckedOut": "{number} をチェックアウトしました",
   "ghNewIssue": "新しい Issue",

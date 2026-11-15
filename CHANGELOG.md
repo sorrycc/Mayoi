@@ -25,6 +25,13 @@ needs a `## <version>` section here, or its build fails.
 - Rest the pointer on a GitHub view row for a card with its full title, all labels, assignees and branch.
 - The GitHub view's card shows a pull request's size, each check that passed, failed or runs, and its review.
 - When GitHub can't be read again or you're offline, the GitHub view says so at its foot without moving the list.
+- A GitHub view row under the pointer is no longer darker than other hovered rows in the sidebar.
+- In the GitHub view, the selected row's highlight glides to the next row within a section, as in Sessions.
+- A pull request's check icon in the GitHub view fades to its new state when a refresh shows checks finishing.
+- `Space` shows or hides the selected GitHub view row's card; **Show Details** in its menu does too.
+- `⌘Enter` checks out the selected pull request or works on the selected issue; `⌥Enter` opens it on GitHub.
+- With the GitHub view's list focused, the selected row shows its buttons, and their tooltips name their keys.
+- Commit cards in the Source Control history open toward the editor when the sidebar is on the right.
 
 ## 0.21.2
 

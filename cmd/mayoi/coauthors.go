@@ -124,6 +124,17 @@ func (a *gitContext) wantCommitStat(cm git.Commit) *commitStatRead {
 // same for every commit, so it does not change size as its numbers come.
 const commitCardW = 288
 
+// besideSidebar attaches a card to row of the sidebar on the side away from
+// the window's edge, over the editor: its right, or its left while the
+// sidebar is on the right.
+func (a *app) besideSidebar(tip, row ui.Element) {
+	if a.settings.SidebarRight {
+		tip.AttachTo(row, ui.AnchorLeft, ui.AnchorRight).Margin(0, 8, 0, 0)
+		return
+	}
+	tip.AttachTo(row, ui.AnchorRight, ui.AnchorLeft).Margin(0, 0, 0, 8)
+}
+
 // commitHoverCard is the card that shows as the pointer rests on a
 // commit's row: who made it, and with whom, then its hash, how much it
 // changed, when, its branches and tags, and what else its row's tip said,
@@ -132,7 +143,7 @@ func (a *gitContext) commitHoverCard(c *ui.Context, row ui.Element, cm *git.Comm
 	app := a.app
 	p := app.pal
 	ui.TooltipBase(c, row, func(tip ui.Element) {
-		tip.AttachTo(row, ui.AnchorRight, ui.AnchorLeft).Margin(0, 0, 0, 8)
+		app.besideSidebar(tip, row)
 		fadeIn(app.floating(c, tip, false)).Radius(10).Width(commitCardW)
 		surface := c.Theme().Surface
 		stat := a.wantCommitStat(*cm)

@@ -914,14 +914,27 @@ type choiceGlide struct {
 // A key that repeats as it glides, a row far off, or less motion, puts it
 // there at once.
 func (a *app) glideTo(lines []sessionLine, i int, now time.Time, reduce bool) (y, there float32) {
-	g := &a.sessions.glide
-	if k := lines[i].key(); g.key != k {
+	return a.sessions.glide.to(len(lines), i, func(j int) string { return lines[j].key() }, func(j int) (float32, bool) {
+		return a.lineH(lines[j]) + sessionRowGap, true
+	}, now, reduce)
+}
+
+// to is glideTo for any list of n rows: key gives row j's key, and step
+// how far row j's top is from the next one's, false for a row the choice
+// does not glide over, which puts it there at once.
+func (g *choiceGlide) to(n, i int, key func(int) string, step func(int) (float32, bool), now time.Time, reduce bool) (y, there float32) {
+	if k := key(i); g.key != k {
 		y = 0
-		if g.key != "" && !reduce && g.row >= 0 && g.row < len(lines) && lines[g.row].key() == g.key &&
+		if g.key != "" && !reduce && g.row >= 0 && g.row < n && key(g.row) == g.key &&
 			abs(g.row-i) <= choiceGlideSpan && now.Sub(g.at) >= motionHover {
 			lo, hi := min(g.row, i), max(g.row, i)
 			for j := lo; j < hi; j++ {
-				y += a.lineH(lines[j]) + sessionRowGap
+				d, ok := step(j)
+				if !ok {
+					y = 0
+					break
+				}
+				y += d
 			}
 			if g.row < i {
 				y = -y

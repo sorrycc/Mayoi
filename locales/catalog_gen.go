@@ -17782,6 +17782,16 @@ func (msgs Messages) GhCopyLink() string {
 	return Catalog.Format(msgs.locale, "ghCopyLink", nil)
 }
 
+// GhShowDetails says "Show Details"
+// in the language the app shows.
+func GhShowDetails() string { return In(i18n.Locale()).GhShowDetails() }
+
+// GhShowDetails says "Show Details"
+// in the language of msgs.
+func (msgs Messages) GhShowDetails() string {
+	return Catalog.Format(msgs.locale, "ghShowDetails", nil)
+}
+
 // GhLinkCopied says "Copied the link of {number}"
 // in the language the app shows.
 func GhLinkCopied(number string) string { return In(i18n.Locale()).GhLinkCopied(number) }

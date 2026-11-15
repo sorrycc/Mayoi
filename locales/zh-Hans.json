@@ -1759,6 +1759,7 @@
   "ghWorkOnIssue": "处理此议题",
   "ghSendIssue": "发送到终端",
   "ghCopyLink": "复制链接",
+  "ghShowDetails": "显示详情",
   "ghLinkCopied": "已复制 {number} 的链接",
   "ghCheckedOut": "已检出 {number}",
   "ghNewIssue": "新建议题",

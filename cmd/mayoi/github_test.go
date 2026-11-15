@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/egoist/mygo/ui"
 	"mayoi/internal/git"
 	"mayoi/internal/settings"
 	"mayoi/locales"
@@ -469,5 +470,227 @@ func TestGitHubStaleHoldsTheList(t *testing.T) {
 	}
 	if now, _ := hs.tt.Find("Speed up the tree"); now != at {
 		t.Errorf("the list moved as the line came: %v, was %v", now, at)
+	}
+}
+
+// TestGitHubHoverIsOneLayer: a row under the pointer, not chosen, shows
+// the hover once, not the list's and its own over each other.
+func TestGitHubHoverIsOneLayer(t *testing.T) {
+	for _, dark := range []bool{true, false} {
+		fakeGitHub(t, ghOverviewFixture(), nil)
+		hs := newHarness(t, dark)
+		hs.h.visible = true
+		hs.gitRepo()
+		hs.a.showGitHub()
+		hs.settle()
+		at, ok := hs.tt.Find("Someone else's")
+		if !ok {
+			t.Fatal("no row")
+		}
+		hs.tt.Move(at.X+4, at.Y+at.H/2)
+		hs.settle()
+		img := hs.tt.Image()
+		scale := float32(img.Bounds().Dx()) / 1200
+		r, g, b, _ := img.At(int((at.X-22)*scale), int((at.Y+at.H/2)*scale)).RGBA()
+		p := hs.a.pal
+		want := p.hover.Over(p.chrome)
+		near := func(got uint32, want uint8) bool { d := int(got>>8) - int(want); return d >= -2 && d <= 2 }
+		if !near(r, want.R) || !near(g, want.G) || !near(b, want.B) {
+			t.Errorf("dark %v: the hover is %02x%02x%02x, want %02x%02x%02x", dark, r>>8, g>>8, b>>8, want.R, want.G, want.B)
+		}
+	}
+}
+
+// TestGitHubChoiceGlides: the choice's background glides to the row the
+// keys move it to, from where it was, and settles there.
+func TestGitHubChoiceGlides(t *testing.T) {
+	o := ghOverviewFixture()
+	o.PRs = append(o.PRs, git.GHItem{Number: 10, Title: "Also asked", Author: "dan", PR: true, ReviewAsked: true, Updated: time.Now()})
+	hs := githubHarness(t, o, nil)
+	hs.a.showGitHub()
+	hs.settle()
+	gp := &hs.a.github
+	from := gp.row
+	hs.tt.Key(0, ui.KeyDown)
+	step(hs.tt)
+	if gp.row == from || gp.rows[gp.row].key != "review:10" {
+		t.Fatalf("Down put the choice on %q", gp.rows[gp.row].key)
+	}
+	if gp.glide.y == 0 {
+		t.Error("the choice shows at its new row at once")
+	}
+	hs.settle()
+	if gp.glide.y != 0 {
+		t.Errorf("the choice stays %v off its row", gp.glide.y)
+	}
+	// To another section, over its header, it shows there at once.
+	hs.tt.Key(0, ui.KeyDown)
+	step(hs.tt)
+	if gp.glide.y != 0 {
+		t.Errorf("the choice glides over a header, %v off its row", gp.glide.y)
+	}
+}
+
+// TestGitHubChecksCrossfade: as a refresh changes the checks of a pull
+// request, their icon fades from how they were; a refresh that changes
+// nothing, or another repository's, fades none.
+func TestGitHubChecksCrossfade(t *testing.T) {
+	o := ghOverviewFixture()
+	hs := githubHarness(t, o, nil)
+	fetchGitHubOverview = func(*git.Repo) (*git.GHOverview, error) { return o, nil }
+	hs.a.showGitHub()
+	hs.settle()
+	gp := &hs.a.github
+	next := ghOverviewFixture()
+	next.PRs[1].Checks = git.ChecksPass
+	o = next
+	hs.a.repository().refreshGitHubNow()
+	for range 30 {
+		step(hs.tt)
+		if _, ok := gp.checks[8]; ok {
+			break
+		}
+	}
+	w, ok := gp.checks[8]
+	if !ok || w.from != git.ChecksPending {
+		t.Fatalf("checks of #8 that passed did not fade from pending: %+v", gp.checks)
+	}
+	if _, ok := gp.checks[7]; ok {
+		t.Error("checks that did not change fade")
+	}
+	same := ghOverviewFixture()
+	same.PRs[1].Checks = git.ChecksPass
+	o = same
+	hs.settle()
+	hs.a.repository().refreshGitHubNow()
+	hs.settle()
+	if w2 := gp.checks[8]; w2.at != w.at && hs.tt.Now().Sub(w2.at) < motionShow {
+		t.Error("a refresh that changed nothing fades the checks again")
+	}
+}
+
+// TestGitHubKeys: Space shows the chosen row's card and hides it, and
+// Escape does too; ⌥Enter opens it on GitHub; the menu names the keys.
+func TestGitHubKeys(t *testing.T) {
+	hs := githubHarness(t, ghOverviewFixture(), nil)
+	hs.a.showGitHub()
+	hs.settle()
+	gp := &hs.a.github
+	hs.tt.Key(0, ui.KeyDown) // into the list from the query
+	hs.settle()
+	gp.focusList = true
+	hs.settle()
+	r := gp.rows[gp.row]
+	if r.item == nil {
+		t.Fatalf("the choice is on %q", r.key)
+	}
+	hs.tt.Key(0, ui.KeySpace)
+	hs.settle()
+	if gp.card != r.key {
+		t.Fatalf("Space showed no card (%q)", gp.card)
+	}
+	if _, ok := hs.tt.Find(locales.GhCardUpdated()); !ok {
+		t.Error("the card of Space does not show")
+	}
+	first := locales.GhWorkOnIssue()
+	if r.item.PR {
+		first = locales.GhCheckOut()
+	}
+	if _, ok := hs.tt.Find(first); !ok {
+		t.Error("the chosen row shows no actions while the list has the keyboard")
+	}
+	hs.tt.Key(0, ui.KeyEscape)
+	hs.settle()
+	if gp.card != "" {
+		t.Error("Escape left the card")
+	}
+	hs.tt.Key(0, ui.KeySpace)
+	hs.settle()
+	hs.tt.Key(0, ui.KeySpace)
+	hs.settle()
+	if gp.card != "" {
+		t.Error("Space again left the card")
+	}
+	hs.tt.Key(0, ui.KeySpace)
+	hs.settle()
+	hs.tt.Key(0, ui.KeyDown)
+	hs.settle()
+	if gp.card != "" {
+		t.Error("the card stays as the choice moves")
+	}
+	ctx := hs.a.repository()
+	o := ctx.githubOverview()
+	keys := func(m ui.Modifiers, k ui.Key) func(ui.Modifiers, ui.Key) bool {
+		return func(mm ui.Modifiers, kk ui.Key) bool { return mm == m && kk == k }
+	}
+	if hs.a.githubKeys(ctx, o, &o.PRs[0], keys(ui.Alt, ui.KeyEnter)) == nil {
+		t.Error("⌥Enter does not open a pull request on GitHub")
+	}
+	if hs.a.githubKeys(ctx, o, &o.PRs[0], keys(ui.Cmd, ui.KeyEnter)) == nil {
+		t.Error("⌘Enter does not check a pull request out")
+	}
+	if hs.a.githubKeys(ctx, o, &o.Issues[0], keys(ui.Cmd, ui.KeyEnter)) == nil {
+		t.Error("⌘Enter does not work on an issue")
+	}
+	if hs.a.githubKeys(ctx, o, &o.Issues[1], keys(ui.Alt, ui.KeyEnter)) != nil {
+		t.Error("⌥Enter opens an issue with no link")
+	}
+}
+
+// TestShotGitHub draws the GitHub view, light and dark: a row under the
+// pointer, the choice gliding, the card Space shows, and checks fading
+// from pending to passed. SHOTS=<dir> go test -run TestShotGitHub.
+func TestShotGitHub(t *testing.T) {
+	if os.Getenv("SHOTS") == "" {
+		t.Skip()
+	}
+	for _, dark := range []bool{false, true} {
+		name := "github-light"
+		if dark {
+			name = "github-dark"
+		}
+		o := ghOverviewFixture()
+		o.PRs[0].HeadRef, o.PRs[0].BaseRef, o.PRs[0].Files, o.PRs[0].Added, o.PRs[0].Deleted = "ann/tree", "main", 4, 120, 30
+		o.PRs = append(o.PRs, git.GHItem{Number: 10, Title: "Also asked", Author: "dan", PR: true, ReviewAsked: true, Updated: time.Now(),
+			Checks: git.ChecksFail, URL: "https://github.com/o/r/pull/10"})
+		fakeGitHub(t, o, nil)
+		fetchGitHubOverview = func(*git.Repo) (*git.GHOverview, error) { return o, nil }
+		hs := newHarness(t, dark)
+		hs.h.visible = true
+		hs.gitRepo()
+		hs.a.showGitHub()
+		hs.settle()
+		at, _ := hs.tt.Find("Someone else's")
+		hs.tt.Move(at.X+4, at.Y+at.H/2)
+		hs.settle()
+		hs.shot(name + "-hover")
+		hs.tt.Move(900, 700)
+		hs.tt.Key(0, ui.KeyDown)
+		step(hs.tt)
+		step(hs.tt)
+		step(hs.tt)
+		hs.shot(name + "-glide")
+		hs.settle()
+		hs.a.github.focusList = true
+		hs.settle()
+		hs.tt.Key(0, ui.KeySpace)
+		hs.settle()
+		hs.shot(name + "-card")
+		hs.tt.Key(0, ui.KeyEscape)
+		next := ghOverviewFixture()
+		next.PRs[1].Checks = git.ChecksPass
+		next.PRs = append(next.PRs, o.PRs[3])
+		o = next
+		hs.a.repository().refreshGitHubNow()
+		for range 30 {
+			step(hs.tt)
+			if _, ok := hs.a.github.checks[8]; ok {
+				break
+			}
+		}
+		step(hs.tt)
+		step(hs.tt)
+		step(hs.tt)
+		hs.shot(name + "-checks")
 	}
 }

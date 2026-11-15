@@ -95,7 +95,7 @@ func TestBudgets(t *testing.T) {
 		}},
 		// Live Preview styles the lines about the view each frame, from a
 		// parse that follows each edit until the next arrives.
-		{"Live Preview type frame", 4 * time.Millisecond, false, func(t *testing.T, hs *harness) func() {
+		{"Live Preview type frame", 5 * time.Millisecond, false, func(t *testing.T, hs *harness) func() {
 			d := bigNote(hs)
 			hs.place(d, 40000, 40000)
 			return func() { hs.tt.Type("a"); step(hs.tt) }

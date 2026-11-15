@@ -161,9 +161,9 @@ func TestMarkdownRemoteImages(t *testing.T) {
 	case <-time.After(10 * time.Second):
 		t.Fatal("no picture arrived")
 	}
-	// The others done, failed or without text to show.
+	// Every fetch done: the one that arrived may be the badge's.
 	deadline := time.Now().Add(10 * time.Second)
-	for _, u := range []string{"/badge", "/missing.png"} {
+	for _, u := range []string{"/art.png", "/badge", "/missing.png"} {
 		for {
 			if _, done := markdownFetch(srv.URL+u, nil); done {
 				break

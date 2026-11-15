@@ -30,6 +30,7 @@ var builtinThemes = []themeChoice{
 	{themePumpkin, locales.CmdViewThemePumpkin, locales.ThemeAboutPumpkin},
 	{themeWitchsBrew, locales.CmdViewThemeWitchsBrew, locales.ThemeAboutWitchsBrew},
 	{themeBloodMoon, locales.CmdViewThemeBloodMoon, locales.ThemeAboutBloodMoon},
+	{themeGTAVI, func() string { return "GTA VI" }, locales.ThemeAboutGTAVI},
 }
 
 // themeAppearances are the appearances the box chooses between, as the

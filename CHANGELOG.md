@@ -5,6 +5,8 @@ needs a `## <version>` section here, or its build fails.
 
 ## Unreleased
 
+- **View → Theme** adds GTA VI: the game's HUD in graphite, white and mission gold, always dark.
+- In GTA VI, wanted stars light up in the status bar as uncommitted files pile up, and flash while Git works.
 - On Windows, right-click a file, a folder or a folder's background in Explorer and choose **Open with Mayoi**.
 - The Windows installer adds **Open with Mayoi**; on Windows 11 it is under **Show more options**.
 - **File → Add 'Open with Mayoi' to Explorer** and **Remove…** add or remove it without reinstalling.

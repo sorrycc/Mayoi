@@ -7,8 +7,8 @@ import (
 )
 
 // A theme's character, Clawd in Claude, Qoduck in Qoder, Grok Bot's face
-// in Grok Bot, the White Rabbit in The Matrix, and Jack, a cauldron and a
-// bat in the Halloween themes, takes the logo's place on the welcome page and sits at the start of the
+// in Grok Bot, the White Rabbit in The Matrix, Jack, a cauldron and a
+// bat in the Halloween themes, and the wanted stars in GTA VI, takes the logo's place on the welcome page and sits at the start of the
 // status bar. It blinks now and then and bobs once in a while, and while Git or
 // search works in the background it hops, in place of the Git spinner.
 // Like the rain, it steps rather than glides, and holds still while the
@@ -39,6 +39,8 @@ var (
 	corona = &mascot{name: "Corona", size: coronaSize, draw: drawCorona}
 
 	rabbit = &mascot{name: "The White Rabbit", size: rabbitSize, draw: drawRabbit}
+
+	wanted = &mascot{name: "Wanted Level", size: wantedSize, draw: drawWanted}
 )
 
 // themeMascot returns the character of the window's theme, or nil.
@@ -65,6 +67,8 @@ func themeMascotOf(theme string) *mascot {
 		return bat
 	case themePurpleGold:
 		return corona
+	case themeGTAVI:
+		return wanted
 	}
 	return nil
 }
@@ -93,13 +97,15 @@ type mascotState struct {
 // mascotPose is a moment of the character's: the eyes shut, the body
 // lifted by a part of its headroom, which step of the hop, where the
 // eyes look, -1 to the left, 1 to the right, for a character that glances,
-// and the prop it holds up, for one that has them.
+// the prop it holds up, for one that has them, and the wanted level, for
+// the stars of GTA VI.
 type mascotPose struct {
 	blink bool
 	lift  float32
 	step  int
 	look  int
 	prop  mascotProp
+	level int
 }
 
 // mascotProp is what a character holds up for the work going on: a
@@ -201,6 +207,7 @@ func (a *app) drawMascot(pt *ui.Painter, m *mascot, r ui.Rect, cell float32, bg 
 			pt.After(left)
 		}
 	}
+	p.level = wantedLevel(a.repository().changeCount())
 	m.draw(a.pal, pt, r, cell, bg, p)
 }
 

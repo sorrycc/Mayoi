@@ -109,6 +109,29 @@ func TestHalloweenThemes(t *testing.T) {
 	}
 }
 
+// GTA VI is always dark, without rain, with the wanted stars, as many lit
+// as the files that differ from HEAD call for.
+func TestGTAVITheme(t *testing.T) {
+	if paletteFor(themeGTAVI, false) != gtaVIPal || paletteFor(themeGTAVI, true) != gtaVIPal {
+		t.Error("GTA VI follows the window's light or dark")
+	}
+	if themeSource(themeGTAVI, "light") != mygo.ThemeDark {
+		t.Error("the native window is not dark under GTA VI")
+	}
+	if themeMascotOf(themeGTAVI) != wanted {
+		t.Error("GTA VI has not the wanted stars")
+	}
+	for n, level := range map[int]int{0: 0, 1: 1, 2: 2, 3: 2, 4: 3, 7: 3, 8: 4, 15: 4, 16: 5, 500: 5} {
+		if got := wantedLevel(n); got != level {
+			t.Errorf("%d files light %d stars, not %d", n, got, level)
+		}
+	}
+	hs := themeHarness(t, themeGTAVI, false)
+	if hs.a.pal != gtaVIPal || hs.a.rain.moving {
+		t.Error("a light window is not in GTA VI, without rain")
+	}
+}
+
 // The rain falls while the window has the keyboard, and holds still
 // without it, asking for no frames.
 func TestMatrixRainStopsWhenBlurred(t *testing.T) {
@@ -432,7 +455,7 @@ func TestMascotMoves(t *testing.T) {
 		name  string
 	}{{themeClaude, clawd, "Claude"}, {themeQoder, qoduck, "Qoder"}, {themeGrokBot, grokBot, "Grok Bot"},
 		{themePumpkin, jack, "Jack-o'-Lantern"}, {themeWitchsBrew, cauldron, "Witch's Brew"}, {themeBloodMoon, bat, "Blood Moon"},
-		{themePurpleGold, corona, "Corona"}, {themeMatrix, rabbit, "The White Rabbit"}} {
+		{themePurpleGold, corona, "Corona"}, {themeMatrix, rabbit, "The White Rabbit"}, {themeGTAVI, wanted, "Wanted Level"}} {
 		hs := themeHarness(t, tc.theme, true)
 		a := hs.a
 		if a.themeMascot() != tc.m {
@@ -487,6 +510,10 @@ func TestShotCursor(t *testing.T) {
 
 func TestShotPurpleGold(t *testing.T) {
 	shotTheme(t, themePurpleGold)
+}
+
+func TestShotGTAVI(t *testing.T) {
+	shotTheme(t, themeGTAVI)
 }
 
 func TestShotHalloween(t *testing.T) {
@@ -601,7 +628,7 @@ func TestButtonContrast(t *testing.T) {
 	pals := map[string]*palette{"light": lightPal, "dark": darkPal, "matrix": matrixPal, "claude light": claudeLightPal, "claude dark": claudeDarkPal,
 		"qoder light": qoderLightPal, "qoder dark": qoderDarkPal, "grok bot light": grokBotLightPal, "grok bot dark": grokBotDarkPal,
 		"cursor light": cursorLightPal, "cursor dark": cursorDarkPal, "purple gold": purpleGoldPal,
-		"jack-o'-lantern": pumpkinPal, "witch's brew": witchsBrewPal, "blood moon": bloodMoonPal}
+		"jack-o'-lantern": pumpkinPal, "witch's brew": witchsBrewPal, "blood moon": bloodMoonPal, "gta vi": gtaVIPal}
 	for name, p := range pals {
 		for _, pair := range []struct {
 			what     string
@@ -628,7 +655,7 @@ func TestStatusTextContrast(t *testing.T) {
 	pals := map[string]*palette{"light": lightPal, "dark": darkPal, "matrix": matrixPal, "claude light": claudeLightPal, "claude dark": claudeDarkPal,
 		"qoder light": qoderLightPal, "qoder dark": qoderDarkPal, "grok bot light": grokBotLightPal, "grok bot dark": grokBotDarkPal,
 		"cursor light": cursorLightPal, "cursor dark": cursorDarkPal, "purple gold": purpleGoldPal,
-		"jack-o'-lantern": pumpkinPal, "witch's brew": witchsBrewPal, "blood moon": bloodMoonPal}
+		"jack-o'-lantern": pumpkinPal, "witch's brew": witchsBrewPal, "blood moon": bloodMoonPal, "gta vi": gtaVIPal}
 	for name, p := range pals {
 		for what, fg := range map[string]ui.Color{"modified": p.modifiedFg, "added": p.addedFg, "removed": p.removedFg, "danger": p.dangerFg} {
 			for _, back := range []ui.Color{p.chrome, p.editor, p.panel} {

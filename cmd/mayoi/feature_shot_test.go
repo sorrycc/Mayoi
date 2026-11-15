@@ -790,6 +790,7 @@ func TestFeatThemes(t *testing.T) {
 		{themeCursor, false, "cursor-light"}, {themeCursor, true, "cursor-dark"},
 		{themePurpleGold, true, "purplegold"},
 		{themePumpkin, true, "pumpkin"}, {themeWitchsBrew, true, "witchsbrew"}, {themeBloodMoon, true, "bloodmoon"},
+		{themeGTAVI, true, "gtavi"},
 	} {
 		hs := featHarness(t, tc.dark, featOpts{theme: tc.theme, expanded: []string{"cmd", "cmd/mayoi"}})
 		a := hs.a

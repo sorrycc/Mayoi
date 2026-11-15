@@ -1292,6 +1292,84 @@ func bloodMoonPalette() *palette {
 	return p
 }
 
+// gtaVIPalette is GTA VI, always dark: the game's heads-up display.
+// Graphite chrome around a slate editor, with white type, mission gold
+// for the accent and the buttons, with navy labels on them, the health
+// bar's green for what is added and the armor's blue for what changed and
+// for the selection. Danger is the police lights' red.
+func gtaVIPalette() *palette {
+	p := &palette{
+		dark:      true,
+		editor:    ui.Hex("#111419"),
+		chrome:    ui.Hex("#0a0c10"),
+		panel:     ui.Hex("#0d1014"),
+		border:    ui.Hex("#232832"),
+		hover:     ui.RGBA(220, 230, 245, 0.05),
+		active:    ui.RGBA(255, 173, 54, 0.14),
+		text:      ui.Hex("#eaeef3"),
+		muted:     ui.Hex("#98a2af"),
+		faint:     ui.Hex("#626c7a"),
+		accent:    ui.Hex("#ffad36"),
+		accentDim: ui.RGBA(255, 173, 54, 0.5),
+		line:      ui.RGBA(220, 230, 245, 0.04),
+		selection: ui.RGBA(74, 144, 226, 0.32),
+		gutter:    ui.Hex("#545e6c"),
+		gutterNow: ui.Hex("#ffffff"),
+		status:    ui.Hex("#0a0c10"),
+		statusFg:  ui.Hex("#eaeef3"),
+		modified:  ui.Hex("#f2e28a"),
+		danger:    ui.Hex("#ff4b4b"),
+		match:     ui.RGBA(255, 173, 54, 0.20),
+		matchNow:  ui.RGBA(255, 173, 54, 0.40),
+		matchRing: ui.RGBA(255, 173, 54, 0.9),
+		guide:     ui.RGBA(220, 230, 245, 0.07),
+		guideNow:  ui.RGBA(255, 255, 255, 0.26),
+		bracket:   ui.RGBA(255, 255, 255, 0.34),
+		word:      ui.RGBA(220, 230, 245, 0.09),
+		shadow:    ui.RGBA(0, 0, 0, 0.5),
+		added:     ui.Hex("#6fd46f"),
+		changed:   ui.Hex("#4a90e2"),
+		removed:   ui.Hex("#ff4b4b"),
+		// Navy on the gold, and white on a deeper red than danger's.
+		fill:           ui.Hex("#ffad36"),
+		fillText:       ui.Hex("#0c0d1b"),
+		dangerFill:     ui.Hex("#d42c36"),
+		dangerText:     ui.Hex("#ffffff"),
+		surface:        ui.Hex("#1a1e25"),
+		surfaceHover:   ui.Hex("#20252d"),
+		surfacePressed: ui.Hex("#272c35"),
+		scrollbar:      ui.RGBA(220, 230, 245, 0.16),
+		inverse:        ui.Hex("#000000"),
+		inverseText:    ui.Hex("#ffffff"),
+		ansi: [16]ui.Color{
+			ui.Hex("#232832"), ui.Hex("#ff4b4b"), ui.Hex("#6fd46f"), ui.Hex("#ffad36"),
+			ui.Hex("#4a90e2"), ui.Hex("#c08cff"), ui.Hex("#5fd0d8"), ui.Hex("#eaeef3"),
+			ui.Hex("#545e6c"), ui.Hex("#ff7474"), ui.Hex("#94e894"), ui.Hex("#ffc970"),
+			ui.Hex("#7ab0f0"), ui.Hex("#d4adff"), ui.Hex("#8ae4ea"), ui.Hex("#ffffff"),
+		},
+	}
+	p.fillHover, p.fillPressed = p.fill.Mix(white, 0.15), p.fill.Mix(black, 0.15)
+	s := &p.syntax
+	s[highlight.Plain] = p.text
+	s[highlight.Keyword] = ui.Hex("#ffad36")
+	s[highlight.Type] = ui.Hex("#6fb8ff")
+	s[highlight.Function] = ui.Hex("#f2e28a")
+	s[highlight.String] = ui.Hex("#8fd88f")
+	s[highlight.Number] = ui.Hex("#ff8a6a")
+	s[highlight.Comment] = ui.Hex("#5c6676")
+	s[highlight.Operator] = ui.Hex("#bcc4cf")
+	s[highlight.Punctuation] = ui.Hex("#808b99")
+	s[highlight.Constant] = ui.Hex("#ff8a6a")
+	s[highlight.Builtin] = ui.Hex("#c08cff")
+	s[highlight.Tag] = ui.Hex("#ffad36")
+	s[highlight.Attribute] = ui.Hex("#6fb8ff")
+	s[highlight.Variable] = ui.Hex("#eaeef3")
+	s[highlight.Heading] = ui.Hex("#ffad36")
+	s[highlight.Deleted] = p.removed
+	s[highlight.Inserted] = p.added
+	return p
+}
+
 var (
 	black, white = ui.Hex("#000000"), ui.Hex("#ffffff")
 
@@ -1316,11 +1394,13 @@ var (
 	pumpkinPal    = pumpkinPalette().derive()
 	witchsBrewPal = witchsBrewPalette().derive()
 	bloodMoonPal  = bloodMoonPalette().derive()
+
+	gtaVIPal = gtaVIPalette().derive()
 )
 
 // The Themes of the settings beside Mayoi's own, "": The Matrix, Purple
-// Gold, and the Halloween themes Jack-o'-Lantern, Witch's Brew and Blood
-// Moon, which are always dark, and Claude, Qoder, Grok Bot and Cursor,
+// Gold, the Halloween themes Jack-o'-Lantern, Witch's Brew and Blood
+// Moon, and GTA VI, which are always dark, and Claude, Qoder, Grok Bot and Cursor,
 // light or dark as the Appearance is.
 const (
 	themeMatrix     = "matrix"
@@ -1332,6 +1412,7 @@ const (
 	themePumpkin    = "pumpkin"
 	themeWitchsBrew = "witchsbrew"
 	themeBloodMoon  = "bloodmoon"
+	themeGTAVI      = "gtavi"
 )
 
 // alwaysDark is whether a theme is dark whatever the Appearance is.
@@ -1340,7 +1421,7 @@ func alwaysDark(theme string) bool {
 		return true
 	}
 	switch theme {
-	case themeMatrix, themePurpleGold, themePumpkin, themeWitchsBrew, themeBloodMoon:
+	case themeMatrix, themePurpleGold, themePumpkin, themeWitchsBrew, themeBloodMoon, themeGTAVI:
 		return true
 	}
 	return false
@@ -1379,6 +1460,8 @@ func paletteFor(theme string, dark bool) *palette {
 		return witchsBrewPal
 	case theme == themeBloodMoon:
 		return bloodMoonPal
+	case theme == themeGTAVI:
+		return gtaVIPal
 	case dark:
 		return darkPal
 	}

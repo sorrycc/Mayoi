@@ -914,6 +914,16 @@ func (msgs Messages) ThemeAboutBloodMoon() string {
 	return Catalog.Format(msgs.locale, "themeAboutBloodMoon", nil)
 }
 
+// ThemeAboutGTAVI says "The game's HUD in graphite and gold, with wanted stars"
+// in the language the app shows.
+func ThemeAboutGTAVI() string { return In(i18n.Locale()).ThemeAboutGTAVI() }
+
+// ThemeAboutGTAVI says "The game's HUD in graphite and gold, with wanted stars"
+// in the language of msgs.
+func (msgs Messages) ThemeAboutGTAVI() string {
+	return Catalog.Format(msgs.locale, "themeAboutGTAVI", nil)
+}
+
 // ThemeAboutQoder says "Qoder's Forest greens"
 // in the language the app shows.
 func ThemeAboutQoder() string { return In(i18n.Locale()).ThemeAboutQoder() }
@@ -15390,6 +15400,16 @@ func PrefOptThemeBloodmoon() string { return In(i18n.Locale()).PrefOptThemeBlood
 // in the language of msgs.
 func (msgs Messages) PrefOptThemeBloodmoon() string {
 	return Catalog.Format(msgs.locale, "prefOptThemeBloodmoon", nil)
+}
+
+// PrefOptThemeGtavi says "GTA VI"
+// in the language the app shows.
+func PrefOptThemeGtavi() string { return In(i18n.Locale()).PrefOptThemeGtavi() }
+
+// PrefOptThemeGtavi says "GTA VI"
+// in the language of msgs.
+func (msgs Messages) PrefOptThemeGtavi() string {
+	return Catalog.Format(msgs.locale, "prefOptThemeGtavi", nil)
 }
 
 // PrefOptAppearanceLight says "Light"

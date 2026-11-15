@@ -858,7 +858,12 @@ status bar and slime green for the accent and the buttons, with its code in viol
 Blood Moon is near-black with a red undertone, crimson for the accent and the buttons, a dark-blood status bar, and a
 scarlet apart from the crimson for what loses something, with its code in reds, old gold and moonlight blue. Each has a
 character drawn from cells in its accent, which takes the logo's place and the status bar's start as Clawd does: a
-carved pumpkin whose face glows, a cauldron whose brew bubbles, and a bat that flaps its wings as it hops.
+carved pumpkin whose face glows, a cauldron whose brew bubbles, and a bat that flaps its wings as it hops. GTA VI is
+the game's heads-up display, always dark: graphite chrome with white type, mission gold for the accent and the buttons,
+the health bar's green for what is added and the armor's blue for what changed and for the selection. Its character is
+the wanted level, five stars in the logo's place and at the status bar's start: as many light as the files that differ
+from HEAD call for, one for 1, two for 2 to 3, three for 4 to 7, four for 8 to 15 and five for 16 or more; they flash
+while Git works, in place of the hop, and go out as a commit clears the changes.
 **View → Theme → Color Theme…** (`workbench.action.selectTheme` in `keybindings.json`, as `cmd+k cmd+t`), or **Color
 Theme…** on the welcome page, opens a box of the themes, each with a little window in its colors and its character: the
 window takes each theme as ↑ and ↓ move to it, and ← and → switch the appearance; Return keeps them, and Escape goes

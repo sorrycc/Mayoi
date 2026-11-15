@@ -1,5 +1,9 @@
 {
   "@@locale": "ja",
+  "windowMinimize": "ウィンドウを最小化",
+  "windowMaximize": "ウィンドウを最大化",
+  "windowRestore": "ウィンドウを元に戻す",
+  "windowClose": "ウィンドウを閉じる",
   "agentContextAdd": "エージェントに追加",
   "agentContextComment": "コメントを追加",
   "agentContextSnippet": "コード断片",

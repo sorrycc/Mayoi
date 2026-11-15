@@ -64,7 +64,6 @@ func (a *app) view(c *ui.Context) {
 	// The places that take the keys say so as they are built.
 	a.keyFocus = placeNone
 	a.pal = a.applyTheme(c)
-	updateLinuxControlsTheme(a.fade.to)
 	a.themeTerminals()
 	a.fontTerminals()
 	a.copyTerminals()
@@ -377,9 +376,6 @@ func (a *app) titleBar(c *ui.Context) {
 	p := a.pal
 	bar := c.TitleBar()
 	rightPad := bar.Right + 8
-	if runtime.GOOS == "linux" && bar.Right > 0 {
-		rightPad = bar.Right - 2
-	}
 	row := ui.Row(c).Height(max(bar.Height, titleBarH)).Padding(0, rightPad, 0, bar.Left+10).AlignItems(ui.Center).
 		BorderWidth(0, 0, 1, 0).BorderColor(p.hairline()).DragWindow()
 	a.grained(row)
@@ -430,6 +426,7 @@ func (a *app) titleBar(c *ui.Context) {
 			if right {
 				sidebarButton()
 			}
+			a.linuxWindowControls(c)
 		})
 	})
 }

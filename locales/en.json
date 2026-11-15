@@ -1,5 +1,9 @@
 {
   "@@locale": "en",
+  "windowMinimize": "Minimize Window",
+  "windowMaximize": "Maximize Window",
+  "windowRestore": "Restore Window",
+  "windowClose": "Close Window",
   "agentContextAdd": "Add to Agent",
   "agentContextComment": "Add Comment",
   "agentContextSnippet": "Code snippet",

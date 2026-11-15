@@ -2,4 +2,6 @@
 
 package main
 
-func updateLinuxControlsTheme(*palette) {}
+import "github.com/egoist/mygo/ui"
+
+func (a *app) linuxWindowControls(*ui.Context) {}

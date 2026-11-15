@@ -17,6 +17,7 @@ import (
 	"path"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"slices"
 	"strconv"
 	"strings"
@@ -79,8 +80,10 @@ func (m *mayoi) newFrame(h *desktop) *frame {
 	}
 	opts := mygo.WindowOptions{
 		Title: "Mayoi", Width: 1280, Height: 820, MinWidth: 640, MinHeight: 420,
-		StateKey:             key,
-		TitleBarStyle:        mygo.TitleBarHidden,
+		StateKey:      key,
+		TitleBarStyle: mygo.TitleBarHidden,
+		// A hidden title bar retains KWin's decorations on Wayland.
+		Frameless:            runtime.GOOS == "linux",
 		TitleBarHeight:       titleBarH,
 		TrafficLightPosition: &mygo.Point{X: 14, Y: 13},
 		BackgroundColor:      "#131317",
@@ -94,6 +97,13 @@ func (m *mayoi) newFrame(h *desktop) *frame {
 	}
 	win := mygo.NewWindow(opts)
 	f.win = win
+	if runtime.GOOS == "linux" {
+		// Window manager actions can change the controls without a click.
+		win.OnMaximize(win.Invalidate)
+		win.OnUnmaximize(win.Invalidate)
+		win.OnEnterFullScreen(win.Invalidate)
+		win.OnLeaveFullScreen(win.Invalidate)
+	}
 	m.frames = append(m.frames, f)
 	f.add(h)
 	f.active = h

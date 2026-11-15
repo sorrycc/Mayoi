@@ -1,5 +1,9 @@
 {
   "@@locale": "zh-Hans",
+  "windowMinimize": "最小化窗口",
+  "windowMaximize": "最大化窗口",
+  "windowRestore": "还原窗口",
+  "windowClose": "关闭窗口",
   "agentContextAdd": "添加到智能体",
   "agentContextComment": "添加评论",
   "agentContextSnippet": "代码片段",

@@ -1841,5 +1841,14 @@
   "ghSendToTerminal": "ターミナルに送信",
   "ghResolveThread": "GitHub で解決",
   "ghResolved": "GitHub で {where} を解決しました",
-  "ghResolveFailed": "スレッドは解決されませんでした: {error}"
+  "ghResolveFailed": "スレッドは解決されませんでした: {error}",
+  "cmdFileAddContextMenu": "エクスプローラーに「Mayoi で開く」を追加",
+  "cmdFileRemoveContextMenu": "エクスプローラーから「Mayoi で開く」を削除",
+  "contextMenuOpen": "Mayoi で開く",
+  "contextMenuAdded": "エクスプローラーの右クリックメニューに「Mayoi で開く」を追加しました。",
+  "contextMenuAddedDetail": "ファイル、フォルダー、フォルダーの空き領域を右クリックしてください。Windows 11 では「その他のオプションを確認」の中にあります。",
+  "contextMenuAddFailed": "エクスプローラーに「Mayoi で開く」を追加できませんでした。",
+  "contextMenuRemoved": "エクスプローラーから「Mayoi で開く」を削除しました。",
+  "contextMenuRemoveFailed": "エクスプローラーから「Mayoi で開く」を削除できませんでした。",
+  "contextMenuNotAdded": "エクスプローラーの右クリックメニューに「Mayoi で開く」はありません。"
 }

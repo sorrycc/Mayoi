@@ -95,6 +95,11 @@ type host interface {
 	// path, and take it away, saying how it went.
 	installCLI()
 	uninstallCLI()
+	// addContextMenu and removeContextMenu put "Open with Mayoi" in
+	// Explorer's right-click menu on Windows, and take it away, saying how
+	// it went.
+	addContextMenu()
+	removeContextMenu()
 	// account is the name of the person settings sync syncs for, "" when
 	// signed out. signIn signs in, showing the code to approve in the
 	// window, signOut signs out, and syncNow syncs at once.

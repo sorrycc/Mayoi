@@ -55,12 +55,16 @@ func consoleFile(id uint32, current *os.File, name string) *os.File {
 }
 
 // refreshCLI brings the mayoi command an older Mayoi installed up to
-// date, for the options it has now.
+// date, for the options it has now, and points Explorer's "Open with
+// Mayoi" at this Mayoi when another one added it.
 func refreshCLI() {
 	app := appLocation()
 	if app == "" || !mygo.App.IsPackaged() {
 		return
 	}
 	home, _ := os.UserHomeDir()
-	go func() { cli.Refresh(cli.InstalledDirs(home, filepath.SplitList(os.Getenv("PATH"))), app) }()
+	go func() {
+		cli.Refresh(cli.InstalledDirs(home, filepath.SplitList(os.Getenv("PATH"))), app)
+		cli.RefreshContextMenu(app)
+	}()
 }

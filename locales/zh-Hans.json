@@ -1841,5 +1841,14 @@
   "ghSendToTerminal": "发送到终端",
   "ghResolveThread": "在 GitHub 上解决",
   "ghResolved": "已在 GitHub 上解决 {where}",
-  "ghResolveFailed": "讨论未解决：{error}"
+  "ghResolveFailed": "讨论未解决：{error}",
+  "cmdFileAddContextMenu": "将“通过 Mayoi 打开”添加到资源管理器",
+  "cmdFileRemoveContextMenu": "从资源管理器移除“通过 Mayoi 打开”",
+  "contextMenuOpen": "通过 Mayoi 打开",
+  "contextMenuAdded": "“通过 Mayoi 打开”已添加到资源管理器的右键菜单。",
+  "contextMenuAddedDetail": "右键点击文件、文件夹或文件夹的空白处。在 Windows 11 中，它位于“显示更多选项”里。",
+  "contextMenuAddFailed": "无法将“通过 Mayoi 打开”添加到资源管理器。",
+  "contextMenuRemoved": "“通过 Mayoi 打开”已从资源管理器移除。",
+  "contextMenuRemoveFailed": "无法从资源管理器移除“通过 Mayoi 打开”。",
+  "contextMenuNotAdded": "资源管理器的右键菜单中没有“通过 Mayoi 打开”。"
 }

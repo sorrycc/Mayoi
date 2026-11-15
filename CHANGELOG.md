@@ -5,6 +5,9 @@ needs a `## <version>` section here, or its build fails.
 
 ## Unreleased
 
+- On Windows, right-click a file, a folder or a folder's background in Explorer and choose **Open with Mayoi**.
+- The Windows installer adds **Open with Mayoi**; on Windows 11 it is under **Show more options**.
+- **File → Add 'Open with Mayoi' to Explorer** and **Remove…** add or remove it without reinstalling.
 - `mayoi plugin search` says so when the index of plugins lists none yet, instead of printing nothing.
 - The help of `mayoi plugin` no longer shows an install example for a plugin that does not exist.
 

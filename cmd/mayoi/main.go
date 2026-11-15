@@ -326,6 +326,30 @@ func (h *desktop) uninstallCLI() {
 	}()
 }
 
+func (h *desktop) addContextMenu() {
+	go func() {
+		if err := cli.AddContextMenu(appLocation(), locales.ContextMenuOpen()); err != nil {
+			h.tell(mygo.MessageWarning, locales.ContextMenuAddFailed(), err.Error())
+			return
+		}
+		h.tell(mygo.MessageInfo, locales.ContextMenuAdded(), locales.ContextMenuAddedDetail())
+	}()
+}
+
+func (h *desktop) removeContextMenu() {
+	go func() {
+		removed, err := cli.RemoveContextMenu()
+		switch {
+		case err != nil:
+			h.tell(mygo.MessageWarning, locales.ContextMenuRemoveFailed(), err.Error())
+		case !removed:
+			h.tell(mygo.MessageInfo, locales.ContextMenuNotAdded(), "")
+		default:
+			h.tell(mygo.MessageInfo, locales.ContextMenuRemoved(), "")
+		}
+	}()
+}
+
 // tell shows a message on the window.
 func (h *desktop) tell(kind mygo.MessageType, message, detail string) {
 	mygo.Dialog.Message(mygo.MessageOptions{Parent: h.f.win, Type: kind, Message: message, Detail: detail})

@@ -18619,3 +18619,93 @@ func GhResolveFailed(error string) string { return In(i18n.Locale()).GhResolveFa
 func (msgs Messages) GhResolveFailed(error string) string {
 	return Catalog.Format(msgs.locale, "ghResolveFailed", map[string]any{"error": error})
 }
+
+// CmdFileAddContextMenu says "Add 'Open with Mayoi' to Explorer"
+// in the language the app shows.
+func CmdFileAddContextMenu() string { return In(i18n.Locale()).CmdFileAddContextMenu() }
+
+// CmdFileAddContextMenu says "Add 'Open with Mayoi' to Explorer"
+// in the language of msgs.
+func (msgs Messages) CmdFileAddContextMenu() string {
+	return Catalog.Format(msgs.locale, "cmdFileAddContextMenu", nil)
+}
+
+// CmdFileRemoveContextMenu says "Remove 'Open with Mayoi' from Explorer"
+// in the language the app shows.
+func CmdFileRemoveContextMenu() string { return In(i18n.Locale()).CmdFileRemoveContextMenu() }
+
+// CmdFileRemoveContextMenu says "Remove 'Open with Mayoi' from Explorer"
+// in the language of msgs.
+func (msgs Messages) CmdFileRemoveContextMenu() string {
+	return Catalog.Format(msgs.locale, "cmdFileRemoveContextMenu", nil)
+}
+
+// ContextMenuOpen says "Open with Mayoi"
+// in the language the app shows.
+func ContextMenuOpen() string { return In(i18n.Locale()).ContextMenuOpen() }
+
+// ContextMenuOpen says "Open with Mayoi"
+// in the language of msgs.
+func (msgs Messages) ContextMenuOpen() string {
+	return Catalog.Format(msgs.locale, "contextMenuOpen", nil)
+}
+
+// ContextMenuAdded says "'Open with Mayoi' is in Explorer's right-click menu."
+// in the language the app shows.
+func ContextMenuAdded() string { return In(i18n.Locale()).ContextMenuAdded() }
+
+// ContextMenuAdded says "'Open with Mayoi' is in Explorer's right-click menu."
+// in the language of msgs.
+func (msgs Messages) ContextMenuAdded() string {
+	return Catalog.Format(msgs.locale, "contextMenuAdded", nil)
+}
+
+// ContextMenuAddedDetail says "Right-click a file, a folder or a folder's background. On Windows 11, it is under Show more options."
+// in the language the app shows.
+func ContextMenuAddedDetail() string { return In(i18n.Locale()).ContextMenuAddedDetail() }
+
+// ContextMenuAddedDetail says "Right-click a file, a folder or a folder's background. On Windows 11, it is under Show more options."
+// in the language of msgs.
+func (msgs Messages) ContextMenuAddedDetail() string {
+	return Catalog.Format(msgs.locale, "contextMenuAddedDetail", nil)
+}
+
+// ContextMenuAddFailed says "'Open with Mayoi' could not be added to Explorer."
+// in the language the app shows.
+func ContextMenuAddFailed() string { return In(i18n.Locale()).ContextMenuAddFailed() }
+
+// ContextMenuAddFailed says "'Open with Mayoi' could not be added to Explorer."
+// in the language of msgs.
+func (msgs Messages) ContextMenuAddFailed() string {
+	return Catalog.Format(msgs.locale, "contextMenuAddFailed", nil)
+}
+
+// ContextMenuRemoved says "'Open with Mayoi' is removed from Explorer."
+// in the language the app shows.
+func ContextMenuRemoved() string { return In(i18n.Locale()).ContextMenuRemoved() }
+
+// ContextMenuRemoved says "'Open with Mayoi' is removed from Explorer."
+// in the language of msgs.
+func (msgs Messages) ContextMenuRemoved() string {
+	return Catalog.Format(msgs.locale, "contextMenuRemoved", nil)
+}
+
+// ContextMenuRemoveFailed says "'Open with Mayoi' could not be removed from Explorer."
+// in the language the app shows.
+func ContextMenuRemoveFailed() string { return In(i18n.Locale()).ContextMenuRemoveFailed() }
+
+// ContextMenuRemoveFailed says "'Open with Mayoi' could not be removed from Explorer."
+// in the language of msgs.
+func (msgs Messages) ContextMenuRemoveFailed() string {
+	return Catalog.Format(msgs.locale, "contextMenuRemoveFailed", nil)
+}
+
+// ContextMenuNotAdded says "'Open with Mayoi' is not in Explorer's right-click menu."
+// in the language the app shows.
+func ContextMenuNotAdded() string { return In(i18n.Locale()).ContextMenuNotAdded() }
+
+// ContextMenuNotAdded says "'Open with Mayoi' is not in Explorer's right-click menu."
+// in the language of msgs.
+func (msgs Messages) ContextMenuNotAdded() string {
+	return Catalog.Format(msgs.locale, "contextMenuNotAdded", nil)
+}

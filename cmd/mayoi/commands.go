@@ -69,6 +69,8 @@ func (a *app) commandsIn(t locales.Messages) []command {
 		{"account.signOut", t.CmdAccountSignOut(), "", a.confirmSignOut},
 		{"file.installCLI", t.CmdFileInstallCLI(), "", func() { a.host.installCLI() }},
 		{"file.uninstallCLI", t.CmdFileUninstallCLI(), "", func() { a.host.uninstallCLI() }},
+		{"file.addContextMenu", t.CmdFileAddContextMenu(), "", func() { a.host.addContextMenu() }},
+		{"file.removeContextMenu", t.CmdFileRemoveContextMenu(), "", func() { a.host.removeContextMenu() }},
 		// Undo and Redo take no keys in the menu: ⌘Z goes to the focused
 		// control, the editor's history or a text field's.
 		{"edit.undo", t.CmdEditUndo(), "", a.editActive(func(d *editor) { d.undo() })},
@@ -265,6 +267,10 @@ func (a *app) commandsIn(t locales.Messages) []command {
 	}
 	if !hcInstallable() {
 		cmds = slices.DeleteFunc(cmds, func(c command) bool { return c.id == "view.installHC" })
+	}
+	// Explorer's right-click menu is of Windows.
+	if runtime.GOOS != "windows" {
+		cmds = slices.DeleteFunc(cmds, func(c command) bool { return strings.HasSuffix(c.id, "ContextMenu") })
 	}
 	if hcPath() == "" {
 		cmds = slices.DeleteFunc(cmds, func(c command) bool { return c.id == "view.attachHC" })
@@ -498,7 +504,8 @@ func (a *app) updateItem() *mygo.MenuItem {
 
 // menu is the menu bar, which the windows share: its items run the
 // command of the window they are chosen in, by run. cli adds the items
-// that install the mayoi command; builds that can update themselves get
+// that install the mayoi command, and on Windows those of Explorer's
+// right-click menu; builds that can update themselves get
 // "Check for Updates…", in the app menu on macOS and the Help menu
 // elsewhere.
 func (a *app) menu(cli bool, run func(id string, win *mygo.Window)) *mygo.Menu {
@@ -583,6 +590,9 @@ func (a *app) menu(cli bool, run func(id string, win *mygo.Window)) *mygo.Menu {
 	)
 	if cli {
 		file = append(file, mygo.Separator(), item("file.installCLI"), item("file.uninstallCLI"))
+		if runtime.GOOS == "windows" {
+			file = append(file, item("file.addContextMenu"), item("file.removeContextMenu"))
+		}
 	}
 	// Settings sync: who it syncs for, or signing in.
 	var account []*mygo.MenuItem

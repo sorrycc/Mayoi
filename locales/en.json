@@ -2069,5 +2069,14 @@
   "ghSendToTerminal": "Send to Terminal",
   "ghResolveThread": "Resolve on GitHub",
   "ghResolved": "Resolved {where} on GitHub",
-  "ghResolveFailed": "The thread was not resolved: {error}"
+  "ghResolveFailed": "The thread was not resolved: {error}",
+  "cmdFileAddContextMenu": "Add 'Open with Mayoi' to Explorer",
+  "cmdFileRemoveContextMenu": "Remove 'Open with Mayoi' from Explorer",
+  "contextMenuOpen": "Open with Mayoi",
+  "contextMenuAdded": "'Open with Mayoi' is in Explorer's right-click menu.",
+  "contextMenuAddedDetail": "Right-click a file, a folder or a folder's background. On Windows 11, it is under Show more options.",
+  "contextMenuAddFailed": "'Open with Mayoi' could not be added to Explorer.",
+  "contextMenuRemoved": "'Open with Mayoi' is removed from Explorer.",
+  "contextMenuRemoveFailed": "'Open with Mayoi' could not be removed from Explorer.",
+  "contextMenuNotAdded": "'Open with Mayoi' is not in Explorer's right-click menu."
 }

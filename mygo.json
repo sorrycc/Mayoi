@@ -149,6 +149,9 @@
       ]
     }
   },
+  "windows": {
+    "contextMenu": "Open with Mayoi"
+  },
   "linux": {
     "command": "mayoi",
     "comment": "A small, fast code editor",

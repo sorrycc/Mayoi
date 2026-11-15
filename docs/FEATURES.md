@@ -735,6 +735,13 @@ not have it yet.
 - Recent folders, the windows and the tabs of a remote folder are kept as those of a local one, and a remote folder of
   the last session connects again as the app starts.
 
+## Explorer's right-click menu
+
+On Windows, the installer adds **Open with Mayoi** to Explorer's right-click menu of files, folders and a folder's
+background, which opens the file, the folder, or the folder you are in. Windows 11 shows it under **Show more
+options**. **File → Add 'Open with Mayoi' to Explorer** adds it to a Mayoi installed before, and **File → Remove 'Open
+with Mayoi' from Explorer** takes it away; uninstalling Mayoi removes it too.
+
 ## The `mayoi` command
 
 **File → Install 'mayoi' Command** installs the command into `~/.local/bin` when that directory is on your `PATH`, and

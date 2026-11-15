@@ -113,6 +113,9 @@ type githubPanel struct {
 	card string
 	// focusList is set for the list to take the keyboard as it builds.
 	focusList bool
+	// synced is the number of the issue or pull request whose tab the
+	// choice last went to, 0 for none.
+	synced int
 	// checks are the pull requests whose checks a refresh changed, by
 	// number, for their icons to fade from how they were to how they are.
 	checks map[int]ghChecksWere
@@ -614,6 +617,33 @@ func (gp *githubPanel) keepChoice() {
 	}
 }
 
+// chooseItem puts the choice on the row of item n, and reports whether
+// rows have one.
+func (gp *githubPanel) chooseItem(rows []ghRow, n int) bool {
+	for i, r := range rows {
+		if r.item != nil && r.item.Number == n && r.gone.IsZero() {
+			gp.row, gp.rowKey = i, r.key
+			gp.list.ScrollIntoView(i)
+			return true
+		}
+	}
+	return false
+}
+
+// shownGitHubItem is the number of the issue or pull request of ctx whose
+// tab shows, 0 for none.
+func (a *app) shownGitHubItem(ctx *gitContext) int {
+	t := a.activeTab()
+	switch {
+	case t == nil || ctx.git.repo == nil:
+	case t.issue != nil && t.issue.number > 0 && a.issueContext(t.issue) == ctx:
+		return t.issue.number
+	case t.diff != nil && t.diff.commit != nil && t.diff.commit.pr != nil && a.diffBelongs(t.diff, ctx.git.repo.Root):
+		return t.diff.commit.pr.number
+	}
+	return 0
+}
+
 // ghLeave is rows with those of was they don't have among them as they
 // go: each after the row before it that stays, gone from now unless it
 // went before, and left out once gone for motionLeave. end is when the
@@ -736,6 +766,10 @@ func (a *app) githubView(c *ui.Context) {
 		return
 	}
 	rows := a.githubRows(ctx, o, now)
+	// The choice follows the issue or pull request whose tab shows.
+	if n := a.shownGitHubItem(ctx); n != gp.synced && (n == 0 || gp.chooseItem(rows, n)) {
+		gp.synced = n
+	}
 	queryKeys := a.githubQuery(c, ctx, o, rows)
 	// What was read stays, with a line at the foot of the view that says
 	// why it is not read again: its host is away, or GitHub failed. It

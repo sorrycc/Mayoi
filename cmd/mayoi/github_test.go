@@ -1427,3 +1427,67 @@ func TestGitHubNarrowKeepsChip(t *testing.T) {
 		t.Error("the reviewers' pictures squeeze the chip rather than go")
 	}
 }
+
+// TestGitHubChoiceFollowsTab: the choice goes to the issue or pull request
+// whose tab shows, stays where it was for a tab of neither, and goes to
+// the row clicked.
+func TestGitHubChoiceFollowsTab(t *testing.T) {
+	hs := githubHarness(t, ghOverviewFixture(), nil)
+	a := hs.a
+	a.showGitHub()
+	hs.settle()
+	gp := &a.github
+	at := func(key string) int {
+		for i, r := range gp.rows {
+			if r.key == key {
+				return i
+			}
+		}
+		t.Fatalf("no row %q", key)
+		return -1
+	}
+	chosen := func() string { return gp.rows[gp.row].key }
+	gp.row = at("prs:9")
+	hs.settle()
+
+	a.openIssue(a.repository(), 3, true)
+	hs.settle()
+	if k := chosen(); k != "assigned:3" {
+		t.Errorf("the issue's tab chose %q, want assigned:3", k)
+	}
+
+	col := a.fileColumn()
+	a.addTab(col, len(col.tabs), &colTab{diff: newCommitView(layoutAuto, prKey(8, "aaa", "bbb"), git.Commit{})})
+	a.activate(col, len(col.tabs)-1, true)
+	hs.settle()
+	if k := chosen(); k != "mine:8" {
+		t.Errorf("the pull request's tab chose %q, want mine:8", k)
+	}
+
+	// Back to the issue's tab.
+	for i, tab := range col.tabs {
+		if tab.issue != nil {
+			a.activate(col, i, true)
+		}
+	}
+	hs.settle()
+	if k := chosen(); k != "assigned:3" {
+		t.Errorf("going back to the issue's tab chose %q, want assigned:3", k)
+	}
+
+	// A file's tab leaves the choice where it was.
+	os.WriteFile(hs.path("f.txt"), []byte("x\n"), 0o644)
+	a.openFile(hs.path("f.txt"), true)
+	hs.settle()
+	if k := chosen(); k != "assigned:3" {
+		t.Errorf("a file's tab moved the choice to %q", k)
+	}
+
+	if err := hs.tt.Click("Wider sidebar"); err != nil {
+		t.Fatal(err)
+	}
+	hs.settle()
+	if k := chosen(); k != "issues:4" {
+		t.Errorf("a click chose %q, want issues:4", k)
+	}
+}

@@ -3,7 +3,7 @@
 The update window shows the section of the version it offers. Every release
 needs a `## <version>` section here, or its build fails.
 
-## Unreleased
+## 0.21.2
 
 - The scroll bar no longer jumps while you scroll notes with wrapped lines, in Live Preview and in the editor.
 

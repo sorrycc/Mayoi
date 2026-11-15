@@ -54,6 +54,10 @@ needs a `## <version>` section here, or its build fails.
 - A GitHub search that finds nothing offers **Clear Search**.
 - **Try Again** in the GitHub view shows a spinning ring as soon as you click it, until GitHub answers.
 - Labels in an issue's tab use the same chips as the GitHub view, and a failed read offers **Try Again** on a card.
+- Draft pull requests in the GitHub view have a draft icon, a dimmer title and a grey **Draft** chip.
+- GitHub view rows show Approved, Changes Requested and Re-review as filled chips that stand apart from labels.
+- Press `Escape` in the GitHub view's search field to clear it.
+- Moving the selection to another GitHub view section fades it in instead of jumping, and it glides past rows that slide.
 - Mayoi sends an anonymous count once a day and on each update, with only its version and system.
 - Turn the count off with `usageStats` in **Settings → General**, or by setting `DO_NOT_TRACK=1`.
 

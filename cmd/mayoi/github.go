@@ -99,8 +99,11 @@ type githubPanel struct {
 	// until it has rested for scmScrollQuiet.
 	scrolledAt time.Time
 	// glide is the choice's background on its way from the row it was on,
-	// as in Sessions.
+	// as in Sessions; hopAt is when it last went over a section's header,
+	// which it does not glide over, and hopBy which way, 1 down, -1 up.
 	glide choiceGlide
+	hopAt time.Time
+	hopBy float32
 	// card is the key of the row whose card Space showed, until the choice
 	// moves, or Space or Escape hides it.
 	card string
@@ -719,6 +722,12 @@ func (a *app) githubQuery(c *ui.Context, ctx *gitContext, o *git.GHOverview, row
 		if in.Changed() {
 			gp.row = ghFirstItem(rows)
 		}
+		// Escape clears what is typed, as Clear Search does; with nothing
+		// typed, it is left to what else takes it.
+		if gp.query != "" && in.Shortcut(0, ui.KeyEscape) {
+			gp.query = ""
+			a.invalidate()
+		}
 		if in.Shortcut(0, ui.KeyDown) {
 			gp.row = ghStep(rows, gp.row, 1)
 			gp.list.ScrollIntoView(gp.row)
@@ -796,6 +805,9 @@ func (a *app) githubList(c *ui.Context, ctx *gitContext, o *git.GHOverview, rows
 			listKeys := gp.list.FocusWithin(c)
 			choice = &sessionChoice{keyed: listKeys, held: listKeys || queryKeys}
 			choice.y, choice.there = a.ghGlide(rows, i, now, reduce)
+			if k, y := gp.ghHop(now); k > 0 {
+				choice.y, choice.there, choice.fade = y, 1-k, k
+			}
 		}
 		switch r := rows[i]; {
 		case r.header:
@@ -924,12 +936,43 @@ func ghStepH(r ghRow) float32 {
 // ghGlide is how far from row i the choice's background shows at now, and
 // how much of the way there it went, as in Sessions: within a section; to
 // another, it shows there at once.
+//
+// Over a header, which it would cover on its way, it comes in where it
+// goes instead, fading in from a little short of it, the way it went.
+// Over a row that opens or closes its room, it glides by the room it has.
 func (a *app) ghGlide(rows []ghRow, i int, now time.Time, reduce bool) (y, there float32) {
-	return a.github.glide.to(len(rows), i, func(j int) string { return rows[j].key }, func(j int) (float32, bool) {
-		// Not over a section's header, which it would cover on its way, nor
-		// a row that closes its room.
-		return ghStepH(rows[j]), !rows[j].header && rows[j].gone.IsZero()
+	gp := &a.github
+	g := &gp.glide
+	from, fromKey, fromAt := g.row, g.key, g.at
+	y, there = g.to(len(rows), i, func(j int) string { return rows[j].key }, func(j int) (float32, bool) {
+		return ghStepH(rows[j]) * gp.ghShown(rows[j], now), !rows[j].header
 	}, now, reduce)
+	if fromKey != "" && fromKey != rows[i].key && y == 0 && !reduce && from >= 0 && from < len(rows) &&
+		rows[from].key == fromKey && abs(from-i) <= choiceGlideSpan && now.Sub(fromAt) >= motionHover {
+		lo, hi := min(from, i), max(from, i)
+		if slices.ContainsFunc(rows[lo:hi], func(r ghRow) bool { return r.header }) {
+			gp.hopAt, gp.hopBy = now, 1
+			if i < from {
+				gp.hopBy = -1
+			}
+		}
+	}
+	return y, there
+}
+
+// ghHopY is how far short of its row the choice comes in from, as it goes
+// over a section's header.
+const ghHopY = 6
+
+// ghHop is how far the choice still has to come in at now after it went
+// over a header, from 1 to 0, and where from.
+func (gp *githubPanel) ghHop(now time.Time) (k, y float32) {
+	since := now.Sub(gp.hopAt)
+	if gp.hopAt.IsZero() || since < 0 || since >= motionHover {
+		return 0, 0
+	}
+	k = 1 - ui.EaseOut(float32(since)/float32(motionHover))
+	return k, -gp.hopBy * ghHopY * k
 }
 
 // ghChoosable reports whether the choice may stop at row r: an item, or a
@@ -1119,9 +1162,15 @@ func (a *app) githubItem(c *ui.Context, ctx *gitContext, o *git.GHOverview, r gh
 		if chosen || hovered {
 			under = bg
 		}
+		// A draft's title is quieter, as its icon is: it is not yet for
+		// review.
+		title := p.text
+		if it.Draft {
+			title = p.muted
+		}
 		ui.Row(c).Gap(6).AlignItems(ui.Center).Children(func() {
 			ui.Icon(c, icon).FontSize(13).TextColor(col).Shrink(0)
-			ui.Text(c, it.Title).FontSize(13).TextColor(p.text).SingleLine().Grow(1).Shrink(1).MinWidth(0)
+			ui.Text(c, it.Title).FontSize(13).TextColor(title).SingleLine().Grow(1).Shrink(1).MinWidth(0)
 			if it.PR {
 				a.ghChecks(c, it, r.checks, now)
 			}
@@ -1142,12 +1191,10 @@ func (a *app) githubItem(c *ui.Context, ctx *gitContext, o *git.GHOverview, r gh
 			}
 			switch review, col := a.ghReview(it); {
 			case r.again:
-				// Quiet, as the other words, but in the accent: it is the
-				// viewer's turn.
-				ui.Text(c, locales.GhReReview()).FontSize(11).FontWeight(500).TextColor(p.accent).SingleLine().Shrink(0).
-					Margin(0, 0, 0, 6).Tooltip(locales.GhReReviewTip())
+				// In the accent, with its arrow: it is the viewer's turn.
+				a.ghStateChip(c, iconRefresh, locales.GhReReview(), p.accent).Margin(0, 0, 0, 6).Tooltip(locales.GhReReviewTip())
 			case review != "":
-				ui.Text(c, review).FontSize(11).FontWeight(500).TextColor(col).SingleLine().Shrink(0).Margin(0, 0, 0, 6)
+				a.ghStateChip(c, nil, review, col).Margin(0, 0, 0, 6)
 			}
 			// A label that does not fit goes whole, to a line that does
 			// not show, rather than being cut: the first too, after the
@@ -1270,7 +1317,7 @@ func ghItemIcon(p *palette, it *git.GHItem) (*ui.SVG, ui.Color) {
 	case !it.PR:
 		return iconIssue, p.addedFg
 	case it.Draft:
-		return iconPullRequest, p.muted
+		return iconPullRequestDraft, p.muted
 	}
 	return iconPullRequest, p.addedFg
 }
@@ -1384,7 +1431,7 @@ func (a *app) githubCardBox(c *ui.Context, o *git.GHOverview, tip, row ui.Elemen
 				ui.Icon(c, icon).FontSize(13).TextColor(col).Shrink(0)
 				ui.Text(c, r.number).FontSize(11.5).TextColor(p.muted).FontFeatures("tnum").SingleLine()
 				if it.Draft {
-					ui.Text(c, locales.PrDraft()).FontSize(11).TextColor(p.muted).SingleLine()
+					a.ghStateChip(c, nil, locales.PrDraft(), p.muted)
 				}
 			})
 			ui.Text(c, it.Title).FontSize(13).FontWeight(600).TextColor(p.text).LineHeight(1.35).MaxLines(4)
@@ -1544,6 +1591,24 @@ func (a *app) ghLabel(c *ui.Context, l git.GHLabel, size float32) {
 	// color, which reads on every theme.
 	ui.Text(c, l.Name).FontSize(size).TextColor(p.text).SingleLine().Shrink(0).Height(ghChipH).Padding(0, 5).Radius(ghChipH/2).
 		Background(col.Alpha(0.18)).Border(1, col.Alpha(0.5))
+}
+
+// ghStateChip is the state of a pull request on a chip as tall as a
+// label's, tinted in col, with icon before its word if not nil: filled,
+// where a label is ringed, so that the two read apart.
+func (a *app) ghStateChip(c *ui.Context, icon *ui.SVG, word string, col ui.Color) ui.Element {
+	tint := col.Alpha(0.14)
+	if col == a.pal.muted {
+		// A draft's is grey, as its icon is.
+		tint = a.pal.text.Alpha(0.07)
+	}
+	return ui.Row(c).Gap(2).AlignItems(ui.Center).Height(ghChipH).Padding(0, 5).Radius(ghChipH/2).Background(tint).Shrink(0).
+		Children(func() {
+			if icon != nil {
+				ui.Icon(c, icon).FontSize(9).TextColor(col)
+			}
+			ui.Text(c, word).FontSize(10.5).FontWeight(500).TextColor(col).SingleLine()
+		})
 }
 
 // ghReview is the word of a pull request's state under its title, and its

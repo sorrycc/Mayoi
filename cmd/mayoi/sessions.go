@@ -1446,6 +1446,9 @@ func (a *app) sessionRow(c *ui.Context, l sessionLine, now time.Time, choice *se
 type sessionChoice struct {
 	y, there           float32
 	keyed, held, loose bool
+	// fade is how far it is yet to fade in, from 1 to 0, as it comes in
+	// where it goes rather than gliding there.
+	fade float32
 }
 
 // choiceMark is the background of the choice, under the rest of a row h
@@ -1461,12 +1464,12 @@ func (a *app) choiceMark(c *ui.Context, choice *sessionChoice, h float32) ui.Col
 	held := box.Animate("held", unit(choice.held), motionHover)
 	keyed := box.Animate("keyed", unit(choice.keyed), motionHover)
 	loose := box.Animate("loose", unit(choice.loose), motionHover)
-	col := p.active.Alpha((0.5 + 0.5*held) * (1 - loose))
+	col := p.active.Alpha((0.5 + 0.5*held) * (1 - loose) * (1 - choice.fade))
 	box.Background(col)
 	if keyed > 0 {
 		box.Border(1, p.accent.Alpha(0.45*keyed*choice.there*choice.there))
 	}
-	if choice.y != 0 {
+	if choice.y != 0 || choice.fade > 0 {
 		box.Translate(0, choice.y)
 		c.AnimationFrame()
 	}

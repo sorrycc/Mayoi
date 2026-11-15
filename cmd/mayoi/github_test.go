@@ -578,11 +578,70 @@ func TestGitHubChoiceGlides(t *testing.T) {
 	if gp.glide.y != 0 {
 		t.Errorf("the choice stays %v off its row", gp.glide.y)
 	}
-	// To another section, over its header, it shows there at once.
+	// To another section, over its header, it does not glide but comes in
+	// where it goes, from a little above, and settles there.
 	hs.tt.Key(0, ui.KeyDown)
 	step(hs.tt)
 	if gp.glide.y != 0 {
 		t.Errorf("the choice glides over a header, %v off its row", gp.glide.y)
+	}
+	step(hs.tt)
+	if k, y := gp.ghHop(hs.tt.Now()); k <= 0 || y >= 0 {
+		t.Errorf("the choice does not come in over a header: %v, %v", k, y)
+	}
+	hs.settle()
+	if k, _ := gp.ghHop(hs.tt.Now()); k != 0 {
+		t.Errorf("the choice is still %v from coming in", k)
+	}
+}
+
+// TestGitHubEscapeClears: Escape in the query clears what is typed, and
+// with nothing typed leaves it be.
+func TestGitHubEscapeClears(t *testing.T) {
+	hs := githubHarness(t, ghOverviewFixture(), nil)
+	hs.a.showGitHub()
+	hs.settle()
+	gp := &hs.a.github
+	hs.tt.Type("crash")
+	hs.settle()
+	if gp.query != "crash" {
+		t.Fatalf("the query is %q", gp.query)
+	}
+	if _, ok := hs.tt.Find("Wider sidebar"); ok {
+		t.Fatal("the query finds what it should not")
+	}
+	hs.tt.Key(0, ui.KeyEscape)
+	hs.settle()
+	if gp.query != "" {
+		t.Errorf("the query is %q after Escape", gp.query)
+	}
+	if _, ok := hs.tt.Find("Wider sidebar"); !ok {
+		t.Error("the rows are not back after Escape")
+	}
+	hs.tt.Type("w")
+	hs.settle()
+	if gp.query != "w" {
+		t.Errorf("Escape took the keyboard from the query: %q", gp.query)
+	}
+}
+
+// TestGitHubStateChips: a draft has its own icon and a quiet title; a
+// review asked again shows its chip.
+func TestGitHubStateChips(t *testing.T) {
+	hs := githubHarness(t, ghOverviewFixture(), nil)
+	hs.a.showGitHub()
+	hs.settle()
+	o := hs.a.repository().githubOverview()
+	if ic, _ := ghItemIcon(hs.a.pal, &o.PRs[1]); ic != iconPullRequestDraft {
+		t.Error("a draft has the icon of a pull request ready for review")
+	}
+	if ic, _ := ghItemIcon(hs.a.pal, &o.PRs[0]); ic != iconPullRequest {
+		t.Error("a pull request ready for review has the icon of a draft")
+	}
+	for _, w := range []string{locales.PrDraft(), locales.GhReReview()} {
+		if _, ok := hs.tt.Find(w); !ok {
+			t.Errorf("no %q chip", w)
+		}
 	}
 }
 

@@ -16,6 +16,7 @@ needs a `## <version>` section here, or its build fails.
 - A GitHub view in the sidebar lists the open issues and pull requests of a GitHub repository, via `gh`.
 - The GitHub view puts reviews asked of you, your pull requests and your issues first, and counts reviews.
 - Type in the GitHub view to find an issue or pull request; `⌘C` copies the link of the one chosen.
+- `⌘C` copies the chosen item's link while you type in the GitHub view, and a list's link on "more on GitHub".
 - The GitHub view highlights the issue or pull request whose tab is shown, as you switch tabs.
 - Double-click an issue or pull request in the GitHub view to open it in a tab that stays, not a preview.
 - Without `gh`, signed out, or with several repositories as remotes, the GitHub view says what to do next.

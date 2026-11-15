@@ -1523,3 +1523,45 @@ func TestGitHubDoubleClickKeeps(t *testing.T) {
 		t.Fatalf("a double click left %d tabs of the issue, kept %v; want one kept", n, kept)
 	}
 }
+
+// TestGitHubCopyLink: Copy copies the chosen row's link from the query
+// as from the list, a note's that of its list on GitHub, while text
+// selected in the query copies the text.
+func TestGitHubCopyLink(t *testing.T) {
+	hs := githubHarness(t, ghOverviewFixture(), nil)
+	hs.a.showGitHub()
+	hs.settle()
+	gp := &hs.a.github
+	copied := func() string {
+		hs.tt.Command("copy")
+		hs.settle()
+		return hs.tt.Clipboard()
+	}
+	r := gp.rows[gp.row]
+	if r.item == nil {
+		t.Fatalf("the choice is on %q", r.key)
+	}
+	if got := copied(); got != r.item.URL {
+		t.Errorf("Copy in the empty query copied %q, want %q", got, r.item.URL)
+	}
+	hs.tt.Type("crash")
+	hs.settle()
+	if got := copied(); got != "https://github.com/o/r/issues/3" {
+		t.Errorf("Copy in the query copied %q, want the link of #3", got)
+	}
+	hs.tt.Command("selectAll")
+	if got := copied(); got != "crash" {
+		t.Errorf("Copy with the query selected copied %q, want it", got)
+	}
+	hs.tt.Key(0, ui.KeyEscape)
+	hs.settle()
+	for i, r := range gp.rows {
+		if r.key == "issues:more" {
+			gp.row, gp.focusList = i, true
+		}
+	}
+	hs.settle()
+	if got := copied(); got != "https://github.com/o/r/issues" {
+		t.Errorf("Copy on the note of more issues copied %q, want the list's link", got)
+	}
+}

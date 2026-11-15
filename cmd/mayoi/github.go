@@ -822,6 +822,11 @@ func (a *app) githubQuery(c *ui.Context, ctx *gitContext, o *git.GHOverview, row
 	ui.Column(c.Key("gh-query-row")).Padding(0, 12, 6, 12).Children(func() {
 		in := a.searchField(c, "gh-query", &gp.query, locales.GhFind(), &gp.input, nil)
 		queryKeys = in.Focused()
+		// Copy with nothing selected in the query copies the chosen row's
+		// link, as from the list.
+		a.takeKeys(in, placeInput, func(ev ui.InputEvent) bool {
+			return ev.Kind == ui.InputCommand && ev.Text == "copy" && gp.row >= 0 && gp.row < len(rows) && a.copyGitHubRow(rows[gp.row])
+		})
 		if in.Changed() {
 			gp.row = ghFirstItem(rows)
 		}
@@ -950,11 +955,7 @@ func (a *app) githubList(c *ui.Context, ctx *gitContext, o *git.GHOverview, rows
 		if ev.Kind == ui.InputScroll {
 			gp.scrolledAt = ev.Time
 		}
-		if ev.Kind == ui.InputCommand && ev.Text == "copy" && gp.row >= 0 && gp.row < len(rows) && rows[gp.row].item != nil {
-			a.copyGitHubLink(rows[gp.row].item)
-			return true
-		}
-		return false
+		return ev.Kind == ui.InputCommand && ev.Text == "copy" && gp.row >= 0 && gp.row < len(rows) && a.copyGitHubRow(rows[gp.row])
 	})
 	if out.Submitted() && gp.row >= 0 && gp.row < len(rows) {
 		r := rows[gp.row]
@@ -1881,6 +1882,26 @@ func (a *app) openGitHubItem(ctx *gitContext, it *git.GHItem, keep bool) {
 		return
 	}
 	a.openIssue(ctx, it.Number, keep)
+}
+
+// copyGitHubRow puts the link of row r on the clipboard: its issue's or
+// pull request's, or that of the list its note opens on GitHub. It
+// reports whether r has one to copy.
+func (a *app) copyGitHubRow(r ghRow) bool {
+	switch {
+	case r.item != nil:
+		a.copyGitHubLink(r.item)
+		return true
+	case r.link != "" && r.gone.IsZero():
+		title := locales.GhPRs()
+		if r.section == "issues" {
+			title = locales.GhIssues()
+		}
+		a.services.WriteClipboard(r.link)
+		a.tell(note{message: locales.GhLinkCopied(title)})
+		return true
+	}
+	return false
 }
 
 // copyGitHubLink puts the link of an issue or a pull request on the

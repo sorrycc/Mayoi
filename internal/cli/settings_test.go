@@ -147,7 +147,7 @@ func TestSettingsSetWrong(t *testing.T) {
 		{"fontSize", `"big"`, "a number from 9 to 28"},
 		{"fontSize", "100", "a number from 9 to 28"},
 		{"vim", "1", "true or false"},
-		{"theme", "nope", `"", "matrix", "claude", "qoder", "grokbot", "cursor", "purplegold", "pumpkin", "witchsbrew" or "bloodmoon"`},
+		{"theme", "nope", `"", "matrix", "claude", "qoder", "grokbot", "cursor", "purplegold", "pumpkin", "witchsbrew", "bloodmoon" or "gtavi"`},
 		{"fontFeatures", "calt=0", `a list of text`},
 		{"projectTabStyle", "[]", "the looks of the projects on the rail"},
 		{"vim", "null", "mayoi settings unset vim"},

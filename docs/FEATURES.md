@@ -819,12 +819,12 @@ themes, Jack-o'-Lantern, Witch's Brew and Blood Moon, and apart from it whether 
 dark mode or is always Light or Dark. Light and Dark are greyed out under The Matrix, Purple Gold and the Halloween
 themes, which are always dark.
 The Matrix is its two worlds: the sidebar, tabs, panels and status bar in the real world's gunmetal steel, and the code
-and the terminal in the Matrix's greens, each kind of code in a hue of its own and comments in the steel. The whole
-window is in the code's font, with file icons in greens. Primary buttons take the red pill and chosen rows the blue;
+and the terminal in the Matrix's greens, each kind of code in a hue of its own and comments in the steel. File icons
+are in greens. Primary buttons take the red pill and chosen rows the blue;
 buttons that lose something take the Sentinels' orange. Mirrored digital rain falls in two depths behind the welcome
 page while the window has the keyboard, and holds still without it or when the system asks for reduced motion. The
 White Rabbit, with red-pill eyes, takes the logo's place and the status bar's start, and hops while Git works. Claude is Claude Code as it draws itself in a
-terminal, in a light and a dark kind: the whole window in the code's font, as The Matrix is, warm near-black or
+terminal, in a light and a dark kind: warm near-black or
 off-white, Claude's orange for the accent and the buttons, with dark labels on them, and periwinkle for what is chosen,
 with errors and what is removed in Claude Code's rose, apart from the orange. The boxes over the window, as Quick
 Open's, are outlined in the orange. While a Git command runs, the status bar has Claude Code's spinner: a ✻ that turns

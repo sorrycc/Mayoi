@@ -287,9 +287,6 @@ func (a *app) editorView(c *ui.Context, d *editor) {
 			// The text in the app's font, as it reads, its lines as high as
 			// what they hold.
 			area.Font(c.Theme().Font).FontSize(a.settings.FontSize).LineHeight(a.settings.LineHeight)
-			if p.mono {
-				area.FontWeight(f.weight).FontFeatures(f.featureList()...)
-			}
 		} else {
 			area.Font(f.family).FontSize(f.size).FontWeight(f.weight).FontFeatures(f.featureList()...).FixedLineHeight(f.lineH)
 		}

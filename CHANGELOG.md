@@ -5,6 +5,7 @@ needs a `## <version>` section here, or its build fails.
 
 ## Unreleased
 
+- The Matrix and Claude themes use the same interface font as the other themes, not the code's font.
 - **View → Theme** adds GTA VI: the game's HUD in graphite, white and mission gold, always dark.
 - In GTA VI, wanted stars light up in the status bar as uncommitted files pile up, and flash while Git works.
 - On Windows, right-click a file, a folder or a folder's background in Explorer and choose **Open with Mayoi**.

@@ -39,9 +39,9 @@ func isMermaid(d *document) bool {
 // that Pele's CSS variables take, and the fonts of its labels.
 type mermaidStyle struct {
 	bg, fg, muted, line, surface, surfaceAlt, border, accent, danger ui.Color
-	// sans is the labels' font, "" for the window's; mono and monoWeight
-	// are those of their code.
-	sans, mono string
+	// mono and monoWeight are the font of the labels' code; the rest of
+	// their text is in the window's.
+	mono       string
 	monoWeight int
 }
 
@@ -59,16 +59,13 @@ func (a *app) mermaidStyle() mermaidStyle {
 		border: flat(p.accent.Alpha(0.6)), accent: flat(p.accent), danger: flat(p.danger),
 		mono: a.settings.FontFamily, monoWeight: a.settings.FontWeight,
 	}
-	if p.mono {
-		st.sans = a.settings.FontFamily
-	}
 	return st
 }
 
 // font is the font of a label's text in Pele's style, of its bits:
 // bold, italic, code, and the smaller text of a subscript or superscript.
 func (st mermaidStyle) font(size float32, style int) ui.Font {
-	f := ui.Font{Family: st.sans, Size: size, Weight: 400}
+	f := ui.Font{Size: size, Weight: 400}
 	if style&pelebold != 0 {
 		f.Weight = 700
 	}
@@ -235,7 +232,7 @@ func peleRender(source string, st mermaidStyle) (svg string, err error) {
 		return "", pele.err
 	}
 	pele.style = st
-	fresh := st.sans != pele.measured.sans || st.mono != pele.measured.mono || st.monoWeight != pele.measured.monoWeight
+	fresh := st.mono != pele.measured.mono || st.monoWeight != pele.measured.monoWeight
 	pele.measured = st
 	out, err := pele.js.callString(pele.render, mermaidTimeout, source, fresh)
 	if err != nil {

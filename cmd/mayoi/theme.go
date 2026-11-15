@@ -22,8 +22,8 @@ import (
 // derives from it.
 type palette struct {
 	dark bool
-	// mono draws the whole window in the code's font, and the icons of
-	// files in the palette's own colors rather than their languages'.
+	// mono draws the icons of files in the palette's own colors rather
+	// than their languages', and every alert in the accent.
 	mono bool
 
 	editor    ui.Color // the editor and the terminal
@@ -330,8 +330,7 @@ func matrixPalette() *palette {
 }
 
 // claudeDarkPalette is Claude in a dark window, as Claude Code draws
-// itself in a terminal: the whole window in the code's font, warm
-// near-black, Claude's orange for the accent and periwinkle, the CLI's
+// itself in a terminal: warm near-black, Claude's orange for the accent and periwinkle, the CLI's
 // color for a suggestion, for what is chosen. Errors and what is removed
 // take Claude Code's rose, apart from the orange, so that neither reads
 // as a mark.
@@ -1627,9 +1626,6 @@ func applyTheme(c *ui.Context, prefs *settings.Prefs, fade *paletteFade) *palett
 	t.Surface, t.SurfaceHover, t.SurfacePressed = p.surface, p.surfaceHover, p.surfacePressed
 	t.Scrollbar = p.scrollbar
 	t.Inverse, t.InverseText = p.inverse, p.inverseText
-	if p.mono {
-		t.Font = prefs.FontFamily
-	}
 	c.SetTheme(&t)
 	return p
 }

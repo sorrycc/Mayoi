@@ -237,7 +237,7 @@ func TestLightOrDarkThemes(t *testing.T) {
 				t.Errorf("the terminal's colors are not %s's", tc.name)
 			}
 			// The icons of files keep their languages' colors, but in
-			// Claude, which is in the code's font and shades its icons.
+			// Claude, which shades its icons.
 			if _, c := fileIcon(a.pal, "main.go"); (c == langColor(&palette{mono: true, muted: a.pal.muted, accent: a.pal.accent}, "#00add8", "")) != a.pal.mono {
 				t.Errorf("a Go file's icon under %s is %v", tc.name, c)
 			}
@@ -255,14 +255,14 @@ func TestLightOrDarkThemes(t *testing.T) {
 	}
 }
 
-// Claude is as Claude Code draws itself: the whole window in the code's
-// font, and errors and what is removed in a rose apart from the orange of
+// Claude is as Claude Code draws itself: files' icons in its own colors,
+// and errors and what is removed in a rose apart from the orange of
 // the accent, so that neither reads as a mark. Its terminal's whites read
 // on a light window, as text does.
 func TestClaudeTheme(t *testing.T) {
 	for name, p := range map[string]*palette{"light": claudeLightPal, "dark": claudeDarkPal} {
 		if !p.mono {
-			t.Errorf("Claude %s is not in the code's font", name)
+			t.Errorf("Claude %s does not draw icons in its own colors", name)
 		}
 		for what, c := range map[string]ui.Color{"danger": p.danger, "removed": p.removed, "keyword": p.syntax[highlight.Keyword]} {
 			if d := hueApart(c, p.accent); d < 20 {

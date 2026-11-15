@@ -1757,7 +1757,7 @@ func (a *app) followMarkdown(v *viewer) {
 func (a *app) markdownSpan(r markdownInline, color ui.Color, size float32, blockCode bool) ui.Span {
 	p, settings := a.pal, a.settings
 	span := ui.Span{Text: r.text, Color: color, Italic: r.italic, Strikethrough: r.strike}
-	if p.mono || r.code || blockCode {
+	if r.code || blockCode {
 		span.Font, span.Weight, span.Features = settings.FontFamily, settings.FontWeight, strings.Join(settings.FontFeatures, ",")
 	}
 	if r.bold {
@@ -1992,7 +1992,7 @@ func (a *app) markdownText(c *ui.Context, m *markdownPreview, path string, runs 
 	p := a.pal
 	text := ui.RichText(c).FontSize(size).LineHeight(a.settings.LineHeight).TextColor(color).DecorationColor(color).WidthPercent(100)
 	font := ui.Font{Family: c.Theme().Font, Size: size}
-	if blockCode || p.mono {
+	if blockCode {
 		text.Font(a.settings.FontFamily).FontWeight(a.settings.FontWeight).FontFeatures(a.settings.FontFeatures...)
 		font = ui.Font{Family: a.settings.FontFamily, Size: size, Weight: a.settings.FontWeight, Features: strings.Join(a.settings.FontFeatures, ",")}
 	}
@@ -2519,13 +2519,10 @@ func (a *app) markdownView(c *ui.Context, v *viewer, name string) {
 	a.followMarkdown(v)
 	m, p := v.markdown, a.pal
 	size := a.settings.FontSize
-	// Measure the actual body font, including the Matrix UI font. The
-	// column is 120 digits wide, room for tables and images while a line
-	// of prose stays short enough to read.
+	// Measure the actual body font. The column is 120 digits wide, room
+	// for tables and images while a line of prose stays short enough to
+	// read.
 	font := ui.Font{Family: c.Theme().Font, Size: size}
-	if p.mono {
-		font.Weight, font.Features = a.settings.FontWeight, strings.Join(a.settings.FontFeatures, ",")
-	}
 	if m.measured != font || m.measure == 0 {
 		m.measured = font
 		m.measure, _ = ui.ShapeText(strings.Repeat("0", 120), font, 0).Size()

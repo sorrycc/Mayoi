@@ -58,6 +58,12 @@ needs a `## <version>` section here, or its build fails.
 - GitHub view rows show Approved, Changes Requested and Re-review as filled chips that stand apart from labels.
 - Press `Escape` in the GitHub view's search field to clear it.
 - Moving the selection to another GitHub view section fades it in instead of jumping, and it glides past rows that slide.
+- When the top GitHub view section goes away, the space above the next section closes smoothly instead of jumping.
+- In the GitHub view, the warning icon shakes when **Try Again** fails again, so you know it tried.
+- In a narrow sidebar, GitHub view rows hide reviewer pictures and comment counts before squeezing the author's name.
+- The Re-review, Approved and Draft chips in GitHub view rows stay whole in a narrow sidebar.
+- Buttons on the GitHub view's cards press in when clicked, like the rest of the sidebar's buttons.
+- GitHub view section headers now use the same type size as the day headers in Sessions.
 - Mayoi sends an anonymous count once a day and on each update, with only its version and system.
 - Turn the count off with `usageStats` in **Settings → General**, or by setting `DO_NOT_TRACK=1`.
 

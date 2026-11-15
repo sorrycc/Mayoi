@@ -808,6 +808,9 @@ func TestShotGitHub(t *testing.T) {
 		step(hs.tt)
 		step(hs.tt)
 		hs.shot(name + "-checks")
+		hs.a.window.SidebarWidth = 200
+		hs.settle()
+		hs.shot(name + "-narrow")
 	}
 }
 
@@ -1024,7 +1027,7 @@ func TestGitHubAvatarsKept(t *testing.T) {
 	ghAvatars.m["https://avatars.test/0"].loading = true
 	ghAvatars.tick = ghAvatarsKept
 	ghAvatars.Unlock()
-	hs.a.ghAvatarBitmap("https://avatars.test/new")
+	hs.a.ghAvatarBitmap("https://avatars.test/new", hs.tt.Now())
 	ghAvatars.Lock()
 	n := len(ghAvatars.m)
 	_, first := ghAvatars.m["https://avatars.test/0"]
@@ -1292,5 +1295,124 @@ func TestGitHubRetryAnswersAtOnce(t *testing.T) {
 	hs.settle()
 	if g.refreshing() {
 		t.Error("Try Again is still busy once GitHub answered")
+	}
+}
+
+// TestGitHubHeaderGapGlides: as the first section goes, the header under
+// it gives up its room above as that closes, not at once; with less
+// motion, at once.
+func TestGitHubHeaderGapGlides(t *testing.T) {
+	o := ghOverviewFixture()
+	o.PRs[1].Checks = git.ChecksPass // no ring that turns
+	answer := o
+	hs := githubHarness(t, o, nil)
+	fetchGitHubOverview = func(*git.Repo) (*git.GHOverview, error) { return answer, nil }
+	hs.a.showGitHub()
+	hs.settle()
+	gp := &hs.a.github
+	if gp.firstKey != "head:review" {
+		t.Fatalf("the first header is %q, want head:review", gp.firstKey)
+	}
+	next := *o
+	next.PRs = slices.Clone(o.PRs[1:])
+	answer = &next
+	hs.a.repository().refreshGitHubNow()
+	for range 40 {
+		step(hs.tt)
+		if gp.firstKey != "head:review" {
+			break
+		}
+	}
+	if gp.firstKey != "head:mine" || gp.gapKey != "head:mine" || !gp.gapGone {
+		t.Fatalf("first %q, gliding %q (gone %v), want head:mine giving up its room", gp.firstKey, gp.gapKey, gp.gapGone)
+	}
+	var mine ghRow
+	for _, r := range gp.rows {
+		if r.key == "head:mine" {
+			mine = r
+		}
+	}
+	at := gp.gapAt
+	if gap, moving := gp.headerGap(mine, at, false); gap != ghHeaderGap || !moving {
+		t.Errorf("as the section above goes, the room above is %v (moving %v), want %v", gap, moving, ghHeaderGap)
+	}
+	if gap, _ := gp.headerGap(mine, at.Add(motionLeave/2), false); gap <= 0 || gap >= ghHeaderGap {
+		t.Errorf("halfway, the room above is %v", gap)
+	}
+	if gap, moving := gp.headerGap(mine, at.Add(motionLeave), false); gap != 0 || moving {
+		t.Errorf("once the section above is gone, the room above is %v (moving %v)", gap, moving)
+	}
+	if gap, moving := gp.headerGap(mine, at, true); gap != 0 || moving {
+		t.Errorf("with less motion, the room above is %v (moving %v), want none at once", gap, moving)
+	}
+	hs.tt.Move(1, 1) // no row's hover or card
+	hs.settle()
+	hs.settle() // the history marks the heads of the pull requests again
+	if !quiet(hs) {
+		t.Error("the view asks for frames once the room settled")
+	}
+}
+
+// TestGitHubFailedAgainShakes: Try Again that fails again shakes the
+// card's icon, as the words may say what they said; the first failure,
+// or one the view asked for on its own, does not.
+func TestGitHubFailedAgainShakes(t *testing.T) {
+	hs := githubHarness(t, nil, fmt.Errorf("%w: HTTP 502: Bad Gateway", git.ErrNoGH))
+	hs.a.showGitHub()
+	hs.settle()
+	g := &hs.a.repository().git.gh
+	if !g.failedAgain.IsZero() {
+		t.Fatal("the first failure shakes")
+	}
+	g.poll.Expire()
+	hs.settle()
+	if !g.failedAgain.IsZero() {
+		t.Fatal("a failure the view asked again on its own shakes")
+	}
+	if err := hs.tt.Click(locales.GhRetry()); err != nil {
+		t.Fatal(err)
+	}
+	for range 40 {
+		step(hs.tt)
+		if !g.refreshing() {
+			break
+		}
+	}
+	if g.failedAgain.IsZero() {
+		t.Fatal("Try Again that failed again shows nothing")
+	}
+	if quiet(hs) {
+		t.Error("the icon does not move as Try Again failed again")
+	}
+	hs.settle()
+	if !quiet(hs) {
+		t.Error("the icon still moves once it shook")
+	}
+}
+
+// TestGitHubNarrowKeepsChip: in a narrow sidebar, the line under a pull
+// request's title keeps its number and its Re-review chip in the row, and
+// gives up its reviewers' pictures and the author's name first; wide, it
+// shows them all.
+func TestGitHubNarrowKeepsChip(t *testing.T) {
+	hs := githubHarness(t, ghOverviewFixture(), nil)
+	hs.a.window.SidebarWidth = 320
+	hs.a.showGitHub()
+	hs.settle()
+	reviewers := locales.GhReviewersLabel("bob, cat")
+	if _, ok := hs.tt.Find(reviewers); !ok {
+		t.Fatal("a wide sidebar shows no reviewers")
+	}
+	hs.a.window.SidebarWidth = 190
+	hs.settle()
+	chip, ok := hs.tt.Find(locales.GhReReview())
+	if !ok {
+		t.Fatal("the Re-review chip is gone in a narrow sidebar")
+	}
+	if right := chip.X + chip.W; right > hs.a.window.SidebarWidth {
+		t.Errorf("the chip ends at %v, past the sidebar's %v", right, hs.a.window.SidebarWidth)
+	}
+	if _, ok := hs.tt.Find(reviewers); ok {
+		t.Error("the reviewers' pictures squeeze the chip rather than go")
 	}
 }

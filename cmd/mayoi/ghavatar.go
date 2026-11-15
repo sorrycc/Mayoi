@@ -27,7 +27,7 @@ const ghAvatarsKept = 256
 const ghAvatarRetry = 5 * time.Minute
 
 // avatarRead is the picture of a link, as it is fetched: nil until it
-// came, at when it did, and failed when it could not be.
+// came, at when it was first drawn, and failed when it could not be.
 type avatarRead struct {
 	bm      *ui.Bitmap
 	at      time.Time
@@ -55,8 +55,10 @@ var ghAvatars = struct {
 var fetchGitHubAvatar = func(url string) *ui.Bitmap { return fetchAvatar(url, ghAvatarPx) }
 
 // ghAvatarBitmap is the picture at url and when it came, nil while it is
-// fetched, which it starts the first time it is asked for.
-func (a *app) ghAvatarBitmap(url string) (*ui.Bitmap, time.Time) {
+// fetched, which it starts the first time it is asked for. It came when
+// first drawn after it was fetched, at now, by the frames' clock, which
+// its fade in is timed by.
+func (a *app) ghAvatarBitmap(url string, now time.Time) (*ui.Bitmap, time.Time) {
 	if url == "" {
 		return nil, time.Time{}
 	}
@@ -71,6 +73,9 @@ func (a *app) ghAvatarBitmap(url string) (*ui.Bitmap, time.Time) {
 		av.m[url] = rd
 	case rd.bm != nil:
 		rd.used = av.tick
+		if rd.at.IsZero() {
+			rd.at = now
+		}
 		return rd.bm, rd.at
 	case !rd.failed.IsZero() && time.Since(rd.failed) < ghAvatarRetry:
 		return nil, time.Time{}
@@ -123,7 +128,7 @@ func startGitHubAvatars() {
 			av.running--
 			rd.loading = false
 			if bm != nil {
-				rd.bm, rd.at = bm, time.Now()
+				rd.bm = bm
 			} else {
 				rd.failed = time.Now()
 			}
@@ -143,7 +148,7 @@ func startGitHubAvatars() {
 // picture fades in over as it comes.
 func (a *app) ghAvatar(c *ui.Context, login, url string, size float32, now time.Time) ui.Element {
 	p := a.pal
-	bm, at := a.ghAvatarBitmap(url)
+	bm, at := a.ghAvatarBitmap(url, now)
 	k := float32(1)
 	if since := now.Sub(at); bm != nil && since >= 0 && since < motionShow {
 		k = ui.EaseOut(float32(since) / float32(motionShow))

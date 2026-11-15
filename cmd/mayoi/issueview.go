@@ -287,7 +287,7 @@ func (a *app) issueSkeleton(c *ui.Context) {
 // issueFailed says why an issue could not be read, with what to do, on
 // the card of the GitHub view's states.
 func (a *app) issueFailed(c *ui.Context, v *issueView) {
-	a.githubCard(c, "issue-failed", iconTriangleAlert, locales.GhIssueFailed(v.name()), v.err, func() {
+	a.githubCard(c, "issue-failed", iconTriangleAlert, locales.GhIssueFailed(v.name()), v.err, time.Time{}, func() {
 		if ui.PrimaryButton(c, locales.GhRetry()).Clicked() {
 			v.err = ""
 			a.readIssue(v)

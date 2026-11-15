@@ -1222,7 +1222,8 @@ const (
 // its title, and under it its number, author by their picture and age,
 // its labels, and its comments; a pull request's checks and review at the
 // end, its checks' room kept. A click
-// opens it in a tab, a pull request's changes; its menu has the rest.
+// opens it in the preview tab, a pull request's changes, and a double
+// click keeps that tab open; its menu has the rest.
 // Under the pointer its actions show at its end, and its card beside it.
 //
 // The chosen row shows the choice, which glides to it from the row it was
@@ -1348,7 +1349,13 @@ func (a *app) githubItem(c *ui.Context, ctx *gitContext, o *git.GHOverview, r gh
 			*action = func() { a.showGitHubCard(r.key) }
 		}
 	})
-	if row.Clicked() && *action == nil {
+	// The row, not the list's, takes the clicks, and so the double click
+	// that keeps its tab open, as a file's row does.
+	switch {
+	case *action != nil:
+	case row.DoubleClicked():
+		*action = func() { a.openGitHubItem(ctx, it, true) }
+	case row.Clicked():
 		*action = func() { a.openGitHubItem(ctx, it, false) }
 	}
 }

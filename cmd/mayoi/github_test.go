@@ -1491,3 +1491,35 @@ func TestGitHubChoiceFollowsTab(t *testing.T) {
 		t.Errorf("a click chose %q, want issues:4", k)
 	}
 }
+
+// A click on an issue in the GitHub view previews it, and a double click
+// keeps its tab open, as the Explorer does with a file.
+func TestGitHubDoubleClickKeeps(t *testing.T) {
+	hs := githubHarness(t, ghOverviewFixture(), nil)
+	hs.a.showGitHub()
+	hs.settle()
+	r, ok := hs.tt.Find("Crash on open")
+	if !ok {
+		t.Fatal("no row")
+	}
+	click := func() { hs.tt.ClickAt(r.X+4, r.Y+r.H/2) }
+	issueTabs := func() (n int, kept bool) {
+		for _, t := range hs.a.fileColumn().tabs {
+			if t.issue != nil && t.issue.number == 3 {
+				n, kept = n+1, !t.transient
+			}
+		}
+		return n, kept
+	}
+	click()
+	hs.settle()
+	if n, kept := issueTabs(); n != 1 || kept {
+		t.Fatalf("a click opened %d tabs of the issue, kept %v; want one preview", n, kept)
+	}
+	// The second click of the double click.
+	click()
+	hs.settle()
+	if n, kept := issueTabs(); n != 1 || !kept {
+		t.Fatalf("a double click left %d tabs of the issue, kept %v; want one kept", n, kept)
+	}
+}

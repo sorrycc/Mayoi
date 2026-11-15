@@ -114,6 +114,9 @@ const (
 	// GHNoDefault is that the repository has remotes of several
 	// repositories and gh has not been told which one is the one.
 	GHNoDefault
+	// GHBusy is that GitHub did not answer in time, or broke off its
+	// answer: asking again soon is likely to do.
+	GHBusy
 	// GHOther is any other failure, which the error says.
 	GHOther
 )
@@ -141,8 +144,23 @@ func GitHubProblem(err error) GHProblem {
 		return GHSignedOut
 	case strings.Contains(msg, "no default remote repository"):
 		return GHNoDefault
+	case ghBusy(msg):
+		return GHBusy
 	}
 	return GHOther
+}
+
+// ghBusy reports whether msg, of a failure of gh in lower case, is that
+// GitHub did not answer in time or broke off its answer, as it does when
+// a query takes it longer than it allows.
+func ghBusy(msg string) bool {
+	for _, s := range []string{"http 502", "http 503", "http 504", ": eof", "unexpected end of json input",
+		"timeout", "connection reset"} {
+		if strings.Contains(msg, s) {
+			return true
+		}
+	}
+	return false
 }
 
 // ghHosts are the hosts other than github.com that gh was asked whether it
@@ -256,7 +274,7 @@ const overviewQuery = `query($owner:String!,$name:String!,$review:String!){
  viewer{login}
  repository(owner:$owner,name:$name){
   nameWithOwner url viewerPermission hasIssuesEnabled defaultBranchRef{name}
-  pullRequests(states:OPEN,first:100,orderBy:{field:UPDATED_AT,direction:DESC}){totalCount nodes{
+  pullRequests(states:OPEN,first:50,orderBy:{field:UPDATED_AT,direction:DESC}){totalCount nodes{
    number title url isDraft updatedAt headRefName headRefOid baseRefName additions deletions changedFiles
    reviewDecision author{login avatarUrl(size:64)} comments{totalCount}
    labels(first:10){nodes{name color}} assignees(first:5){nodes{login avatarUrl(size:64)}}
@@ -279,6 +297,16 @@ func (r *Repo) GitHubOverview() (*GHOverview, error) {
 	if remotes, err := r.GitHubRemotes(); err == nil && distinctRepos(remotes) > 1 && r.DefaultRepo() == "" {
 		return nil, ErrNoDefaultRepo
 	}
+	o, err := r.gitHubOverview()
+	if GitHubProblem(err) == GHBusy {
+		// GitHub breaks off a query of a busy repository now and then:
+		// once more is likely to do.
+		o, err = r.gitHubOverview()
+	}
+	return o, err
+}
+
+func (r *Repo) gitHubOverview() (*GHOverview, error) {
 	out, err := r.gh("api", "graphql", "-F", "owner={owner}", "-F", "name={repo}",
 		"-F", "review=repo:{owner}/{repo} is:pr is:open review-requested:@me", "-f", "query="+overviewQuery)
 	if err != nil {
@@ -434,7 +462,8 @@ func parseOverview(b []byte) (*GHOverview, error) {
 		}
 	}
 	if err := json.Unmarshal(b, &v); err != nil {
-		return nil, err
+		// gh printed an answer GitHub broke off.
+		return nil, fmt.Errorf("%w: %w", ErrNoGH, err)
 	}
 	repo := v.Data.Repository
 	if repo == nil {

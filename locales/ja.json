@@ -1780,6 +1780,7 @@
   "ghNoDefaultDetail": "リモートが複数のリポジトリを指しています。Issue とプルリクエストを表示するものを選んでください。",
   "ghSettingDefault": "{repo} を選択中…",
   "ghFailed": "GitHub を読み込めませんでした",
+  "ghBusy": "GitHub の応答に時間がかかりすぎました。",
   "ghNothingOpen": "オープンな Issue やプルリクエストはありません",
   "ghNewIssueTitle": "新しい Issue",
   "ghReadingIssue": "{name} を読み込み中…",

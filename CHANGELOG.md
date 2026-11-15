@@ -40,6 +40,8 @@ needs a `## <version>` section here, or its build fails.
 - Arrow keys in the GitHub view skip notes such as "No issues" that have nothing to open.
 - Pull request rows in the GitHub view show up to three reviewers' pictures, with a count of the rest.
 - A pull request that asks for your review again says **Re-review** in its GitHub view row and card.
+- The GitHub view loads on repositories with many open pull requests instead of timing out.
+- When GitHub doesn't answer in time, the GitHub view keeps what it showed and tries again within a minute.
 - While checks run, a pull request's row and card show a turning ring, held still by Reduce Motion.
 - Issue and pull request tabs show pictures of the author, assignees and everyone who commented.
 - Labels in an issue's tab use the same chips as the GitHub view, and a failed read offers **Try Again** on a card.

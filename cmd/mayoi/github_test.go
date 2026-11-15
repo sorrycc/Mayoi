@@ -256,7 +256,8 @@ func TestGitHubProblems(t *testing.T) {
 		{fmt.Errorf("%w: To get started with GitHub CLI, please run:  gh auth login", git.ErrNoGH), locales.GhSignedOut()},
 		{fmt.Errorf("%w: exec: \"gh\": executable file not found in $PATH", git.ErrNoGH), locales.GhMissing()},
 		{git.ErrNoDefaultRepo, locales.GhNoDefault()},
-		{fmt.Errorf("%w: HTTP 502", git.ErrNoGH), locales.GhFailed()},
+		{fmt.Errorf("%w: HTTP 404: Not Found", git.ErrNoGH), locales.GhFailed()},
+		{fmt.Errorf("%w: unexpected end of JSON input", git.ErrNoGH), locales.GhBusy()},
 	} {
 		t.Run(c.want, func(t *testing.T) {
 			hs := githubHarness(t, nil, c.err)
@@ -279,8 +280,11 @@ func TestGitHubKeepsWhatWasRead(t *testing.T) {
 	if _, ok := hs.tt.Find("Crash on open"); !ok {
 		t.Error("what was read vanished as reading it again failed")
 	}
-	if _, ok := hs.tt.Find(locales.GhStale("HTTP 502")); !ok {
+	if _, ok := hs.tt.Find(locales.GhStale(locales.GhBusy())); !ok {
 		t.Error("no word that reading it again failed")
+	}
+	if got := hs.a.repository().ghEvery(); got != ghPendingEvery {
+		t.Errorf("GitHub not answering in time is asked again in %v, want %v", got, ghPendingEvery)
 	}
 }
 
@@ -515,7 +519,7 @@ func TestGitHubStaleHoldsTheList(t *testing.T) {
 	err = fmt.Errorf("%w: HTTP 502", git.ErrNoGH)
 	hs.a.repository().refreshGitHubNow()
 	hs.settle()
-	if _, ok := hs.tt.Find(locales.GhStale("HTTP 502")); !ok {
+	if _, ok := hs.tt.Find(locales.GhStale(locales.GhBusy())); !ok {
 		t.Fatal("no word that GitHub could not be read again")
 	}
 	if now, _ := hs.tt.Find("Speed up the tree"); now != at {

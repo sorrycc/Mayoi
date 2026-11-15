@@ -17992,6 +17992,16 @@ func (msgs Messages) GhFailed() string {
 	return Catalog.Format(msgs.locale, "ghFailed", nil)
 }
 
+// GhBusy says "GitHub took too long to answer."
+// in the language the app shows.
+func GhBusy() string { return In(i18n.Locale()).GhBusy() }
+
+// GhBusy says "GitHub took too long to answer."
+// in the language of msgs.
+func (msgs Messages) GhBusy() string {
+	return Catalog.Format(msgs.locale, "ghBusy", nil)
+}
+
 // GhNothingOpen says "No open issues or pull requests"
 // in the language the app shows.
 func GhNothingOpen() string { return In(i18n.Locale()).GhNothingOpen() }

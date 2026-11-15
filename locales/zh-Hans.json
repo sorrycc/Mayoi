@@ -1780,6 +1780,7 @@
   "ghNoDefaultDetail": "远程指向多个仓库。选择要显示其议题和拉取请求的仓库。",
   "ghSettingDefault": "正在选择 {repo}…",
   "ghFailed": "无法读取 GitHub",
+  "ghBusy": "GitHub 响应超时。",
   "ghNothingOpen": "没有未关闭的议题或拉取请求",
   "ghNewIssueTitle": "新建议题",
   "ghReadingIssue": "正在读取 {name}…",

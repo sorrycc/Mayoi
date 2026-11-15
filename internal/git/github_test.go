@@ -155,7 +155,10 @@ func TestGitHubProblem(t *testing.T) {
 		{fmt.Errorf("%w: %w", ErrNoGH, exec.ErrNotFound), GHMissing},
 		{fmt.Errorf("%w: bash: gh: command not found", ErrNoGH), GHMissing},
 		{fmt.Errorf("%w: To get started with GitHub CLI, please run:  gh auth login", ErrNoGH), GHSignedOut},
-		{fmt.Errorf("%w: HTTP 502", ErrNoGH), GHOther},
+		{fmt.Errorf("%w: HTTP 502", ErrNoGH), GHBusy},
+		{fmt.Errorf("%w: unexpected end of JSON input", ErrNoGH), GHBusy},
+		{fmt.Errorf("%w: Post \"https://api.github.com/graphql\": EOF", ErrNoGH), GHBusy},
+		{fmt.Errorf("%w: HTTP 404: Not Found", ErrNoGH), GHOther},
 	} {
 		if got := GitHubProblem(c.err); got != c.want {
 			t.Errorf("GitHubProblem(%v) = %d, want %d", c.err, got, c.want)

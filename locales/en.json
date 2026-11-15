@@ -2008,6 +2008,7 @@
   "ghNoDefaultDetail": "The remotes are of several repositories. Choose the one whose issues and pull requests to show.",
   "ghSettingDefault": "Choosing {repo}…",
   "ghFailed": "GitHub could not be read",
+  "ghBusy": "GitHub took too long to answer.",
   "ghNothingOpen": "No open issues or pull requests",
   "ghNewIssueTitle": "New Issue",
   "ghReadingIssue": "Reading {name}…",

@@ -17,8 +17,9 @@ import (
 )
 
 // How often the GitHub view asks GitHub again: while it shows, and sooner
-// while checks of a pull request listed run; seldom while it is hidden,
-// for the count on its switch; and seldom once gh could not tell.
+// while checks of a pull request listed run, or once GitHub did not answer
+// in time; seldom while it is hidden, for the count on its switch; and
+// seldom once gh could not tell.
 const (
 	ghShownEvery   = 60 * time.Second
 	ghPendingEvery = 30 * time.Second
@@ -227,10 +228,21 @@ func ghMessage(err error) string {
 	return strings.TrimSpace(strings.TrimPrefix(err.Error(), git.ErrNoGH.Error()+":"))
 }
 
+// ghShownError is why gh failed as the view says it: in plain words when
+// GitHub did not answer in time, else as gh said it.
+func (g *githubState) ghShownError() string {
+	if g.problem == git.GHBusy {
+		return locales.GhBusy()
+	}
+	return g.err
+}
+
 // ghEvery is how long the answer of GitHub is good for.
 func (a *gitContext) ghEvery() time.Duration {
 	g := a.git
 	switch {
+	case g.gh.problem == git.GHBusy:
+		return ghPendingEvery
 	case g.gh.problem != git.GHFine:
 		return ghOffEvery
 	case !a.app.githubShown():
@@ -568,7 +580,7 @@ func (a *app) githubView(c *ui.Context) {
 		bar = func() { a.githubBar(c, iconWifiOff, locales.NotConnectedTo(a.conn.Host), "", nil) }
 	case g.gh.problem != git.GHFine:
 		bar = func() {
-			a.githubBar(c, iconTriangleAlert, locales.GhStale(g.gh.err), locales.GhRetry(), ctx.refreshGitHubNow)
+			a.githubBar(c, iconTriangleAlert, locales.GhStale(g.gh.ghShownError()), locales.GhRetry(), ctx.refreshGitHubNow)
 		}
 	}
 	ui.Column(c.Key("gh-body")).Grow(1).MinHeight(0).Children(func() {
@@ -1644,7 +1656,7 @@ func (a *app) githubProblem(c *ui.Context, ctx *gitContext) {
 			}
 		})
 	default:
-		a.githubCard(c, "gh-error", iconTriangleAlert, locales.GhFailed(), g.gh.err, func() {
+		a.githubCard(c, "gh-error", iconTriangleAlert, locales.GhFailed(), g.gh.ghShownError(), func() {
 			if ui.PrimaryButton(c, locales.GhRetry()).FillWidth().Clicked() {
 				ctx.refreshGitHubNow()
 			}

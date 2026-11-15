@@ -525,9 +525,12 @@ func (a *app) closeTab(t *colTab, then, cancelled func()) {
 		return
 	}
 	if t.term != nil {
-		a.rememberClosed(t)
-		a.killTerminal(t.term)
-		done()
+		s := t.term
+		a.confirmKillTerminal(s, func() {
+			a.rememberClosed(t)
+			a.killTerminal(s)
+			done()
+		}, stop)
 		return
 	}
 	if t.merge != nil {

@@ -5,6 +5,7 @@ needs a `## <version>` section here, or its build fails.
 
 ## Unreleased
 
+- Closing a terminal while its agent is working or waiting for you now asks first, as `⌘W` does for changes.
 - The buttons on the selected row of the CI checks and stash lists respond to clicks again.
 - A GitHub view in the sidebar lists the open issues and pull requests of a GitHub repository, via `gh`.
 - The GitHub view puts reviews asked of you, your pull requests and your issues first, and counts reviews.

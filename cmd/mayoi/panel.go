@@ -633,7 +633,7 @@ func (a *app) panel(c *ui.Context) {
 							}
 							a.hcMenu(m, s)
 							if m.Item(locales.TermKill()).Chosen() {
-								a.post(func() { a.killTerminal(s) })
+								a.post(func() { a.killTerminalAsking(s) })
 							}
 						})
 					}
@@ -648,7 +648,7 @@ func (a *app) panel(c *ui.Context) {
 						a.post(func() { a.terminalToColumn(s, a.column(), a.column().active+1) })
 					}
 					if a.iconButton(c, iconTrash, locales.TermKill(), false).Clicked() {
-						a.post(func() { a.killTerminal(s) })
+						a.post(func() { a.killTerminalAsking(s) })
 					}
 				}
 				icon, label := iconMaximize, locales.PanelMaximize()

@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"math"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -200,6 +201,40 @@ func progPilled(s *session) (terminal.StatusRecord, bool) {
 // progShown reports whether the pill shows a record in state st.
 func progShown(st terminal.StatusState) bool {
 	return st == terminal.StatusWorking || st == terminal.StatusBlocked
+}
+
+// terminalBusy returns the record of a terminal's program that works or
+// waits for the user, which closing the terminal would stop.
+func terminalBusy(s *session) (terminal.StatusRecord, bool) {
+	r, ok := progStatus(s)
+	return r, ok && progShown(r.State)
+}
+
+// confirmKillTerminal runs kill, which closes a terminal, asking first
+// while one of its programs works or waits for the user: cancelled runs
+// when the person keeps it. A terminal gone by the answer is let be.
+func (a *app) confirmKillTerminal(s *session, kill, cancelled func()) {
+	r, busy := terminalBusy(s)
+	if !busy {
+		kill()
+		return
+	}
+	a.present(&confirm{
+		title: locales.TermCloseBusyQuestion(), message: locales.TermCloseBusyDetail(progLine(r)),
+		ok: locales.TabClose(), danger: true, cancel: cancelled,
+		run: func() {
+			if slices.Contains(a.terms, s) {
+				kill()
+			} else if cancelled != nil {
+				cancelled()
+			}
+		},
+	})
+}
+
+// killTerminalAsking kills a terminal, asking first while it is busy.
+func (a *app) killTerminalAsking(s *session) {
+	a.confirmKillTerminal(s, func() { a.killTerminal(s) }, nil)
 }
 
 // statusIn is the newest status of a terminal's programs that waits for

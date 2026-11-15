@@ -1214,6 +1214,8 @@
   "tabEditsStay": "{name} はここで既に開いているため、未保存の変更は {project} に残ります。",
   "tabTerminal": "ターミナル",
   "termKill": "ターミナルを強制終了",
+  "termCloseBusyQuestion": "このターミナルを閉じますか？",
+  "termCloseBusyDetail": "{status}。ターミナルを閉じると停止します。",
   "termRename": "ターミナルの名前を変更…",
   "termRenameTitle": "ターミナルの名前を変更",
   "hcAddTitle": "{host} のターミナルを herdr-core で実行しますか？",

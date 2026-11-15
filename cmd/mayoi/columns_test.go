@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/egoist/mygo/plugins/terminal"
 	"github.com/egoist/mygo/ui"
 )
 
@@ -587,6 +588,55 @@ func TestTerminalInAColumn(t *testing.T) {
 		t.Fatalf("closed: %d terminals, %d columns", len(a.terms), len(a.cols))
 	}
 	a.closeTerminals()
+}
+
+// Closing a terminal whose agent works asks first; keeping it leaves it
+// as it was, and an idle one closes at once.
+func TestClosingABusyTerminalAsks(t *testing.T) {
+	if testing.Short() {
+		t.Skip("starts a shell")
+	}
+	hs := newHarness(t, true)
+	a, tt := hs.a, hs.tt
+	t.Cleanup(a.closeTerminals)
+	a.openFile(hs.path("main.go"), true)
+	a.run("view.terminalTab")
+	hs.settle()
+	s := a.terms[0]
+	s.status.Records = []terminal.StatusRecord{{State: terminal.StatusWorking, App: "claude-code", Progress: -1}}
+	a.run("file.close")
+	hs.settle()
+	if a.confirm == nil || len(a.terms) != 1 || !tt.HasText("Close this terminal?") {
+		t.Fatalf("closing a working terminal did not ask: %d terminals", len(a.terms))
+	}
+	hs.shot("terminal-close-busy")
+	a.dismiss()
+	hs.settle()
+	if len(a.terms) != 1 || a.column().tab().term != s {
+		t.Fatal("keeping the terminal closed it")
+	}
+	// The panel's kill asks too, and Close closes it.
+	a.run("view.terminalMove")
+	hs.settle()
+	a.killTerminalAsking(s)
+	if a.confirm == nil || len(a.terms) != 1 {
+		t.Fatal("killing a working terminal did not ask")
+	}
+	a.confirm.run()
+	a.confirm = nil
+	hs.settle()
+	if len(a.terms) != 0 {
+		t.Fatalf("%d terminals after Close", len(a.terms))
+	}
+	// One that is idle closes at once.
+	a.run("view.terminalTab")
+	hs.settle()
+	a.terms[0].status.Records = []terminal.StatusRecord{{State: terminal.StatusDone, App: "claude-code", Progress: -1}}
+	a.run("file.close")
+	hs.settle()
+	if a.confirm != nil || len(a.terms) != 0 {
+		t.Fatalf("closing an idle terminal asked or stayed: %d terminals", len(a.terms))
+	}
 }
 
 func TestFindFollowsTheColumn(t *testing.T) {

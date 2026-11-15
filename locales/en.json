@@ -1458,6 +1458,8 @@
   "tabEditsStay": "{name} was open here already, so its unsaved changes stay in {project}.",
   "tabTerminal": "Terminal",
   "termKill": "Kill Terminal",
+  "termCloseBusyQuestion": "Close this terminal?",
+  "termCloseBusyDetail": "{status}. Closing the terminal stops it.",
   "termRename": "Rename Terminal…",
   "termRenameTitle": "Rename Terminal",
   "hcAddTitle": "Run Terminals of {host} in herdr-core?",

@@ -12456,6 +12456,26 @@ func (msgs Messages) TermKill() string {
 	return Catalog.Format(msgs.locale, "termKill", nil)
 }
 
+// TermCloseBusyQuestion says "Close this terminal?"
+// in the language the app shows.
+func TermCloseBusyQuestion() string { return In(i18n.Locale()).TermCloseBusyQuestion() }
+
+// TermCloseBusyQuestion says "Close this terminal?"
+// in the language of msgs.
+func (msgs Messages) TermCloseBusyQuestion() string {
+	return Catalog.Format(msgs.locale, "termCloseBusyQuestion", nil)
+}
+
+// TermCloseBusyDetail says "{status}. Closing the terminal stops it."
+// in the language the app shows.
+func TermCloseBusyDetail(status string) string { return In(i18n.Locale()).TermCloseBusyDetail(status) }
+
+// TermCloseBusyDetail says "{status}. Closing the terminal stops it."
+// in the language of msgs.
+func (msgs Messages) TermCloseBusyDetail(status string) string {
+	return Catalog.Format(msgs.locale, "termCloseBusyDetail", map[string]any{"status": status})
+}
+
 // TermRename says "Rename Terminal…"
 // in the language the app shows.
 func TermRename() string { return In(i18n.Locale()).TermRename() }

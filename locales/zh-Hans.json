@@ -1214,6 +1214,8 @@
   "tabEditsStay": "{name} 已在此打开，未保存的更改保留在 {project} 中。",
   "tabTerminal": "终端",
   "termKill": "终止终端",
+  "termCloseBusyQuestion": "关闭这个终端？",
+  "termCloseBusyDetail": "{status}。关闭终端会让它停止。",
   "termRename": "重命名终端…",
   "termRenameTitle": "重命名终端",
   "hcAddTitle": "在 herdr-core 中运行 {host} 的终端？",

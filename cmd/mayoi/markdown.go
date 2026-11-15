@@ -185,8 +185,10 @@ type markdownCache struct {
 	formulas map[mathKey]*mathFormula
 	// arrived is called once a picture of the web a parse asked for is
 	// fetched or failed, for the preview to parse again; without it, those pictures
-	// are not fetched.
+	// are not fetched. allow, when set, says which of them may be: those
+	// of other hosts show as their alt text.
 	arrived func()
+	allow   func(url string) bool
 	// keep is set while one parse of Live Preview parses each of its
 	// blocks, which then let go of nothing the others drew; blocks are
 	// those blocks, by their source, which the next parse takes as they
@@ -1319,7 +1321,7 @@ func markdownPicture(c *markdownCache, used map[markdownImageKey]bool, path, roo
 		}
 		return image
 	}
-	if u, err := url.Parse(dest); err == nil && (u.Scheme == "http" || u.Scheme == "https") {
+	if u, err := url.Parse(dest); err == nil && (u.Scheme == "http" || u.Scheme == "https") && (c.allow == nil || c.allow(dest)) {
 		if image, ok := markdownFetch(dest, c.arrived); ok {
 			return image
 		}

@@ -59,6 +59,40 @@ var galleryStates = []struct {
 		hs.a.quick.probe.stat = func(string) (os.FileInfo, error) { return nil, os.ErrPermission }
 		hs.a.openQuick(hs.path("denied.go"))
 	}},
+	{"github", func(hs *harness) { galleryGitHub(hs, ghOverviewFixture(), nil) }},
+	{"github-loading", func(hs *harness) {
+		galleryGitHub(hs, ghOverviewFixture(), nil)
+		hs.settle()
+		g := hs.a.repository().git
+		g.gh.overview, g.gh.loading = nil, true
+	}},
+	{"github-empty", func(hs *harness) {
+		galleryGitHub(hs, &git.GHOverview{Viewer: "me", Repo: "o/r", URL: "https://github.com/o/r", IssuesOn: true}, nil)
+	}},
+	{"github-signed-out", func(hs *harness) {
+		galleryGitHub(hs, nil, fmt.Errorf("%w: To get started with GitHub CLI, please run:  gh auth login", git.ErrNoGH))
+	}},
+	{"github-missing", func(hs *harness) {
+		galleryGitHub(hs, nil, fmt.Errorf("%w: exec: \"gh\": executable file not found in $PATH", git.ErrNoGH))
+	}},
+	{"github-no-default", func(hs *harness) { galleryGitHub(hs, nil, git.ErrNoDefaultRepo) }},
+	{"github-error", func(hs *harness) { galleryGitHub(hs, nil, fmt.Errorf("%w: HTTP 502: Bad Gateway", git.ErrNoGH)) }},
+	{"github-stale", func(hs *harness) {
+		galleryGitHub(hs, ghOverviewFixture(), nil)
+		hs.settle()
+		g := hs.a.repository().git
+		g.gh.problem, g.gh.err = git.GHOther, "HTTP 502: Bad Gateway"
+	}},
+	{"issue", func(hs *harness) {
+		galleryGitHub(hs, ghOverviewFixture(), nil)
+		hs.settle()
+		hs.a.openIssue(hs.a.repository(), 3, true)
+	}},
+	{"issue-new", func(hs *harness) {
+		galleryGitHub(hs, ghOverviewFixture(), nil)
+		hs.settle()
+		hs.a.newIssue(hs.a.repository())
+	}},
 	{"sessions", func(hs *harness) {
 		agentHome(hs.t, hs.root)
 		hs.a.sessions.all = 1

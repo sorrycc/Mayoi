@@ -381,7 +381,8 @@ sign-in. It is asked for again every minute while the window shows, every 30 sec
 A commit of the history that is the head of a pull request open shows `#123` first among its branches and tags, muted
 for a draft; click it to open the pull request's changes in a tab, or right-click it for **Open on GitHub**. The pull
 requests come from `gh` the same way, read in the background after the history, again as the refs change and every two
-minutes, so the history never waits for them; without `gh` or its sign-in, no commit shows one.
+minutes, so the history never waits for them; without `gh` or its sign-in, no commit shows one. While the GitHub view
+has read the repository, the marks come from its reads instead, with no call of their own.
 
 **Git → Open Pull Request…**, also in source control's **⋯** menu, lists the pull requests open, the branch's first;
 type to find one by its number, title, author or branch, or type any number to open that one, whatever its state. Its
@@ -400,6 +401,48 @@ them again every 30 seconds while one runs; type to find one. A failed GitHub Ac
 last without pressing Enter, as **Send Review Items to Terminal** does, copying them with no terminal open; **Copy
 Log**; **Re-run** (⌘⏎), which runs that job again; and **Open on GitHub**, the only one a check outside GitHub Actions
 offers.
+
+### GitHub
+
+In a repository with a remote on github.com, or on a GitHub Enterprise host `gh` is signed in to, a GitHub button
+joins the switches at the top of the sidebar (**View → GitHub**). Its count is the pull requests waiting for your
+review. The view lists what is open in sections that fold: **This Branch**, the branch's pull request; **Needs Your
+Review**; **Your Pull Requests**; **Assigned to You**; then the other **Open Issues** and **Open Pull Requests**, the
+latest updated first, a hundred of each, and a link to the rest on GitHub. Each row shows its title, number, author,
+age, labels and comment count, and a pull request its checks, review or draft. Type to find one by number, title,
+author, label, assignee or branch; ↑ and ↓ move the choice, ⏎ opens it and `⌘C` copies its link.
+
+It is read with one `gh api graphql` call, run where the repository is, a host's for Remote SSH: every minute while
+the view shows, every 30 seconds while checks of yours run, every 5 minutes while it is hidden, for the count, and as
+the refs change. Its title has **New Issue**, **Open Repository on GitHub** and **Refresh**. Without `gh` the view
+links to it; not signed in, **Sign In…** runs `gh auth login` in a terminal; with remotes of several repositories, it
+asks which one is the repository, as `gh repo set-default` does. When a read fails, what was read stays under a note
+that says why, with **Try Again**.
+
+A click on a pull request opens its changes in a tab, as **Open Pull Request…** does. Its menu has **Open
+Conversation**, **Show Checks…**, **Check Out** (`gh pr checkout`), **Address Review Comments**, **Open on GitHub** and
+**Copy Link**.
+
+A click on an issue opens it in a tab: its state, title, author, labels, assignees and milestone, the pull requests
+that close it, and its description and comments as GitHub renders them, with their pictures when GitHub holds them.
+Pictures of other hosts show as their alt text. The box at the end comments (`⌘⏎`); **Close Issue**, **Close as Not
+Planned** and **Reopen Issue** show to those who may, and the toast that says so undoes it. **New Issue** opens an
+empty one to write, with a title and a Markdown description, which **Create Issue** sends. The tabs of issues come back
+with the session. A pull request's **Open Conversation**, also on the card of its changes, opens its description and
+comments the same way.
+
+**Work on Issue**, in an issue's menu or tab, makes a worktree for it on a branch of its own, named for its number and
+title, as `161-zoom`, from the tip of the default branch on GitHub, beside the main one in `<folder>.worktrees`. It
+opens as a project tab, or a window of its own without project tabs, with a terminal there that holds the issue as a
+prompt: its title, link, description, comments, and to open a pull request that closes it. Start an agent in that
+terminal, as Claude Code, Codex or Qoder, and the prompt goes to it without pressing Enter; **Paste Now** and **Copy
+Prompt** do it by hand. Asked again, it opens the worktree it made. **Send to Terminal** pastes the issue's prompt into
+the terminal used last instead, or copies it with none open.
+
+**Address Review Comments**, in a pull request's menu, its conversation or the card of its changes, opens its changes
+with each review thread not resolved as a review note on its lines: what each person said, the lines as the commit
+has them, marked outdated when GitHub says so. **Send Review Items to Terminal** hands them to an agent as any review,
+and each note's **Resolve on GitHub** resolves its thread there and drops it.
 
 The sync button in the status bar shows how far the branch is ahead of its upstream (↑) and behind it (↓), and pulls
 then pushes in one click; a branch without an upstream has a publish button instead. Switching waits until open

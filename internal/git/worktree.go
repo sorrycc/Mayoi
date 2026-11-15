@@ -106,6 +106,33 @@ func (r *Repo) AddWorktree(name, base string) (string, error) {
 	return remote.On(r.Root, path), nil
 }
 
+// WorktreeOfBranch is the worktree of branch name: the one it is checked
+// out in, else one made for it beside the main one, on the branch as it
+// is, or on a new branch from base when there is none.
+func (r *Repo) WorktreeOfBranch(name, base string) (string, error) {
+	if p, err := r.WorktreeForBranch(name); err != nil || p != "" {
+		return p, err
+	}
+	if _, err := r.run(nil, "rev-parse", "--verify", "--quiet", "refs/heads/"+name); err != nil {
+		return r.AddWorktree(name, base)
+	}
+	ws, err := r.listWorktrees()
+	if err != nil {
+		return "", err
+	}
+	if len(ws) == 0 {
+		return "", errors.New("no worktree to add beside")
+	}
+	path := worktreeFolder(remote.Is(r.Root), ws[0].Path, name)
+	if _, err := vfs.Stat(remote.On(r.Root, path)); err == nil {
+		return "", &WorktreeExists{Path: remote.On(r.Root, path)}
+	}
+	if _, err := r.run(nil, "worktree", "add", path, name); err != nil {
+		return "", err
+	}
+	return remote.On(r.Root, path), nil
+}
+
 // WorktreeForBranch returns the checkout owning a local branch, in the same
 // filesystem namespace as the repository. NUL records preserve unusual paths.
 func (r *Repo) WorktreeForBranch(branch string) (string, error) {

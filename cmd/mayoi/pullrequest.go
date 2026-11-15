@@ -87,6 +87,10 @@ func (a *gitContext) refreshPRHeads() {
 	if !a.live() || len(g.history) == 0 || !a.app.online() || !a.app.host.shown() {
 		return
 	}
+	if a.githubOverview() != nil {
+		// The GitHub view's reads mark them, as the refs change too.
+		return
+	}
 	r := g.repo
 	key := prHeadsAsked{r, g.refsGen}
 	if !g.prHeadsPoll.Start(key, a.prHeadsEvery()) {

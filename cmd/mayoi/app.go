@@ -375,6 +375,7 @@ type app struct {
 	find       findState
 	inFiles    searchState // search in the files, of the sidebar
 	sessions   sessionsState
+	github     githubPanel
 	prompt     *prompt
 	confirm    *confirm
 	asks       []*confirm // the questions asked in the background, waiting their turn
@@ -1010,6 +1011,7 @@ func (a *app) tick() {
 	a.markOffline()
 	a.refreshIgnored()
 	a.refreshGit()
+	a.takeIssueHandoff()
 	a.searchTick()
 	a.keepEdited()
 	if t := a.windowTitle(); t != a.title {

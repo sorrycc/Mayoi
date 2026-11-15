@@ -27,14 +27,23 @@ func (a *app) sidebar(c *ui.Context) {
 	if a.root == "" || view == "sessions" && !a.hasSessions() {
 		view = ""
 	}
-	scm, search, sessions := view == "git", view == "search", view == "sessions"
+	if ctx := a.repository(); view == "github" && ctx.githubKnown() && !ctx.onGitHub() {
+		// Not on GitHub: the explorer, though the view is kept for a
+		// repository that is.
+		view = ""
+	}
+	scm, search, sessions, github := view == "git", view == "search", view == "sessions", view == "github"
+	ghSwitch := a.root != "" && (github || a.hasGitHub())
 	pluginView := a.root != "" && a.pluginSidebarView() != ""
 	sb.Children(func() {
 		ui.Row(c).Height(34).Padding(0, 6, 0, 8).Gap(2).AlignItems(ui.Center).Children(func() {
 			if a.root != "" {
-				a.sidebarSwitch(c, iconFiles, a.withKey(locales.SidebarExplorer(), "view.explorer"), !scm && !search && !sessions && !pluginView, 0, a.showExplorer)
+				a.sidebarSwitch(c, iconFiles, a.withKey(locales.SidebarExplorer(), "view.explorer"), !scm && !search && !sessions && !github && !pluginView, 0, a.showExplorer)
 				a.sidebarSwitch(c, iconSearch, a.withKey(locales.SidebarSearch(), "edit.findInFiles"), search, 0, func() { a.showSearch(false) })
 				a.sidebarSwitch(c, iconBranch, a.withKey(locales.SidebarScm(), "view.scm"), scm, a.changeCount(), a.showSourceControl)
+				if ghSwitch {
+					a.sidebarSwitch(c, iconGitHub, a.withKey(locales.SidebarGitHub(), "view.github"), github, a.githubCount(), a.showGitHub)
+				}
 				if a.hasSessions() {
 					a.sidebarSwitch(c, iconClock, a.withKey(locales.CmdViewSessions(), "view.sessions"), sessions, 0, a.showSessions)
 				}
@@ -54,6 +63,11 @@ func (a *app) sidebar(c *ui.Context) {
 				}
 			case sessions:
 				title = locales.SidebarTitleSessions()
+			case github:
+				title = locales.SidebarTitleGitHub()
+				if hovered {
+					actions = 3
+				}
 			case pluginView:
 				title = a.pluginSidebarTitle()
 			}
@@ -63,6 +77,9 @@ func (a *app) sidebar(c *ui.Context) {
 			if a.root != "" {
 				n := float32(3 + len(pluginSlots()))
 				if a.hasSessions() {
+					n++
+				}
+				if ghSwitch {
 					n++
 				}
 				room -= n*26 + (n-1)*3
@@ -77,6 +94,10 @@ func (a *app) sidebar(c *ui.Context) {
 			}
 			if search {
 				a.searchTitleActions(c, hovered)
+				return
+			}
+			if github {
+				a.githubTitleActions(c, hovered)
 				return
 			}
 		})
@@ -95,6 +116,10 @@ func (a *app) sidebar(c *ui.Context) {
 			}
 			if sessions {
 				a.sessionsView(c)
+				return
+			}
+			if github {
+				a.githubView(c)
 				return
 			}
 			if pluginView {

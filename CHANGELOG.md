@@ -6,6 +6,16 @@ needs a `## <version>` section here, or its build fails.
 ## Unreleased
 
 - The buttons on the selected row of the CI checks and stash lists respond to clicks again.
+- A GitHub view in the sidebar lists the open issues and pull requests of a GitHub repository, via `gh`.
+- The GitHub view puts reviews asked of you, your pull requests and your issues first, and counts reviews.
+- Type in the GitHub view to find an issue or pull request; `⌘C` copies the link of the one chosen.
+- Without `gh`, signed out, or with several repositories as remotes, the GitHub view says what to do next.
+- Issues open in tabs with their labels, comments and pictures; comment, close or reopen them there.
+- **New Issue**, in the GitHub view or **Git → New Issue…**, writes and creates an issue in a tab.
+- **Work on Issue** makes a worktree for an issue and hands it to the agent you start in its terminal.
+- **Address Review Comments** shows a pull request's open review threads as notes to send to an agent.
+- A review note from GitHub has **Resolve on GitHub**, which resolves its thread there.
+- A pull request's tab has **Open Conversation** to read its description and comments.
 
 ## 0.21.2
 

@@ -45,6 +45,9 @@ type reviewNote struct {
 	// version is the version of the open document the note was last
 	// found in, unfound for none yet.
 	version uint64
+	// thread is the GitHub review thread the note came from, which it
+	// can resolve there, "" for one written here.
+	thread string
 }
 
 // unfound is the version of a note not yet found in an open document.
@@ -851,7 +854,7 @@ func (a *app) keptReview() []settings.ReviewNote {
 		out = append(out, settings.ReviewNote{
 			Context: n.context,
 			Path:    n.path, Commit: n.commit, Staged: n.staged, OldSide: n.oldSide, From: n.from, To: n.to,
-			Diff: n.diff, Snippet: n.snippet, Lines: n.lines, Text: n.text,
+			Diff: n.diff, Snippet: n.snippet, Lines: n.lines, Text: n.text, Thread: n.thread,
 		})
 	}
 	return out
@@ -876,7 +879,7 @@ func (a *app) restoreReview(kept []settings.ReviewNote) {
 		r.notes = append(r.notes, &reviewNote{
 			context: k.Context,
 			path:    k.Path, commit: k.Commit, staged: k.Staged, oldSide: k.OldSide, from: k.From, to: k.To,
-			diff: k.Diff, snippet: k.Snippet, lines: k.Lines, text: k.Text, version: unfound,
+			diff: k.Diff, snippet: k.Snippet, lines: k.Lines, text: k.Text, version: unfound, thread: k.Thread,
 		})
 	}
 }
@@ -1147,6 +1150,9 @@ func (a *app) noteCard(c *ui.Context, n *reviewNote, ed *editor, w float32) {
 		ui.Spacer(c)
 		if editing {
 			return
+		}
+		if n.thread != "" && a.smallButton(c, iconCircleCheck, locales.GhResolveThread()) {
+			a.post(func() { a.resolveThread(n) })
 		}
 		if a.smallButton(c, iconPencil, locales.ReviewEditComment()) {
 			a.post(func() { a.editNote(n, ed) })

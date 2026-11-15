@@ -28,8 +28,11 @@ type session struct {
 	term  *terminal.Terminal
 	title string
 	dir   string
-	view  ui.Handle // its view, which takes the keyboard
-	tab   *colTab   // the tab that shows it, nil for one of the panel
+	// prompt is what goes to the agent once one starts in the terminal,
+	// as Work on Issue hands it, and promptOf what it is of, as "#12".
+	prompt, promptOf string
+	view             ui.Handle // its view, which takes the keyboard
+	tab              *colTab   // the tab that shows it, nil for one of the panel
 	// lost is set while a terminal of a host waits for the connection
 	// that ended it, to start again.
 	lost bool
@@ -702,6 +705,7 @@ func (a *app) terminalView(c *ui.Context, s *session) {
 			v.Opacity(o)
 		}
 		a.waitPill(c, s)
+		a.terminalPrompt(c, s)
 		a.termFindView(c, s)
 	})
 }

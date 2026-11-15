@@ -47,6 +47,11 @@ func (a *gitContext) openPRPicker() {
 	}
 	pick := &a.app.prs
 	*pick = prPicker{open: true, repoRoot: a.git.repo.Root, loading: true}
+	if o := a.githubOverview(); o != nil {
+		// Those the GitHub view read: no need to ask again.
+		pick.prs, pick.loading = o.PRList(), false
+		return
+	}
 	r, g := a.git.repo, a.git
 	bg.Go(func() {
 		defer recoverCrash()

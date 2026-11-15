@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/egoist/mygo/ui"
+	"mayoi/internal/git"
 )
 
 // budgetFrames is how many frames each budget takes the median of.
@@ -222,6 +223,34 @@ func TestBudgets(t *testing.T) {
 				step(hs.tt)
 			}
 		}},
+		// The GitHub view of 200 pull requests and 300 issues, scrolled
+		// with the pointer over its rows, and filtered as a query is typed
+		// and cleared.
+		{"github scroll, hover and filter", 2 * time.Millisecond, true, func(t *testing.T, hs *harness) func() {
+			manyGitHub(t, hs, 200, 300)
+			row, ok := hs.tt.Find("Pull request 0, which makes the tree faster")
+			if !ok {
+				t.Fatal("no pull request's row")
+			}
+			x, y := row.X+row.W/2, row.Y+120
+			hs.tt.Move(x, y)
+			i := 0
+			return func() {
+				switch {
+				case i%40 == 39:
+					hs.a.github.query = ""
+				case i%10 == 9:
+					hs.tt.Type("1")
+				}
+				dy := float32(60)
+				if i/20%2 == 1 {
+					dy = -60
+				}
+				i++
+				hs.tt.Scroll(x, y, 0, dy)
+				step(hs.tt)
+			}
+		}},
 		// A terminal printing as fast as it can, as a build's log does,
 		// costs the window little more than an idle frame (#115).
 		{"terminal streaming", 4 * time.Millisecond, false, func(t *testing.T, hs *harness) func() {
@@ -297,6 +326,28 @@ func bigNote(hs *harness) *editor {
 	d.vscroll.Y = 40000
 	hs.settle()
 	return d
+}
+
+// manyGitHub shows the GitHub view of a repository with prs pull
+// requests and issues issues open, each labeled.
+func manyGitHub(t *testing.T, hs *harness, prs, issues int) {
+	o := &git.GHOverview{Viewer: "me", Repo: "o/r", URL: "https://github.com/o/r", IssuesOn: true, DefaultBranch: "main",
+		OpenPRs: prs, OpenIssues: issues}
+	now := time.Now()
+	for i := range prs {
+		o.PRs = append(o.PRs, git.GHItem{Number: 1000 + i, Title: fmt.Sprintf("Pull request %d, which makes the tree faster", i),
+			Author: []string{"ann", "me", "bob"}[i%3], PR: true, ReviewAsked: i%7 == 0, Checks: git.Checks(i % 4),
+			Updated: now.Add(-time.Duration(i) * time.Hour), Comments: i % 5, Labels: []git.GHLabel{{Name: "perf", Color: "fbca04"}}})
+	}
+	for i := range issues {
+		o.Issues = append(o.Issues, git.GHItem{Number: i + 1, Title: fmt.Sprintf("Issue %d, of the explorer", i), Author: "cat",
+			Updated: now.Add(-time.Duration(i) * time.Hour), Comments: i % 9, Labels: []git.GHLabel{{Name: "bug", Color: "d73a4a"}, {Name: "ui", Color: "1d76db"}}})
+	}
+	fakeGitHub(t, o, nil)
+	hs.h.visible = true
+	hs.gitRepo()
+	hs.a.showGitHub()
+	hs.settle()
 }
 
 // manySessions shows the sessions of every folder in the Sessions view,

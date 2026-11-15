@@ -17511,3 +17511,921 @@ func WikiSuggestHint() string { return In(i18n.Locale()).WikiSuggestHint() }
 func (msgs Messages) WikiSuggestHint() string {
 	return Catalog.Format(msgs.locale, "wikiSuggestHint", nil)
 }
+
+// SidebarGitHub says "GitHub"
+// in the language the app shows.
+func SidebarGitHub() string { return In(i18n.Locale()).SidebarGitHub() }
+
+// SidebarGitHub says "GitHub"
+// in the language of msgs.
+func (msgs Messages) SidebarGitHub() string {
+	return Catalog.Format(msgs.locale, "sidebarGitHub", nil)
+}
+
+// SidebarTitleGitHub says "GITHUB"
+// in the language the app shows.
+func SidebarTitleGitHub() string { return In(i18n.Locale()).SidebarTitleGitHub() }
+
+// SidebarTitleGitHub says "GITHUB"
+// in the language of msgs.
+func (msgs Messages) SidebarTitleGitHub() string {
+	return Catalog.Format(msgs.locale, "sidebarTitleGitHub", nil)
+}
+
+// CmdViewGitHub says "GitHub"
+// in the language the app shows.
+func CmdViewGitHub() string { return In(i18n.Locale()).CmdViewGitHub() }
+
+// CmdViewGitHub says "GitHub"
+// in the language of msgs.
+func (msgs Messages) CmdViewGitHub() string {
+	return Catalog.Format(msgs.locale, "cmdViewGitHub", nil)
+}
+
+// CmdGitNewIssue says "New Issue…"
+// in the language the app shows.
+func CmdGitNewIssue() string { return In(i18n.Locale()).CmdGitNewIssue() }
+
+// CmdGitNewIssue says "New Issue…"
+// in the language of msgs.
+func (msgs Messages) CmdGitNewIssue() string {
+	return Catalog.Format(msgs.locale, "cmdGitNewIssue", nil)
+}
+
+// BusyCheckingOutPR says "Checking out {number}…"
+// in the language the app shows.
+func BusyCheckingOutPR(number string) string { return In(i18n.Locale()).BusyCheckingOutPR(number) }
+
+// BusyCheckingOutPR says "Checking out {number}…"
+// in the language of msgs.
+func (msgs Messages) BusyCheckingOutPR(number string) string {
+	return Catalog.Format(msgs.locale, "busyCheckingOutPR", map[string]any{"number": number})
+}
+
+// GhThisBranch says "This Branch"
+// in the language the app shows.
+func GhThisBranch() string { return In(i18n.Locale()).GhThisBranch() }
+
+// GhThisBranch says "This Branch"
+// in the language of msgs.
+func (msgs Messages) GhThisBranch() string {
+	return Catalog.Format(msgs.locale, "ghThisBranch", nil)
+}
+
+// GhNeedsReview says "Needs Your Review"
+// in the language the app shows.
+func GhNeedsReview() string { return In(i18n.Locale()).GhNeedsReview() }
+
+// GhNeedsReview says "Needs Your Review"
+// in the language of msgs.
+func (msgs Messages) GhNeedsReview() string {
+	return Catalog.Format(msgs.locale, "ghNeedsReview", nil)
+}
+
+// GhYourPRs says "Your Pull Requests"
+// in the language the app shows.
+func GhYourPRs() string { return In(i18n.Locale()).GhYourPRs() }
+
+// GhYourPRs says "Your Pull Requests"
+// in the language of msgs.
+func (msgs Messages) GhYourPRs() string {
+	return Catalog.Format(msgs.locale, "ghYourPRs", nil)
+}
+
+// GhAssigned says "Assigned to You"
+// in the language the app shows.
+func GhAssigned() string { return In(i18n.Locale()).GhAssigned() }
+
+// GhAssigned says "Assigned to You"
+// in the language of msgs.
+func (msgs Messages) GhAssigned() string {
+	return Catalog.Format(msgs.locale, "ghAssigned", nil)
+}
+
+// GhIssues says "Open Issues"
+// in the language the app shows.
+func GhIssues() string { return In(i18n.Locale()).GhIssues() }
+
+// GhIssues says "Open Issues"
+// in the language of msgs.
+func (msgs Messages) GhIssues() string {
+	return Catalog.Format(msgs.locale, "ghIssues", nil)
+}
+
+// GhPRs says "Open Pull Requests"
+// in the language the app shows.
+func GhPRs() string { return In(i18n.Locale()).GhPRs() }
+
+// GhPRs says "Open Pull Requests"
+// in the language of msgs.
+func (msgs Messages) GhPRs() string {
+	return Catalog.Format(msgs.locale, "ghPRs", nil)
+}
+
+// GhNoIssues says "No open issues."
+// in the language the app shows.
+func GhNoIssues() string { return In(i18n.Locale()).GhNoIssues() }
+
+// GhNoIssues says "No open issues."
+// in the language of msgs.
+func (msgs Messages) GhNoIssues() string {
+	return Catalog.Format(msgs.locale, "ghNoIssues", nil)
+}
+
+// GhIssuesOff says "Issues are turned off for this repository."
+// in the language the app shows.
+func GhIssuesOff() string { return In(i18n.Locale()).GhIssuesOff() }
+
+// GhIssuesOff says "Issues are turned off for this repository."
+// in the language of msgs.
+func (msgs Messages) GhIssuesOff() string {
+	return Catalog.Format(msgs.locale, "ghIssuesOff", nil)
+}
+
+// GhNoPRs says "No open pull requests."
+// in the language the app shows.
+func GhNoPRs() string { return In(i18n.Locale()).GhNoPRs() }
+
+// GhNoPRs says "No open pull requests."
+// in the language of msgs.
+func (msgs Messages) GhNoPRs() string {
+	return Catalog.Format(msgs.locale, "ghNoPRs", nil)
+}
+
+// GhMoreOnGitHub says "{count, plural, one {# more on GitHub} other {# more on GitHub}}"
+// in the language the app shows.
+func GhMoreOnGitHub(count int) string { return In(i18n.Locale()).GhMoreOnGitHub(count) }
+
+// GhMoreOnGitHub says "{count, plural, one {# more on GitHub} other {# more on GitHub}}"
+// in the language of msgs.
+func (msgs Messages) GhMoreOnGitHub(count int) string {
+	return Catalog.Format(msgs.locale, "ghMoreOnGitHub", map[string]any{"count": count})
+}
+
+// GhReading says "Reading GitHub…"
+// in the language the app shows.
+func GhReading() string { return In(i18n.Locale()).GhReading() }
+
+// GhReading says "Reading GitHub…"
+// in the language of msgs.
+func (msgs Messages) GhReading() string {
+	return Catalog.Format(msgs.locale, "ghReading", nil)
+}
+
+// GhStale says "GitHub could not be read again: {error}"
+// in the language the app shows.
+func GhStale(error string) string { return In(i18n.Locale()).GhStale(error) }
+
+// GhStale says "GitHub could not be read again: {error}"
+// in the language of msgs.
+func (msgs Messages) GhStale(error string) string {
+	return Catalog.Format(msgs.locale, "ghStale", map[string]any{"error": error})
+}
+
+// GhRetry says "Try Again"
+// in the language the app shows.
+func GhRetry() string { return In(i18n.Locale()).GhRetry() }
+
+// GhRetry says "Try Again"
+// in the language of msgs.
+func (msgs Messages) GhRetry() string {
+	return Catalog.Format(msgs.locale, "ghRetry", nil)
+}
+
+// GhFind says "Search issues and pull requests"
+// in the language the app shows.
+func GhFind() string { return In(i18n.Locale()).GhFind() }
+
+// GhFind says "Search issues and pull requests"
+// in the language of msgs.
+func (msgs Messages) GhFind() string {
+	return Catalog.Format(msgs.locale, "ghFind", nil)
+}
+
+// GhNoMatch says "No issue or pull request matches."
+// in the language the app shows.
+func GhNoMatch() string { return In(i18n.Locale()).GhNoMatch() }
+
+// GhNoMatch says "No issue or pull request matches."
+// in the language of msgs.
+func (msgs Messages) GhNoMatch() string {
+	return Catalog.Format(msgs.locale, "ghNoMatch", nil)
+}
+
+// GhOpenConversation says "Open Conversation"
+// in the language the app shows.
+func GhOpenConversation() string { return In(i18n.Locale()).GhOpenConversation() }
+
+// GhOpenConversation says "Open Conversation"
+// in the language of msgs.
+func (msgs Messages) GhOpenConversation() string {
+	return Catalog.Format(msgs.locale, "ghOpenConversation", nil)
+}
+
+// GhCheckOut says "Check Out"
+// in the language the app shows.
+func GhCheckOut() string { return In(i18n.Locale()).GhCheckOut() }
+
+// GhCheckOut says "Check Out"
+// in the language of msgs.
+func (msgs Messages) GhCheckOut() string {
+	return Catalog.Format(msgs.locale, "ghCheckOut", nil)
+}
+
+// GhAddressReview says "Address Review Comments"
+// in the language the app shows.
+func GhAddressReview() string { return In(i18n.Locale()).GhAddressReview() }
+
+// GhAddressReview says "Address Review Comments"
+// in the language of msgs.
+func (msgs Messages) GhAddressReview() string {
+	return Catalog.Format(msgs.locale, "ghAddressReview", nil)
+}
+
+// GhOpenIssue says "Open Issue"
+// in the language the app shows.
+func GhOpenIssue() string { return In(i18n.Locale()).GhOpenIssue() }
+
+// GhOpenIssue says "Open Issue"
+// in the language of msgs.
+func (msgs Messages) GhOpenIssue() string {
+	return Catalog.Format(msgs.locale, "ghOpenIssue", nil)
+}
+
+// GhWorkOnIssue says "Work on Issue"
+// in the language the app shows.
+func GhWorkOnIssue() string { return In(i18n.Locale()).GhWorkOnIssue() }
+
+// GhWorkOnIssue says "Work on Issue"
+// in the language of msgs.
+func (msgs Messages) GhWorkOnIssue() string {
+	return Catalog.Format(msgs.locale, "ghWorkOnIssue", nil)
+}
+
+// GhSendIssue says "Send to Terminal"
+// in the language the app shows.
+func GhSendIssue() string { return In(i18n.Locale()).GhSendIssue() }
+
+// GhSendIssue says "Send to Terminal"
+// in the language of msgs.
+func (msgs Messages) GhSendIssue() string {
+	return Catalog.Format(msgs.locale, "ghSendIssue", nil)
+}
+
+// GhCopyLink says "Copy Link"
+// in the language the app shows.
+func GhCopyLink() string { return In(i18n.Locale()).GhCopyLink() }
+
+// GhCopyLink says "Copy Link"
+// in the language of msgs.
+func (msgs Messages) GhCopyLink() string {
+	return Catalog.Format(msgs.locale, "ghCopyLink", nil)
+}
+
+// GhLinkCopied says "Copied the link of {number}"
+// in the language the app shows.
+func GhLinkCopied(number string) string { return In(i18n.Locale()).GhLinkCopied(number) }
+
+// GhLinkCopied says "Copied the link of {number}"
+// in the language of msgs.
+func (msgs Messages) GhLinkCopied(number string) string {
+	return Catalog.Format(msgs.locale, "ghLinkCopied", map[string]any{"number": number})
+}
+
+// GhCheckedOut says "Checked out {number}"
+// in the language the app shows.
+func GhCheckedOut(number string) string { return In(i18n.Locale()).GhCheckedOut(number) }
+
+// GhCheckedOut says "Checked out {number}"
+// in the language of msgs.
+func (msgs Messages) GhCheckedOut(number string) string {
+	return Catalog.Format(msgs.locale, "ghCheckedOut", map[string]any{"number": number})
+}
+
+// GhNewIssue says "New Issue"
+// in the language the app shows.
+func GhNewIssue() string { return In(i18n.Locale()).GhNewIssue() }
+
+// GhNewIssue says "New Issue"
+// in the language of msgs.
+func (msgs Messages) GhNewIssue() string {
+	return Catalog.Format(msgs.locale, "ghNewIssue", nil)
+}
+
+// GhOpenRepo says "Open Repository on GitHub"
+// in the language the app shows.
+func GhOpenRepo() string { return In(i18n.Locale()).GhOpenRepo() }
+
+// GhOpenRepo says "Open Repository on GitHub"
+// in the language of msgs.
+func (msgs Messages) GhOpenRepo() string {
+	return Catalog.Format(msgs.locale, "ghOpenRepo", nil)
+}
+
+// GhRefresh says "Refresh"
+// in the language the app shows.
+func GhRefresh() string { return In(i18n.Locale()).GhRefresh() }
+
+// GhRefresh says "Refresh"
+// in the language of msgs.
+func (msgs Messages) GhRefresh() string {
+	return Catalog.Format(msgs.locale, "ghRefresh", nil)
+}
+
+// GhMissing says "GitHub CLI is not installed"
+// in the language the app shows.
+func GhMissing() string { return In(i18n.Locale()).GhMissing() }
+
+// GhMissing says "GitHub CLI is not installed"
+// in the language of msgs.
+func (msgs Messages) GhMissing() string {
+	return Catalog.Format(msgs.locale, "ghMissing", nil)
+}
+
+// GhMissingDetail says "The GitHub view reads issues and pull requests with gh."
+// in the language the app shows.
+func GhMissingDetail() string { return In(i18n.Locale()).GhMissingDetail() }
+
+// GhMissingDetail says "The GitHub view reads issues and pull requests with gh."
+// in the language of msgs.
+func (msgs Messages) GhMissingDetail() string {
+	return Catalog.Format(msgs.locale, "ghMissingDetail", nil)
+}
+
+// GhMissingOn says "Install gh on {host}, where the folder is."
+// in the language the app shows.
+func GhMissingOn(host string) string { return In(i18n.Locale()).GhMissingOn(host) }
+
+// GhMissingOn says "Install gh on {host}, where the folder is."
+// in the language of msgs.
+func (msgs Messages) GhMissingOn(host string) string {
+	return Catalog.Format(msgs.locale, "ghMissingOn", map[string]any{"host": host})
+}
+
+// GhGetCLI says "Get GitHub CLI"
+// in the language the app shows.
+func GhGetCLI() string { return In(i18n.Locale()).GhGetCLI() }
+
+// GhGetCLI says "Get GitHub CLI"
+// in the language of msgs.
+func (msgs Messages) GhGetCLI() string {
+	return Catalog.Format(msgs.locale, "ghGetCLI", nil)
+}
+
+// GhSignedOut says "Sign in to GitHub"
+// in the language the app shows.
+func GhSignedOut() string { return In(i18n.Locale()).GhSignedOut() }
+
+// GhSignedOut says "Sign in to GitHub"
+// in the language of msgs.
+func (msgs Messages) GhSignedOut() string {
+	return Catalog.Format(msgs.locale, "ghSignedOut", nil)
+}
+
+// GhSignedOutDetail says "The GitHub CLI is not signed in to this repository's host."
+// in the language the app shows.
+func GhSignedOutDetail() string { return In(i18n.Locale()).GhSignedOutDetail() }
+
+// GhSignedOutDetail says "The GitHub CLI is not signed in to this repository's host."
+// in the language of msgs.
+func (msgs Messages) GhSignedOutDetail() string {
+	return Catalog.Format(msgs.locale, "ghSignedOutDetail", nil)
+}
+
+// GhSignIn says "Sign In…"
+// in the language the app shows.
+func GhSignIn() string { return In(i18n.Locale()).GhSignIn() }
+
+// GhSignIn says "Sign In…"
+// in the language of msgs.
+func (msgs Messages) GhSignIn() string {
+	return Catalog.Format(msgs.locale, "ghSignIn", nil)
+}
+
+// GhNoDefault says "Choose the repository"
+// in the language the app shows.
+func GhNoDefault() string { return In(i18n.Locale()).GhNoDefault() }
+
+// GhNoDefault says "Choose the repository"
+// in the language of msgs.
+func (msgs Messages) GhNoDefault() string {
+	return Catalog.Format(msgs.locale, "ghNoDefault", nil)
+}
+
+// GhNoDefaultDetail says "The remotes are of several repositories. Choose the one whose issues and pull requests to show."
+// in the language the app shows.
+func GhNoDefaultDetail() string { return In(i18n.Locale()).GhNoDefaultDetail() }
+
+// GhNoDefaultDetail says "The remotes are of several repositories. Choose the one whose issues and pull requests to show."
+// in the language of msgs.
+func (msgs Messages) GhNoDefaultDetail() string {
+	return Catalog.Format(msgs.locale, "ghNoDefaultDetail", nil)
+}
+
+// GhSettingDefault says "Choosing {repo}…"
+// in the language the app shows.
+func GhSettingDefault(repo string) string { return In(i18n.Locale()).GhSettingDefault(repo) }
+
+// GhSettingDefault says "Choosing {repo}…"
+// in the language of msgs.
+func (msgs Messages) GhSettingDefault(repo string) string {
+	return Catalog.Format(msgs.locale, "ghSettingDefault", map[string]any{"repo": repo})
+}
+
+// GhFailed says "GitHub could not be read"
+// in the language the app shows.
+func GhFailed() string { return In(i18n.Locale()).GhFailed() }
+
+// GhFailed says "GitHub could not be read"
+// in the language of msgs.
+func (msgs Messages) GhFailed() string {
+	return Catalog.Format(msgs.locale, "ghFailed", nil)
+}
+
+// GhNothingOpen says "No open issues or pull requests"
+// in the language the app shows.
+func GhNothingOpen() string { return In(i18n.Locale()).GhNothingOpen() }
+
+// GhNothingOpen says "No open issues or pull requests"
+// in the language of msgs.
+func (msgs Messages) GhNothingOpen() string {
+	return Catalog.Format(msgs.locale, "ghNothingOpen", nil)
+}
+
+// GhNewIssueTitle says "New Issue"
+// in the language the app shows.
+func GhNewIssueTitle() string { return In(i18n.Locale()).GhNewIssueTitle() }
+
+// GhNewIssueTitle says "New Issue"
+// in the language of msgs.
+func (msgs Messages) GhNewIssueTitle() string {
+	return Catalog.Format(msgs.locale, "ghNewIssueTitle", nil)
+}
+
+// GhReadingIssue says "Reading {name}…"
+// in the language the app shows.
+func GhReadingIssue(name string) string { return In(i18n.Locale()).GhReadingIssue(name) }
+
+// GhReadingIssue says "Reading {name}…"
+// in the language of msgs.
+func (msgs Messages) GhReadingIssue(name string) string {
+	return Catalog.Format(msgs.locale, "ghReadingIssue", map[string]any{"name": name})
+}
+
+// GhIssueNotFound says "GitHub has no issue or pull request {number}."
+// in the language the app shows.
+func GhIssueNotFound(number string) string { return In(i18n.Locale()).GhIssueNotFound(number) }
+
+// GhIssueNotFound says "GitHub has no issue or pull request {number}."
+// in the language of msgs.
+func (msgs Messages) GhIssueNotFound(number string) string {
+	return Catalog.Format(msgs.locale, "ghIssueNotFound", map[string]any{"number": number})
+}
+
+// GhIssueFailed says "{name} could not be read"
+// in the language the app shows.
+func GhIssueFailed(name string) string { return In(i18n.Locale()).GhIssueFailed(name) }
+
+// GhIssueFailed says "{name} could not be read"
+// in the language of msgs.
+func (msgs Messages) GhIssueFailed(name string) string {
+	return Catalog.Format(msgs.locale, "ghIssueFailed", map[string]any{"name": name})
+}
+
+// GhNotPlanned says "Not Planned"
+// in the language the app shows.
+func GhNotPlanned() string { return In(i18n.Locale()).GhNotPlanned() }
+
+// GhNotPlanned says "Not Planned"
+// in the language of msgs.
+func (msgs Messages) GhNotPlanned() string {
+	return Catalog.Format(msgs.locale, "ghNotPlanned", nil)
+}
+
+// GhOpenedBy says "{author} opened this {ago}"
+// in the language the app shows.
+func GhOpenedBy(author string, ago string) string { return In(i18n.Locale()).GhOpenedBy(author, ago) }
+
+// GhOpenedBy says "{author} opened this {ago}"
+// in the language of msgs.
+func (msgs Messages) GhOpenedBy(author string, ago string) string {
+	return Catalog.Format(msgs.locale, "ghOpenedBy", map[string]any{"author": author, "ago": ago})
+}
+
+// GhComments says "{count, plural, one {# comment} other {# comments}}"
+// in the language the app shows.
+func GhComments(count int) string { return In(i18n.Locale()).GhComments(count) }
+
+// GhComments says "{count, plural, one {# comment} other {# comments}}"
+// in the language of msgs.
+func (msgs Messages) GhComments(count int) string {
+	return Catalog.Format(msgs.locale, "ghComments", map[string]any{"count": count})
+}
+
+// GhAssignees says "Assigned to {names}"
+// in the language the app shows.
+func GhAssignees(names string) string { return In(i18n.Locale()).GhAssignees(names) }
+
+// GhAssignees says "Assigned to {names}"
+// in the language of msgs.
+func (msgs Messages) GhAssignees(names string) string {
+	return Catalog.Format(msgs.locale, "ghAssignees", map[string]any{"names": names})
+}
+
+// GhMilestone says "Milestone {name}"
+// in the language the app shows.
+func GhMilestone(name string) string { return In(i18n.Locale()).GhMilestone(name) }
+
+// GhMilestone says "Milestone {name}"
+// in the language of msgs.
+func (msgs Messages) GhMilestone(name string) string {
+	return Catalog.Format(msgs.locale, "ghMilestone", map[string]any{"name": name})
+}
+
+// GhLinkedPR says "Closed by {number} {title}"
+// in the language the app shows.
+func GhLinkedPR(number string, title string) string {
+	return In(i18n.Locale()).GhLinkedPR(number, title)
+}
+
+// GhLinkedPR says "Closed by {number} {title}"
+// in the language of msgs.
+func (msgs Messages) GhLinkedPR(number string, title string) string {
+	return Catalog.Format(msgs.locale, "ghLinkedPR", map[string]any{"number": number, "title": title})
+}
+
+// GhMoreComments says "{count, plural, one {# more comment on GitHub} other {# more comments on GitHub}}"
+// in the language the app shows.
+func GhMoreComments(count int) string { return In(i18n.Locale()).GhMoreComments(count) }
+
+// GhMoreComments says "{count, plural, one {# more comment on GitHub} other {# more comments on GitHub}}"
+// in the language of msgs.
+func (msgs Messages) GhMoreComments(count int) string {
+	return Catalog.Format(msgs.locale, "ghMoreComments", map[string]any{"count": count})
+}
+
+// GhGhost says "ghost"
+// in the language the app shows.
+func GhGhost() string { return In(i18n.Locale()).GhGhost() }
+
+// GhGhost says "ghost"
+// in the language of msgs.
+func (msgs Messages) GhGhost() string {
+	return Catalog.Format(msgs.locale, "ghGhost", nil)
+}
+
+// GhNoDescription says "No description."
+// in the language the app shows.
+func GhNoDescription() string { return In(i18n.Locale()).GhNoDescription() }
+
+// GhNoDescription says "No description."
+// in the language of msgs.
+func (msgs Messages) GhNoDescription() string {
+	return Catalog.Format(msgs.locale, "ghNoDescription", nil)
+}
+
+// GhCloseIssue says "Close Issue"
+// in the language the app shows.
+func GhCloseIssue() string { return In(i18n.Locale()).GhCloseIssue() }
+
+// GhCloseIssue says "Close Issue"
+// in the language of msgs.
+func (msgs Messages) GhCloseIssue() string {
+	return Catalog.Format(msgs.locale, "ghCloseIssue", nil)
+}
+
+// GhCloseNotPlanned says "Close as Not Planned"
+// in the language the app shows.
+func GhCloseNotPlanned() string { return In(i18n.Locale()).GhCloseNotPlanned() }
+
+// GhCloseNotPlanned says "Close as Not Planned"
+// in the language of msgs.
+func (msgs Messages) GhCloseNotPlanned() string {
+	return Catalog.Format(msgs.locale, "ghCloseNotPlanned", nil)
+}
+
+// GhReopenIssue says "Reopen Issue"
+// in the language the app shows.
+func GhReopenIssue() string { return In(i18n.Locale()).GhReopenIssue() }
+
+// GhReopenIssue says "Reopen Issue"
+// in the language of msgs.
+func (msgs Messages) GhReopenIssue() string {
+	return Catalog.Format(msgs.locale, "ghReopenIssue", nil)
+}
+
+// GhClosed says "Closed {number}"
+// in the language the app shows.
+func GhClosed(number string) string { return In(i18n.Locale()).GhClosed(number) }
+
+// GhClosed says "Closed {number}"
+// in the language of msgs.
+func (msgs Messages) GhClosed(number string) string {
+	return Catalog.Format(msgs.locale, "ghClosed", map[string]any{"number": number})
+}
+
+// GhReopened says "Reopened {number}"
+// in the language the app shows.
+func GhReopened(number string) string { return In(i18n.Locale()).GhReopened(number) }
+
+// GhReopened says "Reopened {number}"
+// in the language of msgs.
+func (msgs Messages) GhReopened(number string) string {
+	return Catalog.Format(msgs.locale, "ghReopened", map[string]any{"number": number})
+}
+
+// GhIssueActionFailed says "GitHub did not change the issue: {error}"
+// in the language the app shows.
+func GhIssueActionFailed(error string) string { return In(i18n.Locale()).GhIssueActionFailed(error) }
+
+// GhIssueActionFailed says "GitHub did not change the issue: {error}"
+// in the language of msgs.
+func (msgs Messages) GhIssueActionFailed(error string) string {
+	return Catalog.Format(msgs.locale, "ghIssueActionFailed", map[string]any{"error": error})
+}
+
+// GhCommentPlaceholder says "Leave a comment"
+// in the language the app shows.
+func GhCommentPlaceholder() string { return In(i18n.Locale()).GhCommentPlaceholder() }
+
+// GhCommentPlaceholder says "Leave a comment"
+// in the language of msgs.
+func (msgs Messages) GhCommentPlaceholder() string {
+	return Catalog.Format(msgs.locale, "ghCommentPlaceholder", nil)
+}
+
+// GhCommentLabel says "Comment"
+// in the language the app shows.
+func GhCommentLabel() string { return In(i18n.Locale()).GhCommentLabel() }
+
+// GhCommentLabel says "Comment"
+// in the language of msgs.
+func (msgs Messages) GhCommentLabel() string {
+	return Catalog.Format(msgs.locale, "ghCommentLabel", nil)
+}
+
+// GhComment says "Comment"
+// in the language the app shows.
+func GhComment() string { return In(i18n.Locale()).GhComment() }
+
+// GhComment says "Comment"
+// in the language of msgs.
+func (msgs Messages) GhComment() string {
+	return Catalog.Format(msgs.locale, "ghComment", nil)
+}
+
+// GhMarkdownHint says "Markdown · ⌘↵ sends"
+// in the language the app shows.
+func GhMarkdownHint() string { return In(i18n.Locale()).GhMarkdownHint() }
+
+// GhMarkdownHint says "Markdown · ⌘↵ sends"
+// in the language of msgs.
+func (msgs Messages) GhMarkdownHint() string {
+	return Catalog.Format(msgs.locale, "ghMarkdownHint", nil)
+}
+
+// GhCommented says "Commented on {number}"
+// in the language the app shows.
+func GhCommented(number string) string { return In(i18n.Locale()).GhCommented(number) }
+
+// GhCommented says "Commented on {number}"
+// in the language of msgs.
+func (msgs Messages) GhCommented(number string) string {
+	return Catalog.Format(msgs.locale, "ghCommented", map[string]any{"number": number})
+}
+
+// GhCommentFailed says "The comment was not sent: {error}"
+// in the language the app shows.
+func GhCommentFailed(error string) string { return In(i18n.Locale()).GhCommentFailed(error) }
+
+// GhCommentFailed says "The comment was not sent: {error}"
+// in the language of msgs.
+func (msgs Messages) GhCommentFailed(error string) string {
+	return Catalog.Format(msgs.locale, "ghCommentFailed", map[string]any{"error": error})
+}
+
+// GhIssueTitlePlaceholder says "Title"
+// in the language the app shows.
+func GhIssueTitlePlaceholder() string { return In(i18n.Locale()).GhIssueTitlePlaceholder() }
+
+// GhIssueTitlePlaceholder says "Title"
+// in the language of msgs.
+func (msgs Messages) GhIssueTitlePlaceholder() string {
+	return Catalog.Format(msgs.locale, "ghIssueTitlePlaceholder", nil)
+}
+
+// GhIssueTitleLabel says "Title of the issue"
+// in the language the app shows.
+func GhIssueTitleLabel() string { return In(i18n.Locale()).GhIssueTitleLabel() }
+
+// GhIssueTitleLabel says "Title of the issue"
+// in the language of msgs.
+func (msgs Messages) GhIssueTitleLabel() string {
+	return Catalog.Format(msgs.locale, "ghIssueTitleLabel", nil)
+}
+
+// GhIssueBodyPlaceholder says "Describe the issue"
+// in the language the app shows.
+func GhIssueBodyPlaceholder() string { return In(i18n.Locale()).GhIssueBodyPlaceholder() }
+
+// GhIssueBodyPlaceholder says "Describe the issue"
+// in the language of msgs.
+func (msgs Messages) GhIssueBodyPlaceholder() string {
+	return Catalog.Format(msgs.locale, "ghIssueBodyPlaceholder", nil)
+}
+
+// GhIssueBodyLabel says "Description of the issue"
+// in the language the app shows.
+func GhIssueBodyLabel() string { return In(i18n.Locale()).GhIssueBodyLabel() }
+
+// GhIssueBodyLabel says "Description of the issue"
+// in the language of msgs.
+func (msgs Messages) GhIssueBodyLabel() string {
+	return Catalog.Format(msgs.locale, "ghIssueBodyLabel", nil)
+}
+
+// GhCreateIssue says "Create Issue"
+// in the language the app shows.
+func GhCreateIssue() string { return In(i18n.Locale()).GhCreateIssue() }
+
+// GhCreateIssue says "Create Issue"
+// in the language of msgs.
+func (msgs Messages) GhCreateIssue() string {
+	return Catalog.Format(msgs.locale, "ghCreateIssue", nil)
+}
+
+// GhCreated says "Created {number}"
+// in the language the app shows.
+func GhCreated(number string) string { return In(i18n.Locale()).GhCreated(number) }
+
+// GhCreated says "Created {number}"
+// in the language of msgs.
+func (msgs Messages) GhCreated(number string) string {
+	return Catalog.Format(msgs.locale, "ghCreated", map[string]any{"number": number})
+}
+
+// GhCreateFailed says "The issue was not created: {error}"
+// in the language the app shows.
+func GhCreateFailed(error string) string { return In(i18n.Locale()).GhCreateFailed(error) }
+
+// GhCreateFailed says "The issue was not created: {error}"
+// in the language of msgs.
+func (msgs Messages) GhCreateFailed(error string) string {
+	return Catalog.Format(msgs.locale, "ghCreateFailed", map[string]any{"error": error})
+}
+
+// GhPreparingWorktree says "Making a worktree for {number}…"
+// in the language the app shows.
+func GhPreparingWorktree(number string) string { return In(i18n.Locale()).GhPreparingWorktree(number) }
+
+// GhPreparingWorktree says "Making a worktree for {number}…"
+// in the language of msgs.
+func (msgs Messages) GhPreparingWorktree(number string) string {
+	return Catalog.Format(msgs.locale, "ghPreparingWorktree", map[string]any{"number": number})
+}
+
+// GhWorktreeReady says "The worktree of {number} is at {path}"
+// in the language the app shows.
+func GhWorktreeReady(number string, path string) string {
+	return In(i18n.Locale()).GhWorktreeReady(number, path)
+}
+
+// GhWorktreeReady says "The worktree of {number} is at {path}"
+// in the language of msgs.
+func (msgs Messages) GhWorktreeReady(number string, path string) string {
+	return Catalog.Format(msgs.locale, "ghWorktreeReady", map[string]any{"number": number, "path": path})
+}
+
+// GhPromptWaiting says "Start an agent here and {number} goes to it."
+// in the language the app shows.
+func GhPromptWaiting(number string) string { return In(i18n.Locale()).GhPromptWaiting(number) }
+
+// GhPromptWaiting says "Start an agent here and {number} goes to it."
+// in the language of msgs.
+func (msgs Messages) GhPromptWaiting(number string) string {
+	return Catalog.Format(msgs.locale, "ghPromptWaiting", map[string]any{"number": number})
+}
+
+// GhPasteNow says "Paste Now"
+// in the language the app shows.
+func GhPasteNow() string { return In(i18n.Locale()).GhPasteNow() }
+
+// GhPasteNow says "Paste Now"
+// in the language of msgs.
+func (msgs Messages) GhPasteNow() string {
+	return Catalog.Format(msgs.locale, "ghPasteNow", nil)
+}
+
+// GhCopyPrompt says "Copy Prompt"
+// in the language the app shows.
+func GhCopyPrompt() string { return In(i18n.Locale()).GhCopyPrompt() }
+
+// GhCopyPrompt says "Copy Prompt"
+// in the language of msgs.
+func (msgs Messages) GhCopyPrompt() string {
+	return Catalog.Format(msgs.locale, "ghCopyPrompt", nil)
+}
+
+// GhDropPrompt says "Dismiss"
+// in the language the app shows.
+func GhDropPrompt() string { return In(i18n.Locale()).GhDropPrompt() }
+
+// GhDropPrompt says "Dismiss"
+// in the language of msgs.
+func (msgs Messages) GhDropPrompt() string {
+	return Catalog.Format(msgs.locale, "ghDropPrompt", nil)
+}
+
+// GhPromptSent says "Sent {number} to {agent}"
+// in the language the app shows.
+func GhPromptSent(number string, agent string) string {
+	return In(i18n.Locale()).GhPromptSent(number, agent)
+}
+
+// GhPromptSent says "Sent {number} to {agent}"
+// in the language of msgs.
+func (msgs Messages) GhPromptSent(number string, agent string) string {
+	return Catalog.Format(msgs.locale, "ghPromptSent", map[string]any{"number": number, "agent": agent})
+}
+
+// GhPromptCopied says "No terminal is open: copied {number} as a prompt"
+// in the language the app shows.
+func GhPromptCopied(number string) string { return In(i18n.Locale()).GhPromptCopied(number) }
+
+// GhPromptCopied says "No terminal is open: copied {number} as a prompt"
+// in the language of msgs.
+func (msgs Messages) GhPromptCopied(number string) string {
+	return Catalog.Format(msgs.locale, "ghPromptCopied", map[string]any{"number": number})
+}
+
+// GhIssueSent says "Sent {number} to the terminal"
+// in the language the app shows.
+func GhIssueSent(number string) string { return In(i18n.Locale()).GhIssueSent(number) }
+
+// GhIssueSent says "Sent {number} to the terminal"
+// in the language of msgs.
+func (msgs Messages) GhIssueSent(number string) string {
+	return Catalog.Format(msgs.locale, "ghIssueSent", map[string]any{"number": number})
+}
+
+// GhNoThreads says "{number} has no open review comments on these commits"
+// in the language the app shows.
+func GhNoThreads(number string) string { return In(i18n.Locale()).GhNoThreads(number) }
+
+// GhNoThreads says "{number} has no open review comments on these commits"
+// in the language of msgs.
+func (msgs Messages) GhNoThreads(number string) string {
+	return Catalog.Format(msgs.locale, "ghNoThreads", map[string]any{"number": number})
+}
+
+// GhThreadsAdded says "{count, plural, one {Added # review comment of {number}} other {Added # review comments of {number}}}"
+// in the language the app shows.
+func GhThreadsAdded(count int, number string) string {
+	return In(i18n.Locale()).GhThreadsAdded(count, number)
+}
+
+// GhThreadsAdded says "{count, plural, one {Added # review comment of {number}} other {Added # review comments of {number}}}"
+// in the language of msgs.
+func (msgs Messages) GhThreadsAdded(count int, number string) string {
+	return Catalog.Format(msgs.locale, "ghThreadsAdded", map[string]any{"count": count, "number": number})
+}
+
+// GhSendToTerminal says "Send to Terminal"
+// in the language the app shows.
+func GhSendToTerminal() string { return In(i18n.Locale()).GhSendToTerminal() }
+
+// GhSendToTerminal says "Send to Terminal"
+// in the language of msgs.
+func (msgs Messages) GhSendToTerminal() string {
+	return Catalog.Format(msgs.locale, "ghSendToTerminal", nil)
+}
+
+// GhResolveThread says "Resolve on GitHub"
+// in the language the app shows.
+func GhResolveThread() string { return In(i18n.Locale()).GhResolveThread() }
+
+// GhResolveThread says "Resolve on GitHub"
+// in the language of msgs.
+func (msgs Messages) GhResolveThread() string {
+	return Catalog.Format(msgs.locale, "ghResolveThread", nil)
+}
+
+// GhResolved says "Resolved {where} on GitHub"
+// in the language the app shows.
+func GhResolved(where string) string { return In(i18n.Locale()).GhResolved(where) }
+
+// GhResolved says "Resolved {where} on GitHub"
+// in the language of msgs.
+func (msgs Messages) GhResolved(where string) string {
+	return Catalog.Format(msgs.locale, "ghResolved", map[string]any{"where": where})
+}
+
+// GhResolveFailed says "The thread was not resolved: {error}"
+// in the language the app shows.
+func GhResolveFailed(error string) string { return In(i18n.Locale()).GhResolveFailed(error) }
+
+// GhResolveFailed says "The thread was not resolved: {error}"
+// in the language of msgs.
+func (msgs Messages) GhResolveFailed(error string) string {
+	return Catalog.Format(msgs.locale, "ghResolveFailed", map[string]any{"error": error})
+}

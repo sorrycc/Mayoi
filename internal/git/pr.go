@@ -81,8 +81,13 @@ func (r *Repo) ghExits(codes []int, args ...string) ([]byte, error) {
 			return nil, remote.ErrOffline
 		}
 		msg := strings.TrimSpace(errb.String())
-		if strings.Contains(msg, "no pull requests found") || strings.Contains(msg, "Could not resolve to a PullRequest") {
+		if strings.Contains(msg, "no pull requests found") || strings.Contains(msg, "Could not resolve to a PullRequest") ||
+			strings.Contains(msg, "Could not resolve to an issue or pull request") {
 			return nil, ErrNoPR
+		}
+		if msg == "" {
+			// gh did not start, as when it is not installed: say why.
+			return nil, fmt.Errorf("%w: %w", ErrNoGH, err)
 		}
 		return nil, fmt.Errorf("%w: %s", ErrNoGH, msg)
 	}

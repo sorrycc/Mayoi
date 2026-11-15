@@ -143,6 +143,7 @@ func (a *app) refreshGit() {
 		ctx.refreshGit()
 	}
 	a.repository().refreshPR()
+	a.repository().refreshGitHub()
 	a.repository().refreshPRHeads()
 	a.repository().refreshCommitChecks()
 }

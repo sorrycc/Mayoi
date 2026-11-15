@@ -1158,6 +1158,9 @@ func (a *app) layOutCommitCard(c *ui.Context, v *diffView, w float32) *commitCar
 			pieces = append(pieces, text(label(locales.PrUpdated(), 500, p.modifiedFg), true), button("card-pr-reload", locales.PrReload(), func() { a.reloadPR(v) }))
 			pieces[len(pieces)-1].dot = false
 		}
+		n := pr.number
+		pieces = append(pieces, button("card-pr-conversation", locales.GhOpenConversation(), func() { a.openIssue(a.diffContext(v), n, true) }),
+			button("card-pr-threads", locales.GhAddressReview(), func() { a.openPRWithThreads(a.diffContext(v), n) }))
 		if pr.info != nil && pr.info.URL != "" {
 			pieces = append(pieces, button("card-pr-open", locales.PrOpenOnGitHub(), func() { a.openPRInBrowser(v) }))
 		}

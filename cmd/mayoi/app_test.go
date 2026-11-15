@@ -21,6 +21,9 @@ import (
 // fakeHost answers the app's dialogs as a test says.
 type fakeHost struct {
 	folder string
+	// visible is what shown says: false keeps the polls of GitHub off,
+	// but in the tests that fake GitHub.
+	visible bool
 	// projects are what everyProject says, and showed the project
 	// showApp showed last.
 	projects []*app
@@ -170,7 +173,7 @@ func (h *fakeHost) notify(title, body string, onClick func()) {
 }
 
 // Off screen, the pull request of the branch is not asked of gh.
-func (h *fakeHost) shown() bool { return false }
+func (h *fakeHost) shown() bool { return h.visible }
 
 // workspaceFixture makes a folder of a few files.
 // fixtureFiles are the files of a test's folder, by their paths in it.

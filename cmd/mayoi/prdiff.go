@@ -68,7 +68,12 @@ func parsePRKey(key string) (n int, from, to string, ok bool) {
 // openPullRequest reads pull request n, or the branch's for 0, fetches its
 // commits where they are missing, and shows its changes in a tab: those
 // GitHub shows, from where its head left its base to its head.
-func (a *gitContext) openPullRequest(n int) {
+func (a *gitContext) openPullRequest(n int) { a.openPullRequestWith(n, false) }
+
+// openPullRequestWith opens pull request n as openPullRequest does, and
+// with threads, its review threads not resolved as notes on its lines,
+// for an agent to address.
+func (a *gitContext) openPullRequestWith(n int, threads bool) {
 	r := a.git.repo
 	if r == nil {
 		return
@@ -77,6 +82,7 @@ func (a *gitContext) openPullRequest(n int) {
 		info   *git.PRInfo
 		from   string
 		viewed map[string]bool
+		notes  []*reviewNote
 	)
 	g := a.git
 	a.gitRead(locales.BusyOpeningPR(), func(repo *git.Repo) (err error) {
@@ -97,6 +103,13 @@ func (a *gitContext) openPullRequest(n int) {
 		}
 		// Without the marks, the files show unmarked; the tab still opens.
 		viewed, _ = repo.PRViewed(info.ID)
+		if threads {
+			ths, err := repo.ReviewThreads(info.Number)
+			if err != nil {
+				return err
+			}
+			notes = threadNotes(repo, prKey(info.Number, from, info.HeadOid), from, info.HeadOid, ths)
+		}
 		return nil
 	}, func() {
 		if a.git.repo != r {
@@ -104,6 +117,9 @@ func (a *gitContext) openPullRequest(n int) {
 		}
 		g.ghOK = true
 		a.app.showPullRequest(info, from, viewed, r.Root)
+		if threads {
+			a.app.addThreadNotes(info.Number, notes)
+		}
 	})
 }
 

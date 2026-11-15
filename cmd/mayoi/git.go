@@ -119,6 +119,11 @@ type gitState struct {
 	prHeadsPoll bg.Poller[prHeadsAsked]
 	prHeadsOff  bool
 
+	// gh is what the work tree has of GitHub, which the GitHub view
+	// shows; while it has the pull requests open, the history's marks
+	// are read from it.
+	gh githubState
+
 	// commitChecks is how the checks of the commits of commitChecksRepo
 	// went, as GitHub last told, by hash, and commitChecksRead when each
 	// was asked, those with no checks too; commitChecksPoll asks again for

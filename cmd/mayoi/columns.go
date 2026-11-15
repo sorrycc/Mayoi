@@ -53,6 +53,8 @@ type colTab struct {
 	term  *session
 	// tool is a tool of the plugins: Running Plugins, or the Plugin Log.
 	tool *toolView
+	// issue is an issue of GitHub, or a pull request's conversation.
+	issue *issueView
 	// transient marks the preview tab of its column, as a file is chosen
 	// in the Explorer or in search's results, or a commit in source
 	// control: the next one chosen replaces it, until it is edited or
@@ -84,6 +86,8 @@ func (t *colTab) name() string {
 		return t.merge.name()
 	case t.tool != nil:
 		return t.tool.name()
+	case t.issue != nil:
+		return t.issue.name()
 	}
 	return t.ed.name()
 }
@@ -308,7 +312,7 @@ func (a *app) openFileIn(col *column, at int, path string, focus bool) {
 // file path, as text or as an image, -1 when none does.
 func (col *column) showingFile(path string) int {
 	return slices.IndexFunc(col.tabs, func(t *colTab) bool {
-		return t.term == nil && t.diff == nil && t.merge == nil && t.tool == nil && t.path() == path
+		return t.term == nil && t.diff == nil && t.merge == nil && t.tool == nil && t.issue == nil && t.path() == path
 	})
 }
 
@@ -461,6 +465,8 @@ func (a *app) focusTab(t *colTab) {
 		t.diff.pane.Focus()
 	case t.tool != nil:
 		t.tool.pane.Focus()
+	case t.issue != nil:
+		t.issue.pane.Focus()
 	case t.merge != nil:
 		if t.merge.ed != nil {
 			t.merge.ed.focusNext = true
@@ -563,7 +569,7 @@ func (a *app) closeTab(t *colTab, then, cancelled func()) {
 		}
 		done()
 	}
-	if t.view != nil || t.diff != nil || t.tool != nil {
+	if t.view != nil || t.diff != nil || t.tool != nil || t.issue != nil {
 		remove()
 		return
 	}
@@ -756,6 +762,10 @@ func (a *app) splitRight() {
 		a.addTab(nc, 0, &colTab{tool: t.tool.clone()})
 		a.activate(nc, 0, true)
 		return
+	case t.issue != nil:
+		a.addTab(nc, 0, &colTab{issue: t.issue.clone()})
+		a.activate(nc, 0, true)
+		return
 	case t.merge != nil:
 		// The same merge, whose result the two views share.
 		v := &mergeView{path: t.merge.path, entry: t.merge.entry, op: t.merge.op, chosen: -1, current: -1,
@@ -850,6 +860,10 @@ func (a *app) moveTab(t *colTab, to *column, at int) {
 			j = to.showingMerge(t.merge.path)
 		case t.tool != nil:
 			j = slices.IndexFunc(to.tabs, func(o *colTab) bool { return o.tool != nil && o.tool.kind == t.tool.kind })
+		case t.issue != nil:
+			j = slices.IndexFunc(to.tabs, func(o *colTab) bool {
+				return o.issue != nil && o.issue.number > 0 && o.issue.number == t.issue.number && o.issue.repoRoot == t.issue.repoRoot
+			})
 		default:
 			j = to.showingImage(t.view.path)
 		}
@@ -895,6 +909,15 @@ func (a *app) moveTabBy(step int) {
 	}
 }
 
+// keptRepoRoot is the root of a repository as the settings keep it,
+// relative to the workspace: "." for the workspace's own.
+func (a *app) keptRepoRoot(root string) string {
+	if rel, err := filepath.Rel(a.root, root); err == nil && root != "" {
+		return filepath.ToSlash(rel)
+	}
+	return root
+}
+
 // rememberTabs keeps the columns and the files open in them in the
 // settings, where each was scrolled and its caret, and the folders open
 // in the explorer.
@@ -919,6 +942,8 @@ func (a *app) rememberTabs() {
 				ts = settings.Tab{Diff: "commit:" + t.diff.commit.key(), Layout: t.diff.layout.key(), Transient: t.transient}
 			case t.diff != nil:
 				ts = settings.Tab{Diff: "all", Layout: t.diff.layout.key()}
+			case t.issue != nil && t.issue.number > 0:
+				ts = settings.Tab{Issue: t.issue.number, RepoRoot: a.keptRepoRoot(t.issue.repoRoot), Transient: t.transient}
 			case t.merge != nil:
 				continue // a merge opens again from its conflict, not a session
 			case t.path() != "":
@@ -1148,6 +1173,15 @@ func (a *app) restoreTabs() {
 				}
 			case ts.Untitled != "":
 				a.restoreUntitled(col, ts)
+			case ts.Issue > 0:
+				root := ts.RepoRoot
+				if root == "" {
+					root = a.root
+				}
+				if c, _ := a.issueTab(ts.Issue, root); c == nil && root != "" {
+					a.addTab(col, len(col.tabs), &colTab{issue: &issueView{repoRoot: root, number: ts.Issue}, transient: ts.Transient})
+					a.activate(col, len(col.tabs)-1, false)
+				}
 			}
 			if len(col.tabs) > n {
 				a.restoreTab(col.tab(), ts)

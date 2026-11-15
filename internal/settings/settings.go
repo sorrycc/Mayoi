@@ -389,6 +389,9 @@ type ReviewNote struct {
 	Snippet []string `json:"snippet,omitempty"`
 	Lines   []string `json:"lines,omitempty"`
 	Text    string   `json:"text"`
+	// Thread is the GitHub review thread the note came from, which it
+	// can resolve there, "" for one written here.
+	Thread string `json:"thread,omitempty"`
 }
 
 // Layout is how a window lays its folder out: what its sidebar shows,
@@ -396,7 +399,9 @@ type ReviewNote struct {
 // the bottom, or how wide it is at a side.
 type Layout struct {
 	// SidebarView is what the sidebar shows: "" the explorer, "search"
-	// the search in the files, "git" the changes for source control.
+	// the search in the files, "git" the changes for source control,
+	// "sessions" the agents' sessions and "github" the issues and pull
+	// requests of the repository on GitHub.
 	SidebarView   string  `json:"sidebarView,omitempty"`
 	SidebarClosed bool    `json:"sidebarClosed,omitempty"`
 	SidebarWidth  float32 `json:"sidebarWidth,omitempty"`
@@ -483,6 +488,9 @@ type Tab struct {
 	// the number of its name.
 	Untitled string `json:"untitled,omitempty"`
 	Number   int    `json:"number,omitempty"`
+	// Issue is the number of the issue, or of the pull request whose
+	// conversation, the tab shows, of the repository at RepoRoot.
+	Issue int `json:"issue,omitempty"`
 }
 
 // MaxDiffContext is as many unchanged lines around a change as a diff

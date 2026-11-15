@@ -137,6 +137,7 @@ func (a *app) commandsIn(t locales.Messages) []command {
 		{"view.search", t.CmdViewSearch(), "", func() { a.showSearch(false) }},
 		{"view.scm", t.CmdViewScm(), "Ctrl+Shift+G", a.showSourceControl},
 		{"view.sessions", t.CmdViewSessions(), "", a.showSessions},
+		{"view.github", t.CmdViewGitHub(), "", a.showGitHub},
 		{"git.commit", t.CmdGitCommit(), "", func() { a.commit(false) }},
 		{"git.commitPush", t.CmdGitCommitPush(), "", func() { a.commit(true) }},
 		{"git.amend", t.CmdGitAmend(), "", func() { a.showSourceControl(); a.startAmend() }},
@@ -179,6 +180,7 @@ func (a *app) commandsIn(t locales.Messages) []command {
 		{"git.stashes", t.CmdGitStashes(), "", a.openStashPicker},
 		{"git.openPullRequest", t.CmdGitOpenPullRequest(), "", a.openPRPicker},
 		{"git.showPullRequestChecks", t.CmdGitShowPullRequestChecks(), "", a.openChecks},
+		{"git.newIssue", t.CmdGitNewIssue(), "", func() { a.newIssue(a.repository()) }},
 		{"git.blame", t.CmdGitBlame(), "", a.toggleBlame},
 		{"git.openFileOnRemote", t.CmdGitOpenFileOnRemote(), "", func() { a.activeFileOnRemote(false) }},
 		{"git.copyPermalink", t.CmdGitCopyPermalink(), "", func() { a.activeFileOnRemote(true) }},
@@ -571,6 +573,8 @@ func (a *app) menu(cli bool, run func(id string, win *mygo.Window)) *mygo.Menu {
 	// The sessions listed are of this machine, as a folder's own settings.
 	sessions := item("view.sessions")
 	sessions.Disabled = !a.hasSessions()
+	github := item("view.github")
+	github.Disabled = !a.hasGitHub()
 	// A folder's own settings are of a folder on this machine.
 	folderSettings := item("file.folderSettings")
 	folderSettings.Disabled = a.root == "" || remote.Is(a.root)
@@ -660,7 +664,7 @@ func (a *app) menu(cli bool, run func(id string, win *mygo.Window)) *mygo.Menu {
 			item("sel.format"), item("sel.insertSnippet"), item("sel.complete"),
 		}},
 		{Label: locales.MenuView(), Submenu: []*mygo.MenuItem{
-			item("view.sidebar"), checkbox("view.sidebarRight", a.settings.SidebarRight), item("view.explorer"), item("view.search"), item("view.scm"), sessions, mygo.Separator(),
+			item("view.sidebar"), checkbox("view.sidebarRight", a.settings.SidebarRight), item("view.explorer"), item("view.search"), item("view.scm"), github, sessions, mygo.Separator(),
 			checkbox("view.compactFolders", a.settings.ExplorerCompactFolders), mygo.Separator(),
 			checkbox("view.wordWrap", a.prefs().WordWrap), item("view.wordWrapTab"), item("view.togglePreview"), item("view.toggleLivePreview"), item("view.previewToSide"),
 			{Label: locales.MenuOpenMarkdownAs(), Submenu: []*mygo.MenuItem{
@@ -704,7 +708,7 @@ func (a *app) menu(cli bool, run func(id string, win *mygo.Window)) *mygo.Menu {
 			item("git.stageFile"), item("git.unstageFile"), item("git.stageAll"), mygo.Separator(),
 			item("git.switchBranch"), item("git.switchWorktree"), item("git.createBranch"), item("git.fetch"), item("git.pull"), item("git.push"), mygo.Separator(),
 			item("git.stash"), item("git.stashUntracked"), item("git.stashes"), mygo.Separator(),
-			prItem("git.openPullRequest"), prItem("git.showPullRequestChecks"), mygo.Separator(),
+			prItem("git.openPullRequest"), prItem("git.showPullRequestChecks"), prItem("git.newIssue"), mygo.Separator(),
 			checkbox("git.blame", a.prefs().Blame), item("git.openFileOnRemote"), item("git.copyPermalink"), item("git.refresh"), mygo.Separator(),
 			item("review.comment"), reviewItem("review.next"), reviewItem("review.previous"),
 			reviewItem("review.copy"), reviewItem("review.send"), reviewItem("review.clear"),

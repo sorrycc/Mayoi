@@ -94,6 +94,8 @@ func (a *app) view(c *ui.Context) {
 			a.focus, a.col = paneEditor, i
 		case t.tool != nil && t.tool.pane.FocusWithin(c):
 			a.focus, a.col = paneEditor, i
+		case t.issue != nil && t.issue.pane.FocusWithin(c):
+			a.focus, a.col = paneEditor, i
 		case t.ed != nil && t.ed.preview != nil && t.ed.preview.pane.FocusWithin(c):
 			a.focus, a.col = paneEditor, i
 		}
@@ -599,7 +601,7 @@ func (a *app) columnView(c *ui.Context, col *column) {
 	}
 	a.tabStrip(c, col)
 	shown := col.tab()
-	if shown != nil && shown.term == nil && shown.tool == nil {
+	if shown != nil && shown.term == nil && shown.tool == nil && shown.issue == nil {
 		a.breadcrumbs(c, col, shown)
 	}
 	for _, t := range col.tabs {
@@ -632,6 +634,8 @@ func (a *app) columnView(c *ui.Context, col *column) {
 					a.mergeViewUI(c, shown.merge)
 				case shown.tool != nil:
 					a.toolViewUI(c, shown.tool)
+				case shown.issue != nil:
+					a.issueViewUI(c, shown.issue)
 				case shown.ed.unread():
 					a.hideEditor(shown.ed)
 					a.loadingView(c, shown.ed)

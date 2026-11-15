@@ -69,7 +69,7 @@ func (a *app) tabStrip(c *ui.Context, col *column) {
 					active := i == col.active
 					tip := locales.TabTerminal()
 					switch {
-					case t.tool != nil:
+					case t.tool != nil, t.issue != nil:
 						tip = t.name()
 					case t.term == nil:
 						tip = a.relOrPath(t.path())
@@ -144,6 +144,8 @@ func (a *app) tabStrip(c *ui.Context, col *column) {
 							icon, tint = iconDiff, p.changed
 						case t.tool != nil:
 							icon, tint = t.tool.icon(), p.accent
+						case t.issue != nil:
+							icon, tint = t.issue.icon(), p.addedFg
 						case t.term == nil:
 							icon, tint = fileIcon(p, t.name())
 						}

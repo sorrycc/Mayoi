@@ -64,9 +64,33 @@ type githubPanel struct {
 	row       int
 	collapsed map[string]bool
 	// skeleton is set while the shapes of the rows show, for the rows to
-	// fade in over them.
+	// fade in over them from cameAt.
 	skeleton bool
+	cameAt   time.Time
+	// rows are the rows last built, of rowsOf: githubRows builds them
+	// again only as the overview, the branch, the query or the sections
+	// folded change. words are each item's, lowercased, for the query,
+	// as of wordsOf.
+	rows    []ghRow
+	rowsOf  ghRowsKey
+	built   bool
+	words   map[*git.GHItem]string
+	wordsOf *git.GHOverview
+	// appear fades in the rows that come, as a section opens or a refresh
+	// brings an item.
+	appear appearing
 }
+
+// ghRowsKey is what the rows of the GitHub view are of.
+type ghRowsKey struct {
+	o      *git.GHOverview
+	branch string
+	query  string
+	folded uint8
+}
+
+// ghSectionIDs are the ids of the sections of the GitHub view, in order.
+var ghSectionIDs = [...]string{"branch", "review", "mine", "assigned", "issues", "prs"}
 
 // fetchGitHubOverview asks GitHub for the overview of a work tree, which
 // the tests replace.
@@ -237,9 +261,12 @@ type ghRow struct {
 	key     string
 	section string
 	header  bool
+	first   bool // the first header, with no room above it
 	title   string
 	count   int
 	item    *git.GHItem
+	number  string // an item's, as #12
+	by      string // an item's author, but the viewer's own
 	note    string
 	link    string // a note's, which a click opens
 }
@@ -299,12 +326,9 @@ func (a *gitContext) githubSections(o *git.GHOverview) []ghSection {
 	}
 }
 
-// ghMatch reports whether an item has every word of the query in its
-// number, title, author, labels or branch.
-func ghMatch(it *git.GHItem, words []string) bool {
-	if len(words) == 0 {
-		return true
-	}
+// ghWords are the words of an item the query looks in, lowercased: its
+// number, title, author, branch, labels and assignees.
+func ghWords(it *git.GHItem) string {
 	var b strings.Builder
 	b.WriteString("#" + strconv.Itoa(it.Number) + " " + it.Title + " " + it.Author + " " + it.HeadRef)
 	for _, l := range it.Labels {
@@ -313,7 +337,11 @@ func ghMatch(it *git.GHItem, words []string) bool {
 	for _, as := range it.Assignees {
 		b.WriteString(" " + as)
 	}
-	s := strings.ToLower(b.String())
+	return strings.ToLower(b.String())
+}
+
+// ghMatch reports whether an item's words, s, have every word of the query.
+func ghMatch(s string, words []string) bool {
 	for _, w := range words {
 		if !strings.Contains(s, strings.TrimPrefix(w, "#")) {
 			return false
@@ -323,27 +351,54 @@ func ghMatch(it *git.GHItem, words []string) bool {
 }
 
 // githubRows are the rows of the GitHub view, of the items that match
-// the query, the sections folded showing only their headers.
-func (a *app) githubRows(ctx *gitContext, o *git.GHOverview) []ghRow {
+// the query, the sections folded showing only their headers. They are
+// built again only as what they are of changes, not each frame.
+func (a *app) githubRows(ctx *gitContext, o *git.GHOverview, now time.Time) []ghRow {
 	gp := &a.github
+	key := ghRowsKey{o: o, branch: ctx.branch(), query: gp.query}
+	for i, id := range ghSectionIDs {
+		if gp.collapsed[id] {
+			key.folded |= 1 << i
+		}
+	}
+	if gp.built && key == gp.rowsOf {
+		return gp.rows
+	}
+	if gp.wordsOf != o {
+		gp.words, gp.wordsOf = nil, o
+	}
 	words := strings.Fields(strings.ToLower(strings.TrimSpace(gp.query)))
+	if len(words) > 0 && gp.words == nil {
+		gp.words = make(map[*git.GHItem]string, len(o.PRs)+len(o.Issues))
+		for i := range o.PRs {
+			gp.words[&o.PRs[i]] = ghWords(&o.PRs[i])
+		}
+		for i := range o.Issues {
+			gp.words[&o.Issues[i]] = ghWords(&o.Issues[i])
+		}
+	}
 	var rows []ghRow
 	for _, s := range ctx.githubSections(o) {
 		var shown []*git.GHItem
 		for _, it := range s.items {
-			if ghMatch(it, words) {
+			if len(words) == 0 || ghMatch(gp.words[it], words) {
 				shown = append(shown, it)
 			}
 		}
 		if len(shown) == 0 && (!s.always || len(words) > 0) {
 			continue
 		}
-		rows = append(rows, ghRow{key: "head:" + s.id, section: s.id, header: true, title: s.title, count: len(shown)})
+		rows = append(rows, ghRow{key: "head:" + s.id, section: s.id, header: true, first: len(rows) == 0, title: s.title, count: len(shown)})
 		if gp.collapsed[s.id] {
 			continue
 		}
 		for _, it := range shown {
-			rows = append(rows, ghRow{key: s.id + ":" + strconv.Itoa(it.Number), section: s.id, item: it})
+			n := strconv.Itoa(it.Number)
+			r := ghRow{key: s.id + ":" + n, section: s.id, item: it, number: "#" + n}
+			if it.Author != "" && it.Author != o.Viewer {
+				r.by = " · " + it.Author
+			}
+			rows = append(rows, r)
 		}
 		switch {
 		case len(shown) == 0:
@@ -352,7 +407,20 @@ func (a *app) githubRows(ctx *gitContext, o *git.GHOverview) []ghRow {
 			rows = append(rows, ghRow{key: s.id + ":more", section: s.id, note: locales.GhMoreOnGitHub(s.more), link: s.link})
 		}
 	}
+	// The rows that come fade in: those of a section opened, or an item
+	// a refresh brought; those of another query or repository show at once.
+	fresh := !gp.built || key.query != gp.rowsOf.query || gp.rowsOf.o == nil || o.Repo != gp.rowsOf.o.Repo
+	gp.appear.note(len(rows), func(i int) string { return rows[i].key }, now, fresh)
+	gp.rows, gp.rowsOf, gp.built = rows, key, true
 	return rows
+}
+
+// ghFade has a row of the GitHub view fade in as it comes.
+func (a *app) ghFade(c *ui.Context, row ui.Element, key string, now time.Time) {
+	if k := a.github.appear.shown(key, now); k < 1 {
+		row.Opacity(k)
+		c.AnimationFrame()
+	}
 }
 
 // githubView is the GitHub view: the issues and pull requests open of the
@@ -387,7 +455,8 @@ func (a *app) githubView(c *ui.Context) {
 		// What was read stays, under why it could not be read again.
 		a.githubNote(c, iconTriangleAlert, locales.GhStale(g.gh.err), locales.GhRetry(), ctx.refreshGitHubNow)
 	}
-	rows := a.githubRows(ctx, o)
+	now := c.Now()
+	rows := a.githubRows(ctx, o, now)
 	ui.Column(c).Padding(0, 12, 6, 12).Children(func() {
 		in := a.searchField(c, "gh-query", &gp.query, locales.GhFind(), &gp.input, nil)
 		if in.Changed() {
@@ -415,7 +484,7 @@ func (a *app) githubView(c *ui.Context) {
 		return
 	}
 	if gp.skeleton {
-		gp.skeleton = false
+		gp.skeleton, gp.cameAt = false, now
 	}
 	gp.row = min(max(gp.row, 0), len(rows)-1)
 	if rows[gp.row].header {
@@ -443,18 +512,22 @@ func (a *app) githubView(c *ui.Context) {
 	quiet.Accent, quiet.AccentText, quiet.SurfaceHover = p.active, p.text, p.hover
 	c.SetTheme(&quiet)
 	var action func()
-	now := c.Now()
 	out := ui.List(c.Key("gh-list"), &gp.list, len(rows), func(i int) {
 		switch r := rows[i]; {
 		case r.header:
-			a.githubHeader(c, r, &action)
+			a.githubHeader(c, r, now, &action)
 		case r.item != nil:
 			a.githubItem(c, ctx, o, r, now, &action)
 		default:
-			a.githubNoteRow(c, r, &action)
+			a.githubNoteRow(c, r, now, &action)
 		}
 	}).Grow(1).Padding(0, 6, 8, 6)
 	c.SetTheme(base)
+	// The rows fade in over where the shapes of them were.
+	if since := now.Sub(gp.cameAt); since < motionShow {
+		out.Opacity(ui.EaseOut(float32(since) / float32(motionShow)))
+		c.AnimationFrame()
+	}
 	out.HandleInput(func(ev ui.InputEvent) bool {
 		if ev.Kind == ui.InputCommand && ev.Text == "copy" && gp.row >= 0 && gp.row < len(rows) && rows[gp.row].item != nil {
 			a.copyGitHubLink(rows[gp.row].item)
@@ -492,17 +565,31 @@ func ghStep(rows []ghRow, i, by int) int {
 	return min(max(i, 0), max(len(rows)-1, 0))
 }
 
-// githubHeader is the header of a section, whose click folds it.
-func (a *app) githubHeader(c *ui.Context, r ghRow, action *func()) {
+// ghHeaderGap is the room above the header of a section but the first,
+// which sets the sections apart.
+const ghHeaderGap = 8
+
+// githubHeader is the header of a section, whose click folds it. Under
+// the pointer its words darken, and nothing moves.
+func (a *app) githubHeader(c *ui.Context, r ghRow, now time.Time, action *func()) {
 	p := a.pal
 	gp := &a.github
-	row := ui.Row(c).Grow(1).Gap(4).AlignItems(ui.Center).Height(scmRowHeight).Background(p.chrome)
+	h, top := scmRowHeight, float32(0)
+	if !r.first {
+		h, top = scmRowHeight+ghHeaderGap, ghHeaderGap
+	}
+	row := ui.Row(c).Grow(1).Gap(4).AlignItems(ui.Center).Height(h).Padding(top, 6, 0, 2).Background(p.chrome)
+	a.ghFade(c, row, r.key, now)
 	clicked := row.Clicked()
+	col := p.muted
+	if row.Hovered() {
+		col = p.text
+	}
 	row.Children(func() {
-		chevron(c, !gp.collapsed[r.section]).FontSize(12).TextColor(p.muted)
+		chevron(c, !gp.collapsed[r.section]).FontSize(12).TextColor(col).Transition(hoverFade)
 		size, spacing := p.titleLook(11, 0.4)
 		ui.Text(c, p.title(r.title)).FontSize(size).FontWeight(600).LetterSpacing(spacing).
-			TextColor(p.muted).SingleLine().Shrink(1)
+			TextColor(col).Transition(hoverFade).SingleLine().Shrink(1)
 		ui.Spacer(c)
 		ui.Text(c, strconv.Itoa(r.count)).FontSize(10.5).TextColor(p.muted).Padding(0, 5).Radius(8).Background(p.hover).
 			FontFeatures("tnum").ContentTransition(ui.ContentTransition{Numeric: true})
@@ -514,27 +601,39 @@ func (a *app) githubHeader(c *ui.Context, r ghRow, action *func()) {
 
 // githubNoteRow is a note of a section: that it has none, or how many
 // more GitHub has, which a click shows there.
-func (a *app) githubNoteRow(c *ui.Context, r ghRow, action *func()) {
+func (a *app) githubNoteRow(c *ui.Context, r ghRow, now time.Time, action *func()) {
 	p := a.pal
 	if r.link == "" {
-		ui.Text(c, r.note).FontSize(12).TextColor(p.muted).Padding(4, 10, 6, 22)
+		a.ghFade(c, ui.Text(c, r.note).FontSize(12).TextColor(p.faint).Padding(4, 10, 6, ghTitleIndent), r.key, now)
 		return
 	}
-	b := ui.ButtonBase(c.Key("note")).FillWidth().Padding(4, 10, 6, 22).Radius(5).Label(r.note)
+	// Under the titles, as a row of the list would be; its arrow says it
+	// opens GitHub.
+	b := ui.ButtonBase(c.Key("note")).FillWidth().Justify(ui.Start).Padding(4, 10, 6, ghTitleIndent).Radius(5).Label(r.note)
+	a.ghFade(c, b, r.key, now)
 	col := p.muted
 	if b.Hovered() {
 		col = p.accent
 	}
-	b.Transition(hoverFade)
-	b.Children(func() { ui.Text(c, r.note).FontSize(12).TextColor(col).SingleLine() })
+	b.Children(func() {
+		ui.Row(c).Gap(4).AlignItems(ui.Center).Children(func() {
+			ui.Text(c, r.note).FontSize(12).TextColor(col).Transition(hoverFade).SingleLine()
+			ui.Icon(c, iconExternal).FontSize(10).TextColor(col).Transition(hoverFade)
+		})
+	})
 	if b.Clicked() {
 		*action = func() { a.services.OpenURL(r.link) }
 	}
 }
 
 // ghItemH is how tall the row of an issue or a pull request is: its title
-// over a line of its number, author, age and labels.
-const ghItemH = 40
+// over a line of its number, author, age and labels. ghTitleIndent is
+// where its title starts, past its icon, and ghChipH how tall a label is.
+const (
+	ghItemH       = 40
+	ghTitleIndent = 25
+	ghChipH       = 15
+)
 
 // githubItem is the row of an issue or a pull request: its state's icon,
 // its title, and under it its number, author and age, its labels, and
@@ -544,6 +643,7 @@ func (a *app) githubItem(c *ui.Context, ctx *gitContext, o *git.GHOverview, r gh
 	p := a.pal
 	it := r.item
 	row := ui.Column(c).Grow(1).Height(ghItemH).Padding(3, 8, 3, 6).Gap(2).Justify(ui.Center).Radius(6)
+	a.ghFade(c, row, r.key, now)
 	if row.Hovered() {
 		row.Background(p.hover)
 	}
@@ -563,33 +663,38 @@ func (a *app) githubItem(c *ui.Context, ctx *gitContext, o *git.GHOverview, r gh
 				ui.Icon(c, ic).FontSize(11).TextColor(cc).Shrink(0)
 			}
 		})
-		ui.Row(c).Gap(6).AlignItems(ui.Center).Padding(0, 0, 0, 19).Children(func() {
-			meta := "#" + strconv.Itoa(it.Number)
-			if it.Author != "" {
-				meta += " · " + it.Author
+		ui.Row(c).AlignItems(ui.Center).Padding(0, 0, 0, ghTitleIndent-6).Children(func() {
+			// The labels give their room up first, then the author, who
+			// shortens; the number and the age stay. The viewer's own
+			// items name no author.
+			ui.Text(c, r.number).FontSize(11.5).TextColor(p.faint).SingleLine().Shrink(0).FontFeatures("tnum")
+			if r.by != "" {
+				ui.Text(c, r.by).FontSize(11.5).TextColor(p.faint).SingleLine().Shrink(0.01).MinWidth(0)
 			}
 			if !it.Updated.IsZero() {
-				meta += " · " + shortAgo(it.Updated, now)
+				ui.Text(c, " · "+shortAgo(it.Updated, now)).FontSize(11.5).TextColor(p.faint).SingleLine().Shrink(0).
+					FontFeatures("tnum")
 			}
-			ui.Text(c, meta).FontSize(11.5).TextColor(p.faint).SingleLine().Shrink(0).FontFeatures("tnum")
-			if it.PR {
-				if it.Draft {
-					ui.Text(c, locales.PrDraft()).FontSize(11).TextColor(p.muted).SingleLine().Shrink(0)
-				} else if review := prReviewLabel(it.Review); review != "" {
-					ui.Text(c, review).FontSize(11).TextColor(p.muted).SingleLine().Shrink(1).MinWidth(0)
-				}
+			if review, col := a.ghReview(it); review != "" {
+				ui.Text(c, review).FontSize(11).FontWeight(500).TextColor(col).SingleLine().Shrink(0).Margin(0, 0, 0, 6)
 			}
-			ui.Row(c).Gap(4).Shrink(1).MinWidth(0).Clip().Children(func() {
-				for k, l := range it.Labels {
-					if k == 3 {
-						break
+			// A label that does not fit goes whole, to a line that does
+			// not show, rather than being cut: the first too, after the
+			// empty box that holds the line.
+			if len(it.Labels) > 0 {
+				ui.Row(c).Wrap().Gap(4).Height(ghChipH).Shrink(1).MinWidth(0).Margin(0, 0, 0, 2).Clip().Children(func() {
+					ui.Box(c).Size(0, ghChipH)
+					for k, l := range it.Labels {
+						if k == 3 {
+							break
+						}
+						a.ghLabel(c, l, 10.5)
 					}
-					a.ghLabel(c, l, 10.5)
-				}
-			})
+				})
+			}
 			ui.Spacer(c)
 			if it.Comments > 0 {
-				ui.Row(c).Gap(3).AlignItems(ui.Center).Shrink(0).Children(func() {
+				ui.Row(c).Gap(3).AlignItems(ui.Center).Shrink(0).Margin(0, 0, 0, 6).Children(func() {
 					ui.Icon(c, iconComment).FontSize(10).TextColor(p.faint)
 					ui.Text(c, strconv.Itoa(it.Comments)).FontSize(11).TextColor(p.faint).FontFeatures("tnum")
 				})
@@ -611,8 +716,26 @@ func (a *app) ghLabel(c *ui.Context, l git.GHLabel, size float32) {
 	}
 	// The label's own color as its edge and its tint, its name in text's
 	// color, which reads on every theme.
-	ui.Text(c, l.Name).FontSize(size).TextColor(p.text).SingleLine().Shrink(0).Padding(0, 5).Radius(8).
+	ui.Text(c, l.Name).FontSize(size).TextColor(p.text).SingleLine().Shrink(0).Height(ghChipH).Padding(0, 5).Radius(ghChipH/2).
 		Background(col.Alpha(0.18)).Border(1, col.Alpha(0.5))
+}
+
+// ghReview is the word of a pull request's state under its title, and its
+// color: a draft, or a review that approved or asked for changes. A review
+// that is only required says nothing, as most do.
+func (a *app) ghReview(it *git.GHItem) (string, ui.Color) {
+	p := a.pal
+	switch {
+	case !it.PR:
+		return "", p.muted
+	case it.Draft:
+		return locales.PrDraft(), p.muted
+	case it.Review == "APPROVED":
+		return locales.PrApproved(), p.addedFg
+	case it.Review == "CHANGES_REQUESTED":
+		return locales.PrChangesRequested(), p.dangerFg
+	}
+	return "", p.muted
 }
 
 // githubItemMenu is the menu of an issue or a pull request of the view.
@@ -730,22 +853,29 @@ func (a *app) githubTitleActions(c *ui.Context, hovered bool) {
 	}
 }
 
-// githubSkeleton is the shapes of the rows, while the view reads them the
-// first time.
+// githubSkeleton is the shapes of the view, while it reads its rows the
+// first time: its query's field, a section's header and its rows, each
+// where the real one goes, so that nothing moves as they come.
 func (a *app) githubSkeleton(c *ui.Context) {
 	p := a.pal
 	a.github.skeleton = true
 	bar := p.text.Alpha(0.07)
-	ui.Column(c.Key("gh-skeleton")).Padding(8, 12, 8, 12).Gap(14).Grow(1).Label(locales.GhReading()).Children(func() {
-		for i, w := range []float32{0.8, 0.62, 0.88, 0.55, 0.72} {
-			ui.Column(c.Key(i)).Gap(7).Children(func() {
-				ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
-					ui.Box(c).Size(12, 12).Radius(6).Background(bar)
-					ui.Box(c).WidthPercent(w * 90).Height(8).Radius(4).Background(bar)
-				})
-				ui.Box(c).Size(90, 6).Radius(3).Background(bar).Margin(0, 0, 0, 20)
+	ui.Column(c.Key("gh-skeleton")).Grow(1).Label(locales.GhReading()).Children(func() {
+		ui.Box(c).Height(26).Margin(0, 12, 6, 12).Radius(5).Background(p.editor).Border(1, p.border)
+		ui.Column(c).Padding(0, 6, 8, 6).Children(func() {
+			ui.Row(c).Height(scmRowHeight).Padding(0, 0, 0, 16).AlignItems(ui.Center).Children(func() {
+				ui.Box(c).Size(84, 7).Radius(3.5).Background(bar)
 			})
-		}
+			for i, w := range []float32{0.8, 0.62, 0.88, 0.55, 0.72} {
+				ui.Column(c.Key(i)).Height(ghItemH).Padding(3, 8, 3, 6).Gap(7).Justify(ui.Center).Children(func() {
+					ui.Row(c).Gap(6).AlignItems(ui.Center).Children(func() {
+						ui.Box(c).Size(13, 13).Radius(6.5).Background(bar)
+						ui.Box(c).WidthPercent(w * 90).Height(8).Radius(4).Background(bar)
+					})
+					ui.Box(c).Size(90, 6).Radius(3).Background(bar).Margin(0, 0, 0, ghTitleIndent-6)
+				})
+			}
+		})
 	})
 }
 

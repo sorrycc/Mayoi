@@ -111,7 +111,7 @@ func TestGitHubSectionsFold(t *testing.T) {
 	hs.a.showGitHub()
 	hs.settle()
 	ctx := hs.a.repository()
-	rows := hs.a.githubRows(ctx, ctx.githubOverview())
+	rows := hs.a.githubRows(ctx, ctx.githubOverview(), hs.tt.Now())
 	var sections []string
 	for _, r := range rows {
 		if r.header {
@@ -128,6 +128,51 @@ func TestGitHubSectionsFold(t *testing.T) {
 	}
 	if _, ok := hs.tt.Find("Crash on open"); !ok {
 		t.Error("the issue assigned, of another section, is not listed")
+	}
+}
+
+// TestGitHubRowsComeIn: the rows of the GitHub view are built again only
+// as what they show changes, and those of a section opened fade in, while
+// its header holds still under the pointer.
+func TestGitHubRowsComeIn(t *testing.T) {
+	hs := githubHarness(t, ghOverviewFixture(), nil)
+	hs.a.showGitHub()
+	hs.settle()
+	gp := &hs.a.github
+	ctx := hs.a.repository()
+	o := ctx.githubOverview()
+	rows := hs.a.githubRows(ctx, o, hs.tt.Now())
+	if again := hs.a.githubRows(ctx, o, hs.tt.Now()); &again[0] != &rows[0] {
+		t.Error("the rows were built again with nothing changed")
+	}
+	gp.query = "crash"
+	if again := hs.a.githubRows(ctx, o, hs.tt.Now()); len(again) == len(rows) {
+		t.Error("the rows were not built again for a query")
+	}
+	gp.query = ""
+	hs.settle()
+
+	head := hs.a.pal.title(locales.GhIssues())
+	at, ok := hs.tt.Find(head)
+	if !ok {
+		t.Fatalf("no header %q", head)
+	}
+	hs.tt.Move(at.X+at.W/2, at.Y+at.H/2)
+	hs.settle()
+	if now, _ := hs.tt.Find(head); now != at {
+		t.Errorf("the header moved under the pointer: %v, was %v", now, at)
+	}
+
+	gp.collapsed["issues"] = true
+	hs.settle()
+	gp.collapsed["issues"] = false
+	step(hs.tt)
+	if k := gp.appear.shown("issues:4", hs.tt.Now()); k >= 1 {
+		t.Errorf("a row of a section opened shows at once (%v)", k)
+	}
+	hs.settle()
+	if k := gp.appear.shown("issues:4", hs.tt.Now()); k != 1 {
+		t.Errorf("a row of a section opened stays faded (%v)", k)
 	}
 }
 

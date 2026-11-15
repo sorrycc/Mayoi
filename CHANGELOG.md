@@ -16,6 +16,11 @@ needs a `## <version>` section here, or its build fails.
 - **Address Review Comments** shows a pull request's open review threads as notes to send to an agent.
 - A review note from GitHub has **Resolve on GitHub**, which resolves its thread there.
 - A pull request's tab has **Open Conversation** to read its description and comments.
+- In the GitHub view, labels that don't fit are left out whole instead of cut off, and an item's age always shows.
+- GitHub view rows mark pull requests approved or with changes requested in color, and leave out your own name.
+- The GitHub view's sections have room between them, and their headers darken under the pointer.
+- Rows of a section you open, or that a refresh brings, fade in instead of popping in the GitHub view.
+- While the GitHub view first loads, its placeholder has the list's shape, so nothing jumps when rows arrive.
 
 ## 0.21.2
 

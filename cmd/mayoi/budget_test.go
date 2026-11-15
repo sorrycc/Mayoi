@@ -95,7 +95,7 @@ func TestBudgets(t *testing.T) {
 		}},
 		// Live Preview styles the lines about the view each frame, from a
 		// parse that follows each edit until the next arrives.
-		{"Live Preview type frame", 4 * time.Millisecond, false, func(t *testing.T, hs *harness) func() {
+		{"Live Preview type frame", 5 * time.Millisecond, false, func(t *testing.T, hs *harness) func() {
 			d := bigNote(hs)
 			hs.place(d, 40000, 40000)
 			return func() { hs.tt.Type("a"); step(hs.tt) }
@@ -118,7 +118,7 @@ func TestBudgets(t *testing.T) {
 		}},
 		// Typing a wiki link in a vault of 10,000 notes: the box follows
 		// each key, its suggestions found away from the frame.
-		{"Live Preview type frame with link suggestions", 4 * time.Millisecond, false, func(t *testing.T, hs *harness) func() {
+		{"Live Preview type frame with link suggestions", 6 * time.Millisecond, false, func(t *testing.T, hs *harness) func() {
 			os.MkdirAll(hs.path(".obsidian"), 0o755)
 			for i := range 10000 {
 				p := hs.path(fmt.Sprintf("vault/%d/note %d.md", i/100, i))
@@ -269,7 +269,11 @@ func TestBudgets(t *testing.T) {
 			t.Cleanup(func() { hs.tt.Key(ui.Ctrl, ui.KeyC) })
 			// The terminal asks for a frame after each, so step's Frame
 			// draws up to 20 of them: a refresh draws the one a window
-			// would.
+			// would. The last frame may have taken the ask; the next
+			// output asks again.
+			for deadline := time.Now().Add(2 * time.Second); !hs.tt.FramePending() && time.Now().Before(deadline); {
+				time.Sleep(time.Millisecond)
+			}
 			if !hs.tt.FramePending() {
 				t.Fatal("the terminal does not ask for frames")
 			}

@@ -140,7 +140,12 @@ func (r *Repo) WorktreeForBranch(branch string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return remote.On(r.Root, worktreeForBranch(out, branch)), nil
+	p := worktreeForBranch(out, branch)
+	if !remote.Is(r.Root) {
+		// Git writes a Windows path with "/": spell it as the editor does.
+		p = filepath.FromSlash(p)
+	}
+	return remote.On(r.Root, p), nil
 }
 
 // worktreeFolder is the folder of a worktree made of name beside the main

@@ -402,6 +402,8 @@ func TestThreadNotes(t *testing.T) {
 
 func TestIssueHandoff(t *testing.T) {
 	hs := newHarness(t, false)
+	// The shell holds its folder open on Windows until it is closed.
+	t.Cleanup(hs.a.closeTerminals)
 	handOffIssue(hs.root, issueHandoff{prompt: "Work on GitHub issue #3", of: "#3"})
 	hs.settle()
 	var s *session

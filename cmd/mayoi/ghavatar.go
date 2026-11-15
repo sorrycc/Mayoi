@@ -18,6 +18,10 @@ const ghAvatarPx = 64
 // ghAvatarsAtOnce is how many pictures are fetched at once; the rest wait.
 const ghAvatarsAtOnce = 4
 
+// ghAvatarsKept is how many pictures are kept, about 16 KB each: past it,
+// the one asked for least lately goes, to be fetched again if asked for.
+const ghAvatarsKept = 256
+
 // ghAvatarRetry is how long a picture that could not be fetched waits
 // before it is asked for again.
 const ghAvatarRetry = 5 * time.Minute
@@ -29,6 +33,8 @@ type avatarRead struct {
 	at      time.Time
 	loading bool
 	failed  time.Time
+	// used is when it was last asked for, by ghAvatars' tick.
+	used uint64
 	// waiting are the windows that drew it before it came, which draw
 	// again as it does.
 	waiting []*app
@@ -41,6 +47,7 @@ var ghAvatars = struct {
 	m       map[string]*avatarRead
 	running int
 	queue   []string
+	tick    uint64
 }{m: map[string]*avatarRead{}}
 
 // fetchGitHubAvatar fetches the picture at url, shrunk, nil if it cannot,
@@ -57,15 +64,18 @@ func (a *app) ghAvatarBitmap(url string) (*ui.Bitmap, time.Time) {
 	av.Lock()
 	defer av.Unlock()
 	rd := av.m[url]
+	av.tick++
 	switch {
 	case rd == nil:
 		rd = &avatarRead{}
 		av.m[url] = rd
 	case rd.bm != nil:
+		rd.used = av.tick
 		return rd.bm, rd.at
 	case !rd.failed.IsZero() && time.Since(rd.failed) < ghAvatarRetry:
 		return nil, time.Time{}
 	}
+	rd.used = av.tick
 	if !slices.Contains(rd.waiting, a) {
 		rd.waiting = append(rd.waiting, a)
 	}
@@ -73,8 +83,28 @@ func (a *app) ghAvatarBitmap(url string) (*ui.Bitmap, time.Time) {
 		rd.loading, rd.failed = true, time.Time{}
 		av.queue = append(av.queue, url)
 		startGitHubAvatars()
+		// Past the kept, others go: not this one, on its way.
+		forgetGitHubAvatars()
 	}
 	return nil, time.Time{}
+}
+
+// forgetGitHubAvatars lets the pictures asked for least lately go, but
+// those on their way, until ghAvatarsKept are kept. ghAvatars is locked.
+func forgetGitHubAvatars() {
+	av := &ghAvatars
+	for len(av.m) > ghAvatarsKept {
+		oldest, at := "", uint64(0)
+		for url, rd := range av.m {
+			if !rd.loading && (oldest == "" || rd.used < at) {
+				oldest, at = url, rd.used
+			}
+		}
+		if oldest == "" {
+			return
+		}
+		delete(av.m, oldest)
+	}
 }
 
 // startGitHubAvatars starts fetching the pictures waiting, as many as may

@@ -18092,6 +18092,36 @@ func (msgs Messages) GhReviewPending() string {
 	return Catalog.Format(msgs.locale, "ghReviewPending", nil)
 }
 
+// GhReReview says "Re-review"
+// in the language the app shows.
+func GhReReview() string { return In(i18n.Locale()).GhReReview() }
+
+// GhReReview says "Re-review"
+// in the language of msgs.
+func (msgs Messages) GhReReview() string {
+	return Catalog.Format(msgs.locale, "ghReReview", nil)
+}
+
+// GhReReviewTip says "Your review was asked for again"
+// in the language the app shows.
+func GhReReviewTip() string { return In(i18n.Locale()).GhReReviewTip() }
+
+// GhReReviewTip says "Your review was asked for again"
+// in the language of msgs.
+func (msgs Messages) GhReReviewTip() string {
+	return Catalog.Format(msgs.locale, "ghReReviewTip", nil)
+}
+
+// GhReviewersLabel says "Reviewers: {names}"
+// in the language the app shows.
+func GhReviewersLabel(names string) string { return In(i18n.Locale()).GhReviewersLabel(names) }
+
+// GhReviewersLabel says "Reviewers: {names}"
+// in the language of msgs.
+func (msgs Messages) GhReviewersLabel(names string) string {
+	return Catalog.Format(msgs.locale, "ghReviewersLabel", map[string]any{"names": names})
+}
+
 // GhNotPlanned says "Not Planned"
 // in the language the app shows.
 func GhNotPlanned() string { return In(i18n.Locale()).GhNotPlanned() }

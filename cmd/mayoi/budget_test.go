@@ -329,7 +329,8 @@ func bigNote(hs *harness) *editor {
 }
 
 // manyGitHub shows the GitHub view of a repository with prs pull
-// requests and issues issues open, each labeled, by people with pictures.
+// requests and issues issues open, each labeled, by people with pictures,
+// each pull request with three reviewers.
 func manyGitHub(t *testing.T, hs *harness, prs, issues int) {
 	o := &git.GHOverview{Viewer: "me", Repo: "o/r", URL: "https://github.com/o/r", IssuesOn: true, DefaultBranch: "main",
 		OpenPRs: prs, OpenIssues: issues,
@@ -338,7 +339,9 @@ func manyGitHub(t *testing.T, hs *harness, prs, issues int) {
 	for i := range prs {
 		o.PRs = append(o.PRs, git.GHItem{Number: 1000 + i, Title: fmt.Sprintf("Pull request %d, which makes the tree faster", i),
 			Author: []string{"ann", "me", "bob"}[i%3], PR: true, ReviewAsked: i%7 == 0, Checks: git.Checks(i % 4),
-			Updated: now.Add(-time.Duration(i) * time.Hour), Comments: i % 5, Labels: []git.GHLabel{{Name: "perf", Color: "fbca04"}}})
+			Updated: now.Add(-time.Duration(i) * time.Hour), Comments: i % 5, Labels: []git.GHLabel{{Name: "perf", Color: "fbca04"}},
+			Reviewers: []git.GHReviewer{{Login: "bob", State: "APPROVED"}, {Login: "cat", State: "COMMENTED"},
+				{Login: "ann", State: "REQUESTED"}, {Login: "me", State: "REQUESTED", Again: i%7 == 0}}})
 	}
 	for i := range issues {
 		o.Issues = append(o.Issues, git.GHItem{Number: i + 1, Title: fmt.Sprintf("Issue %d, of the explorer", i), Author: "cat",

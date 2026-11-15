@@ -56,8 +56,16 @@ type GHItem struct {
 // GHReviewer is a person who reviewed a pull request, or whose review is
 // asked for, and how: APPROVED, CHANGES_REQUESTED or COMMENTED, by their
 // latest review, or REQUESTED while it is asked for again or not given.
+// Again is set for a review asked for again after one was given.
 type GHReviewer struct {
 	Login, State string
+	Again        bool
+}
+
+// AskedAgain reports whether the review of login is asked for again,
+// after they gave one.
+func (it GHItem) AskedAgain(login string) bool {
+	return login != "" && slices.ContainsFunc(it.Reviewers, func(r GHReviewer) bool { return r.Again && strings.EqualFold(r.Login, login) })
 }
 
 // AssignedTo reports whether login is among the item's assignees.
@@ -366,7 +374,7 @@ func (v ghListed) item(pr bool, avatars map[string]string) GHItem {
 			continue // a team's, whose name the query does not read
 		}
 		if i, ok := at[who]; ok {
-			it.Reviewers[i].State = "REQUESTED"
+			it.Reviewers[i].State, it.Reviewers[i].Again = "REQUESTED", true
 			continue
 		}
 		at[who] = len(it.Reviewers)
@@ -511,6 +519,9 @@ type GHIssue struct {
 	Milestone   string
 	CanUpdate   bool
 	Comments    []GHComment
+	// Avatars are the links of the pictures of its author, assignees and
+	// those who commented, by login.
+	Avatars map[string]string
 	// AllComments counts them, which may be more than those read.
 	AllComments int
 	Linked      []GHLinked
@@ -520,13 +531,13 @@ type GHIssue struct {
 
 const issueQuery = `query($owner:String!,$name:String!,$n:Int!){repository(owner:$owner,name:$name){issueOrPullRequest(number:$n){
  __typename
- ... on Issue{id number title url state stateReason body createdAt viewerCanUpdate author{login}
-  labels(first:20){nodes{name color}} assignees(first:10){nodes{login}} milestone{title}
-  comments(first:100){totalCount nodes{author{login} body createdAt url}}
+ ... on Issue{id number title url state stateReason body createdAt viewerCanUpdate author{login avatarUrl(size:64)}
+  labels(first:20){nodes{name color}} assignees(first:10){nodes{login avatarUrl(size:64)}} milestone{title}
+  comments(first:100){totalCount nodes{author{login avatarUrl(size:64)} body createdAt url}}
   closedByPullRequestsReferences(first:5){nodes{number title url state}}}
- ... on PullRequest{id number title url state body createdAt viewerCanUpdate author{login} headRefName baseRefName
-  labels(first:20){nodes{name color}} assignees(first:10){nodes{login}} milestone{title}
-  comments(first:100){totalCount nodes{author{login} body createdAt url}}}
+ ... on PullRequest{id number title url state body createdAt viewerCanUpdate author{login avatarUrl(size:64)} headRefName baseRefName
+  labels(first:20){nodes{name color}} assignees(first:10){nodes{login avatarUrl(size:64)}} milestone{title}
+  comments(first:100){totalCount nodes{author{login avatarUrl(size:64)} body createdAt url}}}
 }}}`
 
 // Issue reads issue number n, or the conversation of pull request n,
@@ -584,22 +595,26 @@ func parseIssue(b []byte) (*GHIssue, error) {
 	x := v.Data.Repository.IssueOrPullRequest
 	is := &GHIssue{ID: x.ID, Number: x.Number, PR: x.Typename == "PullRequest", Title: x.Title, URL: x.URL, State: x.State,
 		StateReason: x.StateReason, Body: x.Body, Created: x.CreatedAt, Labels: x.Labels.Nodes, CanUpdate: x.ViewerCanUpdate,
-		AllComments: x.Comments.TotalCount, Linked: x.ClosedBy.Nodes, HeadRef: x.HeadRefName, BaseRef: x.BaseRefName}
-	if x.Author != nil {
-		is.Author = x.Author.Login
+		AllComments: x.Comments.TotalCount, Linked: x.ClosedBy.Nodes, HeadRef: x.HeadRefName, BaseRef: x.BaseRefName,
+		Avatars: map[string]string{}}
+	person := func(a *ghAuthor) string {
+		if a == nil {
+			return ""
+		}
+		if a.Login != "" && a.AvatarURL != "" {
+			is.Avatars[a.Login] = a.AvatarURL
+		}
+		return a.Login
 	}
+	is.Author = person(x.Author)
 	for _, a := range x.Assignees.Nodes {
-		is.Assignees = append(is.Assignees, a.Login)
+		is.Assignees = append(is.Assignees, person(&a))
 	}
 	if x.Milestone != nil {
 		is.Milestone = x.Milestone.Title
 	}
 	for _, c := range x.Comments.Nodes {
-		gc := GHComment{Body: c.Body, Created: c.CreatedAt, URL: c.URL}
-		if c.Author != nil {
-			gc.Author = c.Author.Login
-		}
-		is.Comments = append(is.Comments, gc)
+		is.Comments = append(is.Comments, GHComment{Author: person(c.Author), Body: c.Body, Created: c.CreatedAt, URL: c.URL})
 	}
 	return is, nil
 }

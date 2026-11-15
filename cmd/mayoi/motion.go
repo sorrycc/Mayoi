@@ -38,6 +38,14 @@ const (
 	motionEnter = 240 * time.Millisecond
 )
 
+// motionSpin is how long a ring that turns while something runs takes to
+// turn once, as the checks of a pull request that run; spinRate is how
+// many times a second it is painted, which looks as smooth at its size.
+const (
+	motionSpin = 1200 * time.Millisecond
+	spinRate   = 30
+)
+
 // readingShows is how long a file is read before its tab says so: one
 // read sooner, as most are, shows no spinner that flickers.
 const readingShows = 300 * time.Millisecond

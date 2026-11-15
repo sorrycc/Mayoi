@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"fmt"
+	"math"
 	"slices"
 	"strconv"
 	"strings"
@@ -289,6 +290,14 @@ type ghRow struct {
 	number  string // an item's, as #12
 	by      string // an item's author, but the viewer's own
 	avatar  string // the link of by's picture
+	// again is set for a pull request whose review of the viewer is asked
+	// for again; reviewers are the pictures of its reviewers but the
+	// viewer, the first ghRowReviewers, moreReviewers how many more, and
+	// reviewedBy their names.
+	again         bool
+	reviewers     []ghFace
+	moreReviewers int
+	reviewedBy    string
 	// checks is set for a pull request's row to keep the room of the icon
 	// of its checks, when any pull request listed has checks: one whose
 	// checks come then moves nothing.
@@ -296,6 +305,9 @@ type ghRow struct {
 	note   string
 	link   string // a note's, which a click opens
 }
+
+// ghFace is a person of a row: their login and the link of their picture.
+type ghFace struct{ login, avatar string }
 
 // ghSection is a section of the GitHub view, and the items in it.
 type ghSection struct {
@@ -427,6 +439,22 @@ func (a *app) githubRows(ctx *gitContext, o *git.GHOverview, now time.Time) []gh
 			r := ghRow{key: s.id + ":" + n, section: s.id, item: it, number: "#" + n, checks: it.PR && anyChecks}
 			if it.Author != "" && it.Author != o.Viewer {
 				r.by, r.avatar = it.Author, o.Avatars[it.Author]
+			}
+			if it.PR {
+				r.again = it.AskedAgain(o.Viewer)
+				var names []string
+				for _, rv := range it.Reviewers {
+					if rv.Login == o.Viewer {
+						continue
+					}
+					names = append(names, rv.Login)
+					if len(r.reviewers) == ghRowReviewers {
+						r.moreReviewers++
+						continue
+					}
+					r.reviewers = append(r.reviewers, ghFace{rv.Login, o.Avatars[rv.Login]})
+				}
+				r.reviewedBy = strings.Join(names, ", ")
 			}
 			rows = append(rows, r)
 		}
@@ -849,6 +877,13 @@ const (
 	ghCardAvatar  = 16
 )
 
+// ghRowReviewers is how many pictures of reviewers a row shows, at most,
+// and ghFaceOverlap how far each goes over the edge of the one before.
+const (
+	ghRowReviewers = 3
+	ghFaceOverlap  = 5
+)
+
 // githubItem is the row of an issue or a pull request: its state's icon,
 // its title, and under it its number, author by their picture and age,
 // its labels, and its comments; a pull request's checks and review at the
@@ -886,6 +921,12 @@ func (a *app) githubItem(c *ui.Context, ctx *gitContext, o *git.GHOverview, r gh
 		if chosen {
 			bg = a.choiceMark(c, choice, ghItemH).Over(p.chrome)
 		}
+		// What the row shows over, as its hover fades: for the rings of
+		// its reviewers' pictures.
+		under := p.chrome
+		if chosen || hovered {
+			under = bg
+		}
 		ui.Row(c).Gap(6).AlignItems(ui.Center).Children(func() {
 			ui.Icon(c, icon).FontSize(13).TextColor(col).Shrink(0)
 			ui.Text(c, it.Title).FontSize(13).TextColor(p.text).SingleLine().Grow(1).Shrink(1).MinWidth(0)
@@ -893,7 +934,8 @@ func (a *app) githubItem(c *ui.Context, ctx *gitContext, o *git.GHOverview, r gh
 				a.ghChecks(c, it, r.checks, now)
 			}
 		})
-		ui.Row(c).AlignItems(ui.Center).Padding(0, 0, 0, ghTitleIndent-6).Children(func() {
+		// As tall as the rings of the reviewers' pictures, with them or not.
+		ui.Row(c).Height(ghRowAvatar+2).AlignItems(ui.Center).Padding(0, 0, 0, ghTitleIndent-6).Children(func() {
 			// The labels give their room up first, then the author, who
 			// shortens; the number and the age stay. The viewer's own
 			// items name no author.
@@ -906,7 +948,13 @@ func (a *app) githubItem(c *ui.Context, ctx *gitContext, o *git.GHOverview, r gh
 				ui.Text(c, " · "+shortAgo(it.Updated, now)).FontSize(11.5).TextColor(p.faint).SingleLine().Shrink(0).
 					FontFeatures("tnum")
 			}
-			if review, col := a.ghReview(it); review != "" {
+			switch review, col := a.ghReview(it); {
+			case r.again:
+				// Quiet, as the other words, but in the accent: it is the
+				// viewer's turn.
+				ui.Text(c, locales.GhReReview()).FontSize(11).FontWeight(500).TextColor(p.accent).SingleLine().Shrink(0).
+					Margin(0, 0, 0, 6).Tooltip(locales.GhReReviewTip())
+			case review != "":
 				ui.Text(c, review).FontSize(11).FontWeight(500).TextColor(col).SingleLine().Shrink(0).Margin(0, 0, 0, 6)
 			}
 			// A label that does not fit goes whole, to a line that does
@@ -924,6 +972,9 @@ func (a *app) githubItem(c *ui.Context, ctx *gitContext, o *git.GHOverview, r gh
 				})
 			}
 			ui.Spacer(c)
+			if len(r.reviewers) > 0 {
+				a.ghReviewerStack(c, r, under, now)
+			}
 			if it.Comments > 0 {
 				ui.Row(c).Gap(3).AlignItems(ui.Center).Shrink(0).Margin(0, 0, 0, 6).Children(func() {
 					ui.Icon(c, iconComment).FontSize(10).TextColor(p.faint)
@@ -948,19 +999,42 @@ func (a *app) githubItem(c *ui.Context, ctx *gitContext, o *git.GHOverview, r gh
 	}
 }
 
-// ghChecks is the icon of a pull request's checks, at the end of its
-// title. As a refresh changes them, the icon of how they are fades in over
-// the one of how they were, which fades out sooner, and grows from a
-// little smaller; with less motion, it only fades.
-func (a *app) ghChecks(c *ui.Context, it *git.GHItem, room bool, now time.Time) {
+// ghReviewerStack is the pictures of the reviewers of a pull request's
+// row, at its end, each over the edge of the one before, ringed in under,
+// what the row shows over, so that they read apart; then how many more.
+func (a *app) ghReviewerStack(c *ui.Context, r ghRow, under ui.Color, now time.Time) {
 	p := a.pal
-	ic, col := prChecksIcon(p, it.Checks)
+	const ring = ghRowAvatar + 2
+	ui.Row(c.Key("reviewers")).AlignItems(ui.Center).Shrink(0).Margin(0, 0, 0, 6).Label(locales.GhReviewersLabel(r.reviewedBy)).
+		Children(func() {
+			for k, f := range r.reviewers {
+				b := ui.Box(c.Key(f.login)).Size(ring, ring).Shrink(0).Radius(ring / 2).Background(under).Transition(hoverFade).
+					Justify(ui.Center).AlignItems(ui.Center)
+				if k > 0 {
+					b.Margin(0, 0, 0, -ghFaceOverlap)
+				}
+				b.Children(func() { a.ghAvatar(c, f.login, f.avatar, ghRowAvatar, now) })
+			}
+			if r.moreReviewers > 0 {
+				ui.Text(c, "+"+strconv.Itoa(r.moreReviewers)).FontSize(10.5).TextColor(p.faint).FontFeatures("tnum").
+					SingleLine().Margin(0, 0, 0, 2)
+			}
+		})
+}
+
+// ghChecks is the icon of a pull request's checks, at the end of its
+// title: while they run, a ring that turns. As a refresh changes them, the
+// icon of how they are fades in over the one of how they were, which fades
+// out sooner, and grows from a little smaller; with less motion, it only
+// fades.
+func (a *app) ghChecks(c *ui.Context, it *git.GHItem, room bool, now time.Time) {
+	reduce := c.Preferences().ReduceMotion
 	w, changed := a.github.checks[it.Number]
 	since := now.Sub(w.at)
 	if !changed || since >= motionShow || since < 0 {
 		switch {
-		case ic != nil:
-			ui.Icon(c, ic).FontSize(11).TextColor(col).Shrink(0).Width(11)
+		case it.Checks != git.ChecksNone:
+			a.ghChecksMark(c, "is", it.Checks, reduce)
 		case room:
 			ui.Box(c).Size(11, 11).Shrink(0)
 		}
@@ -969,17 +1043,48 @@ func (a *app) ghChecks(c *ui.Context, it *git.GHItem, room bool, now time.Time) 
 	c.AnimationFrame()
 	k := ui.EaseOut(float32(since) / float32(motionShow))
 	gone := ui.EaseOut(min(float32(since)/float32(motionLeave), 1))
-	reduce := c.Preferences().ReduceMotion
 	ui.Box(c.Key("checks")).Size(11, 11).Shrink(0).Children(func() {
-		if was, wc := prChecksIcon(p, w.from); was != nil {
-			ui.Icon(c.Key("was"), was).FontSize(11).TextColor(wc).Absolute().Left(0).Top(0).Opacity(1 - gone)
+		if w.from != git.ChecksNone {
+			a.ghChecksMark(c, "was", w.from, reduce).Absolute().Left(0).Top(0).Opacity(1 - gone)
 		}
-		if ic != nil {
-			e := ui.Icon(c.Key("is"), ic).FontSize(11).TextColor(col).Absolute().Left(0).Top(0).Opacity(k)
+		if it.Checks != git.ChecksNone {
+			e := a.ghChecksMark(c, "is", it.Checks, reduce).Absolute().Left(0).Top(0).Opacity(k)
 			if !reduce {
 				e.Scale(0.6+0.4*k, 0.6+0.4*k)
 			}
 		}
+	})
+}
+
+// ghChecksMark is the icon of checks that went as state, 11 across: for
+// checks that run, a faint ring with an arc of it that turns, once each
+// motionSpin. It is painted again without the view being built, and only
+// while it shows, so that a list with none running asks for no frame;
+// with less motion, it is the clock, still.
+func (a *app) ghChecksMark(c *ui.Context, key string, state git.Checks, reduce bool) ui.Element {
+	ic, col := prChecksIcon(a.pal, state)
+	if state != git.ChecksPending || reduce {
+		return ui.Icon(c.Key(key), ic).FontSize(11).TextColor(col).Shrink(0).Width(11)
+	}
+	return ui.Box(c.Key(key)).Size(11, 11).Shrink(0).Draw(func(pt *ui.Painter, b ui.Rect) {
+		pt.AnimationFrameRate(spinRate)
+		const width, arc, steps = 1.5, 0.3, 12
+		cx, cy, r := b.X+b.W/2, b.Y+b.H/2, b.W/2-width/2-0.5
+		var track ui.Path
+		track.Circle(cx, cy, r)
+		pt.StrokePath(&track, width, col.Alpha(0.25))
+		turn := float64(pt.Now().UnixNano()%int64(motionSpin)) / float64(motionSpin)
+		var path ui.Path
+		for i := range steps + 1 {
+			t := 2*math.Pi*(turn+arc*float64(i)/steps) - math.Pi/2
+			x, y := cx+r*float32(math.Cos(t)), cy+r*float32(math.Sin(t))
+			if i == 0 {
+				path.MoveTo(x, y)
+			} else {
+				path.LineTo(x, y)
+			}
+		}
+		pt.StrokePath(&path, width, col)
 	})
 }
 
@@ -1190,7 +1295,7 @@ func (a *app) githubCardBox(c *ui.Context, o *git.GHOverview, tip, row ui.Elemen
 						a.ghAvatar(c, rv.Login, o.Avatars[rv.Login], ghCardAvatar, now)
 						text(rv.Login, p.text)
 						ui.Spacer(c)
-						ic, word, col := a.ghReviewerState(rv.State)
+						ic, word, col := a.ghReviewerState(rv)
 						ui.Icon(c, ic).FontSize(11).TextColor(col).Shrink(0)
 						ui.Text(c, word).FontSize(11.5).TextColor(col).SingleLine().Shrink(0).Margin(0, 0, 0, -3)
 					})
@@ -1207,10 +1312,13 @@ func (a *app) githubCardBox(c *ui.Context, o *git.GHOverview, tip, row ui.Elemen
 }
 
 // ghReviewerState is the icon, word and color of how a reviewer's latest
-// review went, as GHReviewer's State says.
-func (a *app) ghReviewerState(state string) (*ui.SVG, string, ui.Color) {
+// review went, as GHReviewer's State says, or that it is asked again.
+func (a *app) ghReviewerState(rv git.GHReviewer) (*ui.SVG, string, ui.Color) {
 	p := a.pal
-	switch state {
+	if rv.Again {
+		return iconRefresh, locales.GhReReview(), p.accent
+	}
+	switch rv.State {
 	case "APPROVED":
 		return iconCheck, locales.PrApproved(), p.addedFg
 	case "CHANGES_REQUESTED":
@@ -1227,9 +1335,10 @@ func (a *app) ghReviewerState(state string) (*ui.SVG, string, ui.Color) {
 func (a *app) ghCheckCounts(c *ui.Context, it *git.GHItem) {
 	p := a.pal
 	st := it.CheckCounts
+	reduce := c.Preferences().ReduceMotion
 	if st.Passed+st.Failed+st.Pending == 0 {
-		if ic, col := prChecksIcon(p, it.Checks); ic != nil {
-			ui.Icon(c, ic).FontSize(11).TextColor(col)
+		if it.Checks != git.ChecksNone {
+			a.ghChecksMark(c, "checks", it.Checks, reduce)
 		}
 		return
 	}
@@ -1241,9 +1350,8 @@ func (a *app) ghCheckCounts(c *ui.Context, it *git.GHItem) {
 			if n.count == 0 {
 				continue
 			}
-			ic, col := prChecksIcon(p, n.state)
 			ui.Row(c).Gap(3).AlignItems(ui.Center).Children(func() {
-				ui.Icon(c, ic).FontSize(11).TextColor(col)
+				a.ghChecksMark(c, "mark", n.state, reduce)
 				ui.Text(c, strconv.Itoa(n.count)).FontSize(11.5).TextColor(p.text).FontFeatures("tnum")
 			})
 		}

@@ -8,7 +8,8 @@ The order: it works, then it is easy, then it looks good. Polish never covers a 
 ## Motion
 
 - Every animation takes its length from a token in `cmd/mayoi/motion.go`: `motionTap` (100 ms), `motionLeave`
-  (110), `motionHover` (120), `motionShow` (150), `motionMove` (200) and `motionEnter` (240). `TestMotionUsesTokens` fails on a length
+  (110), `motionHover` (120), `motionShow` (150), `motionMove` (200) and `motionEnter` (240); a ring that turns while something runs, once each `motionSpin`
+  (1200). `TestMotionUsesTokens` fails on a length
   written out anywhere else.
 - What a person does a hundred times a day does not move. A dialog opened by a key (the command palette, Quick Open,
   a picker) shows at once (`keyedOpen`); opened with the pointer, it fades in over `motionShow`. The chosen row of a

@@ -37,6 +37,11 @@ needs a `## <version>` section here, or its build fails.
 - A pull request's card lists each reviewer: approved, changes requested, commented or pending.
 - A pull request's title in the GitHub view no longer shifts when its checks first appear.
 - Arrow keys in the GitHub view skip notes such as "No issues" that have nothing to open.
+- Pull request rows in the GitHub view show up to three reviewers' pictures, with a count of the rest.
+- A pull request that asks for your review again says **Re-review** in its GitHub view row and card.
+- While checks run, a pull request's row and card show a turning ring, held still by Reduce Motion.
+- Issue and pull request tabs show pictures of the author, assignees and everyone who commented.
+- Labels in an issue's tab use the same chips as the GitHub view, and a failed read offers **Try Again** on a card.
 
 ## 0.21.2
 

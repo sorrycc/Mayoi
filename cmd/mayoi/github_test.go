@@ -27,9 +27,11 @@ func ghOverviewFixture() *git.GHOverview {
 		Viewer: "me", Repo: "o/r", URL: "https://github.com/o/r", Permission: "WRITE", IssuesOn: true, DefaultBranch: "main",
 		PRs: []git.GHItem{
 			{Number: 7, Title: "Speed up the tree", Author: "ann", PR: true, ReviewAsked: true, Checks: git.ChecksPass, Updated: now, URL: "https://github.com/o/r/pull/7",
-				Reviewers: []git.GHReviewer{{Login: "bob", State: "APPROVED"}, {Login: "cat", State: "COMMENTED"}, {Login: "me", State: "REQUESTED"}}},
+				Reviewers: []git.GHReviewer{{Login: "bob", State: "APPROVED"}, {Login: "cat", State: "COMMENTED"}, {Login: "me", State: "REQUESTED", Again: true}}},
 			{Number: 8, Title: "Mine to finish", Author: "me", PR: true, Draft: true, Checks: git.ChecksPending, Updated: now},
-			{Number: 9, Title: "Someone else's", Author: "bob", PR: true, Updated: now, Labels: []git.GHLabel{{Name: "docs", Color: "0075ca"}}},
+			{Number: 9, Title: "Someone else's", Author: "bob", PR: true, Updated: now, Labels: []git.GHLabel{{Name: "docs", Color: "0075ca"}},
+				Reviewers: []git.GHReviewer{{Login: "ann", State: "APPROVED"}, {Login: "cat", State: "CHANGES_REQUESTED"},
+					{Login: "dan", State: "REQUESTED"}, {Login: "eve", State: "COMMENTED"}}},
 		},
 		Issues: []git.GHItem{
 			{Number: 3, Title: "Crash on open", Author: "bob", Assignees: []string{"me"}, Comments: 4, Updated: now, URL: "https://github.com/o/r/issues/3"},
@@ -93,7 +95,9 @@ func fakeGitHub(t testing.TB, overview *git.GHOverview, err error) {
 	fetchIssue = func(_ *git.Repo, n int) (*git.GHIssue, error) {
 		return &git.GHIssue{Number: n, Title: "Crash on open", URL: "https://github.com/o/r/issues/3", State: "OPEN", Author: "bob",
 			Body: "It **crashes** as the folder opens.", CanUpdate: true, Created: time.Now().Add(-26 * time.Hour),
-			Comments: []git.GHComment{{Author: "ann", Body: "Seen it too."}}, AllComments: 1}, nil
+			Labels: []git.GHLabel{{Name: "bug", Color: "d73a4a"}}, Assignees: []string{"me"},
+			Comments: []git.GHComment{{Author: "ann", Body: "Seen it too."}}, AllComments: 1,
+			Avatars: map[string]string{"bob": "https://avatars.test/bob", "ann": "https://avatars.test/ann", "me": "https://avatars.test/me"}}, nil
 	}
 }
 
@@ -811,7 +815,7 @@ func TestGitHubCardReviewers(t *testing.T) {
 	hs.settle()
 	hs.a.showGitHubCard("review:7")
 	hs.settle()
-	for _, s := range []string{locales.GhCardReviewers(), "bob", locales.PrApproved(), "cat", locales.GhReviewCommented(), locales.GhReviewPending()} {
+	for _, s := range []string{locales.GhCardReviewers(), "bob", locales.PrApproved(), "cat", locales.GhReviewCommented(), locales.GhReReview()} {
 		if _, ok := hs.tt.Find(s); !ok {
 			t.Errorf("the card does not say %q", s)
 		}
@@ -873,5 +877,98 @@ func TestGitHubChecksKeepRoom(t *testing.T) {
 	}
 	if after, _ := hs.tt.Find("Someone else's"); after != before {
 		t.Errorf("the title moved as its checks came: %+v, then %+v", before, after)
+	}
+}
+
+// TestGitHubRowReviewers: a pull request's row shows the pictures of its
+// reviewers but the viewer, three at most and how many more, and says when
+// the viewer's review is asked again; neither moves its title.
+func TestGitHubRowReviewers(t *testing.T) {
+	hs := githubHarness(t, ghOverviewFixture(), nil)
+	hs.a.showGitHub()
+	hs.settle()
+	gp := &hs.a.github
+	var seven, nine ghRow
+	for _, r := range gp.rows {
+		switch r.key {
+		case "review:7":
+			seven = r
+		case "prs:9":
+			nine = r
+		}
+	}
+	if !seven.again || len(seven.reviewers) != 2 || seven.reviewedBy != "bob, cat" {
+		t.Errorf("#7's reviewers = %+v, again %v; want bob and cat, asked again", seven.reviewers, seven.again)
+	}
+	if nine.again || len(nine.reviewers) != ghRowReviewers || nine.moreReviewers != 1 {
+		t.Errorf("#9's reviewers = %+v and %d more; want 3 and 1", nine.reviewers, nine.moreReviewers)
+	}
+	for _, s := range []string{locales.GhReReview(), locales.GhReviewersLabel("ann, cat, dan, eve"), "+1"} {
+		if _, ok := hs.tt.Find(s); !ok {
+			t.Errorf("the list does not show %q", s)
+		}
+	}
+	title, _ := hs.tt.Find("Speed up the tree")
+	plain := ghOverviewFixture()
+	plain.PRs[0].Reviewers = nil
+	hs2 := githubHarness(t, plain, nil)
+	hs2.a.showGitHub()
+	hs2.settle()
+	if was, _ := hs2.tt.Find("Speed up the tree"); was != title {
+		t.Errorf("the title moved with the reviewers: %+v, without %+v", title, was)
+	}
+}
+
+// TestGitHubPendingChecksTurn: the ring of checks that run asks for
+// frames while it shows; with none running, or with less motion, the
+// view asks for none.
+func TestGitHubPendingChecksTurn(t *testing.T) {
+	for _, c := range []struct {
+		name    string
+		pending bool
+		reduce  bool
+		turns   bool
+	}{{"running", true, false, true}, {"less motion", true, true, false}, {"none running", false, false, false}} {
+		t.Run(c.name, func(t *testing.T) {
+			o := ghOverviewFixture()
+			if !c.pending {
+				o.PRs[1].Checks = git.ChecksPass
+			}
+			hs := githubHarness(t, o, nil)
+			hs.tt.SetPreferences(ui.Preferences{ReduceMotion: c.reduce})
+			hs.a.showGitHub()
+			hs.settle()
+			hs.tt.Move(1, 1) // no row's hover or card
+			hs.settle()
+			if turns := !quiet(hs); turns != c.turns {
+				t.Errorf("asks for frames: %v, want %v", turns, c.turns)
+			}
+		})
+	}
+}
+
+// TestGitHubAvatarsKept: past ghAvatarsKept pictures, the one asked for
+// least lately goes, not one on its way.
+func TestGitHubAvatarsKept(t *testing.T) {
+	hs := githubHarness(t, ghOverviewFixture(), nil)
+	release := make(chan struct{})
+	fetchGitHubAvatar = func(url string) *ui.Bitmap { <-release; return fakeAvatar(url) }
+	ghAvatars.Lock()
+	for i := range ghAvatarsKept {
+		ghAvatars.m[fmt.Sprintf("https://avatars.test/%d", i)] = &avatarRead{bm: fakeAvatar("x"), used: uint64(i + 1)}
+	}
+	ghAvatars.m["https://avatars.test/0"].loading = true
+	ghAvatars.tick = ghAvatarsKept
+	ghAvatars.Unlock()
+	hs.a.ghAvatarBitmap("https://avatars.test/new")
+	ghAvatars.Lock()
+	n := len(ghAvatars.m)
+	_, first := ghAvatars.m["https://avatars.test/0"]
+	_, second := ghAvatars.m["https://avatars.test/1"]
+	_, fresh := ghAvatars.m["https://avatars.test/new"]
+	ghAvatars.Unlock()
+	close(release)
+	if n != ghAvatarsKept || !first || second || !fresh {
+		t.Errorf("kept %d (on its way kept %v, least lately kept %v, new kept %v)", n, first, second, fresh)
 	}
 }

@@ -102,6 +102,14 @@ var galleryStates = []struct {
 		hs.settle()
 		hs.a.openIssue(hs.a.repository(), 3, true)
 	}},
+	{"issue-failed", func(hs *harness) {
+		galleryGitHub(hs, ghOverviewFixture(), nil)
+		hs.settle()
+		fetchIssue = func(*git.Repo, int) (*git.GHIssue, error) {
+			return nil, fmt.Errorf("%w: HTTP 502: Bad Gateway", git.ErrNoGH)
+		}
+		hs.a.openIssue(hs.a.repository(), 3, true)
+	}},
 	{"issue-new", func(hs *harness) {
 		galleryGitHub(hs, ghOverviewFixture(), nil)
 		hs.settle()

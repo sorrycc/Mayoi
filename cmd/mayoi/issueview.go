@@ -276,24 +276,22 @@ func (a *app) issueSkeleton(c *ui.Context) {
 	ui.Column(c.Key("issue-skeleton")).Gap(12).Children(func() {
 		ui.Box(c).Size(70, 18).Radius(9).Background(bar)
 		ui.Box(c).WidthPercent(70).Height(16).Radius(5).Background(bar)
-		ui.Box(c).WidthPercent(40).Height(8).Radius(4).Background(bar)
+		ui.Row(c).Gap(6).AlignItems(ui.Center).Children(func() {
+			ui.Box(c).Size(issueMetaAvatar, issueMetaAvatar).Radius(issueMetaAvatar / 2).Background(bar)
+			ui.Box(c).WidthPercent(40).Height(8).Radius(4).Background(bar)
+		})
 		ui.Box(c).FillWidth().Height(120).Radius(8).Background(bar).Margin(8, 0, 0, 0)
 	})
 }
 
-// issueFailed says why an issue could not be read, with what to do.
+// issueFailed says why an issue could not be read, with what to do, on
+// the card of the GitHub view's states.
 func (a *app) issueFailed(c *ui.Context, v *issueView) {
-	p := a.pal
-	ui.Column(c.Key("issue-failed")).Gap(8).AlignItems(ui.Center).Padding(40, 0, 0, 0).Children(func() {
-		ui.Icon(c, iconTriangleAlert).FontSize(24).TextColor(p.muted)
-		ui.Text(c, locales.GhIssueFailed(v.name())).FontSize(14).FontWeight(600).TextColor(p.text)
-		ui.Text(c, v.err).FontSize(12).TextColor(p.muted).TextAlign(ui.Center).Selectable()
-		ui.Row(c).Gap(8).Margin(6, 0, 0, 0).Children(func() {
-			if ui.PrimaryButton(c, locales.GhRetry()).Clicked() {
-				v.err = ""
-				a.readIssue(v)
-			}
-		})
+	a.githubCard(c, "issue-failed", iconTriangleAlert, locales.GhIssueFailed(v.name()), v.err, func() {
+		if ui.PrimaryButton(c, locales.GhRetry()).Clicked() {
+			v.err = ""
+			a.readIssue(v)
+		}
 	})
 }
 
@@ -333,6 +331,8 @@ func (a *app) issueContent(c *ui.Context, ctx *gitContext, v *issueView) {
 		}
 	})
 	ui.Text(c.Key("issue-title"), is.Title).FontSize(20).FontWeight(600).TextColor(p.text).LineHeight(1.3).Selectable()
+	// Who opened it, by their picture, and when; then its labels, on the
+	// chips of the list, who it is assigned to and its milestone.
 	ui.Row(c.Key("issue-meta")).Gap(6).AlignItems(ui.Center).Wrap().Children(func() {
 		var parts []string
 		if !is.Created.IsZero() {
@@ -341,16 +341,27 @@ func (a *app) issueContent(c *ui.Context, ctx *gitContext, v *issueView) {
 		if is.AllComments > 0 {
 			parts = append(parts, locales.GhComments(is.AllComments))
 		}
-		meta := strings.Join(parts, " · ")
-		ui.Text(c, meta).FontSize(12).TextColor(p.muted)
+		ui.Row(c).Gap(6).AlignItems(ui.Center).Children(func() {
+			if is.Author != "" {
+				a.ghAvatar(c, is.Author, is.Avatars[is.Author], issueMetaAvatar, now)
+			}
+			ui.Text(c, strings.Join(parts, " · ")).FontSize(12).TextColor(p.muted)
+		})
 		for _, l := range is.Labels {
-			a.ghLabel(c, l, 11)
+			a.ghLabel(c, l, 10.5)
 		}
 		if len(is.Assignees) > 0 {
-			ui.Text(c, locales.GhAssignees(strings.Join(is.Assignees, ", "))).FontSize(12).TextColor(p.muted)
+			ui.Row(c).Gap(6).AlignItems(ui.Center).Margin(0, 0, 0, 4).Children(func() {
+				ui.Row(c).Gap(2).Children(func() {
+					for _, as := range is.Assignees {
+						a.ghAvatar(c.Key(as), as, is.Avatars[as], issueMetaAvatar, now)
+					}
+				})
+				ui.Text(c, locales.GhAssignees(strings.Join(is.Assignees, ", "))).FontSize(12).TextColor(p.muted)
+			})
 		}
 		if is.Milestone != "" {
-			ui.Text(c, locales.GhMilestone(is.Milestone)).FontSize(12).TextColor(p.muted)
+			ui.Text(c, locales.GhMilestone(is.Milestone)).FontSize(12).TextColor(p.muted).Margin(0, 0, 0, 4)
 		}
 	})
 	a.issueActions(c, ctx, v)
@@ -371,11 +382,11 @@ func (a *app) issueContent(c *ui.Context, ctx *gitContext, v *issueView) {
 		}
 	}
 	if len(v.texts) > 0 {
-		a.issueCard(c, "issue-body", is.Author, is.Created, "", v.texts[0], now)
+		a.issueCard(c, "issue-body", is.Author, is.Avatars[is.Author], is.Created, "", v.texts[0], now)
 	}
 	for i, cm := range is.Comments {
 		if i+1 < len(v.texts) {
-			a.issueCard(c, "comment:"+strconv.Itoa(i), cm.Author, cm.Created, cm.URL, v.texts[i+1], now)
+			a.issueCard(c, "comment:"+strconv.Itoa(i), cm.Author, is.Avatars[cm.Author], cm.Created, cm.URL, v.texts[i+1], now)
 		}
 	}
 	if more := is.AllComments - len(is.Comments); more > 0 {
@@ -430,16 +441,24 @@ func (a *app) issueActions(c *ui.Context, ctx *gitContext, v *issueView) {
 	})
 }
 
-// issueCard is the body or a comment of an issue: who wrote it and when,
-// over its text.
-func (a *app) issueCard(c *ui.Context, key, author string, at time.Time, link string, blocks []markdownBlock, now time.Time) {
+// issueMetaAvatar is how wide a person's picture is by the line of who
+// opened an issue, and issueCardAvatar by the name over a comment.
+const (
+	issueMetaAvatar = 18
+	issueCardAvatar = 20
+)
+
+// issueCard is the body or a comment of an issue: who wrote it, by their
+// picture at avatar, and when, over its text.
+func (a *app) issueCard(c *ui.Context, key, author, avatar string, at time.Time, link string, blocks []markdownBlock, now time.Time) {
 	p := a.pal
 	ui.Column(c.Key(key)).Radius(8).Border(1, p.border).Clip().Children(func() {
-		ui.Row(c).Padding(7, 12).Gap(6).AlignItems(ui.Center).Background(p.chrome).BorderWidth(0, 0, 1, 0).BorderColor(p.border).Children(func() {
+		ui.Row(c).Height(36).Padding(0, 8, 0, 10).Gap(8).AlignItems(ui.Center).Background(p.chrome).BorderWidth(0, 0, 1, 0).BorderColor(p.border).Children(func() {
 			name := author
 			if name == "" {
 				name = locales.GhGhost()
 			}
+			a.ghAvatar(c, name, avatar, issueCardAvatar, now)
 			ui.Text(c, name).FontSize(12.5).FontWeight(600).TextColor(p.text).SingleLine()
 			if !at.IsZero() {
 				ui.Text(c, ago(at, now)).FontSize(12).TextColor(p.muted).SingleLine().Tooltip(dateTime(at.Local()))

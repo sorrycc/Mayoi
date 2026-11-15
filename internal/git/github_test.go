@@ -49,9 +49,12 @@ func TestParseOverview(t *testing.T) {
 		t.Fatalf("pr's base, size and checks = %+v", pr)
 	}
 	// The author's own review is not one; a review asked again is asked.
-	want := []GHReviewer{{"bob", "APPROVED"}, {"cat", "REQUESTED"}, {"dan", "REQUESTED"}}
+	want := []GHReviewer{{"bob", "APPROVED", false}, {"cat", "REQUESTED", true}, {"dan", "REQUESTED", false}}
 	if fmt.Sprint(pr.Reviewers) != fmt.Sprint(want) {
 		t.Fatalf("reviewers = %+v, want %+v", pr.Reviewers, want)
+	}
+	if !pr.AskedAgain("cat") || pr.AskedAgain("dan") || pr.AskedAgain("bob") {
+		t.Fatal("only cat, who reviewed before, is asked again")
 	}
 	if o.Avatars["ann"] != "https://a/ann" || o.Avatars["bob"] != "https://a/bob" || o.Avatars["dan"] != "https://a/dan" || len(o.Avatars) != 3 {
 		t.Fatalf("avatars = %v", o.Avatars)
@@ -76,16 +79,20 @@ func TestParseOverview(t *testing.T) {
 func TestParseIssue(t *testing.T) {
 	is, err := parseIssue([]byte(`{"data":{"repository":{"issueOrPullRequest":{"__typename":"Issue","id":"I_1","number":3,
 		"title":"Crash","url":"u","state":"CLOSED","stateReason":"NOT_PLANNED","body":"It **crashes**","createdAt":"2026-11-01T00:00:00Z",
-		"viewerCanUpdate":true,"author":{"login":"bob"},"labels":{"nodes":[{"name":"bug","color":"ff0000"}]},
-		"assignees":{"nodes":[{"login":"ann"}]},"milestone":{"title":"v1"},
-		"comments":{"totalCount":120,"nodes":[{"author":null,"body":"ghost","createdAt":"2026-11-02T00:00:00Z","url":"c"}]},
+		"viewerCanUpdate":true,"author":{"login":"bob","avatarUrl":"https://a/bob"},"labels":{"nodes":[{"name":"bug","color":"ff0000"}]},
+		"assignees":{"nodes":[{"login":"ann","avatarUrl":"https://a/ann"}]},"milestone":{"title":"v1"},
+		"comments":{"totalCount":120,"nodes":[{"author":null,"body":"ghost","createdAt":"2026-11-02T00:00:00Z","url":"c"},
+		 {"author":{"login":"cat","avatarUrl":"https://a/cat"},"body":"me too","createdAt":"2026-11-03T00:00:00Z","url":"d"}]},
 		"closedByPullRequestsReferences":{"nodes":[{"number":9,"title":"Fix","url":"p","state":"MERGED"}]}}}}}`))
 	if err != nil {
 		t.Fatal(err)
 	}
 	if is.PR || is.State != "CLOSED" || is.StateReason != "NOT_PLANNED" || is.Author != "bob" || is.Milestone != "v1" || !is.CanUpdate ||
-		is.AllComments != 120 || len(is.Comments) != 1 || is.Comments[0].Author != "" || len(is.Linked) != 1 || is.Linked[0].Number != 9 {
+		is.AllComments != 120 || len(is.Comments) != 2 || is.Comments[0].Author != "" || is.Comments[1].Author != "cat" || len(is.Linked) != 1 || is.Linked[0].Number != 9 {
 		t.Fatalf("issue = %+v", is)
+	}
+	if is.Avatars["bob"] != "https://a/bob" || is.Avatars["ann"] != "https://a/ann" || is.Avatars["cat"] != "https://a/cat" || len(is.Avatars) != 3 {
+		t.Fatalf("avatars = %v", is.Avatars)
 	}
 	pr, err := parseIssue([]byte(`{"data":{"repository":{"issueOrPullRequest":{"__typename":"PullRequest","number":7,"headRefName":"fix","baseRefName":"main",
 		"labels":{"nodes":[]},"assignees":{"nodes":[]},"comments":{"totalCount":0,"nodes":[]}}}}}`))

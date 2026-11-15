@@ -21,6 +21,7 @@
   <script>
     try { const t = localStorage.getItem('mayoi-theme'); if (t) document.documentElement.dataset.theme = t; } catch (e) {}
   </script>
+  <script defer src="https://umami.sorrycc.dev/script.js" data-website-id="2c049eb9-a94b-40a5-aa3a-b2efb4eb2482" data-domains="usemayoi.com" data-do-not-track="true"></script>
 </head>
 <body>
   <a class="skip sr-only" href="#main">Skip to content</a>
@@ -36,7 +37,7 @@
         <li><a href="#speed">Speed</a></li>
         <li><a href="#features">Features</a></li>
         <li><a href="#install">Install</a></li>
-        <li><a href="https://github.com/sorrycc/Mayoi">GitHub</a></li>
+        <li><a href="https://github.com/sorrycc/Mayoi" data-umami-event="github" data-umami-event-place="nav">GitHub</a></li>
         <li>
           <button class="theme-toggle" type="button" aria-label="Switch to dark mode" data-theme-toggle>
             <svg class="i-moon" viewBox="0 0 20 20" width="18" height="18" aria-hidden="true"><path d="M16.5 12.3A7 7 0 0 1 7.7 3.5a7 7 0 1 0 8.8 8.8Z" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg>
@@ -56,7 +57,7 @@
         <p class="lead">Mayoi is a native editor written in Go, for developers who want their editor to open before they finish
           blinking. Git, Vim mode, a Ghostty terminal and Remote SSH are built in. No webview, no Electron.</p>
         <div class="cluster hero-actions">
-          <a class="btn btn-primary btn-lg" href="https://github.com/sorrycc/Mayoi/releases/latest">
+          <a class="btn btn-primary btn-lg" href="https://github.com/sorrycc/Mayoi/releases/latest" data-umami-event="download" data-umami-event-place="hero">
             <svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true"><path d="M10 3v10m0 0-4-4m4 4 4-4M4 16h12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
             Download Mayoi
           </a>
@@ -326,7 +327,7 @@ brew trust sorrycc/mayoi
 brew install --cask mayoi</code></pre>
               <button class="btn copy" type="button" data-copy>Copy</button>
             </div>
-            <p class="muted small">Or download the DMG from <a href="https://github.com/sorrycc/Mayoi/releases/latest">Releases</a> and drag Mayoi to Applications.</p>
+            <p class="muted small">Or download the DMG from <a href="https://github.com/sorrycc/Mayoi/releases/latest" data-umami-event="download" data-umami-event-place="install-mac">Releases</a> and drag Mayoi to Applications.</p>
           </div>
 
           <div class="tabpanel stack" role="tabpanel" id="panel-linux" aria-labelledby="tab-linux" hidden>
@@ -340,7 +341,7 @@ brew install --cask mayoi</code></pre>
           <div class="tabpanel stack" role="tabpanel" id="panel-win" aria-labelledby="tab-win" hidden>
             <p class="muted">Download the installer for your architecture. <b>File → Install 'mayoi' Command</b> adds
               <code>mayoi.cmd</code> to your PATH.</p>
-            <div><a class="btn" href="https://github.com/sorrycc/Mayoi/releases/latest">Get the Windows installer &rarr;</a></div>
+            <div><a class="btn" href="https://github.com/sorrycc/Mayoi/releases/latest" data-umami-event="download" data-umami-event-place="install-windows">Get the Windows installer &rarr;</a></div>
           </div>
 
           <div class="tabpanel stack" role="tabpanel" id="panel-src" aria-labelledby="tab-src" hidden>
@@ -362,8 +363,8 @@ go run ./cmd/mayoi ~/some/project</code></pre>
         <h2>Lose less time to your editor.</h2>
         <p class="muted"><span lang="ja" class="jp">迷い</span> means hesitation. Mayoi is meant to have none.</p>
         <div class="cluster final-actions">
-          <a class="btn btn-primary btn-lg" href="https://github.com/sorrycc/Mayoi/releases/latest">Download Mayoi</a>
-          <a class="btn btn-ghost" href="https://github.com/sorrycc/Mayoi">Star on GitHub &rarr;</a>
+          <a class="btn btn-primary btn-lg" href="https://github.com/sorrycc/Mayoi/releases/latest" data-umami-event="download" data-umami-event-place="final">Download Mayoi</a>
+          <a class="btn btn-ghost" href="https://github.com/sorrycc/Mayoi" data-umami-event="github" data-umami-event-place="final">Star on GitHub &rarr;</a>
         </div>
       </div>
     </section>
@@ -377,6 +378,7 @@ go run ./cmd/mayoi ~/some/project</code></pre>
         <li><a href="https://github.com/sorrycc/Mayoi/blob/main/docs/FEATURES.md">Features</a></li>
         <li><a href="https://github.com/sorrycc/Mayoi/blob/main/docs/SETTINGS.md">Settings</a></li>
         <li><a href="https://github.com/sorrycc/Mayoi/blob/main/CONTRIBUTING.md">Contributing</a></li>
+        <li><a href="https://github.com/sorrycc/Mayoi/blob/main/docs/PRIVACY.md">Privacy</a></li>
       </ul>
     </div>
   </footer>

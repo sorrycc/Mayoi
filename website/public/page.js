@@ -2,6 +2,9 @@
 (() => {
   const root = document.documentElement;
 
+  // Counts an event in Umami, when its script loaded and the visitor allows it.
+  const track = (name, data) => { try { window.umami?.track(name, data); } catch (e) {} };
+
   // Theme toggle: flips between light and dark, remembered per browser.
   const toggle = document.querySelector('[data-theme-toggle]');
   const isDark = () => root.dataset.theme
@@ -27,7 +30,10 @@
     if (focus) tab.focus();
   };
   for (const tab of tabs) {
-    tab.addEventListener('click', () => select(tab));
+    tab.addEventListener('click', () => {
+      select(tab);
+      track('install-tab', { platform: tab.id.slice(4) });
+    });
     tab.addEventListener('keydown', (e) => {
       const i = tabs.indexOf(tab);
       const next = { ArrowRight: i + 1, ArrowLeft: i - 1, Home: 0, End: tabs.length - 1 }[e.key];
@@ -72,6 +78,7 @@
     btn.addEventListener('click', async () => {
       const text = btn.parentElement.querySelector('code').textContent;
       try { await navigator.clipboard.writeText(text); } catch (e) { return; }
+      track('copy-install', { platform: btn.closest('[role="tabpanel"]').id.slice(6) });
       btn.textContent = 'Copied';
       btn.dataset.done = '';
       setTimeout(() => { btn.textContent = 'Copy'; delete btn.dataset.done; }, 1600);

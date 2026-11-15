@@ -42,3 +42,4 @@ ignore: R09 span.m-ln  # why: the live theme preview paints Mayoi's real palette
 - Motion is limited to hover/press color and transform transitions on tokens; no load or scroll animation.
 - Install tabs follow the ARIA tabs pattern (arrows, Home/End) and preselect Windows or Linux from the user agent.
 - `.tabpanel[hidden]` needs `display: none` because `.stack` sets `display: flex`.
+- Visits are counted by Umami at `umami.sorrycc.dev`, cookieless, only on `usemayoi.com` and never with Do Not Track. Download and GitHub links carry `data-umami-event` with a `place`; `page.js` counts install tabs clicked and install commands copied, by platform.

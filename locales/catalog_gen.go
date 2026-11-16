@@ -17296,6 +17296,28 @@ func (msgs Messages) SessionsTerminalOpen() string {
 	return Catalog.Format(msgs.locale, "sessionsTerminalOpen", nil)
 }
 
+// SessionsTerminalOpenIn says "Open in a terminal of {name}. Click to show it."
+// in the language the app shows.
+func SessionsTerminalOpenIn(name string) string {
+	return In(i18n.Locale()).SessionsTerminalOpenIn(name)
+}
+
+// SessionsTerminalOpenIn says "Open in a terminal of {name}. Click to show it."
+// in the language of msgs.
+func (msgs Messages) SessionsTerminalOpenIn(name string) string {
+	return Catalog.Format(msgs.locale, "sessionsTerminalOpenIn", map[string]any{"name": name})
+}
+
+// SessionsInTab says "In tab"
+// in the language the app shows.
+func SessionsInTab() string { return In(i18n.Locale()).SessionsInTab() }
+
+// SessionsInTab says "In tab"
+// in the language of msgs.
+func (msgs Messages) SessionsInTab() string {
+	return Catalog.Format(msgs.locale, "sessionsInTab", nil)
+}
+
 // SessionsResume says "Resume"
 // in the language the app shows.
 func SessionsResume() string { return In(i18n.Locale()).SessionsResume() }

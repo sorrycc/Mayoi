@@ -1939,6 +1939,8 @@
   "sessionsPreviousWeek": "Previous 7 Days",
   "sessionsOlder": "Older",
   "sessionsTerminalOpen": "Open in a terminal. Click to show it.",
+  "sessionsTerminalOpenIn": "Open in a terminal of {name}. Click to show it.",
+  "sessionsInTab": "In tab",
   "sessionsResume": "Resume",
   "sessionsCopyCommand": "Copy Resume Command",
   "sessionsCopyID": "Copy Session ID",

@@ -1,11 +1,13 @@
 package main
 
 import (
+	"path/filepath"
 	"testing"
 	"time"
 
 	"mayoi/internal/agents"
 	"mayoi/internal/settings"
+	"mayoi/locales"
 )
 
 // The sidebar's width, whether it is closed and the scope of the Sessions
@@ -101,6 +103,18 @@ func TestResumeShowsTerminalOfAnotherProject(t *testing.T) {
 	k := liveKey(ses.Harness, ses.ID)
 	if o := a.sessions.open[k]; o.owner != b || o.t != term {
 		t.Fatalf("open %+v, want the terminal of the other project", o)
+	}
+	// Its row names the project whose terminal shows it, rather than its
+	// own folder.
+	a.sessions.all = 1
+	a.showSessions()
+	shown := ses
+	shown.Dir = root
+	a.sessions.sessions, a.sessions.loaded = []agents.Session{shown}, true
+	a.placeLive(time.Now())
+	step(tt)
+	if !tt.HasText(filepath.Base(other)) || tt.HasText(locales.SessionsInTab()) {
+		t.Errorf("the row says %q, want %q", locales.SessionsInTab(), filepath.Base(other))
 	}
 	n := len(a.terms)
 	a.resumeSession(ses)

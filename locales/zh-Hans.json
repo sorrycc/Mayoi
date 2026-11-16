@@ -1711,6 +1711,8 @@
   "sessionsPreviousWeek": "过去 7 天",
   "sessionsOlder": "更早",
   "sessionsTerminalOpen": "已在终端中打开，点击显示。",
+  "sessionsTerminalOpenIn": "已在 {name} 的终端中打开，点击显示。",
+  "sessionsInTab": "在标签页中",
   "sessionsResume": "恢复",
   "sessionsCopyCommand": "复制恢复命令",
   "sessionsCopyID": "复制会话 ID",

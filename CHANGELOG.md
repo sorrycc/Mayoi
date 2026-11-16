@@ -3,7 +3,7 @@
 The update window shows the section of the version it offers. Every release
 needs a `## <version>` section here, or its build fails.
 
-## Unreleased
+## 0.22.2
 
 - Scrolling over a Mermaid diagram in Live Preview scrolls the text, and clicking it edits its source.
 - Windows Security is less likely to flag the Mayoi installer as a virus.

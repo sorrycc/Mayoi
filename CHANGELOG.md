@@ -3,6 +3,11 @@
 The update window shows the section of the version it offers. Every release
 needs a `## <version>` section here, or its build fails.
 
+## Unreleased
+
+- **Git**: pushing over SSH uses your shell's ssh agent, so a key with a passphrase works.
+- **Git**: hooks find `node` and `pnpm` when a shell integration prints before the path.
+
 ## 0.22.1
 
 - Mayoi no longer stops responding about 20 seconds after it opens or after the Mac wakes from sleep.

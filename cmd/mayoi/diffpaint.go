@@ -145,7 +145,7 @@ func (a *app) diffPaneUI(c *ui.Context, v *diffView) {
 	v.split = a.splits(v, v.viewW)
 	l := a.diffGeometry(v, v.split, v.viewW)
 	var card *commitCard
-	if v.commit != nil {
+	if v.commit != nil && v.commit.pr == nil {
 		card = a.layOutCommitCard(c, v, cardWidth(v.viewW))
 		v.commit.lines = card.lines
 	}
@@ -337,6 +337,11 @@ func (a *app) diffPaneUI(c *ui.Context, v *diffView) {
 					noteX, noteW := noteGeometry(l, v.split, n.oldSide)
 					card := a.noteCardBox(c, fmt.Sprintf("note:%p", n), v.scroll.X+noteX, y+noteInset, noteW, float32(rows[i].h)*lineH-2*noteInset)
 					card.Children(func() { a.noteCard(c, n, nil, noteTextW(noteW)) })
+				} else if th := v.threadAt(rows[i].n); th != nil {
+					y := editorPadY + float32(v.tops[i])*lineH
+					noteX, noteW := noteGeometry(l, v.split, th.OldSide)
+					card := a.noteCardBox(c, "thread:"+th.ID, v.scroll.X+noteX, y+noteInset, noteW, float32(rows[i].h)*lineH-2*noteInset)
+					card.Children(func() { a.threadCard(c, v, th, noteTextW(noteW)) })
 				}
 			}
 			// A button by the line under the pointer comments on it, unless
@@ -1074,9 +1079,7 @@ func (a *app) layOutCommitCard(c *ui.Context, v *diffView, w float32) *commitCar
 		return h
 	}
 	subject := info.Subject
-	if cm.pr != nil {
-		subject = cm.pr.name()
-	} else if cm.from != "" {
+	if cm.from != "" {
 		subject = locales.ChangesFromTo(a.diffContext(v).revisionLabel(cm.from), a.diffContext(v).revisionLabel(cm.hash))
 	}
 	k.subject = ui.Span{Text: subject, Size: 15, Weight: 600, Color: p.text}
@@ -1113,59 +1116,6 @@ func (a *app) layOutCommitCard(c *ui.Context, v *diffView, w float32) *commitCar
 		}}
 	}
 	var pieces []cardPiece
-	if pr := cm.pr; pr != nil {
-		button := func(key, s string, fn func()) cardPiece {
-			span := label(s, 500, p.accent)
-			return cardPiece{w: measure(span) + 12, dot: true, show: func() {
-				b := ui.ButtonBase(c.Key(key)).Height(18).Padding(0, 6).Radius(5).AlignItems(ui.Center).Shrink(0).Label(s)
-				if b.Hovered() {
-					b.Background(p.accent.Alpha(0.12))
-				}
-				if b.Clicked() {
-					a.post(fn)
-				}
-				b.Transition(hoverFade)
-				b.Children(func() { ui.RichText(c, span).SingleLine() })
-			}}
-		}
-		if in := pr.info; in != nil {
-			state, col := locales.PrOpen(), p.addedFg
-			switch {
-			case in.State == "MERGED":
-				state, col = locales.PrMerged(), p.accent
-			case in.State == "CLOSED":
-				state, col = locales.PrClosed(), p.dangerFg
-			case in.Draft:
-				state, col = locales.PrDraft(), p.muted
-			}
-			chip := label(state, 600, col)
-			pieces = append(pieces, cardPiece{w: measure(chip) + 12, show: func() {
-				ui.Row(c).Height(18).Padding(0, 6).Radius(5).AlignItems(ui.Center).Background(col.Alpha(0.14)).Shrink(0).Children(func() {
-					ui.RichText(c, chip).SingleLine()
-				})
-			}})
-			pieces = append(pieces, text(label(in.BaseRef+" ← "+in.HeadRef, 400, p.muted), true))
-		}
-		pieces = append(pieces, hashChip(cm.from, true), text(label("→", 400, p.muted), false), hashChip(cm.hash, false),
-			text(label(locales.CardFilesChanged(len(v.files)), 400, p.muted), true))
-		if pr.viewedOK && len(v.files) > 0 {
-			pieces = append(pieces, text(label(locales.PrViewedCount(fmt.Sprint(v.viewedCount()), fmt.Sprint(len(v.files))), 400, p.muted), true))
-		}
-		if pr.err != "" {
-			pieces = append(pieces, text(label(pr.err, 400, p.dangerFg), true))
-		}
-		if pr.newer {
-			pieces = append(pieces, text(label(locales.PrUpdated(), 500, p.modifiedFg), true), button("card-pr-reload", locales.PrReload(), func() { a.reloadPR(v) }))
-			pieces[len(pieces)-1].dot = false
-		}
-		n := pr.number
-		pieces = append(pieces, button("card-pr-conversation", locales.GhOpenConversation(), func() { a.openIssue(a.diffContext(v), n, true) }),
-			button("card-pr-threads", locales.GhAddressReview(), func() { a.openPRWithThreads(a.diffContext(v), n) }))
-		if pr.info != nil && pr.info.URL != "" {
-			pieces = append(pieces, button("card-pr-open", locales.PrOpenOnGitHub(), func() { a.openPRInBrowser(v) }))
-		}
-		return a.finishCommitCard(c, v, k, w, pieces)
-	}
 	if cm.from != "" {
 		// A comparison: its two commits, and what changed between them.
 		pieces = append(pieces, hashChip(cm.from, false), text(label("→", 400, p.muted), false), hashChip(cm.hash, false),

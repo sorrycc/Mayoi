@@ -40,6 +40,58 @@ type prDiff struct {
 	opening bool
 	threads bool
 	openErr string
+	// fetched is set once the tab, pending, asked for its changes itself.
+	fetched bool
+	// The pages of the tab, which stay as its changes are read anew.
+	*prPageState
+}
+
+// prPageState is what the pages of a pull request's tab show of it, and
+// what is under way there.
+type prPageState struct {
+	// page is the page of the tab shown.
+	page prPage
+	// view is the pull request as its pages show it, nil until read;
+	// viewing is set while it is read, viewAsked when it last was asked
+	// for and viewAt answered, viewErr why it could not be. checks and
+	// ghThreads, its review threads, are read with it, checksOK and
+	// threadsOK set once they were; threadGen counts the changes to
+	// ghThreads, which the diff lays out their cards again for.
+	view      *git.PRView
+	viewing   bool
+	viewAsked time.Time
+	viewAt    time.Time
+	viewErr   string
+	checks    []git.Check
+	checksOK  bool
+	ghThreads []git.GHThread
+	threadsOK bool
+	threadGen int
+	// showResolved shows the threads resolved in the diff too.
+	showResolved bool
+	// texts are the description and the conversation parsed, as of
+	// parsedOf; stale is set once a picture of them arrived.
+	texts    [][]markdownBlock
+	parsedOf *git.PRView
+	stale    bool
+	cache    markdownCache
+	// comment is what the box of the conversation holds, sending set
+	// while it is sent, and reviewing the review it writes, as gh pr
+	// review names it: request-changes or comment, "" for a comment.
+	// focusComposer gives the box the keyboard once it shows.
+	comment       string
+	sending       bool
+	reviewing     string
+	focusComposer bool
+	// acting names the action under way on the pull request.
+	acting string
+	// replyTo is the review thread being answered in the diff, reply
+	// what is typed, replying set while it is sent; resolving are the
+	// threads whose resolution is being sent.
+	replyTo   string
+	reply     string
+	replying  bool
+	resolving map[string]bool
 }
 
 // name is how the tab of a pull request is named: its number and title.
@@ -77,17 +129,23 @@ func parsePRKey(key string) (n int, from, to string, ok bool) {
 	return n, from, to, true
 }
 
-// openPullRequest opens the changes of pull request n in a tab of its own.
-func (a *gitContext) openPullRequest(n int) { a.openPullRequestWith(n, false, true, "") }
+// openPullRequest opens pull request n in a tab of its own, at page.
+func (a *gitContext) openPullRequest(n int, page prPage) {
+	a.openPullRequestWith(n, page, false, true, "")
+}
 
-// openPullRequestWith shows the tab of pull request n at once, in the
-// preview tab of the file column unless keep, named title until GitHub
-// tells it, and reads the pull request in the background: what GitHub has
-// of it, its commits fetched where they are missing, and with threads, its
-// review threads not resolved, as notes on its lines for an agent to
-// address. The tab then shows its changes: those GitHub shows, from where
-// its head left its base to its head.
-func (a *gitContext) openPullRequestWith(n int, threads, keep bool, title string) {
+// prSamePage is the page of openPullRequestWith that leaves a tab on the
+// page it shows.
+const prSamePage prPage = -1
+
+// openPullRequestWith shows the tab of pull request n at once, at page,
+// in the preview tab of the file column unless keep, named title until
+// GitHub tells it, and reads the pull request in the background: what
+// GitHub has of it, its commits fetched where they are missing, and with
+// threads, its review threads not resolved, as notes on its lines for an
+// agent to address. Its changes are those GitHub shows, from where its
+// head left its base to its head.
+func (a *gitContext) openPullRequestWith(n int, page prPage, threads, keep bool, title string) {
 	if !a.live() {
 		return
 	}
@@ -104,10 +162,15 @@ func (a *gitContext) openPullRequestWith(n int, threads, keep bool, title string
 		}
 		app.activate(col, i, true)
 		pr = t.diff.commit.pr
+		if page != prSamePage {
+			pr.page = page
+		}
+		app.readPRViewSoon(t.diff)
 	} else {
 		v := newPendingPR(parseDiffLayout(app.settings.DiffLayout), n, title)
 		v.repoRoot = r.Root
 		pr = v.commit.pr
+		pr.page = max(page, prConversation)
 		col := app.fileColumn()
 		if keep {
 			at := min(col.active+1, len(col.tabs))
@@ -121,7 +184,15 @@ func (a *gitContext) openPullRequestWith(n int, threads, keep bool, title string
 		}
 		app.rememberTabs()
 	}
-	if pr.opening {
+	a.fetchPR(pr, threads)
+}
+
+// fetchPR reads, in the background, the pull request of a tab, its
+// commits fetched where they are missing, and with threads its review
+// threads as notes, then shows its changes in its tabs.
+func (a *gitContext) fetchPR(pr *prDiff, threads bool) {
+	app, r, n := a.app, a.git.repo, pr.number
+	if pr.opening || r == nil {
 		return
 	}
 	pr.openErr = ""
@@ -185,9 +256,13 @@ func (a *gitContext) openPullRequestWith(n int, threads, keep bool, title string
 // title until GitHub tells it.
 func newPendingPR(layout diffLayout, n int, title string) *diffView {
 	v := newDiffView(layout)
-	v.commit = &commitDiff{pr: &prDiff{number: n, title: title}}
+	v.commit = &commitDiff{pr: newPRDiff(n)}
+	v.commit.pr.title = title
 	return v
 }
+
+// newPRDiff is pull request n of a tab, its pages not yet read.
+func newPRDiff(n int) *prDiff { return &prDiff{number: n, prPageState: &prPageState{}} }
 
 // pending reports whether a commit's diff is the tab of a pull request
 // whose commits are not known yet.
@@ -270,6 +345,9 @@ func (a *app) showPullRequest(info *git.PRInfo, from string, viewed map[string]b
 				continue
 			}
 			v := view(t.diff.layout)
+			// Its pages stay as they were, the page shown too.
+			v.commit.pr.prPageState = t.diff.commit.pr.prPageState
+			v.commit.pr.title = t.diff.commit.pr.title
 			t.diff.stop()
 			t.diff = v
 		}
@@ -277,40 +355,19 @@ func (a *app) showPullRequest(info *git.PRInfo, from string, viewed map[string]b
 	if !found {
 		col := a.fileColumn()
 		at := min(col.active+1, len(col.tabs))
-		a.addTab(col, at, &colTab{diff: view(parseDiffLayout(a.settings.DiffLayout))})
+		v := view(parseDiffLayout(a.settings.DiffLayout))
+		v.commit.pr.page = prChanges
+		a.addTab(col, at, &colTab{diff: v})
 		a.activate(col, at, true)
 	}
 	a.rememberTabs()
 	a.invalidate()
 }
 
-// pendingPRUI is the tab of a pull request while it is read: the shapes
-// of its changes, or why it could not be read, with Try Again.
-func (a *app) pendingPRUI(c *ui.Context, v *diffView) {
-	pr := v.commit.pr
-	ui.Column(c.Key("pr-pending")).Fill().Background(a.pal.editor).Label(v.name()).Children(func() {
-		a.prActivity(c, v)
-		ui.Scroll(c.Key("pr-scroll")).Grow(1).Children(func() {
-			if pr.openErr == "" {
-				a.prSkeleton(c)
-				return
-			}
-			ui.Column(c).FillWidth().AlignItems(ui.Center).Padding(24, 24, 48, 24).Children(func() {
-				a.githubCard(c, "pr-failed", iconTriangleAlert, locales.GhIssueFailed(v.name()), pr.openErr, time.Time{}, func() {
-					if ui.PrimaryButton(c, locales.GhRetry()).Clicked() {
-						n, threads := pr.number, pr.threads
-						a.post(func() { a.diffContext(v).openPullRequestWith(n, threads, false, "") })
-					}
-				})
-			})
-		})
-	})
-}
-
 // prActivity is the line over a pull request's tab, moving while it is
 // read.
 func (a *app) prActivity(c *ui.Context, v *diffView) {
-	if v.commit.pr.opening {
+	if pr := v.commit.pr; pr.opening || pr.viewing && pr.view == nil {
 		ui.Progress(c.Key("pr-activity"), -1).Height(2).Radius(0).Label(locales.GhReadingIssue(v.name()))
 		return
 	}
@@ -452,7 +509,7 @@ func (a *app) toggleViewed(v *diffView, f *diffFile) {
 // reloadPR opens the pull request of a diff again, at its head on GitHub.
 func (a *app) reloadPR(v *diffView) {
 	if pr := v.commit.pr; pr != nil {
-		a.diffContext(v).openPullRequestWith(pr.number, false, false, "")
+		a.diffContext(v).openPullRequestWith(pr.number, prSamePage, false, false, "")
 	}
 }
 

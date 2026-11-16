@@ -1823,7 +1823,7 @@ func (a *gitContext) scmMenu(m *ui.Menu) {
 	if g.ghOK {
 		if pr := a.currentPR(); pr != nil {
 			if m.Item(locales.PrOpenChanges()).Chosen() {
-				a.app.post(func() { a.openPullRequest(pr.Number) })
+				a.app.post(func() { a.openPullRequest(pr.Number, prChanges) })
 			}
 			if m.Item(locales.PrShowChecks()).Disabled(pr.Checks == git.ChecksNone).Chosen() {
 				a.app.post(a.openChecks)

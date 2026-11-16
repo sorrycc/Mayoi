@@ -527,6 +527,8 @@ type GHComment struct {
 	Body    string
 	Created time.Time
 	URL     string
+	// Avatar is the link of its author's picture, of a review comment.
+	Avatar string
 }
 
 // GHLinked is a pull request that closes an issue.
@@ -731,7 +733,7 @@ type GHThread struct {
 
 const threadsQuery = `query($owner:String!,$name:String!,$n:Int!){repository(owner:$owner,name:$name){pullRequest(number:$n){
  reviewThreads(first:100){nodes{id isResolved isOutdated path line startLine originalLine originalStartLine diffSide
-  comments(first:50){nodes{author{login} body createdAt url}}}}}}}`
+  comments(first:50){nodes{author{login avatarUrl(size:64)} body createdAt url}}}}}}}`
 
 // ReviewThreads reads the threads of review comments of pull request n.
 func (r *Repo) ReviewThreads(n int) ([]GHThread, error) {
@@ -794,7 +796,7 @@ func parseThreads(b []byte) ([]GHThread, error) {
 		for _, c := range t.Comments.Nodes {
 			gc := GHComment{Body: c.Body, Created: c.CreatedAt, URL: c.URL}
 			if c.Author != nil {
-				gc.Author = c.Author.Login
+				gc.Author, gc.Avatar = c.Author.Login, c.Author.AvatarURL
 			}
 			th.Comments = append(th.Comments, gc)
 		}

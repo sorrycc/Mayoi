@@ -607,7 +607,8 @@ func (a *app) columnView(c *ui.Context, col *column) {
 	}
 	a.tabStrip(c, col)
 	shown := col.tab()
-	if shown != nil && shown.term == nil && shown.tool == nil && shown.issue == nil {
+	// A pull request's tab names it in its header.
+	if shown != nil && shown.term == nil && shown.tool == nil && shown.issue == nil && !shown.isPR() {
 		a.breadcrumbs(c, col, shown)
 	}
 	for _, t := range col.tabs {
@@ -631,7 +632,8 @@ func (a *app) columnView(c *ui.Context, col *column) {
 					a.viewerView(c, shown.view, shown.name())
 				case shown.diff != nil:
 					a.diffViewUI(c, shown.diff)
-					if col == a.findCol {
+					// A pull request's other pages have no diff to find in.
+					if col == a.findCol && (!shown.isPR() || shown.diff.commit.pr.page == prChanges) {
 						a.diffFindView(c, shown.diff)
 					} else {
 						shown.diff.find.on = false

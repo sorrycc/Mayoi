@@ -141,7 +141,7 @@ func (a *app) prPickerView(c *ui.Context) {
 	p := a.pal
 	open := func(n int) {
 		pick.open = false
-		a.post(func() { g.openPullRequest(n) })
+		a.post(func() { g.openPullRequest(n, prConversation) })
 	}
 	ui.Overlay(c, func() {
 		back := a.dialogBack(c)

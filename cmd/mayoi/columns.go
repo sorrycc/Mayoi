@@ -747,6 +747,7 @@ func (a *app) splitRight() {
 			// Read once, for each tab of it.
 			v = newPendingPR(t.diff.layout, cm.pr.number, cm.pr.title)
 			v.commit.pr.opening, v.commit.pr.threads, v.commit.pr.openErr = cm.pr.opening, cm.pr.threads, cm.pr.openErr
+			v.commit.pr.prPageState = cm.pr.prPageState
 		} else if cm != nil {
 			v = newCommitView(t.diff.layout, cm.key(), cm.info)
 			if cm.pr != nil {
@@ -949,6 +950,9 @@ func (a *app) rememberTabs() {
 				continue // a pull request still read opens again from GitHub
 			case t.diff != nil && t.diff.commit != nil:
 				ts = settings.Tab{Diff: "commit:" + t.diff.commit.key(), Layout: t.diff.layout.key(), Transient: t.transient}
+				if pr := t.diff.commit.pr; pr != nil {
+					ts.PRPage = pr.page.key()
+				}
 			case t.diff != nil:
 				ts = settings.Tab{Diff: "all", Layout: t.diff.layout.key()}
 			case t.issue != nil && t.issue.number > 0:
@@ -1157,6 +1161,9 @@ func (a *app) restoreTabs() {
 				if c, _ := a.commitTab(hash, ts.RepoRoot); c == nil && hash != "" {
 					v := newCommitView(parseDiffLayout(ts.Layout), hash, git.Commit{})
 					v.repoRoot = ts.RepoRoot
+					if pr := v.commit.pr; pr != nil {
+						pr.page = parsePRPage(ts.PRPage)
+					}
 					a.addTab(col, len(col.tabs), &colTab{diff: v, transient: ts.Transient})
 					a.activate(col, len(col.tabs)-1, false)
 				}

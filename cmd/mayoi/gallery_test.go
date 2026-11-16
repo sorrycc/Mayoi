@@ -114,6 +114,50 @@ var galleryStates = []struct {
 		}
 		hs.a.openIssue(hs.a.repository(), 3, true)
 	}},
+	{"pr", func(hs *harness) {
+		galleryGitHub(hs, ghOverviewFixture(), nil)
+		fakePR(hs.t)
+		hs.settle()
+		prTabOf(hs, 5, prConversation)
+	}},
+	{"pr-checks", func(hs *harness) {
+		galleryGitHub(hs, ghOverviewFixture(), nil)
+		fakePR(hs.t)
+		hs.settle()
+		prTabOf(hs, 5, prChecks)
+	}},
+	{"pr-changes", func(hs *harness) {
+		galleryGitHub(hs, ghOverviewFixture(), nil)
+		fakePR(hs.t)
+		os.WriteFile(hs.path("a.txt"), []byte("one\n"), 0o644)
+		run := hs.gitRepo()
+		base := strings.TrimSpace(run("rev-parse", "HEAD"))
+		os.WriteFile(hs.path("a.txt"), []byte("one\ntwo\nthree\n"), 0o644)
+		run("commit", "-qam", "more")
+		head := strings.TrimSpace(run("rev-parse", "HEAD"))
+		hs.settle()
+		info := &git.PRInfo{Number: 5, ID: "PR_x", Title: "Fix things", State: "OPEN", BaseRef: "main", HeadRef: "feature", BaseOid: base, HeadOid: head}
+		hs.a.showPullRequest(info, base, nil, hs.a.git.repo.Root)
+		v := hs.a.column().tab().diff
+		hs.until("the threads", func() bool { return v.commit.pr.threadsOK })
+		hs.settleDiff(v)
+	}},
+	{"pr-reading", func(hs *harness) {
+		galleryGitHub(hs, ghOverviewFixture(), nil)
+		hs.settle()
+		// As gh is asked, before it answers.
+		pr := prTabOf(hs, 5, prConversation).commit.pr
+		pr.viewing, pr.viewAsked = true, time.Now()
+	}},
+	{"pr-failed", func(hs *harness) {
+		galleryGitHub(hs, ghOverviewFixture(), nil)
+		fakePR(hs.t)
+		fetchPRView = func(*git.Repo, int) (*git.PRView, error) {
+			return nil, fmt.Errorf("%w: HTTP 502: Bad Gateway", git.ErrNoGH)
+		}
+		hs.settle()
+		prTabOf(hs, 5, prConversation)
+	}},
 	{"issue-new", func(hs *harness) {
 		galleryGitHub(hs, ghOverviewFixture(), nil)
 		hs.settle()

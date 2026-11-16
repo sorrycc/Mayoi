@@ -385,22 +385,38 @@ minutes, so the history never waits for them; without `gh` or its sign-in, no co
 has read the repository, the marks come from its reads instead, with no call of their own.
 
 **Git → Open Pull Request…**, also in source control's **⋯** menu, lists the pull requests open, the branch's first;
-type to find one by its number, title, author or branch, or type any number to open that one, whatever its state. Its
-tab shows what GitHub shows, the changes from where its head left its base to its head, inline or side by side like
-any diff, under a card of its state, its branches and **Open on GitHub**. Commits Mayoi does not have yet are fetched
-from the remote of the pull request's repository to `refs/mayoi/pull/<number>/head` and `…/base`, which keeps them for
-the tab when Mayoi opens again; a pull request from a fork needs no remote of its own. Each file's header has a
-**Viewed** box, which marks it viewed on GitHub, as the box on GitHub does, and folds it; the files viewed show
-folded as the tab opens, and the card counts them. When the pull request has commits newer than the tab's, the card
-offers **Reload**.
+type to find one by its number, title, author or branch, or type any number to open that one, whatever its state.
 
-**Git → Show Pull Request Checks…**, also **Show Checks…** in the badge's context menu and source control's **⋯**
-menu, or a click on the badge's checks icon, lists the checks of the branch's pull request, failed first, and reads
-them again every 30 seconds while one runs; type to find one. A failed GitHub Actions job offers **Send to Terminal**
-(⏎), which reads the last 3000 lines of its log, without colors or time stamps, and pastes them into the terminal used
-last without pressing Enter, as **Send Review Items to Terminal** does, copying them with no terminal open; **Copy
-Log**; **Re-run** (⌘⏎), which runs that job again; and **Open on GitHub**, the only one a check outside GitHub Actions
-offers.
+A pull request opens in one tab. Its header has its state, number, branches (a click copies the head's), title, who
+opened it, how much it changes and when it was updated, with **Check Out**, **Review** (**Approve**, **Request
+Changes…**, **Comment…**), **Merge** (each way the repository allows, and **Delete Branch After Merging**, which
+deletes it on GitHub only) and **⋯**: **Ready for Review** or **Convert to Draft**, **Close** or **Reopen**,
+**Address Review Comments**, **Reload**, **Copy Link**, **Copy Branch Name** and **Open on GitHub**. Under it are four
+pages, `⌥⌘1`–`⌥⌘4` (`Ctrl+Shift+1`–`4` elsewhere), the one shown kept with the tab:
+
+- **Conversation:** while it is open, whether it can merge and what it waits for (conflicts, failed or running checks,
+  a review, the base moving on, the repository's rules), with **Rerun Failed Jobs**; its reviewers by their reviews,
+  assignees, labels, milestone and the issues it closes; its description, comments and reviews as GitHub renders them;
+  and the box that comments (`⌘⏎`), or writes the review **Request Changes…** or **Comment…** started.
+- **Changes:** what GitHub shows, from where its head left its base to its head, inline or side by side like any diff,
+  under a line of its commits, how much changed, its review threads and the files viewed. Commits Mayoi does not have
+  yet are fetched from the remote of the pull request's repository to `refs/mayoi/pull/<number>/head` and `…/base`,
+  which keeps them for the tab when Mayoi opens again; a pull request from a fork needs no remote of its own. Each
+  file's header has a **Viewed** box, which marks it viewed on GitHub and folds it. Each review thread not resolved
+  shows under its lines, with **Reply** (`⌘⏎` sends), **Resolve** and **Add to Review Items**; the threads' menu shows
+  those resolved too, with **Unresolve**. When the pull request has commits newer than the tab's, the line offers
+  **Reload**.
+- **Commits:** its commits, the oldest first; a click opens one's changes.
+- **Checks:** its checks, failed first, read again every 30 seconds while one runs. A failed GitHub Actions job offers
+  **Send to Terminal**, which reads the last 3000 lines of its log, without colors or time stamps, and pastes them into
+  the terminal used last without pressing Enter, as **Send Review Items to Terminal** does, copying them with no
+  terminal open; **Copy Log**; **Re-run**, which runs that job again; and **Open on GitHub**.
+
+The tab reads the pull request, its checks and its review threads with three `gh` calls as it shows, again every minute,
+every 30 seconds while a check runs, and after each action. The badge and a commit's `#123` open it at **Changes**;
+**Git → Show Pull Request Checks…**, **Show Checks…** in the badge's context menu and source control's **⋯** menu, or a
+click on the badge's checks icon, at **Checks**. Without a pull request, they list the checks of the commit at `HEAD` in
+a box, as before.
 
 ### GitHub
 
@@ -419,17 +435,16 @@ links to it; not signed in, **Sign In…** runs `gh auth login` in a terminal; w
 asks which one is the repository, as `gh repo set-default` does. When a read fails, what was read stays under a note
 that says why, with **Try Again**.
 
-A click on a pull request opens its changes in a tab, as **Open Pull Request…** does. Its menu has **Open
-Conversation**, **Show Checks…**, **Check Out** (`gh pr checkout`), **Address Review Comments**, **Open on GitHub** and
-**Copy Link**.
+A click on a pull request opens its tab at **Conversation**, as **Open Pull Request…** does. Its menu has **Open Pull
+Request**, **Open Pull Request Changes**, **Show Checks…**, **Check Out** (`gh pr checkout`), **Address Review
+Comments**, **Open on GitHub** and **Copy Link**.
 
 A click on an issue opens it in a tab: its state, title, author, labels, assignees and milestone, the pull requests
 that close it, and its description and comments as GitHub renders them, with their pictures when GitHub holds them.
 Pictures of other hosts show as their alt text. The box at the end comments (`⌘⏎`); **Close Issue**, **Close as Not
 Planned** and **Reopen Issue** show to those who may, and the toast that says so undoes it. **New Issue** opens an
 empty one to write, with a title and a Markdown description, which **Create Issue** sends. The tabs of issues come back
-with the session. A pull request's **Open Conversation**, also on the card of its changes, opens its description and
-comments the same way.
+with the session; one an older version kept of a pull request's conversation opens as the pull request's tab.
 
 **Work on Issue**, in an issue's menu or tab, makes a worktree for it on a branch of its own, named for its number and
 title, as `161-zoom`, from the tip of the default branch on GitHub, beside the main one in `<folder>.worktrees`. It

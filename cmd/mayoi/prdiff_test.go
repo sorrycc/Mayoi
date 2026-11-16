@@ -126,7 +126,7 @@ func TestOpenPullRequestTabFirst(t *testing.T) {
 	head := strings.TrimSpace(run("rev-parse", "HEAD"))
 	root := a.git.repo.Root
 
-	a.repository().openPullRequestWith(5, false, false, "Fix things")
+	a.repository().openPullRequestWith(5, prChanges, false, false, "Fix things")
 	col := a.column()
 	tab := col.tabs[col.active]
 	if tab.diff == nil || !tab.diff.commit.pending() || !tab.transient || tab.name() != "#5 Fix things" {
@@ -134,7 +134,7 @@ func TestOpenPullRequestTabFirst(t *testing.T) {
 	}
 	tabs := len(col.tabs)
 	// Opened again while read: the same tab.
-	a.repository().openPullRequestWith(5, false, false, "Fix things")
+	a.repository().openPullRequestWith(5, prChanges, false, false, "Fix things")
 	if len(col.tabs) != tabs {
 		t.Fatalf("tabs %d, want %d", len(col.tabs), tabs)
 	}

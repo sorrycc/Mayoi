@@ -65,8 +65,10 @@ type review struct {
 	// gen counts the changes to the notes, which the diffs lay out their
 	// rows again for.
 	gen int
-	// typed is the frame the draft's box last had the keyboard in.
-	typed int
+	// typed is the frame the draft's box last had the keyboard in, and
+	// replyTyped the box answering a pull request's review thread.
+	typed      int
+	replyTyped int
 	// ctx measures text as the window lays it out, and measured is the
 	// heights of the comments measured.
 	ctx      *ui.Context
@@ -1256,7 +1258,8 @@ func (a *app) noteQuote(c *ui.Context, n *reviewNote, lines []string, w float32)
 // typingNote reports whether the box of the note being written has the
 // keyboard, whose keys a diff leaves to it.
 func (a *app) typingNote() bool {
-	return a.review.draft != nil && a.review.typed >= a.frame-1
+	r := &a.review
+	return r.draft != nil && r.typed >= a.frame-1 || r.replyTyped > 0 && r.replyTyped >= a.frame-1
 }
 
 // noteCardBox is the card of a note, at (x, y) w wide and h tall: raised

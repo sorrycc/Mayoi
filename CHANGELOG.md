@@ -14,6 +14,15 @@ needs a `## <version>` section here, or its build fails.
 - Git operations go through the proxy your shell sets in `HTTPS_PROXY`, `ALL_PROXY` and the like.
 - Git hooks find `node` and `pnpm` even when iTerm2's shell integration is installed.
 - A session open in a terminal shows a chip saying where: **In tab**, or the other window's project.
+- A pull request opens in one tab with **Conversation**, **Changes**, **Commits** and **Checks** pages.
+- Switch a pull request's pages with `⌥⌘1`–`⌥⌘4`; the tab remembers the page it showed.
+- A pull request's **Conversation** shows whether it can merge, its reviewers, reviews and comments.
+- **Review** approves a pull request, requests changes or comments, from its tab.
+- **Merge** squashes, rebases or makes a merge commit, and can delete the branch on GitHub.
+- A pull request's **⋯** menu marks it ready or a draft, closes or reopens it, and copies its branch.
+- Review threads show under their lines in a pull request's changes, to reply to, resolve or reopen.
+- Failed checks run again with **Rerun Failed Jobs** from a pull request's tab.
+- The status bar's pull request opens its changes; its checks icon opens the **Checks** page.
 
 ## 0.22.1
 

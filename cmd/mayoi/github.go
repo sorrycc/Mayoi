@@ -2019,11 +2019,11 @@ func (a *app) githubItemMenu(m *ui.Menu, ctx *gitContext, o *git.GHOverview, it 
 	n := it.Number
 	do := func(fn func()) { *action = fn }
 	if it.PR {
-		if m.Item(locales.PrOpenChanges()).Shortcut(0, ui.KeyEnter).Chosen() {
-			do(func() { ctx.openPullRequestWith(n, false, false, it.Title) })
+		if m.Item(locales.PrOpenPR()).Shortcut(0, ui.KeyEnter).Chosen() {
+			do(func() { ctx.openPullRequestWith(n, prConversation, false, false, it.Title) })
 		}
-		if m.Item(locales.GhOpenConversation()).Chosen() {
-			do(func() { a.openIssue(ctx, n, false) })
+		if m.Item(locales.PrOpenChanges()).Chosen() {
+			do(func() { ctx.openPullRequestWith(n, prChanges, false, false, it.Title) })
 		}
 		if m.Item(locales.PrShowChecks()).Disabled(it.Checks == git.ChecksNone).Chosen() {
 			do(func() { ctx.openChecksOf(n) })
@@ -2074,11 +2074,11 @@ func (a *app) openGitHubRow(ctx *gitContext, r ghRow, keep bool) {
 	}
 }
 
-// openGitHubItem opens an issue in a tab, or a pull request's changes: in
-// the preview tab of the file column, unless keep.
+// openGitHubItem opens an issue, or a pull request at its conversation, in
+// a tab: in the preview tab of the file column, unless keep.
 func (a *app) openGitHubItem(ctx *gitContext, it *git.GHItem, keep bool) {
 	if it.PR {
-		ctx.openPullRequestWith(it.Number, false, keep, it.Title)
+		ctx.openPullRequestWith(it.Number, prConversation, false, keep, it.Title)
 		return
 	}
 	a.openIssue(ctx, it.Number, keep)
@@ -2125,18 +2125,8 @@ func (a *app) copyGitHubLinks(items []*git.GHItem) {
 	a.tell(note{message: locales.GhLinksCopied(len(links))})
 }
 
-// openChecksOf shows the box of the checks of pull request n.
-func (a *gitContext) openChecksOf(n int) {
-	if !a.live() {
-		return
-	}
-	if !a.app.online() {
-		a.app.fail("%s", locales.NotConnectedTo(a.app.conn.Host))
-		return
-	}
-	a.app.checks = checksPicker{open: true, repoRoot: a.git.repo.Root, number: n}
-	a.readChecks()
-}
+// openChecksOf shows the checks of pull request n, on the page of its tab.
+func (a *gitContext) openChecksOf(n int) { a.openPullRequestWith(n, prChecks, false, true, "") }
 
 // checkoutPR checks the branch of pull request n out, as gh pr checkout
 // does.

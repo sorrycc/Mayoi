@@ -515,12 +515,12 @@ func (a *gitContext) setStatus(st *git.Status) {
 	for _, e := range st.Entries {
 		g.entries[e.Path] = e
 		l := e.Letter()
-		for d := filepath.Dir(e.Path); len(d) >= len(g.repo.Root); d = filepath.Dir(d) {
+		for d := remote.Dir(e.Path); len(d) >= len(g.repo.Root); d = remote.Dir(d) {
 			if old, ok := g.dirs[d]; ok && letterRank(old) >= letterRank(l) {
 				break
 			}
 			g.dirs[d] = l
-			if d == filepath.Dir(d) {
+			if d == remote.Dir(d) {
 				break
 			}
 		}

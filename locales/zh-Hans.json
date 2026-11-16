@@ -1932,5 +1932,17 @@
   "prThreadResolved": "讨论已解决",
   "prThreadReopened": "讨论已重新打开",
   "prefTitlePrDeleteBranch": "合并后删除分支",
-  "prefDescPrDeleteBranch": "在拉取请求的标签页中合并后，删除其在 GitHub 上的分支。"
+  "prefDescPrDeleteBranch": "在拉取请求的标签页中合并后，删除其在 GitHub 上的分支。",
+  "cmdWSLOpenFolder": "打开 WSL 文件夹…",
+  "menuWSL": "WSL",
+  "wslNoDistro": "没有已安装的 WSL 发行版。",
+  "wslNoForward": "WSL 文件夹不转发端口。",
+  "pickWSLTitle": "打开 WSL 文件夹",
+  "pickWSLPlaceholder": "选择发行版",
+  "pickWSLStarting": "正在启动 {distro}",
+  "pickWSLOpening": "正在打开发行版",
+  "pickWSLOpen": "打开",
+  "pickWSLOpens": "打开发行版中的文件夹",
+  "pickWSLNoMatch": "没有与 {typed} 匹配的发行版",
+  "pickWSLDistributions": "发行版"
 }

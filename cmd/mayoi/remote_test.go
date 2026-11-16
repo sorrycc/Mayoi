@@ -10,9 +10,12 @@ import (
 	"testing"
 	"time"
 
+	"mayoi/internal/cli"
 	"mayoi/internal/remote"
 	"mayoi/internal/settings"
+	"mayoi/locales"
 
+	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
 )
 
@@ -259,13 +262,65 @@ git init -q && git -c user.email=t@t -c user.name=t add -A && git -c user.email=
 	return hs, c, dir
 }
 
-// remoteOnly skips a test of remote folders where Mayoi reaches none, as
-// on Windows, whose paths are not POSIX's and which has no shell for the
-// fake ssh.
+// remoteOnly skips a test whose fake ssh is a shell script. Windows
+// cannot run that script. Remote SSH itself is available there.
 func remoteOnly(t testing.TB) {
 	t.Helper()
-	if !remoteSupported {
-		t.Skip("no remote folders on " + runtime.GOOS)
+	if runtime.GOOS == "windows" {
+		t.Skip("the fake ssh is a shell script")
+	}
+}
+
+// TestRemoteEntries: File → Remote SSH, the welcome page and the command
+// palette offer Remote SSH, and mayoi --remote does not refuse.
+func TestRemoteEntries(t *testing.T) {
+	s := settings.Default()
+	a := newApp(&fakeHost{}, s, s.NewWindow())
+	t.Cleanup(a.shutdown)
+	tt := ui.NewTester(a.view, 1200, 760)
+	for range 12 {
+		step(tt)
+	}
+	if !tt.HasText(locales.CmdRemoteConnect()) {
+		t.Fatalf("welcome has no Remote SSH: %q", tt.Texts())
+	}
+	var ssh *mygo.MenuItem
+	for _, menu := range a.menu(false, func(string, *mygo.Window) {}).Items() {
+		for _, sub := range menu.Submenu {
+			if sub.Label == locales.MenuRemoteSSH() {
+				ssh = sub
+			}
+		}
+	}
+	if ssh == nil {
+		t.Fatal("File menu has no Remote SSH")
+	}
+	if !slices.ContainsFunc(ssh.Submenu, func(it *mygo.MenuItem) bool {
+		return it != nil && it.Label == locales.CmdRemoteConnect()
+	}) {
+		t.Fatal("Remote SSH has no connect command")
+	}
+	found := false
+	for _, e := range a.paletteEntries() {
+		if e.id == "remote.connect" && strings.HasPrefix(e.title, locales.MenuRemoteSSH()) {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatal("command palette has no remote.connect")
+	}
+	if !a.blank() {
+		t.Fatal("the window is not empty")
+	}
+	m := &mayoi{s: s}
+	f := &frame{m: m}
+	h := &desktop{m: m, a: a, f: f}
+	f.active = h
+	m.wins = []*desktop{h}
+	var reply cli.Reply
+	m.serve(cli.Request{Remote: "box:/srv/app"}, func(r cli.Reply) { reply = r })
+	if reply.Error != "" {
+		t.Fatalf("mayoi --remote: %s", reply.Error)
 	}
 }
 

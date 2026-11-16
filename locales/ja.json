@@ -1932,5 +1932,17 @@
   "prThreadResolved": "スレッドを解決しました",
   "prThreadReopened": "スレッドを再オープンしました",
   "prefTitlePrDeleteBranch": "マージ後にブランチを削除",
-  "prefDescPrDeleteBranch": "プルリクエストのタブでマージすると、GitHub 上のブランチを削除します。"
+  "prefDescPrDeleteBranch": "プルリクエストのタブでマージすると、GitHub 上のブランチを削除します。",
+  "cmdWSLOpenFolder": "WSL フォルダーを開く…",
+  "menuWSL": "WSL",
+  "wslNoDistro": "インストールされている WSL ディストリビューションがありません。",
+  "wslNoForward": "WSL フォルダーはポートを転送しません。",
+  "pickWSLTitle": "WSL フォルダーを開く",
+  "pickWSLPlaceholder": "ディストリビューションを選択",
+  "pickWSLStarting": "{distro} を起動しています",
+  "pickWSLOpening": "ディストリビューションを開いています",
+  "pickWSLOpen": "開く",
+  "pickWSLOpens": "ディストリビューション内のフォルダーを開く",
+  "pickWSLNoMatch": "{typed} に一致するディストリビューションはありません",
+  "pickWSLDistributions": "ディストリビューション"
 }

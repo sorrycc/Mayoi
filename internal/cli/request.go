@@ -184,10 +184,13 @@ Examples:
 func Parse(args []string, cwd string) (Request, error) {
 	r := Request{Cwd: cwd}
 	abs := func(p string) string {
-		if !filepath.IsAbs(p) {
-			p = filepath.Join(cwd, p)
+		if remote.Is(p) {
+			return remote.Clean(p)
 		}
-		return filepath.Clean(p)
+		if !remote.IsAbs(p) {
+			p = remote.Join(cwd, p)
+		}
+		return remote.Clean(p)
 	}
 	sub := ""
 	if len(args) > 0 && (args[0] == "run" || args[0] == "commands" || args[0] == "settings") {

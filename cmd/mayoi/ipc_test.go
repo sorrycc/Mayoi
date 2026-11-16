@@ -4,7 +4,9 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
+	"mayoi/internal/bg"
 	"mayoi/internal/cli"
 )
 
@@ -29,6 +31,16 @@ func TestCommandTarget(t *testing.T) {
 	}
 	if _, err := m.target(cli.Request{Window: t.TempDir()}); err == nil {
 		t.Error("a --window of no project")
+	}
+	// The projects look up Git in the background. On Windows that process
+	// keeps the fixture as its working directory until it exits, and the
+	// test's temporary directory cannot be removed while it does.
+	deadline := time.Now().Add(30 * time.Second)
+	for bg.Running() > 0 {
+		if time.Now().After(deadline) {
+			t.Fatal("background work still running")
+		}
+		time.Sleep(time.Millisecond)
 	}
 }
 

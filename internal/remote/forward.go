@@ -6,6 +6,7 @@ import (
 	"io"
 	"net"
 	"os/exec"
+	"runtime"
 	"slices"
 	"strconv"
 	"sync"
@@ -24,6 +25,9 @@ type Forward struct {
 
 	c  *Conn
 	ln net.Listener
+	// cmd is the one ssh -N -L on Windows. Nil where each connection
+	// uses ssh -W through the master.
+	cmd *exec.Cmd
 	// open are the connections it carries, which Close ends.
 	mu   sync.Mutex
 	open map[net.Conn]bool
@@ -35,6 +39,9 @@ func (f *Forward) URL() string { return fmt.Sprintf("http://localhost:%d", f.Loc
 // Forward forwards port of the host, unless it is already, to the same
 // port of this machine when it is free, or else to another.
 func (c *Conn) Forward(port int) (*Forward, error) {
+	if c.kind == KindWSL {
+		return nil, errors.New("a WSL folder does not forward ports")
+	}
 	if port < 1 || port > 65535 {
 		return nil, errors.New("a port is a number from 1 to 65535")
 	}
@@ -52,13 +59,42 @@ func (c *Conn) Forward(port int) (*Forward, error) {
 			return nil, err
 		}
 	}
-	f := &Forward{Port: port, Local: ln.Addr().(*net.TCPAddr).Port, c: c, ln: ln, open: map[net.Conn]bool{}}
+	local := ln.Addr().(*net.TCPAddr).Port
+	f := &Forward{Port: port, Local: local, c: c, ln: ln, open: map[net.Conn]bool{}}
+	if runtime.GOOS == "windows" {
+		// ssh listens. One login carries every connection to this port.
+		ln.Close()
+		f.ln = nil
+		cmd := hiddenCommand("ssh", forwardArgs(c.Host, local, port)...)
+		if err := cmd.Start(); err != nil {
+			return nil, sshStartError(err)
+		}
+		f.cmd = cmd
+		go func() { cmd.Wait() }()
+	}
 	c.mu.Lock()
 	c.forwards = append(c.forwards, f)
 	c.mu.Unlock()
-	go f.serve()
+	if f.cmd == nil {
+		go f.serve()
+	}
 	c.notify()
 	return f, nil
+}
+
+// forwardArgs is the ssh that listens for one forwarded port on Windows.
+// The user's config applies through hostArgs. There is no ControlPath.
+func forwardArgs(host string, local, port int) []string {
+	args := []string{
+		"-N",
+		"-o", "BatchMode=yes",
+		"-o", "ConnectTimeout=15",
+		"-o", "ServerAliveInterval=10",
+		"-o", "ServerAliveCountMax=3",
+		"-o", "LogLevel=ERROR",
+		"-L", fmt.Sprintf("127.0.0.1:%d:localhost:%d", local, port),
+	}
+	return append(args, hostArgs(host)...)
 }
 
 // Forwards returns the ports of the host forwarded, in the order they
@@ -91,7 +127,12 @@ func (f *Forward) Close() {
 		c.forwards = slices.Delete(c.forwards, i, i+1)
 	}
 	c.mu.Unlock()
-	f.ln.Close()
+	if f.ln != nil {
+		f.ln.Close()
+	}
+	if f.cmd != nil && f.cmd.Process != nil {
+		f.cmd.Process.Kill()
+	}
 	f.mu.Lock()
 	for conn := range f.open {
 		conn.Close()

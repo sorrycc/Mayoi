@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"os/exec"
-	"path"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -161,10 +160,7 @@ func pluginPath(a *app, p string) (string, error) {
 	if a.root == "" {
 		return "", errors.New("no folder is open for a relative path")
 	}
-	if host, root, ok := remote.Split(a.root); ok {
-		return remote.Path(host, path.Join(root, filepath.ToSlash(p))), nil
-	}
-	return filepath.Join(a.root, p), nil
+	return remote.Join(a.root, p), nil
 }
 
 // Call implements plugin.Host.

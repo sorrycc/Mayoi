@@ -24,7 +24,9 @@ import (
 // on it: first the hosts, of ~/.ssh/config and those connected to before,
 // then, once connected, the folders of the host.
 type remotePicker struct {
-	open  bool
+	open bool
+	// wsl lists distributions, not SSH hosts. The folder stage is the same.
+	wsl   bool
 	stage pickStage
 	query string
 	sel   int
@@ -82,10 +84,16 @@ func (a *app) recentHosts() ([]string, map[string]string) {
 	var hosts []string
 	last := map[string]string{}
 	for _, d := range a.settings.Recent {
-		if h, rp, ok := remote.Split(d); ok && !slices.Contains(hosts, h) {
-			hosts = append(hosts, h)
-			last[h] = rp
+		kind, ok := remote.KindOf(d)
+		if !ok || kind != remote.KindSSH {
+			continue
 		}
+		h, rp, ok := remote.Split(d)
+		if !ok || slices.Contains(hosts, h) {
+			continue
+		}
+		hosts = append(hosts, h)
+		last[h] = rp
 	}
 	return hosts, last
 }
@@ -133,6 +141,43 @@ func (a *app) openRemotePicker() {
 		}
 		wg.Wait()
 	}()
+}
+
+// openWSLPicker lists installed distributions, then a folder in the one
+// chosen. With none installed, it says so and opens nothing.
+func (a *app) openWSLPicker() {
+	if !wslAvailable() {
+		return
+	}
+	go func() {
+		names, err := remote.Distros()
+		a.post(func() {
+			if err != nil || len(names) == 0 {
+				a.fail("%s", locales.WslNoDistro())
+				return
+			}
+			a.showWSLDistros(names)
+		})
+	}()
+}
+
+// showWSLDistros opens the box on names. Recent WSL folders stay out of
+// the SSH host list.
+func (a *app) showWSLDistros(names []string) {
+	a.closeRemotePicker()
+	r := &a.remotePick
+	*r = remotePicker{open: true, wsl: true, stale: true, hosts: names, recent: map[string]string{}}
+	for _, d := range a.settings.Recent {
+		kind, ok := remote.KindOf(d)
+		if !ok || kind != remote.KindWSL {
+			continue
+		}
+		h, rp, ok := remote.Split(d)
+		if !ok || r.recent[h] != "" {
+			continue
+		}
+		r.recent[h] = rp
+	}
 }
 
 // openRemoteFolder shows the box of the folders of the folder's host, or
@@ -213,6 +258,10 @@ func (a *app) releasePick() {
 
 // chooseHost connects to host, then lists its folders.
 func (a *app) chooseHost(host string) {
+	if a.remotePick.wsl {
+		a.chooseDistro(host)
+		return
+	}
 	r := &a.remotePick
 	host = strings.TrimSpace(host)
 	if err := remote.CheckHost(host); err != nil {
@@ -221,6 +270,29 @@ func (a *app) chooseHost(host string) {
 	}
 	a.releasePick()
 	c := remote.For(host)
+	c.Acquire()
+	r.conn, r.err, r.since = c, "", time.Now()
+	r.unsub = c.Subscribe(func() { a.post(a.pickConnChanged) })
+	r.stage, r.query = pickConnecting, ""
+	c.Connect()
+	a.pickConnChanged()
+}
+
+// chooseDistro connects to an installed distribution, then lists its
+// folders. A name that is not in the list is not passed to wsl -d.
+func (a *app) chooseDistro(name string) {
+	r := &a.remotePick
+	name = strings.TrimSpace(name)
+	if !slices.Contains(r.hosts, name) {
+		r.err = locales.WslNoDistro()
+		return
+	}
+	a.releasePick()
+	c, _, ok := remote.Lookup(remote.WSLPath(name, "/"))
+	if !ok {
+		r.err = remote.WSLUnavailable()
+		return
+	}
 	c.Acquire()
 	r.conn, r.err, r.since = c, "", time.Now()
 	r.unsub = c.Subscribe(func() { a.post(a.pickConnChanged) })
@@ -252,7 +324,12 @@ func (a *app) pickConnChanged() {
 	case remote.Connected:
 		start := r.conn.Info().Home
 		for _, d := range a.settings.Recent {
-			if host, rp, ok := remote.Split(d); ok && host == r.conn.Host && d != a.root {
+			kind, ok := remote.KindOf(d)
+			if !ok || kind != r.conn.Kind() || d == a.root {
+				continue
+			}
+			host, rp, ok := remote.Split(d)
+			if ok && host == r.conn.Host {
 				start = rp
 				break
 			}
@@ -404,7 +481,7 @@ func (a *app) pickFolderRow(i int) {
 			case !info.IsDir():
 				r.err = locales.PickNotFolder(target)
 			default:
-				a.openRemote(remote.Path(c.Host, target))
+				a.openRemote(c.Path(target))
 			}
 		})
 	}()
@@ -449,7 +526,7 @@ func (a *app) remotePickerView(c *ui.Context) {
 		a.listPick()
 	}
 	// The host typed, when it is none of those listed, is the first row.
-	extra := r.stage == pickHost && typed != "" && !slices.Contains(r.hosts, typed)
+	extra := r.stage == pickHost && !r.wsl && typed != "" && !slices.Contains(r.hosts, typed)
 	var rows []string
 	count := 0
 	switch {
@@ -475,7 +552,7 @@ func (a *app) remotePickerView(c *ui.Context) {
 			}
 			if i >= 0 && i < len(r.results) {
 				a.chooseHost(r.hosts[r.results[i].Index])
-			} else if typed != "" {
+			} else if typed != "" && !r.wsl {
 				a.chooseHost(typed)
 			}
 		case pickFolder:
@@ -483,6 +560,9 @@ func (a *app) remotePickerView(c *ui.Context) {
 		}
 	}
 	title, placeholder := locales.PickConnectTitle(), locales.PickConnectPlaceholder()
+	if r.wsl && r.stage == pickHost {
+		title, placeholder = locales.PickWSLTitle(), locales.PickWSLPlaceholder()
+	}
 	if r.stage != pickHost && r.conn != nil {
 		title, placeholder = locales.PickFolderTitle(r.conn.Host), locales.PickFolderPlaceholder()
 	}
@@ -514,7 +594,11 @@ func (a *app) remotePickerView(c *ui.Context) {
 				case pickConnecting:
 					a.connectingFooter(c)
 				case pickHost:
-					a.quickFooter(c, false, locales.QuickConnectAction(), locales.PickSignsIn(), false, false)
+					action, signs := locales.QuickConnectAction(), locales.PickSignsIn()
+					if r.wsl {
+						action, signs = locales.PickWSLOpen(), locales.PickWSLOpens()
+					}
+					a.quickFooter(c, false, action, signs, false, false)
 				}
 			})
 			if box.PressedOutside() {
@@ -543,7 +627,11 @@ func (a *app) pickHeader(c *ui.Context, title, placeholder string, rows []string
 		}
 		ui.Icon(c, icon).FontSize(16).TextColor(p.muted)
 		if r.stage == pickConnecting {
-			ui.Text(c, locales.RemoteConnectingTo(r.conn.Host)).FontSize(14).TextColor(p.text).Grow(1).SingleLine()
+			label := locales.RemoteConnectingTo(r.conn.Host)
+			if r.wsl {
+				label = locales.PickWSLStarting(r.conn.Host)
+			}
+			ui.Text(c, label).FontSize(14).TextColor(p.text).Grow(1).SingleLine()
 			ui.Spinner(c).Size(13, 13)
 			return
 		}
@@ -594,7 +682,7 @@ func (a *app) pickHeader(c *ui.Context, title, placeholder string, rows []string
 		if r.checking || r.listing {
 			ui.Spinner(c).Size(12, 12)
 		}
-		if r.stage == pickHost {
+		if r.stage == pickHost && !r.wsl {
 			if a.barButton(c, "remote-config", locales.PickSshConfig()).Shrink(0).
 				Label(locales.CmdRemoteOpenConfig()).Tooltip("~/.ssh/config").Clicked() {
 				a.post(a.openSSHConfig)
@@ -626,12 +714,19 @@ func (a *app) pickHostRows(c *ui.Context, extra bool, typed string, choose func(
 	if !extra && len(r.results) == 0 {
 		ui.Column(c).Padding(22, 16).Gap(6).AlignItems(ui.Center).Children(func() {
 			msg, tip := locales.PickNoHosts(), locales.PickNoHostsTip()
-			if typed != "" {
+			if r.wsl {
+				msg, tip = locales.WslNoDistro(), ""
+				if typed != "" {
+					msg = locales.PickWSLNoMatch(typed)
+				}
+			} else if typed != "" {
 				msg, tip = locales.PickNoHostsMatch(typed), locales.PickConnectAnyway()
 			}
 			ui.Icon(c, iconServer).FontSize(22).TextColor(p.faint)
 			ui.Text(c, msg).FontSize(13).FontWeight(500).TextColor(p.text)
-			ui.Text(c, tip).FontSize(12).TextColor(p.muted).TextAlign(ui.Center)
+			if tip != "" {
+				ui.Text(c, tip).FontSize(12).TextColor(p.muted).TextAlign(ui.Center)
+			}
 		})
 		return
 	}
@@ -648,6 +743,9 @@ func (a *app) pickHostRows(c *ui.Context, extra bool, typed string, choose func(
 			last, recent := r.recent[h]
 			if grouped {
 				s := locales.PickSshConfig()
+				if r.wsl {
+					s = locales.PickWSLDistributions()
+				}
 				if recent {
 					s = locales.PickRecent()
 				}
@@ -676,7 +774,12 @@ func (a *app) homeShort(host, p string) string {
 	if host == "" {
 		return p
 	}
-	home := remote.For(host).Info().Home
+	var home string
+	if c := a.remotePick.conn; c != nil && c.Host == host {
+		home = c.Info().Home
+	} else if !a.remotePick.wsl {
+		home = remote.For(host).Info().Home
+	}
 	if home != "" && home != "/" && (p == home || strings.HasPrefix(p, home+"/")) {
 		return "~" + p[len(home):]
 	}
@@ -693,14 +796,19 @@ func (a *app) pickConnecting(c *ui.Context) {
 	}
 	host := r.conn.Host
 	ui.Column(c).Padding(26, 20, 24).Gap(8).AlignItems(ui.Center).Children(func() {
-		ui.Text(c, locales.PickSigningIn(host)).FontSize(13.5).FontWeight(500).TextColor(p.text)
-		detail := r.resolved[host]
-		if detail == "" || detail == host {
-			detail = locales.PickWithKeys()
+		if r.wsl {
+			ui.Text(c, locales.PickWSLStarting(host)).FontSize(13.5).FontWeight(500).TextColor(p.text)
+			ui.Text(c, locales.PickWSLOpening()).FontSize(12).TextColor(p.muted).SingleLine()
 		} else {
-			detail = locales.PickAs(detail)
+			ui.Text(c, locales.PickSigningIn(host)).FontSize(13.5).FontWeight(500).TextColor(p.text)
+			detail := r.resolved[host]
+			if detail == "" || detail == host {
+				detail = locales.PickWithKeys()
+			} else {
+				detail = locales.PickAs(detail)
+			}
+			ui.Text(c, detail).FontSize(12).TextColor(p.muted).SingleLine()
 		}
-		ui.Text(c, detail).FontSize(12).TextColor(p.muted).SingleLine()
 		if took := time.Since(r.since); took >= 3*time.Second {
 			ui.Text(c, locales.PickWaiting(int(took.Seconds()))).FontSize(12).TextColor(p.faint)
 		}

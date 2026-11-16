@@ -2,14 +2,12 @@ package main
 
 import (
 	"os"
-	"path"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/egoist/mygo/plugins/terminal"
 
-	"mayoi/internal/remote"
 	"mayoi/locales"
 )
 
@@ -109,10 +107,7 @@ func (a *app) restartTerminal(s *session) {
 	if c == nil {
 		return
 	}
-	dir := s.dir
-	if d := s.term.Dir(); path.IsAbs(d) {
-		dir = remote.Path(c.Host, d)
-	}
+	dir := shellDir(s.dir, s.term.Dir())
 	old := s.term
 	t, err := a.spawnTerminal(s, dir)
 	if err != nil {

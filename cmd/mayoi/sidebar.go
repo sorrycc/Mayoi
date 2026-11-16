@@ -287,7 +287,7 @@ func (a *app) fileTree(c *ui.Context) {
 	if activePath != a.treeSynced {
 		a.treeSynced = activePath
 		// A file outside the folder has no row: none is chosen in its place.
-		if activePath != "" && !strings.HasPrefix(activePath, a.root+string(filepath.Separator)) {
+		if activePath != "" && (activePath == a.root || !remote.Contains(a.root, activePath)) {
 			a.fileRow, a.selectInTree = -1, ""
 		}
 		a.revealInTree(activePath)
@@ -315,7 +315,7 @@ func (a *app) fileTree(c *ui.Context) {
 	// brighter, as the block of the caret's is in the editor.
 	activeDir := ""
 	if activePath != "" {
-		activeDir = filepath.Dir(activePath)
+		activeDir = remote.Dir(activePath)
 	}
 	out := ui.Outline(c.Key("files"), &a.files, view.roots, children, func(path string) {
 		isDir := t.IsDir(path)
@@ -364,7 +364,7 @@ func (a *app) fileTree(c *ui.Context) {
 		if paths := row.DroppedFiles(); paths != nil {
 			srcs, into := slices.Clone(paths), path
 			if !isDir {
-				into = filepath.Dir(path)
+				into = remote.Dir(path)
 			}
 			action = func() { a.copyPathsInto(srcs, into) }
 		}
@@ -376,7 +376,7 @@ func (a *app) fileTree(c *ui.Context) {
 			a.pluginMenuItems(m, "explorer/context", path)
 			dir := path
 			if !isDir {
-				dir = filepath.Dir(path)
+				dir = remote.Dir(path)
 			}
 			if m.Item(locales.NewFileEllipsis()).Chosen() {
 				action = func() { a.askNewEntry(dir, false) }
@@ -718,7 +718,7 @@ func (a *app) targetDir() string {
 		if a.tree.IsDir(p) {
 			return p
 		}
-		return filepath.Dir(p)
+		return remote.Dir(p)
 	}
 	return a.root
 }
@@ -726,13 +726,18 @@ func (a *app) targetDir() string {
 // revealInTree opens the folders above a file, and chooses it and scrolls
 // to it once the tree lists it.
 func (a *app) revealInTree(path string) {
-	if a.tree == nil || !strings.HasPrefix(path, a.root+string(filepath.Separator)) {
+	if a.tree == nil || !remote.Contains(a.root, path) || remote.Clean(path) == remote.Clean(a.root) {
 		return
 	}
 	a.selectInTree = path
-	for d := filepath.Dir(path); d != a.root && len(d) > len(a.root); d = filepath.Dir(d) {
+	for d := remote.Dir(path); d != a.root && len(d) > len(a.root); {
 		a.files.Open.Add(d)
 		a.tree.Load(d)
+		next := remote.Dir(d)
+		if next == d {
+			break
+		}
+		d = next
 	}
 }
 
@@ -746,7 +751,7 @@ func (a *app) askNewEntry(dir string, folder bool) {
 		if name == "" {
 			return locales.EnterName()
 		}
-		path := filepath.Join(dir, filepath.FromSlash(name))
+		path := remote.Join(dir, name)
 		if remote.Is(path) {
 			a.newRemoteEntry(dir, path, folder)
 			return ""
@@ -789,7 +794,7 @@ func (a *app) askRename(path string) {
 		if name == "" || hasSlash(name) {
 			return locales.EnterNameNoSlashes()
 		}
-		to := filepath.Join(filepath.Dir(path), name)
+		to := remote.Join(remote.Dir(path), name)
 		if to == path {
 			return ""
 		}
@@ -820,7 +825,11 @@ func (a *app) askRename(path string) {
 // renamed has the open documents follow the files renamed.
 func (a *app) renamed(path, to string) {
 	for _, d := range a.docs {
-		if d.path == path || strings.HasPrefix(d.path, path+string(filepath.Separator)) {
+		sep := string(filepath.Separator)
+		if remote.Is(path) || remote.Is(d.path) {
+			sep = "/"
+		}
+		if d.path == path || strings.HasPrefix(d.path, path+sep) {
 			if a.tree != nil {
 				a.tree.Unwatch(d.path)
 			}
@@ -912,8 +921,8 @@ func (a *app) relOrPath(path string) string {
 		if path == a.root {
 			return filepath.Base(a.root)
 		}
-		if len(path) > len(a.root) && path[len(a.root)] == filepath.Separator && strings.HasPrefix(path, a.root) {
-			return filepath.ToSlash(path[len(a.root)+1:])
+		if rel, err := remote.Rel(a.root, path); err == nil && rel != ".." && !strings.HasPrefix(rel, "../") && !remote.IsAbs(rel) {
+			return rel
 		}
 	}
 	return shortenHome(path)

@@ -340,9 +340,7 @@ func (a *app) ownAgents() []hcAgent {
 		}
 		dir := t.dir
 		if t.term != nil {
-			if reported := t.term.Dir(); filepath.IsAbs(reported) {
-				dir = reported
-			}
+			dir = shellDir(t.dir, t.term.Dir())
 		}
 		out = append(out, hcAgent{cwd: dir, harness: h, state: r.State, term: t, owner: a})
 	}

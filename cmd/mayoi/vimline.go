@@ -3,7 +3,6 @@ package main
 import (
 	"mayoi/internal/remote"
 	"mayoi/locales"
-	"path"
 	"path/filepath"
 	"regexp"
 	"slices"
@@ -876,7 +875,7 @@ func (a *app) resolvePath(p string) string {
 	if strings.HasPrefix(p, "~/") && !remote.Is(a.root) {
 		return inDir(homeDir(), p[2:])
 	}
-	if path.IsAbs(filepath.ToSlash(p)) || filepath.IsAbs(p) || a.root == "" {
+	if remote.IsAbs(p) || a.root == "" {
 		return p
 	}
 	return inDir(a.root, filepath.ToSlash(p))

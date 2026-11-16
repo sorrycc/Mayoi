@@ -1,11 +1,47 @@
 package main
 
 import (
-	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
+
+	"mayoi/internal/remote"
+	"mayoi/internal/vfs"
 )
+
+// shellDir is the folder a terminal's shell is in. A slash path the shell
+// of a remote folder reports stays on that host or distribution.
+func shellDir(started, reported string) string {
+	if reported == "" {
+		return started
+	}
+	if remote.Is(reported) {
+		return remote.Clean(reported)
+	}
+	if drive, ok := windowsDrivePath(reported); ok {
+		return drive
+	}
+	if remote.Is(started) && strings.HasPrefix(filepath.ToSlash(reported), "/") {
+		return remote.On(started, filepath.ToSlash(reported))
+	}
+	if remote.IsAbs(reported) {
+		return reported
+	}
+	return started
+}
+
+// windowsDrivePath is a file URL's path on Windows, /C:/dir, as the
+// shell's directory. filepath does not treat that form as absolute.
+func windowsDrivePath(p string) (string, bool) {
+	if hostOS != "windows" || len(p) < 4 || p[0] != '/' || p[2] != ':' {
+		return "", false
+	}
+	c := p[1]
+	if (c < 'A' || c > 'Z') && (c < 'a' || c > 'z') {
+		return "", false
+	}
+	return filepath.Clean(p[1:]), true
+}
 
 // terminalFile opens a printed path without consulting the search index,
 // so files Git ignores can be opened too. Relative paths are the shell's,
@@ -16,21 +52,19 @@ func (a *app) terminalFile(s *session, link string) bool {
 	}
 	dir := s.dir
 	if s.term != nil {
-		if reported := s.term.Dir(); filepath.IsAbs(reported) {
-			dir = reported
-		}
+		dir = shellDir(s.dir, s.term.Dir())
 	}
 	resolve := func(name string) string {
 		if strings.HasPrefix(name, "~/") || strings.HasPrefix(name, `~\`) {
 			name = filepath.Join(homeDir(), name[2:])
 		}
-		if !filepath.IsAbs(name) {
-			name = filepath.Join(dir, name)
+		if !remote.IsAbs(name) {
+			name = remote.Join(dir, name)
 		}
-		return filepath.Clean(name)
+		return remote.Clean(name)
 	}
 	path := resolve(link)
-	info, err := os.Stat(path)
+	info, err := vfs.Stat(path)
 	line, col := 0, 0
 	if err != nil {
 		// Prefer a literal filename if it exists, even one ending in :12.
@@ -40,7 +74,7 @@ func (a *app) terminalFile(s *session, link string) bool {
 		}
 		line, col = l, c
 		path = resolve(name)
-		info, err = os.Stat(path)
+		info, err = vfs.Stat(path)
 	}
 	if err != nil || !info.Mode().IsRegular() {
 		return false

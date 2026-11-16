@@ -2,8 +2,8 @@ package main
 
 import (
 	"path/filepath"
-	"strings"
 
+	"mayoi/internal/remote"
 	"mayoi/internal/workspace"
 )
 
@@ -43,14 +43,19 @@ func (a *app) explorerRows() explorerTree {
 	// a disk change splits a chain, so those folders keep the same state.
 	if previous.compact {
 		for path, row := range previous.rows {
-			for dir := filepath.Dir(path); len(dir) >= len(row.first); dir = filepath.Dir(dir) {
+			for dir := remote.Dir(path); dir != path && len(dir) >= len(row.first); {
 				if a.files.Open.Has(path) {
 					a.files.Open.Add(dir)
-				} else if !strings.HasPrefix(a.selectInTree, dir+string(filepath.Separator)) {
+				} else if !remote.Contains(dir, a.selectInTree) || remote.Clean(a.selectInTree) == remote.Clean(dir) {
 					// A reveal waiting for a file new in a hidden folder
 					// keeps that folder open until the tree lists the file.
 					a.files.Open.Remove(dir)
 				}
+				next := remote.Dir(dir)
+				if next == dir {
+					break
+				}
+				dir = next
 			}
 		}
 	}
@@ -132,8 +137,13 @@ func (a *app) explorerRows() explorerTree {
 				}
 			}
 			if visible {
-				for dir := path; len(dir) >= len(first); dir = filepath.Dir(dir) {
+				for dir := path; len(dir) >= len(first); {
 					v.members[dir] = path
+					next := remote.Dir(dir)
+					if next == dir {
+						break
+					}
+					dir = next
 				}
 			}
 			v.rows[path] = explorerRow{first: first, name: name, parent: parent, depth: depth, visible: visible}
@@ -149,12 +159,17 @@ func (a *app) explorerRows() explorerTree {
 // last, path: a file deleted from a folder hidden in the row marks it too.
 func (a *app) chainLetter(path, first string) byte {
 	var letter byte
-	for dir := path; len(dir) >= len(first); dir = filepath.Dir(dir) {
+	for dir := path; len(dir) >= len(first); {
 		for _, ctx := range a.rootRepositoryList() {
 			if next := ctx.git.dirs[dir]; letterRank(next) > letterRank(letter) {
 				letter = next
 			}
 		}
+		next := remote.Dir(dir)
+		if next == dir {
+			break
+		}
+		dir = next
 	}
 	return letter
 }
@@ -170,7 +185,7 @@ func (v explorerTree) selection(path string) string {
 		if row := v.members[path]; row != "" {
 			return row
 		}
-		parent := filepath.Dir(path)
+		parent := remote.Dir(path)
 		if parent == path {
 			break
 		}

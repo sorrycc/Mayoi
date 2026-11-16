@@ -30,10 +30,16 @@ func crumbsOf(path, root, home string) []crumb {
 	var out []crumb
 	base, rel := "", path
 	switch host, rp, ok := remote.Split(path); {
-	case root != "" && strings.HasPrefix(path, root+sep):
-		base, rel = root, path[len(root)+1:]
+	case root != "" && path != root && remote.Contains(root, path):
+		base = root
+		rel, _ = remote.Rel(root, path)
 	case ok:
-		base, rel = remote.Path(host, "/"), strings.TrimPrefix(rp, "/")
+		if kind, _ := remote.KindOf(path); kind == remote.KindWSL {
+			base = remote.WSLPath(host, "/")
+		} else {
+			base = remote.Path(host, "/")
+		}
+		rel = strings.TrimPrefix(rp, "/")
 		out = append(out, crumb{host, base})
 	case home != "" && strings.HasPrefix(path, home+sep):
 		base, rel = home, path[len(home)+1:]
@@ -52,7 +58,7 @@ func crumbsOf(path, root, home string) []crumb {
 		if part == "" {
 			continue
 		}
-		dir = filepath.Join(dir, part)
+		dir = remote.Join(dir, part)
 		if i == len(parts)-1 {
 			out = append(out, crumb{part, ""})
 		} else {
@@ -100,8 +106,8 @@ func (a *app) openCrumbs(col *column, t *colTab, dir string) {
 	}
 	file := t.path()
 	reveal := file
-	for reveal != "" && filepath.Dir(reveal) != dir && filepath.Dir(reveal) != reveal {
-		reveal = filepath.Dir(reveal)
+	for reveal != "" && remote.Dir(reveal) != dir && remote.Dir(reveal) != reveal {
+		reveal = remote.Dir(reveal)
 	}
 	*k = crumbsPicker{
 		open: true, col: col, tab: t, file: file, dir: dir, gen: k.gen + 1,

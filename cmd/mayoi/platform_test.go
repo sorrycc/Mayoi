@@ -12,6 +12,7 @@ import (
 	"github.com/egoist/mygo/ui"
 
 	"mayoi/internal/keymap"
+	"mayoi/internal/remote"
 	"mayoi/internal/settings"
 )
 
@@ -23,6 +24,10 @@ import (
 // it again for every message, which the frame benchmarks would measure.
 // Many tests run in worker processes beside each other: see splitTests.
 func TestMain(m *testing.M) {
+	// The Windows pool re-execs this binary as the bridge. main is not
+	// called from tests, so the bridge has to be recognized here, before
+	// the test flags, which would otherwise reject it.
+	remote.HandleBridge(os.Args)
 	hostOS = "darwin"
 	keepLineEndings()
 	if os.Getenv("MYGO_LOCALE") == "" {

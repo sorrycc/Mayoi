@@ -15,6 +15,8 @@ import (
 	"time"
 
 	"github.com/fsnotify/fsnotify"
+
+	"mayoi/internal/remote"
 )
 
 // Settings are what Mayoi remembers between launches: the preferences,
@@ -919,7 +921,7 @@ func (s *Settings) RecentExcept(dir string) []string {
 			continue
 		}
 		// A remote folder is looked at as it opens.
-		if strings.HasPrefix(d, "/ssh:") {
+		if remote.Is(d) {
 			out = append(out, d)
 		} else if info, err := os.Stat(d); err == nil && info.IsDir() {
 			out = append(out, d)

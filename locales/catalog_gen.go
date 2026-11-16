@@ -19539,3 +19539,123 @@ func PrefDescPrDeleteBranch() string { return In(i18n.Locale()).PrefDescPrDelete
 func (msgs Messages) PrefDescPrDeleteBranch() string {
 	return Catalog.Format(msgs.locale, "prefDescPrDeleteBranch", nil)
 }
+
+// CmdWSLOpenFolder says "Open WSL Folder…"
+// in the language the app shows.
+func CmdWSLOpenFolder() string { return In(i18n.Locale()).CmdWSLOpenFolder() }
+
+// CmdWSLOpenFolder says "Open WSL Folder…"
+// in the language of msgs.
+func (msgs Messages) CmdWSLOpenFolder() string {
+	return Catalog.Format(msgs.locale, "cmdWSLOpenFolder", nil)
+}
+
+// MenuWSL says "WSL"
+// in the language the app shows.
+func MenuWSL() string { return In(i18n.Locale()).MenuWSL() }
+
+// MenuWSL says "WSL"
+// in the language of msgs.
+func (msgs Messages) MenuWSL() string {
+	return Catalog.Format(msgs.locale, "menuWSL", nil)
+}
+
+// WslNoDistro says "No WSL distribution is installed."
+// in the language the app shows.
+func WslNoDistro() string { return In(i18n.Locale()).WslNoDistro() }
+
+// WslNoDistro says "No WSL distribution is installed."
+// in the language of msgs.
+func (msgs Messages) WslNoDistro() string {
+	return Catalog.Format(msgs.locale, "wslNoDistro", nil)
+}
+
+// WslNoForward says "A WSL folder does not forward ports."
+// in the language the app shows.
+func WslNoForward() string { return In(i18n.Locale()).WslNoForward() }
+
+// WslNoForward says "A WSL folder does not forward ports."
+// in the language of msgs.
+func (msgs Messages) WslNoForward() string {
+	return Catalog.Format(msgs.locale, "wslNoForward", nil)
+}
+
+// PickWSLTitle says "Open WSL Folder"
+// in the language the app shows.
+func PickWSLTitle() string { return In(i18n.Locale()).PickWSLTitle() }
+
+// PickWSLTitle says "Open WSL Folder"
+// in the language of msgs.
+func (msgs Messages) PickWSLTitle() string {
+	return Catalog.Format(msgs.locale, "pickWSLTitle", nil)
+}
+
+// PickWSLPlaceholder says "Choose a distribution"
+// in the language the app shows.
+func PickWSLPlaceholder() string { return In(i18n.Locale()).PickWSLPlaceholder() }
+
+// PickWSLPlaceholder says "Choose a distribution"
+// in the language of msgs.
+func (msgs Messages) PickWSLPlaceholder() string {
+	return Catalog.Format(msgs.locale, "pickWSLPlaceholder", nil)
+}
+
+// PickWSLStarting says "Starting {distro}"
+// in the language the app shows.
+func PickWSLStarting(distro string) string { return In(i18n.Locale()).PickWSLStarting(distro) }
+
+// PickWSLStarting says "Starting {distro}"
+// in the language of msgs.
+func (msgs Messages) PickWSLStarting(distro string) string {
+	return Catalog.Format(msgs.locale, "pickWSLStarting", map[string]any{"distro": distro})
+}
+
+// PickWSLOpening says "Opening the distribution"
+// in the language the app shows.
+func PickWSLOpening() string { return In(i18n.Locale()).PickWSLOpening() }
+
+// PickWSLOpening says "Opening the distribution"
+// in the language of msgs.
+func (msgs Messages) PickWSLOpening() string {
+	return Catalog.Format(msgs.locale, "pickWSLOpening", nil)
+}
+
+// PickWSLOpen says "open"
+// in the language the app shows.
+func PickWSLOpen() string { return In(i18n.Locale()).PickWSLOpen() }
+
+// PickWSLOpen says "open"
+// in the language of msgs.
+func (msgs Messages) PickWSLOpen() string {
+	return Catalog.Format(msgs.locale, "pickWSLOpen", nil)
+}
+
+// PickWSLOpens says "Opens a folder in the distribution"
+// in the language the app shows.
+func PickWSLOpens() string { return In(i18n.Locale()).PickWSLOpens() }
+
+// PickWSLOpens says "Opens a folder in the distribution"
+// in the language of msgs.
+func (msgs Messages) PickWSLOpens() string {
+	return Catalog.Format(msgs.locale, "pickWSLOpens", nil)
+}
+
+// PickWSLNoMatch says "No distribution matches {typed}"
+// in the language the app shows.
+func PickWSLNoMatch(typed string) string { return In(i18n.Locale()).PickWSLNoMatch(typed) }
+
+// PickWSLNoMatch says "No distribution matches {typed}"
+// in the language of msgs.
+func (msgs Messages) PickWSLNoMatch(typed string) string {
+	return Catalog.Format(msgs.locale, "pickWSLNoMatch", map[string]any{"typed": typed})
+}
+
+// PickWSLDistributions says "Distributions"
+// in the language the app shows.
+func PickWSLDistributions() string { return In(i18n.Locale()).PickWSLDistributions() }
+
+// PickWSLDistributions says "Distributions"
+// in the language of msgs.
+func (msgs Messages) PickWSLDistributions() string {
+	return Catalog.Format(msgs.locale, "pickWSLDistributions", nil)
+}

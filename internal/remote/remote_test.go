@@ -38,6 +38,9 @@ func TestPaths(t *testing.T) {
 	if got := On(p, "/home/me/proj/.git"); got != "/ssh:me@box:2222/home/me/proj/.git" {
 		t.Errorf("On = %q", got)
 	}
+	if got := On(WSLPath("Ubuntu", "/home/me/app"), "/home/me/app/.git"); got != "/wsl:Ubuntu/home/me/app/.git" {
+		t.Errorf("On wsl = %q", got)
+	}
 	if got := On("/Users/me", "/x"); got != "/x" {
 		t.Errorf("On of a local path = %q", got)
 	}
@@ -46,6 +49,27 @@ func TestPaths(t *testing.T) {
 	}
 	if got := URL(p); got != "ssh://me@box:2222/home/me/proj" {
 		t.Errorf("URL = %q", got)
+	}
+	if !IsAbs(p) || !IsAbs(WSLPath("Ubuntu", "/home/me/app")) {
+		t.Error("a remote path is absolute")
+	}
+	if got := Join(p, "a", "..", "b.go"); got != "/ssh:me@box:2222/home/me/proj/b.go" {
+		t.Errorf("Join = %q", got)
+	}
+	if got := Dir(p); got != "/ssh:me@box:2222/home/me" {
+		t.Errorf("remote Dir = %q", got)
+	}
+	ubuntu, debian := WSLPath("Ubuntu", "/home/me/app"), WSLPath("Debian", "/home/me/app")
+	if ubuntu == debian || !Contains(ubuntu, Join(ubuntu, "a.go")) || Contains(ubuntu, Join(debian, "a.go")) {
+		t.Errorf("wsl paths ubuntu %q debian %q", ubuntu, debian)
+	}
+	if got, err := Rel(ubuntu, Join(ubuntu, "a.go")); err != nil || got != "a.go" {
+		t.Errorf("Rel = %q %v", got, err)
+	}
+	// filepath on Windows rewrites the slash form. The remote helpers must not.
+	rewritten := filepath.Join(p, "a.go")
+	if Is(rewritten) && Join(p, "a.go") != "/ssh:me@box:2222/home/me/proj/a.go" {
+		t.Fatalf("Join followed filepath: %q", Join(p, "a.go"))
 	}
 }
 

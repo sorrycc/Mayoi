@@ -267,6 +267,11 @@ func (a *app) openText(open func()) {
 // openFileIn shows a file in a tab of a column, opening one at place at
 // unless the column has one.
 func (a *app) openFileIn(col *column, at int, path string, focus bool) {
+	// A remote path copied with backslashes is still that file. One slash
+	// path lets Explorer and Quick Open share the tab.
+	if remote.Is(path) {
+		path = remote.Clean(path)
+	}
 	if isImage(path) {
 		a.openImage(col, at, path, focus)
 		return
@@ -1044,7 +1049,9 @@ func (a *app) restoreExpanded(rels []string) {
 		return
 	}
 	for _, rel := range rels {
-		dir := filepath.Join(a.root, filepath.FromSlash(rel))
+		// remote.Join keeps a restored remote folder on the slash path the
+		// tree stored. filepath.Join on Windows rewrites it with backslashes.
+		dir := remote.Join(a.root, rel)
 		// A remote folder is looked at as it is read.
 		if remote.Is(dir) {
 			a.files.Open.Add(dir)
@@ -1137,10 +1144,12 @@ func (a *app) restoreTabs() {
 		// Opening each makes it the tab shown: keep the one to show.
 		var shown *colTab
 		for k, ts := range cs.Tabs {
-			// Relative roots move with the workspace; absolute roots from older
-			// settings remain readable.
-			if ts.RepoRoot != "" && !filepath.IsAbs(ts.RepoRoot) {
-				ts.RepoRoot = filepath.Join(a.root, filepath.FromSlash(ts.RepoRoot))
+			// Relative roots move with the workspace. A remote root stays a
+			// slash path; filepath.Join on Windows would rewrite it.
+			if remote.Is(ts.RepoRoot) {
+				ts.RepoRoot = remote.Clean(ts.RepoRoot)
+			} else if ts.RepoRoot != "" && !remote.IsAbs(ts.RepoRoot) {
+				ts.RepoRoot = remote.Join(a.root, ts.RepoRoot)
 			}
 			n := len(col.tabs)
 			switch {

@@ -322,7 +322,10 @@ func sortEntries(dir string, entries []vfs.Entry) ([]string, map[string]bool) {
 		if Hidden(e.Name) {
 			continue
 		}
-		p := filepath.Join(dir, e.Name)
+		// remote.Join keeps /ssh: and /wsl: as slash paths. filepath.Join
+		// on Windows rewrites them with backslashes, so the file no longer
+		// matches Quick Open, Git or a later read of the same folder.
+		p := remote.Join(dir, e.Name)
 		if e.Dir {
 			dirs[p] = true
 		}
@@ -367,13 +370,18 @@ func (t *Tree) watch() {
 // event gathers a change of a file, which the next flush takes: made,
 // removed or renamed away, or written. Safe from any goroutine.
 func (t *Tree) event(name string, created, removed, written bool) {
+	// A remote path copied with backslashes is still that file. Clean
+	// keeps the slash form sortEntries stored.
+	if remote.Is(name) {
+		name = remote.Clean(name)
+	}
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	if t.pending == nil {
 		t.pending, t.files, t.gone = map[string]bool{}, map[string]bool{}, map[string]bool{}
 	}
 	if created || removed {
-		t.pending[filepath.Dir(name)] = true
+		t.pending[remote.Dir(name)] = true
 	}
 	if removed {
 		t.gone[name] = true
@@ -729,7 +737,6 @@ func (t *Tree) startNotify() {
 	t.mu.Lock()
 	t.notify = cmd
 	t.mu.Unlock()
-	host := c.Host
 	go func() {
 		sc := bufio.NewScanner(out)
 		sc.Buffer(make([]byte, 64<<10), 1<<20)
@@ -738,7 +745,7 @@ func (t *Tree) startNotify() {
 			if !ok {
 				continue
 			}
-			p := remote.Path(host, name)
+			p := c.Path(name)
 			has := func(e string) bool { return slices.Contains(strings.Split(events, ","), e) }
 			t.event(p, has("CREATE") || has("MOVED_TO"), has("DELETE") || has("MOVED_FROM"), has("CLOSE_WRITE"))
 		}

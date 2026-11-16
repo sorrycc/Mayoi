@@ -328,12 +328,12 @@ func init() {
 				return nil, fmt.Errorf("no file is shown")
 			}
 			d, to := ed.document, pathArg(arg, cwd)
-			// On an SSH host, a path there, from the folder.
-			if host, root, ok := remote.Split(a.root); ok {
+			// On a remote machine, a path there, from the folder.
+			if _, root, ok := remote.Split(a.root); ok {
 				if to = arg; !path.IsAbs(to) {
 					to = path.Join(root, to)
 				}
-				to = remote.Path(host, to)
+				to = remote.On(a.root, to)
 			}
 			return func() { a.saveDocAs(d, to) }, nil
 		}},
@@ -389,10 +389,13 @@ func pathArg(p, cwd string) string {
 		home, _ := os.UserHomeDir()
 		p = filepath.Join(home, rest)
 	}
-	if !filepath.IsAbs(p) {
-		p = filepath.Join(cwd, p)
+	if remote.Is(p) {
+		return remote.Clean(p)
 	}
-	return filepath.Clean(p)
+	if !remote.IsAbs(p) {
+		p = remote.Join(cwd, p)
+	}
+	return remote.Clean(p)
 }
 
 // folderArg is a folder the mayoi command gave, absolute, which is there.

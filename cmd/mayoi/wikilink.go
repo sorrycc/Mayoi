@@ -518,8 +518,8 @@ func wikiLinkNew(path, target string) string {
 		target += ".md"
 	}
 	rel := filepath.FromSlash(target)
-	if filepath.IsAbs(rel) || !filepath.IsLocal(rel) {
+	if remote.IsAbs(rel) || !filepath.IsLocal(rel) {
 		return ""
 	}
-	return filepath.Join(filepath.Dir(path), rel)
+	return remote.Join(remote.Dir(path), rel)
 }

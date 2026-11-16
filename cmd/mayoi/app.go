@@ -557,7 +557,9 @@ func (a *app) start() {
 
 // openFolder makes dir the workspace.
 func (a *app) openFolder(dir string) {
-	dir = filepath.Clean(dir)
+	// remote.Clean keeps /ssh: and /wsl: as slash paths. filepath.Clean
+	// on Windows rewrites them with backslashes.
+	dir = remote.Clean(dir)
 	if a.tree != nil {
 		a.tree.Close()
 	}
@@ -983,9 +985,17 @@ func (a *app) isIgnored(path string) bool {
 	if len(a.ignored) == 0 {
 		return false
 	}
-	for p := path; len(p) > len(a.root); p = filepath.Dir(p) {
+	// Ignored stores remote.Join paths. remote.Dir stays on that form;
+	// filepath.Dir on Windows rewrites /ssh: and /wsl: with backslashes.
+	if remote.Is(path) {
+		path = remote.Clean(path)
+	}
+	for p := path; len(p) > len(a.root); p = remote.Dir(p) {
 		if a.ignored[p] {
 			return true
+		}
+		if remote.Dir(p) == p {
+			break
 		}
 	}
 	return false
@@ -1003,8 +1013,8 @@ func (a *app) windowTitle() string {
 	}
 	if a.root != "" {
 		parts = append(parts, filepath.Base(a.root))
-		if host := remote.HostOf(a.root); host != "" {
-			parts[len(parts)-1] = filepath.Base(hostPath(a.root)) + " [SSH: " + host + "]"
+		if label, ok := folderTargetLabel(a.root); ok {
+			parts[len(parts)-1] = filepath.Base(hostPath(a.root)) + " [" + label + "]"
 		}
 	}
 	if len(parts) == 0 {

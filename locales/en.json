@@ -2083,5 +2083,17 @@
   "contextMenuAddFailed": "'Open with Mayoi' could not be added to Explorer.",
   "contextMenuRemoved": "'Open with Mayoi' is removed from Explorer.",
   "contextMenuRemoveFailed": "'Open with Mayoi' could not be removed from Explorer.",
-  "contextMenuNotAdded": "'Open with Mayoi' is not in Explorer's right-click menu."
+  "contextMenuNotAdded": "'Open with Mayoi' is not in Explorer's right-click menu.",
+  "cmdWSLOpenFolder": "Open WSL Folder…",
+  "menuWSL": "WSL",
+  "wslNoDistro": "No WSL distribution is installed.",
+  "wslNoForward": "A WSL folder does not forward ports.",
+  "pickWSLTitle": "Open WSL Folder",
+  "pickWSLPlaceholder": "Choose a distribution",
+  "pickWSLStarting": "Starting {distro}",
+  "pickWSLOpening": "Opening the distribution",
+  "pickWSLOpen": "open",
+  "pickWSLOpens": "Opens a folder in the distribution",
+  "pickWSLNoMatch": "No distribution matches {typed}",
+  "pickWSLDistributions": "Distributions"
 }

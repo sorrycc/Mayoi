@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"mayoi/internal/cli"
+	"mayoi/internal/remote"
 	"mayoi/locales"
 )
 
@@ -45,6 +46,9 @@ func openURLTarget(raw string) (cli.Target, bool) {
 
 // urlTarget is the file a URL names, absolute, at a line and column.
 func urlTarget(path string, line, col int) (cli.Target, bool) {
+	if remote.Is(path) {
+		return cli.Target{Path: remote.Clean(path), Line: line, Col: col}, true
+	}
 	path = filepath.FromSlash(path)
 	if runtime.GOOS == "windows" {
 		// A URL path starts with the slash before C:/, which a Windows

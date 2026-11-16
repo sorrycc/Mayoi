@@ -109,10 +109,10 @@ func quickPathName(root, query string) string {
 		}
 		name = filepath.Join(home, rest[1:])
 	}
-	if !filepath.IsAbs(name) {
+	if !remote.IsAbs(name) {
 		return ""
 	}
-	return filepath.Clean(name)
+	return remote.Clean(name)
 }
 
 func (a *app) quickOpenView(c *ui.Context) {

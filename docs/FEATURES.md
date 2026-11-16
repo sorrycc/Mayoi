@@ -667,9 +667,10 @@ Each folder gets its own window.
 
 ## Remote SSH
 
-**File → Remote SSH → Connect to Host…**, the welcome page or the command palette opens a folder on another machine
-over SSH, with the system's `ssh` and nothing to install on the other side. It works on macOS and Linux; Windows does
-not have it yet.
+**File → Remote SSH → Connect to Host…**, the welcome page, the command palette, or `mayoi --remote host:/path` opens a
+folder on another machine over SSH, with the system's `ssh` and nothing to install on the other side. On Windows this
+is the system `ssh`, `%USERPROFILE%\.ssh` and the Windows ssh-agent, not WSL's `ssh`. macOS and Linux use the system
+`ssh` as before.
 
 - The box lists the hosts connected to before under **Recent**, each with the folder opened there last, then the hosts
   of `~/.ssh/config`, with those it includes. Each shows the user and the machine `ssh -G` resolves it to. Type to
@@ -684,9 +685,13 @@ not have it yet.
   the folder typed. The folder opens as **Open Folder** opens one: in the window if it shows nothing, else in a window,
   or a project tab, of its own.
 - Mayoi signs in with keys and the SSH agent, never a password, and honors `~/.ssh/config`: users, ports, keys,
-  `ProxyJump` and the rest. A host whose key is not trusted yet needs one `ssh` from a terminal first. One connection
-  goes to each host (an ssh ControlMaster), shared by every window and command, and ends with the last window of the
-  host.
+  `ProxyJump` and the rest. A host whose key is not trusted yet needs one `ssh` from a terminal first. If `ssh` cannot
+  be run, Mayoi says so, and a local folder still opens. One connection goes to each host, shared by every window and
+  command, and ends with the last window of the host. On macOS and Linux, ssh keeps it with a control socket. File and
+  Git commands reuse that connection instead of signing in again.
+- The folder's path stays `/ssh:host/path` on Windows as well, as a complete path. A file under that folder stays in it
+  for search, Source Control and the breadcrumbs. A language server for a document in the folder runs on the host. A
+  host that does not answer as a POSIX shell is refused, and the files stay read-only.
 - The Explorer, quick open, search and replace in files, Source Control, blame, the gutter marks and diffs work as in a
   local folder, running `git`, `rg` (or `grep`) and `find` on the host. Terminals are shells of the host.
 - The folders in a folder of the Explorer are read along with it, at one round trip, but those the index skips, as
@@ -727,13 +732,34 @@ not have it yet.
   a browser here. Clicking a link to `localhost`, `127.0.0.1` or `0.0.0.0` in a terminal of the host forwards its port
   and opens it; **Forward a Port…**, in **File → Remote SSH**, the command palette and the status bar's `SSH` menu,
   forwards one by its number. A port goes to the same port here when it is free, else to another, and the status bar
-  shows the ports forwarded, with a menu to open each in the browser, copy its address or stop forwarding it. Each
-  connection goes through the host's ssh connection, so a forward works again once a host lost connects again, and
-  ends as the last window of the host closes.
+  shows the ports forwarded, with a menu to open each in the browser, copy its address or stop forwarding it. On macOS
+  and Linux, each browser connection goes through the host's ssh connection, so a forward works again once a host that
+  was lost connects again. On Windows, one `ssh` session holds each forwarded port. If that session ends, forward the
+  port again. Forwarding ends as the last window of the host closes.
 - Reveal in Finder is left out of a remote folder, and deleting a file deletes it for good, after asking, as a remote
   folder has no trash.
 - Recent folders, the windows and the tabs of a remote folder are kept as those of a local one, and a remote folder of
   the last session connects again as the app starts.
+
+## WSL
+
+On Windows, when `wsl` can be run, **File → Open WSL Folder…**, the welcome page and the command palette open a folder
+in an installed WSL distribution. macOS and Linux do not list that action. When `wsl` cannot be found, the action is
+absent, and a local folder and Remote SSH still open. When no distribution is installed, the action stays, Mayoi says
+`No WSL distribution is installed.`, and it does not open an empty folder.
+
+- The box lists the installed distributions. Choose one, then a folder inside it. The window records that folder as
+  `/wsl:<distribution>/path`, a complete path, distinct from an SSH folder and from `\\wsl$\`. A file at
+  `/home/me/app/a.go` in Ubuntu is `/wsl:Ubuntu/home/me/app/a.go`. The same path in another distribution is a different
+  folder.
+- Search, the Explorer, Source Control and the breadcrumbs keep a file under that folder inside it. `git`, search and
+  a language server for a document there run inside the distribution. The terminal is that distribution's shell, in
+  the folder. A WSL folder does not forward ports, and it opens with `wsl` whether or not SSH is configured. The
+  status bar shows `WSL: <distribution>`.
+- Opening a distribution that is stopped starts it. If it does not start, Mayoi says why and leaves the window
+  unchanged. If the distribution stops after the folder is open, the window stays, the files are read-only, and the
+  banner says the WSL distribution is not available. Reconnect starts it again.
+- Recent folders remember a WSL folder and open it in that distribution again.
 
 ## Explorer's right-click menu
 

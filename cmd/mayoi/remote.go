@@ -4,11 +4,12 @@ import (
 	"bytes"
 	"errors"
 	"io/fs"
+	"os/exec"
 	"path"
 	"path/filepath"
-	"runtime"
 	"slices"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/egoist/mygo/ui"
@@ -18,9 +19,19 @@ import (
 	"mayoi/locales"
 )
 
-// remoteSupported is whether Mayoi reaches folders over SSH here: the
-// paths of remote files are POSIX's, as on macOS and Linux.
-var remoteSupported = runtime.GOOS != "windows"
+// remoteSupported is Remote SSH. It is offered on macOS, Linux and
+// Windows. Windows reaches the host through the session pool.
+const remoteSupported = true
+
+// wslAvailable is opening a WSL folder. Windows shows it when wsl can be
+// run. A machine with no distribution still shows the action.
+func wslAvailable() bool {
+	if hostOS != "windows" {
+		return false
+	}
+	_, err := exec.LookPath("wsl")
+	return err == nil
+}
 
 // fileStamp is what tells that a file changed: its size and the time of
 // its last change, and, for a remote file, both as its host printed
@@ -42,18 +53,18 @@ func stampOf(info fs.FileInfo) *fileStamp {
 	return st
 }
 
-// attachRemote follows the connection to the host of a remote folder,
-// and connects it; a folder of this machine lets go of the one followed.
+// attachRemote follows the connection of a remote folder, and connects
+// it; a folder of this machine lets go of the one followed. An SSH host
+// and a WSL distribution of the same name are different connections.
 func (a *app) attachRemote(dir string) {
-	host := remote.HostOf(dir)
-	if a.conn != nil && a.conn.Host == host {
+	c, _, ok := remote.Lookup(dir)
+	if a.conn == c {
 		return
 	}
 	a.detachRemote()
-	if host == "" {
+	if !ok {
 		return
 	}
-	c := remote.For(host)
 	c.Acquire()
 	a.conn = c
 	a.connUnsub = c.Subscribe(func() { a.post(a.connChanged) })
@@ -218,7 +229,7 @@ func (a *app) reconnected() {
 			a.tree.Load(a.root)
 		}
 		for _, dir := range a.window.Expanded {
-			if d := filepath.Join(a.root, filepath.FromSlash(dir)); !a.tree.Loaded(d) {
+			if d := remote.Join(a.root, dir); !a.tree.Loaded(d) {
 				a.tree.Load(d)
 			}
 		}
@@ -282,7 +293,7 @@ func (a *app) markOffline() {
 		switch host := remote.HostOf(d.path); {
 		case host == "":
 			d.offline = false
-		case a.conn != nil && host == a.conn.Host:
+		case a.conn != nil && host == a.conn.Host && sameTarget(d.path, a.conn):
 			d.offline = a.link.kind != linkOnline
 		default:
 			d.offline = !remote.IsConnected(d.path)
@@ -505,9 +516,104 @@ func (a *app) askSavePath(name string, done func(path string)) {
 		if !strings.HasPrefix(p, "/") {
 			return locales.EnterPathFromRoot()
 		}
-		done(remote.Path(host, p))
+		done(remote.On(a.root, p))
 		return ""
 	}, cancel: func() { done("") }}
+}
+
+// remoteTargetLabel is the status text of a connection: "SSH: host" or
+// "WSL: distro".
+func remoteTargetLabel(c *remote.Conn) string {
+	if c.Kind() == remote.KindWSL {
+		return "WSL: " + c.Host
+	}
+	return "SSH: " + c.Host
+}
+
+// folderTargetLabel is the bracketed label of a remote folder.
+func folderTargetLabel(root string) (string, bool) {
+	kind, ok := remote.KindOf(root)
+	if !ok {
+		return "", false
+	}
+	name := remote.HostOf(root)
+	if kind == remote.KindWSL {
+		return "WSL: " + name, true
+	}
+	return "SSH: " + name, true
+}
+
+// sameTarget reports whether path is on the connection's host or distribution.
+func sameTarget(path string, c *remote.Conn) bool {
+	kind, ok := remote.KindOf(path)
+	return ok && kind == c.Kind() && remote.HostOf(path) == c.Host
+}
+
+// openWSL opens a folder in a distribution. The distribution is started
+// first. When that fails, the error is shown and the folder is not opened.
+func (a *app) openWSL(distro, dir string) {
+	dir = path.Clean(dir)
+	if distro == "" || !strings.HasPrefix(dir, "/") {
+		a.fail("%s", remote.WSLUnavailable())
+		return
+	}
+	folder := remote.WSLPath(distro, dir)
+	go func() {
+		c, _, ok := remote.Lookup(folder)
+		if !ok {
+			a.post(func() { a.fail("%s", remote.WSLUnavailable()) })
+			return
+		}
+		err := waitConn(c, 50*time.Second)
+		a.post(func() {
+			if err != nil {
+				a.fail("%s", err.Error())
+				return
+			}
+			if a.blank() {
+				a.switchFolder(folder)
+			} else {
+				a.host.newWindow(folder)
+			}
+		})
+	}()
+}
+
+// waitConn connects and waits until the attempt finishes.
+func waitConn(c *remote.Conn, timeout time.Duration) error {
+	done := make(chan struct{})
+	var once sync.Once
+	finish := func() { once.Do(func() { close(done) }) }
+	unsub := c.Subscribe(func() {
+		s, _ := c.State()
+		if s != remote.Connecting {
+			finish()
+		}
+	})
+	defer unsub()
+	c.Connect()
+	if s, err := c.State(); s != remote.Connecting {
+		return connResult(s, err)
+	}
+	timer := time.NewTimer(timeout)
+	defer timer.Stop()
+	select {
+	case <-done:
+	case <-timer.C:
+		return errors.New("timed out connecting")
+	}
+	s, err := c.State()
+	return connResult(s, err)
+}
+
+func connResult(s remote.State, err error) error {
+	if s == remote.Connected {
+		return nil
+	}
+	if err == nil {
+		return errors.New(remote.WSLUnavailable())
+	}
+	return err
 }
 
 // hostPath is how a path is copied or shown as text: a remote one as its
@@ -645,7 +751,7 @@ func (a *app) remoteStatus(c *ui.Context, text func(string) ui.Element) {
 	}
 	p := a.pal
 	host := a.conn.Host
-	label, tip, tint := "SSH: "+host, locales.RemoteConnectedTo(host), p.accent
+	label, tip, tint := remoteTargetLabel(a.conn), locales.RemoteConnectedTo(host), p.accent
 	switch {
 	case a.link.kind == linkOnline:
 		if info := a.conn.Info(); info.OS != "" {

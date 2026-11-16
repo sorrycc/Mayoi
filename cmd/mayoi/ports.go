@@ -24,6 +24,10 @@ func (a *app) askForwardPort() {
 	if a.conn == nil {
 		return
 	}
+	if a.conn.Kind() == remote.KindWSL {
+		a.fail("%s", locales.WslNoForward())
+		return
+	}
 	host := a.conn.Host
 	a.prompt = &prompt{title: locales.PortForwardTitle(), hint: locales.PortOfHost(host), done: func(v string) string {
 		port, err := strconv.Atoi(strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(v), ":")))
@@ -61,6 +65,9 @@ func (a *app) forwardPort(port int) (*remote.Forward, error) {
 // machine that forwards to it, which it forwards first: false for a link
 // to elsewhere.
 func (a *app) localLink(link string) (string, bool) {
+	if a.conn != nil && a.conn.Kind() == remote.KindWSL {
+		return "", false
+	}
 	u, err := url.Parse(link)
 	if err != nil || (u.Scheme != "http" && u.Scheme != "https") {
 		return "", false
@@ -106,7 +113,7 @@ func (a *app) terminalLink(s *session, link string) bool {
 // portsStatus is the part of the status bar of the ports of the host
 // forwarded: how many, and a menu of them.
 func (a *app) portsStatus(c *ui.Context, text func(string) ui.Element) {
-	if a.conn == nil {
+	if a.conn == nil || a.conn.Kind() == remote.KindWSL {
 		return
 	}
 	fs := a.conn.Forwards()
@@ -149,7 +156,7 @@ func portsLabel(fs []*remote.Forward) string {
 // portsMenu lists the ports forwarded, each with what to do with it, and
 // forwards another.
 func (a *app) portsMenu(m *ui.Menu) {
-	if a.conn == nil {
+	if a.conn == nil || a.conn.Kind() == remote.KindWSL {
 		return
 	}
 	for _, f := range a.conn.Forwards() {

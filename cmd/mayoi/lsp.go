@@ -111,8 +111,8 @@ func serverPath(root, uri string) string {
 	if p == "" {
 		return ""
 	}
-	if host, _, ok := remote.Split(root); ok {
-		return remote.Path(host, p)
+	if remote.Is(root) {
+		return remote.On(root, p)
 	}
 	return p
 }

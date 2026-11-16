@@ -518,7 +518,7 @@ func editorExcerpt(d *editor) *reviewNote {
 // from the folder, or whole for one out of it.
 func (a *app) relPath(path string) string {
 	if a.tree != nil {
-		if rel := a.tree.Rel(path); rel != ".." && !strings.HasPrefix(rel, "../") && !filepath.IsAbs(rel) {
+		if rel := a.tree.Rel(path); rel != ".." && !strings.HasPrefix(rel, "../") && !remote.IsAbs(rel) {
 			return rel
 		}
 	}

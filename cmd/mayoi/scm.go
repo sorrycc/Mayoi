@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"fmt"
+	"path"
 	"path/filepath"
 	"runtime"
 	"slices"
@@ -14,6 +15,7 @@ import (
 
 	"mayoi/internal/bg"
 	"mayoi/internal/git"
+	"mayoi/internal/remote"
 	"mayoi/internal/vfs"
 	"mayoi/locales"
 )
@@ -283,7 +285,7 @@ func fileTree(es []git.Entry, root string, closed func(dir string) bool) []treeR
 		if d, ok := at[path]; ok {
 			return d
 		}
-		up := filepath.Dir(path)
+		up := remote.Dir(path)
 		if up == path {
 			// The top of the disk, reached without meeting root, as a
 			// root spelled otherwise than Git spells its files, which
@@ -298,7 +300,7 @@ func fileTree(es []git.Entry, root string, closed func(dir string) bool) []treeR
 		return d
 	}
 	for _, e := range es {
-		dir := filepath.Dir(e.Path)
+		dir := remote.Dir(e.Path)
 		if dir != root && !inFolder(root, dir) {
 			dir = root // outside the work tree: shown at its top
 		}
@@ -374,6 +376,9 @@ func (a *gitContext) dirEntries(g scmGroup, dir string) []git.Entry {
 // /, does. On Windows the case of the letters does not count, as C:\Proj
 // and c:\proj are one folder.
 func inFolder(dir, path string) bool {
+	if remote.Is(dir) || remote.Is(path) {
+		return remote.Contains(dir, path) && remote.Clean(path) != remote.Clean(dir)
+	}
 	sep := string(filepath.Separator)
 	if !strings.HasSuffix(dir, sep) {
 		dir += sep
@@ -1059,7 +1064,14 @@ func (a *gitContext) scmFile(c *ui.Context, r scmRow, action *func()) {
 		if letter == 'D' {
 			label.Strikethrough()
 		}
-		if dir := filepath.Dir(a.git.repo.Rel(e.Path)); dir != "." && !tree {
+		rel := a.git.repo.Rel(e.Path)
+		// Rel is a slash path. filepath.Dir on Windows prints src\lib for
+		// a remote file, which is not the folder on the host.
+		dir := filepath.Dir(rel)
+		if remote.Is(e.Path) {
+			dir = path.Dir(rel)
+		}
+		if dir != "." && !tree {
 			ui.Text(c, dir).FontSize(11.5).TextColor(p.faint).SingleLine().Shrink(1)
 		}
 		if e.Submodule() {

@@ -17,8 +17,24 @@ import (
 
 	gitpkg "mayoi/internal/git"
 	"mayoi/internal/linediff"
+	"mayoi/internal/remote"
 	"mayoi/locales"
 )
+
+func TestRemoteStatusDirsKeepSlashPaths(t *testing.T) {
+	root := remote.Path("box", "/home/me/app")
+	file := remote.Join(root, "src/a.go")
+	ctx := &gitContext{git: &gitState{repo: &gitpkg.Repo{Root: root}}}
+	ctx.setStatus(&gitpkg.Status{Entries: []gitpkg.Entry{{Path: file, X: '.', Y: 'M'}}})
+	if ctx.git.dirs[remote.Join(root, "src")] != 'M' {
+		t.Fatalf("dirs %#v", ctx.git.dirs)
+	}
+	for dir := range ctx.git.dirs {
+		if strings.Contains(dir, `\`) {
+			t.Errorf("backslash dir %q", dir)
+		}
+	}
+}
 
 // gitRepo makes the harness's folder a work tree with all its files
 // committed, and returns a function that runs git there.

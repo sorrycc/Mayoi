@@ -1855,5 +1855,17 @@
   "contextMenuAddFailed": "エクスプローラーに「Mayoi で開く」を追加できませんでした。",
   "contextMenuRemoved": "エクスプローラーから「Mayoi で開く」を削除しました。",
   "contextMenuRemoveFailed": "エクスプローラーから「Mayoi で開く」を削除できませんでした。",
-  "contextMenuNotAdded": "エクスプローラーの右クリックメニューに「Mayoi で開く」はありません。"
+  "contextMenuNotAdded": "エクスプローラーの右クリックメニューに「Mayoi で開く」はありません。",
+  "cmdWSLOpenFolder": "WSL フォルダーを開く…",
+  "menuWSL": "WSL",
+  "wslNoDistro": "インストールされている WSL ディストリビューションがありません。",
+  "wslNoForward": "WSL フォルダーはポートを転送しません。",
+  "pickWSLTitle": "WSL フォルダーを開く",
+  "pickWSLPlaceholder": "ディストリビューションを選択",
+  "pickWSLStarting": "{distro} を起動しています",
+  "pickWSLOpening": "ディストリビューションを開いています",
+  "pickWSLOpen": "開く",
+  "pickWSLOpens": "ディストリビューション内のフォルダーを開く",
+  "pickWSLNoMatch": "{typed} に一致するディストリビューションはありません",
+  "pickWSLDistributions": "ディストリビューション"
 }

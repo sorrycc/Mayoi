@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -149,6 +150,22 @@ done
 ` + fakeSSH
 
 func TestForward(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		args := forwardArgs("me@box:2222", 18080, 8080)
+		for _, a := range args {
+			if a == "-W" || strings.Contains(a, "ControlPath") || strings.Contains(a, "ControlMaster") {
+				t.Fatalf("windows forward: %q", args)
+			}
+		}
+		text := strings.Join(args, "\n")
+		if !strings.Contains(text, "-N") || !strings.Contains(text, "-L\n127.0.0.1:18080:localhost:8080") || !strings.Contains(text, "-p\n2222\nme@box") {
+			t.Fatalf("forward args: %q", args)
+		}
+		if !consoleHidden(hiddenCommand("ssh", args...)) {
+			t.Fatal("forward ssh would open a console window")
+		}
+		return
+	}
 	host := os.Getenv("MAYOI_SSH_TEST_HOST")
 	if host == "" {
 		needsShell(t)

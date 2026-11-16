@@ -379,6 +379,11 @@ func settingsPath() string {
 }
 
 func main() {
+	// The bridge is an internal process of this executable. It has to run
+	// before the command client and the single-instance lock: those would
+	// hand its arguments to the running Mayoi, or leave without bridging.
+	// It does not set MAYOI_CLI and it does not open a window.
+	remote.HandleBridge(os.Args)
 	mygo.App.SetName("Mayoi")
 	keyRepeat()
 	// MAYOI_DATA_DIR keeps the settings and window state elsewhere, such as
@@ -555,8 +560,10 @@ func argPaths(args []string, wd string) []string {
 				arg = strings.TrimPrefix(arg, `\`) // file:///C:/x
 			}
 		}
-		if !filepath.IsAbs(arg) {
-			arg = filepath.Join(wd, arg)
+		if remote.Is(arg) {
+			arg = remote.Clean(arg)
+		} else if !remote.IsAbs(arg) {
+			arg = remote.Join(wd, arg)
 		}
 		paths = append(paths, arg)
 	}
@@ -717,10 +724,10 @@ func (m *mayoi) openFileIn(in *desktop, path string, then func(a *app)) {
 			win, deepest = w, root
 		}
 	}
-	if deepest != "" {
+	if deepest != "" && !remote.Is(deepest) && !remote.Is(path) {
 		// As the window spells its folder, which on Windows a path given
 		// in other letters, c:\proj for C:\Proj, is too: the file opens
-		// once, as the Explorer has it.
+		// once, as the Explorer has it. A remote path stays as it is.
 		path = filepath.Join(deepest, path[len(strings.TrimSuffix(deepest, string(filepath.Separator))):])
 	}
 	if win == nil && len(m.wins) > 0 {

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"path/filepath"
 	"runtime"
 	"slices"
 	"strings"
@@ -43,6 +42,7 @@ func (a *app) commandsIn(t locales.Messages) []command {
 		{"remote.reconnect", t.CmdRemoteReconnect(), "", a.reconnect},
 		{"remote.disconnect", t.CmdRemoteDisconnect(), "", a.disconnect},
 		{"remote.forwardPort", t.CmdRemoteForwardPort(), "", a.askForwardPort},
+		{"wsl.openFolder", t.CmdWSLOpenFolder(), "", a.openWSLPicker},
 		{"file.save", t.CmdFileSave(), "CmdOrCtrl+S", a.saveActive},
 		{"file.saveAs", t.CmdFileSaveAs(), "Shift+CmdOrCtrl+S", a.saveActiveAs},
 		{"file.saveAll", t.CmdFileSaveAll(), "Alt+CmdOrCtrl+S", a.saveAll},
@@ -266,6 +266,9 @@ func (a *app) commandsIn(t locales.Messages) []command {
 	if !remoteSupported {
 		cmds = slices.DeleteFunc(cmds, func(c command) bool { return strings.HasPrefix(c.id, "remote.") })
 	}
+	if !wslAvailable() {
+		cmds = slices.DeleteFunc(cmds, func(c command) bool { return strings.HasPrefix(c.id, "wsl.") })
+	}
 	if !hcInstallable() {
 		cmds = slices.DeleteFunc(cmds, func(c command) bool { return c.id == "view.installHC" })
 	}
@@ -327,8 +330,9 @@ func (a *app) clearRecent() {
 // tabs, a window with a folder keeps it, and dir opens in a tab of its
 // own.
 func (a *app) switchFolder(dir string) {
+	dir = remote.Clean(dir)
 	switch {
-	case a.host.showFolder(filepath.Clean(dir)):
+	case a.host.showFolder(dir):
 	case a.settings.ProjectTabs && a.folder() != "":
 		a.host.newWindow(dir)
 	default:
@@ -566,11 +570,15 @@ func (a *app) menu(cli bool, run func(id string, win *mygo.Window)) *mygo.Menu {
 	if remoteSupported {
 		// Reconnecting and disconnecting are of a remote folder's window.
 		reconnect, disconnect, forward := item("remote.reconnect"), item("remote.disconnect"), item("remote.forwardPort")
-		reconnect.Disabled, disconnect.Disabled, forward.Disabled = a.conn == nil, a.conn == nil, a.conn == nil
+		reconnect.Disabled, disconnect.Disabled = a.conn == nil, a.conn == nil
+		forward.Disabled = a.conn == nil || a.conn.Kind() == remote.KindWSL
 		file = append(file, &mygo.MenuItem{Label: locales.MenuRemoteSSH(), Submenu: []*mygo.MenuItem{
 			item("remote.connect"), item("remote.openFolder"), item("remote.openConfig"),
 			mygo.Separator(), reconnect, disconnect, mygo.Separator(), forward,
 		}})
+	}
+	if wslAvailable() {
+		file = append(file, item("wsl.openFolder"))
 	}
 	file = append(file, mygo.Separator(),
 		item("file.save"), item("file.saveAs"), item("file.saveAll"), checkbox("file.autoSave", a.prefs().AutoSave), mygo.Separator(),

@@ -21,6 +21,24 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
+// TestGitRemotePaths checks a file under an SSH or WSL root stays in that
+// work tree. filepath on Windows does not treat these paths as absolute.
+func TestGitRemotePaths(t *testing.T) {
+	ssh := &Repo{Root: "/ssh:box/proj"}
+	file := "/ssh:box/proj/src/a.go"
+	if !ssh.Contains(file) || ssh.Rel(file) != "src/a.go" || ssh.Abs("src/a.go") != file {
+		t.Fatalf("ssh contains %v rel %q abs %q", ssh.Contains(file), ssh.Rel(file), ssh.Abs("src/a.go"))
+	}
+	if ssh.Contains("/ssh:box/other/a.go") || ssh.Contains("/wsl:Ubuntu/proj/a.go") {
+		t.Fatal("a file outside the work tree is inside it")
+	}
+	wsl := &Repo{Root: "/wsl:Ubuntu/home/me"}
+	wfile := "/wsl:Ubuntu/home/me/a.go"
+	if !wsl.Contains(wfile) || wsl.Rel(wfile) != "a.go" || wsl.Abs("a.go") != wfile {
+		t.Fatalf("wsl contains %v rel %q abs %q", wsl.Contains(wfile), wsl.Rel(wfile), wsl.Abs("a.go"))
+	}
+}
+
 // repo makes a work tree with a commit of a.txt and b.txt.
 func repo(t *testing.T) (*Repo, func(args ...string)) {
 	t.Helper()

@@ -1441,10 +1441,7 @@ func resolveIconHref(href, base string) []string {
 // inDir is the path of rel, a slash path, in dir: a folder of this
 // machine or of a host.
 func inDir(dir, rel string) string {
-	if remote.Is(dir) {
-		return path.Join(dir, rel)
-	}
-	return filepath.Join(dir, filepath.FromSlash(rel))
+	return remote.Join(dir, rel)
 }
 
 // regularFiles are those of paths that are regular files, in order, at

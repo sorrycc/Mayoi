@@ -11,6 +11,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
+	"mayoi/internal/remote"
 	"mayoi/internal/vfs"
 )
 
@@ -358,7 +359,7 @@ func Ignored(root string) map[string]bool {
 	ignored := map[string]bool{}
 	for name := range bytes.SplitSeq(out, []byte{0}) {
 		if len(name) > 0 {
-			ignored[filepath.Join(root, filepath.FromSlash(strings.TrimSuffix(string(name), "/")))] = true
+			ignored[remote.Join(root, strings.TrimSuffix(string(name), "/"))] = true
 		}
 	}
 	return ignored

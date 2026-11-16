@@ -41,9 +41,9 @@ func Open(dir string) (*Repo, error) {
 		return nil, errors.New("not a work tree")
 	}
 	// The folders of a remote work tree are as its host spells them.
-	r := &Repo{Root: filepath.Clean(filepath.Join(dir, lines[0])), Dir: remote.On(dir, lines[1]), Common: lines[2]}
-	if !strings.HasPrefix(r.Common, "/") && !filepath.IsAbs(r.Common) {
-		r.Common = filepath.Join(dir, r.Common)
+	r := &Repo{Root: remote.Clean(remote.Join(dir, lines[0])), Dir: remote.On(dir, lines[1]), Common: lines[2]}
+	if !strings.HasPrefix(r.Common, "/") && !remote.IsAbs(r.Common) {
+		r.Common = remote.Join(dir, r.Common)
 	} else {
 		r.Common = remote.On(dir, r.Common)
 	}
@@ -98,19 +98,19 @@ func (r *Repo) run(stdin []byte, args ...string) ([]byte, error) { return run(r.
 
 // Rel returns path relative to the root, with slashes, as Git names it.
 func (r *Repo) Rel(path string) string {
-	rel, err := filepath.Rel(r.Root, path)
+	rel, err := remote.Rel(r.Root, path)
 	if err != nil {
 		return filepath.ToSlash(path)
 	}
-	return filepath.ToSlash(rel)
+	return rel
 }
 
 // Abs returns the path of a file Git names relative to the root.
-func (r *Repo) Abs(rel string) string { return filepath.Join(r.Root, filepath.FromSlash(rel)) }
+func (r *Repo) Abs(rel string) string { return remote.Join(r.Root, filepath.ToSlash(rel)) }
 
 // Contains reports whether path is in the work tree.
 func (r *Repo) Contains(path string) bool {
-	return path == r.Root || strings.HasPrefix(path, r.Root+string(filepath.Separator))
+	return remote.Contains(r.Root, path)
 }
 
 // Entry is a file whose state differs from HEAD, or that Git does not

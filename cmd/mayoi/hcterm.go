@@ -552,7 +552,7 @@ func (a *app) hcTerms(addrs []string) map[string]string {
 			switch {
 			case err == nil && state == "live":
 				if isRemote && cwd != "" {
-					cwd = remote.Path(c.Host, cwd)
+					cwd = c.Path(cwd)
 				}
 				looks <- look{addr, cmp.Or(cwd, a.root), true}
 			case err != nil && !hcGone(err):

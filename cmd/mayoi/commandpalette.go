@@ -45,6 +45,8 @@ func commandGroup(t locales.Messages, id string) string {
 		return t.MenuView()
 	case "remote":
 		return t.MenuRemoteSSH()
+	case "wsl":
+		return t.MenuWSL()
 	case "git":
 		return t.MenuGit()
 	case "review":

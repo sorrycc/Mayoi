@@ -5,8 +5,12 @@ import (
 	"os/exec"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 	"time"
+
+	"mayoi/internal/remote"
+	"mayoi/internal/vfs"
 )
 
 func mkfiles(t *testing.T, root string, files ...string) {
@@ -117,5 +121,44 @@ func TestIndexLeavesOutWhatGitIgnores(t *testing.T) {
 	want := []string{".gitignore", "main.go", "new.go", "src/a.go"}
 	if !slices.Equal(got, want) {
 		t.Fatalf("Index = %v, want %v", got, want)
+	}
+}
+
+func TestSortEntriesKeepsRemoteSlashPaths(t *testing.T) {
+	dir := remote.Path("box", "/home/me/app")
+	kids, dirs := SortEntries(dir, []vfs.Entry{{Name: "src", Dir: true}, {Name: "a.go"}})
+	wantFile := remote.Join(dir, "a.go")
+	wantDir := remote.Join(dir, "src")
+	if !slices.Contains(kids, wantFile) || !slices.Contains(kids, wantDir) {
+		t.Fatalf("kids %q", kids)
+	}
+	if !dirs[wantDir] || dirs[wantFile] {
+		t.Fatalf("dirs %v", dirs)
+	}
+	for _, kid := range kids {
+		if strings.Contains(kid, `\`) {
+			t.Errorf("backslash path %q", kid)
+		}
+	}
+}
+
+func TestRemoteEventNamesTheSlashFolder(t *testing.T) {
+	root := remote.Path("box", "/home/me/app")
+	tree := &Tree{
+		Root:     root,
+		remote:   true,
+		children: map[string][]string{root: nil},
+		dirs:     map[string]bool{root: true},
+		closed:   true,
+	}
+	tree.event(remote.Join(root, "a.go"), true, false, false)
+	tree.mu.Lock()
+	_, ok := tree.pending[root]
+	if tree.timer != nil {
+		tree.timer.Stop()
+	}
+	tree.mu.Unlock()
+	if !ok {
+		t.Fatalf("pending %#v, want %q", tree.pending, root)
 	}
 }

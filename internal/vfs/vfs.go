@@ -68,7 +68,7 @@ func StatMany(paths []string) (map[string]fs.FileInfo, error) {
 			return out, err
 		}
 		for rp, info := range infos {
-			out[remote.Path(c.Host, rp)] = info
+			out[c.Path(rp)] = info
 		}
 	}
 	return out, nil
@@ -265,7 +265,7 @@ func ReadDirs(dirs []string) (map[string][]Entry, map[string]error, error) {
 			return lists, errs, err
 		}
 		for rp, l := range got {
-			p := remote.Path(c.Host, rp)
+			p := c.Path(rp)
 			if l.Err != nil {
 				errs[p] = l.Err
 				continue
@@ -314,7 +314,7 @@ func Look(dirs, files []string) (map[string][]Entry, map[string]error, map[strin
 	}
 	lists, errs, infos := map[string][]Entry{}, map[string]error{}, map[string]fs.FileInfo{}
 	for rp, l := range got {
-		p := remote.Path(c.Host, rp)
+		p := c.Path(rp)
 		if l.Err != nil {
 			errs[p] = l.Err
 			continue
@@ -326,7 +326,7 @@ func Look(dirs, files []string) (map[string][]Entry, map[string]error, map[strin
 		lists[p] = es
 	}
 	for rp, info := range stats {
-		infos[remote.Path(c.Host, rp)] = info
+		infos[c.Path(rp)] = info
 	}
 	return lists, errs, infos, nil
 }

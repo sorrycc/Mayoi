@@ -29,17 +29,19 @@ func TestCrumbsOf(t *testing.T) {
 		{join("/tmp", "Mayoi", "settings.json"), "", u,
 			[]crumb{{"tmp", join("/tmp")}, {"Mayoi", join("/tmp", "Mayoi")}, {"settings.json", ""}}},
 	}
-	if remoteSupported {
-		cases = append(cases, []struct {
-			path, root, home string
-			want             []crumb
-		}{
-			{"/ssh:box/home/me/x.go", w, u,
-				[]crumb{{"box", "/ssh:box"}, {"home", "/ssh:box/home"}, {"me", "/ssh:box/home/me"}, {"x.go", ""}}},
-			{"/ssh:box/srv/app/x.go", "/ssh:box/srv", u,
-				[]crumb{{"app", "/ssh:box/srv/app"}, {"x.go", ""}}},
-		}...)
-	}
+	cases = append(cases, []struct {
+		path, root, home string
+		want             []crumb
+	}{
+		{"/ssh:box/home/me/x.go", w, u,
+			[]crumb{{"box", "/ssh:box"}, {"home", "/ssh:box/home"}, {"me", "/ssh:box/home/me"}, {"x.go", ""}}},
+		{"/ssh:box/srv/app/x.go", "/ssh:box/srv", u,
+			[]crumb{{"app", "/ssh:box/srv/app"}, {"x.go", ""}}},
+		{"/wsl:Ubuntu/home/me/app/x.go", "/wsl:Ubuntu/home/me", u,
+			[]crumb{{"app", "/wsl:Ubuntu/home/me/app"}, {"x.go", ""}}},
+		{"/wsl:Ubuntu/home/me/x.go", w, u,
+			[]crumb{{"Ubuntu", "/wsl:Ubuntu"}, {"home", "/wsl:Ubuntu/home"}, {"me", "/wsl:Ubuntu/home/me"}, {"x.go", ""}}},
+	}...)
 	for _, c := range cases {
 		if got := crumbsOf(c.path, c.root, c.home); !slices.Equal(got, c.want) {
 			t.Errorf("crumbsOf(%q, %q) = %v, want %v", c.path, c.root, got, c.want)

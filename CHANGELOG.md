@@ -3,6 +3,15 @@
 The update window shows the section of the version it offers. Every release
 needs a `## <version>` section here, or its build fails.
 
+## Unreleased
+
+- On Windows, **File → Remote SSH** opens a folder with the system `ssh`.
+- On Windows, **File → Open WSL Folder…** opens a folder in a WSL distribution.
+- On Windows, a Remote SSH or WSL file keeps a `/ssh:` or `/wsl:` path and opens in one tab.
+- On Windows, adding or removing a file at the root of a remote folder updates Explorer.
+- On Windows, a nested repository's changes tab stays with that repository after a restart.
+- On Windows, Source Control shows a remote file's folder with slashes.
+
 ## 0.22.1
 
 - Mayoi no longer stops responding about 20 seconds after it opens or after the Mac wakes from sleep.

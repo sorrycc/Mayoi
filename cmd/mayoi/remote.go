@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"io/fs"
+	"os"
 	"os/exec"
 	"path"
 	"path/filepath"
@@ -24,13 +25,26 @@ import (
 const remoteSupported = true
 
 // wslAvailable is opening a WSL folder. Windows shows it when wsl can be
-// run. A machine with no distribution still shows the action.
+// run. A machine with no distribution still shows the action. The welcome
+// view asks every frame, so the lookup is kept until PATH changes.
 func wslAvailable() bool {
 	if hostOS != "windows" {
 		return false
 	}
-	_, err := exec.LookPath("wsl")
-	return err == nil
+	path := os.Getenv("PATH")
+	wslLook.Lock()
+	defer wslLook.Unlock()
+	if !wslLook.done || wslLook.path != path {
+		_, err := exec.LookPath("wsl")
+		wslLook.ok, wslLook.path, wslLook.done = err == nil, path, true
+	}
+	return wslLook.ok
+}
+
+var wslLook struct {
+	sync.Mutex
+	path     string
+	ok, done bool
 }
 
 // fileStamp is what tells that a file changed: its size and the time of
@@ -547,73 +561,6 @@ func folderTargetLabel(root string) (string, bool) {
 func sameTarget(path string, c *remote.Conn) bool {
 	kind, ok := remote.KindOf(path)
 	return ok && kind == c.Kind() && remote.HostOf(path) == c.Host
-}
-
-// openWSL opens a folder in a distribution. The distribution is started
-// first. When that fails, the error is shown and the folder is not opened.
-func (a *app) openWSL(distro, dir string) {
-	dir = path.Clean(dir)
-	if distro == "" || !strings.HasPrefix(dir, "/") {
-		a.fail("%s", remote.WSLUnavailable())
-		return
-	}
-	folder := remote.WSLPath(distro, dir)
-	go func() {
-		c, _, ok := remote.Lookup(folder)
-		if !ok {
-			a.post(func() { a.fail("%s", remote.WSLUnavailable()) })
-			return
-		}
-		err := waitConn(c, 50*time.Second)
-		a.post(func() {
-			if err != nil {
-				a.fail("%s", err.Error())
-				return
-			}
-			if a.blank() {
-				a.switchFolder(folder)
-			} else {
-				a.host.newWindow(folder)
-			}
-		})
-	}()
-}
-
-// waitConn connects and waits until the attempt finishes.
-func waitConn(c *remote.Conn, timeout time.Duration) error {
-	done := make(chan struct{})
-	var once sync.Once
-	finish := func() { once.Do(func() { close(done) }) }
-	unsub := c.Subscribe(func() {
-		s, _ := c.State()
-		if s != remote.Connecting {
-			finish()
-		}
-	})
-	defer unsub()
-	c.Connect()
-	if s, err := c.State(); s != remote.Connecting {
-		return connResult(s, err)
-	}
-	timer := time.NewTimer(timeout)
-	defer timer.Stop()
-	select {
-	case <-done:
-	case <-timer.C:
-		return errors.New("timed out connecting")
-	}
-	s, err := c.State()
-	return connResult(s, err)
-}
-
-func connResult(s remote.State, err error) error {
-	if s == remote.Connected {
-		return nil
-	}
-	if err == nil {
-		return errors.New(remote.WSLUnavailable())
-	}
-	return err
 }
 
 // hostPath is how a path is copied or shown as text: a remote one as its

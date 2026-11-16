@@ -1,9 +1,12 @@
 package main
 
 import (
+	"errors"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -161,4 +164,72 @@ func logFiles(t *testing.T, dir string) []string {
 		names = append(names, e.Name())
 	}
 	return names
+}
+
+// openWSL opens a folder in a distribution, as the picker does once a
+// folder is chosen. When starting it fails, the error is shown and the
+// folder is not opened.
+func (a *app) openWSL(distro, dir string) {
+	dir = path.Clean(dir)
+	if distro == "" || !strings.HasPrefix(dir, "/") {
+		a.fail("%s", remote.WSLUnavailable())
+		return
+	}
+	folder := remote.WSLPath(distro, dir)
+	go func() {
+		c, _, ok := remote.Lookup(folder)
+		if !ok {
+			a.post(func() { a.fail("%s", remote.WSLUnavailable()) })
+			return
+		}
+		err := waitConn(c, 50*time.Second)
+		a.post(func() {
+			if err != nil {
+				a.fail("%s", err.Error())
+				return
+			}
+			if a.blank() {
+				a.switchFolder(folder)
+			} else {
+				a.host.newWindow(folder)
+			}
+		})
+	}()
+}
+
+// waitConn connects and waits until the attempt finishes.
+func waitConn(c *remote.Conn, timeout time.Duration) error {
+	done := make(chan struct{})
+	var once sync.Once
+	finish := func() { once.Do(func() { close(done) }) }
+	unsub := c.Subscribe(func() {
+		s, _ := c.State()
+		if s != remote.Connecting {
+			finish()
+		}
+	})
+	defer unsub()
+	c.Connect()
+	if s, err := c.State(); s != remote.Connecting {
+		return connResult(s, err)
+	}
+	timer := time.NewTimer(timeout)
+	defer timer.Stop()
+	select {
+	case <-done:
+	case <-timer.C:
+		return errors.New("timed out connecting")
+	}
+	s, err := c.State()
+	return connResult(s, err)
+}
+
+func connResult(s remote.State, err error) error {
+	if s == remote.Connected {
+		return nil
+	}
+	if err == nil {
+		return errors.New(remote.WSLUnavailable())
+	}
+	return err
 }

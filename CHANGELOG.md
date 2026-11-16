@@ -3,6 +3,12 @@
 The update window shows the section of the version it offers. Every release
 needs a `## <version>` section here, or its build fails.
 
+## Unreleased
+
+- Opened from the Finder or the Dock, Mayoi pushes over SSH with your shell's ssh agent.
+- Git operations go through the proxy your shell sets in `HTTPS_PROXY`, `ALL_PROXY` and the like.
+- Git hooks find `node` and `pnpm` even when iTerm2's shell integration is installed.
+
 ## 0.22.1
 
 - Mayoi no longer stops responding about 20 seconds after it opens or after the Mac wakes from sleep.

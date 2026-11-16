@@ -368,6 +368,58 @@ func TestShellPath(t *testing.T) {
 	}
 }
 
+// Opened from the Finder, the app has no ssh agent: the socket of the
+// user's session comes with the path, and so do its proxies. Variables
+// outside the list are not taken from the shell.
+func TestShellEnvironment(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("a shell script")
+	}
+	dir := t.TempDir()
+	sh := filepath.Join(dir, "zsh")
+	script := "#!/bin/sh\nPATH=" + dir + ":/usr/bin:$PATH; export PATH\n" +
+		"echo MAYOI_PATH=$PATH\n" +
+		"echo SSH_AUTH_SOCK=/tmp/agent.sock\n" +
+		"echo HTTPS_PROXY=http://127.0.0.1:7890\n" +
+		"echo UNRELATED=secret\n"
+	if err := os.WriteFile(sh, []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("SHELL", sh)
+	t.Setenv("PATH", "/usr/bin:/bin")
+	path, env := ShellEnvironment()
+	if !slices.Contains(path, dir) || !slices.Contains(path, "/bin") {
+		t.Errorf("path %v misses the login shell's folders or PATH", path)
+	}
+	if env["SSH_AUTH_SOCK"] != "/tmp/agent.sock" {
+		t.Errorf("SSH_AUTH_SOCK = %q, want the shell's socket", env["SSH_AUTH_SOCK"])
+	}
+	if env["HTTPS_PROXY"] != "http://127.0.0.1:7890" {
+		t.Errorf("HTTPS_PROXY = %q, want the shell's proxy", env["HTTPS_PROXY"])
+	}
+	if _, ok := env["UNRELATED"]; ok {
+		t.Errorf("took a variable outside the list: %v", env)
+	}
+}
+
+// A shell integration prints before the first line of output: the path
+// that follows it is still read, not discarded with the noise.
+func TestLoginPathSkipsShellIntegrationNoise(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("a shell script")
+	}
+	sh := filepath.Join(t.TempDir(), "shell")
+	// iTerm2's OSC 1337, terminated by BEL, then the answer.
+	script := "#!/bin/sh\nprintf '\\033]1337;ShellIntegrationVersion=14;shell=zsh\\007'\necho MAYOI_PATH=/opt/homebrew/bin:/usr/bin\n"
+	if err := os.WriteFile(sh, []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("SHELL", sh)
+	if got := LoginPath(); !slices.Equal(got, []string{"/opt/homebrew/bin", "/usr/bin"}) {
+		t.Fatalf("lost the path behind the shell integration's noise: %v", got)
+	}
+}
+
 func TestLoginPathExcludesFinderFallback(t *testing.T) {
 	if runtime.GOOS == "windows" {
 		t.Skip("a shell script")

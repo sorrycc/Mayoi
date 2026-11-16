@@ -5,6 +5,7 @@ needs a `## <version>` section here, or its build fails.
 
 ## Unreleased
 
+- Scrolling over a Mermaid diagram in Live Preview scrolls the text, and clicking it edits its source.
 - Windows Security is less likely to flag the Mayoi installer as a virus.
 - The Windows installer shows Mayoi's name, version and publisher in its file properties.
 - List numbers and bullets in issue and pull request comments line up with the first line of their item.

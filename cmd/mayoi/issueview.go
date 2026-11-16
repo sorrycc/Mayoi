@@ -487,13 +487,14 @@ func (a *app) issueMarkdown(c *ui.Context, blocks []markdownBlock) {
 	width := float32(issueWidth - 28)
 	for k, b := range blocks {
 		indent := float32(b.indent)*16 + float32(b.quote)*14
-		row := ui.Row(c.Key(k)).Gap(6).Padding(0, 0, 0, indent)
+		// A marker stands by the first line of its item, not the middle.
+		row := ui.Row(c.Key(k)).Gap(6).Padding(0, 0, 0, indent).AlignItems(ui.Start)
 		if b.quote > 0 {
 			row.BorderWidth(0, 0, 0, 3).BorderColor(p.border)
 		}
 		row.Children(func() {
 			if b.marker != "" {
-				ui.Text(c, b.marker).FontSize(size).TextColor(p.muted).Shrink(0).MinWidth(12).Unselectable()
+				a.markdownMarker(c, b, size, nil)
 			}
 			ui.Column(c).Grow(1).Shrink(1).MinWidth(0).Children(func() {
 				switch b.kind {

@@ -5,6 +5,7 @@ needs a `## <version>` section here, or its build fails.
 
 ## Unreleased
 
+- List numbers and bullets in issue and pull request comments line up with the first line of their item.
 - On macOS 14, the terminal now opens and shows its prompt instead of closing at once.
 - Opened from the Finder or the Dock, Mayoi pushes over SSH with your shell's ssh agent.
 - Git operations go through the proxy your shell sets in `HTTPS_PROXY`, `ALL_PROXY` and the like.

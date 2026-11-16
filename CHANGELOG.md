@@ -5,6 +5,8 @@ needs a `## <version>` section here, or its build fails.
 
 ## Unreleased
 
+- Windows Security is less likely to flag the Mayoi installer as a virus.
+- The Windows installer shows Mayoi's name, version and publisher in its file properties.
 - List numbers and bullets in issue and pull request comments line up with the first line of their item.
 - On macOS 14, the terminal now opens and shows its prompt instead of closing at once.
 - Opened from the Finder or the Dock, Mayoi pushes over SSH with your shell's ssh agent.

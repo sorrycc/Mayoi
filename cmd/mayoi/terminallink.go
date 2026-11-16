@@ -33,7 +33,7 @@ func shellDir(started, reported string) string {
 // windowsDrivePath is a file URL's path on Windows, /C:/dir, as the
 // shell's directory. filepath does not treat that form as absolute.
 func windowsDrivePath(p string) (string, bool) {
-	if len(p) < 4 || p[0] != '/' || p[2] != ':' {
+	if hostOS != "windows" || len(p) < 4 || p[0] != '/' || p[2] != ':' {
 		return "", false
 	}
 	c := p[1]

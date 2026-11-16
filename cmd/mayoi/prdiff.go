@@ -512,10 +512,3 @@ func (a *app) reloadPR(v *diffView) {
 		a.diffContext(v).openPullRequestWith(pr.number, prSamePage, false, false, "")
 	}
 }
-
-// openPRInBrowser opens the pull request of a diff on GitHub.
-func (a *app) openPRInBrowser(v *diffView) {
-	if pr := v.commit.pr; pr != nil && pr.info != nil && pr.info.URL != "" {
-		a.services.OpenURL(pr.info.URL)
-	}
-}

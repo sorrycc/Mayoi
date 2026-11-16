@@ -412,6 +412,10 @@ func TestIssueHandoff(t *testing.T) {
 			case <-time.After(5 * time.Second):
 			}
 		}
+		// Windows can keep the folder a moment after the shell exits.
+		for deadline := time.Now().Add(5 * time.Second); os.RemoveAll(hs.root) != nil && time.Now().Before(deadline); {
+			time.Sleep(50 * time.Millisecond)
+		}
 	})
 	handOffIssue(hs.root, issueHandoff{prompt: "Work on GitHub issue #3", of: "#3"})
 	hs.settle()

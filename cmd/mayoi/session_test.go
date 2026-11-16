@@ -242,6 +242,8 @@ func TestRestoresTheScroll(t *testing.T) {
 	tt := ui.NewTester(a.view, 1200, 760)
 	hs := &harness{t: t, a: a, tt: tt}
 	hs.settle()
+	stepUntilEditorsRead(t, tt, func() *editor { return a.cols[0].tabs[0].ed })
+	hs.settle()
 	if y := a.cols[0].tabs[0].ed.vscroll.Y; y != 1200 {
 		t.Errorf("scrolled to %v", y)
 	}

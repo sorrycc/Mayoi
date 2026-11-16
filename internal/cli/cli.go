@@ -270,7 +270,8 @@ func shellQuote(s string) string { return "'" + strings.ReplaceAll(s, "'", `'\''
 // opened from the Finder does not inherit: the login shell's folders
 // first, in its order, then those of PATH it lacks.
 func ShellPath() []string {
-	return cleanPath(append(LoginPath(), filepath.SplitList(os.Getenv("PATH"))...))
+	path, _ := ShellEnvironment()
+	return path
 }
 
 // LoginPath is where the command interpreter looks. On Windows it is the

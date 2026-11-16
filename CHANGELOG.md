@@ -5,8 +5,9 @@ needs a `## <version>` section here, or its build fails.
 
 ## Unreleased
 
-- **Git**: pushing over SSH uses your shell's ssh agent, so a key with a passphrase works.
-- **Git**: hooks find `node` and `pnpm` when a shell integration prints before the path.
+- Opened from the Finder or the Dock, Mayoi pushes over SSH with your shell's ssh agent.
+- Git operations go through the proxy your shell sets in `HTTPS_PROXY`, `ALL_PROXY` and the like.
+- Git hooks find `node` and `pnpm` even when iTerm2's shell integration is installed.
 
 ## 0.22.1
 

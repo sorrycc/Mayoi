@@ -417,12 +417,17 @@ func main() {
 	}
 	// Opened from the Finder or the Dock, Mayoi has the system's PATH
 	// only; git, its hooks and what else Mayoi runs look for commands
-	// where the user's shell does. In the background, as a slow shell
-	// would hold up the window.
+	// where the user's shell does, and ssh signs with the agent of the
+	// user's session, whose socket the app does not inherit either. In the
+	// background, as a slow shell would hold up the window.
 	shellPathReady := make(chan struct{})
 	if runtime.GOOS != "windows" && os.Getenv("MAYOI_SNAPSHOT") == "" {
 		go func() {
-			os.Setenv("PATH", strings.Join(cli.ShellPath(), string(os.PathListSeparator)))
+			path, env := cli.ShellEnvironment()
+			os.Setenv("PATH", strings.Join(path, string(os.PathListSeparator)))
+			for key, value := range env {
+				os.Setenv(key, value)
+			}
 			close(shellPathReady)
 		}()
 	} else {

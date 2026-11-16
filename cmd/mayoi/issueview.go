@@ -150,6 +150,10 @@ func (a *app) readIssue(v *issueView) {
 		a.post(func() {
 			v.reading = false
 			switch {
+			case err == nil && info.PR:
+				// A pull request shows in a tab of its own.
+				a.issueIsPR(v, info)
+				return
 			case err == nil:
 				v.info, v.err = info, ""
 			case errors.Is(err, remote.ErrOffline):
@@ -162,6 +166,25 @@ func (a *app) readIssue(v *issueView) {
 			a.invalidate()
 		})
 	})
+}
+
+// issueIsPR has the tab of an issue that turned out to be a pull request,
+// as one an older version kept of its conversation, show the pull
+// request's tab at its conversation in its place.
+func (a *app) issueIsPR(v *issueView, info *git.GHIssue) {
+	for _, col := range a.cols {
+		for i, t := range col.tabs {
+			if t.issue != v {
+				continue
+			}
+			pv := newPendingPR(parseDiffLayout(a.settings.DiffLayout), info.Number, info.Title)
+			pv.repoRoot = v.repoRoot
+			col.tabs[i] = &colTab{id: t.id, diff: pv, transient: t.transient}
+			a.rememberTabs()
+			a.invalidate()
+			return
+		}
+	}
 }
 
 // ghPictureHost reports whether a picture of an issue may be fetched: it
@@ -379,7 +402,7 @@ func (a *app) issueContent(c *ui.Context, ctx *gitContext, v *issueView) {
 		})
 		if b.Clicked() {
 			title := l.Title
-			a.post(func() { ctx.openPullRequestWith(n, false, true, title) })
+			a.post(func() { ctx.openPullRequestWith(n, prConversation, false, true, title) })
 		}
 	}
 	if len(v.texts) > 0 {
@@ -405,14 +428,7 @@ func (a *app) issueActions(c *ui.Context, ctx *gitContext, v *issueView) {
 	is := v.info
 	o := ctx.githubOverview()
 	ui.Row(c.Key("issue-actions")).Gap(6).Wrap().Children(func() {
-		if is.PR {
-			if ui.PrimaryButton(c, locales.PrOpenChanges()).Clicked() {
-				a.post(func() { ctx.openPullRequestWith(is.Number, false, true, is.Title) })
-			}
-			if ui.Button(c.Key("issue-threads"), locales.GhAddressReview()).Clicked() {
-				a.post(func() { a.openPRWithThreads(ctx, is.Number) })
-			}
-		} else if is.State == "OPEN" {
+		if is.State == "OPEN" {
 			if ui.PrimaryButton(c, locales.GhWorkOnIssue()).Disabled(!ctx.git.canMutate() || o == nil || o.DefaultBranch == "").Clicked() {
 				a.post(func() { a.workOnIssue(ctx, is.Number) })
 			}
@@ -487,13 +503,14 @@ func (a *app) issueMarkdown(c *ui.Context, blocks []markdownBlock) {
 	width := float32(issueWidth - 28)
 	for k, b := range blocks {
 		indent := float32(b.indent)*16 + float32(b.quote)*14
-		row := ui.Row(c.Key(k)).Gap(6).Padding(0, 0, 0, indent)
+		// A marker stands by the first line of its item, not the middle.
+		row := ui.Row(c.Key(k)).Gap(6).Padding(0, 0, 0, indent).AlignItems(ui.Start)
 		if b.quote > 0 {
 			row.BorderWidth(0, 0, 0, 3).BorderColor(p.border)
 		}
 		row.Children(func() {
 			if b.marker != "" {
-				ui.Text(c, b.marker).FontSize(size).TextColor(p.muted).Shrink(0).MinWidth(12).Unselectable()
+				a.markdownMarker(c, b, size, nil)
 			}
 			ui.Column(c).Grow(1).Shrink(1).MinWidth(0).Children(func() {
 				switch b.kind {

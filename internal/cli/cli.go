@@ -270,15 +270,45 @@ func shellQuote(s string) string { return "'" + strings.ReplaceAll(s, "'", `'\''
 // opened from the Finder does not inherit: the login shell's folders
 // first, in its order, then those of PATH it lacks.
 func ShellPath() []string {
-	return cleanPath(append(LoginPath(), filepath.SplitList(os.Getenv("PATH"))...))
+	path, _ := ShellEnvironment()
+	return path
 }
 
 // LoginPath is where the command interpreter looks. On Windows it is the
 // process's PATH; elsewhere only the login shell's, not Finder-only
 // fallback directories that the user's terminal cannot find.
 func LoginPath() []string {
+	login, _ := loginShell()
+	return login
+}
+
+// shellEnvKeys are the variables of the user's shell session that Git and
+// ssh need and an app opened from the Finder or the Dock does not inherit:
+// the agent's socket, without which a key with a passphrase cannot sign,
+// and the proxies that a push over HTTPS goes through. PATH is carried
+// apart, since the app's own folders must follow it.
+var shellEnvKeys = []string{
+	"SSH_AUTH_SOCK", "SSH_AGENT_PID",
+	"HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "NO_PROXY",
+	"http_proxy", "https_proxy", "all_proxy", "no_proxy",
+}
+
+// ShellEnvironment is where the user's shell looks for commands, the login
+// shell's folders first and then those of PATH it lacks, with the
+// variables above that its session sets. Both come from one reading of the
+// shell.
+func ShellEnvironment() ([]string, map[string]string) {
+	login, env := loginShell()
+	return cleanPath(append(login, filepath.SplitList(os.Getenv("PATH"))...)), env
+}
+
+// loginShell asks the login shell where it looks for commands, and prints
+// its environment after the path. printenv preserves PATH's colon
+// separators in fish as well as sh/zsh. A shell may exit non-zero after
+// printing; keep any usable output.
+func loginShell() ([]string, map[string]string) {
 	if runtime.GOOS == "windows" {
-		return cleanPath(filepath.SplitList(os.Getenv("PATH")))
+		return cleanPath(filepath.SplitList(os.Getenv("PATH"))), nil
 	}
 	sh := os.Getenv("SHELL")
 	if sh == "" {
@@ -287,16 +317,34 @@ func LoginPath() []string {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	const mark = "MAYOI_PATH="
-	// printenv preserves PATH's colon separators in fish as well as sh/zsh.
-	// A shell may exit non-zero after printing; keep any usable output.
-	out, _ := exec.CommandContext(ctx, sh, "-ilc", `printf '`+mark+`'; /usr/bin/printenv PATH`).Output()
+	out, _ := exec.CommandContext(ctx, sh, "-ilc", `printf '`+mark+`'; /usr/bin/printenv PATH; printf '\n'; /usr/bin/env`).Output()
 	var all []string
+	env := map[string]string{}
 	for line := range strings.Lines(string(out)) {
+		line = trimShellNoise(strings.TrimRight(line, "\r\n"))
 		if p, ok := strings.CutPrefix(strings.TrimSpace(line), mark); ok {
 			all = append(all, filepath.SplitList(p)...)
+			continue
+		}
+		key, value, ok := strings.Cut(line, "=")
+		if ok && slices.Contains(shellEnvKeys, key) && value != "" {
+			env[key] = value
 		}
 	}
-	return cleanPath(all)
+	return cleanPath(all), env
+}
+
+// trimShellNoise drops what a shell integration prints before the first
+// line of output, such as iTerm2's ESC ] 1337 ; ... BEL, which would
+// otherwise hide the path the shell was asked for.
+func trimShellNoise(line string) string {
+	if i := strings.LastIndexByte(line, '\a'); i >= 0 {
+		line = line[i+1:]
+	}
+	if i := strings.LastIndex(line, "\x1b\\"); i >= 0 {
+		line = line[i+2:]
+	}
+	return line
 }
 
 func cleanPath(all []string) []string {

@@ -57,19 +57,14 @@ func (p *checksPicker) name() string {
 	return "#" + strconv.Itoa(p.number)
 }
 
-// openChecks shows the box of the checks of the branch's pull request,
-// else of the commit at HEAD, once pushed.
+// openChecks shows the checks of the branch's pull request, on the page
+// of its tab, else the box of those of the commit at HEAD, once pushed.
 func (a *gitContext) openChecks() {
 	if !a.live() {
 		return
 	}
 	if pr := a.currentPR(); pr != nil {
-		if !a.app.online() {
-			a.app.fail("%s", locales.NotConnectedTo(a.app.conn.Host))
-			return
-		}
-		a.app.checks = checksPicker{open: true, repoRoot: a.git.repo.Root, number: pr.Number}
-		a.readChecks()
+		a.openChecksOf(pr.Number)
 		return
 	}
 	if st := a.git.status; st != nil && st.Head != "" && !a.git.unpushed[st.Head] {

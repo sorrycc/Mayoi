@@ -26,7 +26,8 @@ https://github.com/user-attachments/assets/673e7907-2b2c-4ed6-9093-1ba9633cd61c
 - **Git:** a source control view to stage, commit, amend, undo, pull and push, every change in one diff, folded
   around the changes, inline or side by side, a graph of the commits with their branches and tags, each with its own
   diff, gutter marks that revert or stage a change, branches and blame
-- **GitHub:** a sidebar view of the issues and pull requests open, issues read and commented on in tabs, **Work on
+- **GitHub:** a sidebar view of the issues and pull requests open, issues read and commented on in tabs, a pull
+  request's conversation, changes, commits and checks in one tab, reviewed and merged from there, **Work on
   Issue** that hands an issue to an agent in a worktree of its own, and review threads sent to an agent as notes
 - **Terminal:** Ghostty's emulator (libghostty-vt), in the bottom panel, at a side of the window, or in a tab
 - **Remote SSH:** open a folder on another machine with the system's `ssh`, nothing installed there: the Explorer,

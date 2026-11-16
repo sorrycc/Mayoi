@@ -881,6 +881,33 @@ func TestLiveGlideWithoutBlank(t *testing.T) {
 	}
 }
 
+// The wheel over a diagram's drawing scrolls the text, as over its text,
+// and a click on it edits its source.
+func TestLiveDiagramInput(t *testing.T) {
+	hs := newHarness(t, true)
+	src := "intro\n\n```mermaid\ngraph TD\n  A --> B\n  B --> C\n```\n\nend\n" + strings.Repeat("more\n", 80)
+	d := openLive(t, hs, "diagram-input.md", src, 1)
+	var lv *liveView
+	for _, v := range d.document.live.views {
+		lv = v
+	}
+	x, y := lv.at.X+lv.at.W/2, lv.at.Y+lv.at.H/2
+	before := d.vscroll.Y
+	hs.tt.Scroll(x, y, 0, 40)
+	hs.settle()
+	if d.vscroll.Y <= before {
+		t.Errorf("the wheel over the diagram left the text at %v, from %v", d.vscroll.Y, before)
+	}
+	d.vscroll.Y = before
+	hs.settle()
+
+	hs.tt.ClickAt(lv.at.X+lv.at.W/2, lv.at.Y+lv.at.H/2)
+	hs.settle()
+	if at := len([]rune(src[:strings.Index(src, "```")])); d.sel != [2]int{at, at} {
+		t.Errorf("the click on the diagram left the selection at %v, not %v", d.sel, at)
+	}
+}
+
 // A formula in display style whose source is higher than its drawing keeps
 // its source's room: the caret going in moves nothing below it.
 func TestLiveMathHoldsStill(t *testing.T) {

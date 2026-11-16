@@ -182,6 +182,9 @@ type Prefs struct {
 	// ScmAllBranches has the commits of source control show every branch
 	// and tag, not only the history of the branch checked out.
 	ScmAllBranches bool `json:"scmAllBranches,omitempty"`
+	// PRDeleteBranch has Merge of a pull request delete its branch on
+	// GitHub once it merged.
+	PRDeleteBranch bool `json:"prDeleteBranch,omitempty"`
 	// ScmRepositoryOpen remembers whether the repository panel is expanded.
 	ScmRepositoryOpen bool `json:"scmRepositoryOpen,omitempty"`
 	// ScmRemotes selects Remotes instead of Branches in the repository panel.
@@ -497,6 +500,9 @@ type Tab struct {
 	// Issue is the number of the issue, or of the pull request whose
 	// conversation, the tab shows, of the repository at RepoRoot.
 	Issue int `json:"issue,omitempty"`
+	// PRPage is the page a pull request's tab showed: "conversation",
+	// "changes", "commits" or "checks".
+	PRPage string `json:"prPage,omitempty"`
 }
 
 // MaxDiffContext is as many unchanged lines around a change as a diff

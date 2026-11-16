@@ -69,6 +69,9 @@ type markdownPreview struct {
 	// source, by their lines.
 	mermaid *mermaidStyle
 	sources map[int]bool
+	// passInput, when set, takes the input a diagram has no use for, as
+	// Live Preview scrolls its text and edits a block's source by it.
+	passInput func(ui.InputEvent) bool
 	// math is whether the last parse drew math, and places where the
 	// formulas within the texts it drew stand, by their texts' runs.
 	math       bool
@@ -2396,17 +2399,17 @@ func (a *app) markdownDiagram(c *ui.Context, v *viewer, b markdownBlock, size, w
 		// selecting the text around it. It opens as the second click is
 		// released, as the overlay would take its press as one outside it.
 		ui.Box(c).Width(w).Height(h).Label(b.language).Draw(d.draw).Unselectable().HandleInput(func(ev ui.InputEvent) bool {
-			if ev.Button != 0 || ev.Clicks != 2 {
-				return false
+			if ev.Kind == ui.InputPointerDown || ev.Kind == ui.InputPointerUp {
+				if ev.Button == 0 && ev.Clicks == 2 {
+					if ev.Kind == ui.InputPointerUp {
+						a.openDiagram(v, b)
+					}
+					return true // the press, to have the release
+				}
 			}
-			switch ev.Kind {
-			case ui.InputPointerDown:
-				return true // to have the release
-			case ui.InputPointerUp:
-				a.openDiagram(v, b)
-				return true
-			}
-			return false
+			// The rest goes where the block it is in takes it, as its
+			// element alone has its input.
+			return m.passInput != nil && m.passInput(ev)
 		})
 		if !over {
 			return

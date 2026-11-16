@@ -211,7 +211,7 @@ func (a *gitContext) prBadge(c *ui.Context, inStatus, short bool) *ui.Element {
 	})
 	b.ContextMenu(func(m *ui.Menu) {
 		if m.Item(locales.PrOpenChanges()).Chosen() {
-			a.app.post(func() { a.openPullRequest(pr.Number) })
+			a.app.post(func() { a.openPullRequest(pr.Number, prChanges) })
 		}
 		if m.Item(locales.PrShowChecks()).Disabled(pr.Checks == git.ChecksNone).Chosen() {
 			a.app.post(a.openChecks)
@@ -221,7 +221,7 @@ func (a *gitContext) prBadge(c *ui.Context, inStatus, short bool) *ui.Element {
 		}
 	})
 	if b.Clicked() {
-		a.app.post(func() { a.openPullRequest(pr.Number) })
+		a.app.post(func() { a.openPullRequest(pr.Number, prChanges) })
 	}
 	return &b
 }
@@ -309,14 +309,14 @@ func (a *gitContext) prHeadChip(c *ui.Context, hash string, pr git.PRHead, lane 
 	})
 	b.ContextMenu(func(m *ui.Menu) {
 		if m.Item(locales.PrOpenChanges()).Chosen() {
-			*action = func() { a.openPullRequest(pr.Number) }
+			*action = func() { a.openPullRequest(pr.Number, prChanges) }
 		}
 		if m.Item(locales.PrOpenOnGitHub()).Disabled(pr.URL == "").Chosen() {
 			*action = func() { a.app.services.OpenURL(pr.URL) }
 		}
 	})
 	if b.Clicked() {
-		*action = func() { a.openPullRequest(pr.Number) }
+		*action = func() { a.openPullRequest(pr.Number, prChanges) }
 	}
 }
 

@@ -1043,7 +1043,7 @@ func (a *app) liveArea(c *ui.Context, d *editor, area ui.Element, f liveFrame) {
 			}
 			room.Children(func() {
 				box := ui.Column(c.Key("live-block:" + s.b.key)).Width(max(1, f.width-s.inset)).Bind(&lv.box)
-				box.HandleInput(func(ev ui.InputEvent) bool {
+				input := func(ev ui.InputEvent) bool {
 					switch ev.Kind {
 					case ui.InputScroll:
 						// The text scrolls under the block as over its text.
@@ -1061,7 +1061,9 @@ func (a *app) liveArea(c *ui.Context, d *editor, area ui.Element, f liveFrame) {
 						}
 					}
 					return false
-				})
+				}
+				box.HandleInput(input)
+				lv.v.markdown.passInput = input
 				box.Children(func() {
 					font := ui.Font{Family: c.Theme().Font, Size: size}
 					for i := range lv.v.markdown.blocks {

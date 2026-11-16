@@ -475,6 +475,9 @@ type diffBuild struct {
 	// takes.
 	review, draft int
 	noteW         float32
+	// threads is what the cards of a pull request's review threads are
+	// laid out for, as threadsBuilt says.
+	threads int
 }
 
 // jumpPlace is where a row jumped to shows.
@@ -510,7 +513,7 @@ func newLocalCompareView(layout diffLayout, left, right string) *diffView {
 func newCommitView(layout diffLayout, key string, info git.Commit) *diffView {
 	v := newDiffView(layout)
 	if n, from, to, ok := parsePRKey(key); ok {
-		v.commit = &commitDiff{hash: to, from: from, info: git.Commit{Hash: to, Parents: []string{from}}, pr: &prDiff{number: n}}
+		v.commit = &commitDiff{hash: to, from: from, info: git.Commit{Hash: to, Parents: []string{from}}, pr: newPRDiff(n)}
 		return v
 	}
 	if from, to, ok := strings.Cut(key, ".."); ok {
@@ -1225,6 +1228,7 @@ func (a *app) layoutRows(v *diffView, l diffGeometry) {
 	}
 	_, noteW := noteGeometry(l, v.split, false)
 	b.review, b.noteW = a.review.gen, noteTextW(noteW)
+	b.threads = a.threadsBuilt(v, b.noteW)
 	if r := &a.review; r.draft != nil && r.ed == nil {
 		_, w := noteGeometry(l, v.split, r.draft.oldSide)
 		b.draft = a.noteLines(r.draft, true, r.text, noteTextW(w))
@@ -1289,7 +1293,8 @@ func (a *app) layoutRows(v *diffView, l diffGeometry) {
 		v.rows = append(v.rows, diffRow{kind: kind, file: file, old: -1, new: -1, hunk: -1, peer: -1, gap: -1, h: 1, label: label})
 	}
 	reveal := -1
-	if cm := v.commit; cm != nil && len(v.files) > 0 {
+	if cm := v.commit; cm != nil && cm.pr == nil && len(v.files) > 0 {
+		// A pull request's header says what it is, over its diff.
 		v.rows = append(v.rows, diffRow{kind: rowCommit, old: -1, new: -1, hunk: -1, peer: -1, gap: -1, h: max(cm.lines, 3)})
 	}
 	for i, f := range v.files {
@@ -1350,6 +1355,9 @@ func (a *app) layoutRows(v *diffView, l diffGeometry) {
 			v.rows = append(v.rows, diffRow{kind: rowNote, file: i, old: -1, new: -1, hunk: -1, peer: -1, gap: -1, h: 1, label: note})
 		}
 		a.noteRows(v, l, f, i, start)
+		if v.commit != nil && v.commit.pr != nil {
+			a.threadRows(v, l, f, i, start)
+		}
 	}
 	for i := range v.rows {
 		r := &v.rows[i]

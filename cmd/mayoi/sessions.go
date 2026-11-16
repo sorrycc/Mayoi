@@ -1403,10 +1403,11 @@ func (a *app) sessionRow(c *ui.Context, l sessionLine, now time.Time, choice *se
 				}
 				ui.RichText(c.Key("meta"), look.meta...).FontSize(11).SingleLine().ClipX().Shrink(1).Transition(slideAlong)
 				ui.Spacer(c)
-				if _, open := st.open[lk]; open && !going {
-					// A terminal of a project shows it, which a click shows.
-					ui.Icon(c.Key("open"), iconTerminal).FontSize(sessionIconSize).TextColor(p.muted).Shrink(0).
-						Tooltip(locales.SessionsTerminalOpen()).Transition(wordIn).Opacity(1 - reveal)
+				if o, open := st.open[lk]; open && !going {
+					// A terminal of a project shows it, which a click shows:
+					// a chip that says where, a tab here or the project of
+					// another window, and stays as the buttons come.
+					a.sessionOpenChip(c, o)
 				}
 				ui.Text(c, look.agoAt(s.Updated, now)).FontSize(11).FontFeatures("tnum").TextColor(p.faint).SingleLine().Shrink(0).Padding(0, 0, 0, 6).
 					Opacity(1 - reveal)
@@ -1634,6 +1635,25 @@ func snippetAt(text string, i, n int) string {
 		from++
 	}
 	return "…" + text[from:]
+}
+
+// sessionOpenChip says that the terminal o shows a session: "In tab" for
+// one of this project, or the name of the project of another window, with
+// a tip that says a click shows it. It tints as the pointer comes.
+func (a *app) sessionOpenChip(c *ui.Context, o openTerm) {
+	p := a.pal
+	label, tip := locales.SessionsInTab(), locales.SessionsTerminalOpen()
+	if dir := o.owner.folder(); o.owner != a && dir != "" {
+		name := filepath.Base(dir)
+		label, tip = name, locales.SessionsTerminalOpenIn(name)
+	}
+	chip := ui.Row(c.Key("open")).Gap(3).AlignItems(ui.Center).Padding(1, 5, 1, 4).Radius(4).Shrink(0).
+		Tooltip(tip).Transition(wordIn)
+	hover := chip.Animate("hover", unit(chip.Hovered()), motionHover)
+	chip.Background(p.text.Alpha(0.06).Mix(p.hover, hover)).Children(func() {
+		ui.Icon(c, iconTerminal).FontSize(11).TextColor(p.muted)
+		ui.Text(c, label).FontSize(11).TextColor(p.muted).SingleLine()
+	})
 }
 
 // sessionActions are the buttons of a session's row: one resumes it, the

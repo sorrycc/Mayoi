@@ -838,6 +838,8 @@
   "prReviewRequired": "待审查",
   "prTip": "拉取请求 {number} · {state}：查看其更改",
   "previewEmpty": "没有可预览的内容",
+  "previewNone": "{name} 无法预览：预览支持 Markdown、SVG 和 Mermaid 文件。",
+  "previewLiveNone": "{name} 无法实时预览：实时预览仅支持 Markdown 文件。",
   "previewLabel": "预览 {name}",
   "previewMinutes": "约 {count} 分钟读完",
   "previewWords": "{count} 字",

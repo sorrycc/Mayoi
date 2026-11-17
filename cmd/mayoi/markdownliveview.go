@@ -17,6 +17,7 @@ import (
 	"mayoi/internal/bg"
 	"mayoi/internal/highlight"
 	"mayoi/internal/linediff"
+	"mayoi/locales"
 )
 
 // liveState is a document's Live Preview: its parses, and the blocks it
@@ -183,7 +184,11 @@ func (a *app) setLive(d *editor, on bool) {
 // its source, from its Reading view to Live Preview.
 func (a *app) toggleLivePreview() {
 	d := a.activeEditor()
-	if d == nil || !isMarkdown(d.document) {
+	if d == nil {
+		return
+	}
+	if a.asMarkdown(d.document); !isMarkdown(d.document) {
+		a.tell(note{message: locales.PreviewLiveNone(d.document.name())})
 		return
 	}
 	a.setLive(d, d.preview != nil || !d.live)

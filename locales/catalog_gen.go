@@ -8822,6 +8822,26 @@ func (msgs Messages) PreviewEmpty() string {
 	return Catalog.Format(msgs.locale, "previewEmpty", nil)
 }
 
+// PreviewNone says "{name} has no preview: previews show Markdown, SVG and Mermaid files."
+// in the language the app shows.
+func PreviewNone(name string) string { return In(i18n.Locale()).PreviewNone(name) }
+
+// PreviewNone says "{name} has no preview: previews show Markdown, SVG and Mermaid files."
+// in the language of msgs.
+func (msgs Messages) PreviewNone(name string) string {
+	return Catalog.Format(msgs.locale, "previewNone", map[string]any{"name": name})
+}
+
+// PreviewLiveNone says "{name} has no Live Preview, which shows Markdown files."
+// in the language the app shows.
+func PreviewLiveNone(name string) string { return In(i18n.Locale()).PreviewLiveNone(name) }
+
+// PreviewLiveNone says "{name} has no Live Preview, which shows Markdown files."
+// in the language of msgs.
+func (msgs Messages) PreviewLiveNone(name string) string {
+	return Catalog.Format(msgs.locale, "previewLiveNone", map[string]any{"name": name})
+}
+
 // PreviewLabel says "Preview {name}"
 // in the language the app shows.
 func PreviewLabel(name string) string { return In(i18n.Locale()).PreviewLabel(name) }

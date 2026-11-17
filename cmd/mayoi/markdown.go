@@ -267,7 +267,30 @@ type markdownBlock struct {
 	formula *mathFormula
 }
 
-func isMarkdown(d *document) bool { return isMarkdownPath(d.path) }
+func isMarkdown(d *document) bool { return d.markdown || isMarkdownPath(d.path) }
+
+// asMarkdown has an untitled document shown as Markdown, as a preview
+// command run on it asks.
+func (a *app) asMarkdown(d *document) {
+	if d.path != "" || d.markdown {
+		return
+	}
+	d.markdown = true
+	d.hl.Close()
+	d.hl = highlight.New(highlight.Lexer("untitled.md"), a.invalidate)
+	a.invalidate()
+}
+
+// previewable reports whether a preview command can preview a document,
+// an untitled one taken as Markdown, and says why when it cannot.
+func (a *app) previewable(d *document) bool {
+	a.asMarkdown(d)
+	if canPreview(d) {
+		return true
+	}
+	a.tell(note{message: locales.PreviewNone(d.name())})
+	return false
+}
 
 func isMarkdownPath(path string) bool {
 	ext := filepath.Ext(path)

@@ -1099,6 +1099,8 @@
   "prReviewRequired": "Review required",
   "prTip": "Pull request {number} · {state}: show its changes",
   "previewEmpty": "Nothing to preview",
+  "previewNone": "{name} has no preview: previews show Markdown, SVG and Mermaid files.",
+  "previewLiveNone": "{name} has no Live Preview, which shows Markdown files.",
   "previewLabel": "Preview {name}",
   "previewMinutes": "{count, plural, one {# min read} other {# min read}}",
   "previewWord": "Preview",

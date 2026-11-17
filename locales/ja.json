@@ -838,6 +838,8 @@
   "prReviewRequired": "レビュー待ち",
   "prTip": "プルリクエスト {number}・{state}: 変更を表示",
   "previewEmpty": "プレビューする内容がありません",
+  "previewNone": "{name} はプレビューできません。プレビューできるのは Markdown、SVG、Mermaid のファイルです。",
+  "previewLiveNone": "{name} はライブプレビューできません。ライブプレビューは Markdown ファイル用です。",
   "previewLabel": "{name} のプレビュー",
   "previewMinutes": "約 {count} 分で読めます",
   "previewWords": "{count} 語",

@@ -451,6 +451,56 @@ func TestMarkdownPreview(t *testing.T) {
 	hs.until("long extension", func() bool { return a.activeEditor().preview.loaded })
 }
 
+func TestUntitledMarkdownPreview(t *testing.T) {
+	hs := newHarness(t, true)
+	a := hs.a
+	a.run("file.new")
+	hs.settle()
+	d := a.activeEditor()
+	d.buf.Replace(0, 0, "# xxx\n")
+	hs.settle()
+	a.run("view.togglePreview")
+	hs.until("untitled preview", func() bool { return d.preview != nil && d.preview.loaded })
+	hs.settle()
+	if !hs.tt.HasText("xxx") {
+		t.Fatal("heading not shown")
+	}
+	a.run("view.toggleLivePreview")
+	hs.settle()
+	if !a.livePreview(d) {
+		t.Fatal("Live Preview not shown")
+	}
+	cols := len(a.cols)
+	a.run("view.previewToSide")
+	hs.settle()
+	if len(a.cols) != cols+1 {
+		t.Fatal("no preview to the side")
+	}
+	a.saveDocAs(d.document, hs.path("notes.txt"))
+	hs.settle()
+	if isMarkdown(d.document) {
+		t.Fatal("saved as .txt, still Markdown")
+	}
+}
+
+func TestNoPreviewSaysWhy(t *testing.T) {
+	hs := newHarness(t, true)
+	a := hs.a
+	a.openFile(hs.path("main.go"), true)
+	hs.settle()
+	notes := len(a.notes)
+	a.run("view.togglePreview")
+	a.run("view.previewToSide")
+	a.run("view.toggleLivePreview")
+	if len(a.notes) != notes+3 || a.notes[notes].message != locales.PreviewNone("main.go") ||
+		a.notes[notes+2].message != locales.PreviewLiveNone("main.go") {
+		t.Fatalf("notes %v", a.notes[notes:])
+	}
+	if d := a.activeEditor(); d.preview != nil || a.livePreview(d) || len(a.cols) != 1 {
+		t.Fatal("previewed main.go")
+	}
+}
+
 func TestMarkdownPreviewOnOpen(t *testing.T) {
 	hs := newHarness(t, true)
 	a := hs.a

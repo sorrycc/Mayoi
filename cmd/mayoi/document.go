@@ -39,7 +39,10 @@ type document struct {
 	title string // an untitled document's name
 	// number is the number of an untitled document's name, and kept the
 	// file that keeps its text as the app quits, of version keptVersion.
-	number      int
+	number int
+	// markdown is set on an untitled document a preview command was run
+	// on, which shows it as Markdown until a name it is saved as decides.
+	markdown    bool
 	kept        string
 	keptVersion uint64
 	buf         *ui.TextBuffer

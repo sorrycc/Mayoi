@@ -18,6 +18,8 @@ needs a `## <version>` section here, or its build fails.
 - Mayoi asks before installing plugins that settings sync brings from another machine.
 - Settings sync installs plugins only from `https://`, `ssh://` or `git@` URLs.
 - Hovering an inline blame cut off at the edge of the editor shows all of it in a tip.
+- **View → Toggle Preview** and the other preview commands show an unsaved new file as Markdown.
+- A preview command on a file that has no preview says so instead of doing nothing.
 
 ## 0.22.2
 

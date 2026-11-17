@@ -650,7 +650,7 @@ func (a *app) setMarkdownOpen(mode string) {
 
 // togglePreview switches between a document's source and rendered view.
 func (a *app) togglePreview() {
-	if d := a.activeEditor(); d != nil && canPreview(d.document) {
+	if d := a.activeEditor(); d != nil && a.previewable(d.document) {
 		a.setPreview(d, d.preview == nil)
 		a.focusColumn()
 	}
@@ -661,7 +661,7 @@ func (a *app) togglePreview() {
 // and the text keeps the keyboard.
 func (a *app) previewToSide() {
 	d := a.activeEditor()
-	if d == nil || !canPreview(d.document) {
+	if d == nil || !a.previewable(d.document) {
 		return
 	}
 	if d.preview != nil {

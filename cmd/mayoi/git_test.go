@@ -628,6 +628,56 @@ func TestBlameTipWraps(t *testing.T) {
 	hs.shot("blame-tip-wraps")
 }
 
+// Scrolled sideways, a blame whose start went under the gutter shows all
+// of it too, over the part the gutter leaves, and not over the gutter.
+func TestBlameTipCutOnTheLeft(t *testing.T) {
+	hs := newHarness(t, true)
+	git := hs.gitRepo()
+	a := hs.a
+	// A wider line below lets the view scroll past the blame's start.
+	os.WriteFile(hs.path("README.md"), []byte("# Mayoi\n\nA small editor.\n"+strings.Repeat("x", 300)+"\n"+strings.Repeat("y", 700)+"\n"), 0o644)
+	git("commit", "-qam", "a long line, its blame under the gutter")
+	a.openFile(hs.path("README.md"), true)
+	hs.settleGit()
+	d := a.activeEditor()
+	area, ok := hs.tt.Find(locales.EditorLabel(d.name()))
+	if !ok {
+		t.Fatal("no editor")
+	}
+	const line = 3
+	snap := d.buf.Snapshot()
+	s, e := snap.LineRange(line)
+	d.selectRange(e, e, false)
+	hs.settle()
+	hs.until("the line is blamed", func() bool {
+		step(hs.tt)
+		return d.blame.phase == blameRead && d.blame.line == line
+	})
+	step(hs.tt)
+	if d.blame.text == "" {
+		t.Fatal("no blame")
+	}
+	bx := d.textX + a.font.width(snap.Slice(s, e)) + 4*a.font.charW
+	d.hscroll.X = bx - d.textX + 3*a.font.charW
+	hs.tt.Frame()
+	y := area.Y + editorPadY + line*a.font.lineH + a.font.lineH/2
+	// Over the gutter, where the blame's start is hidden, nothing.
+	hs.tt.Move(area.X+d.textX/2, y)
+	hs.tt.Frame()
+	hs.tt.Advance(700 * time.Millisecond)
+	hs.tt.Frame()
+	if hs.tt.HasText(d.blame.text) {
+		t.Fatal("the tip shows over the gutter")
+	}
+	hs.tt.Move(area.X+d.textX+2*a.font.charW, y)
+	hs.tt.Frame()
+	hs.tt.Advance(700 * time.Millisecond)
+	hs.tt.Frame()
+	if !hs.tt.HasText(d.blame.text) {
+		t.Fatalf("no tip over the blame cut on the left; texts %q", hs.tt.Texts())
+	}
+}
+
 func TestFitBlame(t *testing.T) {
 	width := func(s string) float32 { return float32(len([]rune(s))) }
 	text := "t, just now · first"

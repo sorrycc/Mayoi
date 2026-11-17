@@ -530,13 +530,13 @@ func (a *app) editorView(c *ui.Context, d *editor) {
 		lineH, charW, size, family := f.lineH, f.charW, f.size, f.family
 		// Who changed the caret's line last, after it: after its last row
 		// when it wraps, placed as the frame lays the rows out. blameShown
-		// is what the view shows of it, blameRow its row, and blameRight
-		// the edge it may not pass; blameCut is set when the view takes
-		// some of it.
+		// is what the view shows of it, blameRow its row, and blameLeft and
+		// blameRight the edges it shows between, the gutter's and the
+		// scroll bar's; blameCut is set when the view takes some of it.
 		var blame, blameShown string
 		var blameX float32
 		var blameRow int
-		var blameRight float32
+		var blameLeft, blameRight float32
 		var blameCut bool
 		// The comment of each review note after its last line, in its
 		// place, unless the lines wrap.
@@ -558,14 +558,17 @@ func (a *app) editorView(c *ui.Context, d *editor) {
 					s, e := snap.LineRange(caretLine)
 					blameX = textX + f.width(snap.Slice(s, min(e, s+maxBlameAfter))) + 4*charW
 					blameShown = blame
-					// The view's right edge, but the scroll bar's left.
-					blameRight = d.hscroll.X + view.W
+					// The view's edges: the gutter's right, which stays as
+					// the text scrolls sideways under it, and the scroll
+					// bar's left.
+					blameLeft, blameRight = d.hscroll.X+textX, d.hscroll.X+view.W
 					if d.vscroll.MaxY > 0 {
 						blameRight -= c.Theme().ScrollbarWidth
 					}
-					if w, _ := c.MeasureText(0, ui.Span{Text: blame, Font: family, Size: size * 0.92}); blameX < blameRight && blameX+w > blameRight {
-						blameCut = true
-					}
+					w, _ := c.MeasureText(0, ui.Span{Text: blame, Font: family, Size: size * 0.92})
+					end := blameX + w
+					blameCut = blameX < blameRight && end > blameLeft && (blameX < blameLeft || end > blameRight)
+					blameRight = min(blameRight, end)
 				}
 				// A blame the view cuts short says all of it as the pointer
 				// rests on the part it shows. A marker there takes the tip:
@@ -573,10 +576,10 @@ func (a *app) editorView(c *ui.Context, d *editor) {
 				// I-beam, the clicks and the drags.
 				if blameCut {
 					y := editorPadY + g.top(caretLine) - d.vscroll.Y + float32(blameRow)*lineH
-					visible := max(blameX, d.hscroll.X)
+					visible := max(blameX, blameLeft)
 					mark := ui.Box(c.Key("blame-mark")).Absolute().PassThrough().
 						Left((visible+blameRight)/2 - d.hscroll.X).Top(y).Width(0).Height(0)
-					if px, py, over := area.PointerPosition(); over && px >= blameX && px <= blameRight && py >= y && py <= y+lineH {
+					if px, py, over := area.PointerPosition(); over && px >= visible && px <= blameRight && py >= y && py <= y+lineH {
 						a.blameTip(c, area, mark, blame)
 					}
 				}

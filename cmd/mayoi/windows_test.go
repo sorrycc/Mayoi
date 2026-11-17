@@ -147,7 +147,13 @@ func TestWelcomeMoreRecent(t *testing.T) {
 // ⌃R shows the recent folders but the window's: ⏎ opens the one typed in
 // the window, ⌘⏎ in a window of its own.
 func TestOpenRecentPicker(t *testing.T) {
-	root, other, third := workspaceFixture(t), workspaceFixture(t), workspaceFixture(t)
+	root, third := workspaceFixture(t), workspaceFixture(t)
+	// A name of its own to type: a temporary folder's, as 002, can be in
+	// the random part of the others' paths too.
+	other := filepath.Join(t.TempDir(), "elsewhere")
+	if err := writeFixture(other); err != nil {
+		t.Fatal(err)
+	}
 	s := settings.Default()
 	s.Recent = []string{third, other}
 	h := &fakeHost{}

@@ -167,8 +167,9 @@ func mathSpan(f *mathFormula, size float32) ui.Span {
 //
 // The text's own layout is out of reach, so spans are laid out again,
 // in the font's own line spacing, and their lines spaced as the text's:
-// as high as lineHeight or what is on them, centered in that height.
-func mathPlaces(spans []ui.Span, font ui.Font, width, lineHeight float32) []ui.Rect {
+// as high as lineHeight or what is on them, centered in that height,
+// and moved along as align, the text's, moves them.
+func mathPlaces(spans []ui.Span, font ui.Font, width, lineHeight float32, align ui.Align) []ui.Rect {
 	tl := ui.ShapeRichText(spans, font, width)
 	objects := tl.Objects()
 	if len(objects) == 0 {
@@ -180,15 +181,17 @@ func mathPlaces(spans []ui.Span, font ui.Font, width, lineHeight float32) []ui.R
 			n += utf16.RuneLen(r)
 		}
 	}
-	type line struct{ y, h, top float32 }
+	// end is how far right a line goes.
+	type line struct{ y, h, top, end float32 }
 	var lines []line
 	top := float32(0)
 	for i := 0; i <= n; i++ {
 		c := tl.Caret(i)
-		if len(lines) > 0 && lines[len(lines)-1].y == c.Y {
+		if k := len(lines) - 1; k >= 0 && lines[k].y == c.Y {
+			lines[k].end = max(lines[k].end, c.X)
 			continue
 		}
-		lines = append(lines, line{c.Y, c.H, top})
+		lines = append(lines, line{c.Y, c.H, top, c.X})
 		top += max(lineHeight, c.H)
 	}
 	out := make([]ui.Rect, len(objects))
@@ -200,7 +203,14 @@ func mathPlaces(spans []ui.Span, font ui.Font, width, lineHeight float32) []ui.R
 				l = k
 			}
 		}
-		out[i] = ui.Rect{X: o.Rect.X, Y: l.top + o.Rect.Y - l.y + (max(lineHeight, l.h)-l.h)/2, W: o.Rect.W, H: o.Rect.H}
+		x := o.Rect.X
+		switch align {
+		case ui.Center:
+			x += max(0, width-l.end) / 2
+		case ui.End:
+			x += max(0, width-l.end)
+		}
+		out[i] = ui.Rect{X: x, Y: l.top + o.Rect.Y - l.y + (max(lineHeight, l.h)-l.h)/2, W: o.Rect.W, H: o.Rect.H}
 	}
 	return out
 }

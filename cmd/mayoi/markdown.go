@@ -101,6 +101,14 @@ type markdownInline struct {
 	kind         highlight.Kind
 	// math is the formula the run draws, its text its source.
 	math *mathFormula
+	// underline, small and script are of HTML's <u>, <small>, and <sup>
+	// as 1 or <sub> as -1 whose text has no characters raised or
+	// lowered, which shows smaller.
+	underline, small bool
+	script           int8
+	// dark and light are the pictures of a <picture> for the dark theme
+	// and the light one, which show in its place in them.
+	dark, light *markdownInline
 }
 
 type markdownKind uint8
@@ -259,8 +267,8 @@ type markdownBlock struct {
 	// line is the line of the text the block starts on, from 0, which the
 	// preview scrolls with as the text scrolls.
 	line int
-	// center is whether the block is centered, as in <p align="center">.
-	center bool
+	// align is how the block aligns its text, as <p align="center"> does.
+	align ui.Align
 	// diagram is the diagram a block of Mermaid draws, or why it could not.
 	diagram *mermaidDiagram
 	// formula is the formula a block of math draws, or why it could not.
@@ -1021,13 +1029,16 @@ func parseMarkdown(source []byte, path, root string, current func() bool, caches
 			slugs[b.slug] = 1
 		}
 	}
-	// boxes are the blocks of HTML open, as <div align="center">, which
-	// may end in a later block of HTML, the Markdown between them in them.
-	var boxes []markdownBox
+	// markup is the HTML open, as <div align="center">, which may end in a
+	// later block of HTML, the Markdown between them in it.
+	markup := &markdownHTML{folds: &folds, anchor: anchor, image: htmlImage, code: func(text string) []markdownInline { return code(text, "") }}
 	// emit adds a block, its decoded images on rows of their own, so that
 	// paragraphs retain native text wrapping, those next to each other on
 	// one, as a row of badges.
 	emit := func(b markdownBlock) {
+		if markup.take(&b) {
+			return
+		}
 		b.anchors, anchors = anchors, nil
 		if b.kind == markdownParagraph || b.kind == markdownHeading {
 			b.runs = markdownMerge(b.runs)
@@ -1078,6 +1089,16 @@ func parseMarkdown(source []byte, path, root string, current func() bool, caches
 			b.runs = markdownTrimRuns(b.runs, 0)
 		}
 		blocks = append(blocks, b)
+	}
+	markup.emit = emit
+	markup.rows = func(rows []markdownBlock) {
+		first := len(blocks)
+		rows[0].anchors, anchors = anchors, nil
+		for i := range rows {
+			rows[i].table = first
+		}
+		rows[len(rows)-1].last = true
+		blocks = append(blocks, rows...)
 	}
 	// embedded shows the note that paragraph n, a block b of the text
 	// itself, embeds alone, ![[note]], in its place, and reports whether
@@ -1143,10 +1164,11 @@ func parseMarkdown(source []byte, path, root string, current func() bool, caches
 	footnote := false
 	var walk func(ast.Node, int, int, string, bool, float32, float32)
 	walk = func(n ast.Node, indent, quote int, marker string, tight bool, offset, markerWidth float32) {
-		b := markdownBlock{indent: indent, quote: quote, marker: marker, tight: tight, offset: offset, markerWidth: markerWidth, alert: alert, alertAt: alertAt, center: markdownCentered(boxes), footnote: footnote, folds: folds}
+		base := markdownBlock{indent: indent, quote: quote, marker: marker, tight: tight, offset: offset, markerWidth: markerWidth, alert: alert, alertAt: alertAt, footnote: footnote, folds: folds}
 		if _, doc := n.(*ast.Document); !doc {
-			b.line = lineOf(n)
+			base.line = lineOf(n)
 		}
+		b := markup.adjust(base)
 		switch x := n.(type) {
 		case *ast.Heading:
 			b.kind, b.level = markdownHeading, x.Level
@@ -1209,7 +1231,7 @@ func parseMarkdown(source []byte, path, root string, current func() bool, caches
 			if x.HasClosure() {
 				raw += string(x.ClosureLine.Value(source))
 			}
-			markdownHTMLBlock(raw, b, &boxes, emit, anchor, htmlImage)
+			markup.block(raw, base)
 			return
 		case *ast.Blockquote:
 			outer, outerAt, outerFolds := alert, alertAt, folds
@@ -1315,6 +1337,7 @@ func parseMarkdown(source []byte, path, root string, current func() bool, caches
 		emit(b)
 	}
 	walk(tree, 0, 0, "", false, 0, 0)
+	markup.finish(markdownBlock{folds: folds, line: max(skip, len(starts)-1+skip)})
 	// A block without a place in the text, as a rule, is where the one
 	// before it is, so that the lines only go down.
 	line := skip
@@ -1552,18 +1575,30 @@ func markdownColumns(rows []markdownBlock, size float32, measure func(r markdown
 	var cols []float32
 	for _, row := range rows {
 		for i, cell := range row.cells {
-			w := float32(0)
+			// w is the widest of its lines, line the one measured.
+			w, line := float32(0), float32(0)
 			for _, r := range cell {
 				if r.bitmap != nil {
-					w += min(r.w, size*12)
+					line += min(r.w, size*12)
 					continue
 				}
 				if r.math != nil && r.math.err == "" {
-					w += r.math.w * size
+					line += r.math.w * size
 					continue
 				}
-				w += measure(r, row.kind == markdownTableHeader)
+				// A break of a cell of HTML starts a line.
+				for k, text := range strings.Split(r.text, "\n") {
+					if k > 0 {
+						w, line = max(w, line), 0
+					}
+					r.text = text
+					line += measure(r, row.kind == markdownTableHeader)
+				}
+				if liveExternal(r.link) && r.image == "" {
+					line += size * 0.9
+				}
 			}
+			w = max(w, line)
 			if i >= len(cols) {
 				cols = append(cols, 0)
 			}
@@ -1582,10 +1617,12 @@ func markdownColumns(rows []markdownBlock, size float32, measure func(r markdown
 func markdownMerge(runs []markdownInline) []markdownInline {
 	out := runs[:0]
 	for _, r := range runs {
+		markdownScript(&r)
 		if n := len(out); n > 0 {
 			l := &out[n-1]
 			if r.bitmap == nil && l.bitmap == nil && r.math == nil && l.math == nil && r.image == "" && l.image == "" && r.link == l.link && r.kind == l.kind &&
-				r.bold == l.bold && r.italic == l.italic && r.strike == l.strike && r.mark == l.mark && r.code == l.code && r.raw == l.raw && r.tag == l.tag && r.missing == l.missing {
+				r.bold == l.bold && r.italic == l.italic && r.strike == l.strike && r.mark == l.mark && r.code == l.code && r.raw == l.raw && r.tag == l.tag && r.missing == l.missing &&
+				r.underline == l.underline && r.small == l.small && r.script == l.script {
 				l.text += r.text
 				continue
 			}
@@ -1827,6 +1864,17 @@ func (a *app) markdownSpan(r markdownInline, color ui.Color, size float32, block
 	if r.strike {
 		span.DecorationColor = span.Color
 	}
+	if r.underline && r.link == "" {
+		span.Underline, span.DecorationColor = true, span.Color
+	}
+	if r.small || r.script != 0 {
+		// Smaller, as <small> is, and <sup> and <sub> of text that has no
+		// characters raised or lowered.
+		span.Size = size * 0.85
+		if r.script != 0 {
+			span.Size = size * 0.75
+		}
+	}
 	if r.mark && !r.code {
 		// Highlighted text is on a marker's yellow, code keeping its chip.
 		span.Background, span.Radius = p.modified.Alpha(0.3), 3
@@ -2014,7 +2062,7 @@ func markdownAlertHead(k markdownAlert, word string) (*ui.SVG, string) {
 	return icon, string(unicode.ToUpper(r)) + strings.ToLower(word[n:])
 }
 
-func (a *app) markdownText(c *ui.Context, m *markdownPreview, path string, runs []markdownInline, size float32, color ui.Color, blockCode bool, hits []markdownHit) {
+func (a *app) markdownText(c *ui.Context, m *markdownPreview, path string, runs []markdownInline, size float32, color ui.Color, blockCode bool, align ui.Align, hits []markdownHit) {
 	p := a.pal
 	text := ui.RichText(c).FontSize(size).LineHeight(a.settings.LineHeight).TextColor(color).DecorationColor(color).WidthPercent(100)
 	font := ui.Font{Family: c.Theme().Font, Size: size}
@@ -2024,7 +2072,7 @@ func (a *app) markdownText(c *ui.Context, m *markdownPreview, path string, runs 
 	}
 	external := markdownExternalEnds(runs)
 	if external != nil || slices.ContainsFunc(runs, func(r markdownInline) bool { return r.math != nil && r.math.err == "" }) {
-		a.markdownMath(m, text, runs, external, font, color, blockCode)
+		a.markdownMath(m, text, runs, external, font, color, blockCode, align)
 	}
 	text.Children(func() {
 		at := 0
@@ -2080,12 +2128,13 @@ func markdownExternalSpan(size float32) ui.Span {
 type mathPlacement struct {
 	font   ui.Font
 	width  float32
+	align  ui.Align
 	places []ui.Rect
 }
 
 // markdownMath draws the formulas of runs, which text shows, in the boxes
 // their spans keep for them in it, in color.
-func (a *app) markdownMath(m *markdownPreview, text ui.Element, runs []markdownInline, external []bool, font ui.Font, color ui.Color, blockCode bool) {
+func (a *app) markdownMath(m *markdownPreview, text ui.Element, runs []markdownInline, external []bool, font ui.Font, color ui.Color, blockCode bool, align ui.Align) {
 	var spans []ui.Span
 	// formulas are what the objects draw, in their order: a formula, or
 	// nil for the icon after a link to the web.
@@ -2105,17 +2154,17 @@ func (a *app) markdownMath(m *markdownPreview, text ui.Element, runs []markdownI
 	text.Draw(func(pt *ui.Painter, r ui.Rect) {
 		var places []ui.Rect
 		if m != nil {
-			if pl, ok := m.places[&runs[0]]; ok && pl.font == font && pl.width == r.W {
+			if pl, ok := m.places[&runs[0]]; ok && pl.font == font && pl.width == r.W && pl.align == align {
 				places = pl.places
 			}
 		}
 		if places == nil {
-			places = mathPlaces(spans, font, r.W, lh)
+			places = mathPlaces(spans, font, r.W, lh, align)
 			if m != nil {
 				if m.places == nil {
 					m.places = map[*markdownInline]mathPlacement{}
 				}
-				m.places[&runs[0]] = mathPlacement{font, r.W, places}
+				m.places[&runs[0]] = mathPlacement{font, r.W, align, places}
 			}
 		}
 		for i, at := range places {
@@ -2339,6 +2388,15 @@ func markdownNodeText(n ast.Node, source []byte) string {
 }
 
 func (a *app) markdownImage(c *ui.Context, m *markdownPreview, path string, r markdownInline, width float32) {
+	// A <picture>'s for the theme, once it came.
+	alt := r.light
+	if a.pal.dark {
+		alt = r.dark
+	}
+	if alt != nil && alt.bitmap != nil {
+		alt.link = r.link
+		r = *alt
+	}
 	draw := func() {
 		w := min(r.w, max(1, width))
 		ui.Image(c, r.bitmap).Width(w).Height(w * r.h / r.w).Fit(ui.Contain)
@@ -2385,7 +2443,7 @@ func (a *app) markdownCodeCard(c *ui.Context, m *markdownPreview, path string, b
 	card := ui.Column(c.Key("code")).WidthPercent(100).Padding(size*0.85, size).Background(p.chrome).Border(1, p.border).Radius(8)
 	over := card.Hovered()
 	card.Children(func() {
-		a.markdownText(c, m, path, b.runs, size*0.93, p.text, true, hits)
+		a.markdownText(c, m, path, b.runs, size*0.93, p.text, true, ui.Start, hits)
 		if b.kind != markdownCodeBlock || !over && b.language == "" {
 			return
 		}
@@ -2479,20 +2537,24 @@ func (a *app) markdownTableRow(c *ui.Context, m *markdownPreview, path string, i
 			if k == 0 {
 				cellBox.BorderWidth(0, 1, 1, 1)
 			}
-			switch {
-			case b.kind == markdownTableHeader:
-				cellBox.Background(p.chrome)
+			// The first row has a border above, as a header does; a table
+			// of HTML may have none.
+			if i == b.table {
 				if k == 0 {
 					cellBox.BorderWidth(1)
 				} else {
 					cellBox.BorderWidth(1, 1, 1, 0)
 				}
+			}
+			switch {
+			case b.kind == markdownTableHeader:
+				cellBox.Background(p.chrome)
 			case b.row%2 == 0:
 				cellBox.Background(p.hover)
 			}
 			// The table's corners are round, as its cells' at them are.
 			var tl, tr, br, bl float32
-			if b.kind == markdownTableHeader {
+			if i == b.table {
 				tl, tr = r, r
 			}
 			if b.last {
@@ -2517,7 +2579,7 @@ func (a *app) markdownTableRow(c *ui.Context, m *markdownPreview, path string, i
 						align = ui.End
 					}
 				}
-				ui.Column(c).TextAlign(align).WidthPercent(100).Children(func() {
+				ui.Column(c).TextAlign(align).AlignItems(align).WidthPercent(100).Children(func() {
 					base := 0
 					for len(cell) > 0 {
 						n := 0
@@ -2525,7 +2587,7 @@ func (a *app) markdownTableRow(c *ui.Context, m *markdownPreview, path string, i
 							n++
 						}
 						if n > 0 {
-							a.markdownText(c, m, path, cell[:n], size, p.text, false, a.previewHits(m, i, k, base))
+							a.markdownText(c, m, path, cell[:n], size, p.text, false, align, a.previewHits(m, i, k, base))
 							base += len(markdownFindText(cell[:n]))
 						}
 						if n < len(cell) {
@@ -2660,10 +2722,7 @@ func (a *app) markdownRow(c *ui.Context, v *viewer, i int, width float32, font u
 				marker()
 			}
 
-			align := ui.Start
-			if b.center {
-				align = ui.Center
-			}
+			align := b.align
 			ui.Column(c).Grow(1).MinWidth(0).Padding(top, 0, bottom, 0).TextAlign(align).Children(func() {
 				switch b.kind {
 				case markdownRule:
@@ -2673,9 +2732,7 @@ func (a *app) markdownRow(c *ui.Context, v *viewer, i int, width float32, font u
 					// Pictures next to each other, as badges, wrap
 					// as words do.
 					images := ui.Row(c).WidthPercent(100).Wrap().Gap(size * 0.25)
-					if b.center {
-						images.Justify(ui.Center)
-					}
+					images.Justify(align)
 					images.Children(func() {
 						for _, r := range b.runs {
 							a.markdownImage(c, m, path, r, imageWidth)
@@ -2758,7 +2815,27 @@ func (a *app) markdownRow(c *ui.Context, v *viewer, i int, width float32, font u
 						a.markdownNoImage(c, m, path, r, size, align)
 						return
 					}
-					a.markdownText(c, m, path, b.runs, a.markdownSize(b), color, false, a.previewHits(m, i, -1, 0))
+					if b.fold != 0 {
+						// A <details>' summary, after a chevron, which a
+						// click folds what it sums up by, or opens it.
+						doc, key, fold := v.doc, b.foldKey, b.fold
+						ui.Row(c).WidthPercent(100).AlignItems(ui.Start).Justify(align).Gap(size * 0.25).Cursor(ui.CursorPointer).Unselectable().
+							OnClick(func() { a.toggleCallout(doc, key, fold) }).
+							Children(func() {
+								turn, turning := calloutTurn(doc, key, calloutFolded(doc, key, fold), c.Now())
+								if turning {
+									c.AnimationFrame()
+								}
+								ui.Box(c).Size(size, size*lh).Shrink(0).Draw(func(pt *ui.Painter, r ui.Rect) {
+									drawChevron(pt, r, turn, p.muted)
+								})
+								ui.Column(c).Shrink(1).MinWidth(0).Children(func() {
+									a.markdownText(c, m, path, b.runs, a.markdownSize(b), color, false, align, a.previewHits(m, i, -1, 0))
+								})
+							})
+						return
+					}
+					a.markdownText(c, m, path, b.runs, a.markdownSize(b), color, false, align, a.previewHits(m, i, -1, 0))
 					if b.kind == markdownHeading && b.level <= 2 {
 						// A hairline under the largest headings, as GitHub draws it.
 						ui.Box(c).Height(1).WidthPercent(100).Background(p.border).Margin(size*0.4, 0, 0, 0)

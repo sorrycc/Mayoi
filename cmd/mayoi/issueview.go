@@ -516,7 +516,7 @@ func (a *app) issueMarkdown(c *ui.Context, blocks []markdownBlock) {
 				switch b.kind {
 				case markdownHeading:
 					sz := size * (1.5 - 0.12*float32(min(b.level, 4)))
-					a.markdownText(c, nil, "", b.runs, sz, p.text, false, nil)
+					a.markdownText(c, nil, "", b.runs, sz, p.text, false, ui.Start, nil)
 				case markdownRule:
 					ui.Box(c).FillWidth().Height(1).Background(p.border).Margin(4, 0)
 				case markdownCodeBlock:
@@ -533,6 +533,21 @@ func (a *app) issueMarkdown(c *ui.Context, blocks []markdownBlock) {
 							a.markdownNoImage(c, nil, "", r, size, ui.Start)
 						}
 					}
+				case markdownTable, markdownTableHeader:
+					// A row of a table, its cells apart on a line.
+					var runs []markdownInline
+					for k, cell := range b.cells {
+						if k > 0 {
+							runs = append(runs, markdownInline{text: "  ·  ", raw: true})
+						}
+						for _, r := range cell {
+							if r.bitmap == nil {
+								r.bold = r.bold || b.kind == markdownTableHeader
+								runs = append(runs, r)
+							}
+						}
+					}
+					a.markdownText(c, nil, "", runs, size, p.text, false, ui.Start, nil)
 				default:
 					if len(b.runs) == 1 && b.runs[0].image != "" {
 						if r := b.runs[0]; r.bitmap != nil && r.w > 0 {
@@ -546,7 +561,7 @@ func (a *app) issueMarkdown(c *ui.Context, blocks []markdownBlock) {
 					if b.quote > 0 {
 						color = p.muted
 					}
-					a.markdownText(c, nil, "", b.runs, size, color, false, nil)
+					a.markdownText(c, nil, "", b.runs, size, color, false, b.align, nil)
 				}
 			})
 		})

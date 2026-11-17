@@ -3,6 +3,17 @@
 The update window shows the section of the version it offers. Every release
 needs a `## <version>` section here, or its build fails.
 
+## Unreleased
+
+- The Markdown Reading view shows an HTML `<table>` as a table, with its cells' alignment and pictures.
+- HTML `<ul>`, `<ol>` and `<li>` show as lists in the Reading view, nested and numbered.
+- A `<details>` folds under its `<summary>` in the Reading view; click the summary to open it.
+- `<sup>` and `<sub>` show raised and lowered, `<u>` and `<ins>` underlined, `<small>` smaller.
+- `align="right"` aligns HTML text to the right in the Reading view.
+- A `<picture>` shows its dark-theme image in the dark theme, as a README's logo does on GitHub.
+- An HTML `<pre>` shows as a code block with its spaces kept; a `<blockquote>` shows as a quote.
+- The link icon in centered text, as a README's centered links, now stands right after its link.
+
 ## 0.22.3
 
 - Codex subagents no longer appear as duplicate entries in **Sessions**.

@@ -120,7 +120,7 @@ func TestMathPlaces(t *testing.T) {
 		t.Fatalf("objects %+v", objects)
 	}
 	// In the font's own spacing, the boxes are the layout's.
-	if got := mathPlaces(spans, font, 300, 0); len(got) != 1 || got[0] != objects[0].Rect {
+	if got := mathPlaces(spans, font, 300, 0, ui.Start); len(got) != 1 || got[0] != objects[0].Rect {
 		t.Errorf("places %+v, want %+v", got, objects[0].Rect)
 	}
 	// Taller lines move it down by what the lines above grew by, and half
@@ -128,10 +128,29 @@ func TestMathPlaces(t *testing.T) {
 	natural := tl.Caret(0).H
 	line := tl.Caret(len(strings.Repeat("word ", 30)) + 1)
 	lines := line.Y / natural
-	got := mathPlaces(spans, font, 300, 40)
+	got := mathPlaces(spans, font, 300, 40, ui.Start)
 	want := objects[0].Rect.Y + lines*(40-natural) + (max(40, line.H)-line.H)/2
 	if len(got) != 1 || got[0].X != objects[0].Rect.X || abs32(got[0].Y-want) > 0.01 {
 		t.Errorf("places %+v, want y %v", got, want)
+	}
+}
+
+// TestMathPlacesAligned: in centered text, as of <p align="center">, a
+// box stands as far into its line as the line is in from the start, and
+// in text to the right twice that.
+func TestMathPlacesAligned(t *testing.T) {
+	font := ui.Font{Size: 20}
+	spans := []ui.Span{{Text: "short"}, markdownExternalSpan(font.Size)}
+	start := mathPlaces(spans, font, 300, 0, ui.Start)
+	w, _ := ui.ShapeRichText(spans, font, 300).Size()
+	center := mathPlaces(spans, font, 300, 0, ui.Center)
+	right := mathPlaces(spans, font, 300, 0, ui.End)
+	if len(start) != 1 || len(center) != 1 || len(right) != 1 {
+		t.Fatalf("places %v %v %v", start, center, right)
+	}
+	in := center[0].X - start[0].X
+	if abs32(in-(300-w)/2) > 1 || abs32(right[0].X-start[0].X-2*in) > 0.01 {
+		t.Errorf("start %v center %v right %v, the line %v wide", start[0].X, center[0].X, right[0].X, w)
 	}
 }
 
@@ -208,7 +227,7 @@ func TestShotMath(t *testing.T) {
 		"onto the next line with $\\sqrt{x}$ there."), "", "", nil, &markdownCache{math: true})
 	img := ui.Render(func(c *ui.Context) {
 		ui.Box(c).Fill().Background(hs.a.pal.editor).Padding(16).Children(func() {
-			hs.a.markdownText(c, nil, "", blocks[0].runs, 18, hs.a.pal.text, false, nil)
+			hs.a.markdownText(c, nil, "", blocks[0].runs, 18, hs.a.pal.text, false, ui.Start, nil)
 		})
 	}, 520, 140, 2)
 	f, err := os.Create(filepath.Join(os.Getenv("SHOTS"), "mayoi-math-inline.png"))

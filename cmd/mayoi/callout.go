@@ -25,10 +25,10 @@ func calloutFolded(doc *document, key string, fold byte) bool {
 }
 
 // calloutHidden reports whether a block in the callouts of keys, their
-// marker lines, is hidden, as one of them is folded.
+// marker lines, or in <details>, is hidden, as one of them is folded.
 func calloutHidden(doc *document, keys []string) bool {
 	for _, k := range keys {
-		if calloutFolded(doc, k, markdownAlertFold(k)) {
+		if calloutFolded(doc, k, markdownFoldOf(k)) {
 			return true
 		}
 	}

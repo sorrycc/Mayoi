@@ -781,6 +781,10 @@ func parseLive(source string, path, root string, full bool, cache *markdownCache
 				}
 			case *ast.HTMLBlock:
 				s, e := linesOf(x)
+				if x.HasClosure() {
+					// Its last line, as </pre>, is apart from its lines.
+					e = max(e, off+x.ClosureLine.Stop)
+				}
 				if s >= 0 {
 					style(s, e, liveLook{code: true, block: true, color: liveMuted})
 				}

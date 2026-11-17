@@ -5,6 +5,7 @@ needs a `## <version>` section here, or its build fails.
 
 ## Unreleased
 
+- Codex subagents no longer appear as duplicate entries in **Sessions**.
 - On Windows, **File → Remote SSH** opens a folder with the system `ssh`.
 - On Windows, **File → Open WSL Folder…** opens a folder in a WSL distribution.
 - On Windows, a Remote SSH or WSL file keeps a `/ssh:` or `/wsl:` path and opens in one tab.

@@ -1,0 +1,101 @@
+# Watches the Release workflow, as a failed release otherwise stays a draft
+# that nobody notices: re-runs a failed run's failed jobs once (they mostly
+# fail for want of a runner), and opens an issue if that fails too. Waits for
+# its own re-run here, as a run that GITHUB_TOKEN re-runs may not trigger
+# this workflow again; re-runs by people do, and close the issue on success.
+name: Release watch
+
+on:
+  workflow_run:
+    workflows: [Release]
+    types: [completed]
+
+permissions: {}
+
+env:
+  RUN_ID: ${{ github.event.workflow_run.id }}
+  TAG: ${{ github.event.workflow_run.head_branch }}
+  GH_REPO: ${{ github.repository }}
+
+jobs:
+  retry:
+    if: >-
+      github.event.workflow_run.run_attempt == 1 &&
+      contains(fromJSON('["failure","cancelled","timed_out"]'), github.event.workflow_run.conclusion)
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    permissions:
+      actions: write # the re-run
+    steps:
+      - name: Re-run the failed jobs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh run rerun "$RUN_ID" --failed
+      - name: Wait for the re-run to finish
+        timeout-minutes: 120
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          until gh run view "$RUN_ID" --json attempt,status \
+            --jq '.attempt > 1 and .status == "completed"' | grep -qx true; do
+            sleep 60
+          done
+
+  report:
+    needs: retry
+    # After the re-run here, whatever became of it; or after a later attempt
+    # that a person started.
+    if: >-
+      always() && (
+        needs.retry.result != 'skipped' || (
+          github.event.workflow_run.run_attempt > 1 &&
+          github.event.workflow_run.triggering_actor.login != 'github-actions[bot]'
+        )
+      )
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read # the run and its jobs
+      issues: write # the issue of the failure
+    steps:
+      - name: Open, comment on or close the issue of the failure
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RETRY: ${{ needs.retry.result }}
+        run: |
+          title="Release $TAG failed"
+          run="$(gh run view "$RUN_ID" --json attempt,status,conclusion,url,jobs)"
+          attempt="$(echo "$run" | jq -r .attempt)"
+          status="$(echo "$run" | jq -r .status)"
+          conclusion="$(echo "$run" | jq -r .conclusion)"
+          url="$(echo "$run" | jq -r .url)"
+          issue="$(gh issue list --state open --limit 500 --json number,title |
+            jq -r --arg t "$title" 'map(select(.title == $t)) | first | .number // empty')"
+
+          if [ "$status" != completed ]; then
+            # A later attempt is under way, and reports itself when done,
+            # unless it is the re-run that we gave up waiting for.
+            [ "$RETRY" = skipped ] && exit 0
+            conclusion="not finished after two hours"
+          fi
+          if [ "$conclusion" = success ]; then
+            if [ -n "$issue" ]; then
+              gh issue comment "$issue" --body "Attempt $attempt of the [Release run]($url) succeeded."
+              gh issue close "$issue"
+            fi
+            exit 0
+          fi
+
+          {
+            echo "Attempt $attempt of the [Release run]($url) for $TAG: $conclusion."
+            echo
+            echo "| Job | Conclusion |"
+            echo "| --- | --- |"
+            echo "$run" | jq -r '.jobs[] | select(.conclusion != "success") | "| \(.name) | \(.conclusion // .status) |"'
+            echo
+            echo "Re-run its failed jobs with \`gh run rerun $RUN_ID --failed\`."
+          } > "$RUNNER_TEMP/body.md"
+          if [ -n "$issue" ]; then
+            gh issue comment "$issue" --body-file "$RUNNER_TEMP/body.md"
+          else
+            gh issue create --title "$title" --body-file "$RUNNER_TEMP/body.md"
+          fi

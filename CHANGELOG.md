@@ -3,7 +3,7 @@
 The update window shows the section of the version it offers. Every release
 needs a `## <version>` section here, or its build fails.
 
-## Unreleased
+## 0.22.3
 
 - Codex subagents no longer appear as duplicate entries in **Sessions**.
 - On Windows, **File → Remote SSH** opens a folder with the system `ssh`.

@@ -103,7 +103,7 @@ func TestCarryTabOverRail(t *testing.T) {
 		tt.Move(x0+(x1-x0)*k, y0+(y1-y0)*k)
 		step(tt)
 	}
-	deadline := time.Now().Add(5 * time.Second)
+	deadline := time.Now().Add(settleTimeout)
 	for f.active != hs[1] {
 		if time.Now().After(deadline) {
 			t.Fatal("the other project did not show as the tab rested on its square")

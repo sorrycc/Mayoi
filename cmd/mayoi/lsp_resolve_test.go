@@ -180,7 +180,7 @@ func TestResolvedLanguageServerRetryOnOpen(t *testing.T) {
 		return path
 	}
 	open("a.fake")
-	hs.untilLong("the failed resolution", func() bool { return hs.a.fails == 1 })
+	hs.until("the failed resolution", func() bool { return hs.a.fails == 1 })
 	// Copy the test executable: Windows needs an .exe suffix and should not
 	// require symlink privileges just to exercise retry after installation.
 	binary, err := os.ReadFile(os.Args[0])
@@ -191,7 +191,7 @@ func TestResolvedLanguageServerRetryOnOpen(t *testing.T) {
 		t.Fatal(err)
 	}
 	path := open("b.fake")
-	hs.untilLong("the resolved server's diagnostics", func() bool { return len(h.diagnosticsOf(path)) == 1 })
+	hs.until("the resolved server's diagnostics", func() bool { return len(h.diagnosticsOf(path)) == 1 })
 	lspServers.Lock()
 	s := lspServers.m[hs.a.root+"\x00fake.server"]
 	lspServers.Unlock()

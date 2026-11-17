@@ -16,7 +16,7 @@ import (
 // start, is done.
 func (hs *harness) settleSearch() {
 	s := &hs.a.inFiles
-	deadline := time.Now().Add(5 * time.Second)
+	deadline := time.Now().Add(settleTimeout)
 	for {
 		hs.settle()
 		if !s.running && !s.waiting || time.Now().After(deadline) {
@@ -162,7 +162,7 @@ func TestSearchFilesAndEdits(t *testing.T) {
 	// So is a file changed on disk.
 	os.WriteFile(hs.path("go.mod"), []byte("module mayoi\n"), 0o644)
 	os.WriteFile(hs.path("web/index.html"), []byte("<!doctype html>\n"), 0o644)
-	deadline := time.Now().Add(5 * time.Second)
+	deadline := time.Now().Add(settleTimeout)
 	for time.Now().Before(deadline) {
 		hs.settle()
 		if strings.Join(resultFiles(s), " ") == "README.md go.mod internal/b/b.ts main.go" {

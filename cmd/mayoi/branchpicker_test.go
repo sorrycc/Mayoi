@@ -101,7 +101,7 @@ func TestSubmoduleBranchPickerCreate(t *testing.T) {
 	}
 	// BranchList runs in the background; a fixed number of frames does
 	// not guarantee it has completed when the full suite is busy.
-	deadline := time.Now().Add(8 * time.Second)
+	deadline := time.Now().Add(settleTimeout)
 	for a.branches.loading && time.Now().Before(deadline) {
 		hs.settle()
 	}
@@ -139,7 +139,7 @@ func TestBranchPickerGroupsAndAuthors(t *testing.T) {
 		t.Fatal(err)
 	}
 	hs.settle()
-	deadline := time.Now().Add(8 * time.Second)
+	deadline := time.Now().Add(settleTimeout)
 	for hs.a.branches.loading && time.Now().Before(deadline) {
 		hs.settle()
 	}

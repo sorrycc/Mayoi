@@ -230,12 +230,35 @@ func newHarness(t testing.TB, dark bool) *harness {
 	w.Folder = root
 	h := &fakeHost{folder: root}
 	a := newApp(h, s, w)
-	t.Cleanup(a.shutdown)
 	tt := ui.NewTester(a.view, 1200, 760)
 	tt.SetDark(dark)
 	hs := &harness{t: t, a: a, h: h, tt: tt, root: root}
+	t.Cleanup(hs.close)
 	hs.settle()
 	return hs
+}
+
+// close shuts the app, and waits a while for its shells and its work in
+// the background to end: until then, Windows keeps the folder they are in
+// from being removed, which fails the test.
+func (hs *harness) close() {
+	terms := hs.a.terms
+	hs.a.closeTerminals()
+	hs.a.shutdown()
+	deadline := time.Now().Add(5 * time.Second)
+	for _, s := range terms {
+		select {
+		case <-s.term.Done():
+		case <-time.After(time.Until(deadline)):
+		}
+	}
+	for bg.Running() > hs.held && time.Now().Before(deadline) {
+		time.Sleep(time.Millisecond)
+	}
+	// Windows can keep the folder a moment after a shell exits.
+	for len(terms) > 0 && os.RemoveAll(hs.root) != nil && time.Now().Before(deadline) {
+		time.Sleep(50 * time.Millisecond)
+	}
 }
 
 // step draws a frame of a test a frame's time, 16 ms, after the last:
@@ -255,10 +278,28 @@ const settleTimeout = 30 * time.Second
 // posted, which on a busy machine is longer than on an idle one. While
 // work only runs, no frame is drawn, to leave the machine to it. Idle
 // counts for two frames in a row, as a frame can start work that one
-// finished asks for.
+// finished asks for. Work that lands during the wait, as a read does on a
+// slow machine, gets its half second too: what it starts takes frames and
+// time of its own, as a scroll the file's caret pins for the frame after.
 func (hs *harness) settle() {
 	hs.t.Helper()
 	hs.a.gitClock = hs.tt.Now
+	deadline := time.Now().Add(settleTimeout)
+	// A poll that posts on every pass would keep it going: past a few,
+	// the frames have had their time.
+	for range settleRounds {
+		if !hs.settleRound(deadline) {
+			return
+		}
+	}
+}
+
+const settleRounds = 8
+
+// settleRound advances half a second and waits for the work running, and
+// reports whether some landed while it waited.
+func (hs *harness) settleRound(deadline time.Time) (late bool) {
+	hs.t.Helper()
 	// Advance before waiting: a final frame after the wait can start work.
 	// The first frames see what the test changed, and start what moves of
 	// it, as a fade, a frame's time apart, as the app counts its frames;
@@ -270,14 +311,14 @@ func (hs *harness) settle() {
 	}
 	hs.tt.Advance((31 - seen) * 16 * time.Millisecond)
 	hs.tt.Frame()
-	for idle, deadline := 0, time.Now().Add(settleTimeout); idle < 2; {
+	for idle := 0; idle < 2; {
 		running, queued := hs.busy()
 		if time.Now().After(deadline) {
 			hs.t.Fatalf("settle: %d background jobs still run after %s (queued: %v)\n%s", bg.Running()-hs.held, settleTimeout, queued, backgroundStacks())
 		}
 		switch {
 		case queued:
-			idle = 0
+			idle, late = 0, true
 			hs.tt.Frame()
 		case running:
 			idle = 0
@@ -291,6 +332,7 @@ func (hs *harness) settle() {
 			}
 		}
 	}
+	return late
 }
 
 // backgroundStacks returns the stacks of the goroutines bg started, to
@@ -501,7 +543,7 @@ func TestExternalChangeReloadsCleanDocument(t *testing.T) {
 	a.openFile(hs.path("go.mod"), true)
 	hs.settle()
 	os.WriteFile(hs.path("go.mod"), []byte("module changed\n"), 0o644)
-	deadline := time.Now().Add(5 * time.Second)
+	deadline := time.Now().Add(settleTimeout)
 	for a.activeEditor().buf.String() != "module changed\n" && time.Now().Before(deadline) {
 		hs.settle()
 	}
@@ -534,7 +576,7 @@ func TestReloadKeepsTheViewAndTheCaret(t *testing.T) {
 		}
 		data, _ := os.ReadFile(p)
 		os.WriteFile(p, []byte("// a\n// b\n// c\n"+string(data)), 0o644)
-		deadline := time.Now().Add(5 * time.Second)
+		deadline := time.Now().Add(settleTimeout)
 		for !strings.HasPrefix(d.buf.String(), "// a") && time.Now().Before(deadline) {
 			hs.settle()
 		}
@@ -575,7 +617,7 @@ func TestQuickOpenAndGoToLine(t *testing.T) {
 	hs := newHarness(t, true)
 	a, tt := hs.a, hs.tt
 	a.run("go.quickOpen")
-	deadline := time.Now().Add(5 * time.Second)
+	deadline := time.Now().Add(settleTimeout)
 	for a.index == nil && time.Now().Before(deadline) {
 		hs.settle()
 	}
@@ -623,7 +665,7 @@ func TestQuickOpenToSide(t *testing.T) {
 		t.Helper()
 		a.run("go.quickOpen")
 		hs.settle()
-		deadline := time.Now().Add(5 * time.Second)
+		deadline := time.Now().Add(settleTimeout)
 		for a.index == nil && time.Now().Before(deadline) {
 			hs.settle()
 		}

@@ -348,17 +348,17 @@ func TestCompactExplorerRemoteRefresh(t *testing.T) {
 	}
 	a.run("view.compactFolders")
 	a.tree.Refresh()
-	hs.untilLong("the compact remote package", func() bool { return tt.HasText("java/com/example") })
+	hs.until("the compact remote package", func() bool { return tt.HasText("java/com/example") })
 	// Even collapsed rows must refresh their intermediate directories.
 	if _, err := conn.Run(nil, `printf 'new sibling\n' > "$1/java/com/README"`, root); err != nil {
 		t.Fatal(err)
 	}
 	a.tree.Refresh()
-	hs.untilLong("the split remote package", func() bool { return tt.HasText("java/com") && !tt.HasText("java/com/example") })
+	hs.until("the split remote package", func() bool { return tt.HasText("java/com") && !tt.HasText("java/com/example") })
 	if err := tt.Click("java/com"); err != nil {
 		t.Fatal(err)
 	}
-	hs.untilLong("the remote sibling", func() bool { return tt.HasText("README") && tt.HasText("example") })
+	hs.until("the remote sibling", func() bool { return tt.HasText("README") && tt.HasText("example") })
 }
 
 func TestCompactExplorerBoundsAutomaticTraversal(t *testing.T) {

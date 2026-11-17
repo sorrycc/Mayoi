@@ -17,6 +17,7 @@ import (
 	"github.com/egoist/mygo"
 	"github.com/egoist/mygo/ui"
 
+	"mayoi/internal/bg"
 	"mayoi/internal/plugin"
 	"mayoi/internal/settings"
 	"mayoi/locales"
@@ -238,11 +239,11 @@ func (a *app) showPluginView(id string) {
 	if slot.webview == nil {
 		p := slot.plugin
 		plugins.reg.Activate("onView:" + id)
-		go func() {
+		bg.Go(func() {
 			ctx, cancel := context.WithTimeout(context.Background(), plugin.BusyLimit)
 			defer cancel()
 			p.Request(ctx, "viewShow", map[string]any{"id": id})
-		}()
+		})
 	}
 }
 
@@ -730,7 +731,7 @@ func (a *app) followPluginPreview(v *viewer) {
 		v.drawing = true
 		v.loading++
 		load, ver, text, file := v.loading, d.buf.Version(), d.buf.String(), d.path
-		go func() {
+		bg.Go(func() {
 			ctx, cancel := context.WithTimeout(context.Background(), plugin.BusyLimit)
 			defer cancel()
 			res, err := pp.plugin.Request(ctx, "preview", map[string]any{"id": pp.id, "text": text, "path": file})
@@ -776,7 +777,7 @@ func (a *app) followPluginPreview(v *viewer) {
 				}
 				pp.view.tree = &tree
 			})
-		}()
+		})
 	}
 	if !v.loaded {
 		render()
@@ -977,11 +978,11 @@ func (a *app) newPluginWebview(win *mygo.Window, st *webviewState) (*mygo.WebVie
 		if err != nil {
 			return
 		}
-		go func() {
+		bg.Go(func() {
 			ctx, cancel := context.WithTimeout(context.Background(), plugin.BusyLimit)
 			defer cancel()
 			pl.Request(ctx, "webview", map[string]any{"id": st.contrib.ID, "message": json.RawMessage(msg)})
-		}()
+		})
 	})
 	base := ""
 	if pl.Dir != "" {

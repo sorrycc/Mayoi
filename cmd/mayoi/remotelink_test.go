@@ -83,7 +83,7 @@ func TestRemoteRefusedShows(t *testing.T) {
 	a := newApp(&fakeHost{}, s, w)
 	t.Cleanup(a.shutdown)
 	hs := &harness{t: t, a: a, h: &fakeHost{}, tt: ui.NewTester(a.view, 1200, 760), root: w.Folder}
-	hs.untilLong("the refusal", func() bool { return a.link.why != nil })
+	hs.until("the refusal", func() bool { return a.link.why != nil })
 	hs.settle()
 	for _, s := range []string{locales.RemoteRefused("refused.invalid"), locales.RemoteTryAgain(), locales.RemoteDisconnectedTip("refused.invalid")} {
 		if !hs.tt.HasText(s) {

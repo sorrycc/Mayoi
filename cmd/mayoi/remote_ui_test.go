@@ -56,18 +56,18 @@ func TestRemoteReconnectsByItself(t *testing.T) {
 	if out, err := exec.Command("pkill", "-P", strconv.Itoa(os.Getpid()), "-f", pattern).CombinedOutput(); err != nil {
 		t.Fatalf("could not stop the fake ssh master: %v: %s", err, out)
 	}
-	hs.untilLong("the loss", func() bool { return a.link.kind == linkBackoff })
+	hs.until("the loss", func() bool { return a.link.kind == linkBackoff })
 	if !hs.tt.HasText("Reconnect Now") {
 		t.Errorf("the banner does not offer to reconnect: %q", hs.tt.Texts())
 	}
 	hs.shot("remote-05-lost")
-	hs.untilLong("the connection again", func() bool { return a.link.kind == linkOnline })
+	hs.until("the connection again", func() bool { return a.link.kind == linkOnline })
 	if a.link.timer != nil || a.link.n != 0 {
 		t.Errorf("still retrying: %+v", a.link)
 	}
 	// Disconnected on purpose: no retry.
 	a.disconnect()
-	hs.untilLong("the disconnection", func() bool { return a.link.kind == linkStopped })
+	hs.until("the disconnection", func() bool { return a.link.kind == linkStopped })
 	hs.settle()
 	if a.link.timer != nil {
 		t.Error("a connection ended on purpose is retried")
@@ -83,7 +83,7 @@ func TestConnectBoxRefused(t *testing.T) {
 	a.openRemotePicker()
 	hs.settle()
 	a.chooseHost("refused.invalid")
-	hs.untilLong("the refusal", func() bool { return a.remotePick.stage == pickHost && a.remotePick.err != "" })
+	hs.until("the refusal", func() bool { return a.remotePick.stage == pickHost && a.remotePick.err != "" })
 	r := &a.remotePick
 	if !strings.Contains(r.err, "Permission denied") || !strings.Contains(r.err, "not passwords") {
 		t.Errorf("err = %q", r.err)
@@ -112,7 +112,7 @@ func TestConnectBoxCancel(t *testing.T) {
 	if !r.open || r.stage != pickHost || r.query != "slow.invalid" || r.conn != nil {
 		t.Fatalf("open = %v, stage = %v, query = %q", r.open, r.stage, r.query)
 	}
-	hs.untilLong("the end of the connection", func() bool {
+	hs.until("the end of the connection", func() bool {
 		s, _ := remote.For("slow.invalid").State()
 		return s == remote.Offline
 	})
@@ -149,7 +149,7 @@ Host *.internal
 		hs.settle()
 		hs.shot("remote-welcome-" + name)
 		a.openRemotePicker()
-		hs.untilLong("the hosts resolved", func() bool { return len(a.remotePick.resolved) >= 6 })
+		hs.until("the hosts resolved", func() bool { return len(a.remotePick.resolved) >= 6 })
 		hs.settle()
 		hs.shot("remote-hosts-" + name)
 		hs.tt.Type("gpu")
@@ -161,7 +161,7 @@ Host *.internal
 		hs.shot("remote-connecting-" + name)
 		a.cancelConnect()
 		a.chooseHost("refused.invalid")
-		hs.untilLong("the refusal", func() bool { return a.remotePick.err != "" })
+		hs.until("the refusal", func() bool { return a.remotePick.err != "" })
 		hs.settle()
 		hs.shot("remote-refused-" + name)
 		a.closeRemotePicker()
@@ -186,7 +186,7 @@ func TestShotRemoteWindow(t *testing.T) {
 		t.Cleanup(a.shutdown)
 		hs.settle()
 		if host == "refused.invalid" {
-			hs.untilLong("the refusal", func() bool { return a.link.why != nil })
+			hs.until("the refusal", func() bool { return a.link.why != nil })
 			hs.settle()
 		}
 		hs.shot("remote-window-" + strings.TrimSuffix(host, ".invalid"))
@@ -200,7 +200,7 @@ func TestFolderBoxKeys(t *testing.T) {
 	dir = filepath.Clean(dir)
 	a := hs.a
 	a.openRemoteFolder()
-	hs.untilLong("the box of the folders", func() bool { return a.remotePick.stage == pickFolder })
+	hs.until("the box of the folders", func() bool { return a.remotePick.stage == pickFolder })
 	r := &a.remotePick
 	home := c.Info().Home
 	r.query = ""
@@ -214,7 +214,7 @@ func TestFolderBoxKeys(t *testing.T) {
 	}
 	// Up from the folder of the test, then Tab back into it.
 	r.query = dir + "/"
-	hs.untilLong("the listing", func() bool { return r.dir == dir })
+	hs.until("the listing", func() bool { return r.dir == dir })
 	rows := a.pickRows()
 	if len(rows) < 2 || rows[1] != rowParent {
 		t.Fatalf("rows = %q", rows)
@@ -224,7 +224,7 @@ func TestFolderBoxKeys(t *testing.T) {
 		t.Fatalf("up: %q", r.query)
 	}
 	r.query = filepath.Dir(dir) + "/" + filepath.Base(dir)[:len(filepath.Base(dir))-1]
-	hs.untilLong("the listing of the parent", func() bool { return r.dir == filepath.Dir(dir) })
+	hs.until("the listing of the parent", func() bool { return r.dir == filepath.Dir(dir) })
 	hs.tt.Key(0, ui.KeyTab)
 	hs.settle()
 	if r.query != dir+"/" {

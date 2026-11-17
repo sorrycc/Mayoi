@@ -863,7 +863,7 @@ func TestMarkdownPreviewRestoreAndReopen(t *testing.T) {
 	b := newApp(&fakeHost{folder: hs.root}, a.settings, a.window)
 	t.Cleanup(b.shutdown)
 	bt := ui.NewTester(b.view, 1200, 760)
-	deadline := time.Now().Add(5 * time.Second)
+	deadline := time.Now().Add(settleTimeout)
 	for time.Now().Before(deadline) {
 		step(bt)
 		if b.activeEditor() != nil && b.activeEditor().preview != nil && b.activeEditor().preview.loaded {
@@ -1104,7 +1104,7 @@ func TestMarkdownDebounceAndClosedResult(t *testing.T) {
 	if !v.markdown.running || v.wait != nil || v.markdown.generation.Load() != generation+1 {
 		t.Fatal("edit during first parse started another worker")
 	}
-	for deadline := time.Now().Add(5 * time.Second); v.markdown.running && time.Now().Before(deadline); {
+	for deadline := time.Now().Add(settleTimeout); v.markdown.running && time.Now().Before(deadline); {
 		a.drain()
 		time.Sleep(time.Millisecond)
 	}

@@ -43,7 +43,7 @@ func openWorktrees(t *testing.T, hs *harness) {
 // awaitWorktrees draws frames until the worktrees the box opened on are read.
 func awaitWorktrees(t *testing.T, hs *harness) {
 	t.Helper()
-	deadline := time.Now().Add(8 * time.Second)
+	deadline := time.Now().Add(settleTimeout)
 	for hs.a.worktrees.loading && time.Now().Before(deadline) {
 		hs.settle()
 	}

@@ -29,7 +29,7 @@ func TestTerminalFind(t *testing.T) {
 	tt.Key(0, ui.KeyEnter)
 	until := func(what string, ok func() bool) {
 		t.Helper()
-		deadline := time.Now().Add(5 * time.Second)
+		deadline := time.Now().Add(settleTimeout)
 		for !ok() && time.Now().Before(deadline) {
 			hs.settle()
 		}

@@ -215,7 +215,7 @@ func TestSendCrashes(t *testing.T) {
 	}
 	m.s.CrashReports = "always"
 	m.offerCrashes(nil)
-	for deadline := time.Now().Add(5 * time.Second); states() != "fatal.sent ips.unsent recovered.sent"; {
+	for deadline := time.Now().Add(settleTimeout); states() != "fatal.sent ips.unsent recovered.sent"; {
 		if time.Now().After(deadline) {
 			t.Fatalf("after always: %s", states())
 		}

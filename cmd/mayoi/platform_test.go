@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -11,6 +12,7 @@ import (
 	"github.com/egoist/mygo/i18n"
 	"github.com/egoist/mygo/ui"
 
+	"mayoi/internal/git"
 	"mayoi/internal/keymap"
 	"mayoi/internal/remote"
 	"mayoi/internal/settings"
@@ -38,6 +40,12 @@ func TestMain(m *testing.M) {
 	// The previews' pictures of the web are not fetched, but by the tests
 	// of them, from servers of their own.
 	markdownRemote.get = func(string) ([]byte, error) { return nil, errors.New("offline") }
+	// Nor is GitHub asked, by the gh of the machine, of the repositories
+	// whose remotes the tests make up: it answers as to one not signed in,
+	// at once, as on CI.
+	git.GH = func(...string) ([]byte, error) {
+		return nil, fmt.Errorf("%w: To get started with GitHub CLI, please run:  gh auth login", git.ErrNoGH)
+	}
 	code, split := splitTests()
 	if !split {
 		code = m.Run()

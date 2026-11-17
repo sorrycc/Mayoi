@@ -103,7 +103,7 @@ func TestPluginAgentSessions(t *testing.T) {
 	w := &prefsWindow{m: &mayoi{s: a.settings}}
 	w.setPluginSetting("pi", "enabled", false, true)
 	// Frames, with no time passing, until the reading without them shows.
-	for deadline := time.Now().Add(5 * time.Second); has("p1") || has("f1"); time.Sleep(time.Millisecond) {
+	for deadline := time.Now().Add(settleTimeout); has("p1") || has("f1"); time.Sleep(time.Millisecond) {
 		if time.Now().After(deadline) {
 			t.Fatal("timed out waiting for the plugin's sessions going")
 		}

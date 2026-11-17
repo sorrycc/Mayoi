@@ -163,7 +163,7 @@ func TestHCLost(t *testing.T) {
 	// It looks again and again, which settle would wait out: frames
 	// rather.
 	until := func(done func() bool) {
-		for deadline := time.Now().Add(2 * time.Second); !done() && time.Now().Before(deadline); time.Sleep(time.Millisecond) {
+		for deadline := time.Now().Add(settleTimeout); !done() && time.Now().Before(deadline); time.Sleep(time.Millisecond) {
 			step(hs.tt)
 		}
 	}

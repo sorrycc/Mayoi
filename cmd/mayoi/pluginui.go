@@ -14,6 +14,7 @@ import (
 
 	"github.com/egoist/mygo/ui"
 
+	"mayoi/internal/bg"
 	"mayoi/internal/plugin"
 	"mayoi/locales"
 )
@@ -30,13 +31,13 @@ func (h *pluginHost) callHandler(p *plugin.Plugin, ref *handlerRef, value any) {
 	if ref == nil || ref.H == "" || p == nil {
 		return
 	}
-	go func() {
+	bg.Go(func() {
 		ctx, cancel := context.WithTimeout(context.Background(), plugin.BusyLimit)
 		defer cancel()
 		if _, err := p.Request(ctx, "handler", map[string]any{"id": ref.H, "value": value}); err != nil {
 			p.Request(context.Background(), "event", map[string]any{"name": "", "data": nil})
 		}
-	}()
+	})
 }
 
 // pluginStatus is an item of the status bar a plugin filled.
@@ -532,7 +533,7 @@ func (a *app) format(d *editor, limit time.Duration, quiet bool, then func()) {
 	if d.indent.tabs {
 		opts["tabSize"] = tabWidth()
 	}
-	go func() {
+	bg.Go(func() {
 		ctx, cancel := context.WithTimeout(context.Background(), limit)
 		defer cancel()
 		res, err := p.Request(ctx, "format", map[string]any{"id": id, "document": doc, "options": opts})
@@ -553,7 +554,7 @@ func (a *app) format(d *editor, limit time.Duration, quiet bool, then func()) {
 			}
 			a.applyFormat(d, snap, res)
 		})
-	}()
+	})
 }
 
 // applyFormat makes what a formatter returned: the whole new text, or

@@ -154,7 +154,7 @@ func TestGitReadDiscardsOldRepositoryResultWithoutChangingNewTask(t *testing.T) 
 	}, func() { called = true })
 	a.git = gitState{repo: &gitpkg.Repo{}, pending: 1, busy: "New read"}
 	close(release)
-	deadline := time.Now().Add(time.Second)
+	deadline := time.Now().Add(settleTimeout)
 	for {
 		a.mu.Lock()
 		queue := a.queue

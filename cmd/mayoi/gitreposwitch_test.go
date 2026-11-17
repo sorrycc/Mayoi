@@ -12,7 +12,7 @@ import (
 // the new repository has started its own work.
 func waitGitPost(t *testing.T, a *app) {
 	t.Helper()
-	deadline := time.Now().Add(5 * time.Second)
+	deadline := time.Now().Add(settleTimeout)
 	for time.Now().Before(deadline) {
 		a.mu.Lock()
 		n := len(a.queue)

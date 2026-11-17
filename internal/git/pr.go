@@ -62,9 +62,16 @@ func (r *Repo) gh(args ...string) ([]byte, error) {
 	return r.ghExits(nil, args...)
 }
 
+// GH, when set, answers in place of the GitHub CLI, as the tests have it
+// so that none of them asks GitHub.
+var GH func(args ...string) ([]byte, error)
+
 // ghExits runs gh as gh does, and takes what it printed when it exits with
 // one of codes as well, as gh pr checks does once a check failed.
 func (r *Repo) ghExits(codes []int, args ...string) ([]byte, error) {
+	if GH != nil {
+		return GH(args...)
+	}
 	env := []string{"GH_PROMPT_DISABLED=1", "GH_NO_UPDATE_NOTIFIER=1", "NO_COLOR=1", "GIT_TERMINAL_PROMPT=0"}
 	cmd, err := vfs.Command(r.Root, env, nil, "gh", args...)
 	if err != nil {

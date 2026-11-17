@@ -14,7 +14,7 @@ import (
 // to be found and read.
 func settleNested(t *testing.T, hs *harness, count int) {
 	t.Helper()
-	deadline := time.Now().Add(8 * time.Second)
+	deadline := time.Now().Add(settleTimeout)
 	for time.Now().Before(deadline) {
 		hs.settle()
 		contexts := hs.a.repositories.contexts

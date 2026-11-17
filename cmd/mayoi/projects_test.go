@@ -1192,7 +1192,7 @@ func TestProjectIcons(t *testing.T) {
 	}
 	writePNG(t, logo, 32, 32)
 	_, hs, tt := railFixture(t, root, bare)
-	for end := time.Now().Add(5 * time.Second); hs[0].logoSrc == nil || !hs[1].logoDone; time.Sleep(10 * time.Millisecond) {
+	for end := time.Now().Add(settleTimeout); hs[0].logoSrc == nil || !hs[1].logoDone; time.Sleep(10 * time.Millisecond) {
 		if time.Now().After(end) {
 			t.Fatal("no logo found for a folder with one")
 		}
@@ -1451,7 +1451,7 @@ func TestRailScansProjectsNotShown(t *testing.T) {
 	if !hs[1].logoDone || hs[1].logoDir != other {
 		t.Fatal("no scan for a project not shown")
 	}
-	for end := time.Now().Add(5 * time.Second); hs[1].logoSrc == nil; time.Sleep(10 * time.Millisecond) {
+	for end := time.Now().Add(settleTimeout); hs[1].logoSrc == nil; time.Sleep(10 * time.Millisecond) {
 		if time.Now().After(end) {
 			t.Fatal("the logo of a project not shown never came")
 		}
@@ -1471,7 +1471,7 @@ func settleFixture(t *testing.T) (*frame, *fakeHost, *ui.Tester) {
 	a := hs[0].a
 	a.openFile(filepath.Join(root, "main.go"), true)
 	// An edit made before the file is read is not a change to it.
-	deadline := time.Now().Add(5 * time.Second)
+	deadline := time.Now().Add(settleTimeout)
 	for ed := a.activeEditor(); (ed == nil || ed.sync == syncLoading) && time.Now().Before(deadline); ed = a.activeEditor() {
 		step(tt)
 		time.Sleep(5 * time.Millisecond)

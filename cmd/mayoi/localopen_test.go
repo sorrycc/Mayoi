@@ -254,7 +254,7 @@ func TestLocalOpenStuckReadsLetOthersOpen(t *testing.T) {
 	// settle would wait for the stuck reads too. Each stuck read lets go
 	// of its place as its own timer fires, which on Windows's coarse
 	// timers can be after main.go is read in the place the first left.
-	for deadline := time.Now().Add(5 * time.Second); d.unread() || a.localReads != 0; time.Sleep(time.Millisecond) {
+	for deadline := time.Now().Add(settleTimeout); d.unread() || a.localReads != 0; time.Sleep(time.Millisecond) {
 		if time.Now().After(deadline) {
 			if d.unread() {
 				t.Fatal("main.go waits behind the stuck reads")
@@ -287,7 +287,7 @@ func TestPluginOpenAnswersOnceRead(t *testing.T) {
 	default:
 	}
 	release()
-	for deadline := time.Now().Add(5 * time.Second); ; time.Sleep(time.Millisecond) {
+	for deadline := time.Now().Add(settleTimeout); ; time.Sleep(time.Millisecond) {
 		step(hs.tt)
 		select {
 		case err := <-answered:

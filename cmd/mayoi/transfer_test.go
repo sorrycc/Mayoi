@@ -36,7 +36,7 @@ func TestRemotePaste(t *testing.T) {
 	if !strings.HasPrefix(a.transferText(), "Uploading notes.txt to "+c.Host) {
 		t.Errorf("status %q", a.transferText())
 	}
-	hs.untilLong("the upload", func() bool { return len(a.transfers) == 0 && hs.tt.HasText("notes.txt") })
+	hs.until("the upload", func() bool { return len(a.transfers) == 0 && hs.tt.HasText("notes.txt") })
 	if got := read(dir + "/notes.txt"); got != "from the mac\n" {
 		t.Fatalf("on the host: %q", got)
 	}
@@ -52,7 +52,7 @@ func TestRemotePaste(t *testing.T) {
 		t.Errorf("clipboard text %q", got)
 	}
 	a.pasteFiles(a.root)
-	hs.untilLong("the copy on the host", func() bool { return len(a.transfers) == 0 && hs.tt.HasText("main copy.go") })
+	hs.until("the copy on the host", func() bool { return len(a.transfers) == 0 && hs.tt.HasText("main copy.go") })
 	if got := read(dir + "/main copy.go"); !strings.HasPrefix(got, "package main") {
 		t.Fatalf("copy: %q", got)
 	}
@@ -88,11 +88,11 @@ func TestRemotePaste(t *testing.T) {
 	// Upload… asks for files, and Download… for a folder.
 	hs.h.chosen = []string{local}
 	a.askUpload(hs.path("src"))
-	hs.untilLong("Upload…", func() bool { return len(a.transfers) == 0 && read(dir+"/src/notes.txt") == "from the mac\n" })
+	hs.until("Upload…", func() bool { return len(a.transfers) == 0 && read(dir+"/src/notes.txt") == "from the mac\n" })
 	into := t.TempDir()
 	hs.h.chosen = []string{into}
 	a.askDownload(hs.path("src"))
-	hs.untilLong("Download…", func() bool { return len(a.transfers) == 0 })
+	hs.until("Download…", func() bool { return len(a.transfers) == 0 })
 	if b, _ := os.ReadFile(filepath.Join(into, "src", "notes.txt")); string(b) != "from the mac\n" {
 		t.Fatalf("downloaded %q", b)
 	}
@@ -102,7 +102,7 @@ func TestRemotePaste(t *testing.T) {
 	hs.h.clipboard = []string{local}
 	a.pasteFiles(hs.path("src"))
 	a.transfers[0].progress.Cancel()
-	hs.untilLong("the cancel", func() bool { return len(a.transfers) == 0 })
+	hs.until("the cancel", func() bool { return len(a.transfers) == 0 })
 	if got := read(dir + "/src/notes copy.txt"); !strings.HasPrefix(got, "error") {
 		t.Errorf("a canceled paste arrived: %q", got)
 	}
@@ -203,7 +203,7 @@ func TestRemoteReadAhead(t *testing.T) {
 	hs, c, dir := remoteHarness(t)
 	a := hs.a
 	src := hs.path("src")
-	hs.untilLong("src read ahead", func() bool { return a.tree.ReadAhead(src) })
+	hs.until("src read ahead", func() bool { return a.tree.ReadAhead(src) })
 	a.tree.Load(src)
 	if !a.tree.Loaded(src) || len(a.tree.Children(src)) != 1 {
 		t.Fatalf("src did not open at once: %q", a.tree.Children(src))
@@ -213,9 +213,9 @@ func TestRemoteReadAhead(t *testing.T) {
 		t.Fatal(err)
 	}
 	a.files.Open.Add(src)
-	hs.untilLong("the new folder", func() bool { return hs.tt.HasText("deeper") })
+	hs.until("the new folder", func() bool { return hs.tt.HasText("deeper") })
 	deeper := hs.path("src/deeper")
-	hs.untilLong("deeper read ahead", func() bool { return a.tree.ReadAhead(deeper) })
+	hs.until("deeper read ahead", func() bool { return a.tree.ReadAhead(deeper) })
 	a.tree.Load(deeper)
 	if got := a.tree.Children(deeper); len(got) != 1 || filepath.Base(got[0]) != "x" {
 		t.Fatalf("deeper = %q", got)
@@ -235,15 +235,15 @@ func TestRemoteTerminalComesBack(t *testing.T) {
 	}
 	first := s.term
 	if os.Getenv("MAYOI_SSH_TEST_HOST") != "" {
-		hs.untilLong("the shell of the host", func() bool { return strings.TrimSpace(first.Text()) != "" })
+		hs.until("the shell of the host", func() bool { return strings.TrimSpace(first.Text()) != "" })
 	}
 	first.Feed([]byte("MARKER\r\n"))
 	a.disconnect()
-	hs.untilLong("the disconnection", func() bool { return a.link.kind == linkStopped })
+	hs.until("the disconnection", func() bool { return a.link.kind == linkStopped })
 	// ssh ends as the connection does: on a real host by itself, as its
 	// session went through the connection; the fake one's is a shell here.
 	if os.Getenv("MAYOI_SSH_TEST_HOST") != "" {
-		hs.untilLong("the terminal's ssh to end", func() bool { return s.lost })
+		hs.until("the terminal's ssh to end", func() bool { return s.lost })
 	} else {
 		a.terminalExited(s, first, 255)
 	}
@@ -251,7 +251,7 @@ func TestRemoteTerminalComesBack(t *testing.T) {
 		t.Fatalf("lost %v, kept %v, text %q", s.lost, slices.Contains(a.terms, s), first.Text())
 	}
 	a.reconnect()
-	hs.untilLong("the terminal again", func() bool { return !s.lost })
+	hs.until("the terminal again", func() bool { return !s.lost })
 	if s.term == first || !strings.Contains(s.term.Text(), "MARKER") {
 		t.Fatalf("restarted: %v, text %q", s.term != first, s.term.Text())
 	}
@@ -272,7 +272,7 @@ func TestRemoteSaveConflict(t *testing.T) {
 	hs, c, dir := remoteHarness(t)
 	a := hs.a
 	a.openFile(hs.path("main.go"), true)
-	hs.untilLong("main.go to be read", func() bool {
+	hs.until("main.go to be read", func() bool {
 		d := a.activeEditor()
 		return d != nil && d.sync != syncLoading && d.stamp != nil
 	})
@@ -286,7 +286,7 @@ func TestRemoteSaveConflict(t *testing.T) {
 	d.edit(d.sel, textEdit{0, 0, "// mine\n"})
 	change("theirs, longer than it was\n")
 	a.saveDoc(d.document, nil)
-	hs.untilLong("the question", func() bool { return a.confirm != nil })
+	hs.until("the question", func() bool { return a.confirm != nil })
 	if !strings.Contains(a.confirm.title, "main.go changed on "+c.Host) {
 		t.Fatalf("title %q", a.confirm.title)
 	}
@@ -300,20 +300,20 @@ func TestRemoteSaveConflict(t *testing.T) {
 	cf := a.confirm
 	a.confirm = nil
 	cf.runAlternate()
-	hs.untilLong("the revert", func() bool { return d.buf.String() == "theirs, longer than it was\n" })
+	hs.until("the revert", func() bool { return d.buf.String() == "theirs, longer than it was\n" })
 
 	// Overwrite writes over a change.
 	d.edit(d.sel, textEdit{0, 0, "// mine again\n"})
 	change("theirs again, and longer still\n")
 	a.saveDoc(d.document, nil)
-	hs.untilLong("the question again", func() bool { return a.confirm != nil })
+	hs.until("the question again", func() bool { return a.confirm != nil })
 	// An autosave under way, of the file as it was read, does not ask
 	// again once the overwrite is chosen.
 	a.saveRemote(d.document, nil, func(error) {})
 	cf = a.confirm
 	a.confirm = nil
 	cf.run()
-	hs.untilLong("the overwrite", func() bool { return d.sync != syncSaving && !d.dirty() })
+	hs.until("the overwrite", func() bool { return d.sync != syncSaving && !d.dirty() })
 	host, _ = c.ReadFile(dir+"/main.go", 0)
 	if !strings.HasPrefix(string(host), "// mine again\n") {
 		t.Fatalf("on the host: %q", host)
@@ -321,7 +321,7 @@ func TestRemoteSaveConflict(t *testing.T) {
 	// Saved since, it saves without asking.
 	d.edit(d.sel, textEdit{0, 0, "// once more\n"})
 	a.saveDoc(d.document, nil)
-	hs.untilLong("a plain save", func() bool { return d.sync != syncSaving && !d.dirty() })
+	hs.until("a plain save", func() bool { return d.sync != syncSaving && !d.dirty() })
 	if a.confirm != nil {
 		t.Fatal("asked again")
 	}
@@ -331,7 +331,7 @@ func TestRemoteSaveConflict(t *testing.T) {
 func readRemote(hs *harness, name string) *editor {
 	hs.t.Helper()
 	hs.a.openFile(hs.path(name), true)
-	hs.untilLong(name+" to be read", func() bool {
+	hs.until(name+" to be read", func() bool {
 		d := hs.a.activeEditor()
 		return d != nil && d.sync != syncLoading && d.stamp != nil
 	})
@@ -353,7 +353,7 @@ func TestRemoteSaveQueueKeepsWaiters(t *testing.T) {
 	save("first")
 	save("second")
 	save("third")
-	hs.untilLong("the last save", func() bool { return slices.Contains(done, "third") })
+	hs.until("the last save", func() bool { return slices.Contains(done, "third") })
 	if !slices.Equal(done, []string{"first", "second", "third"}) {
 		t.Fatalf("answered %q", done)
 	}
@@ -381,11 +381,11 @@ func TestRemoteSaveConflictKeepsWaiters(t *testing.T) {
 	change("theirs\n")
 	save("first")
 	save("second")
-	hs.untilLong("the question", func() bool { return a.confirm != nil })
+	hs.until("the question", func() bool { return a.confirm != nil })
 	cf := a.confirm
 	a.confirm = nil
 	cf.run()
-	hs.untilLong("the overwrite", func() bool { return slices.Contains(done, "second") })
+	hs.until("the overwrite", func() bool { return slices.Contains(done, "second") })
 	if !slices.Equal(done, []string{"first", "second"}) || failed != nil {
 		t.Fatalf("done %q, failed %q", done, failed)
 	}
@@ -395,11 +395,11 @@ func TestRemoteSaveConflictKeepsWaiters(t *testing.T) {
 	change("theirs again\n")
 	save("third")
 	save("fourth")
-	hs.untilLong("the question again", func() bool { return a.confirm != nil })
+	hs.until("the question again", func() bool { return a.confirm != nil })
 	cf = a.confirm
 	a.confirm = nil
 	cf.runAlternate()
-	hs.untilLong("the revert", func() bool { return d.buf.String() == "theirs again\n" })
+	hs.until("the revert", func() bool { return d.buf.String() == "theirs again\n" })
 	if !slices.Equal(failed, []string{"third", "fourth"}) || done != nil {
 		t.Fatalf("done %q, failed %q", done, failed)
 	}
@@ -422,14 +422,14 @@ func TestRemoteSaveDuringConflict(t *testing.T) {
 	d.edit(d.sel, textEdit{0, 0, "// mine\n"})
 	change("theirs\n")
 	a.saveDoc(d.document, nil)
-	hs.untilLong("the question", func() bool { return a.confirm != nil })
+	hs.until("the question", func() bool { return a.confirm != nil })
 	answered := ""
 	a.saveRemote(d.document, func() { answered = "done" }, func(error) { answered = "failed" })
 	hs.settle()
 	cf := a.confirm
 	a.confirm = nil
 	cf.run()
-	hs.untilLong("the overwrite", func() bool { return answered != "" })
+	hs.until("the overwrite", func() bool { return answered != "" })
 	if answered != "done" {
 		t.Fatalf("the save waiting %s", answered)
 	}
@@ -439,7 +439,7 @@ func TestRemoteSaveDuringConflict(t *testing.T) {
 	d.edit(d.sel, textEdit{0, 0, "// later\n"})
 	change("theirs later\n")
 	a.saveRemote(d.document, func() { answered = "done" }, func(error) { answered = "failed" })
-	hs.untilLong("the question again", func() bool { return a.confirm != nil })
+	hs.until("the question again", func() bool { return a.confirm != nil })
 	hs.key(0, ui.KeyEscape)
 	if a.confirm != nil || answered != "failed" {
 		t.Fatalf("confirm %v, the save %q", a.confirm != nil, answered)

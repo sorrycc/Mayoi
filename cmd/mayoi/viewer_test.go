@@ -35,13 +35,15 @@ func writePNG(t testing.TB, path string, w, h int) {
 const testSVG = `<svg xmlns="http://www.w3.org/2000/svg" width="64" height="32" viewBox="0 0 64 32"><rect width="64" height="32" fill="#36c"/></svg>
 `
 
-// until draws frames until ok, failing after a while.
+// until settles until ok, failing after as long as settle waits: what
+// it waits for comes after the work a slow machine runs slowly, as a
+// host's over the network.
 func (hs *harness) until(what string, ok func() bool) {
 	hs.t.Helper()
-	deadline := time.Now().Add(5 * time.Second)
+	deadline := time.Now().Add(settleTimeout)
 	for !ok() {
 		if time.Now().After(deadline) {
-			hs.t.Fatalf("timed out waiting for %s", what)
+			hs.t.Fatalf("timed out waiting for %s: %q", what, hs.tt.Texts())
 		}
 		hs.settle()
 	}
@@ -223,7 +225,7 @@ func TestImageTabsMoveAndRestore(t *testing.T) {
 	b := newApp(&fakeHost{folder: hs.root}, a.settings, a.window)
 	t.Cleanup(b.shutdown)
 	tt := ui.NewTester(b.view, 1200, 760)
-	deadline := time.Now().Add(5 * time.Second)
+	deadline := time.Now().Add(settleTimeout)
 	for (b.activeViewer() == nil || b.activeViewer().src == nil) && time.Now().Before(deadline) {
 		step(tt)
 		time.Sleep(5 * time.Millisecond)
@@ -339,7 +341,7 @@ func TestSVGPreview(t *testing.T) {
 		e := b.activeEditor()
 		return e != nil && e.preview != nil && e.preview.src != nil
 	}
-	deadline := time.Now().Add(5 * time.Second)
+	deadline := time.Now().Add(settleTimeout)
 	for !restored() && time.Now().Before(deadline) {
 		step(bt)
 		time.Sleep(5 * time.Millisecond)

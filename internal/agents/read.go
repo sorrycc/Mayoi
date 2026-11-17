@@ -260,7 +260,7 @@ func codexRollouts(dir string) []string {
 
 // readCodex reads a transcript of Codex: its first line says the session
 // and where it ran, and its first message of the user what was asked.
-// Sessions of its exec mode are not for resuming.
+// Exec and subagent sessions do not belong in the session list.
 func readCodex(path string) (Session, bool) {
 	s := Session{Harness: Codex}
 	f, err := os.Open(path)
@@ -268,7 +268,6 @@ func readCodex(path string) (Session, bool) {
 		return s, false
 	}
 	defer f.Close()
-	exec := false
 	eachLine(f, headMax, func(line []byte) bool {
 		var v struct {
 			Type    string
@@ -277,7 +276,7 @@ func readCodex(path string) (Session, bool) {
 				ID         string
 				Cwd        string
 				Originator string
-				Source     string
+				Source     any
 				Role       string
 				Content    json.RawMessage
 			}
@@ -286,15 +285,21 @@ func readCodex(path string) (Session, bool) {
 			return true
 		}
 		switch {
-		case v.Type == "session_meta":
+		case v.Type == "session_meta" && s.ID == "":
+			source, _ := v.Payload.Source.(string)
+			fields, _ := v.Payload.Source.(map[string]any)
+			_, subagent := fields["subagent"]
+			if subagent || source == "exec" || v.Payload.Originator == "codex_exec" {
+				// Forked transcripts can include the parent's metadata after their own.
+				return false
+			}
 			s.ID, s.Dir = v.Payload.ID, v.Payload.Cwd
-			exec = v.Payload.Source == "exec" || v.Payload.Originator == "codex_exec"
 		case v.Type == "response_item" && v.Payload.Type == "message" && v.Payload.Role == "user":
 			s.Prompt = promptOf(v.Payload.Content)
 		}
 		return s.ID == "" || s.Prompt == ""
 	})
-	return s, s.ID != "" && !exec
+	return s, s.ID != ""
 }
 
 // readCodexIndex reads Codex's names of its sessions, the last of each.

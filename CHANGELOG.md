@@ -17,7 +17,7 @@ needs a `## <version>` section here, or its build fails.
 - With one file at a time, the diff's tab is named after the file it shows.
 - Mayoi asks before installing plugins that settings sync brings from another machine.
 - Settings sync installs plugins only from `https://`, `ssh://` or `git@` URLs.
-- Hovering a cut-short inline blame shows all of it.
+- Hovering an inline blame cut off at the edge of the editor shows all of it in a tip.
 
 ## 0.22.2
 

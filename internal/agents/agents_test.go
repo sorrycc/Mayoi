@@ -105,6 +105,8 @@ func TestScanExcludesCodexSubagents(t *testing.T) {
 	write(t, filepath.Join(dir, "rollout-parent.jsonl"), parent+prompt)
 	write(t, filepath.Join(dir, "rollout-child.jsonl"),
 		`{"type":"session_meta","payload":{"id":"child","cwd":"/p","source":{"subagent":{"thread_spawn":{"parent_thread_id":"parent"}}}}}`+"\n"+parent+prompt)
+	write(t, filepath.Join(dir, "rollout-review.jsonl"),
+		`{"type":"session_meta","payload":{"id":"review","cwd":"/p","source":{"subagent":"review"}}}`+"\n"+prompt)
 
 	got := NewScanner().Scan(&Env{Home: home})
 	if len(got) != 1 || got[0].ID != "parent" || filepath.Base(got[0].Transcript) != "rollout-parent.jsonl" {

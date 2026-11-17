@@ -80,12 +80,22 @@ func TestSplitRightSharesTheDocument(t *testing.T) {
 	hs.shot("09-columns")
 }
 
+// scrollEditor scrolls an editor to y, as the wheel leaves it, and lets
+// the frames show it there. A file just opened keeps its scroll for the
+// frame after it took its caret (pinFrame), which would take y back: when
+// it is read late, that frame is still to come.
+func (hs *harness) scrollEditor(d *editor, y float32) {
+	hs.t.Helper()
+	hs.until("the editor lets its scroll go", func() bool { return d.pinFrame == 0 })
+	d.vscroll.Y = y
+	hs.settle()
+}
+
 func TestOtherColumnStaysWhereItIsScrolled(t *testing.T) {
 	hs, left, right := splitHarness(t, func(hs *harness) string { return hs.longFile("long.go", 400) })
 	a, tt := hs.a, hs.tt
 	// The left column reads far from its caret, as the wheel leaves it.
-	left.vscroll.Y = 6000
-	hs.settle()
+	hs.scrollEditor(left, 6000)
 	if left.vscroll.Y != 6000 {
 		t.Fatalf("scrolled to %v", left.vscroll.Y)
 	}
@@ -117,8 +127,7 @@ func TestOtherColumnStaysWhereItIsScrolled(t *testing.T) {
 func TestHiddenTabStaysWhereItIsScrolled(t *testing.T) {
 	hs, left, _ := splitHarness(t, func(hs *harness) string { return hs.longFile("long.go", 400) })
 	a, tt := hs.a, hs.tt
-	left.vscroll.Y = 6000
-	hs.settle()
+	hs.scrollEditor(left, 6000)
 	// Another tab covers it in the left column, while the right one edits.
 	a.col = 0
 	a.openFile(hs.path("README.md"), false)
@@ -144,8 +153,7 @@ func TestHiddenTabComesBackInPlace(t *testing.T) {
 	a.openFile(hs.longFile("long.go", 400), true)
 	hs.settle()
 	d := a.activeEditor()
-	d.vscroll.Y = 6000
-	hs.settle()
+	hs.scrollEditor(d, 6000)
 	a.openFile(hs.path("README.md"), true)
 	hs.settle()
 	a.activate(a.column(), 0, true)
@@ -863,8 +871,7 @@ func TestHiddenTabsKeptAreTheLastShown(t *testing.T) {
 	a.openFile(hs.longFile("long.go", 400), true)
 	hs.settle()
 	d := a.activeEditor()
-	d.vscroll.Y = 6000
-	hs.settle()
+	hs.scrollEditor(d, 6000)
 	for i := range keepTabs + 2 {
 		p := hs.path(fmt.Sprintf("t%02d.txt", i))
 		os.WriteFile(p, []byte("tab\n"), 0o644)

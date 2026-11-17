@@ -1501,7 +1501,13 @@ func TestGitHubDoubleClickKeeps(t *testing.T) {
 		return n, kept
 	}
 	click()
-	hs.settle()
+	// Frames until the tab shows, not a settle: its half second is all
+	// but the time a double click has.
+	for deadline := time.Now().Add(settleTimeout); time.Now().Before(deadline); step(hs.tt) {
+		if n, _ := issueTabs(); n > 0 {
+			break
+		}
+	}
 	if n, kept := issueTabs(); n != 1 || kept {
 		t.Fatalf("a click opened %d tabs of the issue, kept %v; want one preview", n, kept)
 	}

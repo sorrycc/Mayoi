@@ -585,8 +585,10 @@ func TestSessionRowDragsItsTranscript(t *testing.T) {
 	}
 	// Its folder is gone, so resuming it only says so.
 	r, _ := tt.Find("fix there")
+	// A frame between the two, not a settle: its half second is all but
+	// the time a double click has.
 	tt.ClickAt(r.X+r.W/2, r.Y+r.H/2)
-	hs.settle()
+	step(tt)
 	tt.ClickAt(r.X+r.W/2, r.Y+r.H/2)
 	hs.settle()
 	if _, ok := tt.Find(locales.SessionsDirGone("/elsewhere")); !ok {

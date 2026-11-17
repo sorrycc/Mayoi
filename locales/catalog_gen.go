@@ -19659,3 +19659,75 @@ func PickWSLDistributions() string { return In(i18n.Locale()).PickWSLDistributio
 func (msgs Messages) PickWSLDistributions() string {
 	return Catalog.Format(msgs.locale, "pickWSLDistributions", nil)
 }
+
+// DiffFilesAll says "All Files"
+// in the language the app shows.
+func DiffFilesAll() string { return In(i18n.Locale()).DiffFilesAll() }
+
+// DiffFilesAll says "All Files"
+// in the language of msgs.
+func (msgs Messages) DiffFilesAll() string {
+	return Catalog.Format(msgs.locale, "diffFilesAll", nil)
+}
+
+// DiffFilesOne says "One File at a Time"
+// in the language the app shows.
+func DiffFilesOne() string { return In(i18n.Locale()).DiffFilesOne() }
+
+// DiffFilesOne says "One File at a Time"
+// in the language of msgs.
+func (msgs Messages) DiffFilesOne() string {
+	return Catalog.Format(msgs.locale, "diffFilesOne", nil)
+}
+
+// DiffOneFileName says "{file} · {of}"
+// in the language the app shows.
+func DiffOneFileName(file string, of string) string {
+	return In(i18n.Locale()).DiffOneFileName(file, of)
+}
+
+// DiffOneFileName says "{file} · {of}"
+// in the language of msgs.
+func (msgs Messages) DiffOneFileName(file string, of string) string {
+	return Catalog.Format(msgs.locale, "diffOneFileName", map[string]any{"file": file, "of": of})
+}
+
+// PrefTitleDiffFiles says "Diff Files"
+// in the language the app shows.
+func PrefTitleDiffFiles() string { return In(i18n.Locale()).PrefTitleDiffFiles() }
+
+// PrefTitleDiffFiles says "Diff Files"
+// in the language of msgs.
+func (msgs Messages) PrefTitleDiffFiles() string {
+	return Catalog.Format(msgs.locale, "prefTitleDiffFiles", nil)
+}
+
+// PrefDescDiffFiles says "Whether a diff shows every changed file in one scroll, or the file chosen alone."
+// in the language the app shows.
+func PrefDescDiffFiles() string { return In(i18n.Locale()).PrefDescDiffFiles() }
+
+// PrefDescDiffFiles says "Whether a diff shows every changed file in one scroll, or the file chosen alone."
+// in the language of msgs.
+func (msgs Messages) PrefDescDiffFiles() string {
+	return Catalog.Format(msgs.locale, "prefDescDiffFiles", nil)
+}
+
+// PrefDefaultDiffFiles says "All files"
+// in the language the app shows.
+func PrefDefaultDiffFiles() string { return In(i18n.Locale()).PrefDefaultDiffFiles() }
+
+// PrefDefaultDiffFiles says "All files"
+// in the language of msgs.
+func (msgs Messages) PrefDefaultDiffFiles() string {
+	return Catalog.Format(msgs.locale, "prefDefaultDiffFiles", nil)
+}
+
+// PrefOptDiffFilesOne says "One at a time"
+// in the language the app shows.
+func PrefOptDiffFilesOne() string { return In(i18n.Locale()).PrefOptDiffFilesOne() }
+
+// PrefOptDiffFilesOne says "One at a time"
+// in the language of msgs.
+func (msgs Messages) PrefOptDiffFilesOne() string {
+	return Catalog.Format(msgs.locale, "prefOptDiffFilesOne", nil)
+}

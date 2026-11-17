@@ -1944,5 +1944,12 @@
   "pickWSLOpen": "打开",
   "pickWSLOpens": "打开发行版中的文件夹",
   "pickWSLNoMatch": "没有与 {typed} 匹配的发行版",
-  "pickWSLDistributions": "发行版"
+  "pickWSLDistributions": "发行版",
+  "diffFilesAll": "所有文件",
+  "diffFilesOne": "一次一个文件",
+  "diffOneFileName": "{file} · {of}",
+  "prefTitleDiffFiles": "差异文件",
+  "prefDescDiffFiles": "差异是在一个滚动视图中显示所有修改的文件，还是只显示选中的文件。",
+  "prefDefaultDiffFiles": "所有文件",
+  "prefOptDiffFilesOne": "一次一个"
 }

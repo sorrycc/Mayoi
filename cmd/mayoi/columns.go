@@ -982,6 +982,9 @@ func (a *app) rememberTabs() {
 				}
 				ts.Full, ts.ScrollY = v.full, v.scroll.Y
 				ts.Wrap = a.ownWrap(v.wrap, v.wrapGen)
+				if s := v.shown; s != nil {
+					ts.Shown, ts.ShownStaged = s.path, s.base == diffStaged
+				}
 			}
 			if ed := t.ed; ed != nil {
 				if saved := ed.restoreTab; saved != nil {
@@ -1068,6 +1071,16 @@ func (a *app) restoreExpanded(rels []string) {
 func (a *app) restoreTab(t *colTab, ts settings.Tab) {
 	if v := t.diff; v != nil {
 		v.full, v.scroll.Y = ts.Full, ts.ScrollY
+		if ts.Shown != "" {
+			base := diffIndex
+			switch {
+			case v.commit != nil:
+				base = diffCommit
+			case ts.ShownStaged:
+				base = diffStaged
+			}
+			v.shown = &diffTarget{path: ts.Shown, base: base}
+		}
 		if ts.Wrap != nil {
 			w := *ts.Wrap
 			v.wrap, v.wrapGen = &w, a.settings.WrapGen

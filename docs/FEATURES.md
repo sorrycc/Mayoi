@@ -290,8 +290,13 @@ sets them all, and ⌥Z or the wrap button just the tab.
 Double-click a line to open the file there. The arrows go from change to change, and the status bar says which change
 of how many you are on, with the lines added and removed. At the last, or first, change of a file the navigation says
 so, and one more press that way goes to the next file with changes, or the last of the previous; **diffCrossFiles** in
-the settings has it cross at once, or never leave the file. At the first or last file it says so, and stops. With the
-diff focused, keys work as in a pager:
+the settings has it cross at once, or never leave the file. At the first or last file it says so, and stops.
+
+**Layout → One File at a Time** (`diffFiles`) has a diff show one file alone, as VS Code does, and read only that
+file. Clicking a file in Source Control or in a commit's files shows it; the next and previous file show the next or
+previous one, and the change navigation goes on into it as **diffCrossFiles** says, never scrolling into another
+file. The tab is named after the file shown. When the file shown is staged, discarded or committed, the next file of
+its group shows. With the diff focused, keys work as in a pager:
 
 | Key | Does |
 | --- | --- |

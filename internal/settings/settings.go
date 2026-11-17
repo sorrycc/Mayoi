@@ -155,6 +155,9 @@ type Prefs struct {
 	// is and crosses on one more step that way, "always" crosses at once,
 	// and "never" stays in the file.
 	DiffCrossFiles string `json:"diffCrossFiles,omitempty"`
+	// DiffFiles is how many files a diff shows at once: "" every file
+	// changed, one after another, or "one" the file chosen alone.
+	DiffFiles string `json:"diffFiles,omitempty"`
 	// DiffHighlight is what a diff shows of a line that changed: "line"
 	// no more than the line, "char" the characters that changed, or ""
 	// the words that changed. What it shows is only so: a diff's block
@@ -485,6 +488,10 @@ type Tab struct {
 	Split    bool   `json:"split,omitempty"`
 	// Full is set for a diff showing every unchanged line.
 	Full bool `json:"full,omitempty"`
+	// Shown is the file a diff showing one file at a time shows, and
+	// ShownStaged is set when it shows the file's changes staged.
+	Shown       string `json:"shown,omitempty"`
+	ShownStaged bool   `json:"shownStaged,omitempty"`
 	// Sel is the selection of a file's editor, its caret at Sel[1], and
 	// ScrollX and ScrollY where the tab was scrolled. Wrap is the tab's
 	// own choice to wrap its lines, nil to follow WordWrap.

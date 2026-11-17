@@ -144,8 +144,9 @@ func (a *app) searchDiff(v *diffView) {
 		return
 	}
 	files := make([]diffFindFile, 0, len(v.files))
+	shown := v.shownFile()
 	for _, fl := range v.files {
-		if !fl.loaded || fl.binary || fl.err != "" {
+		if !fl.loaded || fl.binary || fl.err != "" || shown != nil && fl != shown {
 			continue
 		}
 		files = append(files, diffFindFile{f: fl, old: fl.old.lines, new: fl.new.lines, all: fl.unified,

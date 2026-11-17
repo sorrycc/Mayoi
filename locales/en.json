@@ -2172,5 +2172,12 @@
   "pickWSLOpen": "open",
   "pickWSLOpens": "Opens a folder in the distribution",
   "pickWSLNoMatch": "No distribution matches {typed}",
-  "pickWSLDistributions": "Distributions"
+  "pickWSLDistributions": "Distributions",
+  "diffFilesAll": "All Files",
+  "diffFilesOne": "One File at a Time",
+  "diffOneFileName": "{file} · {of}",
+  "prefTitleDiffFiles": "Diff Files",
+  "prefDescDiffFiles": "Whether a diff shows every changed file in one scroll, or the file chosen alone.",
+  "prefDefaultDiffFiles": "All files",
+  "prefOptDiffFilesOne": "One at a time"
 }

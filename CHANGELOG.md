@@ -11,6 +11,10 @@ needs a `## <version>` section here, or its build fails.
 - On Windows, adding or removing a file at the root of a remote folder updates Explorer.
 - On Windows, a nested repository's changes tab stays with that repository after a restart.
 - On Windows, Source Control shows a remote file's folder with slashes.
+- A diff can show one file at a time: **Layout → One File at a Time**, or the `diffFiles` setting.
+- With one file at a time, clicking a file in Source Control or a commit's files shows that file.
+- With one file at a time, the next change or next file goes on to the next file, as `diffCrossFiles` says.
+- With one file at a time, the diff's tab is named after the file it shows.
 
 ## 0.22.2
 

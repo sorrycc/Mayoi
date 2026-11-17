@@ -1944,5 +1944,12 @@
   "pickWSLOpen": "開く",
   "pickWSLOpens": "ディストリビューション内のフォルダーを開く",
   "pickWSLNoMatch": "{typed} に一致するディストリビューションはありません",
-  "pickWSLDistributions": "ディストリビューション"
+  "pickWSLDistributions": "ディストリビューション",
+  "diffFilesAll": "すべてのファイル",
+  "diffFilesOne": "1 ファイルずつ",
+  "diffOneFileName": "{file} · {of}",
+  "prefTitleDiffFiles": "差分のファイル",
+  "prefDescDiffFiles": "差分で変更されたすべてのファイルを続けて表示するか、選んだファイルだけを表示するか。",
+  "prefDefaultDiffFiles": "すべてのファイル",
+  "prefOptDiffFilesOne": "1 ファイルずつ"
 }

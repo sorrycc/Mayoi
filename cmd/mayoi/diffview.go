@@ -92,6 +92,10 @@ func parseDiffCross(s string) diffCross {
 	return crossAsk
 }
 
+// oneFile reports whether the diffs show one file at a time, the file
+// chosen, rather than every file changed one after another.
+func (a *app) oneFile() bool { return a.settings != nil && a.settings.DiffFiles == "one" }
+
 // diffHighlight is how a diff shows what changed within a line: the
 // words that changed, the characters within them, or nothing more than
 // the lines changed. What it shows is only so: the changes a diff acts
@@ -354,6 +358,13 @@ type diffView struct {
 	// told is at the top.
 	reveal *diffTarget
 	synced *diffFile
+	// shown is the file a diff showing one file at a time shows, nil
+	// until one is, and shownAt where it is in files as laid out last, -1
+	// for none. enter is the change to go to in a file stepped into once
+	// it is read, nil for none.
+	shown   *diffTarget
+	shownAt int
+	enter   *diffEnter
 	// place is where the view was when a file of the diff folded under
 	// it, to go back to when the file unfolds.
 	place *diffAnchor
@@ -447,6 +458,13 @@ type commitDiff struct {
 	pr *prDiff
 }
 
+// diffEnter is a file a step of the change navigation went into, and
+// whether to its first change, for a step of 1, or its last, for -1.
+type diffEnter struct {
+	at   diffTarget
+	step int
+}
+
 // diffTarget is a file of a diff to scroll to: path, as compared against
 // base, or against either for any; or with no path, the section of base.
 type diffTarget struct {
@@ -478,6 +496,9 @@ type diffBuild struct {
 	// threads is what the cards of a pull request's review threads are
 	// laid out for, as threadsBuilt says.
 	threads int
+	// one is set for a diff that shows the file shown alone.
+	one   bool
+	shown diffTarget
 }
 
 // jumpPlace is where a row jumped to shows.
@@ -490,7 +511,7 @@ const (
 )
 
 func newDiffView(layout diffLayout) *diffView {
-	return &diffView{layout: layout, current: -1, cursor: -1, anchor: -1, press: -1, jump: -1, near: [2]int{0, diffNear}}
+	return &diffView{layout: layout, current: -1, cursor: -1, anchor: -1, press: -1, jump: -1, shownAt: -1, near: [2]int{0, diffNear}}
 }
 
 func newLocalCompareView(layout diffLayout, left, right string) *diffView {
@@ -540,6 +561,21 @@ func (v *diffView) name() string {
 	if v.local && len(v.files) > 0 {
 		return filepath.Base(v.files[0].path) + " ↔ " + filepath.Base(v.files[0].peerPath)
 	}
+	if f := v.shownFile(); f != nil {
+		name := filepath.Base(f.path)
+		c := v.commit
+		if c == nil {
+			return name
+		}
+		of := git.ShortHash(c.hash)
+		switch {
+		case c.pr != nil:
+			of = "#" + strconv.Itoa(c.pr.number)
+		case c.from != "":
+			of = git.ShortHash(c.from) + " → " + of
+		}
+		return locales.DiffOneFileName(name, of)
+	}
 	if c := v.commit; c != nil {
 		if c.pr != nil {
 			return c.pr.name()
@@ -553,6 +589,64 @@ func (v *diffView) name() string {
 		return locales.DiffCommitName(git.ShortHash(c.hash))
 	}
 	return locales.DiffChangesName()
+}
+
+// shownFile returns the file a diff showing one file at a time shows, as
+// laid out last, nil when it shows every file, or none yet.
+func (v *diffView) shownFile() *diffFile {
+	if !v.built.one {
+		return nil
+	}
+	if i := v.shownIndex(); i >= 0 {
+		return v.files[i]
+	}
+	return nil
+}
+
+// shownIndex returns where the file shown is in a diff's files, -1 when
+// it is not there.
+func (v *diffView) shownIndex() int {
+	if v.shown == nil {
+		return -1
+	}
+	if i := v.shownAt; i >= 0 && i < len(v.files) && v.shown.matches(v.files[i]) {
+		return i
+	}
+	return slices.IndexFunc(v.files, v.shown.matches)
+}
+
+// pickShown returns the file a diff showing one file at a time shows: the
+// one it showed, or where that left the list, as staged, discarded or
+// committed, the next of its group, or the last; with none shown yet,
+// hint, or the first. It returns -1 for a diff of no files.
+func (v *diffView) pickShown(hint *diffFile) int {
+	if len(v.files) == 0 {
+		return -1
+	}
+	t := v.shown
+	if t == nil {
+		if i := slices.Index(v.files, hint); i >= 0 {
+			return i
+		}
+		return 0
+	}
+	if i := v.shownIndex(); i >= 0 {
+		return i
+	}
+	last := -1
+	for i, f := range v.files {
+		if f.base != t.base {
+			continue
+		}
+		if f.path > t.path {
+			return i
+		}
+		last = i
+	}
+	if last >= 0 {
+		return last
+	}
+	return min(max(v.shownAt, 0), len(v.files)-1)
 }
 
 // same reports whether two diffs show the same changes: both those of
@@ -986,11 +1080,20 @@ func (a *app) refreshDiff(v *diffView) {
 			}
 		}
 	}
-	if lo < hi {
+	one := a.oneFile() && !v.local
+	switch {
+	case one:
+		// One file at a time reads the file shown alone.
+		if i := v.shownIndex(); i >= 0 {
+			order = append(order, v.files[i])
+		} else if v.shown == nil && len(order) == 0 && len(v.files) > 0 {
+			order = append(order, v.files[0])
+		}
+	case lo < hi:
 		order = append(order, v.files[lo:hi]...)
 	}
 	// Find looks in every file, which it reads after those in view.
-	if v.find.on {
+	if v.find.on && !one {
 		for _, f := range v.files {
 			if !f.loaded {
 				order = append(order, f)
@@ -1220,6 +1323,10 @@ func (a *app) splits(v *diffView, viewW float32) bool {
 // scrolling to the file to reveal once it is listed.
 func (a *app) layoutRows(v *diffView, l diffGeometry) {
 	b := diffBuild{gen: v.gen, split: v.split, wrap: a.wrapsDiff(v), full: v.full, aligned: a.settings.DiffAlignedRows, context: a.diffContextOf(), whitespace: a.diffWhitespaceOf(), font: a.font}
+	b.one = a.oneFile() && !v.local
+	if v.shown != nil {
+		b.shown = *v.shown
+	}
 	if v.commit != nil {
 		b.card = v.commit.lines
 	}
@@ -1248,6 +1355,12 @@ func (a *app) layoutRows(v *diffView, l diffGeometry) {
 	if v.jump < 0 && top >= 0 && v.tops != nil {
 		anchor = v.anchorOf(top)
 		offset = editorPadY + float32(v.tops[top])*lineH - v.scroll.Y
+	}
+	// The change gone to stays it as the diff turns to one file at a time,
+	// or back.
+	var current diffAnchor
+	if b.one != v.built.one && v.current >= 0 && v.current < len(v.starts) && v.tops != nil {
+		current = v.anchorOf(v.starts[v.current])
 	}
 	chosen, held := diffAnchor{}, diffAnchor{}
 	if v.cursor >= 0 && v.cursor < len(v.rows) && v.tops != nil {
@@ -1281,8 +1394,46 @@ func (a *app) layoutRows(v *diffView, l diffGeometry) {
 				target.folded = false
 				v.place = nil
 			}
+		} else if b.one {
+			// One file at a time shows the first file of the section.
+			if i := slices.IndexFunc(v.files, func(f *diffFile) bool { return f.base == t.base }); i >= 0 {
+				target = v.files[i]
+				target.folded = false
+				v.place = nil
+			}
 		}
 	}
+	// A diff showing one file at a time shows the file revealed, or the
+	// one it showed; turned to it, the file at the top of the view.
+	shown := -1
+	if b.one {
+		if !v.built.one && v.tops != nil {
+			v.shown = nil
+		}
+		was, hint := v.shown, anchor.file
+		if target != nil {
+			v.shown, hint = nil, target
+		}
+		shown = v.pickShown(hint)
+		if shown >= 0 {
+			f := v.files[shown]
+			v.shown = &diffTarget{path: f.path, base: f.base}
+		}
+		if v.shown != nil && (was == nil || *was != *v.shown) {
+			v.current = -1
+			if e := v.enter; e != nil && e.at != *v.shown {
+				v.enter = nil
+			}
+			// The file that took the place of one gone shows from its top.
+			if target == nil && was != nil {
+				target = v.files[shown]
+			}
+		}
+		if v.shown != nil {
+			b.shown = *v.shown
+		}
+	}
+	v.shownAt = shown
 	v.built = b
 	v.rows, v.starts, v.heads, v.cards = v.rows[:0], v.starts[:0], v.heads[:0], v.cards[:0]
 	v.sections = [2]int{}
@@ -1298,7 +1449,14 @@ func (a *app) layoutRows(v *diffView, l diffGeometry) {
 		v.rows = append(v.rows, diffRow{kind: rowCommit, old: -1, new: -1, hunk: -1, peer: -1, gap: -1, h: max(cm.lines, 3)})
 	}
 	for i, f := range v.files {
-		if v.commit != nil {
+		if b.one {
+			if i != shown {
+				continue
+			}
+			if v.commit == nil {
+				plain(rowSection, i, "")
+			}
+		} else if v.commit != nil {
 			if i > 0 {
 				plain(rowSpace, i, "")
 			}
@@ -1456,6 +1614,9 @@ func (a *app) layoutRows(v *diffView, l diffGeometry) {
 		v.runs = v.runs[:0]
 	}
 	v.current = min(v.current, len(v.starts)-1)
+	if current.file != nil {
+		v.current = slices.IndexFunc(v.starts, func(i int) bool { return v.anchorOf(i) == current })
+	}
 	v.cursor = min(v.cursor, len(v.rows)-1)
 	// The row chosen stays chosen, or the header of its file, when it is
 	// folded away.
@@ -1500,6 +1661,21 @@ func (a *app) layoutRows(v *diffView, l diffGeometry) {
 				v.scroll.Y = max(0, editorPadY+float32(v.tops[i])*lineH-offset)
 				break
 			}
+		}
+	}
+	// A step into another file goes to its first change, or its last, once
+	// the file is read.
+	if e := v.enter; e != nil && shown >= 0 && v.files[shown].loaded {
+		v.enter = nil
+		if len(v.starts) > 0 {
+			v.current = 0
+			if e.step < 0 {
+				v.current = len(v.starts) - 1
+			}
+			if v.cursor >= 0 {
+				v.cursor = v.starts[v.current]
+			}
+			v.jumpRow(v.starts[v.current], jumpThird)
 		}
 	}
 	// A note gone to is chosen, once its card is laid out.
@@ -1804,9 +1980,15 @@ func (v *diffView) lineAt(i int) (string, int) {
 // and only one more step that way crosses into the next file with
 // changes, or the last of the previous, as cross says: asking for it,
 // going at once, or never leaving the file. At the ends of the diff it
-// says so, and stays.
+// says so, and stays. A diff showing one file at a time steps into the
+// next file, or the previous, showing it instead.
 func (v *diffView) stepHunk(step int, cross diffCross) {
 	if len(v.starts) == 0 {
+		// A file shown alone with no changes to go to steps past it.
+		if next := v.neighborFile(step); next >= 0 && cross != crossNever {
+			v.anchor, v.boundary = -1, nil
+			v.showFile(next, step)
+		}
 		return
 	}
 	v.anchor = -1
@@ -1818,13 +2000,21 @@ func (v *diffView) stepHunk(step int, cross diffCross) {
 		v.current = 0
 	case v.atEdge(v.current, step):
 		to := v.crossTarget(v.current, step)
+		next := -1
 		if to < 0 {
+			next = v.neighborFile(step)
+		}
+		if to < 0 && next < 0 {
 			// No other file has changes that way: it says so, and stays.
 			v.boundary = &diffBoundary{step, endOfDiffMessage(step)}
 			return
 		}
 		if cross != crossAlways && !(cross == crossAsk && armed != nil && armed.step == step) {
 			v.boundary = &diffBoundary{step, v.edgeMessage(v.fileAt(v.current).path, step, cross)}
+			return
+		}
+		if next >= 0 {
+			v.showFile(next, step)
 			return
 		}
 		v.current = to
@@ -1896,14 +2086,54 @@ func endOfDiffMessage(step int) string {
 	return locales.DiffEdgeFirstOfDiff()
 }
 
+// neighborFile returns the file a step from the one a diff showing one
+// file at a time shows, -1 when it shows every file or none is that way.
+func (v *diffView) neighborFile(step int) int {
+	if !v.built.one {
+		return -1
+	}
+	i := v.shownIndex()
+	if i < 0 || i+step < 0 || i+step >= len(v.files) {
+		return -1
+	}
+	return i + step
+}
+
+// showFile has a diff showing one file at a time show its ith file from
+// its top, or once read, at its first change for a step of 1, or its last
+// for -1.
+func (v *diffView) showFile(i, step int) {
+	f := v.files[i]
+	t := diffTarget{path: f.path, base: f.base}
+	v.reveal, v.enter = &t, nil
+	if step != 0 {
+		v.enter = &diffEnter{t, step}
+	}
+	v.changed()
+}
+
 // stepFile goes to the header of the next file of a diff of every file,
-// or the previous one for a step of -1. At the ends of its files it says
-// where it is, and jumps no further.
+// or the previous one for a step of -1, or shows it alone in a diff of one
+// file at a time. At the ends of its files it says where it is, and jumps
+// no further.
 func (v *diffView) stepFile(step int) {
 	if len(v.heads) == 0 {
 		return
 	}
 	v.boundary = nil
+	if v.built.one {
+		if next := v.neighborFile(step); next >= 0 {
+			v.anchor = -1
+			v.showFile(next, 0)
+			return
+		}
+		if step > 0 {
+			v.boundary = &diffBoundary{step, locales.DiffEdgeLastFile()}
+		} else {
+			v.boundary = &diffBoundary{step, locales.DiffEdgeFirstFile()}
+		}
+		return
+	}
 	at := v.focusRowAt(v.focusRow())
 	k := -1
 	if step > 0 {
@@ -2463,6 +2693,18 @@ func (a *app) diffButtons(c *ui.Context, t *colTab) {
 		if m.Item(locales.DiffAlignRowsMenu()).Checked(a.settings.DiffAlignedRows).Chosen() {
 			a.post(func() { a.setDiffAligned(!a.settings.DiffAlignedRows) })
 		}
+		if v.local {
+			return
+		}
+		m.Separator()
+		for _, o := range []struct {
+			one   bool
+			label string
+		}{{false, locales.DiffFilesAll()}, {true, locales.DiffFilesOne()}} {
+			if m.Item(o.label).Checked(a.oneFile() == o.one).Chosen() {
+				a.post(func() { a.setDiffFiles(v, o.one) })
+			}
+		}
 	})
 	// Editing the working tree side of the file of the chosen row, which
 	// the I key does too.
@@ -2504,6 +2746,22 @@ func (a *app) setDiffLayout(v *diffView, l diffLayout) {
 		// The right side starts where the sides showed together.
 		v.sideY = v.scroll.Y
 	}
+}
+
+// setDiffFiles has the diffs show every file changed, one after another,
+// or one file at a time, v the file at the top of its view.
+func (a *app) setDiffFiles(v *diffView, one bool) {
+	if a.oneFile() == one {
+		return
+	}
+	a.keepTopRow(v, func() {
+		a.settings.DiffFiles = ""
+		if one {
+			a.settings.DiffFiles = "one"
+		}
+		a.settings.Changed()
+	})
+	a.rememberTabs()
 }
 
 // setDiffFull shows every unchanged line of a diff, or folds them again.

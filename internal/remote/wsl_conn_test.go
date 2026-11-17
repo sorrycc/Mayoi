@@ -29,8 +29,8 @@ func TestWSLConn(t *testing.T) {
 	}
 	failed.Connect()
 	state, err := waitState(t, failed, Offline)
-	if err == nil || !strings.Contains(err.Error(), "WSL") || strings.Contains(err.Error(), "SSH:") {
-		t.Fatalf("start error %v", err)
+	if state != Offline || err == nil || !strings.Contains(err.Error(), "WSL") || strings.Contains(err.Error(), "SSH:") {
+		t.Fatalf("start error %v %v", state, err)
 	}
 	if err := os.Remove(stop); err != nil {
 		t.Fatal(err)

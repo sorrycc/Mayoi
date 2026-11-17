@@ -100,7 +100,7 @@ func TestBridgeExitCode(t *testing.T) {
 	if !errors.As(err, &exit) || exit.ExitCode() != 7 {
 		t.Fatalf("err %v stderr %q", err, errb.Bytes())
 	}
-	if string(errb.Bytes()) != "no\x00" {
+	if errb.String() != "no\x00" {
 		t.Fatalf("stderr %q", errb.Bytes())
 	}
 }

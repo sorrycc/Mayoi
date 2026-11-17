@@ -24,9 +24,6 @@ const (
 	wslPrefix = "/wsl:"
 )
 
-// prefix is the SSH form. Callers that build a path use Path.
-const prefix = sshPrefix
-
 // Kind is which machine a remote path names.
 type Kind int
 

@@ -54,8 +54,8 @@ func fakeWSL(args []string) int {
 		return 1
 	}
 	fmt.Fprintln(os.Stdout, wslReadyLine)
-	err := serveFrames(readWriter{in, os.Stdout}, fakeWSLRun)
-	if err != nil && !isPipeEnd(err) {
+	// serveFrames only returns once the stream fails or ends.
+	if err := serveFrames(readWriter{in, os.Stdout}, fakeWSLRun); !isPipeEnd(err) {
 		fmt.Fprintln(os.Stderr, err)
 		return 1
 	}

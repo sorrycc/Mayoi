@@ -229,11 +229,13 @@ func (p *pool) workerGone(w *worker) {
 		return
 	}
 	if err := p.add(); err != nil {
-		p.failIfEmpty(err)
+		p.failIfEmpty()
 	}
 }
 
-func (p *pool) failIfEmpty(err error) {
+// failIfEmpty marks the pool lost once no worker is left. It reports
+// ErrLost rather than why the last worker failed to start.
+func (p *pool) failIfEmpty() {
 	p.mu.Lock()
 	if p.closed || p.live > 0 {
 		p.mu.Unlock()
@@ -248,9 +250,6 @@ func (p *pool) failIfEmpty(err error) {
 		job.finish(0, ErrLost)
 	}
 	if p.onLost != nil {
-		if err == nil {
-			err = ErrLost
-		}
 		p.onLost(ErrLost)
 	}
 }

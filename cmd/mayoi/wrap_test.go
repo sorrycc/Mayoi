@@ -185,8 +185,7 @@ func TestWrappedHiddenTabKeepsPlace(t *testing.T) {
 	d := a.activeEditor()
 	// The area measures the rows above as it shows them: it ends where
 	// the line it reached is.
-	d.vscroll.Y = 6000
-	hs.settle()
+	hs.scrollEditor(d, 6000)
 	at := d.vscroll.Y
 	a.openFile(hs.path("README.md"), true)
 	hs.settle()

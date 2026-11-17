@@ -24,6 +24,9 @@ type blameState struct {
 	since   time.Time
 	phase   blamePhase
 	text    string // "" for a line not committed, or none read yet
+	// tipped is whether the last frame offered the tip of a blame cut
+	// short, the pointer over it.
+	tipped bool
 }
 
 // blamePhase is how far the blame of the caret's line is.

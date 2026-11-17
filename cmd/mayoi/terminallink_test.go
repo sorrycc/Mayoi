@@ -25,9 +25,13 @@ func TestTerminalLinkOpensFile(t *testing.T) {
 	if !hs.a.terminalLink(&session{dir: hs.root}, rel) {
 		t.Fatal("terminal file link was not handled")
 	}
-	if d := hs.a.activeEditor(); d == nil || d.path != hs.path(rel) {
+	d := hs.a.activeEditor()
+	if d == nil || d.path != hs.path(rel) {
 		t.Fatalf("terminal file link did not open its file: %v", d)
 	}
+	// The file is read in the background; a position asked for before
+	// waits for it, the cases below take it at once.
+	hs.until("the file is read", func() bool { return !d.unread() })
 	for _, tc := range []struct {
 		name, dir, link string
 		line, col       int

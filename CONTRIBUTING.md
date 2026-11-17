@@ -7,7 +7,8 @@ scripts/dev.sh                                              # run Mayoi Dev with
 scripts/test.sh                                             # the tests, cmd/mayoi's over every core, as CI runs them
 scripts/test.sh -full                                       # and the tests that start a shell
 RUN=TestMerge scripts/test.sh                               # only cmd/mayoi's tests whose names match
-go tool staticcheck ./...                                   # the lint CI runs, with gofmt -l .
+sh scripts/lint.sh                                          # the lint CI runs: gofmt, go vet, staticcheck
+sh scripts/lint.sh --install-hook                           # run it before each push, in every worktree
 go test ./...                                               # headless UI tests, one after another
 go test -short ./...                                        # skip the tests that start a shell
 go test -short -run XXX -bench Frame ./cmd/mayoi            # benchmark an editor frame

@@ -1,0 +1,4 @@
+#!/bin/sh
+# Refuses the push if sh scripts/lint.sh fails on this worktree. Installed
+# by sh scripts/lint.sh --install-hook.
+exec sh "$(git rev-parse --show-toplevel)/scripts/lint.sh"

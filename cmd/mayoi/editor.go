@@ -529,9 +529,15 @@ func (a *app) editorView(c *ui.Context, d *editor) {
 
 		lineH, charW, size, family := f.lineH, f.charW, f.size, f.family
 		// Who changed the caret's line last, after it: after its last row
-		// when it wraps, placed as the frame lays the rows out.
-		var blame string
+		// when it wraps, placed as the frame lays the rows out. blameShown
+		// is what the view shows of it, blameRow its row, and blameLeft and
+		// blameRight the edges it shows between, the gutter's and the
+		// scroll bar's; blameCut is set when the view takes some of it.
+		var blame, blameShown string
 		var blameX float32
+		var blameRow int
+		var blameLeft, blameRight float32
+		var blameCut bool
 		// The comment of each review note after its last line, in its
 		// place, unless the lines wrap.
 		noted := a.notedLines(d)
@@ -540,9 +546,43 @@ func (a *app) editorView(c *ui.Context, d *editor) {
 			hints = a.editorHints(d, snap, noted, first, last)
 		}
 		if !slices.ContainsFunc(hints, func(h editorHint) bool { return h.line == caretLine }) {
-			if blame = a.blameLine(d, caretLine, snap.Version(), focused); blame != "" && !wrap {
-				s, e := snap.LineRange(caretLine)
-				blameX = textX + f.width(snap.Slice(s, min(e, s+maxBlameAfter))) + 4*charW
+			if blame = a.blameLine(d, caretLine, snap.Version(), focused); blame != "" {
+				if wrap {
+					blameX, blameRow, blameShown = a.blameAfterRows(d, snap, caretLine, blame, textX, contentW-textPadR, func(t string) float32 {
+						w, _ := c.MeasureText(0, ui.Span{Text: t, Font: family, Size: size * 0.92})
+						return w
+					})
+					blameRight = contentW - textPadR
+					blameCut = blameShown != blame && blameShown != ""
+				} else {
+					s, e := snap.LineRange(caretLine)
+					blameX = textX + f.width(snap.Slice(s, min(e, s+maxBlameAfter))) + 4*charW
+					blameShown = blame
+					// The view's edges: the gutter's right, which stays as
+					// the text scrolls sideways under it, and the scroll
+					// bar's left.
+					blameLeft, blameRight = d.hscroll.X+textX, d.hscroll.X+view.W
+					if d.vscroll.MaxY > 0 {
+						blameRight -= c.Theme().ScrollbarWidth
+					}
+					w, _ := c.MeasureText(0, ui.Span{Text: blame, Font: family, Size: size * 0.92})
+					end := blameX + w
+					blameCut = blameX < blameRight && end > blameLeft && (blameX < blameLeft || end > blameRight)
+					blameRight = min(blameRight, end)
+				}
+				// A blame the view cuts short says all of it as the pointer
+				// rests on the part it shows. A marker there takes the tip:
+				// it takes no pointer itself, so the text area keeps the
+				// I-beam, the clicks and the drags.
+				if blameCut {
+					y := editorPadY + g.top(caretLine) - d.vscroll.Y + float32(blameRow)*lineH
+					visible := max(blameX, blameLeft)
+					mark := ui.Box(c.Key("blame-mark")).Absolute().PassThrough().
+						Left((visible+blameRight)/2 - d.hscroll.X).Top(y).Width(0).Height(0)
+					if px, py, over := area.PointerPosition(); over && px >= visible && px <= blameRight && py >= y && py <= y+lineH {
+						a.blameTip(c, area, mark, blame)
+					}
+				}
 			}
 		}
 		matches := a.visibleMatches(d, first, last)
@@ -741,21 +781,11 @@ func (a *app) editorView(c *ui.Context, d *editor) {
 				_, th := pt.MeasureText(0, span)
 				pt.RichText(r.X+h.x+icon+hintGap*charW, y+(lineH-th)/2, 0, span)
 			}
-			if blame != "" {
-				span := ui.Span{Text: blame, Font: family, Size: size * 0.92, Color: p.faint}
-				x, y := blameX, lineY(r, caretLine)
-				if wrap {
-					var row int
-					x, row, span.Text = a.blameAfterRows(d, snap, caretLine, blame, textX, r.W-textPadR, func(t string) float32 {
-						w, _ := pt.MeasureText(0, ui.Span{Text: t, Font: family, Size: span.Size})
-						return w
-					})
-					y += float32(row) * lineH
-				}
-				if span.Text != "" {
-					_, h := pt.MeasureText(0, span)
-					pt.RichText(r.X+x, y+(lineH-h)/2, 0, span)
-				}
+			if blameShown != "" {
+				span := ui.Span{Text: blameShown, Font: family, Size: size * 0.92, Color: p.faint}
+				y := lineY(r, caretLine) + float32(blameRow)*lineH
+				_, h := pt.MeasureText(0, span)
+				pt.RichText(r.X+blameX, y+(lineH-h)/2, 0, span)
 			}
 		})
 		area.DrawOver(func(pt *ui.Painter, r ui.Rect) {

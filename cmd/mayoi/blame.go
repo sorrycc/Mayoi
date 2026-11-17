@@ -84,6 +84,28 @@ func (a *app) blameLine(d *editor, line int, version uint64, focused bool) strin
 	return ""
 }
 
+// blameTip shows all of a blame the view cuts short, over the part it
+// shows, as the pointer rests there. It hangs from marker, which takes no
+// pointer; area, which takes it, keeps the I-beam, the clicks and the
+// drags the tip is for.
+func (a *app) blameTip(c *ui.Context, area, marker ui.Element, text string) {
+	t := c.Theme()
+	fill, fg := t.Inverse, t.InverseText
+	if fill == ui.Transparent {
+		fill = t.Text
+	}
+	if fg == ui.Transparent {
+		fg = t.Background
+	}
+	ui.TooltipBase(c, area, func(tip ui.Element) {
+		tip.MaxWidth(t.Space(80)).Padding(t.Space(1.25), t.Space(2)).Radius(t.Space(1.25)).
+			Background(fill).TextColor(fg).FontSize(t.FontSize - 1)
+		tip.Shadow(0, 2, 8, 0, ui.RGBA(0, 0, 0, 0.2))
+		tip.Children(func() { ui.Text(c, text) })
+		tip.AttachTo(marker, ui.AnchorTop, ui.AnchorBottom).Margin(0, 0, t.Space(1.5), 0)
+	})
+}
+
 // blameText is how a line's blame reads.
 func blameText(b git.Blame, now time.Time) string {
 	if b.Commit == "" {

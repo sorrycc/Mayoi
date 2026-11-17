@@ -484,6 +484,16 @@ func TestBlameWraps(t *testing.T) {
 	}
 }
 
+// waitReloaded waits for an open editor to take the text written to its
+// file: opening the file again reads nothing, the watcher reloads it, and
+// on Windows its event can come after the settling, the reload then making
+// the line blamed anew.
+func waitReloaded(hs *harness, d *editor, text string) {
+	hs.t.Helper()
+	hs.until("the editor takes the file's new text", func() bool { return d.buf.String() == text })
+	hs.settleGit()
+}
+
 // A blame the view cuts short shows all of it as the pointer rests on
 // the part it shows.
 func TestBlameTipShowsCutText(t *testing.T) {
@@ -503,11 +513,13 @@ func TestBlameTipShowsCutText(t *testing.T) {
 	if n < 20 {
 		t.Fatalf("the editor is too narrow for the test: %v wide", area.W)
 	}
-	os.WriteFile(hs.path("README.md"), []byte("# Mayoi\n\nA small editor.\n"+strings.Repeat("x", n)+"\n"), 0o644)
+	text := "# Mayoi\n\nA small editor.\n" + strings.Repeat("x", n) + "\n"
+	os.WriteFile(hs.path("README.md"), []byte(text), 0o644)
 	git("commit", "-qam", "a long line, its blame cut")
 	a.openFile(hs.path("README.md"), true)
 	hs.settleGit()
 	d = a.activeEditor()
+	waitReloaded(hs, d, text)
 	area, ok = hs.tt.Find(locales.EditorLabel(d.name()))
 	if !ok {
 		t.Fatal("no editor")
@@ -545,7 +557,7 @@ func TestBlameTipShowsCutText(t *testing.T) {
 	hs.tt.Advance(200 * time.Millisecond)
 	hs.tt.Frame()
 	if !hs.tt.HasText(d.blame.text) {
-		t.Fatalf("no tip over the cut blame; texts %q", hs.tt.Texts())
+		t.Fatalf("DEBUG blame=%+v line=%q; no tip over the cut blame; texts %q", d.blame, d.buf.Snapshot().String(), hs.tt.Texts())
 	}
 	hs.shot("blame-tip")
 	// The tip takes no pointer: the text area keeps the I-beam, and a
@@ -587,11 +599,13 @@ func TestBlameTipWraps(t *testing.T) {
 	if row < 40 {
 		t.Fatalf("the editor is too narrow for the test: %v wide", area.W)
 	}
-	os.WriteFile(hs.path("README.md"), []byte("# Mayoi\n\nA small editor.\n"+strings.Repeat("x", n)+"\n"), 0o644)
+	text := "# Mayoi\n\nA small editor.\n" + strings.Repeat("x", n) + "\n"
+	os.WriteFile(hs.path("README.md"), []byte(text), 0o644)
 	git("commit", "-qam", "a long line that wraps, its blame cut")
 	a.openFile(hs.path("README.md"), true)
 	hs.settleGit()
 	d = a.activeEditor()
+	waitReloaded(hs, d, text)
 	area, ok = hs.tt.Find(locales.EditorLabel(d.name()))
 	if !ok {
 		t.Fatal("no editor")

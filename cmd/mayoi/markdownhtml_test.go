@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -116,8 +117,15 @@ func TestMarkdownRemoteImages(t *testing.T) {
 		t.Fatal(err)
 	}
 	var hits atomic.Int32
+	// The server answers once the first parse is looked at: a fetch it
+	// starts could otherwise arrive before it reaches the same picture
+	// further down.
+	answer := make(chan struct{})
+	var answering sync.Once
+	letAnswer := func() { answering.Do(func() { close(answer) }) }
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		hits.Add(1)
+		<-answer
 		switch r.URL.Path {
 		case "/art.png":
 			w.Write(data)
@@ -129,6 +137,7 @@ func TestMarkdownRemoteImages(t *testing.T) {
 		}
 	}))
 	defer srv.Close()
+	defer letAnswer()
 	markdownRemote.Lock()
 	get := markdownRemote.get
 	markdownRemote.get = markdownHTTPGet
@@ -156,6 +165,7 @@ func TestMarkdownRemoteImages(t *testing.T) {
 			t.Fatal("shown before fetched")
 		}
 	}
+	letAnswer()
 	select {
 	case <-arrived:
 	case <-time.After(10 * time.Second):

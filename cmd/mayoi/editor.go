@@ -537,7 +537,7 @@ func (a *app) editorView(c *ui.Context, d *editor) {
 		var blameX float32
 		var blameRow int
 		var blameLeft, blameRight float32
-		var blameCut bool
+		var blameCut, tipped bool
 		// The comment of each review note after its last line, in its
 		// place, unless the lines wrap.
 		noted := a.notedLines(d)
@@ -581,10 +581,19 @@ func (a *app) editorView(c *ui.Context, d *editor) {
 						Left((visible+blameRight)/2 - d.hscroll.X).Top(y).Width(0).Height(0)
 					if px, py, over := area.PointerPosition(); over && px >= visible && px <= blameRight && py >= y && py <= y+lineH {
 						a.blameTip(c, area, mark, blame)
+						tipped = true
 					}
 				}
 			}
 		}
+		// The text area counts as having a tip from the frame after the
+		// one that first offers it, and the pointer's rest from then: a
+		// frame now starts the rest as the pointer comes, or the blame
+		// comes under it, rather than at whatever frame comes next.
+		if tipped && !d.blame.tipped {
+			c.Invalidate()
+		}
+		d.blame.tipped = tipped
 		matches := a.visibleMatches(d, first, last)
 		if matches == nil {
 			matches = a.vimMatches(d, snap, first, last)

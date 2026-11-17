@@ -251,15 +251,17 @@ func TestLocalOpenStuckReadsLetOthersOpen(t *testing.T) {
 	a.openFile(hs.path("b.txt"), true)
 	a.openFile(hs.path("main.go"), true)
 	d := a.activeEditor()
-	// settle would wait for the stuck reads too.
-	for deadline := time.Now().Add(5 * time.Second); d.unread(); time.Sleep(time.Millisecond) {
+	// settle would wait for the stuck reads too. Each stuck read lets go
+	// of its place as its own timer fires, which on Windows's coarse
+	// timers can be after main.go is read in the place the first left.
+	for deadline := time.Now().Add(5 * time.Second); d.unread() || a.localReads != 0; time.Sleep(time.Millisecond) {
 		if time.Now().After(deadline) {
-			t.Fatal("main.go waits behind the stuck reads")
+			if d.unread() {
+				t.Fatal("main.go waits behind the stuck reads")
+			}
+			t.Fatalf("stuck reads still hold %d places", a.localReads)
 		}
 		step(hs.tt)
-	}
-	if a.localReads != 0 {
-		t.Fatalf("stuck reads still hold %d places", a.localReads)
 	}
 }
 

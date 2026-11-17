@@ -205,11 +205,17 @@ func TestLivePreview(t *testing.T) {
 		return a.livePreview(d) && l != nil && l.doc != nil && !l.quick && len(d.liveHits) == 1
 	})
 	l := d.document.live
-	hs.until("the table rendered", func() bool { return len(l.views) == 1 })
+	// Laid out and measured, not only made: a view made in the last frame
+	// has no place yet, and the wheel would go elsewhere.
 	var table *liveView
-	for _, lv := range l.views {
-		table = lv
-	}
+	hs.until("the table rendered", func() bool {
+		for _, lv := range l.views {
+			table = lv
+		}
+		return len(l.views) == 1 && table.measured && table.at.H > 0
+	})
+	// Faded in.
+	hs.settle()
 	if table.frame != a.frame {
 		t.Fatal("the table is not rendered")
 	}

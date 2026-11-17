@@ -138,6 +138,13 @@ func git(ctx context.Context, dir string, args ...string) (string, error) {
 // Install clones a plugin into the plugins folder, checks its manifest,
 // and records where it came from. A plugin of the same name is replaced.
 func Install(ctx context.Context, dir, url, ref string) (*Manifest, error) {
+	// Neither may be taken for an option of git.
+	if strings.HasPrefix(url, "-") {
+		return nil, fmt.Errorf("%s is not a Git URL", url)
+	}
+	if strings.HasPrefix(ref, "-") {
+		return nil, fmt.Errorf("%s is not a Git ref", ref)
+	}
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return nil, err
 	}
@@ -150,12 +157,12 @@ func Install(ctx context.Context, dir, url, ref string) (*Manifest, error) {
 	if ref != "" {
 		args = append(args, "--branch", ref)
 	}
-	if _, err := git(ctx, dir, append(args, url, tmp)...); err != nil {
+	if _, err := git(ctx, dir, append(args, "--", url, tmp)...); err != nil {
 		if ref == "" {
 			return nil, err
 		}
 		// A commit, which --branch does not take.
-		if _, err2 := git(ctx, dir, "clone", "--quiet", url, tmp); err2 != nil {
+		if _, err2 := git(ctx, dir, "clone", "--quiet", "--", url, tmp); err2 != nil {
 			return nil, err
 		}
 		if _, err := git(ctx, tmp, "checkout", "--quiet", ref); err != nil {
@@ -211,7 +218,7 @@ func Latest(ctx context.Context, src Source) (string, error) {
 	if ref == "" {
 		ref = "HEAD"
 	}
-	out, err := git(ctx, "", "ls-remote", src.URL, ref)
+	out, err := git(ctx, "", "ls-remote", "--", src.URL, ref)
 	if err != nil {
 		return "", err
 	}

@@ -17016,6 +17016,38 @@ func (msgs Messages) PluginsSyncFailed(err string) string {
 	return Catalog.Format(msgs.locale, "pluginsSyncFailed", map[string]any{"err": err})
 }
 
+// PluginsSyncAskTitle says "{count, plural, one {Install a plugin from settings sync?} other {Install # plugins from settings sync?}}"
+// in the language the app shows.
+func PluginsSyncAskTitle(count int) string { return In(i18n.Locale()).PluginsSyncAskTitle(count) }
+
+// PluginsSyncAskTitle says "{count, plural, one {Install a plugin from settings sync?} other {Install # plugins from settings sync?}}"
+// in the language of msgs.
+func (msgs Messages) PluginsSyncAskTitle(count int) string {
+	return Catalog.Format(msgs.locale, "pluginsSyncAskTitle", map[string]any{"count": count})
+}
+
+// PluginsSyncAskDetail says "Another machine on your account installed these. A plugin can read your files and run programs.\n{plugins}"
+// in the language the app shows.
+func PluginsSyncAskDetail(plugins string) string {
+	return In(i18n.Locale()).PluginsSyncAskDetail(plugins)
+}
+
+// PluginsSyncAskDetail says "Another machine on your account installed these. A plugin can read your files and run programs.\n{plugins}"
+// in the language of msgs.
+func (msgs Messages) PluginsSyncAskDetail(plugins string) string {
+	return Catalog.Format(msgs.locale, "pluginsSyncAskDetail", map[string]any{"plugins": plugins})
+}
+
+// PluginsSyncInstall says "Install"
+// in the language the app shows.
+func PluginsSyncInstall() string { return In(i18n.Locale()).PluginsSyncInstall() }
+
+// PluginsSyncInstall says "Install"
+// in the language of msgs.
+func (msgs Messages) PluginsSyncInstall() string {
+	return Catalog.Format(msgs.locale, "pluginsSyncInstall", nil)
+}
+
 // PluginsUpdatesFound says "Updates for {names}"
 // in the language the app shows.
 func PluginsUpdatesFound(names string) string { return In(i18n.Locale()).PluginsUpdatesFound(names) }

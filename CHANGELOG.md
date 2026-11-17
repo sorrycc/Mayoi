@@ -15,6 +15,8 @@ needs a `## <version>` section here, or its build fails.
 - With one file at a time, clicking a file in Source Control or a commit's files shows that file.
 - With one file at a time, the next change or next file goes on to the next file, as `diffCrossFiles` says.
 - With one file at a time, the diff's tab is named after the file it shows.
+- Mayoi asks before installing plugins that settings sync brings from another machine.
+- Settings sync installs plugins only from `https://`, `ssh://` or `git@` URLs.
 
 ## 0.22.2
 

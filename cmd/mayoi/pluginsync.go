@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"maps"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -14,7 +15,8 @@ import (
 
 // The plugins installed from Git follow the person to their other
 // machines through settings sync: plugins.json is kept in the settings as
-// pluginSources, which sync carries, and what comes back is installed.
+// pluginSources, which sync carries, and what comes back is installed
+// once the person agrees: a plugin runs as they do.
 
 // recordsOf are the settings' plugin sources as the plugins folder keeps
 // them, and sourcesOf the other way.
@@ -47,6 +49,7 @@ func (h *pluginHost) syncPlugins() {
 	h.mu.Lock()
 	h.syncRun.Invalidate()
 	start := h.syncRun.Start(struct{}{})
+	trusted := maps.Clone(h.trusted)
 	h.mu.Unlock()
 	if !start {
 		return
@@ -60,9 +63,9 @@ func (h *pluginHost) syncPlugins() {
 		defer recoverCrash()
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 		defer cancel()
-		agreed, installed, removed, err := plugin.Sync(ctx, dir, want)
+		agreed, installed, removed, asks, err := plugin.Sync(ctx, dir, want, trusted)
 		h.mu.Lock()
-		h.records = agreed
+		h.records = plugin.ReadRecords(dir)
 		h.mu.Unlock()
 		h.onMain(func() {
 			if s := h.prefs(); s != nil && !maps.Equal(recordsOf(s.Prefs.PluginSources), agreed) {
@@ -80,6 +83,7 @@ func (h *pluginHost) syncPlugins() {
 				if err != nil {
 					a.fail("%s", locales.PluginsSyncFailed(firstLine(err.Error())))
 				}
+				h.askInstall(a, asks)
 			}
 			h.mu.Lock()
 			h.syncRun.Done(struct{}{})
@@ -93,6 +97,42 @@ func (h *pluginHost) syncPlugins() {
 			h.reg.Load()
 		}
 	}()
+}
+
+// askInstall asks whether to install the plugins another machine
+// installed, which settings sync brought: what is declined is not asked
+// about again until it changes.
+func (h *pluginHost) askInstall(a *app, asks plugin.Records) {
+	if len(asks) == 0 || maps.Equal(asks, h.asking) {
+		return
+	}
+	h.asking = asks
+	names := slices.Sorted(maps.Keys(asks))
+	lines := make([]string, len(names))
+	for i, name := range names {
+		lines[i] = name + "  " + asks[name].URL
+	}
+	a.ask(&confirm{
+		title:   locales.PluginsSyncAskTitle(len(names)),
+		message: locales.PluginsSyncAskDetail(strings.Join(lines, "\n")),
+		ok:      locales.PluginsSyncInstall(),
+		run: func() {
+			h.asking = nil
+			h.mu.Lock()
+			if h.trusted == nil {
+				h.trusted = plugin.Records{}
+			}
+			maps.Copy(h.trusted, asks)
+			h.mu.Unlock()
+			h.syncPlugins()
+		},
+		cancel: func() {
+			h.asking = nil
+			if err := plugin.Decline(h.reg.Dirs.Plugins, asks); err != nil {
+				a.fail("%s", locales.PluginsSyncFailed(firstLine(err.Error())))
+			}
+		},
+	})
 }
 
 // recordsChanged syncs the plugins when plugins.json changed here: a

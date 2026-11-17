@@ -26,6 +26,12 @@ the last count, which is all Mayoi keeps of it.
 After a crash, Mayoi asks at the next launch whether to send the crash log to Mon at `mon.sorrycc.dev`. It sends one
 only when you say so, or when `crashReports` is `"always"`. See [`crashReports`](SETTINGS.md#the-rest).
 
+## Settings sync
+
+Signed in, your settings and the Git URLs of your plugins sync through your Mon account, without end-to-end encryption.
+Whoever can write them could have a plugin installed on your machines, so Mayoi asks before it installs one that sync
+brings. See [Settings sync](PLUGINS.md#settings-sync).
+
 ## Updates
 
 Mayoi asks GitHub for the latest release once an hour, as any download from GitHub does.

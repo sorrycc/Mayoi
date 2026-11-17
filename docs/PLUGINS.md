@@ -49,6 +49,12 @@ Signed in, the plugins installed from Git follow you to your other machines: May
 commits, and a plugin removed on one machine is removed on the others. A plugin copied in by hand, or linked with
 `mayoi plugin dev`, stays on its machine.
 
+A plugin runs as you do, so whoever can write your synced settings could run code on each of your machines. Mayoi asks
+before it installs a plugin that sync brings, listing each name and URL. **Cancel** leaves it uninstalled on that
+machine and is not asked again until the plugin changes; an update from the URL a plugin came from installs without
+asking. Sync installs only from `https://`, `ssh://` and `git@` URLs. To keep plugins off sync altogether, add
+`"pluginSources"` and `"plugins"` to `syncIgnored`.
+
 ### When something goes wrong
 
 - **Plugins → Show Plugin Log** opens a tab of what plugins logged and the errors they hit, the newest at the bottom.

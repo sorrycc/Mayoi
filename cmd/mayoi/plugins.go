@@ -80,10 +80,13 @@ type pluginHost struct {
 	// syncing has the plugins follow settings sync, as the app does but
 	// the tests don't; syncRun runs one sync at a time, and again when one
 	// was asked for meanwhile, and records are plugins.json as the last
-	// agreed it.
+	// agreed it. trusted are the plugins from elsewhere the person agreed
+	// to install, and asking those the question shown asks about.
 	syncing bool
 	syncRun bg.Refresher[struct{}]
 	records plugin.Records
+	trusted plugin.Records
+	asking  plugin.Records
 	// updates are the newer commits found of the plugins from Git.
 	updates map[string]string
 

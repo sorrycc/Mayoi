@@ -65,7 +65,16 @@ func TestInstallUpdateRemove(t *testing.T) {
 	}
 }
 
+// syncFromFolders lets settings sync install from the folders the tests
+// make.
+func syncFromFolders(t *testing.T) {
+	t.Helper()
+	syncableURL = func(string) bool { return true }
+	t.Cleanup(func() { syncableURL = SyncableURL })
+}
+
 func TestSyncAgreesBothWays(t *testing.T) {
+	syncFromFolders(t)
 	ctx := context.Background()
 	repoA := gitRepo(t, map[string]string{"plugin.json": `{"name": "alpha"}`})
 	repoB := gitRepo(t, map[string]string{"plugin.json": `{"name": "beta"}`})
@@ -74,7 +83,7 @@ func TestSyncAgreesBothWays(t *testing.T) {
 	if _, err := Install(ctx, here, repoA, ""); err != nil {
 		t.Fatal(err)
 	}
-	account, _, _, err := Sync(ctx, here, Records{})
+	account, _, _, _, err := Sync(ctx, here, Records{}, nil)
 	if err != nil || len(account) != 1 {
 		t.Fatalf("first sync here: %v %v", account, err)
 	}
@@ -82,24 +91,101 @@ func TestSyncAgreesBothWays(t *testing.T) {
 	if _, err := Install(ctx, there, repoB, ""); err != nil {
 		t.Fatal(err)
 	}
-	account, installed, _, err := Sync(ctx, there, account)
+	account, installed, _, _, err := Sync(ctx, there, account, account)
 	if err != nil || len(account) != 2 || len(installed) != 1 || installed[0] != "alpha" {
 		t.Fatalf("sync there: %v %v %v", account, installed, err)
 	}
 	// Back here, beta comes too.
-	account, installed, _, _ = Sync(ctx, here, account)
+	account, installed, _, _, _ = Sync(ctx, here, account, account)
 	if len(installed) != 1 || installed[0] != "beta" || len(account) != 2 {
 		t.Fatalf("sync here again: %v %v", account, installed)
 	}
 	// Removed here: removed there at its next sync, not installed back here.
 	Remove(here, "alpha")
-	account, _, _, _ = Sync(ctx, here, account)
+	account, _, _, _, _ = Sync(ctx, here, account, nil)
 	if _, ok := account["alpha"]; ok {
 		t.Fatalf("alpha came back: %v", account)
 	}
-	_, _, removed, _ := Sync(ctx, there, account)
+	_, _, removed, _, _ := Sync(ctx, there, account, nil)
 	if len(removed) != 1 || removed[0] != "alpha" {
 		t.Fatalf("removed there: %v", removed)
+	}
+}
+
+func TestSyncAsksBeforeInstalling(t *testing.T) {
+	syncFromFolders(t)
+	ctx := context.Background()
+	repo := gitRepo(t, map[string]string{
+		"plugin.json": `{"name": "evil", "main": "main.js", "activation": ["onStartup"]}`,
+		"main.js":     `exports.activate = () => {}`,
+	})
+	dir := t.TempDir()
+	account := Records{"evil": {URL: repo}}
+	// Asked about, not installed, and kept in the account.
+	agreed, installed, _, asks, err := Sync(ctx, dir, account, nil)
+	if err != nil || len(installed) != 0 || asks["evil"] != account["evil"] || agreed["evil"] != account["evil"] {
+		t.Fatalf("sync: %v %v %v %v", agreed, installed, asks, err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "evil")); err == nil {
+		t.Fatal("installed before the person agreed")
+	}
+	// Asked again at the next sync, until declined.
+	if _, _, _, asks, _ = Sync(ctx, dir, agreed, nil); len(asks) != 1 {
+		t.Fatalf("asks again = %v", asks)
+	}
+	if err := Decline(dir, asks); err != nil {
+		t.Fatal(err)
+	}
+	if agreed, _, _, asks, _ = Sync(ctx, dir, agreed, nil); len(asks) != 0 || agreed["evil"] != account["evil"] {
+		t.Fatalf("after declining: %v %v", agreed, asks)
+	}
+	// A changed record is asked about again.
+	changed := Records{"evil": {URL: repo, Ref: "main"}}
+	if _, _, _, asks, _ = Sync(ctx, dir, changed, nil); asks["evil"] != changed["evil"] {
+		t.Fatalf("changed asks = %v", asks)
+	}
+	// Agreed to: installed.
+	if _, installed, _, asks, err = Sync(ctx, dir, changed, changed); err != nil || len(installed) != 1 || len(asks) != 0 {
+		t.Fatalf("trusted: %v %v %v", installed, asks, err)
+	}
+	// An update from the same URL needs no asking.
+	writePlugin(t, repo, "", map[string]string{"plugin.json": `{"name": "evil", "version": "2.0.0", "main": "main.js"}`})
+	git(ctx, repo, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qam", "two")
+	head, _ := git(ctx, repo, "rev-parse", "HEAD")
+	update := Records{"evil": {URL: repo, Ref: "main", Commit: head}}
+	if _, installed, _, asks, err = Sync(ctx, dir, update, nil); err != nil || len(installed) != 1 || len(asks) != 0 {
+		t.Fatalf("update: %v %v %v", installed, asks, err)
+	}
+}
+
+func TestSyncRefusesLocalURLs(t *testing.T) {
+	repo := gitRepo(t, map[string]string{"plugin.json": `{"name": "local"}`})
+	dir := t.TempDir()
+	for _, url := range []string{repo, "file://" + repo} {
+		account := Records{"local": {URL: url}}
+		agreed, installed, _, asks, err := Sync(context.Background(), dir, account, account)
+		if err == nil || len(installed) != 0 || len(asks) != 0 || agreed["local"] != account["local"] {
+			t.Fatalf("%s: %v %v %v %v", url, agreed, installed, asks, err)
+		}
+	}
+	for url, ok := range map[string]bool{"https://github.com/a/b": true, "git@github.com:a/b": true, "ssh://h/r": true, "file:///r": false, "/r": false, "https://": false} {
+		if SyncableURL(url) != ok {
+			t.Errorf("SyncableURL(%q) = %v", url, !ok)
+		}
+	}
+}
+
+func TestInstallRefusesOptions(t *testing.T) {
+	dir := t.TempDir()
+	marker := filepath.Join(t.TempDir(), "ran")
+	if _, err := Install(context.Background(), dir, "--upload-pack=touch "+marker, ""); err == nil {
+		t.Fatal("installed from an option")
+	}
+	if _, err := Install(context.Background(), dir, "https://example.invalid/r", "--upload-pack=touch "+marker); err == nil {
+		t.Fatal("installed with an option for its ref")
+	}
+	if _, err := os.Stat(marker); err == nil {
+		t.Fatal("git ran the option")
 	}
 }
 

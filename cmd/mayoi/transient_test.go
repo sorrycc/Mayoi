@@ -5,6 +5,7 @@ import (
 	"os"
 	"slices"
 	"testing"
+	"time"
 
 	"github.com/egoist/mygo/ui"
 )
@@ -227,7 +228,11 @@ func TestExplorerDoubleClick(t *testing.T) {
 	}
 	readme, main, mod := row("README.md"), row("main.go"), row("go.mod")
 	readme()
-	hs.settle()
+	// Frames until the tab shows, not a settle: its half second is all
+	// but the time a double click has.
+	for deadline := time.Now().Add(settleTimeout); !slices.Equal(tabPaths(hs), []string{"README.md*"}) && time.Now().Before(deadline); {
+		step(tt)
+	}
 	wantTabs(t, hs, "README.md*")
 	// The second click of the double click.
 	readme()

@@ -242,8 +242,14 @@ func newHarness(t testing.TB, dark bool) *harness {
 // the background to end: until then, Windows keeps the folder they are in
 // from being removed, which fails the test.
 func (hs *harness) close() {
-	terms := hs.a.terms
-	hs.a.closeTerminals()
+	// Sessions a test makes up have no shell.
+	var terms []*session
+	for _, s := range hs.a.terms {
+		if s.term != nil {
+			s.term.Close()
+			terms = append(terms, s)
+		}
+	}
 	hs.a.shutdown()
 	deadline := time.Now().Add(5 * time.Second)
 	for _, s := range terms {
@@ -279,16 +285,17 @@ const settleTimeout = 30 * time.Second
 // work only runs, no frame is drawn, to leave the machine to it. Idle
 // counts for two frames in a row, as a frame can start work that one
 // finished asks for. Work that lands during the wait, as a read does on a
-// slow machine, gets its half second too: what it starts takes frames and
-// time of its own, as a scroll the file's caret pins for the frame after.
+// slow machine, gets the frames of its own it would have had sooner, as a
+// scroll the file's caret pins for the frame after, but not more of the
+// clock: the tests count on half a second, as a double click's second.
 func (hs *harness) settle() {
 	hs.t.Helper()
 	hs.a.gitClock = hs.tt.Now
 	deadline := time.Now().Add(settleTimeout)
 	// A poll that posts on every pass would keep it going: past a few,
 	// the frames have had their time.
-	for range settleRounds {
-		if !hs.settleRound(deadline) {
+	for round := range settleRounds {
+		if !hs.settleRound(deadline, round == 0) {
 			return
 		}
 	}
@@ -296,9 +303,10 @@ func (hs *harness) settle() {
 
 const settleRounds = 8
 
-// settleRound advances half a second and waits for the work running, and
-// reports whether some landed while it waited.
-func (hs *harness) settleRound(deadline time.Time) (late bool) {
+// settleRound draws a few frames, advances half a second on the first
+// round, and waits for the work running, and reports whether some landed
+// while it waited.
+func (hs *harness) settleRound(deadline time.Time, first bool) (late bool) {
 	hs.t.Helper()
 	// Advance before waiting: a final frame after the wait can start work.
 	// The first frames see what the test changed, and start what moves of
@@ -309,8 +317,10 @@ func (hs *harness) settleRound(deadline time.Time) (late bool) {
 	for range seen {
 		step(hs.tt)
 	}
-	hs.tt.Advance((31 - seen) * 16 * time.Millisecond)
-	hs.tt.Frame()
+	if first {
+		hs.tt.Advance((31 - seen) * 16 * time.Millisecond)
+		hs.tt.Frame()
+	}
 	for idle := 0; idle < 2; {
 		running, queued := hs.busy()
 		if time.Now().After(deadline) {

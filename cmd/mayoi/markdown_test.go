@@ -1556,7 +1556,7 @@ func TestMarkdownScrollSync(t *testing.T) {
 				continue
 			}
 			h := markdownRunsText(m.blocks[i].runs)
-			if r, ok := hs.tt.Find(h); ok && r.Y+r.H > pane.Y+1 {
+			if r, ok := findIn(t, hs.tt, h, pane); ok && r.Y+r.H > pane.Y+1 {
 				return h
 			}
 		}
@@ -1634,7 +1634,7 @@ func TestMarkdownToggleKeepsPlace(t *testing.T) {
 				continue
 			}
 			h := markdownRunsText(m.blocks[i].runs)
-			if r, ok := hs.tt.Find(h); ok && r.Y+r.H > pane.Y+1 {
+			if r, ok := findIn(t, hs.tt, h, pane); ok && r.Y+r.H > pane.Y+1 {
 				return h
 			}
 		}

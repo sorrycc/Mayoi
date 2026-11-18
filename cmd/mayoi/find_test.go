@@ -69,6 +69,97 @@ func TestFindRevealsAMatchUnderItsBox(t *testing.T) {
 	}
 }
 
+// TestFindFindsAMultilineSelection: a selection of several lines becomes
+// the query of find, and find matches and replaces it whole, on every
+// line it takes, as Return steps and does not break the line.
+func TestFindFindsAMultilineSelection(t *testing.T) {
+	hs := newHarness(t, true)
+	a, tt := hs.a, hs.tt
+	p := hs.path("multi.txt")
+	if err := os.WriteFile(p, []byte("one\ntwo\nthree\none\ntwo\nthree\nfour\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	a.openFile(p, true)
+	hs.settle()
+	d := a.activeEditor()
+	snap := d.buf.Snapshot()
+	from, _ := snap.LineRange(0)
+	_, to := snap.LineRange(2)
+	d.selectRange(from, to, false)
+	hs.settle()
+	a.run("edit.replace")
+	hs.settle()
+	f := &a.find
+	if f.query != "one\ntwo\nthree" {
+		t.Fatalf("query = %q; want the selection", f.query)
+	}
+	if len(f.matches) != 2 {
+		t.Fatalf("%d matches; want 2", len(f.matches))
+	}
+	if rects := a.visibleMatches(d, 0, snap.LineCount()-1); len(rects) != 6 {
+		t.Fatalf("%d rects; want three lines of each match", len(rects))
+	}
+	tt.Key(0, ui.KeyEnter)
+	hs.settle()
+	if f.cur != 1 {
+		t.Fatalf("Return went to match %d; want 1", f.cur)
+	}
+	if f.query != "one\ntwo\nthree" {
+		t.Fatalf("Return broke the line of the query: %q", f.query)
+	}
+	f.with = "1\n2"
+	a.replaceAll(d)
+	if got := d.buf.Snapshot().String(); got != "1\n2\n1\n2\nfour\n" {
+		t.Fatalf("replaced to %q", got)
+	}
+	a.run("edit.undo")
+	hs.settle()
+	if got := d.buf.Snapshot().String(); got != "one\ntwo\nthree\none\ntwo\nthree\nfour\n" {
+		t.Fatalf("one undo of Replace All left %q", got)
+	}
+}
+
+// TestFindFieldGrowsInPlace: lines pasted into the query, from Windows
+// too, find across lines, and the field grows down from its first line,
+// the buttons beside it staying put.
+func TestFindFieldGrowsInPlace(t *testing.T) {
+	hs, _ := editHarness(t, "grow.txt", "one\ntwo\nthree\n")
+	a, tt := hs.a, hs.tt
+	a.run("edit.find")
+	hs.settle()
+	f := &a.find
+	tt.Type("one")
+	hs.settle()
+	before, _ := tt.Find(locales.FindNextMatch())
+	tt.SetClipboard("\r\ntwo")
+	tt.Key(ui.Cmd, ui.KeyV)
+	hs.settle()
+	if f.query != "one\ntwo" {
+		t.Fatalf("query = %q; want the lines pasted after one", f.query)
+	}
+	if len(f.matches) != 1 {
+		t.Fatalf("%d matches; want 1", len(f.matches))
+	}
+	if after, _ := tt.Find(locales.FindNextMatch()); after != before {
+		t.Fatalf("next button moved from %v to %v as the field grew", before, after)
+	}
+}
+
+// TestFindMatchEndingInALineBreak: a match that ends with its line's
+// break marks that line alone, not the start of the next.
+func TestFindMatchEndingInALineBreak(t *testing.T) {
+	hs, d := editHarness(t, "nl.txt", "one\ntwo\none\ntwo\n")
+	a := hs.a
+	a.run("edit.find")
+	hs.settle()
+	a.find.query = "one\n"
+	a.find.stale = true
+	hs.settle()
+	if rects := a.visibleMatches(d, 0, d.buf.Snapshot().LineCount()-1); len(rects) != 2 || rects[0].line != 0 || rects[1].line != 2 {
+		t.Fatalf("rects %+v; want one on each line of one", rects)
+	}
+}
+
 // TestFindShiftEnterGoesBack: Return goes to the next match and
 // Shift+Return to the one before, wrapping; in the replace field
 // Shift+Return replaces the match and goes to the one before it.

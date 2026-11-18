@@ -24,6 +24,14 @@ import (
 // background.
 const jsonlQuickMax = 256 << 10
 
+// jsonlCopiedFor is how long the details' Copy button shows a check
+// after it copied.
+const jsonlCopiedFor = 1500 * time.Millisecond
+
+// jsonlHitsMax is the most matches of the filter a cell or the details
+// mark.
+const jsonlHitsMax = 200
+
 // jsonlPrettyMax is the most of a row's pretty JSON its details show, in
 // bytes; Show in Source has the rest.
 const jsonlPrettyMax = 256 << 10
@@ -77,6 +85,8 @@ type jsonlTable struct {
 	// pretty is the chosen row's text indented, of prettyOf.
 	pretty   []ui.Span
 	prettyOf string
+	// copied is when the details' Copy button last copied.
+	copied time.Time
 
 	// line is the line of the file to show once indexed, -1 for none.
 	line int
@@ -521,12 +531,18 @@ func (a *app) jsonlGrid(c *ui.Context, v *viewer, name string) {
 		}
 	}
 	mono := a.font.family
+	query := foldASCII(t.shown.query)
 	table := ui.Table(c.Key("jsonl-table"), s, cols, t.count(), func(i, j int) {
 		row := t.rowAt(i)
 		if j == 0 {
+			// The chosen row's number stands out, as the caret's line's
+			// does in the editor.
 			col := p.gutter
-			if t.ix.kinds[row] == jsonlInvalid {
+			switch {
+			case t.ix.kinds[row] == jsonlInvalid:
 				col = p.dangerFg
+			case i == t.row:
+				col = p.gutterNow
 			}
 			number := ui.Text(c, strconv.Itoa(int(t.ix.lines[row])+1)).FontSize(size).Font(mono).FontFeatures("tnum").SingleLine()
 			if !s.CellSelected(i, j) {
@@ -542,11 +558,22 @@ func (a *app) jsonlGrid(c *ui.Context, v *viewer, name string) {
 		if cell.kind == cellMissing {
 			return
 		}
-		text := ui.Text(c, cell.text).FontSize(size).Font(mono).SingleLine()
-		if !s.CellSelected(i, j) {
+		if s.CellSelected(i, j) {
 			// A chosen cell's text takes the accent's.
-			text.TextColor(a.cellColor(cell.kind))
+			ui.Text(c, cell.text).FontSize(size).Font(mono).SingleLine()
+			return
 		}
+		color := a.cellColor(cell.kind)
+		if hits := foldHits(cell.text, query, jsonlHitsMax); len(hits) > 0 {
+			// The filter's matches are marked as find marks them.
+			spans := []ui.Span{{Text: cell.text, Color: color}}
+			for _, h := range hits {
+				spans = markSpans(spans, h[0], h[1], p.match)
+			}
+			ui.RichText(c, spans...).FontSize(size).Font(mono).SingleLine()
+			return
+		}
+		ui.Text(c, cell.text).FontSize(size).Font(mono).SingleLine().TextColor(color)
 	}).Bind(&v.pane).Grow(1).Label(locales.PreviewLabel(name))
 	a.takeKeys(table, placeViewer, func(ev ui.InputEvent) bool { return a.jsonlInput(v, ev) })
 	if table.Submitted() && t.row >= 0 && t.row < t.count() {
@@ -726,10 +753,25 @@ func (a *app) jsonlDetails(c *ui.Context, v *viewer) {
 		row := t.rowAt(t.row)
 		line := t.ix.line(int(row))
 		number := int(t.ix.lines[row]) + 1
-		ui.Row(c.Key("jsonl-details-bar")).Padding(4, 10).Gap(8).AlignItems(ui.Center).Shrink(0).Children(func() {
-			ui.Text(c, locales.JsonlLine(number)).FontSize(12).FontWeight(600).TextColor(p.muted).FontFeatures("tnum")
+		invalid := t.ix.kinds[row] == jsonlInvalid
+		// The field of the cursor's column, which the details mark.
+		var field *jsonlColumn
+		if col := t.column(t.list.Cells.Cursor); col != nil && !invalid && len(col.path) > 0 && !t.list.Cells.All {
+			field = col
+		}
+		ui.Row(c.Key("jsonl-details-bar")).Padding(4, 10).Gap(6).AlignItems(ui.Center).Shrink(0).Children(func() {
+			ui.Text(c, locales.JsonlLine(number)).FontSize(12).FontWeight(600).TextColor(p.muted).FontFeatures("tnum").Shrink(0)
+			if field != nil {
+				ui.Icon(c, iconChevronRight).FontSize(11).TextColor(p.faint).Shrink(0)
+				ui.Text(c.Key("jsonl-field"), field.title()).FontSize(12).Font(a.font.family).TextColor(p.text).SingleLine().Shrink(1)
+			}
 			ui.Spacer(c)
-			copyLabel := locales.JsonlCopyLine()
+			copied := !t.copied.IsZero() && c.Now().Sub(t.copied) < jsonlCopiedFor
+			icon, iconCol, copyLabel := iconCopy, p.muted, locales.JsonlCopyLine()
+			if copied {
+				icon, iconCol, copyLabel = iconCheck, p.addedFg, locales.JsonlCopied()
+				c.After(jsonlCopiedFor - c.Now().Sub(t.copied))
+			}
 			b := ui.ButtonBase(c.Key("jsonl-copy")).Size(24, 22).Radius(4).AlignItems(ui.Center).Justify(ui.Center).
 				Label(copyLabel).Tooltip(copyLabel)
 			if b.Hovered() {
@@ -737,9 +779,12 @@ func (a *app) jsonlDetails(c *ui.Context, v *viewer) {
 			}
 			b.Transition(hoverFade)
 			pressPose(b)
-			b.Children(func() { ui.Icon(c, iconCopy).FontSize(13).TextColor(p.muted) })
+			b.Children(func() {
+				ui.Icon(c.Key("icon"), icon).FontSize(13).TextColor(iconCol).Transition(hoverFade).ContentTransition(ui.ContentTransition{})
+			})
 			if b.Clicked() {
 				a.services.WriteClipboard(line)
+				t.copied = c.Now()
 			}
 			source := a.withKey(locales.JsonlShowInSource(), "view.togglePreview")
 			s := ui.ButtonBase(c.Key("jsonl-source")).Size(24, 22).Radius(4).AlignItems(ui.Center).Justify(ui.Center).
@@ -754,9 +799,13 @@ func (a *app) jsonlDetails(c *ui.Context, v *viewer) {
 				a.post(func() { a.jsonlToSource(v, row) })
 			}
 		})
-		key := strconv.Itoa(int(row)) + ":" + strconv.FormatUint(t.shown.version, 10)
+		var path []jsonlStep
+		key := strconv.Itoa(int(row)) + ":" + strconv.FormatUint(t.shown.version, 10) + ":" + t.shown.query
+		if field != nil {
+			path, key = field.path, key+":"+field.id
+		}
 		if t.prettyOf != key {
-			t.pretty, t.prettyOf = a.prettySpans(line, t.ix.kinds[row] == jsonlInvalid), key
+			t.pretty, t.prettyOf = a.prettySpans(line, invalid, path, t.shown.query), key
 		}
 		ui.Scroll(c.Key("jsonl-pretty")).Grow(1).Padding(4, 10, 12, 10).Children(func() {
 			ui.RichText(c.Key("jsonl-pretty-text"), t.pretty...).FontSize(12.5).Font(a.font.family).LineHeight(1.45).Selectable()
@@ -765,8 +814,9 @@ func (a *app) jsonlDetails(c *ui.Context, v *viewer) {
 }
 
 // prettySpans are a row's line indented and colored as the editor colors
-// JSON, or, for a line that is not JSON, why and the line.
-func (a *app) prettySpans(line string, invalid bool) []ui.Span {
+// JSON, or, for a line that is not JSON, why and the line; the member at
+// path and the matches of query marked.
+func (a *app) prettySpans(line string, invalid bool, path []jsonlStep, query string) []ui.Span {
 	p := a.pal
 	if invalid {
 		return []ui.Span{
@@ -818,6 +868,13 @@ func (a *app) prettySpans(line string, invalid bool) []ui.Span {
 	}
 	if more {
 		add("\n…", p.muted)
+	}
+	// Past the text, "…" is never marked.
+	if from, to, ok := lookupAt(text, path); ok {
+		spans = markSpans(spans, from, to, p.word)
+	}
+	for _, h := range foldHits(text, foldASCII(query), jsonlHitsMax) {
+		spans = markSpans(spans, h[0], h[1], p.match)
 	}
 	return spans
 }
@@ -915,4 +972,37 @@ func (a *app) nextInvalidJSONL(v *viewer) {
 			return
 		}
 	}
+}
+
+// markSpans gives the text of spans from byte from to byte to, counted
+// across them all, the background bg.
+func markSpans(spans []ui.Span, from, to int, bg ui.Color) []ui.Span {
+	if from >= to {
+		return spans
+	}
+	out := make([]ui.Span, 0, len(spans)+2)
+	at := 0
+	for _, sp := range spans {
+		start, end := at, at+len(sp.Text)
+		at = end
+		lo, hi := max(from, start)-start, min(to, end)-start
+		if lo >= hi {
+			out = append(out, sp)
+			continue
+		}
+		if lo > 0 {
+			head := sp
+			head.Text = sp.Text[:lo]
+			out = append(out, head)
+		}
+		mid := sp
+		mid.Text, mid.Background = sp.Text[lo:hi], bg
+		out = append(out, mid)
+		if hi < len(sp.Text) {
+			tail := sp
+			tail.Text = sp.Text[hi:]
+			out = append(out, tail)
+		}
+	}
+	return out
 }

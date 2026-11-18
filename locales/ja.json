@@ -338,6 +338,7 @@
   "jsonlNotJSON": "JSON ではありません: {why}",
   "jsonlCopyValue": "値をコピー",
   "jsonlCopyLine": "行をコピー",
+  "jsonlCopied": "行をコピーしました",
   "jsonlShowInSource": "ソースで表示",
   "jsonlInvalid": "{count, plural, other {JSON でない行 # 行}}",
   "jsonlNextInvalid": "次の JSON でない行へ移動",

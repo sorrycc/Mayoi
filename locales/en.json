@@ -604,6 +604,7 @@
   "jsonlNotJSON": "Not JSON: {why}",
   "jsonlCopyValue": "Copy Value",
   "jsonlCopyLine": "Copy Line",
+  "jsonlCopied": "Copied the line",
   "jsonlShowInSource": "Show in Source",
   "jsonlInvalid": "{count, plural, one {# line isn't JSON} other {# lines aren't JSON}}",
   "jsonlNextInvalid": "Go to the next line that isn't JSON",

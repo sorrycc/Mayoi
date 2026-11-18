@@ -67,6 +67,20 @@ var galleryStates = []struct {
 		os.WriteFile(hs.path("rows.jsonl"), []byte(testJSONL), 0o644)
 		hs.a.openFile(hs.path("rows.jsonl"), true)
 	}},
+	{"jsonl-filtered", func(hs *harness) {
+		os.WriteFile(hs.path("rows.jsonl"), []byte(testJSONL), 0o644)
+		hs.a.openFile(hs.path("rows.jsonl"), true)
+		hs.settle()
+		j := hs.a.activeEditor().preview.jsonl
+		j.query = "a"
+		hs.settle()
+		hs.a.expandJSONL(hs.a.activeEditor().preview, j.column(pathID([]jsonlStep{{key: "user"}})))
+		hs.settle()
+		plan := pathID([]jsonlStep{{key: "user"}, {key: "plan"}})
+		j.row, j.list.Cells.Cursor, j.list.Cells.Anchor = 2, plan, plan
+		j.chosen.Clear()
+		j.chosen.Add(int(j.rowAt(2)))
+	}},
 	{"jsonl-empty", func(hs *harness) {
 		os.WriteFile(hs.path("empty.jsonl"), []byte("\n"), 0o644)
 		hs.a.openFile(hs.path("empty.jsonl"), true)

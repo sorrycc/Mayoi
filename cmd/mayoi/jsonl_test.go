@@ -5,6 +5,8 @@ import (
 	"slices"
 	"strings"
 	"testing"
+
+	"github.com/egoist/mygo/ui"
 )
 
 func TestJSONLIndex(t *testing.T) {
@@ -235,5 +237,59 @@ func BenchmarkJSONLFilter(b *testing.B) {
 	ix.fold()
 	for b.Loop() {
 		filterRows(ix, "user 99", func() bool { return false })
+	}
+}
+
+func TestJSONLLookupAt(t *testing.T) {
+	text := prettyJSON(`{"id":1,"user":{"name":"ann","tags":["a","b"]},"x":2}`)
+	for _, tc := range []struct {
+		path []jsonlStep
+		want string
+	}{
+		{[]jsonlStep{{key: "id"}}, `"id": 1`},
+		{[]jsonlStep{{key: "user"}, {key: "name"}}, `"name": "ann"`},
+		{[]jsonlStep{{key: "user"}, {key: "tags"}, {index: 1, item: true}}, `"b"`},
+		{[]jsonlStep{{key: "x"}}, `"x": 2`},
+	} {
+		from, to, ok := lookupAt(text, tc.path)
+		if !ok || text[from:to] != tc.want {
+			t.Errorf("lookupAt %v = %q, %v; want %q", tc.path, text[from:to], ok, tc.want)
+		}
+	}
+	for _, path := range [][]jsonlStep{nil, {{key: "nope"}}, {{key: "id"}, {key: "deeper"}}, {{index: 0, item: true}}} {
+		if _, _, ok := lookupAt(text, path); ok {
+			t.Errorf("lookupAt %v found a member", path)
+		}
+	}
+}
+
+func TestJSONLFoldHits(t *testing.T) {
+	got := foldHits("Anna and ANN", "an", 10)
+	want := [][2]int{{0, 2}, {5, 7}, {9, 11}}
+	if !slices.Equal(got, want) {
+		t.Errorf("foldHits = %v, want %v", got, want)
+	}
+	if got := foldHits("aaaa", "a", 2); len(got) != 2 {
+		t.Errorf("foldHits kept %d hits past its most", len(got))
+	}
+	if foldHits("abc", "", 10) != nil {
+		t.Error("an empty query has hits")
+	}
+}
+
+func TestJSONLMarkSpans(t *testing.T) {
+	bg := ui.Hex("#ff0000")
+	spans := []ui.Span{{Text: "abc"}, {Text: "def"}}
+	got := markSpans(spans, 2, 4, bg)
+	var text []string
+	for _, sp := range got {
+		mark := ""
+		if sp.Background == bg {
+			mark = "*"
+		}
+		text = append(text, mark+sp.Text)
+	}
+	if want := []string{"ab", "*c", "*d", "ef"}; !slices.Equal(text, want) {
+		t.Errorf("markSpans = %v, want %v", text, want)
 	}
 }

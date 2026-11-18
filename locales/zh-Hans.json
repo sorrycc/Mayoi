@@ -338,6 +338,7 @@
   "jsonlNotJSON": "不是 JSON：{why}",
   "jsonlCopyValue": "复制值",
   "jsonlCopyLine": "复制行",
+  "jsonlCopied": "已复制该行",
   "jsonlShowInSource": "在源代码中显示",
   "jsonlInvalid": "{count, plural, other {# 行不是 JSON}}",
   "jsonlNextInvalid": "转到下一个不是 JSON 的行",

@@ -26,6 +26,10 @@ needs a `## <version>` section here, or its build fails.
 - Right-click a header to hide, show or sort a column, or expand an object or array into its own columns.
 - Lines that aren't JSON stay in the table in red; the status bar counts them and a click goes to the next.
 - `Enter` or a double-click on a row shows that line in the source; `⌘C` copies the cell or the whole line.
+- The JSON Lines table marks what **Filter rows** matched, in its cells and in the row's details.
+- A row's details name the field of the chosen column and mark it in the indented JSON.
+- The chosen row's line number stands out in the table, as the caret's line does in the editor.
+- The details' copy button turns to a check for a moment after it copies the line.
 
 ## 0.22.4
 

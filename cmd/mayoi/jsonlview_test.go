@@ -160,6 +160,35 @@ func TestJSONLCopies(t *testing.T) {
 	}
 }
 
+// The details name the field of the cursor's column, and the Copy button
+// says it copied, then goes back.
+func TestJSONLDetailsField(t *testing.T) {
+	hs := newHarness(t, true)
+	tt := hs.tt
+	d := openJSONL(t, hs, "field.jsonl", testJSONL)
+	j := d.preview.jsonl
+	j.list.Cells.Cursor = pathID([]jsonlStep{{key: "age"}})
+	hs.settle()
+	if !tt.HasText("age") || !strings.Contains(j.prettyOf, ":"+j.list.Cells.Cursor) {
+		t.Errorf("the details don't name age: %q, of %q", tt.Texts(), j.prettyOf)
+	}
+	if err := tt.Click("Copy Line"); err != nil {
+		t.Fatal(err)
+	}
+	hs.settle()
+	if got := tt.Clipboard(); !strings.HasPrefix(got, `{"id":1`) {
+		t.Errorf("copied %q, want the line", got)
+	}
+	if err := tt.Click("Copied the line"); err != nil {
+		t.Errorf("the Copy button doesn't say it copied: %v", err)
+	}
+	tt.Advance(jsonlCopiedFor)
+	hs.settle()
+	if err := tt.Click("Copy Line"); err != nil {
+		t.Errorf("the Copy button didn't go back: %v", err)
+	}
+}
+
 func TestJSONLOpensAsSource(t *testing.T) {
 	hs := newHarness(t, true)
 	hs.a.settings.JSONLMode = "source"

@@ -801,3 +801,79 @@ func jsonlError(line string) string {
 	}
 	return ""
 }
+
+// lookupAt returns where the value at path is in the JSON value s, from
+// its key for a member of an object, and whether it has one. An empty
+// path is none.
+func lookupAt(s string, path []jsonlStep) (from, to int, ok bool) {
+	at := skipSpace(s, 0)
+	for _, st := range path {
+		found := false
+		i := at
+		switch {
+		case i < len(s) && s[i] == '{' && !st.item:
+			for i++; ; i++ {
+				if i = skipSpace(s, i); i >= len(s) || s[i] != '"' {
+					break
+				}
+				k, ke := i, skipString(s, i)
+				if i = skipSpace(s, ke); i >= len(s) || s[i] != ':' {
+					break
+				}
+				i = skipSpace(s, i+1)
+				ve := skipValue(s, i)
+				if unquote(s[k:ke]) == st.key {
+					from, to, at, found = k, ve, i, true
+					break
+				}
+				if i = skipSpace(s, ve); i >= len(s) || s[i] != ',' {
+					break
+				}
+			}
+		case i < len(s) && s[i] == '[' && st.item:
+			for n := 0; ; n++ {
+				if i = skipSpace(s, i+1); i >= len(s) || s[i] == ']' {
+					break
+				}
+				ve := skipValue(s, i)
+				if n == st.index {
+					from, to, at, found = i, ve, i, true
+					break
+				}
+				if i = skipSpace(s, ve); i >= len(s) || s[i] != ',' {
+					break
+				}
+			}
+		}
+		if !found {
+			return 0, 0, false
+		}
+	}
+	return from, to, len(path) > 0
+}
+
+// foldHits returns where the folded query q is in s, ignoring the case of
+// English letters, at most max of them.
+func foldHits(s, q string, most int) [][2]int {
+	var out [][2]int
+	for i := 0; len(q) > 0 && i+len(q) <= len(s) && len(out) < most; {
+		k := 0
+		for k < len(q) {
+			c := s[i+k]
+			if 'A' <= c && c <= 'Z' {
+				c += 'a' - 'A'
+			}
+			if c != q[k] {
+				break
+			}
+			k++
+		}
+		if k == len(q) {
+			out = append(out, [2]int{i, i + len(q)})
+			i += len(q)
+		} else {
+			i++
+		}
+	}
+	return out
+}

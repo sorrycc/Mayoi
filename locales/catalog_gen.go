@@ -3808,6 +3808,16 @@ func (msgs Messages) JsonlCopyLine() string {
 	return Catalog.Format(msgs.locale, "jsonlCopyLine", nil)
 }
 
+// JsonlCopied says "Copied the line"
+// in the language the app shows.
+func JsonlCopied() string { return In(i18n.Locale()).JsonlCopied() }
+
+// JsonlCopied says "Copied the line"
+// in the language of msgs.
+func (msgs Messages) JsonlCopied() string {
+	return Catalog.Format(msgs.locale, "jsonlCopied", nil)
+}
+
 // JsonlShowInSource says "Show in Source"
 // in the language the app shows.
 func JsonlShowInSource() string { return In(i18n.Locale()).JsonlShowInSource() }

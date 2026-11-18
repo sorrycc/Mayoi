@@ -14976,6 +14976,30 @@ func (msgs Messages) PrefDescWordWrap() string {
 	return Catalog.Format(msgs.locale, "prefDescWordWrap", nil)
 }
 
+// PrefTitleTrimTrailingWhitespace says "Trim Trailing Whitespace"
+// in the language the app shows.
+func PrefTitleTrimTrailingWhitespace() string {
+	return In(i18n.Locale()).PrefTitleTrimTrailingWhitespace()
+}
+
+// PrefTitleTrimTrailingWhitespace says "Trim Trailing Whitespace"
+// in the language of msgs.
+func (msgs Messages) PrefTitleTrimTrailingWhitespace() string {
+	return Catalog.Format(msgs.locale, "prefTitleTrimTrailingWhitespace", nil)
+}
+
+// PrefDescTrimTrailingWhitespace says "Removes the spaces and tabs at the ends of lines as you save, keeping Markdown's line breaks."
+// in the language the app shows.
+func PrefDescTrimTrailingWhitespace() string {
+	return In(i18n.Locale()).PrefDescTrimTrailingWhitespace()
+}
+
+// PrefDescTrimTrailingWhitespace says "Removes the spaces and tabs at the ends of lines as you save, keeping Markdown's line breaks."
+// in the language of msgs.
+func (msgs Messages) PrefDescTrimTrailingWhitespace() string {
+	return Catalog.Format(msgs.locale, "prefDescTrimTrailingWhitespace", nil)
+}
+
 // PrefTitleTabSize says "Tab Size"
 // in the language the app shows.
 func PrefTitleTabSize() string { return In(i18n.Locale()).PrefTitleTabSize() }
@@ -16160,6 +16184,36 @@ func CmdSelFormat() string { return In(i18n.Locale()).CmdSelFormat() }
 // in the language of msgs.
 func (msgs Messages) CmdSelFormat() string {
 	return Catalog.Format(msgs.locale, "cmdSelFormat", nil)
+}
+
+// CmdSelTrimWhitespace says "Trim Trailing Whitespace"
+// in the language the app shows.
+func CmdSelTrimWhitespace() string { return In(i18n.Locale()).CmdSelTrimWhitespace() }
+
+// CmdSelTrimWhitespace says "Trim Trailing Whitespace"
+// in the language of msgs.
+func (msgs Messages) CmdSelTrimWhitespace() string {
+	return Catalog.Format(msgs.locale, "cmdSelTrimWhitespace", nil)
+}
+
+// TrimmedWhitespace says "{count, plural, one {Trimmed trailing whitespace from # line} other {Trimmed trailing whitespace from # lines}}"
+// in the language the app shows.
+func TrimmedWhitespace(count int) string { return In(i18n.Locale()).TrimmedWhitespace(count) }
+
+// TrimmedWhitespace says "{count, plural, one {Trimmed trailing whitespace from # line} other {Trimmed trailing whitespace from # lines}}"
+// in the language of msgs.
+func (msgs Messages) TrimmedWhitespace(count int) string {
+	return Catalog.Format(msgs.locale, "trimmedWhitespace", map[string]any{"count": count})
+}
+
+// TrimWhitespaceNone says "No trailing whitespace to trim."
+// in the language the app shows.
+func TrimWhitespaceNone() string { return In(i18n.Locale()).TrimWhitespaceNone() }
+
+// TrimWhitespaceNone says "No trailing whitespace to trim."
+// in the language of msgs.
+func (msgs Messages) TrimWhitespaceNone() string {
+	return Catalog.Format(msgs.locale, "trimWhitespaceNone", nil)
 }
 
 // FormatFailed says "{plugin} could not format: {err}"

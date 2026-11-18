@@ -655,3 +655,22 @@ func TestMigrateMarkdownPreview(t *testing.T) {
 		t.Errorf("a folder's markdownPreview applied as %q", p.MarkdownMode)
 	}
 }
+
+// Trimming trailing whitespace is off until chosen, and a folder may
+// choose it.
+func TestTrimTrailingWhitespace(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "settings.json")
+	s := Load(path)
+	if s.TrimTrailingWhitespace {
+		t.Fatal("on by default")
+	}
+	if err := os.WriteFile(path, []byte(`{"trimTrailingWhitespace": true}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if p, ok := s.Edited(); !ok || !p.TrimTrailingWhitespace {
+		t.Fatal("the edited setting was not read")
+	}
+	if !slices.Contains(FolderKeys(), "trimTrailingWhitespace") {
+		t.Error("a folder can't choose it")
+	}
+}

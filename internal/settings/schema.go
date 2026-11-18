@@ -77,6 +77,7 @@ var Schema = []Field{
 
 	{Key: "autoSave", Category: CatEditor, Kind: KindBool, Folder: true},
 	{Key: "wordWrap", Category: CatEditor, Kind: KindBool, Folder: true},
+	{Key: "trimTrailingWhitespace", Category: CatEditor, Kind: KindBool, Folder: true},
 	{Key: "tabSize", Category: CatEditor, Kind: KindNumber, Min: 1, Max: 8, Step: 1},
 	{Key: "jsonlMode", Category: CatEditor, Kind: KindEnum, Options: []string{"", "source"}, Folder: true},
 	{Key: "editorAgentContext", Category: CatEditor, Kind: KindBool},

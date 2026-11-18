@@ -84,6 +84,7 @@ takes its default.
 | `locale`                | `""`          | `""` (follow the system), `"en"`, `"zh-Hans"`, `"ja"`       | **View → Language**                            |
 | `autoSave`              | `true`        | `true`, `false`                                             | **File → Auto Save**                           |
 | `wordWrap`              | `false`       | `true`, `false`                                             | **View → Word Wrap**                           |
+| `trimTrailingWhitespace` | `false`      | `true`, `false`                                             |                                                |
 | `tabSize`               | `4`           | `1` to `8`                                                  |                                                |
 | `jsonlMode`             | `""`          | `""` (table), `"source"`                                    | **View → Open JSON Lines As**                  |
 | `editorAgentContext`    | `false`       | `true`, `false`                                             | Only this file                                 |
@@ -209,6 +210,10 @@ differ in width lines them up only roughly.
 - **`autoSave`** saves a changed file a moment after you stop typing, and when you leave it.
 - **`wordWrap`** wraps long lines at the edge of the editor. **⌥Z** wraps or unwraps one tab only, until this
   setting changes.
+- **`trimTrailingWhitespace`** removes the spaces and tabs at the ends of lines as you save a file, after any
+  formatting, in one step that **Undo** takes back. In Markdown, two or more spaces ending a line of text stay, as
+  they make a line break. Auto Save leaves the line the caret is on. **Trim Trailing Whitespace** in the command
+  palette trims the file now.
 - **`tabSize`** is how many columns a tab takes in the editor, the same on every system. It doesn't change
   what a key inserts: a file indented with spaces keeps its own indent size.
 - **`jsonlMode`** is how JSON Lines files, .jsonl and .ndjson, open: as a table, a row per line and a column per
@@ -358,7 +363,7 @@ window. **File → Open Folder Settings (JSON)** opens the file, and creates it 
 window, choose the folder in the menu at the top right: it lists only the preferences a folder can set, and the arrow
 beside one returns it to your setting.
 
-A folder can set these: `autoSave`, `wordWrap`, `jsonlMode`, `markdownMode`, `previewMermaid`, `previewMath`,
+A folder can set these: `autoSave`, `wordWrap`, `trimTrailingWhitespace`, `jsonlMode`, `markdownMode`, `previewMermaid`, `previewMath`,
 `terminalCopyOnSelect`, `diffHighlight`, `diffWhitespace`, `diffContext`, `diffCrossFiles`, `mergeAutoApply`,
 `blame`, `aiModel`, `vim`, `vimCtrlKeys`, `formatOnSave` and `formatters`.
 

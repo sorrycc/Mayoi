@@ -132,6 +132,9 @@ type Prefs struct {
 	// scrolling sideways to them. A tab may choose otherwise, until this
 	// changes: Settings.WrapGen counts its changes.
 	WordWrap bool `json:"wordWrap,omitempty"`
+	// TrimTrailingWhitespace removes the spaces and tabs at the ends of
+	// lines as a file saves, keeping the hard breaks of Markdown.
+	TrimTrailingWhitespace bool `json:"trimTrailingWhitespace,omitempty"`
 	// TabSize is how many columns a tab takes in the editor, from 1 to 8.
 	TabSize int `json:"tabSize"`
 	// EditorAgentContext offers selection actions in ordinary files to

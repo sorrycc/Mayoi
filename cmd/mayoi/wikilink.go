@@ -458,14 +458,15 @@ func (a *app) followWikiLink(d *editor) {
 	caret := min(d.sel[1], snap.Len())
 	s, e := snap.LineRange(snap.LineAt(caret))
 	if l, ok := wikiLinkIn(snap.Slice(s, e), caret-s); ok {
-		a.openWikiLink(d.path, l)
+		a.openWikiLink(d, l)
 	}
 }
 
-// openWikiLink opens what a wiki link of the note at path links to: a
+// openWikiLink opens what a wiki link of the note in editor d links to: a
 // heading or block of its own, or another file, at its heading or block.
 // As in Obsidian, a note that is not there yet is made, beside the note.
-func (a *app) openWikiLink(path string, l wikiLink) {
+func (a *app) openWikiLink(d *editor, l wikiLink) {
+	path := d.path
 	if l.target == "" {
 		a.openMarkdownAt(path, l.heading)
 		return
@@ -499,9 +500,9 @@ func (a *app) openWikiLink(path string, l wikiLink) {
 				a.indexed = time.Time{}
 				a.openFile(file, true)
 			case l.heading != "" && isMarkdownPath(file):
-				a.openMarkdownAt(file, l.heading)
+				a.openLinkedMarkdownAt(d, file, l.heading)
 			default:
-				a.openFile(file, true)
+				a.openLinkedFile(d, file)
 			}
 		})
 	})

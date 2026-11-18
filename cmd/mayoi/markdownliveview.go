@@ -1691,7 +1691,7 @@ func (a *app) openLiveLink(d *editor, link [2]int) {
 	}
 	text := snap.Slice(link[0], link[1])
 	if l, size := wikiLinkAt(text); size > 0 {
-		a.openWikiLink(d.path, l)
+		a.openWikiLink(d, l)
 	} else if dest, ok := markdownLinkIn(text, 0); ok {
 		a.openLiveDest(d, dest)
 	} else if p, ok := livePathIn(text, 0); ok {
@@ -1722,7 +1722,7 @@ func (a *app) openLiveDest(d *editor, dest string) {
 				file, line, col = livePathFile(path, u.Path)
 			}
 			if file != "" {
-				a.post(func() { a.openPathAt(file, line, col) })
+				a.post(func() { a.openLinkedPathAt(d, file, line, col) })
 			}
 		})
 	default:
@@ -1730,9 +1730,9 @@ func (a *app) openLiveDest(d *editor, dest string) {
 		switch {
 		case local == "":
 		case err == nil && u.Fragment != "" && isMarkdownPath(local):
-			a.openMarkdownAt(local, u.Fragment)
+			a.openLinkedMarkdownAt(d, local, u.Fragment)
 		default:
-			a.openFile(local, true)
+			a.openLinkedFile(d, local)
 		}
 	}
 }

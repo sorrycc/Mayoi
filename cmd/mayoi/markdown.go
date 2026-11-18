@@ -2253,6 +2253,18 @@ func (a *app) markdownLink(c *ui.Context, m *markdownPreview, path, dest string,
 // does: its preview scrolled to it, or its text with the caret on it.
 func (a *app) openMarkdownAt(path, heading string) {
 	a.openFile(path, true)
+	a.landMarkdownAt(path, heading)
+}
+
+// openLinkedMarkdownAt is openMarkdownAt for a link of the note in
+// editor from, which opens as openLinkedFile does.
+func (a *app) openLinkedMarkdownAt(from *editor, path, heading string) {
+	a.openLinkedFile(from, path)
+	a.landMarkdownAt(path, heading)
+}
+
+// landMarkdownAt takes the note just opened at path to a heading.
+func (a *app) landMarkdownAt(path, heading string) {
 	d := a.activeEditor()
 	if d == nil || d.path != path {
 		return

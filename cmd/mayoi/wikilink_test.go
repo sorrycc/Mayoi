@@ -228,3 +228,56 @@ func TestWikiLinkVault(t *testing.T) {
 		t.Fatalf("fresh: got %q", got)
 	}
 }
+
+// A link to a note open in the clicked note's column switches to its tab
+// there, even with another column focused and showing it too, and adds no
+// tab anywhere.
+func TestWikiLinkOpensTabOfItsColumn(t *testing.T) {
+	hs := newHarness(t, true)
+	a := hs.a
+	noteA, noteB := hs.path("A.md"), hs.path("B.md")
+	if err := os.WriteFile(noteA, []byte("[[B]] [[B#Far]] [B](B.md)\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(noteB, []byte("# B\n\none\n\n## Far\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	a.openFile(noteA, true)
+	left := a.column()
+	a.openFile(noteB, true)
+	right := a.splitColumn(left, true)
+	a.openFileIn(right, 0, noteB, true)
+	hs.settle()
+	edA := left.tabs[left.showingFile(noteA)].ed
+	tabs := len(left.tabs) + len(right.tabs)
+	for _, tc := range []struct {
+		name string
+		open func()
+		line int
+	}{
+		{"wiki link", func() { a.openWikiLink(edA, wikiLink{target: "B"}) }, -1},
+		{"heading", func() { a.openWikiLink(edA, wikiLink{target: "B", heading: "Far"}) }, 4},
+		{"Markdown link", func() { a.openLiveDest(edA, "B.md") }, -1},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			// The click lands in A, in the left column, with the right one
+			// focused.
+			a.activate(left, left.showingFile(noteA), false)
+			a.activate(right, 0, true)
+			tc.open()
+			hs.settle()
+			if a.column() != left || left.tab() == nil || left.tab().path() != noteB {
+				t.Fatalf("active column %d shows %q, want B in the left column", a.col, a.column().tab().path())
+			}
+			if n := len(left.tabs) + len(right.tabs); n != tabs || len(a.cols) != 2 {
+				t.Fatalf("%d tabs in %d columns, want %d in 2", n, len(a.cols), tabs)
+			}
+			if tc.line >= 0 {
+				d := left.tab().ed
+				if got := d.buf.Snapshot().LineAt(d.sel[1]); got != tc.line {
+					t.Fatalf("caret on line %d, want %d", got, tc.line)
+				}
+			}
+		})
+	}
+}

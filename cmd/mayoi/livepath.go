@@ -159,13 +159,14 @@ func (a *app) openLivePath(d *editor, p string) {
 		if file == "" {
 			return
 		}
-		a.post(func() { a.openPathAt(file, line, col) })
+		a.post(func() { a.openLinkedPathAt(d, file, line, col) })
 	})
 }
 
-// openPathAt opens file in a tab, at line and col when line is set.
-func (a *app) openPathAt(file string, line, col int) {
-	a.openFile(file, true)
+// openLinkedPathAt opens file, as openLinkedFile does for a link of the
+// note in editor from, at line and col when line is set.
+func (a *app) openLinkedPathAt(from *editor, file string, line, col int) {
+	a.openLinkedFile(from, file)
 	if d := a.activeEditor(); line > 0 && d != nil && d.path == file {
 		a.goToLine(line, col)
 	}

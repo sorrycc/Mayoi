@@ -237,6 +237,33 @@ func (a *app) openFile(path string, focus bool) {
 	a.openFileIn(col, col.active+1, path, focus)
 }
 
+// openLinkedFile opens a file a link of the note in editor from links to:
+// in the tab of the note's own column that shows it already, else as
+// openFile does. A click on a link need not focus that column first.
+func (a *app) openLinkedFile(from *editor, path string) {
+	if col := a.editorColumn(from); col != nil {
+		if i := col.showingFile(path); i >= 0 {
+			a.keepTab(col.tabs[i])
+			a.activate(col, i, true)
+			return
+		}
+	}
+	a.openFile(path, true)
+}
+
+// editorColumn is the column with a tab of editor d, nil for none.
+func (a *app) editorColumn(d *editor) *column {
+	if d == nil {
+		return nil
+	}
+	for _, col := range a.cols {
+		if slices.ContainsFunc(col.tabs, func(t *colTab) bool { return t.ed == d }) {
+			return col
+		}
+	}
+	return nil
+}
+
 // openFileToSide shows a file in a tab of the column beside the file
 // column, splitting one off on its right when there is none.
 func (a *app) openFileToSide(path string) {

@@ -107,6 +107,12 @@ var (
 	slideAlong = ui.ElementTransition{Duration: motionShow, Position: true}
 )
 
+// crumbIn is how a crumb that comes into the breadcrumbs takes its
+// place, as a heading the reader comes into: it opens its width as it
+// fades in, and slides along as those before it change. One that goes
+// goes at once, as fading out where another comes in would blur both.
+var crumbIn = ui.ElementTransition{Duration: motionShow, Position: true, Enter: &ui.Motion{Collapse: true}}
+
 // dotPop is how a small mark comes and goes, as the dot of a tab's
 // unsaved changes: it grows from half its size and shrinks back.
 var dotPop = ui.ElementTransition{

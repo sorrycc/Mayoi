@@ -45,7 +45,7 @@ func TestHeadingChain(t *testing.T) {
 	name := func(chain []int) []string {
 		var out []string
 		for _, i := range chain {
-			out = append(out, headingLabel(o.heads[i]))
+			out = append(out, o.heads[i].Name)
 		}
 		return out
 	}
@@ -54,11 +54,11 @@ func TestHeadingChain(t *testing.T) {
 		want []string
 	}{
 		{"intro", nil},
-		{"# Title", []string{"# Title"}},
-		{"## 1. Section", []string{"# Title", "## 1. Section"}},
-		{"### Deep\n\ntext", []string{"# Title", "## 1. Section", "### Deep"}},
-		{"## 2. Other", []string{"# Title", "## 2. Other"}},
-		{"# not a heading", []string{"# Title", "## 2. Other"}},
+		{"# Title", []string{"Title"}},
+		{"## 1. Section", []string{"Title", "1. Section"}},
+		{"### Deep\n\ntext", []string{"Title", "1. Section", "Deep"}},
+		{"## 2. Other", []string{"Title", "2. Other"}},
+		{"# not a heading", []string{"Title", "2. Other"}},
 	}
 	for _, c := range cases {
 		line := headingLineOf(headingsDoc, c.at)
@@ -126,10 +126,8 @@ func TestHeadingCrumbs(t *testing.T) {
 	os.WriteFile(hs.path("plain.md"), []byte("just text\n\nmore\n"), 0o644)
 	a.openFile(hs.path("plain.md"), true)
 	hs.settle()
-	for _, s := range tt.Texts() {
-		if strings.HasPrefix(s, "# ") {
-			t.Errorf("a heading crumb in a document without headings: %q", s)
-		}
+	if _, ok := tt.Find(locales.CrumbsHeadingTip("Title")); ok {
+		t.Error("a heading crumb in a document without headings")
 	}
 	if o, chain := a.headingCrumbs(a.activeEditor()); o != nil || chain != nil {
 		t.Errorf("headings of a document without: %v", chain)
@@ -222,5 +220,45 @@ func TestHeadingCrumbsBox(t *testing.T) {
 				t.Errorf("the crumbs do not follow: %v", tt.Texts())
 			}
 		})
+	}
+}
+
+// A long chain of headings shows the outermost and the innermost two, an
+// ellipsis for those between, which opens the box; the innermost is the
+// one in the text's color, and each shows its name without its marks.
+func TestHeadingCrumbsCollapse(t *testing.T) {
+	doc := "# One\n\n## Two\n\n### Three\n\n#### Four\n\n##### Five\n\ntext\n"
+	hs := newHarness(t, false)
+	os.WriteFile(hs.path("deep.md"), []byte(doc), 0o644)
+	hs.a.openFile(hs.path("deep.md"), true)
+	hs.settle()
+	d := hs.a.activeEditor()
+	hs.a.jumpToScope(d, headingLineOf(doc, "text"))
+	hs.settle()
+	tt := hs.tt
+	for _, name := range []string{"One", "Four", "Five"} {
+		if _, ok := tt.Find(locales.CrumbsHeadingTip(name)); !ok {
+			t.Errorf("no crumb for %s: %v", name, tt.Texts())
+		}
+	}
+	for _, name := range []string{"Two", "Three"} {
+		if _, ok := tt.Find(locales.CrumbsHeadingTip(name)); ok {
+			t.Errorf("a crumb for %s, which the ellipsis stands for", name)
+		}
+	}
+	for _, s := range tt.Texts() {
+		if strings.HasPrefix(s, "#") {
+			t.Errorf("a crumb shows a heading's marks: %q", s)
+		}
+	}
+	if err := tt.Click(locales.CrumbsHeadings()); err != nil {
+		t.Fatalf("%v: %v", err, tt.Texts())
+	}
+	hs.settle()
+	if k := &hs.a.crumbs; !k.open || !k.heads || k.at != 2 {
+		t.Fatalf("the ellipsis opened %+v", k.at)
+	}
+	if _, ok := tt.Find("H5"); !ok {
+		t.Errorf("the box does not show the levels: %v", tt.Texts())
 	}
 }

@@ -103,9 +103,8 @@ func placeLine(place float32) int {
 	return int(place + 0.5)
 }
 
-// headingLabel is how the breadcrumbs name a heading: its marks, then its
-// text.
-func headingLabel(h symbols.Symbol) string { return h.Detail + " " + h.Name }
+// headingLevel names a heading's level, as H2, by its marks.
+func headingLevel(h symbols.Symbol) string { return fmt.Sprintf("H%d", len(h.Detail)) }
 
 // readingLine is the line of a document's text the reader is at: the
 // caret's, or in the Reading view, which has none, the line at the top of
@@ -187,7 +186,6 @@ func (a *app) headingsTree(c *ui.Context, d *editor) {
 	quiet.Accent, quiet.AccentText, quiet.SurfaceHover = p.active, p.text, p.hover
 	c.SetTheme(&quiet)
 	clicked := -1
-	icon, iconCol := a.symbolIcon("heading")
 	out := ui.Outline(c.Key("crumbs-headings"), &k.outline, o.roots, func(i int) []int {
 		if i < 0 || i >= len(o.heads) {
 			return nil
@@ -203,11 +201,18 @@ func (a *app) headingsTree(c *ui.Context, d *editor) {
 			clicked = i
 		}
 		row.Children(func() {
-			ui.Icon(c, icon).FontSize(13).TextColor(iconCol)
+			// Its level, quiet, as the tree's nesting shows the rest.
+			ui.Text(c, headingLevel(h)).FontSize(10.5).FontFeatures("tnum").TextColor(p.faint).
+				SingleLine().Width(18).Shrink(0)
 			label := ui.Text(c, h.Name).FontSize(13).SingleLine().Shrink(1).MinWidth(0).TextColor(p.text)
-			if i == here {
-				label.FontWeight(600)
+			if i != here {
+				return
 			}
+			// The heading the reader is in: bolder, with a dot of the
+			// accent at the row's end.
+			label.FontWeight(600)
+			ui.Spacer(c)
+			ui.Box(c.Key("here")).Size(6, 6).Radius(3).Shrink(0).Background(p.accent).Margin(0, 6, 0, 0)
 		})
 	}).Height(crumbsTreeH(c, rows)).Gap(0)
 	out.Bind(&k.view)
@@ -250,35 +255,63 @@ func (a *app) goToHeading(d *editor, line int) {
 	a.queueEdit(d, func(d *editor) { a.jumpToScope(d, line) })
 }
 
+// headingCrumbsShown are the places in a chain of headings the
+// breadcrumbs show, -1 for an ellipsis in the place of those left out: all
+// of a short chain, and of a long one the outermost and the innermost two,
+// so that where the reader is keeps room to read.
+func headingCrumbsShown(n int) []int {
+	if n <= 3 {
+		out := make([]int, n)
+		for i := range out {
+			out[i] = i
+		}
+		return out
+	}
+	return []int{0, -1, n - 2, n - 1}
+}
+
 // headingCrumbsView shows the headings the reader is in, after the file's
-// name, each opening the box of the document's headings.
+// name, each opening the box of the document's headings, the innermost
+// brighter. A heading the reader comes into opens its room as it fades in,
+// one left closes it, and those after slide along.
 func (a *app) headingCrumbsView(c *ui.Context, col *column, t *colTab, o *headingOutline, chain []int) {
 	p := a.pal
 	k := &a.crumbs
-	for n, i := range chain {
-		h := o.heads[i]
-		on := k.open && k.tab == t && k.heads && k.at == n
-		b := ui.ButtonBase(c.Key(fmt.Sprintf("heading-crumb:%d", n))).Height(crumbsH-6).Padding(0, 5).Radius(4).
-			AlignItems(ui.Center).Shrink(1).MinWidth(0).Label(locales.CrumbsHeadingTip(h.Name))
-		if on || b.Hovered() {
-			b.Background(p.hover)
+	for _, n := range headingCrumbsShown(len(chain)) {
+		// The ellipsis stands for the headings left out, and opens the
+		// box below the innermost of them.
+		key, name, label := "heading-more", "…", locales.CrumbsHeadings()
+		at := len(chain) - 3
+		if n >= 0 {
+			h := o.heads[chain[n]]
+			key, name, label, at = fmt.Sprintf("heading:%d", chain[n]), h.Name, locales.CrumbsHeadingTip(h.Name), n
 		}
-		b.Transition(hoverFade)
-		b.Children(func() {
-			fg := p.muted
-			if on || b.Hovered() {
-				fg = p.text
-			}
-			ui.Text(c, headingLabel(h)).FontSize(12).SingleLine().Shrink(1).MinWidth(0).TextColor(fg)
-		})
-		if b.Clicked() {
-			a.openHeadingCrumbs(col, t, n)
-		}
-		if on {
-			a.crumbsBox(c, b)
-		}
-		if n < len(chain)-1 {
+		inner := n == len(chain)-1
+		ui.Row(c.Key(key)).Gap(4).AlignItems(ui.Center).Shrink(1).MinWidth(0).Transition(crumbIn).Children(func() {
 			ui.Icon(c, iconChevronRight).FontSize(11).TextColor(p.faint).Shrink(0)
-		}
+			on := k.open && k.tab == t && k.heads && k.at == at
+			b := ui.ButtonBase(c.Key("crumb")).Height(crumbsH-6).Padding(0, 5).Radius(4).
+				AlignItems(ui.Center).Shrink(1).MinWidth(0).Label(label)
+			if n < 0 {
+				b.Shrink(0)
+			}
+			if on || b.Hovered() {
+				b.Background(p.hover)
+			}
+			b.Transition(hoverFade)
+			b.Children(func() {
+				fg := p.muted
+				if inner || on || b.Hovered() {
+					fg = p.text
+				}
+				ui.Text(c, name).FontSize(12).SingleLine().Shrink(1).MinWidth(0).TextColor(fg)
+			})
+			if b.Clicked() {
+				a.openHeadingCrumbs(col, t, at)
+			}
+			if on {
+				a.crumbsBox(c, b)
+			}
+		})
 	}
 }

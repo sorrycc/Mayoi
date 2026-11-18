@@ -979,7 +979,7 @@ func (a *app) breadcrumbs(c *ui.Context, col *column, t *colTab) {
 					t.TextColor(p.text).Shrink(1).MinWidth(24)
 				}
 			}
-			if !last || len(scope) > 0 || len(chain) > 0 {
+			if !last || len(scope) > 0 {
 				ui.Icon(c, iconChevronRight).FontSize(11).TextColor(p.faint)
 			}
 		}

@@ -309,7 +309,7 @@ func isMarkdownPath(path string) bool {
 }
 
 func canPreview(d *document) bool {
-	if isSVG(d) || isMarkdown(d) || isMermaid(d) {
+	if isSVG(d) || isMarkdown(d) || isMermaid(d) || isJSONL(d) {
 		return true
 	}
 	p, _ := previewOf(d)

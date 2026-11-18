@@ -1,0 +1,194 @@
+package main
+
+import (
+	"os"
+	"strings"
+	"testing"
+
+	"github.com/egoist/mygo/ui"
+)
+
+const testJSONL = `{"id":1,"name":"ann","age":31,"user":{"plan":"pro"}}
+{"id":2,"name":"bob","age":27,"user":{"plan":"free"}}
+
+{"id":3,"name":"cat","age":45,"user":{"plan":"team"}}
+{oops
+`
+
+// openJSONL opens a file of JSON Lines of text as a table, read, and
+// returns its editor.
+func openJSONL(t *testing.T, hs *harness, name, text string) *editor {
+	t.Helper()
+	os.WriteFile(hs.path(name), []byte(text), 0o644)
+	hs.a.openFile(hs.path(name), true)
+	hs.settle()
+	d := hs.a.activeEditor()
+	if d == nil || d.preview == nil || d.preview.jsonl == nil {
+		t.Fatalf("%s did not open as a table", name)
+	}
+	hs.until("the rows", func() bool { j := d.preview.jsonl; return j.ix != nil && !j.ix.partial && !j.reading })
+	return d
+}
+
+func TestJSONLOpensAsTable(t *testing.T) {
+	hs := newHarness(t, true)
+	a, tt := hs.a, hs.tt
+	d := openJSONL(t, hs, "people.jsonl", testJSONL)
+	j := d.preview.jsonl
+	for _, want := range []string{"4 rows", "name", "ann", "cat", "{1}", "1 line isn't JSON", "Row Details"} {
+		if !tt.HasText(want) {
+			t.Errorf("no %q in %q", want, tt.Texts())
+		}
+	}
+	if j.count() != 4 || j.ix.lines[2] != 3 {
+		t.Fatalf("%d rows, the third on line %d", j.count(), j.ix.lines[2])
+	}
+	// The first row is chosen, and its details show it whole; the keys
+	// move the choice.
+	if j.row != 0 || !tt.HasText("Line 1") {
+		t.Errorf("row %d chosen, texts %q", j.row, tt.Texts())
+	}
+	tt.Key(0, ui.KeyDown)
+	hs.settle()
+	if j.row != 1 || !tt.HasText("Line 2") {
+		t.Errorf("Down chose row %d, texts %q", j.row, tt.Texts())
+	}
+	tt.Key(0, ui.KeySpace)
+	hs.settle()
+	if j.details || tt.HasText("Line 2") {
+		t.Error("Space left the details")
+	}
+	tt.Key(0, ui.KeySpace)
+	hs.settle()
+
+	// The filter keeps the rows that hold its query.
+	a.run("edit.find")
+	hs.settle()
+	tt.Type("BOB")
+	hs.until("the filter", func() bool { return j.shown.query == "BOB" })
+	if j.count() != 1 || j.ix.line(int(j.rowAt(0)))[:7] != `{"id":2` || !tt.HasText("1 of 4 rows") {
+		t.Fatalf("filtered to %d rows, texts %q", j.count(), tt.Texts())
+	}
+	tt.Key(0, ui.KeyEscape)
+	hs.until("no filter", func() bool { return j.shown.query == "" })
+
+	// Sorting by a column of numbers sorts them as numbers, the line that
+	// is not JSON last.
+	j.sort = ui.SortOrder{Column: pathID([]jsonlStep{{key: "age"}}), Descending: true}
+	hs.until("the sort", func() bool { return j.shown.sort != "" && !j.reading })
+	var ids []string
+	for i := range j.count() {
+		line := j.ix.line(int(j.rowAt(i)))
+		ids = append(ids, line[:min(len(line), 7)])
+	}
+	if strings.Join(ids, " ") != `{"id":3 {"id":1 {"id":2 {oops` {
+		t.Errorf("sorted %v", ids)
+	}
+
+	// The chosen row's line is where the source opens.
+	j.row = 0
+	a.run("view.togglePreview")
+	hs.settle()
+	if d.preview != nil {
+		t.Fatal("the table stays")
+	}
+	if line := d.buf.Snapshot().LineAt(d.sel[1]); line != 3 {
+		t.Errorf("the source opens at line %d, want 3", line)
+	}
+	// And the table comes back at the caret's row.
+	a.run("view.togglePreview")
+	hs.until("the table again", func() bool { j := d.preview.jsonl; return j != nil && j.ix != nil && !j.reading })
+	if j := d.preview.jsonl; j.rowAt(j.row) != 2 {
+		t.Errorf("the table opens at row %d, want 2", j.rowAt(j.row))
+	}
+}
+
+func TestJSONLInvalidLines(t *testing.T) {
+	hs := newHarness(t, true)
+	tt := hs.tt
+	d := openJSONL(t, hs, "bad.ndjson", testJSONL)
+	if err := tt.Click("1 line isn't JSON"); err != nil {
+		t.Fatal(err)
+	}
+	hs.settle()
+	j := d.preview.jsonl
+	if j.rowAt(j.row) != 3 || !tt.HasText("Line 5") {
+		t.Fatalf("row %d chosen, texts %q", j.row, tt.Texts())
+	}
+	found := false
+	for _, s := range tt.Texts() {
+		found = found || strings.HasPrefix(s, "Not JSON:")
+	}
+	if !found {
+		t.Errorf("the details do not say why: %q", tt.Texts())
+	}
+}
+
+func TestJSONLExpandsColumns(t *testing.T) {
+	hs := newHarness(t, true)
+	tt := hs.tt
+	d := openJSONL(t, hs, "nested.jsonl", testJSONL)
+	j := d.preview.jsonl
+	a := hs.a
+	a.expandJSONL(d.preview, j.column(pathID([]jsonlStep{{key: "user"}})))
+	hs.until("the members", func() bool { return j.column(pathID([]jsonlStep{{key: "user"}, {key: "plan"}})) != nil })
+	hs.settle()
+	if !tt.HasText("user.plan") || !tt.HasText("team") || tt.HasText("{1}") {
+		t.Errorf("expanded: %q", tt.Texts())
+	}
+	j.collapse(j.column(pathID([]jsonlStep{{key: "user"}})))
+	hs.settle()
+	if tt.HasText("user.plan") || !tt.HasText("{1}") {
+		t.Errorf("collapsed: %q", tt.Texts())
+	}
+}
+
+func TestJSONLCopies(t *testing.T) {
+	hs := newHarness(t, true)
+	tt := hs.tt
+	d := openJSONL(t, hs, "copy.jsonl", testJSONL)
+	j := d.preview.jsonl
+	j.list.Cells.Cursor = pathID([]jsonlStep{{key: "name"}})
+	hs.a.jsonlInput(d.preview, ui.InputEvent{Kind: ui.InputCommand, Text: "copy"})
+	if got := tt.Clipboard(); got != "ann" {
+		t.Errorf("copied %q, want the cell's ann", got)
+	}
+	j.list.Cells.Cursor = "#"
+	hs.a.jsonlInput(d.preview, ui.InputEvent{Kind: ui.InputCommand, Text: "copy"})
+	if got := tt.Clipboard(); !strings.HasPrefix(got, `{"id":1`) {
+		t.Errorf("copied %q, want the line", got)
+	}
+}
+
+func TestJSONLOpensAsSource(t *testing.T) {
+	hs := newHarness(t, true)
+	hs.a.settings.JSONLMode = "source"
+	os.WriteFile(hs.path("src.jsonl"), []byte(testJSONL), 0o644)
+	hs.a.openFile(hs.path("src.jsonl"), true)
+	hs.settle()
+	d := hs.a.activeEditor()
+	if d.preview != nil || !hs.tt.HasText("Table (⇧⌘V)") {
+		t.Fatalf("opened as a table, or without its mode: %q", hs.tt.Texts())
+	}
+	if err := hs.tt.Click("Table (⇧⌘V)"); err != nil {
+		t.Fatal(err)
+	}
+	hs.settle()
+	if d.preview == nil || d.preview.jsonl == nil {
+		t.Fatal("the mode did not show the table")
+	}
+}
+
+// A file larger than the first frame reads shows its head at once and
+// its rows from the background.
+func TestJSONLReadsLargeFiles(t *testing.T) {
+	hs := newHarness(t, true)
+	text := jsonlText(20_000)
+	d := openJSONL(t, hs, "big.jsonl", text)
+	if n := d.preview.jsonl.ix.rows(); n != 20_000 {
+		t.Fatalf("%d rows", n)
+	}
+	if !hs.tt.HasText("20,000 rows") {
+		t.Errorf("texts %q", hs.tt.Texts())
+	}
+}

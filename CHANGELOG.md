@@ -18,6 +18,14 @@ needs a `## <version>` section here, or its build fails.
 - Right-click a tab and choose **Pin Tab** to keep it at the left of the tab bar, marked with a pin.
 - **Close Others** and **Close All** leave pinned tabs open; **Unpin Tab** in the same menu releases one.
 - SVG previews show the text in the picture, Chinese labels included, in its fonts, sizes and colors.
+- `.jsonl` and `.ndjson` files open as a table, a row per line and a column per key; `⇧⌘V` shows the source.
+- **View → Open JSON Lines As** chooses whether JSON Lines files open as their table or their source.
+- The table shows the chosen row whole below it, indented and colored; `Space` hides or shows it.
+- Type in **Filter rows**, or press `⌘F`, to keep only the rows that hold the text, across the whole file.
+- Click a column's header to sort by it: numbers by value, text as people read it, versions included.
+- Right-click a header to hide, show or sort a column, or expand an object or array into its own columns.
+- Lines that aren't JSON stay in the table in red; the status bar counts them and a click goes to the next.
+- `Enter` or a double-click on a row shows that line in the source; `⌘C` copies the cell or the whole line.
 
 ## 0.22.4
 

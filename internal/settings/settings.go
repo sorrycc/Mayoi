@@ -147,6 +147,9 @@ type Prefs struct {
 	// its source, "live" as Live Preview, its source styled as it reads,
 	// or "reading" rendered.
 	MarkdownMode string `json:"markdownMode,omitempty"`
+	// JSONLMode is how a file of JSON Lines, .jsonl or .ndjson, opens: ""
+	// as a table of its rows, or "source".
+	JSONLMode string `json:"jsonlMode,omitempty"`
 	// DiffLayout is how diffs show: "split" side by side, "inline" in
 	// one column, or "" side by side when they are wide enough to.
 	DiffLayout string `json:"diffLayout,omitempty"`
@@ -650,6 +653,9 @@ func (p *Prefs) normalize() {
 	}
 	if p.MarkdownMode != "live" && p.MarkdownMode != "reading" {
 		p.MarkdownMode = ""
+	}
+	if p.JSONLMode != "source" {
+		p.JSONLMode = ""
 	}
 	// The themes were appearances once.
 	if p.Appearance == "matrix" || p.Appearance == "claude" {

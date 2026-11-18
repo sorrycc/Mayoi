@@ -225,6 +225,8 @@ func (a *app) commandsIn(t locales.Messages) []command {
 		{"view.markdownOpen.source", t.CmdViewMarkdownOpenSource(), "", func() { a.setMarkdownOpen("") }},
 		{"view.markdownOpen.live", t.CmdViewMarkdownOpenLive(), "", func() { a.setMarkdownOpen("live") }},
 		{"view.markdownOpen.reading", t.CmdViewMarkdownOpenReading(), "", func() { a.setMarkdownOpen("reading") }},
+		{"view.jsonlOpen.table", t.CmdViewJsonlOpenTable(), "", func() { a.setJSONLOpen("") }},
+		{"view.jsonlOpen.source", t.CmdViewJsonlOpenSource(), "", func() { a.setJSONLOpen("source") }},
 		// The whole window, independent of the focused pane.
 		{"view.zoomIn", t.CmdViewZoomIn(), "CmdOrCtrl+=", func() { a.zoom(1) }},
 		{"view.zoomOut", t.CmdViewZoomOut(), "CmdOrCtrl+-", func() { a.zoom(-1) }},
@@ -691,6 +693,10 @@ func (a *app) menu(cli bool, run func(id string, win *mygo.Window)) *mygo.Menu {
 				radio("view.markdownOpen.source", a.prefs().MarkdownMode == ""),
 				radio("view.markdownOpen.live", a.prefs().MarkdownMode == "live"),
 				radio("view.markdownOpen.reading", a.prefs().MarkdownMode == "reading"),
+			}},
+			{Label: locales.MenuOpenJsonlAs(), Submenu: []*mygo.MenuItem{
+				radio("view.jsonlOpen.table", a.prefs().JSONLMode == ""),
+				radio("view.jsonlOpen.source", a.prefs().JSONLMode == "source"),
 			}}, mygo.Separator(),
 			checkbox("view.vim", a.prefs().Vim), checkbox("view.projectTabs", a.settings.ProjectTabs), mygo.Separator(),
 			item("view.splitRight"), item("view.nextColumn"), item("view.prevColumn"),

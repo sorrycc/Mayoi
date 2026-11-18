@@ -1016,6 +1016,8 @@ func (a *app) breadcrumbs(c *ui.Context, col *column, t *colTab) {
 			switch {
 			case isMarkdown(d.document):
 				a.markdownModeButtons(c, t, d)
+			case isJSONL(d.document):
+				a.jsonlModeButtons(c, t, d)
 			case canPreview(d.document):
 				a.previewButton(c, t, d)
 			}

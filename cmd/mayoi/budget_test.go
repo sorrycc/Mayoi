@@ -117,6 +117,49 @@ func TestBudgets(t *testing.T) {
 			hs.place(d, 5000, 5000)
 			return func() { hs.tt.Type("a"); step(hs.tt) }
 		}},
+		// The Table view of JSON Lines builds the rows in view only, its
+		// cells read from their lines as they show.
+		{"JSON Lines table scroll frame", 5 * time.Millisecond, false, func(t *testing.T, hs *harness) func() {
+			bigJSONL(t, hs)
+			i := 0
+			return func() {
+				dy := float32(60)
+				if i/30%2 == 1 {
+					dy = -60
+				}
+				i++
+				hs.tt.Scroll(700, 300, 0, dy)
+				step(hs.tt)
+			}
+		}},
+		{"JSON Lines table cursor frame", 4 * time.Millisecond, false, func(t *testing.T, hs *harness) func() {
+			bigJSONL(t, hs)
+			i := 0
+			return func() {
+				key := ui.KeyDown
+				if i/30%2 == 1 {
+					key = ui.KeyUp
+				}
+				i++
+				hs.tt.Key(0, key)
+				step(hs.tt)
+			}
+		}},
+		{"JSON Lines filter typing frame", 6 * time.Millisecond, false, func(t *testing.T, hs *harness) func() {
+			bigJSONL(t, hs)
+			hs.a.run("edit.find")
+			hs.settle()
+			i := 0
+			return func() {
+				if i%2 == 0 {
+					hs.tt.Type("9")
+				} else {
+					hs.tt.Key(0, ui.KeyBackspace)
+				}
+				i++
+				step(hs.tt)
+			}
+		}},
 		// Live Preview styles the lines about the view each frame, from a
 		// parse that follows each edit until the next arrives.
 		{"Live Preview type frame", 5 * time.Millisecond, false, func(t *testing.T, hs *harness) func() {
@@ -338,6 +381,12 @@ func bigDoc(hs *harness) *editor {
 	d.vscroll.Y = 4000
 	hs.settle()
 	return d
+}
+
+// bigJSONL opens a file of 100,000 lines of JSON Lines as its table,
+// once read, and returns its editor.
+func bigJSONL(t *testing.T, hs *harness) *editor {
+	return openJSONL(t, hs, "big.jsonl", jsonlText(100_000))
 }
 
 // bigNote opens a Markdown note of some 6,000 lines as Live Preview,

@@ -77,6 +77,11 @@ func (a *app) openFind(replace bool) {
 		f.input.SelectAll()
 		return
 	}
+	if d := a.activeEditor(); d != nil && d.preview != nil && d.preview.jsonl != nil {
+		// A table finds the rows that hold the query.
+		d.preview.jsonl.input.SelectAll()
+		return
+	}
 	if v := a.activeMarkdown(); v != nil && !replace {
 		// A preview finds in its rendered text, which it cannot replace.
 		a.findPreview = v.markdown

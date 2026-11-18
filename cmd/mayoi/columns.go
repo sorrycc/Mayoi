@@ -365,6 +365,9 @@ func (a *app) openFileIn(col *column, at int, path string, focus bool) {
 			a.setPreview(t.ed, true)
 		}
 	}
+	if isJSONL(t.ed.document) && a.prefs().JSONLMode == "" && !a.openingText {
+		a.setPreview(t.ed, true)
+	}
 }
 
 // showingFile returns the place of the tab of the column that shows the

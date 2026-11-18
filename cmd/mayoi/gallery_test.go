@@ -63,6 +63,27 @@ var galleryStates = []struct {
 		hs.a.openHeadingCrumbs(hs.a.column(), hs.a.activeTab(), 2)
 		hs.a.crumbs.query = "othr"
 	}},
+	{"jsonl-table", func(hs *harness) {
+		os.WriteFile(hs.path("rows.jsonl"), []byte(testJSONL), 0o644)
+		hs.a.openFile(hs.path("rows.jsonl"), true)
+	}},
+	{"jsonl-empty", func(hs *harness) {
+		os.WriteFile(hs.path("empty.jsonl"), []byte("\n"), 0o644)
+		hs.a.openFile(hs.path("empty.jsonl"), true)
+	}},
+	{"jsonl-no-match", func(hs *harness) {
+		os.WriteFile(hs.path("rows.jsonl"), []byte(testJSONL), 0o644)
+		hs.a.openFile(hs.path("rows.jsonl"), true)
+		hs.settle()
+		hs.a.activeEditor().preview.jsonl.query = "zzzz"
+	}},
+	{"jsonl-reading", func(hs *harness) {
+		os.WriteFile(hs.path("big.jsonl"), []byte(jsonlText(20_000)), 0o644)
+		hs.a.openFile(hs.path("big.jsonl"), true)
+		hs.settle()
+		j := hs.a.activeEditor().preview.jsonl
+		j.ix.partial = true
+	}},
 	{"palette", func(hs *harness) { hs.a.run("go.commands") }},
 	{"no-match", func(hs *harness) { hs.a.openQuick("zzzz-nothing") }},
 	{"path-pending", func(hs *harness) {

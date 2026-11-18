@@ -62,7 +62,8 @@ The order: it works, then it is easy, then it looks good. Polish never covers a 
 
 - `TestBudgets` (`cmd/mayoi/budget_test.go`) holds the cost of a frame to a budget: idle, scrolling, typing, typing
   with find open, Quick Open, the palette, 2,000 sessions scrolled, hovered and filtered, the GitHub view's 500 issues
-  and pull requests scrolled, hovered and filtered, and a terminal printing as fast as it can. CI runs it on macOS.
+  and pull requests scrolled, hovered and filtered, the Table view of 100,000 lines of JSON Lines scrolled, moved
+  through and filtered, and a terminal printing as fast as it can. CI runs it on macOS.
   A change that needs more raises a budget in the same commit and says why.
 - The figures on the website and in `docs/ARCHITECTURE.md` come from these tests.
 

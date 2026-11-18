@@ -85,6 +85,7 @@ takes its default.
 | `autoSave`              | `true`        | `true`, `false`                                             | **File → Auto Save**                           |
 | `wordWrap`              | `false`       | `true`, `false`                                             | **View → Word Wrap**                           |
 | `tabSize`               | `4`           | `1` to `8`                                                  |                                                |
+| `jsonlMode`             | `""`          | `""` (table), `"source"`                                    | **View → Open JSON Lines As**                  |
 | `editorAgentContext`    | `false`       | `true`, `false`                                             | Only this file                                 |
 | `previewMermaid`        | `true`        | `true`, `false`                                             | Only this file                                 |
 | `previewMath`           | `true`        | `true`, `false`                                             | Only this file                                 |
@@ -210,6 +211,9 @@ differ in width lines them up only roughly.
   setting changes.
 - **`tabSize`** is how many columns a tab takes in the editor, the same on every system. It doesn't change
   what a key inserts: a file indented with spaces keeps its own indent size.
+- **`jsonlMode`** is how JSON Lines files, .jsonl and .ndjson, open: as a table, a row per line and a column per
+  key, with the chosen row whole below it, or as their source. The buttons at the right of a tab's path and **⇧⌘V**
+  switch a tab between them. The table reads the text as it is, edits made in the source included.
 - **`editorAgentContext`** shows a **+** beside the line under the pointer in ordinary files. Click it
   to comment on that line or the selected lines in an inline review card; an empty comment collects the
   code alone. Collect snippets across files and send them together from the editor toolbar. It is off
@@ -354,7 +358,7 @@ window. **File → Open Folder Settings (JSON)** opens the file, and creates it 
 window, choose the folder in the menu at the top right: it lists only the preferences a folder can set, and the arrow
 beside one returns it to your setting.
 
-A folder can set these: `autoSave`, `wordWrap`, `markdownMode`, `previewMermaid`, `previewMath`,
+A folder can set these: `autoSave`, `wordWrap`, `jsonlMode`, `markdownMode`, `previewMermaid`, `previewMath`,
 `terminalCopyOnSelect`, `diffHighlight`, `diffWhitespace`, `diffContext`, `diffCrossFiles`, `mergeAutoApply`,
 `blame`, `aiModel`, `vim`, `vimCtrlKeys`, `formatOnSave` and `formatters`.
 

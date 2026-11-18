@@ -3578,6 +3578,346 @@ func (msgs Messages) MarkdownModes() string {
 	return Catalog.Format(msgs.locale, "markdownModes", nil)
 }
 
+// JsonlModeTable says "Table"
+// in the language the app shows.
+func JsonlModeTable() string { return In(i18n.Locale()).JsonlModeTable() }
+
+// JsonlModeTable says "Table"
+// in the language of msgs.
+func (msgs Messages) JsonlModeTable() string {
+	return Catalog.Format(msgs.locale, "jsonlModeTable", nil)
+}
+
+// JsonlModes says "JSON Lines view"
+// in the language the app shows.
+func JsonlModes() string { return In(i18n.Locale()).JsonlModes() }
+
+// JsonlModes says "JSON Lines view"
+// in the language of msgs.
+func (msgs Messages) JsonlModes() string {
+	return Catalog.Format(msgs.locale, "jsonlModes", nil)
+}
+
+// JsonlFilter says "Filter rows"
+// in the language the app shows.
+func JsonlFilter() string { return In(i18n.Locale()).JsonlFilter() }
+
+// JsonlFilter says "Filter rows"
+// in the language of msgs.
+func (msgs Messages) JsonlFilter() string {
+	return Catalog.Format(msgs.locale, "jsonlFilter", nil)
+}
+
+// JsonlRows says "{count, plural, one {# row} other {# rows}}"
+// in the language the app shows.
+func JsonlRows(count int) string { return In(i18n.Locale()).JsonlRows(count) }
+
+// JsonlRows says "{count, plural, one {# row} other {# rows}}"
+// in the language of msgs.
+func (msgs Messages) JsonlRows(count int) string {
+	return Catalog.Format(msgs.locale, "jsonlRows", map[string]any{"count": count})
+}
+
+// JsonlRowsOf says "{shown, plural, one {#} other {#}} of {count, plural, one {# row} other {# rows}}"
+// in the language the app shows.
+func JsonlRowsOf(shown int, count int) string { return In(i18n.Locale()).JsonlRowsOf(shown, count) }
+
+// JsonlRowsOf says "{shown, plural, one {#} other {#}} of {count, plural, one {# row} other {# rows}}"
+// in the language of msgs.
+func (msgs Messages) JsonlRowsOf(shown int, count int) string {
+	return Catalog.Format(msgs.locale, "jsonlRowsOf", map[string]any{"shown": shown, "count": count})
+}
+
+// JsonlReading says "Reading lines…"
+// in the language the app shows.
+func JsonlReading() string { return In(i18n.Locale()).JsonlReading() }
+
+// JsonlReading says "Reading lines…"
+// in the language of msgs.
+func (msgs Messages) JsonlReading() string {
+	return Catalog.Format(msgs.locale, "jsonlReading", nil)
+}
+
+// JsonlEmpty says "No rows"
+// in the language the app shows.
+func JsonlEmpty() string { return In(i18n.Locale()).JsonlEmpty() }
+
+// JsonlEmpty says "No rows"
+// in the language of msgs.
+func (msgs Messages) JsonlEmpty() string {
+	return Catalog.Format(msgs.locale, "jsonlEmpty", nil)
+}
+
+// JsonlNoMatch says "No rows hold “{query}”"
+// in the language the app shows.
+func JsonlNoMatch(query string) string { return In(i18n.Locale()).JsonlNoMatch(query) }
+
+// JsonlNoMatch says "No rows hold “{query}”"
+// in the language of msgs.
+func (msgs Messages) JsonlNoMatch(query string) string {
+	return Catalog.Format(msgs.locale, "jsonlNoMatch", map[string]any{"query": query})
+}
+
+// JsonlHiddenColumns says "{count, plural, one {# hidden column} other {# hidden columns}}"
+// in the language the app shows.
+func JsonlHiddenColumns(count int) string { return In(i18n.Locale()).JsonlHiddenColumns(count) }
+
+// JsonlHiddenColumns says "{count, plural, one {# hidden column} other {# hidden columns}}"
+// in the language of msgs.
+func (msgs Messages) JsonlHiddenColumns(count int) string {
+	return Catalog.Format(msgs.locale, "jsonlHiddenColumns", map[string]any{"count": count})
+}
+
+// JsonlShowColumn says "Show Column"
+// in the language the app shows.
+func JsonlShowColumn() string { return In(i18n.Locale()).JsonlShowColumn() }
+
+// JsonlShowColumn says "Show Column"
+// in the language of msgs.
+func (msgs Messages) JsonlShowColumn() string {
+	return Catalog.Format(msgs.locale, "jsonlShowColumn", nil)
+}
+
+// JsonlShowAll says "Show All Columns"
+// in the language the app shows.
+func JsonlShowAll() string { return In(i18n.Locale()).JsonlShowAll() }
+
+// JsonlShowAll says "Show All Columns"
+// in the language of msgs.
+func (msgs Messages) JsonlShowAll() string {
+	return Catalog.Format(msgs.locale, "jsonlShowAll", nil)
+}
+
+// JsonlHide says "Hide Column"
+// in the language the app shows.
+func JsonlHide() string { return In(i18n.Locale()).JsonlHide() }
+
+// JsonlHide says "Hide Column"
+// in the language of msgs.
+func (msgs Messages) JsonlHide() string {
+	return Catalog.Format(msgs.locale, "jsonlHide", nil)
+}
+
+// JsonlSortAscending says "Sort Ascending"
+// in the language the app shows.
+func JsonlSortAscending() string { return In(i18n.Locale()).JsonlSortAscending() }
+
+// JsonlSortAscending says "Sort Ascending"
+// in the language of msgs.
+func (msgs Messages) JsonlSortAscending() string {
+	return Catalog.Format(msgs.locale, "jsonlSortAscending", nil)
+}
+
+// JsonlSortDescending says "Sort Descending"
+// in the language the app shows.
+func JsonlSortDescending() string { return In(i18n.Locale()).JsonlSortDescending() }
+
+// JsonlSortDescending says "Sort Descending"
+// in the language of msgs.
+func (msgs Messages) JsonlSortDescending() string {
+	return Catalog.Format(msgs.locale, "jsonlSortDescending", nil)
+}
+
+// JsonlSortNone says "Keep File Order"
+// in the language the app shows.
+func JsonlSortNone() string { return In(i18n.Locale()).JsonlSortNone() }
+
+// JsonlSortNone says "Keep File Order"
+// in the language of msgs.
+func (msgs Messages) JsonlSortNone() string {
+	return Catalog.Format(msgs.locale, "jsonlSortNone", nil)
+}
+
+// JsonlExpand says "Expand into Columns"
+// in the language the app shows.
+func JsonlExpand() string { return In(i18n.Locale()).JsonlExpand() }
+
+// JsonlExpand says "Expand into Columns"
+// in the language of msgs.
+func (msgs Messages) JsonlExpand() string {
+	return Catalog.Format(msgs.locale, "jsonlExpand", nil)
+}
+
+// JsonlCollapse says "Collapse into {name}"
+// in the language the app shows.
+func JsonlCollapse(name string) string { return In(i18n.Locale()).JsonlCollapse(name) }
+
+// JsonlCollapse says "Collapse into {name}"
+// in the language of msgs.
+func (msgs Messages) JsonlCollapse(name string) string {
+	return Catalog.Format(msgs.locale, "jsonlCollapse", map[string]any{"name": name})
+}
+
+// JsonlDetails says "Row Details"
+// in the language the app shows.
+func JsonlDetails() string { return In(i18n.Locale()).JsonlDetails() }
+
+// JsonlDetails says "Row Details"
+// in the language of msgs.
+func (msgs Messages) JsonlDetails() string {
+	return Catalog.Format(msgs.locale, "jsonlDetails", nil)
+}
+
+// JsonlNoRow says "No row chosen"
+// in the language the app shows.
+func JsonlNoRow() string { return In(i18n.Locale()).JsonlNoRow() }
+
+// JsonlNoRow says "No row chosen"
+// in the language of msgs.
+func (msgs Messages) JsonlNoRow() string {
+	return Catalog.Format(msgs.locale, "jsonlNoRow", nil)
+}
+
+// JsonlLine says "Line {line, plural, one {#} other {#}}"
+// in the language the app shows.
+func JsonlLine(line int) string { return In(i18n.Locale()).JsonlLine(line) }
+
+// JsonlLine says "Line {line, plural, one {#} other {#}}"
+// in the language of msgs.
+func (msgs Messages) JsonlLine(line int) string {
+	return Catalog.Format(msgs.locale, "jsonlLine", map[string]any{"line": line})
+}
+
+// JsonlNotJSON says "Not JSON: {why}"
+// in the language the app shows.
+func JsonlNotJSON(why string) string { return In(i18n.Locale()).JsonlNotJSON(why) }
+
+// JsonlNotJSON says "Not JSON: {why}"
+// in the language of msgs.
+func (msgs Messages) JsonlNotJSON(why string) string {
+	return Catalog.Format(msgs.locale, "jsonlNotJSON", map[string]any{"why": why})
+}
+
+// JsonlCopyValue says "Copy Value"
+// in the language the app shows.
+func JsonlCopyValue() string { return In(i18n.Locale()).JsonlCopyValue() }
+
+// JsonlCopyValue says "Copy Value"
+// in the language of msgs.
+func (msgs Messages) JsonlCopyValue() string {
+	return Catalog.Format(msgs.locale, "jsonlCopyValue", nil)
+}
+
+// JsonlCopyLine says "Copy Line"
+// in the language the app shows.
+func JsonlCopyLine() string { return In(i18n.Locale()).JsonlCopyLine() }
+
+// JsonlCopyLine says "Copy Line"
+// in the language of msgs.
+func (msgs Messages) JsonlCopyLine() string {
+	return Catalog.Format(msgs.locale, "jsonlCopyLine", nil)
+}
+
+// JsonlShowInSource says "Show in Source"
+// in the language the app shows.
+func JsonlShowInSource() string { return In(i18n.Locale()).JsonlShowInSource() }
+
+// JsonlShowInSource says "Show in Source"
+// in the language of msgs.
+func (msgs Messages) JsonlShowInSource() string {
+	return Catalog.Format(msgs.locale, "jsonlShowInSource", nil)
+}
+
+// JsonlInvalid says "{count, plural, one {# line isn't JSON} other {# lines aren't JSON}}"
+// in the language the app shows.
+func JsonlInvalid(count int) string { return In(i18n.Locale()).JsonlInvalid(count) }
+
+// JsonlInvalid says "{count, plural, one {# line isn't JSON} other {# lines aren't JSON}}"
+// in the language of msgs.
+func (msgs Messages) JsonlInvalid(count int) string {
+	return Catalog.Format(msgs.locale, "jsonlInvalid", map[string]any{"count": count})
+}
+
+// JsonlNextInvalid says "Go to the next line that isn't JSON"
+// in the language the app shows.
+func JsonlNextInvalid() string { return In(i18n.Locale()).JsonlNextInvalid() }
+
+// JsonlNextInvalid says "Go to the next line that isn't JSON"
+// in the language of msgs.
+func (msgs Messages) JsonlNextInvalid() string {
+	return Catalog.Format(msgs.locale, "jsonlNextInvalid", nil)
+}
+
+// JsonlColumns says "{count, plural, one {# column} other {# columns}}"
+// in the language the app shows.
+func JsonlColumns(count int) string { return In(i18n.Locale()).JsonlColumns(count) }
+
+// JsonlColumns says "{count, plural, one {# column} other {# columns}}"
+// in the language of msgs.
+func (msgs Messages) JsonlColumns(count int) string {
+	return Catalog.Format(msgs.locale, "jsonlColumns", map[string]any{"count": count})
+}
+
+// CmdViewJsonlOpenTable says "Table"
+// in the language the app shows.
+func CmdViewJsonlOpenTable() string { return In(i18n.Locale()).CmdViewJsonlOpenTable() }
+
+// CmdViewJsonlOpenTable says "Table"
+// in the language of msgs.
+func (msgs Messages) CmdViewJsonlOpenTable() string {
+	return Catalog.Format(msgs.locale, "cmdViewJsonlOpenTable", nil)
+}
+
+// CmdViewJsonlOpenSource says "Source"
+// in the language the app shows.
+func CmdViewJsonlOpenSource() string { return In(i18n.Locale()).CmdViewJsonlOpenSource() }
+
+// CmdViewJsonlOpenSource says "Source"
+// in the language of msgs.
+func (msgs Messages) CmdViewJsonlOpenSource() string {
+	return Catalog.Format(msgs.locale, "cmdViewJsonlOpenSource", nil)
+}
+
+// MenuOpenJsonlAs says "Open JSON Lines As"
+// in the language the app shows.
+func MenuOpenJsonlAs() string { return In(i18n.Locale()).MenuOpenJsonlAs() }
+
+// MenuOpenJsonlAs says "Open JSON Lines As"
+// in the language of msgs.
+func (msgs Messages) MenuOpenJsonlAs() string {
+	return Catalog.Format(msgs.locale, "menuOpenJsonlAs", nil)
+}
+
+// PrefTitleJsonlMode says "Open JSON Lines As"
+// in the language the app shows.
+func PrefTitleJsonlMode() string { return In(i18n.Locale()).PrefTitleJsonlMode() }
+
+// PrefTitleJsonlMode says "Open JSON Lines As"
+// in the language of msgs.
+func (msgs Messages) PrefTitleJsonlMode() string {
+	return Catalog.Format(msgs.locale, "prefTitleJsonlMode", nil)
+}
+
+// PrefDescJsonlMode says "Opens .jsonl and .ndjson files as a table of their rows, or as their source."
+// in the language the app shows.
+func PrefDescJsonlMode() string { return In(i18n.Locale()).PrefDescJsonlMode() }
+
+// PrefDescJsonlMode says "Opens .jsonl and .ndjson files as a table of their rows, or as their source."
+// in the language of msgs.
+func (msgs Messages) PrefDescJsonlMode() string {
+	return Catalog.Format(msgs.locale, "prefDescJsonlMode", nil)
+}
+
+// PrefOptJsonlModeSource says "Source"
+// in the language the app shows.
+func PrefOptJsonlModeSource() string { return In(i18n.Locale()).PrefOptJsonlModeSource() }
+
+// PrefOptJsonlModeSource says "Source"
+// in the language of msgs.
+func (msgs Messages) PrefOptJsonlModeSource() string {
+	return Catalog.Format(msgs.locale, "prefOptJsonlModeSource", nil)
+}
+
+// PrefDefaultJsonlMode says "Table"
+// in the language the app shows.
+func PrefDefaultJsonlMode() string { return In(i18n.Locale()).PrefDefaultJsonlMode() }
+
+// PrefDefaultJsonlMode says "Table"
+// in the language of msgs.
+func (msgs Messages) PrefDefaultJsonlMode() string {
+	return Catalog.Format(msgs.locale, "prefDefaultJsonlMode", nil)
+}
+
 // CmdViewVim says "Vim Mode"
 // in the language the app shows.
 func CmdViewVim() string { return In(i18n.Locale()).CmdViewVim() }

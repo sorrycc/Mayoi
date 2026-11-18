@@ -3,7 +3,7 @@
 The update window shows the section of the version it offers. Every release
 needs a `## <version>` section here, or its build fails.
 
-## Unreleased
+## 0.22.4
 
 - Clicking a link in Live Preview to a note already open in that column switches to its tab, not another column.
 - Double-click the empty tab bar, past the last tab, to open a new untitled file in that column.

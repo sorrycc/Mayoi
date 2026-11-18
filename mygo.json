@@ -2,7 +2,7 @@
   "name": "Mayoi",
   "identifier": "dev.mayoi.editor",
   "publisher": "chencheng",
-  "version": "0.22.3",
+  "version": "0.22.4",
   "main": "./cmd/mayoi",
   "urlSchemes": ["mayoi"],
   "fileAssociations": [

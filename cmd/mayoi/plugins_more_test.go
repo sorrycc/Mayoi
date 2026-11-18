@@ -188,4 +188,17 @@ func TestBundledPlugins(t *testing.T) {
 		data, _ := json.Marshal(h.views["todos.list"])
 		return strings.Contains(string(data), "say more")
 	})
+	// A tag of symbols, as [TODO], is found too.
+	hs.a.settings.Prefs.Plugins["todos"] = json.RawMessage(`{"enabled": true, "tags": "[TODO]"}`)
+	h.syncPrefs()
+	os.WriteFile(hs.path("main.go"), []byte("package main\n\n// [TODO]: in brackets\nfunc main() {}\n"), 0o644)
+	a.indexRead.Invalidate()
+	hs.settle()
+	go h.reg.Run("todos.refresh", nil)
+	hs.until("the [TODO]", func() bool {
+		h.mu.Lock()
+		defer h.mu.Unlock()
+		data, _ := json.Marshal(h.views["todos.list"])
+		return strings.Contains(string(data), "in brackets")
+	})
 }

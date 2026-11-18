@@ -33,7 +33,9 @@ async function scan() {
   try {
     await views.render("todos.list", { type: "row", children: [{ type: "progress" }, { type: "text", text: "Finding TODOs…", muted: true }] });
     const want = tags();
-    const re = new RegExp(`\\b(${want.map((t) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")})\\b[:\\s(]?(.*)$`);
+    // \b only holds next to a letter or digit, so a tag like [TODO] or 待办 goes without it.
+    const one = (t: string) => (/^\w/.test(t) ? "\\b" : "") + t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + (/\w$/.test(t) ? "\\b" : "");
+    const re = new RegExp(`(${want.map(one).join("|")})[:\\s(]?(.*)$`);
     const files = (await workspace.findFiles("", { limit: maxFiles })).filter((f) => !excluded(f));
     const found: Todo[] = [];
     for (const file of files) {
@@ -78,7 +80,7 @@ async function render(found: Todo[]) {
       key: `${file}:${t.line}`,
       label: t.text || t.tag,
       description: `${t.tag} · ${t.line}`,
-      icon: t.tag === "FIXME" ? "warning" : "check",
+      icon: t.tag.replace(/\W/g, "") === "FIXME" ? "warning" : "check",
       onClick: () => workspace.open(t.file, { line: t.line }),
     })),
   }));

@@ -38,6 +38,8 @@ type saveWaiter struct {
 	done   func()
 	failed func(error)
 	format bool
+	// auto is a save the document makes itself, as Auto Save does.
+	auto bool
 }
 
 // requestSave saves a document, then answers w: at once when nothing is
@@ -87,6 +89,7 @@ func (a *app) nextSave(d *document) {
 		}
 	}
 	d.waiters, d.queued = d.queued, nil
+	a.trimOnSave(d, d.waiters)
 	if remote.Is(d.path) {
 		a.writeRemote(d)
 		a.nextSave(d)

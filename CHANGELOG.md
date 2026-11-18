@@ -5,6 +5,9 @@ needs a `## <version>` section here, or its build fails.
 
 ## Unreleased
 
+- Turn on `trimTrailingWhitespace` to remove the spaces and tabs at the ends of lines as you save.
+- Trimming on save keeps Markdown's two-space line breaks and comes back with one **Undo**.
+- **Trim Trailing Whitespace** in the command palette trims the open file now.
 - Find and replace take a selection of several lines as the query, and highlight every line of a match.
 - The find and replace fields grow with the lines of their text, the buttons beside them staying put.
 - Heading crumbs show just the heading's name, without its `#` marks, and the heading you're in stands out.

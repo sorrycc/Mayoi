@@ -232,6 +232,7 @@ var vscodeCommands = map[string]string{
 	"editor.action.joinLines":                    "sel.joinLines",
 	"editor.action.sortLinesAscending":           "sel.sortAsc",
 	"editor.action.sortLinesDescending":          "sel.sortDesc",
+	"editor.action.trimTrailingWhitespace":       "sel.trimWhitespace",
 	"editor.action.jumpToBracket":                "go.bracket",
 	"workbench.action.quickOpen":                 "go.quickOpen",
 	"workbench.action.showCommands":              "go.commands",

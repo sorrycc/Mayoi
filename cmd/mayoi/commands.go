@@ -105,6 +105,7 @@ func (a *app) commandsIn(t locales.Messages) []command {
 		{"sel.sortAsc", t.CmdSelSortAsc(), "", a.editActive(func(d *editor) { sortLines(d, false) })},
 		{"sel.sortDesc", t.CmdSelSortDesc(), "", a.editActive(func(d *editor) { sortLines(d, true) })},
 		{"sel.format", t.CmdSelFormat(), "Shift+Alt+F", a.formatActive},
+		{"sel.trimWhitespace", t.CmdSelTrimWhitespace(), "", a.editActive(a.trimActive)},
 		{"sel.insertSnippet", t.CmdSelInsertSnippet(), "", a.insertSnippet},
 		// ⌃Space, which the editor takes itself, so that a terminal keeps it.
 		{"sel.complete", t.CmdSelComplete(), "", a.complete},

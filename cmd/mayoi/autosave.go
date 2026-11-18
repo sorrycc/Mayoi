@@ -80,7 +80,7 @@ func (a *app) autoSaveDoc(d *document) {
 			a.fail("%s", locales.FailSave(d.name(), err.Error()))
 		}
 	}
-	a.requestSave(d, saveWaiter{done: func() { d.autoSave.failed = false }, failed: failed})
+	a.requestSave(d, saveWaiter{done: func() { d.autoSave.failed = false }, failed: failed, auto: true})
 }
 
 // autoSaveAll saves every changed document that saves itself, as the

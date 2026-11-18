@@ -68,7 +68,8 @@ type document struct {
 	crlf      bool // saved with CRLF line endings
 	// encoding is the one the file is written in, nil for UTF-8.
 	encoding *textEncoding
-	diskCRLF bool // the file on disk has CRLF line endings
+	diskCRLF bool     // the file on disk has CRLF line endings
+	trimmed  trimSeen // the text last found without trailing whitespace
 	hl       *highlight.Highlighter
 	indent   indentStyle
 	hist     history

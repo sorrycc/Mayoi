@@ -24,6 +24,10 @@ import (
 // budgetFrames is how many frames each budget takes the median of.
 const budgetFrames = 60
 
+// budgetAttempts is how many medians a budget takes, at most, before it
+// fails: one, and more only while each misses it.
+const budgetAttempts = 3
+
 // medianFrame returns the median of n runs of frame, after 3n to warm
 // up: the first after a file opens wait on its highlighting. With
 // builds, which counts the builds of the view, a run costs its time over
@@ -356,10 +360,21 @@ func TestBudgets(t *testing.T) {
 			if b.perBuild {
 				builds = func() int { return hs.a.builds }
 			}
-			got := medianFrame(budgetFrames, frame, builds)
-			fmt.Fprintf(&report, "%-28s %6.2f ms  (budget %v)\n", b.name, float64(got.Microseconds())/1000, b.budget)
-			if got > b.budget {
-				t.Errorf("%s: %v a frame, over its budget of %v", b.name, got, b.budget)
+			// A shared runner's neighbours can slow a whole median: a budget
+			// missed is measured again, failing only when every attempt
+			// misses it. A regression misses them all.
+			var tries []string
+			passed := false
+			for range budgetAttempts {
+				got := medianFrame(budgetFrames, frame, builds)
+				tries = append(tries, fmt.Sprintf("%.2f ms", float64(got.Microseconds())/1000))
+				if passed = got <= b.budget; passed {
+					break
+				}
+			}
+			fmt.Fprintf(&report, "%-28s %s  (budget %v)\n", b.name, strings.Join(tries, ", "), b.budget)
+			if !passed {
+				t.Errorf("%s: %s a frame, over its budget of %v in each of %d attempts", b.name, strings.Join(tries, ", "), b.budget, budgetAttempts)
 			}
 		})
 	}

@@ -96,6 +96,13 @@ func parseDiffCross(s string) diffCross {
 // chosen, rather than every file changed one after another.
 func (a *app) oneFile() bool { return a.settings != nil && a.settings.DiffFiles == "one" }
 
+// openedDiff returns v, a diff opened anew, showing every line of its
+// file when the diffs show one file at a time.
+func (a *app) openedDiff(v *diffView) *diffView {
+	v.full = a.oneFile()
+	return v
+}
+
 // diffHighlight is how a diff shows what changed within a line: the
 // words that changed, the characters within them, or nothing more than
 // the lines changed. What it shows is only so: the changes a diff acts
@@ -757,7 +764,7 @@ func (a *app) openChangesTab(focus bool, roots ...string) *diffView {
 	}
 	col := a.fileColumn()
 	at := min(col.active+1, len(col.tabs))
-	v := newDiffView(parseDiffLayout(a.settings.DiffLayout))
+	v := a.openedDiff(newDiffView(parseDiffLayout(a.settings.DiffLayout)))
 	v.repoRoot = root
 	a.addTab(col, at, &colTab{diff: v})
 	a.activate(col, at, focus)
@@ -873,7 +880,7 @@ func (a *app) showCommit(c git.Commit, focus bool, roots ...string) *diffView {
 	}
 	col := a.fileColumn()
 	at := min(col.active+1, len(col.tabs))
-	v := newCommitView(parseDiffLayout(a.settings.DiffLayout), c.Hash, c)
+	v := a.openedDiff(newCommitView(parseDiffLayout(a.settings.DiffLayout), c.Hash, c))
 	v.repoRoot = root
 	a.addTab(col, at, &colTab{diff: v})
 	a.activate(col, at, focus)
@@ -893,7 +900,7 @@ func (a *app) previewCommit(c git.Commit, roots ...string) *diffView {
 	col := a.fileColumn()
 	var v *diffView
 	a.previewIn(col, func(at int) {
-		v = newCommitView(parseDiffLayout(a.settings.DiffLayout), c.Hash, c)
+		v = a.openedDiff(newCommitView(parseDiffLayout(a.settings.DiffLayout), c.Hash, c))
 		v.repoRoot = root
 		a.addTab(col, at, &colTab{diff: v, transient: true})
 		a.activate(col, at, false)
@@ -2758,6 +2765,15 @@ func (a *app) setDiffFiles(v *diffView, one bool) {
 		a.settings.DiffFiles = ""
 		if one {
 			a.settings.DiffFiles = "one"
+			// The file shown alone shows every line of it.
+			for _, col := range a.cols {
+				for _, t := range col.tabs {
+					if t.diff != nil && !t.diff.local {
+						t.diff.full = true
+						t.diff.changed()
+					}
+				}
+			}
 		}
 		a.settings.Changed()
 	})

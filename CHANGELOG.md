@@ -11,6 +11,7 @@ needs a `## <version>` section here, or its build fails.
 - The breadcrumbs' heading outline tags each heading with its level, as `H2`, and marks the one you're in.
 - Type in the breadcrumbs' heading outline to filter it; `↑`/`↓` pick a match and `Enter` goes there.
 - The TODOs plugin finds tags with symbols or non-Latin letters, such as `[TODO]`, `@todo` or `待办`.
+- With **Layout → One File at a Time**, a diff shows the whole file; **Show Full Files** folds it.
 
 ## 0.22.4
 

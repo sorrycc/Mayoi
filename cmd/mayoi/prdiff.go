@@ -167,7 +167,7 @@ func (a *gitContext) openPullRequestWith(n int, page prPage, threads, keep bool,
 		}
 		app.readPRViewSoon(t.diff)
 	} else {
-		v := newPendingPR(parseDiffLayout(app.settings.DiffLayout), n, title)
+		v := app.openedDiff(newPendingPR(parseDiffLayout(app.settings.DiffLayout), n, title))
 		v.repoRoot = r.Root
 		pr = v.commit.pr
 		pr.page = max(page, prConversation)
@@ -345,6 +345,7 @@ func (a *app) showPullRequest(info *git.PRInfo, from string, viewed map[string]b
 				continue
 			}
 			v := view(t.diff.layout)
+			v.full = t.diff.full
 			// Its pages stay as they were, the page shown too.
 			v.commit.pr.prPageState = t.diff.commit.pr.prPageState
 			v.commit.pr.title = t.diff.commit.pr.title
@@ -355,7 +356,7 @@ func (a *app) showPullRequest(info *git.PRInfo, from string, viewed map[string]b
 	if !found {
 		col := a.fileColumn()
 		at := min(col.active+1, len(col.tabs))
-		v := view(parseDiffLayout(a.settings.DiffLayout))
+		v := a.openedDiff(view(parseDiffLayout(a.settings.DiffLayout)))
 		v.commit.pr.page = prChanges
 		a.addTab(col, at, &colTab{diff: v})
 		a.activate(col, at, true)

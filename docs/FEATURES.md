@@ -295,8 +295,8 @@ the settings has it cross at once, or never leave the file. At the first or last
 **Layout → One File at a Time** (`diffFiles`) has a diff show one file alone, as VS Code does, and read only that
 file. Clicking a file in Source Control or in a commit's files shows it; the next and previous file show the next or
 previous one, and the change navigation goes on into it as **diffCrossFiles** says, never scrolling into another
-file. The tab is named after the file shown. When the file shown is staged, discarded or committed, the next file of
-its group shows. With the diff focused, keys work as in a pager:
+file. The file shows whole, every unchanged line too; **Show Full Files** folds it. The tab is named after the file
+shown. When the file shown is staged, discarded or committed, the next file of its group shows. With the diff focused, keys work as in a pager:
 
 | Key | Does |
 | --- | --- |

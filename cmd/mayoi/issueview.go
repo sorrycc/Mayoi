@@ -177,7 +177,7 @@ func (a *app) issueIsPR(v *issueView, info *git.GHIssue) {
 			if t.issue != v {
 				continue
 			}
-			pv := newPendingPR(parseDiffLayout(a.settings.DiffLayout), info.Number, info.Title)
+			pv := a.openedDiff(newPendingPR(parseDiffLayout(a.settings.DiffLayout), info.Number, info.Title))
 			pv.repoRoot = v.repoRoot
 			col.tabs[i] = &colTab{id: t.id, diff: pv, transient: t.transient}
 			a.rememberTabs()

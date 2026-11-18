@@ -237,3 +237,40 @@ func TestDiffOneFileCommit(t *testing.T) {
 		t.Fatalf("revealed: rows of %v", got)
 	}
 }
+
+// TestDiffOneFileShowsWholeFile: with one file at a time, the file shown
+// shows every line of it, the unchanged ones too, until folded; turning
+// one file at a time on shows the whole file, and every file folds.
+func TestDiffOneFileShowsWholeFile(t *testing.T) {
+	hs, v := oneFileDiffOf(t)
+	whole := func() bool {
+		lines := 0
+		for _, r := range v.rows {
+			if r.kind == rowGap || r.kind == rowHunk {
+				return false
+			}
+			if r.kind == rowLine && r.new >= 0 {
+				lines++
+			}
+		}
+		return lines == 20
+	}
+	if !v.full || !whole() {
+		t.Fatalf("one file: full %v, rows %d", v.full, len(v.rows))
+	}
+	hs.a.setDiffFull(v, false)
+	hs.settleShown(v)
+	if whole() {
+		t.Fatal("folded: every line shows")
+	}
+	hs.a.setDiffFiles(v, false)
+	hs.settleDiff(v)
+	if v.full {
+		t.Fatal("every file: full")
+	}
+	hs.a.setDiffFiles(v, true)
+	hs.settleShown(v)
+	if !v.full || !whole() {
+		t.Fatalf("one file again: full %v, rows %d", v.full, len(v.rows))
+	}
+}

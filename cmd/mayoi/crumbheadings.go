@@ -4,11 +4,13 @@ import (
 	"fmt"
 	"math"
 	"sort"
+	"strings"
 
 	"github.com/egoist/mygo/ui"
 
 	"mayoi/internal/bg"
 	"mayoi/internal/symbols"
+	"mayoi/internal/workspace"
 	"mayoi/locales"
 )
 
@@ -155,14 +157,126 @@ func (a *app) openHeadingCrumbs(col *column, t *colTab, at int) {
 	}
 }
 
-// headingsTree is the box's tree of the headings: a click on one, or Enter,
-// goes to it, and its arrow folds the headings under it.
+// headingFilter is what a query of the box of headings found: the
+// headings it matched, with the places of the characters it matched, and
+// the headings that show, those matched and those they are under, as the
+// tree's roots and kids. Nil hits shows them all.
+type headingFilter struct {
+	query   string
+	version uint64
+	hits    map[int][]int
+	roots   []int
+	kids    map[int][]int
+}
+
+// filterHeadings finds the headings the box's query matches, once for
+// each query and version of the outline.
+func (k *crumbsPicker) filterHeadings(o *headingOutline) *headingFilter {
+	q := strings.TrimSpace(k.query)
+	f := &k.filter
+	if f.query == q && f.version == o.version && (q == "") == (f.hits == nil) {
+		return f
+	}
+	*f = headingFilter{query: q, version: o.version}
+	if q == "" {
+		return f
+	}
+	names := make([]string, len(o.heads))
+	for i, h := range o.heads {
+		names[i] = h.Name
+	}
+	f.hits = map[int][]int{}
+	f.kids = map[int][]int{}
+	shown := map[int]bool{}
+	for _, m := range workspace.Fuzzy(names, q, len(names)) {
+		f.hits[m.Index] = m.Positions
+		for i := m.Index; i >= 0 && !shown[i]; i = o.parent[i] {
+			shown[i] = true
+		}
+	}
+	// In the outline's order, each under the heading it is under.
+	for i := range o.heads {
+		switch {
+		case !shown[i]:
+		case o.parent[i] < 0:
+			f.roots = append(f.roots, i)
+		default:
+			f.kids[o.parent[i]] = append(f.kids[o.parent[i]], i)
+		}
+	}
+	return f
+}
+
+// headingsFilterField is the field atop the box of headings that filters
+// them as it is typed in. It has the keyboard: Up and Down choose among
+// the rows, and Enter goes to the one chosen.
+func (a *app) headingsFilterField(c *ui.Context, o *headingOutline) (submitted bool) {
+	p := a.pal
+	k := &a.crumbs
+	ui.Row(c).Gap(6).AlignItems(ui.Center).Height(explorerRowH+4).Padding(0, 8).Margin(0, 0, 4, 0).
+		BorderWidth(0, 0, 1, 0).BorderColor(p.border).Children(func() {
+		ui.Icon(c, iconSearch).FontSize(12).TextColor(p.faint).Shrink(0)
+		in := a.textKeys(ui.TextInputBase(c.Key("crumbs-filter"), &k.query)).Grow(1).FontSize(12.5).
+			Placeholder(locales.CrumbsFilterHeadings()).Label(locales.CrumbsFilterHeadings())
+		if k.focus {
+			k.focus = false
+			in.Focus()
+		}
+		if in.Changed() {
+			// The first heading matched chosen, once the rows show, and
+			// those folded opened, so that none matched hides.
+			k.reveal = "first"
+			for i := range o.kids {
+				k.outline.Open.Add(i)
+			}
+		}
+		rows := k.outline.Rows()
+		move := func(to int) {
+			if rows > 0 {
+				k.sel = min(max(to, 0), rows-1)
+				k.outline.List.ScrollIntoView(k.sel)
+			}
+		}
+		// Each key asked for each frame, as one not asked for is not had.
+		down, up := in.Shortcut(0, ui.KeyDown), in.Shortcut(0, ui.KeyUp)
+		pgDown, pgUp := in.Shortcut(0, ui.KeyPageDown), in.Shortcut(0, ui.KeyPageUp)
+		switch {
+		case down:
+			move(k.sel + 1)
+		case up:
+			move(k.sel - 1)
+		case pgDown:
+			move(k.sel + crumbsPage)
+		case pgUp:
+			move(k.sel - crumbsPage)
+		}
+		submitted = in.Submitted()
+	})
+	return submitted
+}
+
+// crumbsPage is how many rows Page Up and Page Down move in the box.
+const crumbsPage = 10
+
+// headingsTree is the box's tree of the headings, under a field that
+// filters them: a click on one, or Enter, goes to it, and its arrow folds
+// the headings under it.
 func (a *app) headingsTree(c *ui.Context, d *editor) {
 	p := a.pal
 	k := &a.crumbs
 	o, chain := a.headingCrumbs(d)
 	if o == nil {
 		ui.Text(c, locales.CrumbsNoHeadings()).FontSize(12.5).TextColor(p.muted).Padding(6, 10).MaxWidthPercent(100)
+		return
+	}
+	submitted := a.headingsFilterField(c, o)
+	f := k.filterHeadings(o)
+	roots, kids := o.roots, o.kids
+	if f.hits != nil {
+		roots, kids = f.roots, f.kids
+	}
+	if len(roots) == 0 {
+		ui.Text(c, locales.CrumbsNoHeadingMatch()).FontSize(12.5).TextColor(p.muted).Padding(6, 10).MaxWidthPercent(100)
 		return
 	}
 	here := -1
@@ -176,21 +290,21 @@ func (a *app) headingsTree(c *ui.Context, d *editor) {
 		for _, i := range items {
 			rows++
 			if k.outline.Open.Has(i) {
-				count(o.kids[i])
+				count(kids[i])
 			}
 		}
 	}
-	count(o.roots)
+	count(roots)
 	base := c.Theme()
 	quiet := *base
 	quiet.Accent, quiet.AccentText, quiet.SurfaceHover = p.active, p.text, p.hover
 	c.SetTheme(&quiet)
 	clicked := -1
-	out := ui.Outline(c.Key("crumbs-headings"), &k.outline, o.roots, func(i int) []int {
+	out := ui.Outline(c.Key("crumbs-headings"), &k.outline, roots, func(i int) []int {
 		if i < 0 || i >= len(o.heads) {
 			return nil
 		}
-		return o.kids[i]
+		return kids[i]
 	}, func(i int) {
 		if i < 0 || i >= len(o.heads) {
 			return
@@ -204,7 +318,18 @@ func (a *app) headingsTree(c *ui.Context, d *editor) {
 			// Its level, quiet, as the tree's nesting shows the rest.
 			ui.Text(c, headingLevel(h)).FontSize(10.5).FontFeatures("tnum").TextColor(p.faint).
 				SingleLine().Width(18).Shrink(0)
-			label := ui.Text(c, h.Name).FontSize(13).SingleLine().Shrink(1).MinWidth(0).TextColor(p.text)
+			var label ui.Element
+			switch pos, hit := f.hits[i]; {
+			case f.hits == nil:
+				label = ui.Text(c, h.Name).TextColor(p.text)
+			case hit:
+				// What the query matched, in the accent.
+				label = ui.RichText(c, a.matchSpans(h.Name, 0, pos, p.text)...)
+			default:
+				// A heading shown only for those under it that matched.
+				label = ui.Text(c, h.Name).TextColor(p.muted)
+			}
+			label.FontSize(13).SingleLine().Shrink(1).MinWidth(0)
 			if i != here {
 				return
 			}
@@ -216,12 +341,21 @@ func (a *app) headingsTree(c *ui.Context, d *editor) {
 		})
 	}).Height(crumbsTreeH(c, rows)).Gap(0)
 	out.Bind(&k.view)
-	if k.focus {
-		k.focus = false
-		k.view.Focus()
-	}
 	c.SetTheme(base)
-	if k.reveal != "" {
+	switch k.reveal {
+	case "":
+	case "first":
+		// The first heading the query matched chosen, or with none
+		// typed, the one the reader is in.
+		k.reveal = ""
+		for r := range k.outline.Rows() {
+			if i := k.outline.Item(r); f.hits == nil && i == here || f.hits != nil && f.hits[i] != nil {
+				k.sel = r
+				k.outline.List.ScrollIntoView(r)
+				break
+			}
+		}
+	default:
 		// The heading the reader is in chosen, once the rows show.
 		k.reveal = ""
 		for r := range k.outline.Rows() {
@@ -231,7 +365,7 @@ func (a *app) headingsTree(c *ui.Context, d *editor) {
 			}
 		}
 	}
-	if clicked < 0 && out.Submitted() && k.sel >= 0 && k.sel < k.outline.Rows() {
+	if clicked < 0 && (out.Submitted() || submitted) && k.sel >= 0 && k.sel < k.outline.Rows() {
 		clicked = k.outline.Item(k.sel)
 	}
 	if clicked < 0 || clicked >= len(o.heads) {

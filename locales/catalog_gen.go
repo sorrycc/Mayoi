@@ -4204,6 +4204,26 @@ func (msgs Messages) CrumbsNoHeadings() string {
 	return Catalog.Format(msgs.locale, "crumbsNoHeadings", nil)
 }
 
+// CrumbsFilterHeadings says "Filter headings"
+// in the language the app shows.
+func CrumbsFilterHeadings() string { return In(i18n.Locale()).CrumbsFilterHeadings() }
+
+// CrumbsFilterHeadings says "Filter headings"
+// in the language of msgs.
+func (msgs Messages) CrumbsFilterHeadings() string {
+	return Catalog.Format(msgs.locale, "crumbsFilterHeadings", nil)
+}
+
+// CrumbsNoHeadingMatch says "No heading matches"
+// in the language the app shows.
+func CrumbsNoHeadingMatch() string { return In(i18n.Locale()).CrumbsNoHeadingMatch() }
+
+// CrumbsNoHeadingMatch says "No heading matches"
+// in the language of msgs.
+func (msgs Messages) CrumbsNoHeadingMatch() string {
+	return Catalog.Format(msgs.locale, "crumbsNoHeadingMatch", nil)
+}
+
 // DeletePermanently says "Delete Permanently…"
 // in the language the app shows.
 func DeletePermanently() string { return In(i18n.Locale()).DeletePermanently() }

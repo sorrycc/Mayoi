@@ -100,6 +100,10 @@ type crumbsPicker struct {
 	heads   bool
 	at      int
 	outline ui.OutlineState[int]
+	// query filters the headings; filter is what it found, for the
+	// version of the outline it was found in.
+	query  string
+	filter headingFilter
 }
 
 // openCrumbs opens the box of the folder dir of the breadcrumbs of tab t

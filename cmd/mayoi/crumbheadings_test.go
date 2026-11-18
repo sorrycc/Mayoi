@@ -194,7 +194,10 @@ func TestHeadingCrumbsBox(t *testing.T) {
 			if k.sel < 0 || d.headings.heads[k.outline.Item(k.sel)].Name != "Deep" {
 				t.Errorf("row %d is chosen, not Deep", k.sel)
 			}
-			// Left on the chosen row folds the one it is under; Right opens it.
+			// With the tree's keyboard, Left on the chosen row folds the
+			// one it is under; Right opens it.
+			k.view.Focus()
+			hs.settle()
 			k.sel = 1
 			tt.Key(0, ui.KeyLeft)
 			hs.settle()
@@ -260,5 +263,69 @@ func TestHeadingCrumbsCollapse(t *testing.T) {
 	}
 	if _, ok := tt.Find("H5"); !ok {
 		t.Errorf("the box does not show the levels: %v", tt.Texts())
+	}
+}
+
+// Typing in the box of headings filters them: those matched show with
+// those they are under, the first chosen, and Enter goes to it; a query
+// that matches none says so, and Escape closes the box.
+func TestHeadingCrumbsFilter(t *testing.T) {
+	hs, d := headingsHarness(t, "### Deep")
+	a, tt := hs.a, hs.tt
+	if err := tt.Click(locales.CrumbsHeadingTip("Deep")); err != nil {
+		t.Fatalf("%v: %v", err, tt.Texts())
+	}
+	hs.settle()
+	k := &a.crumbs
+	rowsOf := func() []string {
+		var rows []string
+		for r := range k.outline.Rows() {
+			rows = append(rows, strings.Repeat(" ", k.outline.Depth(r))+d.headings.heads[k.outline.Item(r)].Name)
+		}
+		return rows
+	}
+	tt.Type("othr")
+	hs.settle()
+	if want := []string{"Title", " 2. Other"}; !slices.Equal(rowsOf(), want) {
+		t.Errorf("rows %q, want %q", rowsOf(), want)
+	}
+	if k.sel != 1 {
+		t.Errorf("row %d is chosen, not the one matched", k.sel)
+	}
+	// Up and Down move among the rows from the field.
+	tt.Key(0, ui.KeyUp)
+	hs.settle()
+	if k.sel != 0 {
+		t.Errorf("Up chose row %d", k.sel)
+	}
+	tt.Key(0, ui.KeyDown)
+	hs.settle()
+	tt.Key(0, ui.KeyEnter)
+	for range 4 {
+		hs.settle()
+	}
+	if k.open {
+		t.Error("the box stays open after a heading is chosen")
+	}
+	if got, want := readingLine(d), headingLineOf(headingsDoc, "## 2. Other"); got != want {
+		t.Errorf("at line %d after going to 2. Other, want %d", got, want)
+	}
+	// None matched.
+	if err := tt.Click(locales.CrumbsHeadingTip("2. Other")); err != nil {
+		t.Fatalf("%v: %v", err, tt.Texts())
+	}
+	hs.settle()
+	if k.query != "" {
+		t.Errorf("the box opened with the last query %q", k.query)
+	}
+	tt.Type("zzzq")
+	hs.settle()
+	if _, ok := tt.Find(locales.CrumbsNoHeadingMatch()); !ok {
+		t.Errorf("no word of no match: %v", tt.Texts())
+	}
+	tt.Key(0, ui.KeyEscape)
+	hs.settle()
+	if k.open {
+		t.Error("Escape left the box open")
 	}
 }

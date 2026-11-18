@@ -377,6 +377,8 @@
   "crumbsHeadingTip": "見出し（{name}）",
   "crumbsHeadings": "見出し",
   "crumbsNoHeadings": "見出しはありません",
+  "crumbsFilterHeadings": "見出しを絞り込む",
+  "crumbsNoHeadingMatch": "一致する見出しはありません",
   "deletePermanently": "完全に削除…",
   "deleteQuestion": "{name} を削除しますか?",
   "deleteRemoteDetail": "{host} から完全に削除されます。リモート フォルダーにはゴミ箱がありません。",

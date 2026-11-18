@@ -643,6 +643,8 @@
   "crumbsHeadingTip": "Headings, at {name}",
   "crumbsHeadings": "Headings",
   "crumbsNoHeadings": "No headings",
+  "crumbsFilterHeadings": "Filter headings",
+  "crumbsNoHeadingMatch": "No heading matches",
   "deletePermanently": "Delete Permanently…",
   "deleteQuestion": "Delete {name}?",
   "deleteRemoteDetail": "It is deleted from {host} for good: a remote folder has no trash.",

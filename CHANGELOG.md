@@ -9,6 +9,7 @@ needs a `## <version>` section here, or its build fails.
 - A deep chain of headings in the breadcrumbs shows the outermost and innermost two, with `…` for the rest.
 - A heading crumb you move into opens in smoothly, and the crumbs after it slide along.
 - The breadcrumbs' heading outline tags each heading with its level, as `H2`, and marks the one you're in.
+- Type in the breadcrumbs' heading outline to filter it; `↑`/`↓` pick a match and `Enter` goes there.
 
 ## 0.22.4
 

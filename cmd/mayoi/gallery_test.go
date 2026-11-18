@@ -53,6 +53,16 @@ var galleryStates = []struct {
 		hs.settle()
 		hs.a.openHeadingCrumbs(hs.a.column(), hs.a.activeTab(), 1)
 	}},
+	{"heading-crumbs-filtered", func(hs *harness) {
+		os.WriteFile(hs.path("notes.md"), []byte(headingsDoc), 0o644)
+		hs.a.openFile(hs.path("notes.md"), true)
+		hs.settle()
+		d := hs.a.activeEditor()
+		hs.a.jumpToScope(d, headingLineOf(headingsDoc, "### Deep"))
+		hs.settle()
+		hs.a.openHeadingCrumbs(hs.a.column(), hs.a.activeTab(), 2)
+		hs.a.crumbs.query = "othr"
+	}},
 	{"palette", func(hs *harness) { hs.a.run("go.commands") }},
 	{"no-match", func(hs *harness) { hs.a.openQuick("zzzz-nothing") }},
 	{"path-pending", func(hs *harness) {

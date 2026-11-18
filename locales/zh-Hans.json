@@ -377,6 +377,8 @@
   "crumbsHeadingTip": "标题（{name}）",
   "crumbsHeadings": "标题",
   "crumbsNoHeadings": "没有标题",
+  "crumbsFilterHeadings": "筛选标题",
+  "crumbsNoHeadingMatch": "没有匹配的标题",
   "deletePermanently": "永久删除…",
   "deleteQuestion": "要删除 {name} 吗？",
   "deleteRemoteDetail": "它将从 {host} 中永久删除：远程文件夹没有废纸篓。",

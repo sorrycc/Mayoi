@@ -9,6 +9,7 @@ import (
 	"mayoi/internal/settings"
 	"os"
 	"path/filepath"
+	"reflect"
 	"runtime"
 	"slices"
 	"strings"
@@ -383,6 +384,52 @@ func (hs *harness) busy() (running, queued bool) {
 func (hs *harness) idle() bool {
 	running, queued := hs.busy()
 	return !running && !queued
+}
+
+// findIn is tt.Find within box in: the box of the first element showing
+// text s, or labeled s, that lies in it, as a heading of a preview whose
+// name the breadcrumbs above it show too. The Tester finds only the
+// first in the window, so its labels are read by reflection.
+func findIn(t testing.TB, tt *ui.Tester, s string, in ui.Rect) (ui.Rect, bool) {
+	t.Helper()
+	first, ok := tt.Find(s)
+	if !ok {
+		return ui.Rect{}, false
+	}
+	rt := reflect.ValueOf(tt).Elem().FieldByName("rt")
+	if !rt.IsValid() || rt.Kind() != reflect.Pointer {
+		t.Fatal("findIn: the Tester has no engine to read its labels from")
+	}
+	labels := rt.Elem().FieldByName("labels")
+	if !labels.IsValid() || labels.Kind() != reflect.Slice {
+		t.Fatal("findIn: the Tester's engine has no labels")
+	}
+	box := func(l reflect.Value) ui.Rect {
+		r := l.FieldByName("r")
+		return ui.Rect{X: float32(r.FieldByName("X").Float()), Y: float32(r.FieldByName("Y").Float()),
+			W: float32(r.FieldByName("W").Float()), H: float32(r.FieldByName("H").Float())}
+	}
+	// The labels' boxes are the content's; Find's, zoomed. The first
+	// match gives the zoom.
+	z := float32(0)
+	for i := range labels.Len() {
+		l := labels.Index(i)
+		if l.FieldByName("text").String() != s {
+			continue
+		}
+		r := box(l)
+		if z == 0 {
+			z = 1
+			if r.W > 0 {
+				z = first.W / r.W
+			}
+		}
+		r = ui.Rect{X: r.X * z, Y: r.Y * z, W: r.W * z, H: r.H * z}
+		if r.X < in.X+in.W && r.X+r.W > in.X && r.Y < in.Y+in.H && r.Y+r.H > in.Y {
+			return r, true
+		}
+	}
+	return ui.Rect{}, false
 }
 
 func (hs *harness) shot(name string) {

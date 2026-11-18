@@ -5,6 +5,7 @@ needs a `## <version>` section here, or its build fails.
 
 ## Unreleased
 
+- Find and replace take a selection of several lines, and find it across them.
 - Heading crumbs show just the heading's name, without its `#` marks, and the heading you're in stands out.
 - A deep chain of headings in the breadcrumbs shows the outermost and innermost two, with `…` for the rest.
 - A heading crumb you move into opens in smoothly, and the crumbs after it slide along.

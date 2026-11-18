@@ -69,6 +69,51 @@ func TestFindRevealsAMatchUnderItsBox(t *testing.T) {
 	}
 }
 
+// TestFindFindsAMultilineSelection: a selection of several lines becomes
+// the query of find, and find matches and replaces it whole, on every
+// line it takes, as Return steps and does not break the line.
+func TestFindFindsAMultilineSelection(t *testing.T) {
+	hs := newHarness(t, true)
+	a, tt := hs.a, hs.tt
+	p := hs.path("multi.txt")
+	if err := os.WriteFile(p, []byte("one\ntwo\nthree\none\ntwo\nthree\nfour\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	a.openFile(p, true)
+	hs.settle()
+	d := a.activeEditor()
+	snap := d.buf.Snapshot()
+	from, _ := snap.LineRange(0)
+	_, to := snap.LineRange(2)
+	d.selectRange(from, to, false)
+	hs.settle()
+	a.run("edit.replace")
+	hs.settle()
+	f := &a.find
+	if f.query != "one\ntwo\nthree" {
+		t.Fatalf("query = %q; want the selection", f.query)
+	}
+	if len(f.matches) != 2 {
+		t.Fatalf("%d matches; want 2", len(f.matches))
+	}
+	if rects := a.visibleMatches(d, 0, snap.LineCount()-1); len(rects) != 6 {
+		t.Fatalf("%d rects; want three lines of each match", len(rects))
+	}
+	tt.Key(0, ui.KeyEnter)
+	hs.settle()
+	if f.cur != 1 {
+		t.Fatalf("Return went to match %d; want 1", f.cur)
+	}
+	if f.query != "one\ntwo\nthree" {
+		t.Fatalf("Return broke the line of the query: %q", f.query)
+	}
+	f.with = "1\n2"
+	a.replaceAll(d)
+	if got := d.buf.Snapshot().String(); got != "1\n2\n1\n2\nfour\n" {
+		t.Fatalf("replaced to %q", got)
+	}
+}
+
 // TestFindShiftEnterGoesBack: Return goes to the next match and
 // Shift+Return to the one before, wrapping; in the replace field
 // Shift+Return replaces the match and goes to the one before it.

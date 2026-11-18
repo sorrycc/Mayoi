@@ -61,6 +61,11 @@ func (a *app) tabStrip(c *ui.Context, col *column) {
 		strip = strip.HandleInput(func(ev ui.InputEvent) bool { return a.tabWheel(col, ev) })
 		// Past the last tab: there.
 		drop(strip, nil)
+		// A double click past the last tab opens a new file there, as in
+		// other editors; one on a tab is the tab's own.
+		if strip.DoubleClicked() {
+			a.post(func() { a.newFileIn(col) })
+		}
 		_, atEnd := a.dragOver(strip)
 		atEnd = atEnd || strip.FileDragOver()
 		strip.Children(func() {

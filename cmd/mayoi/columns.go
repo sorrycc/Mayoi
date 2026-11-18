@@ -410,9 +410,11 @@ func (a *app) openImage(col *column, at int, path string, focus bool) {
 }
 
 // newFile opens an untitled document.
-func (a *app) newFile() {
+func (a *app) newFile() { a.newFileIn(a.fileColumn()) }
+
+// newFileIn opens a new untitled file in col and shows it.
+func (a *app) newFileIn(col *column) {
 	a.untitled++
-	col := a.fileColumn()
 	a.addUntitled(col, a.untitled, "")
 	a.activate(col, len(col.tabs)-1, true)
 }

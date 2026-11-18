@@ -206,3 +206,52 @@ func crowdedTabs(t *testing.T) (*harness, *column, float32, float32) {
 	}
 	return hs, col, box.X + box.W/2, box.Y + box.H/2
 }
+
+// A double click on the tab bar past the last tab opens a new untitled
+// file in that column, and shows it; one on a tab opens none.
+func TestDoubleClickTabBarOpensAFile(t *testing.T) {
+	hs := newHarness(t, true)
+	a, tt := hs.a, hs.tt
+	// Without the Explorer, Find finds the tab alone.
+	a.toggleSidebar()
+	// A name no other tab or text shows.
+	only := hs.path("lonely.txt")
+	if err := os.WriteFile(only, []byte("x\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	a.openFile(only, true)
+	hs.settle()
+	left := a.column()
+	right := a.splitColumn(left, true)
+	a.openFileIn(right, 0, hs.path("README.md"), true)
+	hs.settle()
+	if a.column() != right {
+		t.Fatal("the right column does not have the keyboard")
+	}
+	r, ok := tt.Find("lonely.txt")
+	if !ok {
+		t.Fatal("no tab of lonely.txt")
+	}
+	double := func(x, y float32) {
+		tt.ClickAt(x, y)
+		tt.ClickAt(x, y)
+		hs.settle()
+	}
+	y := r.Y + r.H/2
+	// On the tab: it is kept, and no tab is added.
+	double(r.X+r.W/2, y)
+	if len(left.tabs) != 1 || len(right.tabs) != 1 {
+		t.Fatalf("a double click on a tab left %d and %d tabs, want 1 and 1", len(left.tabs), len(right.tabs))
+	}
+	// Past the last tab.
+	double(r.X+r.W+80, y)
+	if len(left.tabs) != 2 || len(right.tabs) != 1 {
+		t.Fatalf("a double click past the tabs left %d and %d tabs, want 2 and 1", len(left.tabs), len(right.tabs))
+	}
+	if tab := left.tab(); tab == nil || tab.ed == nil || tab.path() != "" || left.active != 1 {
+		t.Errorf("the tab shown in the column is %+v, want the new untitled file", tab)
+	}
+	if a.column() != left {
+		t.Error("the column double clicked does not have the keyboard")
+	}
+}

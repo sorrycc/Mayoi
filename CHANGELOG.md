@@ -17,6 +17,7 @@ needs a `## <version>` section here, or its build fails.
 - The link icon in centered text, as a README's centered links, now stands right after its link.
 - Scrolling past a long wrapped line of Chinese or other non-ASCII text is smooth again.
 - In Live Preview, a file path in the text, like `~/notes/a.md` or `./a.md:12`, is a link that opens it.
+- On Windows, a path like `C:\notes\a.md` or `.\a.md` in Live Preview is a link too.
 - Markdown links to `~/` paths and whole paths, like `[a](~/a.md)`, open their file in Live Preview.
 
 ## 0.22.3

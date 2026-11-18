@@ -7,6 +7,7 @@ import (
 	"image/png"
 	"os"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strings"
 	"testing"
@@ -1061,6 +1062,8 @@ func TestLivePathsIn(t *testing.T) {
 		"/x/y.go:12:3; and/or 1/2":      {"/x/y.go:12:3"},
 		"https://example.com/x / //y":   nil,
 		"**/x/bold.md**":                {"/x/bold.md"},
+		`at C:\x\a.md:3, D:/y/b.md.`:    {`C:\x\a.md:3`, "D:/y/b.md"},
+		`~\a.md .\b.md ..\c.md xC:\d`:   {`~\a.md`, `.\b.md`, `..\c.md`},
 	} {
 		var got []string
 		for _, p := range livePathsIn([]byte(src), 0, len(src)) {
@@ -1076,7 +1079,7 @@ func TestLivePathsIn(t *testing.T) {
 // note's folder, reads as a link; one to no file stays text.
 func TestParseLiveBarePaths(t *testing.T) {
 	dir := t.TempDir()
-	t.Setenv("HOME", dir)
+	setHome(t, dir)
 	os.MkdirAll(dir+"/notes/sub", 0o755)
 	for _, f := range []string{"/abs.md", "/home.md", "/notes/sub/here.md", "/notes/up.md"} {
 		os.WriteFile(dir+f, []byte("x\n"), 0o644)
@@ -1094,6 +1097,24 @@ func TestParseLiveBarePaths(t *testing.T) {
 	if !slices.Equal(links, want) {
 		t.Errorf("links %q, want %q", links, want)
 	}
+	if runtime.GOOS == "windows" {
+		// A drive's whole path with either slash, and \ from the note.
+		fwd := filepath.ToSlash(dir)
+		// Each on its own line, as the ~ of a short name, RUNNER~1, may
+		// pair with another as a strikethrough.
+		src := "- " + fwd + "/abs.md:2\n- " + fwd + `\notes/up.md,` + "\n- " + `~\home.md and .\here.md` + "\n"
+		r := []rune(src)
+		links = nil
+		for _, sp := range parseLive(src, dir+`\notes\sub\note.md`, dir, true, &markdownCache{}).spans {
+			if sp.kind == liveStyle && sp.look.color == liveLink {
+				links = append(links, string(r[sp.start:sp.end]))
+			}
+		}
+		want := []string{fwd + "/abs.md:2", fwd + `\notes/up.md`, `~\home.md`, `.\here.md`}
+		if !slices.Equal(links, want) {
+			t.Errorf("Windows links %q, want %q", links, want)
+		}
+	}
 	// The first frame's quick parse asks the disk nothing.
 	for _, sp := range parseLive(src, dir+"/notes/sub/note.md", dir, false, &markdownCache{}).spans {
 		if sp.kind == liveStyle && sp.look.color == liveLink {
@@ -1107,7 +1128,7 @@ func TestParseLiveBarePaths(t *testing.T) {
 // to ~/ or a whole path does too.
 func TestLiveBarePathOpens(t *testing.T) {
 	home := t.TempDir()
-	t.Setenv("HOME", home)
+	setHome(t, home)
 	hs := newHarness(t, true)
 	a := hs.a
 	other := filepath.Join(home, "other.md")
@@ -1168,4 +1189,11 @@ func TestLiveBarePathOpens(t *testing.T) {
 	follow("[home]", other)
 	follow("[whole]", abs)
 	follow("../", abs)
+}
+
+// setHome makes dir the home folder ~/ names, on Windows too.
+func setHome(t *testing.T, dir string) {
+	t.Helper()
+	t.Setenv("HOME", dir)
+	t.Setenv("USERPROFILE", dir)
 }

@@ -417,6 +417,16 @@ func (a *app) newFile() {
 	a.activate(col, len(col.tabs)-1, true)
 }
 
+// newFileIn opens an untitled document where col's tab strip was double
+// clicked: col takes the keyboard first, so that the file goes to the
+// column there, unless it is a locked one, which files avoid.
+func (a *app) newFileIn(col *column) {
+	if at := slices.Index(a.cols, col); at >= 0 {
+		a.col = at
+	}
+	a.newFile()
+}
+
 // activate shows tab i of a column, which becomes the column commands
 // are for.
 func (a *app) activate(col *column, i int, focus bool) {

@@ -5,6 +5,7 @@ needs a `## <version>` section here, or its build fails.
 
 ## Unreleased
 
+- Double-clicking past the last tab opens a new file there, as in VSCode, Zed and Sublime.
 - The Markdown Reading view shows an HTML `<table>` as a table, with its cells' alignment and pictures.
 - HTML `<ul>`, `<ol>` and `<li>` show as lists in the Reading view, nested and numbered.
 - A `<details>` folds under its `<summary>` in the Reading view; click the summary to open it.

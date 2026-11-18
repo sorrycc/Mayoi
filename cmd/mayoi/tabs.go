@@ -59,6 +59,11 @@ func (a *app) tabStrip(c *ui.Context, col *column) {
 		strip := ui.ScrollHorizontal(c.Key("tabs")).TrackScroll(&col.tabScroll).
 			Grow(1).Height(tabStripH).ScrollbarInsets(0, 0, 0, 0)
 		strip = strip.HandleInput(func(ev ui.InputEvent) bool { return a.tabWheel(col, ev) })
+		// The room past the last tab, which shows nothing, opens a new file
+		// on a double click, as in VSCode, Zed and Sublime.
+		if strip.DoubleClicked() {
+			a.post(func() { a.newFileIn(col) })
+		}
 		// Past the last tab: there.
 		drop(strip, nil)
 		_, atEnd := a.dragOver(strip)

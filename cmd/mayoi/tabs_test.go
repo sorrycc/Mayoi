@@ -3,9 +3,12 @@ package main
 import (
 	"fmt"
 	"os"
+	"slices"
 	"testing"
 
 	"github.com/egoist/mygo/ui"
+
+	"mayoi/locales"
 )
 
 // tabBox is a tab as the last frame laid it out, at its own origin.
@@ -104,6 +107,127 @@ func TestTabMiddleReleasedOffTheTab(t *testing.T) {
 	if a.middle != nil {
 		t.Error("a primary press left the middle one remembered")
 	}
+}
+
+// stripRoom returns where a click lands past the last tab of a column, in
+// the strip at the top of it.
+func stripRoom(hs *harness, col *column) (x, y float32) {
+	hs.t.Helper()
+	r, ok := hs.tt.Find("Close " + col.tabs[len(col.tabs)-1].name())
+	if !ok {
+		hs.t.Fatalf("no tab to click past: %q", hs.tt.Texts())
+	}
+	return r.X + r.W + 40, r.Y + r.H/2
+}
+
+// doubleClickStrip clicks twice on the room past the last tab of a column,
+// within the time a double click has.
+func doubleClickStrip(hs *harness, col *column) {
+	hs.t.Helper()
+	x, y := stripRoom(hs, col)
+	hs.tt.ClickAt(x, y)
+	step(hs.tt)
+	hs.tt.ClickAt(x, y)
+}
+
+// The room past the last tab opens a new file on a double click, as it
+// does in VSCode, Zed and Sublime.
+func TestDoubleClickOnTheTabStripOpensAFile(t *testing.T) {
+	hs := newHarness(t, true)
+	a, tt := hs.a, hs.tt
+	a.openFile(hs.path("main.go"), true)
+	hs.settle()
+	doubleClickStrip(hs, a.column())
+	hs.settle()
+	untitled := locales.UntitledName(a.untitled)
+	wantTabs(t, hs, "main.go", untitled)
+	if !tt.Focused(locales.EditorLabel(untitled)) {
+		t.Errorf("the file opened on the strip does not have the keyboard")
+	}
+}
+
+// One click on the room past the last tab leaves the tabs as they are.
+func TestClickOnTheTabStripOpensNothing(t *testing.T) {
+	hs := newHarness(t, true)
+	a := hs.a
+	a.openFile(hs.path("main.go"), true)
+	hs.settle()
+	x, y := stripRoom(hs, a.column())
+	hs.tt.ClickAt(x, y)
+	hs.settle()
+	wantTabs(t, hs, "main.go")
+}
+
+// The double click opens the file in the column whose strip it is, with
+// that column's keyboard, even where another column had it.
+func TestDoubleClickOnTheStripOpensInThatColumn(t *testing.T) {
+	hs := newHarness(t, true)
+	a := hs.a
+	a.openFile(hs.path("main.go"), true)
+	hs.settle()
+	left := a.column()
+	right := a.splitColumn(left, true)
+	a.openFileIn(right, 0, hs.path("README.md"), true)
+	hs.settle()
+	if a.column() != right {
+		t.Fatal("the column split off does not have the keyboard")
+	}
+	a.col = slices.Index(a.cols, left)
+	a.focusColumn()
+	hs.settle()
+	doubleClickStrip(hs, left)
+	hs.settle()
+	if a.column() != left || len(left.tabs) != 2 {
+		t.Fatalf("the file opened in column %d with %d tabs, want the left with 2", a.col, len(left.tabs))
+	}
+	if len(right.tabs) != 1 {
+		t.Errorf("the right column took the file: %d tabs", len(right.tabs))
+	}
+}
+
+// A locked column keeps files out, as the other opens do: a double click
+// on its strip opens the file in the file column.
+func TestDoubleClickOnALockedStripOpensInTheFileColumn(t *testing.T) {
+	hs, left, right := lockedHarness(t)
+	a, tt := hs.a, hs.tt
+	a.col = slices.Index(a.cols, right)
+	hs.settle()
+	// The strip of the empty locked column, past the buttons at its end,
+	// which take their own clicks.
+	r, ok := tt.Find(locales.UnlockColumn())
+	if !ok {
+		t.Fatalf("the locked strip shows no unlock button: %q", tt.Texts())
+	}
+	x, y := r.X-60, r.Y+r.H/2
+	tt.ClickAt(x, y)
+	step(tt)
+	tt.ClickAt(x, y)
+	hs.settle()
+	if !right.locked {
+		t.Error("the double click unlocked the column")
+	}
+	if len(right.tabs) != 0 {
+		t.Errorf("the locked column took %d tabs", len(right.tabs))
+	}
+	if a.column() != left || len(left.tabs) != 2 {
+		t.Fatalf("the file opened in column %d with %d tabs, want the left with 2", a.col, len(left.tabs))
+	}
+}
+
+// A double click on a tab still keeps the preview it shows, and opens no
+// file beside it.
+func TestDoubleClickOnATabOpensNoFile(t *testing.T) {
+	hs := newHarness(t, true)
+	a := hs.a
+	a.previewFile(hs.path("README.md"))
+	hs.settle()
+	wantTabs(t, hs, "README.md*")
+	x, y := hs.tabCenter("README.md")
+	hs.tt.ClickAt(x, y)
+	step(hs.tt)
+	hs.tt.ClickAt(x, y)
+	hs.settle()
+	wantTabs(t, hs, "README.md")
 }
 
 // A plain wheel scrolls the tab strip sideways, as browsers scroll their

@@ -30,7 +30,8 @@ the one before. Files and terminals both come back, a terminal as a new shell in
 closing a folder forgets the tabs closed.
 
 The middle mouse button closes the tab under the pointer, wherever in the tab it is pressed, without showing it first:
-clearing tabs leaves the file you are reading where it is.
+clearing tabs leaves the file you are reading where it is. Double-clicking the empty room past the last tab opens a new
+file in that column.
 
 ### Word wrap
 

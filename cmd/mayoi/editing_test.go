@@ -292,6 +292,17 @@ func TestCommentKeepsIndent(t *testing.T) {
 	expectText(t, d, "func f() {\n\tx()\n\n\t\ty()\n}\n")
 }
 
+func TestCommentJSXAndEmacsLisp(t *testing.T) {
+	for file, want := range map[string]string{"App.jsx": "// x\n", "init.el": "; x\n"} {
+		t.Run(file, func(t *testing.T) {
+			hs, d := editHarness(t, file, "x\n")
+			hs.a.run("sel.comment")
+			hs.settle()
+			expectText(t, d, want)
+		})
+	}
+}
+
 func TestReplaceAllUndoes(t *testing.T) {
 	hs, d := editHarness(t, "a.txt", "cat cat dog cat\n")
 	a := hs.a
@@ -497,6 +508,15 @@ func TestAutoCloseForgetsDeletedCloser(t *testing.T) {
 	hs.settle()
 	expectText(t, d, "x()\n")
 	expectSel(t, d, 3, 3)
+}
+
+// A .jsx file is Chroma's "react", which closes backticks as JavaScript does.
+func TestAutoCloseBacktickInJSX(t *testing.T) {
+	hs, d := editHarness(t, "a.jsx", "x = \n")
+	hs.place(d, 4, 4)
+	hs.tt.Type("`")
+	hs.settle()
+	expectText(t, d, "x = ``\n")
 }
 
 // longGo is Go source of n functions, each a few lines deep, for tests

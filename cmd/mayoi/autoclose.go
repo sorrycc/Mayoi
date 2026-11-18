@@ -108,7 +108,7 @@ func (d *editor) typed(now ui.TextSnapshot, at int, r rune) bool {
 		if r == '\'' && strings.Contains("Go Rust OCaml Haskell", highlight.Name(d.hl.Lexer())) {
 			return false
 		}
-		if r == '`' && !strings.Contains("Go JavaScript TypeScript TSX JSX Markdown Bash Zsh Kotlin Scala", highlight.Name(d.hl.Lexer())) {
+		if r == '`' && !strings.Contains("Go JavaScript TypeScript TSX react Markdown Bash Zsh Kotlin Scala", highlight.Name(d.hl.Lexer())) {
 			return false
 		}
 	}

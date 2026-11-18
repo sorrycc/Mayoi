@@ -94,13 +94,19 @@ type crumbsPicker struct {
 	dirs    map[string]bool
 	loading map[string]bool
 	errs    map[string]string
+
+	// heads makes the box the document's headings, as heading crumb at of
+	// the breadcrumbs opened it, in outline.
+	heads   bool
+	at      int
+	outline ui.OutlineState[int]
 }
 
 // openCrumbs opens the box of the folder dir of the breadcrumbs of tab t
 // of column col, or closes it if it is the one open.
 func (a *app) openCrumbs(col *column, t *colTab, dir string) {
 	k := &a.crumbs
-	if k.open && k.tab == t && k.dir == dir {
+	if k.open && k.tab == t && !k.heads && k.dir == dir {
 		k.open = false
 		return
 	}
@@ -188,9 +194,17 @@ func (a *app) crumbsBox(c *ui.Context, anchor ui.Element) {
 	}
 	ui.PopoverBase(c, anchor, &k.open, func(panel ui.Element) {
 		p := a.pal
+		label := locales.CrumbsFolderTip(filepath.Base(k.dir))
+		if k.heads {
+			label = locales.CrumbsHeadings()
+		}
 		dropIn(a.floating(c, panel.Width(300).Radius(8).Padding(4).Gap(0), false), 4).
-			Role(ui.RoleDialog).Label(locales.CrumbsFolderTip(filepath.Base(k.dir)))
+			Role(ui.RoleDialog).Label(label)
 		panel.Children(func() {
+			if k.heads {
+				a.headingsTree(c, k.tab.ed)
+				return
+			}
 			kids, read := k.kids[k.dir]
 			note := func(s string, col ui.Color) {
 				ui.Text(c, s).FontSize(12.5).TextColor(col).Padding(6, 10).MaxWidthPercent(100)
@@ -214,6 +228,12 @@ func (a *app) crumbsBox(c *ui.Context, anchor ui.Element) {
 
 // crumbsMaxH is the most the box's tree is tall, before it scrolls.
 const crumbsMaxH = 360
+
+// crumbsTreeH is how tall the box's tree is for rows: an outline's row
+// is its content's height and the outline's padding above and below.
+func crumbsTreeH(c *ui.Context, rows int) float32 {
+	return min(float32(rows)*(explorerRowH+2*c.Theme().Space(1)), crumbsMaxH)
+}
 
 // crumbsTree is the tree of the box: a click on a folder opens or closes
 // it, on a file shows it; the keys move among the rows, and Enter does
@@ -277,7 +297,7 @@ func (a *app) crumbsTree(c *ui.Context, kids []string) {
 				ui.Text(c, locales.CrumbsEmpty()).FontSize(11).TextColor(p.faint).SingleLine().Shrink(0).Margin(0, 4, 0, 0)
 			}
 		})
-	}).Height(min(float32(rows)*explorerRowH, crumbsMaxH)).Gap(0)
+	}).Height(crumbsTreeH(c, rows)).Gap(0)
 	out.Bind(&k.view)
 	if k.focus {
 		k.focus = false

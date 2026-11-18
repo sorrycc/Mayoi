@@ -925,6 +925,15 @@ func (a *app) breadcrumbs(c *ui.Context, col *column, t *colTab) {
 		scope = d.scopesOf(snap, snap.LineAt(min(d.sel[1], snap.Len())))
 		scope = scope[max(0, len(scope)-2):]
 	}
+	// In Markdown, the headings the reader is in.
+	var heads *headingOutline
+	var chain []int
+	if t.diff == nil {
+		heads, chain = a.headingCrumbs(d)
+	}
+	if k := &a.crumbs; k.open && k.heads && k.tab == t && k.at >= len(chain) {
+		a.closeCrumbs()
+	}
 	ui.Row(c).Height(crumbsH).Padding(0, 14).Gap(4).AlignItems(ui.Center).Background(p.editor).Clip().Children(func() {
 		for i, part := range parts {
 			last := i == len(parts)-1
@@ -970,10 +979,11 @@ func (a *app) breadcrumbs(c *ui.Context, col *column, t *colTab) {
 					t.TextColor(p.text).Shrink(1).MinWidth(24)
 				}
 			}
-			if !last || len(scope) > 0 {
+			if !last || len(scope) > 0 || len(chain) > 0 {
 				ui.Icon(c, iconChevronRight).FontSize(11).TextColor(p.faint)
 			}
 		}
+		a.headingCrumbsView(c, col, t, heads, chain)
 		for i, line := range scope {
 			label := scopeLabel(snap, line)
 			b := ui.ButtonBase(c.Key(fmt.Sprintf("scope:%d", i))).Height(crumbsH-6).Padding(0, 5).Radius(4).

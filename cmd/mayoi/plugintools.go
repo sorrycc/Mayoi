@@ -83,7 +83,7 @@ func (a *app) showTool(kind toolKind) *toolView {
 	col := a.fileColumn()
 	v := newToolView(kind)
 	at := min(col.active+1, len(col.tabs))
-	a.addTab(col, at, &colTab{tool: v})
+	at = a.addTab(col, at, &colTab{tool: v})
 	a.activate(col, at, true)
 	return v
 }

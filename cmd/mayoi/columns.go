@@ -60,6 +60,9 @@ type colTab struct {
 	// control: the next one chosen replaces it, until it is edited or
 	// kept.
 	transient bool
+	// pinned keeps the tab among the first of its column, which Close
+	// Others and Close All leave open.
+	pinned bool
 	// closeText is the label of the tab's close button, for the name and
 	// the language of closeFor: made again only as they change.
 	closeText string
@@ -211,15 +214,39 @@ func (a *app) editorTabs() []*colTab {
 	return out
 }
 
-// addTab puts a new tab at place at of a column.
-func (a *app) addTab(col *column, at int, t *colTab) {
+// addTab puts a new tab at place at of a column, after its pinned tabs,
+// and returns the place it went to.
+func (a *app) addTab(col *column, at int, t *colTab) int {
 	a.nextTab++
 	t.id = a.nextTab
-	at = min(max(at, 0), len(col.tabs))
+	at = col.placeFor(t, at)
 	col.tabs = slices.Insert(col.tabs, at, t)
 	if col.active >= at {
 		col.active++
 	}
+	return at
+}
+
+// pinnedCount is how many of a column's tabs are pinned, all of them
+// first.
+func (col *column) pinnedCount() int {
+	n := 0
+	for _, t := range col.tabs {
+		if t.pinned {
+			n++
+		}
+	}
+	return n
+}
+
+// placeFor is the place nearest at a tab can go in a column: among the
+// pinned tabs for a pinned one, after them for any other.
+func (col *column) placeFor(t *colTab, at int) int {
+	n := col.pinnedCount()
+	if t.pinned {
+		return min(max(at, 0), n)
+	}
+	return min(max(at, n), len(col.tabs))
 }
 
 func (a *app) docIndex(path string) int {
@@ -328,7 +355,7 @@ func (a *app) openFileIn(col *column, at int, path string, focus bool) {
 	}
 	at = min(max(at, 0), len(col.tabs))
 	t := &colTab{ed: newEditor(doc), transient: a.opening}
-	a.addTab(col, at, t)
+	at = a.addTab(col, at, t)
 	a.activate(col, at, focus)
 	if isMarkdown(t.ed.document) {
 		// Opened at a place in its text, as by search, it shows its text.
@@ -401,6 +428,30 @@ func (a *app) keepTab(t *colTab) {
 	a.rememberTabs()
 }
 
+// pinTab pins a tab, keeping it, or unpins it, moving it to the end of
+// the pinned tabs or to the start of the others.
+func (a *app) pinTab(t *colTab, pin bool) {
+	col, i := a.locate(t)
+	if col == nil || t.pinned == pin {
+		return
+	}
+	a.keepTab(t)
+	shown := col.tab()
+	col.take(i)
+	t.pinned = pin
+	at := col.placeFor(t, col.pinnedCount())
+	col.tabs = slices.Insert(col.tabs, at, t)
+	col.active = slices.Index(col.tabs, shown)
+	a.rememberTabs()
+}
+
+// togglePinTab pins the tab shown, or unpins it.
+func (a *app) togglePinTab() {
+	if t := a.activeTab(); t != nil {
+		a.pinTab(t, !t.pinned)
+	}
+}
+
 // keepEdited keeps the preview tabs whose documents were edited. It runs
 // once a frame.
 func (a *app) keepEdited() {
@@ -432,7 +483,7 @@ func (a *app) openImage(col *column, at int, path string, focus bool) {
 		a.tree.Watch(path)
 	}
 	at = min(max(at, 0), len(col.tabs))
-	a.addTab(col, at, &colTab{view: v, transient: a.opening})
+	at = a.addTab(col, at, &colTab{view: v, transient: a.opening})
 	a.activate(col, at, focus)
 }
 
@@ -649,11 +700,11 @@ func (a *app) closeTabs(tabs []*colTab, then, cancelled func()) {
 // calls then, or cancelled when one stayed open. Terminals stay.
 func (a *app) closeAll(then, cancelled func()) { a.closeTabs(a.editorTabs(), then, cancelled) }
 
-// closeOthers closes the tabs of a column other than keep, but those
-// whose changes would be lost.
+// closeOthers closes the tabs of a column other than keep, but pinned
+// ones and those whose changes would be lost.
 func (a *app) closeOthers(col *column, keep *colTab) {
 	for _, t := range slices.Clone(col.tabs) {
-		if t != keep && (t.ed == nil || !t.ed.dirty() || len(t.ed.views) > 1 || a.autoSaves(t.ed.document)) {
+		if t != keep && !t.pinned && (t.ed == nil || !t.ed.dirty() || len(t.ed.views) > 1 || a.autoSaves(t.ed.document)) {
 			a.closeTab(t, nil, nil)
 		}
 	}
@@ -922,7 +973,7 @@ func (a *app) moveTab(t *colTab, to *column, at int) {
 	if from == to && at > i {
 		at--
 	}
-	at = min(max(at, 0), len(to.tabs))
+	at = to.placeFor(t, at)
 	to.tabs = slices.Insert(to.tabs, at, t)
 	if from != to {
 		if t.ed != nil {
@@ -1027,6 +1078,7 @@ func (a *app) rememberTabs() {
 					ts.Wrap = a.ownWrap(ed.wrap, ed.wrapGen)
 				}
 			}
+			ts.Pinned = t.pinned
 			cs.Tabs = append(cs.Tabs, ts)
 			if i == col.active {
 				cs.Active = len(cs.Tabs) - 1
@@ -1098,6 +1150,7 @@ func (a *app) restoreExpanded(rels []string) {
 // restoreTab puts back where a tab restored was scrolled, its caret and
 // its own choice to wrap.
 func (a *app) restoreTab(t *colTab, ts settings.Tab) {
+	t.pinned = ts.Pinned
 	if v := t.diff; v != nil {
 		v.full, v.scroll.Y = ts.Full, ts.ScrollY
 		if ts.Shown != "" {

@@ -504,7 +504,7 @@ func (a *app) openMergeIn(col *column, at int, path string, focus bool) {
 		op = st.Op
 	}
 	v := &mergeView{path: path, entry: e, op: op, chosen: -1, current: -1}
-	a.addTab(col, at, &colTab{merge: v})
+	at = a.addTab(col, at, &colTab{merge: v})
 	a.activate(col, at, focus)
 	a.rememberTabs()
 	a.refreshMerge(v)

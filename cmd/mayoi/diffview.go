@@ -766,7 +766,7 @@ func (a *app) openChangesTab(focus bool, roots ...string) *diffView {
 	at := min(col.active+1, len(col.tabs))
 	v := a.openedDiff(newDiffView(parseDiffLayout(a.settings.DiffLayout)))
 	v.repoRoot = root
-	a.addTab(col, at, &colTab{diff: v})
+	at = a.addTab(col, at, &colTab{diff: v})
 	a.activate(col, at, focus)
 	return v
 }
@@ -803,7 +803,7 @@ func (a *app) compareFiles(left, right string) {
 	col := a.column()
 	at := min(col.active+1, len(col.tabs))
 	v := newLocalCompareView(parseDiffLayout(a.settings.DiffLayout), left, right)
-	a.addTab(col, at, &colTab{diff: v})
+	at = a.addTab(col, at, &colTab{diff: v})
 	a.activate(col, at, true)
 }
 
@@ -882,7 +882,7 @@ func (a *app) showCommit(c git.Commit, focus bool, roots ...string) *diffView {
 	at := min(col.active+1, len(col.tabs))
 	v := a.openedDiff(newCommitView(parseDiffLayout(a.settings.DiffLayout), c.Hash, c))
 	v.repoRoot = root
-	a.addTab(col, at, &colTab{diff: v})
+	at = a.addTab(col, at, &colTab{diff: v})
 	a.activate(col, at, focus)
 	a.rememberTabs()
 	return v
@@ -902,7 +902,7 @@ func (a *app) previewCommit(c git.Commit, roots ...string) *diffView {
 	a.previewIn(col, func(at int) {
 		v = a.openedDiff(newCommitView(parseDiffLayout(a.settings.DiffLayout), c.Hash, c))
 		v.repoRoot = root
-		a.addTab(col, at, &colTab{diff: v, transient: true})
+		at = a.addTab(col, at, &colTab{diff: v, transient: true})
 		a.activate(col, at, false)
 	})
 	return v

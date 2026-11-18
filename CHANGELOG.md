@@ -12,6 +12,9 @@ needs a `## <version>` section here, or its build fails.
 - Type in the breadcrumbs' heading outline to filter it; `↑`/`↓` pick a match and `Enter` goes there.
 - The TODOs plugin finds tags with symbols or non-Latin letters, such as `[TODO]`, `@todo` or `待办`.
 - With **Layout → One File at a Time**, a diff shows the whole file; **Show Full Files** folds it.
+- `Cmd+S` keeps a preview tab open, even with no changes, so the next file you click opens beside it.
+- Right-click a tab and choose **Pin Tab** to keep it at the left of the tab bar, marked with a pin.
+- **Close Others** and **Close All** leave pinned tabs open; **Unpin Tab** in the same menu releases one.
 
 ## 0.22.4
 

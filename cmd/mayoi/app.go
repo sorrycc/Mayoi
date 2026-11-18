@@ -711,7 +711,12 @@ func (a *app) docEditor(d *document) *editor {
 }
 
 func (a *app) saveActive() {
-	if t := a.activeTab(); t != nil && t.merge != nil {
+	t := a.activeTab()
+	if t != nil {
+		// Saving keeps a preview tab, changed or not.
+		a.keepTab(t)
+	}
+	if t != nil && t.merge != nil {
 		a.saveMerge(t.merge)
 		return
 	}

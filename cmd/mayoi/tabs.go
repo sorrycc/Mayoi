@@ -185,6 +185,9 @@ func (a *app) tabStrip(c *ui.Context, col *column) {
 							switch {
 							case t.ed != nil && t.ed.dirty() && !x.Hovered():
 								ui.Box(c.Key("dot")).Size(8, 8).Radius(4).Background(p.text.Alpha(0.7)).Transition(dotPop)
+							case t.pinned && !x.Hovered():
+								// A pinned tab shows its pin, the cross under the pointer.
+								ui.Icon(c.Key("pin"), iconPin).FontSize(12).TextColor(p.muted).Transition(crossFade)
 							case active || hovered || x.Hovered():
 								ui.Icon(c.Key("x"), iconX).FontSize(13).TextColor(p.muted).Transition(crossFade)
 							}
@@ -301,7 +304,17 @@ func (a *app) tabMenu(m *ui.Menu, col *column, t *colTab, closing **colTab) {
 		a.post(func() { a.closeOthers(col, t) })
 	}
 	if m.Item(locales.TabCloseAll()).Chosen() {
-		a.post(func() { a.closeTabs(slices.Clone(col.tabs), nil, nil) })
+		// Pinned tabs stay.
+		a.post(func() {
+			a.closeTabs(slices.DeleteFunc(slices.Clone(col.tabs), func(t *colTab) bool { return t.pinned }), nil, nil)
+		})
+	}
+	pin := locales.TabPin()
+	if t.pinned {
+		pin = locales.TabUnpin()
+	}
+	if m.Item(pin).Chosen() {
+		a.post(func() { a.pinTab(t, !t.pinned) })
 	}
 	m.Separator()
 	a.pluginMenuItems(m, "tab/context", t.path())

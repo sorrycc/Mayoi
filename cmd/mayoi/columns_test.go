@@ -1001,3 +1001,73 @@ func TestWrappedTabMovesWithItsLine(t *testing.T) {
 		t.Fatal("the tab did not move")
 	}
 }
+
+func TestSaveKeepsThePreviewTab(t *testing.T) {
+	hs := newHarness(t, true)
+	a := hs.a
+	a.previewFile(hs.path("main.go"))
+	hs.settle()
+	if !a.activeTab().transient {
+		t.Fatal("main.go is not a preview")
+	}
+	// Saved without a change, the preview is a tab of its own.
+	a.run("file.save")
+	a.previewFile(hs.path("README.md"))
+	hs.settle()
+	col := a.column()
+	if got := tabNames(col); got != "main.go README.md" || col.tabs[0].transient || !col.tab().transient {
+		t.Fatalf("tabs %q", got)
+	}
+}
+
+func TestPinnedTabs(t *testing.T) {
+	hs := newHarness(t, true)
+	a := hs.a
+	a.openFile(hs.path("main.go"), true)
+	a.openFile(hs.path("go.mod"), true)
+	a.previewFile(hs.path("README.md"))
+	hs.settle()
+	col := a.column()
+	// Pinned, the preview is kept and goes first.
+	a.run("view.togglePinTab")
+	hs.settle()
+	if got := tabNames(col); got != "README.md main.go go.mod" || !col.tabs[0].pinned || col.tabs[0].transient || col.tab() != col.tabs[0] {
+		t.Fatalf("pinned: tabs %q", got)
+	}
+	// What opens next goes after the pinned tabs.
+	a.previewFile(hs.path("internal/a/a.go"))
+	hs.settle()
+	if got := tabNames(col); got != "README.md a.go main.go go.mod" {
+		t.Fatalf("previewed: tabs %q", got)
+	}
+	// A tab dragged among the pinned ones stays after them.
+	a.moveTab(col.tabs[3], col, 0)
+	if got := tabNames(col); got != "README.md go.mod a.go main.go" {
+		t.Fatalf("moved: tabs %q", got)
+	}
+	// They come back pinned.
+	a.rememberTabs()
+	saved := a.window.Columns
+	a.window.Columns = nil
+	for _, tab := range slices.Clone(col.tabs) {
+		a.dropTab(tab)
+	}
+	a.window.Columns = saved
+	a.restoreTabs()
+	hs.settle()
+	col = a.column()
+	if got := tabNames(col); got != "README.md go.mod a.go main.go" || !col.tabs[0].pinned || col.tabs[1].pinned {
+		t.Fatalf("restored: tabs %q", got)
+	}
+	// Close Others leaves them open.
+	a.closeOthers(col, col.tabs[2])
+	hs.settle()
+	if got := tabNames(col); got != "README.md a.go" {
+		t.Fatalf("closed others: tabs %q", got)
+	}
+	// Unpinned, it goes after those pinned, here first.
+	a.pinTab(col.tabs[0], false)
+	if col.tabs[0].pinned || tabNames(col) != "README.md a.go" || col.tab().name() != "a.go" {
+		t.Fatalf("unpinned: tabs %q", tabNames(col))
+	}
+}

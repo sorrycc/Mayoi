@@ -681,7 +681,7 @@ func (a *app) previewToSide() {
 		side = col.tabs[i].ed
 	default:
 		at := col.active + 1
-		a.addTab(col, at, &colTab{ed: cloneEditor(d)})
+		at = a.addTab(col, at, &colTab{ed: cloneEditor(d)})
 		a.activate(col, at, true)
 		side = col.tabs[at].ed
 	}

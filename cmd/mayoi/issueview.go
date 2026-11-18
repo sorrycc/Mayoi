@@ -99,11 +99,11 @@ func (a *app) openIssue(ctx *gitContext, n int, keep bool) {
 	col := a.fileColumn()
 	if keep {
 		at := min(col.active+1, len(col.tabs))
-		a.addTab(col, at, &colTab{issue: v})
+		at = a.addTab(col, at, &colTab{issue: v})
 		a.activate(col, at, true)
 	} else {
 		a.previewIn(col, func(at int) {
-			a.addTab(col, at, &colTab{issue: v, transient: true})
+			at = a.addTab(col, at, &colTab{issue: v, transient: true})
 			a.activate(col, at, false)
 		})
 	}
@@ -120,7 +120,7 @@ func (a *app) newIssue(ctx *gitContext) {
 	v := &issueView{repoRoot: r.Root}
 	col := a.fileColumn()
 	at := min(col.active+1, len(col.tabs))
-	a.addTab(col, at, &colTab{issue: v})
+	at = a.addTab(col, at, &colTab{issue: v})
 	a.activate(col, at, true)
 }
 

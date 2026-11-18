@@ -214,6 +214,7 @@ func (a *app) commandsIn(t locales.Messages) []command {
 		{"view.prevColumn", t.CmdViewPrevColumn(), "Alt+CmdOrCtrl+Left", func() { a.focusColumnBy(-1) }},
 		{"view.moveTabNext", t.CmdViewMoveTabNext(), "", func() { a.moveTabBy(1) }},
 		{"view.moveTabPrev", t.CmdViewMoveTabPrev(), "", func() { a.moveTabBy(-1) }},
+		{"view.togglePinTab", t.CmdViewTogglePinTab(), "", a.togglePinTab},
 		{"view.wordWrap", t.CmdViewWordWrap(), "", a.toggleWordWrap},
 		{"view.vim", t.CmdViewVim(), "", a.toggleVim},
 		{"view.projectTabs", t.CmdViewProjectTabs(), "", a.toggleProjectTabs},

@@ -98,7 +98,7 @@ func (a *app) reopenClosed() {
 			}
 			v.scroll.Y, v.full, v.wrap, v.wrapGen = c.y, c.full, c.wrap, c.wrapGen
 			at := min(max(c.at, 0), len(col.tabs))
-			a.addTab(col, at, &colTab{diff: v})
+			at = a.addTab(col, at, &colTab{diff: v})
 			a.activate(col, at, true)
 			return
 		}

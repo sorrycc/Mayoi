@@ -477,6 +477,8 @@ type Tab struct {
 	// Transient is set for the preview tab of its column, which the next
 	// file previewed replaces.
 	Transient bool `json:"transient,omitempty"`
+	// Pinned is set for a tab pinned among the first of its column.
+	Pinned bool `json:"pinned,omitempty"`
 	// Diff is set for the changes of File rather than the file: "head",
 	// "index" or "staged", what they are against. With no File, it is
 	// the changes of every file, against that. Layout is the diff's, as

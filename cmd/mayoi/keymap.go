@@ -250,6 +250,8 @@ var vscodeCommands = map[string]string{
 	"workbench.action.positionPanelLeft":         "view.panelPosition.left",
 	"workbench.action.positionPanelRight":        "view.panelPosition.right",
 	"workbench.action.splitEditor":               "view.splitRight",
+	"workbench.action.pinEditor":                 "view.togglePinTab",
+	"workbench.action.unpinEditor":               "view.togglePinTab",
 	"workbench.action.splitEditorRight":          "view.splitRight",
 	"markdown.showPreview":                       "view.togglePreview",
 	"markdown.showPreviewToSide":                 "view.previewToSide",

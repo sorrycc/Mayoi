@@ -174,11 +174,11 @@ func (a *gitContext) openPullRequestWith(n int, page prPage, threads, keep bool,
 		col := app.fileColumn()
 		if keep {
 			at := min(col.active+1, len(col.tabs))
-			app.addTab(col, at, &colTab{diff: v})
+			at = app.addTab(col, at, &colTab{diff: v})
 			app.activate(col, at, true)
 		} else {
 			app.previewIn(col, func(at int) {
-				app.addTab(col, at, &colTab{diff: v, transient: true})
+				at = app.addTab(col, at, &colTab{diff: v, transient: true})
 				app.activate(col, at, false)
 			})
 		}
@@ -358,7 +358,7 @@ func (a *app) showPullRequest(info *git.PRInfo, from string, viewed map[string]b
 		at := min(col.active+1, len(col.tabs))
 		v := a.openedDiff(view(parseDiffLayout(a.settings.DiffLayout)))
 		v.commit.pr.page = prChanges
-		a.addTab(col, at, &colTab{diff: v})
+		at = a.addTab(col, at, &colTab{diff: v})
 		a.activate(col, at, true)
 	}
 	a.rememberTabs()

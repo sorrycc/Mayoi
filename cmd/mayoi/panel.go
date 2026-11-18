@@ -364,7 +364,7 @@ func (a *app) terminalTab(col *column, at int, s *session, focus bool) bool {
 	}
 	s.tab = &colTab{term: s}
 	at = min(max(at, 0), len(col.tabs))
-	a.addTab(col, at, s.tab)
+	at = a.addTab(col, at, s.tab)
 	a.activate(col, at, focus)
 	return true
 }

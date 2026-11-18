@@ -3468,6 +3468,16 @@ func (msgs Messages) CmdViewThemeBloodMoon() string {
 	return Catalog.Format(msgs.locale, "cmdViewThemeBloodMoon", nil)
 }
 
+// CmdViewTogglePinTab says "Toggle Pin Tab"
+// in the language the app shows.
+func CmdViewTogglePinTab() string { return In(i18n.Locale()).CmdViewTogglePinTab() }
+
+// CmdViewTogglePinTab says "Toggle Pin Tab"
+// in the language of msgs.
+func (msgs Messages) CmdViewTogglePinTab() string {
+	return Catalog.Format(msgs.locale, "cmdViewTogglePinTab", nil)
+}
+
 // CmdViewTogglePreview says "Toggle Preview"
 // in the language the app shows.
 func CmdViewTogglePreview() string { return In(i18n.Locale()).CmdViewTogglePreview() }
@@ -12526,6 +12536,16 @@ func (msgs Messages) TabEditsStay(name string, project string) string {
 	return Catalog.Format(msgs.locale, "tabEditsStay", map[string]any{"name": name, "project": project})
 }
 
+// TabPin says "Pin Tab"
+// in the language the app shows.
+func TabPin() string { return In(i18n.Locale()).TabPin() }
+
+// TabPin says "Pin Tab"
+// in the language of msgs.
+func (msgs Messages) TabPin() string {
+	return Catalog.Format(msgs.locale, "tabPin", nil)
+}
+
 // TabTerminal says "Terminal"
 // in the language the app shows.
 func TabTerminal() string { return In(i18n.Locale()).TabTerminal() }
@@ -12534,6 +12554,16 @@ func TabTerminal() string { return In(i18n.Locale()).TabTerminal() }
 // in the language of msgs.
 func (msgs Messages) TabTerminal() string {
 	return Catalog.Format(msgs.locale, "tabTerminal", nil)
+}
+
+// TabUnpin says "Unpin Tab"
+// in the language the app shows.
+func TabUnpin() string { return In(i18n.Locale()).TabUnpin() }
+
+// TabUnpin says "Unpin Tab"
+// in the language of msgs.
+func (msgs Messages) TabUnpin() string {
+	return Catalog.Format(msgs.locale, "tabUnpin", nil)
 }
 
 // TermKill says "Kill Terminal"

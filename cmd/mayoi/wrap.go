@@ -1,7 +1,7 @@
 package main
 
 import (
-	"unicode/utf8"
+	"slices"
 
 	"github.com/egoist/mygo/ui"
 
@@ -181,6 +181,15 @@ type wrapRows struct {
 
 	starts [][]float32 // of lines first up to last; nil for one row
 	runes  []int
+	// lines keeps the rows of each line found at version, in font, for
+	// scrolling to find again only the lines it brings into view.
+	lines map[int]wrappedLine
+}
+
+// wrappedLine holds the runes a line's rows start at, and their x's.
+type wrappedLine struct {
+	runes []int
+	xs    []float32
 }
 
 // rowsOf finds the rows of lines first up to last, as the text area,
@@ -190,46 +199,76 @@ func (a *app) rowsOf(d *editor, snap ui.TextSnapshot, first, last int, width flo
 	if wr.found && wr.version == snap.Version() && wr.first == first && wr.last == last && wr.width == width && wr.font == a.font {
 		return wr
 	}
+	if wr.lines == nil || wr.version != snap.Version() || wr.font != a.font {
+		wr.lines = map[int]wrappedLine{}
+	}
 	wr.version, wr.first, wr.last, wr.width, wr.font, wr.found = snap.Version(), first, last, width, a.font, true
 	clear(wr.starts)
 	wr.starts = wr.starts[:0]
-	f := a.font
 	for i := first; i <= last; i++ {
 		wr.runes = d.lines.AppendRows(wr.runes[:0], i)
 		if len(wr.runes) < 2 {
 			wr.starts = append(wr.starts, nil)
 			continue
 		}
-		s, e := snap.LineRange(i)
-		text := snap.Slice(s, e)
-		xs := make([]float32, 0, len(wr.runes))
-		ascii := isASCII(text)
-		var x float32
-		k, at := 0, 0 // the rune, and the row next found
-		for j, r := range text {
-			for at < len(wr.runes) && wr.runes[at] == k {
-				xs = append(xs, x)
-				at++
-			}
-			if at == len(wr.runes) {
-				break
-			}
-			switch {
-			case r == '\t':
-				x = f.afterTab(x)
-			case ascii || e-s > highlightRunes:
-				x += f.charW
-			default:
-				x = f.width(text[:j+utf8.RuneLen(r)])
-			}
-			k++
+		if lr, ok := wr.lines[i]; ok && slices.Equal(lr.runes, wr.runes) {
+			wr.starts = append(wr.starts, lr.xs)
+			continue
 		}
-		for len(xs) < len(wr.runes) {
-			xs = append(xs, x)
-		}
+		xs := a.rowXs(snap, i, wr.runes)
+		wr.lines[i] = wrappedLine{slices.Clone(wr.runes), xs}
 		wr.starts = append(wr.starts, xs)
 	}
+	// Forget the lines far out of view.
+	if span := last - first + 1; len(wr.lines) > 4*span+4*rowSlack {
+		for i := range wr.lines {
+			if i < first-span-rowSlack || i > last+span+rowSlack {
+				delete(wr.lines, i)
+			}
+		}
+	}
 	return wr
+}
+
+// rowXs returns the x's along line i where its rows, starting at runes,
+// start. ASCII goes by its cells; anything else is shaped a row at a time,
+// not up to each rune, for a long line to cost its length once.
+func (a *app) rowXs(snap ui.TextSnapshot, i int, runes []int) []float32 {
+	f := a.font
+	s, e := snap.LineRange(i)
+	text := snap.Slice(s, e)
+	xs := make([]float32, 0, len(runes))
+	cells := isASCII(text) || e-s > highlightRunes
+	var x float32
+	k, at, from := 0, 0, 0 // the rune, the row next found, and the byte x is at
+	for j, r := range text {
+		for at < len(runes) && runes[at] == k {
+			if !cells {
+				x = f.widthFrom(x, text[from:j])
+				from = j
+			}
+			xs = append(xs, x)
+			at++
+		}
+		if at == len(runes) {
+			break
+		}
+		if cells {
+			if r == '\t' {
+				x = f.afterTab(x)
+			} else {
+				x += f.charW
+			}
+		}
+		k++
+	}
+	if !cells && len(xs) < len(runes) {
+		x = f.widthFrom(x, text[from:])
+	}
+	for len(xs) < len(runes) {
+		xs = append(xs, x)
+	}
+	return xs
 }
 
 // rowStarts returns where the rows of line i start along it, nil for a

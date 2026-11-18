@@ -115,9 +115,14 @@ func (f codeFont) featureList() []string {
 // width measures a run from the start of a line as the text area lays it
 // out: ASCII by its cells and the tab stops, anything else by shaping it,
 // up to the next tab.
-func (f codeFont) width(s string) float32 {
-	var x, from float32 // from is where the text after the last tab starts
-	last := 0           // and last its offset
+func (f codeFont) width(s string) float32 { return f.widthFrom(0, s) }
+
+// widthFrom returns where a run that starts at x along a line ends, as
+// width measures it: a line's width is the sum of its runs', but for the
+// kerning across where they meet.
+func (f codeFont) widthFrom(x float32, s string) float32 {
+	from := x // from is where the text after the last tab starts
+	last := 0 // and last its offset
 	for i := 0; i < len(s); i++ {
 		switch c := s[i]; {
 		case c == '\t':

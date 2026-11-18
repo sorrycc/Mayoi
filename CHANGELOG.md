@@ -14,6 +14,7 @@ needs a `## <version>` section here, or its build fails.
 - A `<picture>` shows its dark-theme image in the dark theme, as a README's logo does on GitHub.
 - An HTML `<pre>` shows as a code block with its spaces kept; a `<blockquote>` shows as a quote.
 - The link icon in centered text, as a README's centered links, now stands right after its link.
+- Scrolling past a long wrapped line of Chinese or other non-ASCII text is smooth again.
 
 ## 0.22.3
 

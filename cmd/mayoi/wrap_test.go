@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"math"
 	"os"
 	"strings"
 	"testing"
@@ -60,6 +61,34 @@ func TestWordWrapToggles(t *testing.T) {
 	}
 	if prefs, _ := a.settings.Encode(); !strings.Contains(string(prefs), `"wordWrap": true`) {
 		t.Error("the setting is not saved")
+	}
+}
+
+func TestWrappedCJKLinePlaced(t *testing.T) {
+	hs, d := editHarness(t, "w.txt", "a\n\t"+strings.Repeat("测试长行 wrap ", 300)+"\nb\n")
+	a := hs.a
+	a.run("view.wordWrap")
+	hs.settle()
+	snap := d.buf.Snapshot()
+	rows := d.lines.Rows(1)
+	if len(rows) < 3 {
+		t.Fatalf("the long line takes rows %v", rows)
+	}
+	xs := a.rowsOf(d, snap, 0, 2, 0).rowStarts(1)
+	if len(xs) != len(rows) {
+		t.Fatalf("rows start at %v, for rows %v", xs, rows)
+	}
+	s, e := snap.LineRange(1)
+	text := []rune(snap.Slice(s, e))
+	for k, r := range rows {
+		if want := a.font.width(string(text[:r])); math.Abs(float64(xs[k]-want)) > 0.1 {
+			t.Errorf("row %d starts at %v, want %v", k, xs[k], want)
+		}
+	}
+	// Scrolling finds the rows it found again.
+	again := a.rowsOf(d, snap, 1, 2, 0).rowStarts(1)
+	if &again[0] != &xs[0] {
+		t.Error("the rows of a line still in view are found again")
 	}
 }
 

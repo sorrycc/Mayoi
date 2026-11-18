@@ -79,6 +79,30 @@ func TestBudgets(t *testing.T) {
 				step(hs.tt)
 			}
 		}},
+		{"wrapped CJK line scroll frame", 5 * time.Millisecond, false, func(t *testing.T, hs *harness) func() {
+			var b strings.Builder
+			for i := range 200 {
+				if i%20 == 10 {
+					b.WriteString(strings.Repeat("测试长行", 600) + "\n")
+				} else {
+					fmt.Fprintf(&b, "line %d\n", i)
+				}
+			}
+			os.WriteFile(hs.path("long.txt"), []byte(b.String()), 0o644)
+			hs.a.openFile(hs.path("long.txt"), true)
+			hs.a.run("view.wordWrap")
+			hs.settle()
+			i := 0
+			return func() {
+				dy := float32(60)
+				if i/30%2 == 1 {
+					dy = -60
+				}
+				i++
+				hs.tt.Scroll(700, 400, 0, dy)
+				step(hs.tt)
+			}
+		}},
 		{"type frame", 4 * time.Millisecond, false, func(t *testing.T, hs *harness) func() {
 			d := bigDoc(hs)
 			hs.place(d, 5000, 5000)

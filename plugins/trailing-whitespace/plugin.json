@@ -1,0 +1,15 @@
+{
+  "name": "trailing-whitespace",
+  "displayName": "Trailing Whitespace",
+  "version": "1.0.0",
+  "description": "The spaces and tabs at the ends of lines, trimmed as a file is saved",
+  "main": "main.ts",
+  "enabled": false,
+  "activation": ["*"],
+  "contributes": {
+    "commands": [
+      { "id": "trailing-whitespace.trim", "title": "Trim Trailing Whitespace", "title:zh-Hans": "去除行尾空格", "title:ja": "行末の空白を削除" }
+    ],
+    "formatters": [{ "id": "trailing-whitespace.format", "title": "Trailing Whitespace", "languages": ["*"] }]
+  }
+}

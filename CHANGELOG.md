@@ -5,6 +5,7 @@ needs a `## <version>` section here, or its build fails.
 
 ## Unreleased
 
+- The **Trailing Whitespace** plugin removes the spaces and tabs at the ends of lines as a file is saved.
 - Heading crumbs show just the heading's name, without its `#` marks, and the heading you're in stands out.
 - A deep chain of headings in the breadcrumbs shows the outermost and innermost two, with `…` for the rest.
 - A heading crumb you move into opens in smoothly, and the crumbs after it slide along.

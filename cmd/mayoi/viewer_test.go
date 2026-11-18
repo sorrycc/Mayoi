@@ -240,6 +240,44 @@ func TestImageTabsMoveAndRestore(t *testing.T) {
 	}
 }
 
+// TestSVGPreviewDrawsText checks the preview of an SVG draws its text, as
+// issue #198 found it did not.
+func TestSVGPreviewDrawsText(t *testing.T) {
+	hs := newHarness(t, true)
+	a, tt := hs.a, hs.tt
+	path := hs.path("text.svg")
+	os.WriteFile(path, []byte(`<svg xmlns="http://www.w3.org/2000/svg" width="320" height="100">
+  <rect width="320" height="100" fill="white"/>
+  <text x="16" y="55" font-size="24" fill="black">中文 Hello</text>
+</svg>
+`), 0o644)
+	a.openFile(path, true)
+	hs.settle()
+	a.run("view.togglePreview")
+	d := a.activeEditor()
+	hs.until("the preview", func() bool { return d.preview != nil && d.preview.src != nil })
+	hs.settle()
+	box, ok := tt.Find("Preview text.svg")
+	if !ok {
+		t.Fatal("no pane")
+	}
+	v := d.preview
+	at := v.place(v.paneW, v.paneH)
+	img := tt.Image()
+	// Within the picture, clear of its edges, only the text is dark.
+	dark := 0
+	for y := int(box.Y+at.Y) + 2; y < int(box.Y+at.Y+at.H)-2; y++ {
+		for x := int(box.X+at.X) + 2; x < int(box.X+at.X+at.W)-2; x++ {
+			if c := img.RGBAAt(x, y); c.R < 100 && c.G < 100 && c.B < 100 {
+				dark++
+			}
+		}
+	}
+	if dark < 50 {
+		t.Fatalf("the picture %+v shows %d dark pixels of text", at, dark)
+	}
+}
+
 func TestSVGPreview(t *testing.T) {
 	hs := newHarness(t, true)
 	a, tt := hs.a, hs.tt

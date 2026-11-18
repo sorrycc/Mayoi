@@ -15,6 +15,7 @@ needs a `## <version>` section here, or its build fails.
 - `Cmd+S` keeps a preview tab open, even with no changes, so the next file you click opens beside it.
 - Right-click a tab and choose **Pin Tab** to keep it at the left of the tab bar, marked with a pin.
 - **Close Others** and **Close All** leave pinned tabs open; **Unpin Tab** in the same menu releases one.
+- SVG previews show the text in the picture, Chinese labels included, in its fonts, sizes and colors.
 
 ## 0.22.4
 

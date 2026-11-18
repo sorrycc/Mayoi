@@ -46,6 +46,9 @@ type document struct {
 	kept        string
 	keptVersion uint64
 	buf         *ui.TextBuffer
+	// headings are the outline of a Markdown document's headings, which
+	// its breadcrumbs show.
+	headings headingOutline
 	// live is the document's Live Preview, nil until an editor shows it
 	// so.
 	live *liveState

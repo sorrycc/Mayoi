@@ -19,6 +19,10 @@ needs a `## <version>` section here, or its build fails.
 - In Live Preview, a file path in the text, like `~/notes/a.md` or `./a.md:12`, is a link that opens it.
 - On Windows, a path like `C:\notes\a.md` or `.\a.md` in Live Preview is a link too.
 - Markdown links to `~/` paths and whole paths, like `[a](~/a.md)`, open their file in Live Preview.
+- In a Markdown file, the breadcrumbs show the headings you're in after its name, as `# Title > ## Section`.
+- In the Reading view, the breadcrumbs name the heading at the top of what shows, and follow as you scroll.
+- Click a heading in the breadcrumbs for an outline of all the note's headings; click one to go to it.
+- A folder's box in the breadcrumbs now fits all its rows instead of cutting off the last one.
 
 ## 0.22.3
 

@@ -227,6 +227,11 @@ func (a *app) syncMarkdown(c *ui.Context, v *viewer) {
 	}
 	defer func() {
 		if top, ok := a.previewPlace(c, v); ok {
+			if o := &v.doc.headings; o.read && o.headingAt(placeLine(top)) != o.headingAt(placeLine(m.sync.top)) {
+				// The breadcrumbs, built before the preview, name the
+				// heading at the top: one more frame for the one there now.
+				a.invalidate()
+			}
 			m.sync.top = top
 		}
 	}()

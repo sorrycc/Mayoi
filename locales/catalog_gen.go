@@ -4174,6 +4174,36 @@ func (msgs Messages) CrumbsFolderTip(name string) string {
 	return Catalog.Format(msgs.locale, "crumbsFolderTip", map[string]any{"name": name})
 }
 
+// CrumbsHeadingTip says "Headings, at {name}"
+// in the language the app shows.
+func CrumbsHeadingTip(name string) string { return In(i18n.Locale()).CrumbsHeadingTip(name) }
+
+// CrumbsHeadingTip says "Headings, at {name}"
+// in the language of msgs.
+func (msgs Messages) CrumbsHeadingTip(name string) string {
+	return Catalog.Format(msgs.locale, "crumbsHeadingTip", map[string]any{"name": name})
+}
+
+// CrumbsHeadings says "Headings"
+// in the language the app shows.
+func CrumbsHeadings() string { return In(i18n.Locale()).CrumbsHeadings() }
+
+// CrumbsHeadings says "Headings"
+// in the language of msgs.
+func (msgs Messages) CrumbsHeadings() string {
+	return Catalog.Format(msgs.locale, "crumbsHeadings", nil)
+}
+
+// CrumbsNoHeadings says "No headings"
+// in the language the app shows.
+func CrumbsNoHeadings() string { return In(i18n.Locale()).CrumbsNoHeadings() }
+
+// CrumbsNoHeadings says "No headings"
+// in the language of msgs.
+func (msgs Messages) CrumbsNoHeadings() string {
+	return Catalog.Format(msgs.locale, "crumbsNoHeadings", nil)
+}
+
 // DeletePermanently says "Delete Permanently…"
 // in the language the app shows.
 func DeletePermanently() string { return In(i18n.Locale()).DeletePermanently() }

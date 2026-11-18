@@ -247,9 +247,20 @@ func (hs *harness) close() {
 	var terms []*session
 	for _, s := range hs.a.terms {
 		if s.term != nil {
-			s.term.Close()
 			terms = append(terms, s)
 		}
+	}
+	// A shell closed while it starts is only hung up on, not killed after
+	// a moment as one running is, and its Done comes before it exits:
+	// Windows' pwsh lives on in the folder. Each local shell gets to start
+	// first, as it has once it wrote something.
+	started := time.Now().Add(10 * time.Second)
+	for _, s := range terms {
+		local := s.attach == "" && s.hc == "" && !s.hcStarting
+		for local && strings.TrimSpace(s.term.Text()) == "" && !exited(s) && time.Now().Before(started) {
+			time.Sleep(10 * time.Millisecond)
+		}
+		s.term.Close()
 	}
 	hs.a.shutdown()
 	deadline := time.Now().Add(5 * time.Second)
@@ -265,6 +276,16 @@ func (hs *harness) close() {
 	// Windows can keep the folder a moment after a shell exits.
 	for len(terms) > 0 && os.RemoveAll(hs.root) != nil && time.Now().Before(deadline) {
 		time.Sleep(50 * time.Millisecond)
+	}
+}
+
+// exited reports whether the program of a terminal ended.
+func exited(s *session) bool {
+	select {
+	case <-s.term.Done():
+		return true
+	default:
+		return false
 	}
 }
 

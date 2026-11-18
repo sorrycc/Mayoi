@@ -460,6 +460,9 @@ func TestTerminalMovesToLockedRightColumn(t *testing.T) {
 	// A shell exiting takes its tab but leaves the locked column and action.
 	a.activate(right, 0, true)
 	hs.settle()
+	// One the user ends, not one that could not start, however fast the
+	// machine came to it.
+	a.terms[0].started = time.Now().Add(-exitedEarlyWithin)
 	tt.Type("exit")
 	tt.Key(0, ui.KeyEnter)
 	deadline = time.Now().Add(settleTimeout)

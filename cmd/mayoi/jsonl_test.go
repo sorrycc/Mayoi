@@ -293,3 +293,33 @@ func TestJSONLMarkSpans(t *testing.T) {
 		t.Errorf("markSpans = %v, want %v", text, want)
 	}
 }
+
+func TestFilterWhere(t *testing.T) {
+	ix := indexJSONL(`{"n":1,"s":"1"}
+{"n":"1","s":1}
+{"s":"ab"}
+oops
+`)
+	never := func() bool { return false }
+	keep := func(col, raw string, not bool) []int32 {
+		return filterWhere(ix, nil, true, []jsonlWhere{{id: pathID([]jsonlStep{{key: col}}), value: valueKey(raw), not: not}}, never)
+	}
+	for _, c := range []struct {
+		col, raw string
+		not      bool
+		want     []int32
+	}{
+		{"n", `1`, false, []int32{0}},
+		{"n", `"1"`, false, []int32{1}},
+		{"s", `"ab"`, false, []int32{2}},
+		{"n", `1`, true, []int32{1, 2, 3}},
+	} {
+		if got := keep(c.col, c.raw, c.not); !slices.Equal(got, c.want) {
+			t.Errorf("%s %s not %v: %v, want %v", c.col, c.raw, c.not, got, c.want)
+		}
+	}
+	both := []jsonlWhere{{id: pathID([]jsonlStep{{key: "s"}}), value: `"1`, not: true}, {id: pathID([]jsonlStep{{key: "n"}}), value: `"1`, not: true}}
+	if got := filterWhere(ix, []int32{0, 1, 2}, false, both, never); !slices.Equal(got, []int32{2}) {
+		t.Errorf("both: %v", got)
+	}
+}

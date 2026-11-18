@@ -38,10 +38,12 @@ const jsonlHitsMax = 200
 const jsonlPrettyMax = 256 << 10
 
 // jsonlWant is what the rows shown are of: the text's version, the
-// filter's query and the sort.
+// filter's query, the values it keeps or hides, as whereKey has them, and
+// the sort.
 type jsonlWant struct {
 	version uint64
 	query   string
+	where   string
 	sort    string
 	desc    bool
 }
@@ -84,6 +86,8 @@ type jsonlTable struct {
 	sort   ui.SortOrder
 	query  string
 	input  ui.Handle
+	// where are the values the rows are filtered by, besides query.
+	where []jsonlWhere
 
 	// cells keep the cells of the rows shown lately, by row, for the
 	// columns of cellsOf.
@@ -171,7 +175,7 @@ func (t *jsonlTable) hiddenColumns() []*jsonlColumn {
 
 // want is what the rows are to show now.
 func (t *jsonlTable) want(version uint64) jsonlWant {
-	return jsonlWant{version: version, query: t.query, sort: t.sort.Column, desc: t.sort.Descending}
+	return jsonlWant{version: version, query: t.query, where: whereKey(t.where), sort: t.sort.Column, desc: t.sort.Descending}
 }
 
 // followJSONL keeps a table's rows those of its document's text, its
@@ -185,7 +189,7 @@ func (a *app) followJSONL(v *viewer) {
 	}
 	if t.ix == nil {
 		if snap.Len() <= jsonlQuickMax {
-			a.applyJSONL(t, readJSONL(snap.String(), nil, &jsonlRead{}, want, func() bool { return false }))
+			a.applyJSONL(t, readJSONL(snap.String(), nil, &jsonlRead{}, want, t.where, func() bool { return false }))
 			return
 		}
 		// The head of the text, for the first frame.
@@ -204,6 +208,7 @@ func (a *app) followJSONL(v *viewer) {
 		ix = nil
 	}
 	had := jsonlRead{ix: t.keysIx, keys: t.keys, keysOf: t.keysOf}
+	where := slices.Clone(t.where)
 	bg.Go(func() {
 		defer recoverCrash()
 		stop := func() bool { return t.gen.Load() != gen }
@@ -211,7 +216,7 @@ func (a *app) followJSONL(v *viewer) {
 		if ix == nil {
 			text = snap.String()
 		}
-		r := readJSONL(text, ix, &had, want, stop)
+		r := readJSONL(text, ix, &had, want, where, stop)
 		a.post(func() {
 			if stop() || r == nil {
 				return
@@ -233,8 +238,9 @@ type jsonlRead struct {
 }
 
 // readJSONL indexes text, unless ix has it, and finds the rows want
-// shows, nil once stop says to; had has the sort keys found last.
-func readJSONL(text string, ix *jsonlIndex, had *jsonlRead, want jsonlWant, stop func() bool) *jsonlRead {
+// shows, where of want.where, nil once stop says to; had has the sort keys
+// found last.
+func readJSONL(text string, ix *jsonlIndex, had *jsonlRead, want jsonlWant, where []jsonlWhere, stop func() bool) *jsonlRead {
 	if ix == nil {
 		ix = indexJSONL(text)
 	}
@@ -242,6 +248,11 @@ func readJSONL(text string, ix *jsonlIndex, had *jsonlRead, want jsonlWant, stop
 	var filter []int32
 	if want.query != "" {
 		if filter = filterRows(ix, want.query, stop); filter == nil {
+			return nil
+		}
+	}
+	if len(where) > 0 {
+		if filter = filterWhere(ix, filter, want.query == "", where, stop); filter == nil {
 			return nil
 		}
 	}
@@ -255,7 +266,7 @@ func readJSONL(text string, ix *jsonlIndex, had *jsonlRead, want jsonlWant, stop
 		}
 		r.keysOf = want.sort
 	}
-	r.view = jsonlView(ix, filter, want.query != "", r.keys, want.desc)
+	r.view = jsonlView(ix, filter, want.query != "" || len(where) > 0, r.keys, want.desc)
 	return r
 }
 
@@ -413,8 +424,8 @@ func (a *app) jsonlView(c *ui.Context, v *viewer, name string) {
 		case t.ix == nil:
 		case t.ix.rows() == 0:
 			a.viewEmpty(c, "file-text", locales.JsonlEmpty())
-		case t.count() == 0 && t.shown.query != "":
-			a.viewEmpty(c, "search", locales.JsonlNoMatch(t.shown.query))
+		case t.count() == 0 && t.filtered():
+			a.jsonlNoMatch(c, t)
 		case !t.details:
 			a.jsonlGrid(c, v, name)
 		default:
@@ -427,6 +438,72 @@ func (a *app) jsonlView(c *ui.Context, v *viewer, name string) {
 	})
 }
 
+// filtered reports whether the rows shown are filtered, by a query or by
+// values.
+func (t *jsonlTable) filtered() bool { return t.shown.query != "" || t.shown.where != "" }
+
+// clearFilters shows every row again.
+func (t *jsonlTable) clearFilters() {
+	t.query, t.where = "", nil
+}
+
+// addWhere filters the rows by a column's value raw: to those that hold
+// it, or, when not, to those that don't. It takes the place of a filter it
+// makes needless: any other of the column, for one that keeps a value.
+func (t *jsonlTable) addWhere(col *jsonlColumn, raw string, not bool) {
+	cell := cellOf(raw)
+	w := jsonlWhere{id: col.id, value: valueKey(raw), not: not, title: col.title(), text: cellLine(cell.text, 40), kind: cell.kind}
+	t.where = slices.DeleteFunc(t.where, func(o jsonlWhere) bool {
+		return o.id == w.id && (!o.not || !not || o.value == w.value)
+	})
+	t.where = append(t.where, w)
+}
+
+// jsonlNoMatch says no row is left by the filters, and offers to clear
+// them.
+func (a *app) jsonlNoMatch(c *ui.Context, t *jsonlTable) {
+	text := locales.JsonlNoMatch(t.shown.query)
+	if t.shown.where != "" {
+		text = locales.JsonlNoMatchFilters()
+	}
+	ui.Column(c.Key("jsonl-none")).FillWidth().AlignItems(ui.Center).Children(func() {
+		a.viewEmpty(c, "search", text)
+		if a.barButton(c, "jsonl-clear", locales.JsonlClearFilters()).Clicked() {
+			t.clearFilters()
+			a.post(func() { a.focusColumn() })
+		}
+	})
+}
+
+// whereChip is a filter by a value, in the bar: the column, = or ≠, and
+// the value as its cell colors it, with a button to remove it, which it
+// reports clicked. It opens its width as it comes, and closes it as it goes.
+func (a *app) whereChip(c *ui.Context, w jsonlWhere) (remove bool) {
+	p := a.pal
+	op := "="
+	if w.not {
+		op = "≠"
+	}
+	ui.Row(c.Key("where:"+whereKey([]jsonlWhere{w}))).Height(22).Padding(0, 2, 0, 8).Gap(4).Radius(11).
+		Background(p.text.Alpha(0.07)).AlignItems(ui.Center).Shrink(1).Transition(wordIn).
+		Tooltip(w.title + " " + op + " " + w.text).Children(func() {
+		ui.Text(c, w.title).FontSize(12).TextColor(p.muted).SingleLine().Shrink(0)
+		ui.Text(c, op).FontSize(12).TextColor(p.faint).Shrink(0)
+		ui.Text(c, w.text).FontSize(12).Font(a.font.family).TextColor(a.cellColor(w.kind)).SingleLine().Shrink(1)
+		label := locales.JsonlRemoveFilter()
+		b := ui.ButtonBase(c.Key("remove")).Size(18, 18).Radius(9).AlignItems(ui.Center).Justify(ui.Center).
+			Label(label).Tooltip(label).Shrink(0)
+		if b.Hovered() {
+			b.Background(p.hover)
+		}
+		b.Transition(hoverFade)
+		pressPose(b)
+		b.Children(func() { ui.Icon(c, iconX).FontSize(10).TextColor(p.muted) })
+		remove = b.Clicked()
+	})
+	return remove
+}
+
 // jsonlBar is the bar over a table: its filter, and what it shows.
 func (a *app) jsonlBar(c *ui.Context, v *viewer) {
 	t, p := v.jsonl, a.pal
@@ -435,8 +512,8 @@ func (a *app) jsonlBar(c *ui.Context, v *viewer) {
 			in := a.searchField(c, "jsonl-query", &t.query, locales.JsonlFilter(), &t.input, nil)
 			in.HandleInput(func(ev ui.InputEvent) bool {
 				if ev.Kind == ui.InputKeyDown && ev.Key == ui.KeyEscape {
-					if t.query != "" {
-						t.query = ""
+					if t.query != "" || len(t.where) > 0 {
+						t.clearFilters()
 					} else {
 						v.pane.Focus()
 					}
@@ -448,10 +525,19 @@ func (a *app) jsonlBar(c *ui.Context, v *viewer) {
 				v.pane.Focus()
 			}
 		})
+		gone := -1
+		for k, w := range t.where {
+			if a.whereChip(c, w) {
+				gone = k
+			}
+		}
+		if gone >= 0 {
+			t.where = slices.Delete(t.where, gone, gone+1)
+		}
 		var msg string
 		switch {
 		case t.ix == nil:
-		case t.shown.query != "":
+		case t.filtered():
 			msg = locales.JsonlRowsOf(t.count(), t.ix.rows())
 		default:
 			msg = locales.JsonlRows(t.ix.rows())
@@ -461,7 +547,8 @@ func (a *app) jsonlBar(c *ui.Context, v *viewer) {
 		} else if t.reading {
 			c.After(readingShows - time.Since(t.readingAt))
 		}
-		ui.Text(c, msg).FontSize(12).TextColor(p.muted).FontFeatures("tnum").SingleLine()
+		ui.Text(c.Key("jsonl-count"), msg).FontSize(12).TextColor(p.muted).FontFeatures("tnum").SingleLine().Shrink(0).
+			Transition(slideAlong)
 		ui.Spacer(c)
 		if n := len(t.hiddenColumns()); n > 0 {
 			b := ui.ButtonBase(c.Key("jsonl-hidden")).Height(22).Padding(0, 6).Radius(4).AlignItems(ui.Center).
@@ -554,6 +641,18 @@ func (a *app) jsonlGrid(c *ui.Context, v *viewer, name string) {
 		}
 		if m.Item(locales.JsonlCopyLine()).Chosen() {
 			a.copyJSONLLine(t, row)
+		}
+		if j > 0 && j-1 < len(shown) && t.ix.kinds[row] != jsonlInvalid {
+			col := shown[j-1]
+			if raw, ok := lookup(t.ix.line(int(row)), col.path); ok && raw != "" {
+				m.Separator()
+				if m.Item(locales.JsonlFilterValue()).Chosen() {
+					t.addWhere(col, raw, false)
+				}
+				if m.Item(locales.JsonlHideValue()).Chosen() {
+					t.addWhere(col, raw, true)
+				}
+			}
 		}
 		m.Separator()
 		if m.Item(a.withKey(locales.JsonlShowInSource(), "view.togglePreview")).Chosen() {
@@ -755,8 +854,8 @@ func (a *app) jsonlInput(v *viewer, ev ui.InputEvent) bool {
 	case ev.Kind == ui.InputKeyDown && ev.Key == ui.KeySpace && ev.Mods == 0:
 		t.details = !t.details
 		return true
-	case ev.Kind == ui.InputKeyDown && ev.Key == ui.KeyEscape && t.query != "":
-		t.query = ""
+	case ev.Kind == ui.InputKeyDown && ev.Key == ui.KeyEscape && (t.query != "" || len(t.where) > 0):
+		t.clearFilters()
 		return true
 	}
 	return false

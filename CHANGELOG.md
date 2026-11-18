@@ -35,6 +35,9 @@ needs a `## <version>` section here, or its build fails.
 - The details' copy button turns to a check for a moment after it copies the line.
 - A JSON Lines row's details scroll to the field of the chosen column, and start at the top for each row.
 - `⌘C` in a JSON Lines table flashes the cell or row it copied, and copying a line checks the details' copy button.
+- Right-click a JSON Lines cell and choose **Filter to This Value** or **Hide Rows with This Value**.
+- Value filters show as chips beside **Filter rows**; click a chip's `×` to remove it, or press `Esc` to clear all.
+- When no row matches, the table offers **Clear Filters** to show every row again.
 
 ## 0.22.4
 

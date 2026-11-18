@@ -318,3 +318,49 @@ func TestJSONLCopyWashes(t *testing.T) {
 		t.Errorf("the Copy button didn't go back: %v", err)
 	}
 }
+
+// A cell's menu filters the rows to its value, or hides them; the chips
+// in the bar say so and remove a filter, and with no row left, Clear
+// Filters shows them all again.
+func TestJSONLFiltersByValue(t *testing.T) {
+	hs := newHarness(t, true)
+	tt := hs.tt
+	d := openJSONL(t, hs, "where.jsonl", testJSONL)
+	j := d.preview.jsonl
+	r, ok := tt.Find("bob")
+	if !ok {
+		t.Fatalf("no bob in %q", tt.Texts())
+	}
+	tt.RightClickAt(r.X+r.W/2, r.Y+r.H/2)
+	hs.settle()
+	if err := tt.ChooseMenuItem("Hide Rows with This Value"); err != nil {
+		t.Fatalf("%v: %q", err, tt.Menu())
+	}
+	hs.until("the rows without bob", func() bool { return j.shown.where != "" && !j.reading })
+	if j.count() != 3 || j.rowAt(1) != 2 || !tt.HasText("≠") || !tt.HasText("3 of 4 rows") {
+		t.Fatalf("%d rows, texts %q", j.count(), tt.Texts())
+	}
+	// Keeping a value of the same column takes the hiding's place.
+	j.addWhere(j.column(pathID([]jsonlStep{{key: "name"}})), `"cat"`, false)
+	j.addWhere(j.column(pathID([]jsonlStep{{key: "age"}})), `31`, false)
+	hs.until("the rows of cat", func() bool { return j.shown.where == whereKey(j.where) && !j.reading })
+	if len(j.where) != 2 || j.count() != 0 || !tt.HasText("No rows match the filters") {
+		t.Fatalf("%d filters, %d rows, texts %q", len(j.where), j.count(), tt.Texts())
+	}
+	if err := tt.Click("Remove Filter"); err != nil {
+		t.Fatal(err)
+	}
+	hs.until("one filter", func() bool { return len(j.where) == 1 && j.shown.where == whereKey(j.where) && !j.reading })
+	if j.count() != 1 || j.where[0].text != "31" || j.ix.line(int(j.rowAt(0)))[:7] != `{"id":1` {
+		t.Errorf("%d rows, filters %v", j.count(), j.where)
+	}
+	j.addWhere(j.column(pathID([]jsonlStep{{key: "age"}})), `99`, false)
+	hs.until("no rows", func() bool { return j.shown.where == whereKey(j.where) && !j.reading })
+	if err := tt.Click("Clear Filters"); err != nil {
+		t.Fatalf("%v: %q", err, tt.Texts())
+	}
+	hs.until("every row", func() bool { return j.shown.where == "" && !j.reading })
+	if j.count() != 4 {
+		t.Errorf("%d rows after clearing", j.count())
+	}
+}

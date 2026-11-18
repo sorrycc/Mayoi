@@ -877,3 +877,84 @@ func foldHits(s, q string, most int) [][2]int {
 	}
 	return out
 }
+
+// jsonlWhere keeps the rows whose value at the column of id is value, as
+// valueKey makes it, or, when not, the rows whose value is not; title,
+// text and kind are the column's and the value's, as its chip shows them.
+type jsonlWhere struct {
+	id, value   string
+	not         bool
+	title, text string
+	kind        byte
+}
+
+// valueKey is what a value compares by in a filter: a string by its text,
+// marked apart from a number spelled alike; anything else as written.
+func valueKey(raw string) string {
+	if raw != "" && raw[0] == '"' {
+		return `"` + unquote(raw)
+	}
+	return raw
+}
+
+// whereKey is what a filter of where is known by, "" for none.
+func whereKey(where []jsonlWhere) string {
+	var b strings.Builder
+	for _, w := range where {
+		if w.not {
+			b.WriteByte('!')
+		} else {
+			b.WriteByte('=')
+		}
+		b.WriteString(strconv.Quote(w.id))
+		b.WriteString(strconv.Quote(w.value))
+	}
+	return b.String()
+}
+
+// filterWhere returns those of rows, every row of ix when all, that each
+// of where keeps, nil once stop says to. A line that is not JSON holds no
+// value.
+func filterWhere(ix *jsonlIndex, rows []int32, all bool, where []jsonlWhere, stop func() bool) []int32 {
+	paths := make([][]jsonlStep, len(where))
+	for k, w := range where {
+		if col, ok := pathOfID(w.id); ok {
+			paths[k] = col.path
+		}
+	}
+	n := len(rows)
+	if all {
+		n = ix.rows()
+	}
+	out := []int32{}
+	for i := range n {
+		if i%256 == 0 && stop() {
+			return nil
+		}
+		row := int32(i)
+		if !all {
+			row = rows[i]
+		}
+		if keepsRow(ix, row, paths, where) {
+			out = append(out, row)
+		}
+	}
+	return out
+}
+
+// keepsRow reports whether each of where keeps a row, its columns at paths.
+func keepsRow(ix *jsonlIndex, row int32, paths [][]jsonlStep, where []jsonlWhere) bool {
+	line, valid := ix.line(int(row)), ix.kinds[row] != jsonlInvalid
+	for k, w := range where {
+		value := ""
+		if valid {
+			if raw, ok := lookup(line, paths[k]); ok {
+				value = valueKey(raw)
+			}
+		}
+		if (value == w.value) == w.not {
+			return false
+		}
+	}
+	return true
+}

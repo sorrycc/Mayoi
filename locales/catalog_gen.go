@@ -3858,6 +3858,56 @@ func (msgs Messages) JsonlColumns(count int) string {
 	return Catalog.Format(msgs.locale, "jsonlColumns", map[string]any{"count": count})
 }
 
+// JsonlFilterValue says "Filter to This Value"
+// in the language the app shows.
+func JsonlFilterValue() string { return In(i18n.Locale()).JsonlFilterValue() }
+
+// JsonlFilterValue says "Filter to This Value"
+// in the language of msgs.
+func (msgs Messages) JsonlFilterValue() string {
+	return Catalog.Format(msgs.locale, "jsonlFilterValue", nil)
+}
+
+// JsonlHideValue says "Hide Rows with This Value"
+// in the language the app shows.
+func JsonlHideValue() string { return In(i18n.Locale()).JsonlHideValue() }
+
+// JsonlHideValue says "Hide Rows with This Value"
+// in the language of msgs.
+func (msgs Messages) JsonlHideValue() string {
+	return Catalog.Format(msgs.locale, "jsonlHideValue", nil)
+}
+
+// JsonlRemoveFilter says "Remove Filter"
+// in the language the app shows.
+func JsonlRemoveFilter() string { return In(i18n.Locale()).JsonlRemoveFilter() }
+
+// JsonlRemoveFilter says "Remove Filter"
+// in the language of msgs.
+func (msgs Messages) JsonlRemoveFilter() string {
+	return Catalog.Format(msgs.locale, "jsonlRemoveFilter", nil)
+}
+
+// JsonlClearFilters says "Clear Filters"
+// in the language the app shows.
+func JsonlClearFilters() string { return In(i18n.Locale()).JsonlClearFilters() }
+
+// JsonlClearFilters says "Clear Filters"
+// in the language of msgs.
+func (msgs Messages) JsonlClearFilters() string {
+	return Catalog.Format(msgs.locale, "jsonlClearFilters", nil)
+}
+
+// JsonlNoMatchFilters says "No rows match the filters"
+// in the language the app shows.
+func JsonlNoMatchFilters() string { return In(i18n.Locale()).JsonlNoMatchFilters() }
+
+// JsonlNoMatchFilters says "No rows match the filters"
+// in the language of msgs.
+func (msgs Messages) JsonlNoMatchFilters() string {
+	return Catalog.Format(msgs.locale, "jsonlNoMatchFilters", nil)
+}
+
 // CmdViewJsonlOpenTable says "Table"
 // in the language the app shows.
 func CmdViewJsonlOpenTable() string { return In(i18n.Locale()).CmdViewJsonlOpenTable() }

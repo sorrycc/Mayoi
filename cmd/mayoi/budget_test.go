@@ -25,7 +25,7 @@ import (
 const budgetFrames = 60
 
 // budgetAttempts is how many medians a budget takes, at most, before it
-// fails: one, and more only while each misses it.
+// fails: one, and more, after the other budgets, only while each misses.
 const budgetAttempts = 3
 
 // medianFrame returns the median of n runs of frame, after 3n to warm
@@ -351,32 +351,45 @@ func TestBudgets(t *testing.T) {
 			return func() { hs.tt.Advance(time.Second / 60) }
 		}},
 	}
-	var report strings.Builder
-	for _, b := range budgets {
-		t.Run(b.name, func(t *testing.T) {
-			hs := newHarness(t, true)
-			frame := b.measure(t, hs)
-			var builds func() int
-			if b.perBuild {
-				builds = func() int { return hs.a.builds }
+	// A shared runner's neighbours can slow every median for a while: a
+	// budget missed is measured again, on a window of its own, once the
+	// others were, failing only when every attempt misses it. A regression
+	// misses them all.
+	tries := make([][]time.Duration, len(budgets))
+	missed := func(i int) bool { n := len(tries[i]); return n > 0 && tries[i][n-1] > budgets[i].budget }
+	for attempt := range budgetAttempts {
+		for i, b := range budgets {
+			if attempt > 0 && !missed(i) {
+				continue
 			}
-			// A shared runner's neighbours can slow a whole median: a budget
-			// missed is measured again, failing only when every attempt
-			// misses it. A regression misses them all.
-			var tries []string
-			passed := false
-			for range budgetAttempts {
-				got := medianFrame(budgetFrames, frame, builds)
-				tries = append(tries, fmt.Sprintf("%.2f ms", float64(got.Microseconds())/1000))
-				if passed = got <= b.budget; passed {
-					break
+			name := b.name
+			if attempt > 0 {
+				name = fmt.Sprintf("%s, attempt %d", b.name, attempt+1)
+			}
+			t.Run(name, func(t *testing.T) {
+				hs := newHarness(t, true)
+				frame := b.measure(t, hs)
+				var builds func() int
+				if b.perBuild {
+					builds = func() int { return hs.a.builds }
 				}
-			}
-			fmt.Fprintf(&report, "%-28s %s  (budget %v)\n", b.name, strings.Join(tries, ", "), b.budget)
-			if !passed {
-				t.Errorf("%s: %s a frame, over its budget of %v in each of %d attempts", b.name, strings.Join(tries, ", "), b.budget, budgetAttempts)
-			}
-		})
+				tries[i] = append(tries[i], medianFrame(budgetFrames, frame, builds))
+			})
+		}
+	}
+	var report strings.Builder
+	for i, b := range budgets {
+		if len(tries[i]) == 0 {
+			continue // left out by -run
+		}
+		var ms []string
+		for _, d := range tries[i] {
+			ms = append(ms, fmt.Sprintf("%.2f ms", float64(d.Microseconds())/1000))
+		}
+		fmt.Fprintf(&report, "%-28s %s  (budget %v)\n", b.name, strings.Join(ms, ", "), b.budget)
+		if missed(i) {
+			t.Errorf("%s: %s a frame, over its budget of %v in each of %d attempts", b.name, strings.Join(ms, ", "), b.budget, len(ms))
+		}
 	}
 	t.Logf("frame costs, medians of %d:\n%s", budgetFrames, report.String())
 }

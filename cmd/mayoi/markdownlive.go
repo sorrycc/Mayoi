@@ -545,6 +545,9 @@ func parseLive(source string, path, root string, full bool, cache *markdownCache
 			case *ast.Text:
 				if s >= 0 {
 					liveRunText(src, s, e, x.Parent(), style, mark)
+					if full {
+						livePathLinks(src, s, e, x.Parent(), path, cache, style)
+					}
 				}
 				continue
 			case *east.FootnoteLink:
@@ -1481,4 +1484,19 @@ func liveTagEnd(src []byte, s, e int) int {
 		return s
 	}
 	return i
+}
+
+// livePathLinks styles as links the bare paths of the run of text
+// src[s:e] that name files, as /abs, ~/x, ./x and ../x of the note at
+// path, with or without a :line:col.
+func livePathLinks(src []byte, s, e int, parent ast.Node, path string, cache *markdownCache, style func(int, int, liveLook)) {
+	switch parent.(type) {
+	case *ast.Link, *ast.Image:
+		return
+	}
+	for _, p := range livePathsIn(src, s, e) {
+		if cache.livePathKnown(path, string(src[p[0]:p[1]])) {
+			style(p[0], p[1], liveLook{color: liveLink})
+		}
+	}
 }

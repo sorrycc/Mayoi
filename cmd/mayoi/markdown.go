@@ -213,6 +213,9 @@ type markdownCache struct {
 	// links are the files of the wiki links a parse found, by the root,
 	// the folder of the note and the target, for each to be found once.
 	links map[[3]string]string
+	// paths are whether the bare paths of a parse's text name files, by
+	// the folder of the note and the path, for each to be looked for once.
+	paths map[[2]string]bool
 	// typing is the target of the wiki link being typed, "" for none.
 	typing string
 }

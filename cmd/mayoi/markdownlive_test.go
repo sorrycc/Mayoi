@@ -6,6 +6,8 @@ import (
 	"image"
 	"image/png"
 	"os"
+	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -1047,4 +1049,123 @@ func TestParseLiveNestedEmbeds(t *testing.T) {
 			t.Errorf("an embed's source is %q", b.source)
 		}
 	}
+}
+
+// Bare paths end before the marks of a sentence after them, and start
+// only at a word's start.
+func TestLivePathsIn(t *testing.T) {
+	for src, want := range map[string][]string{
+		"research: /Users/me/a.md":      {"/Users/me/a.md"},
+		"see /x/y.md. Then ~/z.md, too": {"/x/y.md", "~/z.md"},
+		"(at ./a.md) and ../b.md:":      {"./a.md", "../b.md"},
+		"/x/y.go:12:3; and/or 1/2":      {"/x/y.go:12:3"},
+		"https://example.com/x / //y":   nil,
+		"**/x/bold.md**":                {"/x/bold.md"},
+	} {
+		var got []string
+		for _, p := range livePathsIn([]byte(src), 0, len(src)) {
+			got = append(got, src[p[0]:p[1]])
+		}
+		if !slices.Equal(got, want) {
+			t.Errorf("%q: paths %q, want %q", src, got, want)
+		}
+	}
+}
+
+// A bare path to a file there is, whole, in the home folder or from the
+// note's folder, reads as a link; one to no file stays text.
+func TestParseLiveBarePaths(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("HOME", dir)
+	os.MkdirAll(dir+"/notes/sub", 0o755)
+	for _, f := range []string{"/abs.md", "/home.md", "/notes/sub/here.md", "/notes/up.md"} {
+		os.WriteFile(dir+f, []byte("x\n"), 0o644)
+	}
+	src := "- [ ] research: " + dir + "/abs.md\n- ~/home.md, ./here.md and ../up.md.\n- " + dir + "/abs.md:12 and /no/such.md and ./gone.md\n"
+	doc := parseLive(src, dir+"/notes/sub/note.md", dir, true, &markdownCache{})
+	r := []rune(src)
+	var links []string
+	for _, sp := range doc.spans {
+		if sp.kind == liveStyle && sp.look.color == liveLink {
+			links = append(links, string(r[sp.start:sp.end]))
+		}
+	}
+	want := []string{dir + "/abs.md", "~/home.md", "./here.md", "../up.md", dir + "/abs.md:12"}
+	if !slices.Equal(links, want) {
+		t.Errorf("links %q, want %q", links, want)
+	}
+	// The first frame's quick parse asks the disk nothing.
+	for _, sp := range parseLive(src, dir+"/notes/sub/note.md", dir, false, &markdownCache{}).spans {
+		if sp.kind == liveStyle && sp.look.color == liveLink {
+			t.Errorf("quick parse links %q", string(r[sp.start:sp.end]))
+		}
+	}
+}
+
+// A click on a bare path of Live Preview opens its file in a tab, at the
+// line after it; ⌘-clicking, or following, a path or a link of Markdown
+// to ~/ or a whole path does too.
+func TestLiveBarePathOpens(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	hs := newHarness(t, true)
+	a := hs.a
+	other := filepath.Join(home, "other.md")
+	os.WriteFile(other, []byte("one\ntwo\nthree\n"), 0o644)
+	abs := hs.path("abs.md")
+	os.WriteFile(abs, []byte("abs\n"), 0o644)
+	src := "See ~/other.md:3 here.\n\n[home](~/other.md) and [whole](" + abs + ") and ../" + filepath.Base(filepath.Dir(abs)) + "/abs.md\n"
+	path := hs.path("bare.md")
+	os.WriteFile(path, []byte(src), 0o644)
+	a.settings.MarkdownMode = "live"
+	a.openFile(path, true)
+	d := a.activeEditor()
+	hs.until("parsed", func() bool { l := d.document.live; return l != nil && l.doc != nil && !l.quick })
+	d.selectRange(len([]rune(src))-1, len([]rune(src))-1, false)
+	hs.settle()
+	label := "~/other.md:3"
+	at := len([]rune(src[:strings.Index(src, label)])) + 1
+	_, y0, h, ok := d.lines.Caret(at - 1)
+	if !ok {
+		t.Fatal("not laid out")
+	}
+	y := d.liveAt.Y + editorPadY + y0 + h/2 - d.vscroll.Y
+	x := d.liveAt.X
+	for ; x < d.liveAt.X+1200 && d.liveHover != at; x += 6 {
+		hs.tt.Move(x, y)
+		step(hs.tt)
+	}
+	if d.liveHover != at {
+		t.Fatalf("over %q, hover is %d, not %d", label, d.liveHover, at)
+	}
+	hs.settle()
+	if hs.tt.Cursor() != ui.CursorPointer {
+		t.Errorf("over the path, the pointer is %v", hs.tt.Cursor())
+	}
+	hs.tt.ClickAt(x, y)
+	hs.until("the file open at line 3", func() bool {
+		e := a.activeEditor()
+		if e == nil || e.path != other || e.unread() {
+			return false
+		}
+		s, _ := e.buf.Snapshot().LineRange(2)
+		return e.sel == [2]int{s, s}
+	})
+
+	follow := func(label, want string) {
+		t.Helper()
+		a.openFile(path, true)
+		d := a.activeEditor()
+		at := len([]rune(src[:strings.Index(src, label)])) + 2
+		d.selectRange(at, at, false)
+		hs.until("the caret in "+label, func() bool { return d.sel == [2]int{at, at} })
+		a.followLiveLink(d)
+		hs.until("following "+label+" opens "+want, func() bool {
+			e := a.activeEditor()
+			return e != nil && e.path == want
+		})
+	}
+	follow("[home]", other)
+	follow("[whole]", abs)
+	follow("../", abs)
 }

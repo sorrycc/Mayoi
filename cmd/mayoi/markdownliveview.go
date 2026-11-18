@@ -287,7 +287,8 @@ func (a *app) parseLive(doc *document, l *liveState, want *mermaidStyle, math bo
 		source, path, workspace := snap.String(), doc.path, a.folder()
 		// The worker has its own copy of the cache, which it hands back.
 		cache := &markdownCache{images: maps.Clone(l.cache.images), code: maps.Clone(l.cache.code), arrived: l.cache.arrived,
-			mermaid: want, math: math, formulas: maps.Clone(l.cache.formulas), typing: a.wikiTyping(doc)}
+			mermaid: want, math: math, formulas: maps.Clone(l.cache.formulas), typing: a.wikiTyping(doc),
+			paths: remotePaths(l.cache.paths)}
 		sameStyle := (want == nil) == (l.cache.mermaid == nil) && (want == nil || *want == *l.cache.mermaid)
 		if want != nil && sameStyle {
 			cache.diagrams = maps.Clone(l.cache.diagrams)
@@ -1646,13 +1647,17 @@ func markdownLinkIn(line string, at int) (string, bool) {
 }
 
 // followLiveLink opens the link of Markdown at the caret: a page in the
-// browser, a file in Mayoi, or a heading of a note.
+// browser, a file in Mayoi, or a heading of a note; or the file a bare
+// path there names.
 func (a *app) followLiveLink(d *editor) {
 	snap := d.buf.Snapshot()
 	caret := min(d.sel[1], snap.Len())
 	s, e := snap.LineRange(snap.LineAt(caret))
-	if dest, ok := markdownLinkIn(snap.Slice(s, e), caret-s); ok {
+	line := snap.Slice(s, e)
+	if dest, ok := markdownLinkIn(line, caret-s); ok {
 		a.openLiveDest(d, dest)
+	} else if p, ok := livePathIn(line, caret-s); ok {
+		a.openLivePath(d, p)
 	}
 }
 
@@ -1689,6 +1694,8 @@ func (a *app) openLiveLink(d *editor, link [2]int) {
 		a.openWikiLink(d.path, l)
 	} else if dest, ok := markdownLinkIn(text, 0); ok {
 		a.openLiveDest(d, dest)
+	} else if p, ok := livePathIn(text, 0); ok {
+		a.openLivePath(d, p)
 	}
 }
 
@@ -1702,6 +1709,22 @@ func (a *app) openLiveDest(d *editor, dest string) {
 		a.services.OpenURL(dest)
 	case strings.HasPrefix(dest, "#"):
 		a.openMarkdownAt(d.path, strings.TrimPrefix(dest, "#"))
+	case err == nil && u.Fragment == "" && strings.HasPrefix(dest, "~/"):
+		a.openLivePath(d, u.Path)
+	case err == nil && u.Fragment == "" && strings.HasPrefix(dest, "/") && !strings.HasPrefix(dest, "//"):
+		// From the vault's root, as Obsidian has it, or else a whole path.
+		root, path := markdownRoot(d.path, a.folder()), d.path
+		bg.Go(func() {
+			defer recoverCrash()
+			file := markdownPath(root, path, dest)
+			line, col := 0, 0
+			if file == "" || !isFile(file) {
+				file, line, col = livePathFile(path, u.Path)
+			}
+			if file != "" {
+				a.post(func() { a.openPathAt(file, line, col) })
+			}
+		})
 	default:
 		local := markdownPath(markdownRoot(d.path, a.folder()), d.path, dest)
 		switch {

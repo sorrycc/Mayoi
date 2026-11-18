@@ -6,6 +6,7 @@ import (
 	"strings"
 	"sync/atomic"
 	"time"
+	"unicode/utf8"
 
 	"github.com/egoist/mygo/ui"
 
@@ -43,6 +44,16 @@ type jsonlWant struct {
 	query   string
 	sort    string
 	desc    bool
+}
+
+// jsonlWash is a cell just copied: of row, and of the column of id, or
+// every cell of the row for "", copied at at; fresh until the next frame
+// gives it its time.
+type jsonlWash struct {
+	row   int32
+	id    string
+	at    time.Time
+	fresh bool
 }
 
 // jsonlTable is the state of a Table view.
@@ -85,8 +96,19 @@ type jsonlTable struct {
 	// pretty is the chosen row's text indented, of prettyOf.
 	pretty   []ui.Span
 	prettyOf string
-	// copied is when the details' Copy button last copied.
+	// prettyText is the text of pretty, and markAt where the member of
+	// the chosen field starts in it, -1 for none.
+	prettyText string
+	markAt     int
+	// prettyScroll is the details' scrolling, and revealed the row and the
+	// field they last scrolled to.
+	prettyScroll ui.ScrollState
+	revealed     string
+	// copied is when the line was last copied, which the details' Copy
+	// button says.
 	copied time.Time
+	// wash is the cell copied last, which shows it for a moment.
+	wash jsonlWash
 
 	// line is the line of the file to show once indexed, -1 for none.
 	line int
@@ -375,6 +397,14 @@ func (t *jsonlTable) measureColumn(col *jsonlColumn, size float32) {
 func (a *app) jsonlView(c *ui.Context, v *viewer, name string) {
 	t := v.jsonl
 	a.followJSONL(v)
+	if t.wash.fresh {
+		// A copy just made shows from this frame: its cells, and the line
+		// the details' Copy button.
+		t.wash.at, t.wash.fresh = c.Now(), false
+		if t.wash.id == "" {
+			t.copied = t.wash.at
+		}
+	}
 	p := a.pal
 	ui.Column(c.Key("jsonl")).Fill().Background(p.editor).Children(func() {
 		a.jsonlBar(c, v)
@@ -523,7 +553,7 @@ func (a *app) jsonlGrid(c *ui.Context, v *viewer, name string) {
 			a.copyJSONLValue(t, row, shown[j-1])
 		}
 		if m.Item(locales.JsonlCopyLine()).Chosen() {
-			a.services.WriteClipboard(t.ix.line(int(row)))
+			a.copyJSONLLine(t, row)
 		}
 		m.Separator()
 		if m.Item(a.withKey(locales.JsonlShowInSource(), "view.togglePreview")).Chosen() {
@@ -534,6 +564,11 @@ func (a *app) jsonlGrid(c *ui.Context, v *viewer, name string) {
 	query := foldASCII(t.shown.query)
 	table := ui.Table(c.Key("jsonl-table"), s, cols, t.count(), func(i, j int) {
 		row := t.rowAt(i)
+		id := "#"
+		if j > 0 && j-1 < len(shown) {
+			id = shown[j-1].id
+		}
+		a.copyWash(c, t, row, id)
 		if j == 0 {
 			// The chosen row's number stands out, as the caret's line's
 			// does in the editor.
@@ -714,7 +749,7 @@ func (a *app) jsonlInput(v *viewer, ev ui.InputEvent) bool {
 		if col := t.column(t.list.Cells.Cursor); col != nil && !t.list.Cells.All {
 			a.copyJSONLValue(t, row, col)
 		} else {
-			a.services.WriteClipboard(t.ix.line(int(row)))
+			a.copyJSONLLine(t, row)
 		}
 		return true
 	case ev.Kind == ui.InputKeyDown && ev.Key == ui.KeySpace && ev.Mods == 0:
@@ -738,6 +773,33 @@ func (a *app) copyJSONLValue(t *jsonlTable, row int32, col *jsonlColumn) {
 		raw = unquote(raw)
 	}
 	a.services.WriteClipboard(raw)
+	t.wash = jsonlWash{row: row, id: col.id, fresh: true}
+	a.invalidate()
+}
+
+// copyJSONLLine copies a row's line whole, which its cells and the
+// details' Copy button show.
+func (a *app) copyJSONLLine(t *jsonlTable, row int32) {
+	a.services.WriteClipboard(t.ix.line(int(row)))
+	t.wash = jsonlWash{row: row, fresh: true}
+	a.invalidate()
+}
+
+// copyWash washes a cell of row in the column of id over for a moment once
+// it was copied, the wash fading over motionEnter: what ⌘C took shows
+// without a word.
+func (a *app) copyWash(c *ui.Context, t *jsonlTable, row int32, id string) {
+	w := t.wash
+	if w.at.IsZero() || w.row != row || w.id != "" && w.id != id {
+		return
+	}
+	since := c.Now().Sub(w.at)
+	if since < 0 || since >= motionEnter {
+		return
+	}
+	c.AnimationFrame()
+	k := 1 - ui.EaseOut(float32(since)/float32(motionEnter))
+	ui.Box(c.Key("copied")).Absolute().Left(0).Right(0).Top(0).Bottom(0).PassThrough().Background(a.pal.text.Alpha(0.16 * k))
 }
 
 // jsonlDetails shows the chosen row whole, indented.
@@ -783,8 +845,7 @@ func (a *app) jsonlDetails(c *ui.Context, v *viewer) {
 				ui.Icon(c.Key("icon"), icon).FontSize(13).TextColor(iconCol).Transition(hoverFade).ContentTransition(ui.ContentTransition{})
 			})
 			if b.Clicked() {
-				a.services.WriteClipboard(line)
-				t.copied = c.Now()
+				a.copyJSONLLine(t, row)
 			}
 			source := a.withKey(locales.JsonlShowInSource(), "view.togglePreview")
 			s := ui.ButtonBase(c.Key("jsonl-source")).Size(24, 22).Radius(4).AlignItems(ui.Center).Justify(ui.Center).
@@ -805,24 +866,35 @@ func (a *app) jsonlDetails(c *ui.Context, v *viewer) {
 			path, key = field.path, key+":"+field.id
 		}
 		if t.prettyOf != key {
-			t.pretty, t.prettyOf = a.prettySpans(line, invalid, path, t.shown.query), key
+			t.pretty, t.prettyText, t.markAt = a.prettySpans(line, invalid, path, t.shown.query)
+			t.prettyOf = key
 		}
-		ui.Scroll(c.Key("jsonl-pretty")).Grow(1).Padding(4, 10, 12, 10).Children(func() {
-			ui.RichText(c.Key("jsonl-pretty-text"), t.pretty...).FontSize(12.5).Font(a.font.family).LineHeight(1.45).Selectable()
+		fieldID := ""
+		if field != nil {
+			fieldID = field.id
+		}
+		// The scroll is placed before it takes its state, which it then
+		// shows in this frame.
+		sc := ui.Scroll(c.Key("jsonl-pretty"))
+		t.revealField(sc, row, fieldID)
+		sc.TrackScroll(&t.prettyScroll).Grow(1).Padding(prettyPad, 10, 12, 10).Children(func() {
+			ui.RichText(c.Key("jsonl-pretty-text"), t.pretty...).FontSize(prettySize).Font(a.font.family).LineHeight(prettyLineH / prettySize).Selectable()
 		})
 	})
 }
 
 // prettySpans are a row's line indented and colored as the editor colors
 // JSON, or, for a line that is not JSON, why and the line; the member at
-// path and the matches of query marked.
-func (a *app) prettySpans(line string, invalid bool, path []jsonlStep, query string) []ui.Span {
+// path and the matches of query marked. It returns their text too, and
+// where the member at path starts in it, -1 for none.
+func (a *app) prettySpans(line string, invalid bool, path []jsonlStep, query string) ([]ui.Span, string, int) {
 	p := a.pal
 	if invalid {
+		why := locales.JsonlNotJSON(jsonlError(line)) + "\n\n"
 		return []ui.Span{
-			{Text: locales.JsonlNotJSON(jsonlError(line)) + "\n\n", Color: p.dangerFg},
+			{Text: why, Color: p.dangerFg},
 			{Text: line, Color: p.text},
-		}
+		}, why + line, -1
 	}
 	text := prettyJSON(line)
 	more := false
@@ -870,13 +942,76 @@ func (a *app) prettySpans(line string, invalid bool, path []jsonlStep, query str
 		add("\n…", p.muted)
 	}
 	// Past the text, "…" is never marked.
+	at := -1
 	if from, to, ok := lookupAt(text, path); ok {
-		spans = markSpans(spans, from, to, p.word)
+		spans, at = markSpans(spans, from, to, p.word), from
 	}
 	for _, h := range foldHits(text, foldASCII(query), jsonlHitsMax) {
 		spans = markSpans(spans, h[0], h[1], p.match)
 	}
-	return spans
+	return spans, text, at
+}
+
+// prettyLineH is the height of a line of the details' text, and
+// prettyPad the room above it.
+const (
+	prettySize  = 12.5
+	prettyLineH = prettySize * 1.45
+	prettyPad   = 4
+)
+
+// prettyTop is how far down the details' text, laid out width wide, the
+// line holding byte at starts: its lines counted, each as many as its
+// characters wrap to, as the editor's font is monospaced.
+func prettyTop(text string, at int, width float32) float32 {
+	perLine := max(int(width/(prettySize*0.6)), 1)
+	lines := 0
+	for rest := text[:at]; ; {
+		nl := strings.IndexByte(rest, '\n')
+		if nl < 0 {
+			break
+		}
+		lines += 1 + (utf8.RuneCountInString(rest[:nl])-1)/perLine
+		rest = rest[nl+1:]
+	}
+	return prettyPad + float32(lines)*prettyLineH
+}
+
+// revealField scrolls the details of row to the member of the chosen
+// field, as little as shows it, and to their top for another row: at once
+// as the keys move along the rows, gliding over motionMove to another
+// field of the row when it is near.
+func (t *jsonlTable) revealField(sc ui.Element, row int32, field string) {
+	reveal := strconv.Itoa(int(row)) + ":" + field
+	if t.revealed == reveal {
+		return
+	}
+	sameRow := strings.HasPrefix(t.revealed, strconv.Itoa(int(row))+":")
+	t.revealed = reveal
+	s := &t.prettyScroll
+	view := sc.Bounds()
+	top := s.Y
+	switch {
+	case t.markAt >= 0 && view.H > 0:
+		y := prettyTop(t.prettyText, t.markAt, view.W-20)
+		if y < s.Y || y+prettyLineH > s.Y+view.H {
+			top = max(0, y-view.H/3)
+		}
+	case !sameRow:
+		top = 0
+	}
+	if top == s.Y && !s.Scrolling() {
+		return
+	}
+	glide := ui.Animation{}
+	if d := top - s.Y; sameRow && max(d, -d) < 3*view.H {
+		glide = ui.Animation{Duration: motionMove, Ease: ui.EaseOut}
+	}
+	if glide.Duration == 0 && !s.Scrolling() {
+		s.Y = top
+		return
+	}
+	s.ScrollTo(s.X, top, glide)
 }
 
 // jsonlToSource shows a table's text in its place, at the line of row.

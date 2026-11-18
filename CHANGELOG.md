@@ -33,6 +33,8 @@ needs a `## <version>` section here, or its build fails.
 - A row's details name the field of the chosen column and mark it in the indented JSON.
 - The chosen row's line number stands out in the table, as the caret's line does in the editor.
 - The details' copy button turns to a check for a moment after it copies the line.
+- A JSON Lines row's details scroll to the field of the chosen column, and start at the top for each row.
+- `⌘C` in a JSON Lines table flashes the cell or row it copied, and copying a line checks the details' copy button.
 
 ## 0.22.4
 

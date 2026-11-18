@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"strings"
 	"testing"
@@ -219,5 +220,101 @@ func TestJSONLReadsLargeFiles(t *testing.T) {
 	}
 	if !hs.tt.HasText("20,000 rows") {
 		t.Errorf("texts %q", hs.tt.Texts())
+	}
+}
+
+// tallJSONL is lines of JSON with many keys each, whose details run past
+// their pane.
+func tallJSONL(rows, keys int) string {
+	var b strings.Builder
+	for r := range rows {
+		b.WriteString("{")
+		for k := range keys {
+			if k > 0 {
+				b.WriteString(",")
+			}
+			fmt.Fprintf(&b, "\"k%02d\":%d", k, r*keys+k)
+		}
+		b.WriteString("}\n")
+	}
+	return b.String()
+}
+
+// The details scroll to the chosen field, at once as the keys move along
+// the rows, gliding to another field of the row, and show another row from
+// its top when no field is chosen.
+func TestJSONLDetailsFollowField(t *testing.T) {
+	hs := newHarness(t, true)
+	tt := hs.tt
+	d := openJSONL(t, hs, "tall.jsonl", tallJSONL(3, 80))
+	j := d.preview.jsonl
+	hs.settle()
+	j.list.Cells.Cursor = pathID([]jsonlStep{{key: "k70"}})
+	hs.settle()
+	far := j.prettyScroll.Y
+	if far <= 0 || j.markAt < 0 {
+		t.Fatalf("the details didn't scroll to k70: at %v, mark %d", far, j.markAt)
+	}
+	// Another field of the row glides there.
+	j.list.Cells.Cursor = pathID([]jsonlStep{{key: "k05"}})
+	hs.settle()
+	if !j.prettyScroll.Scrolling() && j.prettyScroll.Y == far {
+		t.Error("the details stayed at k70")
+	}
+	tt.Advance(motionMove)
+	hs.settle()
+	near := j.prettyScroll.Y
+	if near >= far {
+		t.Errorf("the details are at %v for k05, %v for k70", near, far)
+	}
+	// The keys moving to the next row show its field at once.
+	j.list.Cells.Cursor = pathID([]jsonlStep{{key: "k70"}})
+	hs.settle()
+	tt.Advance(motionMove)
+	hs.settle()
+	tt.Key(0, ui.KeyDown)
+	hs.settle()
+	if j.row != 1 || j.prettyScroll.Scrolling() || j.prettyScroll.Y <= near {
+		t.Errorf("row %d, details at %v gliding %v", j.row, j.prettyScroll.Y, j.prettyScroll.Scrolling())
+	}
+	// With no field, another row shows from its top.
+	j.list.Cells.Cursor = "#"
+	hs.settle()
+	tt.Key(0, ui.KeyDown)
+	hs.settle()
+	if j.row != 2 || j.prettyScroll.Y != 0 {
+		t.Errorf("row %d, details at %v", j.row, j.prettyScroll.Y)
+	}
+}
+
+// ⌘C washes the cell it copied over for a moment, and copying the line
+// turns the details' Copy button to a check.
+func TestJSONLCopyWashes(t *testing.T) {
+	hs := newHarness(t, true)
+	tt := hs.tt
+	d := openJSONL(t, hs, "wash.jsonl", testJSONL)
+	j := d.preview.jsonl
+	j.list.Cells.Cursor = pathID([]jsonlStep{{key: "name"}})
+	hs.a.jsonlInput(d.preview, ui.InputEvent{Kind: ui.InputCommand, Text: "copy"})
+	hs.settle()
+	if j.wash.at.IsZero() || j.wash.id != j.list.Cells.Cursor || j.wash.row != 0 {
+		t.Errorf("no wash of the cell: %+v", j.wash)
+	}
+	if tt.HasText("Copied the line") {
+		t.Error("copying a value says it copied the line")
+	}
+	j.list.Cells.Cursor = "#"
+	hs.a.jsonlInput(d.preview, ui.InputEvent{Kind: ui.InputCommand, Text: "copy"})
+	hs.settle()
+	if j.wash.id != "" || j.wash.at.IsZero() {
+		t.Errorf("no wash of the row: %+v", j.wash)
+	}
+	if err := tt.Click("Copied the line"); err != nil {
+		t.Errorf("⌘C of the line doesn't show on the Copy button: %v", err)
+	}
+	tt.Advance(jsonlCopiedFor)
+	hs.settle()
+	if err := tt.Click("Copy Line"); err != nil {
+		t.Errorf("the Copy button didn't go back: %v", err)
 	}
 }

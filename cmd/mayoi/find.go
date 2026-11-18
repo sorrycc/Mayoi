@@ -51,6 +51,8 @@ type findState struct {
 	// countFor: measured again only as it changes.
 	countW   float32
 	countFor string
+	// lineH is the height of a line of the fields, measured once.
+	lineH float32
 }
 
 func (f *findState) pattern() string {
@@ -86,8 +88,12 @@ func (a *app) openFind(replace bool) {
 		snap := d.buf.Snapshot()
 		if s, e := d.sel[0], d.sel[1]; s != e {
 			s, e = min(s, e), max(s, e)
-			if text := snap.Slice(s, min(e, snap.Len())); len(text) < maxFindQuery {
-				f.query = text
+			// Measured in runes before it is copied, as a selection can be
+			// the whole of a large file.
+			if e-s < maxFindQuery {
+				if text := snap.Slice(s, min(e, snap.Len())); len(text) < maxFindQuery {
+					f.query = text
+				}
 			}
 		}
 	}
@@ -365,8 +371,12 @@ func (a *app) visibleMatches(d *editor, first, last int) []matchRect {
 			break // found in a longer text, before an edit
 		}
 		// A match of several lines is a rect on each of the lines in view.
-		for line := max(snap.LineAt(m[0]), first); line <= last && len(out) < 500; line++ {
+		start := snap.LineAt(m[0])
+		for line := max(start, first); line <= last && len(out) < 500; line++ {
 			s, e := snap.LineRange(line)
+			if line > start && m[1] <= s {
+				break // it ends with the line break before
+			}
 			x0 := a.textWidth(snap.Slice(s, max(m[0], s)))
 			x1 := a.textWidth(snap.Slice(s, min(m[1], e)))
 			out = append(out, matchRect{line: line, x0: x0, x1: max(x1, x0+2), cur: i == f.cur})
@@ -449,24 +459,32 @@ func (a *app) findBoxView(c *ui.Context, b findBox) {
 	box := a.floating(c, ui.Column(c).Absolute().Top(4).Right(22).Width(430).Padding(5, 6).Gap(4).Radius(8), false).Bind(&f.box)
 	shake(c, box, f.shook)
 	box.Role(ui.RoleToolbar).Label(locales.FindLabel())
+	// The fields grow with their lines, down from their first: what is
+	// beside them stays on that line.
+	padY := a.findFieldPad(c)
+	firstLine := func(gap float32, children func()) {
+		ui.Row(c).Height(findFieldH).Gap(gap).AlignItems(ui.Center).Children(children)
+	}
 	box.Children(func() {
-		ui.Row(c).Gap(4).AlignItems(ui.Center).Children(func() {
+		ui.Row(c).Gap(4).AlignItems(ui.Start).Children(func() {
 			if canReplace {
-				t := ui.ButtonBase(c).Size(18, 22).Radius(4).Justify(ui.Center).AlignItems(ui.Center).Label(locales.FindToggleReplace())
-				if t.Hovered() {
-					t.Background(p.hover)
-				}
-				t.Transition(hoverFade)
-				t.Children(func() { chevron(c, f.replacing).FontSize(13).TextColor(p.muted) })
-				if t.Clicked() {
-					f.replacing = !f.replacing
-				}
+				firstLine(0, func() {
+					t := ui.ButtonBase(c).Size(18, 22).Radius(4).Justify(ui.Center).AlignItems(ui.Center).Label(locales.FindToggleReplace())
+					if t.Hovered() {
+						t.Background(p.hover)
+					}
+					t.Transition(hoverFade)
+					t.Children(func() { chevron(c, f.replacing).FontSize(13).TextColor(p.muted) })
+					if t.Clicked() {
+						f.replacing = !f.replacing
+					}
+				})
 			}
-			field := ui.Row(c).Grow(1).Padding(1, 4, 1, 8).Gap(2).AlignItems(ui.Center).Radius(5).
+			field := ui.Row(c).Grow(1).MinHeight(findFieldH).Padding(0, 4, 0, 8).Gap(2).AlignItems(ui.Start).Radius(5).
 				Background(p.editor).Border(1, p.border).Transition(fieldFocus)
 			field.Children(func() {
-				in := a.textKeys(ui.TextAreaBase(c.Key("find-query"), &f.query)).Bind(&f.input).Grow(1).FontSize(12.5).
-					Lines(1, 6).Placeholder(locales.FindLabel()).Label(locales.FindLabel())
+				in := a.textKeys(ui.TextAreaBase(c.Key("find-query"), &f.query)).Bind(&f.input).Grow(1).FontSize(findFieldSize).
+					Padding(padY, 0).Lines(1, 6).Placeholder(locales.FindLabel()).Label(locales.FindLabel())
 				if in.Focused() {
 					field.Border(1, p.accentDim)
 				}
@@ -485,9 +503,11 @@ func (a *app) findBoxView(c *ui.Context, b findBox) {
 					b.step(enterStepMods(k.Mods))
 					return true
 				})
-				toggle(iconCase, locales.FindMatchCase(), &f.matchCase)
-				toggle(iconWord, locales.FindWholeWord(), &f.word)
-				toggle(iconRegex, locales.FindRegex(), &f.regex)
+				ui.Row(c).Height(findFieldH - 2).Gap(2).AlignItems(ui.Center).Children(func() {
+					toggle(iconCase, locales.FindMatchCase(), &f.matchCase)
+					toggle(iconWord, locales.FindWholeWord(), &f.word)
+					toggle(iconRegex, locales.FindRegex(), &f.regex)
+				})
 			})
 			count, none := locales.FindNoResults(), true
 			switch {
@@ -504,26 +524,28 @@ func (a *app) findBoxView(c *ui.Context, b findBox) {
 			if none || b.err != "" {
 				col = p.dangerFg
 			}
-			ui.Text(c, count).FontSize(findCountSize).FontFeatures("tnum").TextColor(col).Width(countW).SingleLine().TextAlign(ui.Center)
-			if a.iconButton(c, iconArrowUp, locales.FindPrevMatch(keyText("Shift+Enter")), false).Disabled(b.n == 0).Clicked() {
-				b.step(-1)
-			}
-			if a.iconButton(c, iconArrowDown, locales.FindNextMatch(), false).Disabled(b.n == 0).Clicked() {
-				b.step(1)
-			}
-			if a.iconButton(c, iconX, locales.CloseEsc(), false).Clicked() {
-				a.closeFind()
-			}
+			firstLine(4, func() {
+				ui.Text(c, count).FontSize(findCountSize).FontFeatures("tnum").TextColor(col).Width(countW).SingleLine().TextAlign(ui.Center)
+				if a.iconButton(c, iconArrowUp, locales.FindPrevMatch(keyText("Shift+Enter")), false).Disabled(b.n == 0).Clicked() {
+					b.step(-1)
+				}
+				if a.iconButton(c, iconArrowDown, locales.FindNextMatch(), false).Disabled(b.n == 0).Clicked() {
+					b.step(1)
+				}
+				if a.iconButton(c, iconX, locales.CloseEsc(), false).Clicked() {
+					a.closeFind()
+				}
+			})
 		})
 		if !f.replacing || !canReplace {
 			return
 		}
-		ui.Row(c).Gap(4).AlignItems(ui.Center).Padding(0, 0, 0, 22).Children(func() {
-			field := ui.Row(c).Grow(1).Padding(1, 8).AlignItems(ui.Center).Radius(5).
+		ui.Row(c).Gap(4).AlignItems(ui.Start).Padding(0, 0, 0, 22).Children(func() {
+			field := ui.Row(c).Grow(1).MinHeight(findFieldH).Padding(0, 8).AlignItems(ui.Start).Radius(5).
 				Background(p.editor).Border(1, p.border).Transition(fieldFocus)
 			field.Children(func() {
-				in := a.textKeys(ui.TextAreaBase(c.Key("find-with"), &f.with)).Grow(1).FontSize(12.5).Lines(1, 6).
-					Placeholder(locales.FindReplace()).Label(locales.FindReplace())
+				in := a.textKeys(ui.TextAreaBase(c.Key("find-with"), &f.with)).Grow(1).FontSize(findFieldSize).
+					Padding(padY, 0).Lines(1, 6).Placeholder(locales.FindReplace()).Label(locales.FindReplace())
 				if in.Focused() {
 					field.Border(1, p.accentDim)
 				}
@@ -536,15 +558,17 @@ func (a *app) findBoxView(c *ui.Context, b findBox) {
 					return true
 				})
 			})
-			if a.iconButton(c, iconReplace, locales.FindReplaceOne(), false).Disabled(b.n == 0).Clicked() {
-				b.replaceOne(1)
-			}
-			if a.iconButton(c, iconReplaceAll, locales.FindReplaceAll(), false).Disabled(b.n == 0).Clicked() {
-				b.replaceAll()
-			}
-			// Under the count and the buttons after it, so that the fields
-			// end alike: what is left of them past these two buttons.
-			ui.Box(c).Width(countW + 3*26 + 4*4 - (2*26 + 3*4))
+			firstLine(4, func() {
+				if a.iconButton(c, iconReplace, locales.FindReplaceOne(), false).Disabled(b.n == 0).Clicked() {
+					b.replaceOne(1)
+				}
+				if a.iconButton(c, iconReplaceAll, locales.FindReplaceAll(), false).Disabled(b.n == 0).Clicked() {
+					b.replaceAll()
+				}
+				// Under the count and the buttons after it, so that the
+				// fields end alike: what is left of them past these two.
+				ui.Box(c).Width(countW + 3*26 + 4*4 - (2*26 + 3*4))
+			})
 		})
 	})
 	if box.OverlayShortcut(0, ui.KeyEscape) || box.Shortcut(0, ui.KeyEscape) {
@@ -556,6 +580,23 @@ func (a *app) findBoxView(c *ui.Context, b findBox) {
 // previous match with Shift, else on to the next.
 func enterStep(in ui.Element) int {
 	return enterStepMods(in.SubmittedMods())
+}
+
+// findFieldH is the height of a field of find on one line, and of each
+// row of the widget.
+const findFieldH = 26
+
+// findFieldSize is the font size of the fields of find.
+const findFieldSize = 12.5
+
+// findFieldPad is the room above and below the text of a field of find
+// that sets its one line in the middle of findFieldH.
+func (a *app) findFieldPad(c *ui.Context) float32 {
+	f := &a.find
+	if f.lineH == 0 {
+		_, f.lineH = c.MeasureText(0, ui.Span{Text: "Xg", Size: findFieldSize})
+	}
+	return max(0, (findFieldH-2-f.lineH)/2)
 }
 
 // enterStepMods is enterStep for the keys pressed with mods.

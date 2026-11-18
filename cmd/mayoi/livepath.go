@@ -9,14 +9,15 @@ import (
 )
 
 // livePathsIn are the bare paths of files in src[s:e], as byte offsets:
-// /abs, ~/x, ./x and ../x at a word's start, up to a space or a bracket,
+// /abs, C:\abs or C:/abs, ~/x, ./x and ../x, with / or \, at a word's
+// start, up to a space or a bracket,
 // without the marks that end a sentence after them. Whether each is a
 // file is for the caller to find.
 func livePathsIn(src []byte, s, e int) [][2]int {
 	var paths [][2]int
 	for i := s; i < e; i++ {
 		c := src[i]
-		if c != '/' && c != '~' && c != '.' || i > 0 && !livePathAfter(src[i-1]) {
+		if i > 0 && !livePathAfter(src[i-1]) {
 			continue
 		}
 		rest := src[i:e]
@@ -24,9 +25,11 @@ func livePathsIn(src []byte, s, e int) [][2]int {
 		switch {
 		case len(rest) > 1 && c == '/' && rest[1] != '/':
 			lead = 1
-		case hasPrefixBytes(rest, "~/"), hasPrefixBytes(rest, "./"):
+		case livePathDrive(rest):
+			lead = 3
+		case len(rest) > 1 && (c == '~' || c == '.') && livePathSlash(rest[1]):
 			lead = 2
-		case hasPrefixBytes(rest, "../"):
+		case len(rest) > 2 && c == '.' && rest[1] == '.' && livePathSlash(rest[2]):
 			lead = 3
 		default:
 			continue
@@ -47,8 +50,14 @@ func livePathsIn(src []byte, s, e int) [][2]int {
 	return paths
 }
 
-func hasPrefixBytes(b []byte, p string) bool {
-	return len(b) >= len(p) && string(b[:len(p)]) == p
+// livePathDrive reports whether b starts with the drive of a whole path
+// of Windows: C:\ or C:/.
+func livePathDrive(b []byte) bool {
+	return len(b) > 2 && (b[0]|0x20 >= 'a' && b[0]|0x20 <= 'z') && b[1] == ':' && livePathSlash(b[2])
+}
+
+func livePathSlash(c byte) bool {
+	return c == '/' || c == '\\'
 }
 
 // livePathAfter reports whether a path may start after c: at a word's
@@ -77,15 +86,22 @@ func livePathIn(line string, at int) (string, bool) {
 
 // livePathName is the file a bare path, or a link's destination, of the
 // note at path names: ~/ in the home folder, a whole path on the note's
-// machine, and ./ or ../ from the note's folder. "" for one it cannot
+// machine, or C:\ of this one on Windows, and ./ or ../ from the note's
+// folder. "" for one it cannot
 // find without asking, as ~/ of a remote note.
 func livePathName(path, p string) string {
 	switch {
-	case strings.HasPrefix(p, "~/"):
+	case len(p) > 1 && p[0] == '~' && livePathSlash(p[1]):
 		if remote.Is(path) {
 			return ""
 		}
 		return filepath.Join(homeDir(), filepath.FromSlash(p[2:]))
+	case livePathDrive([]byte(p)):
+		// A path of Windows, which names no file elsewhere.
+		if filepath.VolumeName(p) == "" {
+			return ""
+		}
+		return filepath.Clean(p)
 	case strings.HasPrefix(p, "/"):
 		return remote.Clean(remote.On(path, p))
 	case path == "":

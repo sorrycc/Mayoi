@@ -369,10 +369,14 @@ func (a *app) selectedWhitespace(d *editor, snap ui.TextSnapshot, first, last in
 		x := float32(0)
 		ascii := isASCII(text)
 		k := 0 // the rune
-		for j, r := range text {
+		for j := 0; j < len(text); {
 			if k >= to {
 				break
 			}
+			// size is the bytes the rune takes in text: one for a byte
+			// that isn't UTF-8, which a file may hold past its first 8 KB.
+			r, size := utf8.DecodeRuneInString(text[j:])
+			j += size
 			var w float32
 			switch {
 			case r == '\t':
@@ -380,7 +384,7 @@ func (a *app) selectedWhitespace(d *editor, snap ui.TextSnapshot, first, last in
 			case ascii:
 				w = a.font.charW
 			default:
-				w = a.textWidth(text[:j+utf8.RuneLen(r)]) - x
+				w = a.textWidth(text[:j]) - x
 			}
 			if k >= from && (r == ' ' || r == '\t') && len(out) < 4000 {
 				out = append(out, whitespaceMark{line: i, x0: x, x1: x + w, tab: r == '\t'})

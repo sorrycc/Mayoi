@@ -13,6 +13,7 @@ needs a `## <version>` section here, or its build fails.
 - The caret moves past folded lines; Find and Go to Line open the folds that hide what they go to.
 - Folds stay as you edit above them, each split view keeps its own, and they come back with your session.
 - Terminals no longer crash Mayoi on macOS while many files are open.
+- Selecting text in a file with invalid UTF-8 past its first 8 KB no longer crashes Mayoi.
 - A click past bold text or hidden Markdown marks puts the caret where you click, without selecting text.
 - **Toggle Line Comment** works in JSX, Emacs Lisp and GDScript, and a typed backtick closes in JSX too.
 - Turn on `trimTrailingWhitespace` to remove the spaces and tabs at the ends of lines as you save.

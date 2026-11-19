@@ -1347,6 +1347,37 @@ func (a *app) selectAllOccurrences(d *editor) {
 	d.selectSpans(out, p, false)
 }
 
+// otherCarets returns the carets of the other selections on lines first
+// up to last, where the editor paints them, and the lines of those that
+// select nothing but the primary's, which it lights as the caret's: none
+// while the keyboard is elsewhere, as the text area shows no caret then.
+func (a *app) otherCarets(d *editor, snap ui.TextSnapshot, first, last, caretLine int, focused bool) (carets []runeRect, lines []int) {
+	if len(d.cursors) == 0 || !focused {
+		return nil, nil
+	}
+	f := a.font
+	lo, _ := snap.LineRange(first)
+	_, hi := snap.LineRange(last)
+	k := sort.Search(len(d.cursors), func(i int) bool { return d.cursors[i].end() >= lo })
+	for ; k < len(d.cursors) && d.cursors[k].start() <= hi; k++ {
+		cs := d.cursors[k]
+		if cs.caret < lo || cs.caret > hi {
+			continue
+		}
+		l := snap.LineAt(cs.caret)
+		s, e := snap.LineRange(l)
+		x := float32(cs.caret-s) * f.charW
+		if e-s <= highlightRunes {
+			x = f.width(snap.Slice(s, cs.caret))
+		}
+		carets = append(carets, runeRect{line: l, x0: x, x1: x})
+		if cs.empty() && l != caretLine && (len(lines) == 0 || lines[len(lines)-1] != l) {
+			lines = append(lines, l)
+		}
+	}
+	return carets, lines
+}
+
 // pointAt returns the line at y in the editor's text area and the x along
 // it, as if it did not wrap, of x there.
 func (a *app) pointAt(d *editor, x, y float32) (line int, lx float32) {

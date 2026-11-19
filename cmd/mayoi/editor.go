@@ -2,7 +2,6 @@ package main
 
 import (
 	"slices"
-	"sort"
 	"strconv"
 	"strings"
 	"sync/atomic"
@@ -690,29 +689,7 @@ func (a *app) editorView(c *ui.Context, d *editor) {
 		// The carets of the other selections on the lines in view, painted
 		// still, as the primary's blinks, and the lines of those that
 		// select nothing, lit as the caret's is.
-		var carets []runeRect
-		var caretLines []int
-		if len(d.cursors) > 0 && focused {
-			lo, _ := snap.LineRange(first)
-			_, hi := snap.LineRange(last)
-			k := sort.Search(len(d.cursors), func(i int) bool { return d.cursors[i].end() >= lo })
-			for ; k < len(d.cursors) && d.cursors[k].start() <= hi; k++ {
-				cs := d.cursors[k]
-				if cs.caret < lo || cs.caret > hi {
-					continue
-				}
-				l := snap.LineAt(cs.caret)
-				s, e := snap.LineRange(l)
-				x := float32(cs.caret-s) * f.charW
-				if e-s <= highlightRunes {
-					x = f.width(snap.Slice(s, cs.caret))
-				}
-				carets = append(carets, runeRect{line: l, x0: x, x1: x})
-				if cs.empty() && l != caretLine && (len(caretLines) == 0 || caretLines[len(caretLines)-1] != l) {
-					caretLines = append(caretLines, l)
-				}
-			}
-		}
+		carets, caretLines := a.otherCarets(d, snap, first, last, caretLine, focused)
 		caretCol := c.Theme().Accent.Alpha(0.8)
 		// The block of vim's cursor: from the cursor to the next rune, or a
 		// cell wide at the end of a line.

@@ -342,6 +342,10 @@ func (a *app) hcBegun(s *session, host string, known bool, addr string, err erro
 	default:
 		s.hc, s.hcNew = addr, true
 	}
+	// Run here instead, it runs the program of terminalShell.
+	if s.hc == "" && sessionConn(s) == nil {
+		s.title = a.localShellName()
+	}
 	wait := s.hcWait
 	s.hcWait = nil
 	a.hcReattach(s)

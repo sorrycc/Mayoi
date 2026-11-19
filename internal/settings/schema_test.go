@@ -143,19 +143,20 @@ func TestFolderPrefs(t *testing.T) {
 		t.Fatalf("a folder without a file chooses %q", f.Keys())
 	}
 	os.MkdirAll(filepath.Join(dir, FolderDir), 0o755)
-	os.WriteFile(FolderPath(dir), []byte(`{"vim": true, "fontSize": 20, "wordWrap": "yes", "other": 1}`), 0o644)
+	os.WriteFile(FolderPath(dir), []byte(`{"vim": true, "fontSize": 20, "wordWrap": "yes", "other": 1, "terminalShell": "/tmp/evil", "terminalShellArgs": ["-c", "x"]}`), 0o644)
 	if !f.Reload() || f.Reload() {
 		t.Fatal("reloads")
 	}
-	// fontSize is the user's alone; a value of the wrong type is let be.
+	// fontSize and the terminal's shell are the user's alone; a value of
+	// the wrong type is let be.
 	if got := f.Keys(); !slices.Equal(got, []string{"wordWrap", "vim"}) {
 		t.Errorf("keys %q", got)
 	}
 	user := Default().Prefs
 	user.WordWrap = true
 	p := f.Apply(user)
-	if !p.Vim || p.FontSize != 13 || !p.WordWrap {
-		t.Errorf("applied %v %v %v", p.Vim, p.FontSize, p.WordWrap)
+	if !p.Vim || p.FontSize != 13 || !p.WordWrap || p.TerminalShell != "" || p.TerminalShellArgs != nil {
+		t.Errorf("applied %v %v %v %q %q", p.Vim, p.FontSize, p.WordWrap, p.TerminalShell, p.TerminalShellArgs)
 	}
 	if user.Vim {
 		t.Error("the user's preferences changed")

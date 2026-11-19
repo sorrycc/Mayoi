@@ -33,6 +33,9 @@ func TestMain(m *testing.M) {
 	// called from tests, so the bridge has to be recognized here, before
 	// the test flags, which would otherwise reject it.
 	remote.HandleBridge(os.Args)
+	// A copy of this binary is the program of terminalShell some tests
+	// start: see shellFixture.
+	runShellFixture()
 	hostOS = "darwin"
 	keepLineEndings()
 	if os.Getenv("MYGO_LOCALE") == "" {

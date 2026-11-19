@@ -468,6 +468,24 @@ func TestTerminalBackendHcPreferences(t *testing.T) {
 	}
 }
 
+// terminalShell and terminalShellArgs are kept as they are written, and
+// saved again, each argument as one.
+func TestTerminalShellPreferences(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "settings.json")
+	s := Load(path)
+	if s.TerminalShell != "" || s.TerminalShellArgs != nil {
+		t.Fatalf("default shell %q %q", s.TerminalShell, s.TerminalShellArgs)
+	}
+	shell, args := `C:\Program Files\PowerShell\7-preview\pwsh.exe`, []string{"-NoLogo", "a b", "$X;"}
+	s.TerminalShell, s.TerminalShellArgs = shell, args
+	s.Changed()
+	s.Flush()
+	got := Load(path)
+	if got.TerminalShell != shell || !slices.Equal(got.TerminalShellArgs, args) {
+		t.Errorf("shell %q %q", got.TerminalShell, got.TerminalShellArgs)
+	}
+}
+
 func TestScmRepositoryPreferencesRoundTrip(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "settings.json")
 	s := Load(path)
@@ -490,11 +508,12 @@ func TestSyncedPrefs(t *testing.T) {
 	}
 	p.FontSize, p.Theme, p.ScmRemotes, p.ScmRepositoryOpen = 15, "claude", true, true
 	p.TerminalBackendHcPath, p.TerminalBackendHcEnv = "/opt/hc/bin/hc", []string{"MY_TOKEN=secret"}
+	p.TerminalShell, p.TerminalShellArgs = "/opt/bin/fish", []string{"-l"}
 	if p.IsDefault() {
 		t.Error("changed preferences are default")
 	}
 	m := p.Synced()
-	for _, k := range []string{"scmRemotes", "terminalBackendHcPath", "terminalBackendHcEnv"} {
+	for _, k := range []string{"scmRemotes", "terminalBackendHcPath", "terminalBackendHcEnv", "terminalShell", "terminalShellArgs"} {
 		if _, ok := m[k]; ok {
 			t.Errorf("%s syncs", k)
 		}
@@ -507,6 +526,8 @@ func TestSyncedPrefs(t *testing.T) {
 	m["fontSize"] = json.RawMessage("40")
 	m["terminalBackendHcPath"] = json.RawMessage(`"perl"`)
 	m["terminalBackendHcEnv"] = json.RawMessage(`["PERL5OPT=-e1"]`)
+	m["terminalShell"] = json.RawMessage(`"perl"`)
+	m["terminalShellArgs"] = json.RawMessage(`["-e1"]`)
 	delete(m, "theme")
 	q, err := p.WithSynced(m)
 	if err != nil {
@@ -517,6 +538,9 @@ func TestSyncedPrefs(t *testing.T) {
 	}
 	if q.TerminalBackendHcPath != "/opt/hc/bin/hc" || !slices.Equal(q.TerminalBackendHcEnv, []string{"MY_TOKEN=secret"}) {
 		t.Errorf("hc %q %q", q.TerminalBackendHcPath, q.TerminalBackendHcEnv)
+	}
+	if q.TerminalShell != "/opt/bin/fish" || !slices.Equal(q.TerminalShellArgs, []string{"-l"}) {
+		t.Errorf("shell %q %q", q.TerminalShell, q.TerminalShellArgs)
 	}
 	if !slices.Contains(PrefKeys, "fontSize") || !slices.Contains(PrefKeys, "locale") {
 		t.Errorf("PrefKeys = %v", PrefKeys)

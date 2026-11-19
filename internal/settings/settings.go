@@ -233,6 +233,14 @@ type Prefs struct {
 	// TerminalBackend is what runs a terminal's shell: "" Mayoi itself,
 	// or "hc" a terminal of herdr-core, which outlives the window.
 	TerminalBackend string `json:"terminalBackend,omitempty"`
+	// TerminalShell is the program a new local terminal of Mayoi's own
+	// runs: a path to it, or a name on the path. "" runs the user's shell,
+	// as the terminal picks it. Terminals of a host or of herdr-core run
+	// their own.
+	TerminalShell string `json:"terminalShell,omitempty"`
+	// TerminalShellArgs are the arguments TerminalShell is given, each one
+	// as it is, never split or quoted by a shell.
+	TerminalShellArgs []string `json:"terminalShellArgs,omitempty"`
 	// TerminalBackendHcPath is the hc to run when TerminalBackend is
 	// "hc": a path to the program, a folder that has it, or a name on
 	// the path. Mayoi finds hc there first, and on the path or in
@@ -1084,7 +1092,7 @@ func (s *Settings) OnPrefsWritten(fn func()) {
 // projects on the rail, by folders of this machine, and the hc to run
 // with its environment, which may hold secrets and runs as a terminal
 // opens, and the folders of Claude Code of this machine.
-var unsynced = []string{"scmRepositoryOpen", "scmRemotes", "syncIgnored", "projectTabStyle", "terminalBackendHcPath", "terminalBackendHcEnv", "agentSessionsClaudeDirs"}
+var unsynced = []string{"scmRepositoryOpen", "scmRemotes", "syncIgnored", "projectTabStyle", "terminalShell", "terminalShellArgs", "terminalBackendHcPath", "terminalBackendHcEnv", "agentSessionsClaudeDirs"}
 
 // PrefKeys are the keys of the preferences in the settings' file.
 var PrefKeys = func() []string {

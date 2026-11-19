@@ -6262,6 +6262,16 @@ func (msgs Messages) FailStartTerminal(err string) string {
 	return Catalog.Format(msgs.locale, "failStartTerminal", map[string]any{"err": err})
 }
 
+// FailStartShell says "Could not start the Shell of Settings → Terminal: {err}"
+// in the language the app shows.
+func FailStartShell(err string) string { return In(i18n.Locale()).FailStartShell(err) }
+
+// FailStartShell says "Could not start the Shell of Settings → Terminal: {err}"
+// in the language of msgs.
+func (msgs Messages) FailStartShell(err string) string {
+	return Catalog.Format(msgs.locale, "failStartShell", map[string]any{"err": err})
+}
+
 // FailWithError says "{what}: {err}"
 // in the language the app shows.
 func FailWithError(what string, err string) string { return In(i18n.Locale()).FailWithError(what, err) }
@@ -15330,6 +15340,46 @@ func PrefDescTerminalLocation() string { return In(i18n.Locale()).PrefDescTermin
 // in the language of msgs.
 func (msgs Messages) PrefDescTerminalLocation() string {
 	return Catalog.Format(msgs.locale, "prefDescTerminalLocation", nil)
+}
+
+// PrefTitleTerminalShell says "Shell"
+// in the language the app shows.
+func PrefTitleTerminalShell() string { return In(i18n.Locale()).PrefTitleTerminalShell() }
+
+// PrefTitleTerminalShell says "Shell"
+// in the language of msgs.
+func (msgs Messages) PrefTitleTerminalShell() string {
+	return Catalog.Format(msgs.locale, "prefTitleTerminalShell", nil)
+}
+
+// PrefDescTerminalShell says "The program new local terminals run: a path to it, or a name on the path. Empty runs your usual shell. Terminals of h…"
+// in the language the app shows.
+func PrefDescTerminalShell() string { return In(i18n.Locale()).PrefDescTerminalShell() }
+
+// PrefDescTerminalShell says "The program new local terminals run: a path to it, or a name on the path. Empty runs your usual shell. Terminals of h…"
+// in the language of msgs.
+func (msgs Messages) PrefDescTerminalShell() string {
+	return Catalog.Format(msgs.locale, "prefDescTerminalShell", nil)
+}
+
+// PrefTitleTerminalShellArgs says "Shell Arguments"
+// in the language the app shows.
+func PrefTitleTerminalShellArgs() string { return In(i18n.Locale()).PrefTitleTerminalShellArgs() }
+
+// PrefTitleTerminalShellArgs says "Shell Arguments"
+// in the language of msgs.
+func (msgs Messages) PrefTitleTerminalShellArgs() string {
+	return Catalog.Format(msgs.locale, "prefTitleTerminalShellArgs", nil)
+}
+
+// PrefDescTerminalShellArgs says "Arguments for the Shell, one per entry, each passed as written without a shell splitting or quoting it."
+// in the language the app shows.
+func PrefDescTerminalShellArgs() string { return In(i18n.Locale()).PrefDescTerminalShellArgs() }
+
+// PrefDescTerminalShellArgs says "Arguments for the Shell, one per entry, each passed as written without a shell splitting or quoting it."
+// in the language of msgs.
+func (msgs Messages) PrefDescTerminalShellArgs() string {
+	return Catalog.Format(msgs.locale, "prefDescTerminalShellArgs", nil)
 }
 
 // PrefTitleTerminalBackend says "Terminal Backend"

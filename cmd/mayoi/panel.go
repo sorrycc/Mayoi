@@ -2,6 +2,7 @@ package main
 
 import (
 	"cmp"
+	"errors"
 	"fmt"
 	"io"
 	"mayoi/internal/agents"
@@ -79,6 +80,9 @@ type session struct {
 	// name is what the user renamed it to, "" for none, shown over the
 	// title its programs give it.
 	name string
+	// shell is the program of terminalShell its program is, "" for the
+	// user's shell, a host's or one in herdr-core.
+	shell string
 	// started is when its program started, to tell a shell that exits
 	// as it starts from one the user ended.
 	started time.Time
@@ -169,14 +173,20 @@ func (a *app) workDir() string {
 
 // startTerminal starts a terminal in dir, nil when it cannot.
 func (a *app) startTerminal(dir string) *session {
-	s := &session{dir: dir, title: shellName()}
+	s := &session{dir: dir}
 	a.offerHC()
-	if c := sessionConn(s); c != nil {
-		s.title = c.Host
-	}
 	// A shell in herdr-core, of the host in a remote folder as one of hc's
 	// machines, starts in the background: the terminal shows meanwhile.
 	s.hcStarting = a.hcBackend()
+	// Named for its shell: that of terminalShell, which herdr-core leaves
+	// for its own, or its host's.
+	s.title = shellName()
+	if !s.hcStarting {
+		s.title = a.localShellName()
+	}
+	if c := sessionConn(s); c != nil {
+		s.title = c.Host
+	}
 	if a.addTerminal(s) == nil {
 		return nil
 	}
@@ -193,7 +203,11 @@ func (a *app) addTerminal(s *session) *session {
 	s.id = a.nextTerm
 	term, err := a.spawnTerminal(s, s.dir)
 	if err != nil {
-		a.fail("%s", locales.FailStartTerminal(err.Error()))
+		if se := (*shellStartError)(nil); errors.As(err, &se) {
+			a.fail("%s", locales.FailStartShell(se.err.Error()))
+		} else {
+			a.fail("%s", locales.FailStartTerminal(err.Error()))
+		}
 		return nil
 	}
 	s.term, s.started = term, time.Now()
@@ -201,25 +215,48 @@ func (a *app) addTerminal(s *session) *session {
 	return s
 }
 
+// launch is what a terminal runs: its program and arguments, nil for
+// the user's shell, more of its environment and where it runs, and
+// whether that is the program of terminalShell.
+type launch struct {
+	command, env []string
+	dir          string
+	own          bool
+}
+
+// terminalLaunch is what the terminal s runs in dir: the program of
+// terminalShell, or the user's shell; hc attach on a terminal of
+// herdr-core; and the shell of the host in a remote folder.
+func (a *app) terminalLaunch(s *session, dir string) launch {
+	shell := localShell(a.settings.Prefs)
+	l := launch{command: shell, dir: dir, own: shell != nil}
+	// Attached to a terminal of herdr-core: hc attach here, which closing
+	// the terminal ends alone.
+	if s.attach != "" {
+		l = launch{command: hcAttach(s.attach, true), env: hcEnv()}
+		l.dir, _ = os.UserHomeDir()
+	} else if c, rdir, ok := remote.Lookup(dir); ok {
+		// In a remote folder, a shell of its host, over the connection.
+		l = launch{command: c.TerminalCommand(rdir)}
+		l.dir, _ = os.UserHomeDir()
+	}
+	// In herdr-core, its terminal there.
+	if s.hc != "" {
+		l.command, l.env, l.own = hcAttach(s.hc, !s.hcNew), hcEnv(), false
+	}
+	// Its shell still starting in herdr-core: nothing runs here yet.
+	if s.hcStarting {
+		l.own = false
+	}
+	return l
+}
+
 // spawnTerminal starts the program of a terminal in dir: the shell, of
 // the host in a remote folder.
 func (a *app) spawnTerminal(s *session, dir string) (*terminal.Terminal, error) {
 	light, dark := a.termThemes()
-	var command, env []string
-	// Attached to a terminal of herdr-core: hc attach here, which closing
-	// the terminal ends alone.
-	if s.attach != "" {
-		command, env = hcAttach(s.attach, true), hcEnv()
-		dir, _ = os.UserHomeDir()
-	} else if c, rdir, ok := remote.Lookup(dir); ok {
-		// In a remote folder, a shell of its host, over the connection.
-		command = c.TerminalCommand(rdir)
-		dir, _ = os.UserHomeDir()
-	}
-	// In herdr-core, its terminal there.
+	l := a.terminalLaunch(s, dir)
 	if s.hc != "" {
-		command = hcAttach(s.hc, !s.hcNew)
-		env = hcEnv()
 		s.attached, s.hcNew = time.Now(), false
 	}
 	// Its shell still starting in herdr-core, nothing yet.
@@ -234,10 +271,10 @@ func (a *app) spawnTerminal(s *session, dir string) (*terminal.Terminal, error) 
 	var term *terminal.Terminal
 	var in statusIn
 	term, err := terminal.New(terminal.Options{
-		Command:   command,
-		Env:       env,
+		Command:   l.command,
+		Env:       l.env,
 		Conn:      conn,
-		Dir:       dir,
+		Dir:       l.dir,
 		Font:      termFont(a.settings),
 		Theme:     light,
 		DarkTheme: dark,
@@ -316,7 +353,57 @@ func (a *app) spawnTerminal(s *session, dir string) (*terminal.Terminal, error) 
 			}
 		},
 	})
+	if err != nil && l.own {
+		return nil, &shellStartError{shell: l.command[0], err: err}
+	}
+	s.shell = ""
+	if l.own {
+		s.shell = l.command[0]
+	}
 	return term, err
+}
+
+// shellStartError is why the program of terminalShell didn't start.
+type shellStartError struct {
+	shell string
+	err   error
+}
+
+func (e *shellStartError) Error() string { return e.shell + ": " + e.err.Error() }
+func (e *shellStartError) Unwrap() error { return e.err }
+
+// localShell is the program, with its arguments, a new local terminal of
+// Mayoi's own runs, as terminalShell and terminalShellArgs choose it: nil
+// for the user's shell. Each argument goes to the program as it is,
+// never through a shell.
+func localShell(p settings.Prefs) []string {
+	shell := strings.TrimSpace(p.TerminalShell)
+	if shell == "" {
+		return nil
+	}
+	return append([]string{shell}, p.TerminalShellArgs...)
+}
+
+// localShellName is the name of the shell a new local terminal runs:
+// terminalShell's program's, as "pwsh" or "bash", else shellName.
+func (a *app) localShellName() string {
+	shell := strings.TrimSpace(a.settings.TerminalShell)
+	if shell == "" {
+		return shellName()
+	}
+	return shellBase(shell)
+}
+
+// shellBase is the name of the program at path: its last element, and on
+// Windows without .exe, in lower case, as shellName names one.
+func shellBase(path string) string {
+	if i := strings.LastIndexAny(path, `/\`); i >= 0 && (hostOS == "windows" || path[i] == '/') {
+		path = path[i+1:]
+	}
+	if hostOS == "windows" {
+		return strings.TrimSuffix(strings.ToLower(path), ".exe")
+	}
+	return path
 }
 
 // newTerminal starts a terminal in the panel and shows it.

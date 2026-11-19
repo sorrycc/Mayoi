@@ -23,6 +23,8 @@ needs a `## <version>` section here, or its build fails.
 - When that server isn't installed, Mayoi says once how to install it.
 - Terminals no longer crash Mayoi on macOS while many files are open.
 - Selecting text in a file with invalid UTF-8 past its first 8 KB no longer crashes Mayoi.
+- **Settings → Terminal → Shell** picks the program new terminals run, as PowerShell 7 Preview or Git Bash.
+- **Shell Arguments** passes each argument to that program exactly as written, never through a shell.
 - A click past bold text or hidden Markdown marks puts the caret where you click, without selecting text.
 - **Toggle Line Comment** works in JSX, Emacs Lisp and GDScript, and a typed backtick closes in JSX too.
 - Turn on `trimTrailingWhitespace` to remove the spaces and tabs at the ends of lines as you save.

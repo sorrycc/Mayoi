@@ -90,6 +90,8 @@ var Schema = []Field{
 	{Key: "terminalFontSize", Category: CatTerminal, Kind: KindNumber, Min: 0, Max: 28, Step: 1},
 	{Key: "terminalCopyOnSelect", Category: CatTerminal, Kind: KindBool, Folder: true},
 	{Key: "terminalLocation", Category: CatTerminal, Kind: KindEnum, Options: []string{"", "editor"}},
+	{Key: "terminalShell", Category: CatTerminal, Kind: KindText},
+	{Key: "terminalShellArgs", Category: CatTerminal, Kind: KindList},
 	{Key: "terminalBackend", Category: CatTerminal, Kind: KindEnum, Options: []string{"", "hc"}},
 	{Key: "terminalBackendHcPath", Category: CatTerminal, Kind: KindText},
 	{Key: "terminalBackendHcEnv", Category: CatTerminal, Kind: KindList},

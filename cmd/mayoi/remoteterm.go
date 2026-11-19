@@ -70,12 +70,15 @@ const exitedEarlyWithin = 2 * time.Second
 // than have it flash and vanish: it shows what the shell printed and why
 // it stopped, and offers to report it.
 func (a *app) exitedEarly(s *session, t *terminal.Terminal, code int) {
-	shell, c := shellName(), strconv.Itoa(code)
+	shell, c, path := shellName(), strconv.Itoa(code), os.Getenv("SHELL")
+	if s.shell != "" {
+		shell, path = shellBase(s.shell), s.shell
+	}
 	t.Feed([]byte("\r\n\x1b[0;2m" + locales.TermExitedEarly(shell, c) + "\x1b[0m\r\n"))
 	out := lastLines(t.Text(), 20)
 	a.tell(note{message: locales.NoteTermExitedEarly(shell, c), label: locales.ReportProblem(), action: func() {
 		a.reportProblem(shell+" exited with code "+c+" as the terminal started",
-			"Shell: "+os.Getenv("SHELL")+"\nExit code: "+c+"\n\nWhat it printed:\n```\n"+out+"\n```")
+			"Shell: "+path+"\nExit code: "+c+"\n\nWhat it printed:\n```\n"+out+"\n```")
 	}})
 }
 

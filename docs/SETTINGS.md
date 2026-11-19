@@ -74,6 +74,8 @@ takes its default.
 | `sidebarRight`          | `false`       | `true`, `false`                                             | **View → Sidebar on Right**                    |
 | `panelPosition`         | `""`          | `""` (bottom), `"left"`, `"right"`                          | **View → Panel Position**                      |
 | `terminalLocation`      | `""`          | `""` (the panel), `"editor"`                                | **View → New Terminals in Editor Area**        |
+| `terminalShell`         | `""`          | `""` (your usual shell), a path to a program, or a name on `PATH` |                                          |
+| `terminalShellArgs`     | none          | A list of arguments for `terminalShell`                     |                                                |
 | `terminalBackend`       | `""`          | `""` (Mayoi), `"hc"` (herdr-core)                           |                                                |
 | `terminalBackendHcPath` | `""`          | A path to `hc`, a folder that has it, or a name on `PATH`   |                                                |
 | `terminalBackendHcEnv`  | none          | A list of `KEY=value` environment variables for `hc`        |                                                |
@@ -171,6 +173,37 @@ differ in width lines them up only roughly.
   in the column files open in, as **New Terminal in Editor Area** does. It applies to New Terminal (⌃⇧`) and the
   Explorer's **Open in Terminal**. Toggle Terminal (⌃`), the title bar's terminal button and the panel's **+** still
   open the panel.
+- **`terminalShell`** is the program a new local terminal runs, as **Shell** in **Settings → Terminal**: a path to
+  it, which may have spaces, or a name found on `PATH`. Empty runs the shell Mayoi picks: `$SHELL` as a login shell,
+  and on Windows `pwsh.exe`, then `powershell.exe`, then the command prompt. It applies to terminals opened after
+  the change, in the panel or a tab of the editor area, without a restart; those already running keep their program.
+  Terminals of a remote folder run their host's shell, and with `terminalBackend` `"hc"` herdr-core starts its own,
+  so neither uses it. A program that can't start shows why, as a path that isn't there. Mayoi doesn't install the
+  program: it runs the one you have. Elsewhere than Windows, add `-l` to `terminalShellArgs` for a login shell.
+- **`terminalShellArgs`** are the arguments `terminalShell` gets, as **Shell Arguments**, one per entry. Each one
+  reaches the program as it is written, never split, quoted or expanded by a shell, so `"a b"` is one argument. The
+  settings window adds an entry on Enter or a comma, and trims spaces and repeats: write an argument with a comma or
+  one given twice in `settings.json`.
+
+  PowerShell 7 Preview, at the path its installer uses, in `settings.json`:
+
+  ```json
+  "terminalShell": "C:\\Program Files\\PowerShell\\7-preview\\pwsh.exe",
+  "terminalShellArgs": ["-NoLogo"]
+  ```
+
+  or in **Settings → Terminal**, **Shell** `C:\Program Files\PowerShell\7-preview\pwsh.exe` and **Shell Arguments**
+  `-NoLogo`. A name such as `pwsh.exe` works too, and runs the first one found on `PATH`.
+
+  Git Bash from Git for Windows, as an interactive login shell, so that it reads `~/.bash_profile`:
+
+  ```json
+  "terminalShell": "C:\\Program Files\\Git\\bin\\bash.exe",
+  "terminalShellArgs": ["--login", "-i"]
+  ```
+
+  or **Shell** `C:\Program Files\Git\bin\bash.exe` and **Shell Arguments** `--login` and `-i`. Use the path Git
+  for Windows has on your machine.
 - **`terminalBackend`** is what runs a terminal's shell: `""` Mayoi, or `"hc"` a terminal of
   [herdr-core](https://herdr.dev/core/), which `hc attach` shows. Its shell keeps running as the window closes or Mayoi
   quits, where `hc ls` and the Herdr app see it, and the next start attaches to it again, in its tab or the panel,
@@ -405,8 +438,9 @@ code and approve it. The dialog counts down until the code expires.
 What syncs:
 
 - **`settings.json`**: every preference, except `scmRepositoryOpen` and `scmRemotes`, which remember Source Control's
-  panels on each machine, `projectTabStyle`, kept by this machine's folders, `terminalBackendHcPath` and
-  `terminalBackendHcEnv`, which pick the program a terminal runs and may hold secrets, and `syncIgnored`. When two
+  panels on each machine, `projectTabStyle`, kept by this machine's folders, `terminalShell`,
+  `terminalShellArgs`, `terminalBackendHcPath` and `terminalBackendHcEnv`, which pick the program a terminal runs
+  and may hold secrets, and `syncIgnored`. When two
   machines change different preferences, both changes stay. When they change the same one, the machine that syncs last
   wins.
 - **`keybindings.json`**, as text, comments and all. When it changed on this machine and on another since they last

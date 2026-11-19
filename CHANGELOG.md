@@ -5,6 +5,9 @@ needs a `## <version>` section here, or its build fails.
 
 ## Unreleased
 
+- Files dropped from the Finder on a project's square switch to that project and open there as tabs.
+- Files dropped on the empty part of the project rail open in the project shown.
+- Pictures dropped from the Finder on a square open as files; use **Choose Icon…** to set an icon.
 - Splitting a Live Preview note with tables, diagrams or formulas into two columns no longer crashes Mayoi.
 - Fold blocks of code: click the chevron beside a line number, shown as the pointer comes over the gutter.
 - JSON objects and arrays fold, as do Go, JavaScript and TypeScript blocks, Python by indent and Markdown sections.

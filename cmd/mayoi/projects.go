@@ -64,6 +64,9 @@ type frame struct {
 	hoverOn    *desktop
 	hoverSince time.Time
 	hoverWake  bool
+	// railFiles tells that files from another app are over the rail
+	// around its squares, which would open them in the project shown.
+	railFiles bool
 }
 
 // newFrame opens a window that shows h.
@@ -538,7 +541,9 @@ func (m *mayoi) projectTabsChanged() {
 // window of one project too. a is the project it is built in, which the
 // frame goes on building as a click shows another. A square is dragged
 // along the rail to reorder it, a folder dropped on the rail opens as a
-// project, and a picture dropped on a square shows in it.
+// project, files dropped on a square open in its project, and on the
+// rail around them in the one shown, and a picture dragged from the
+// sidebar onto a square shows in it.
 func (f *frame) railView(c *ui.Context, a *app) {
 	if !f.m.s.ProjectTabs {
 		return
@@ -549,6 +554,7 @@ func (f *frame) railView(c *ui.Context, a *app) {
 	f.railDrop(rail, a, nil)
 	_, atEnd := ui.DragOver[railDrag](rail)
 	folders := rail.FileDragOver()
+	f.railFiles = folders
 	tabs := slices.Clone(f.tabs)
 	names := make([]string, len(tabs))
 	for i, h := range tabs {
@@ -592,9 +598,9 @@ func (railDrag) railTake() {}
 func (dragItem) railTake() {}
 
 // railDrop moves the square dropped on e before the project before, at
-// the end for nil, and opens the folders dropped there from another app.
-// A picture dropped on the square of before, from another app or the
-// sidebar, shows in it.
+// the end for nil, and opens what is dropped there from another app: in
+// the project of before, or the one shown for nil. A picture dragged
+// from the sidebar onto the square of before shows in it.
 func (f *frame) railDrop(e ui.Element, a *app, before *desktop) {
 	var dir string
 	if before == nil {
@@ -617,19 +623,36 @@ func (f *frame) railDrop(e ui.Element, a *app, before *desktop) {
 		}
 	}
 	if paths := e.DroppedFiles(); paths != nil {
-		var dirs []string
-		for _, path := range paths {
-			if info, err := os.Stat(path); err == nil && info.IsDir() {
-				dirs = append(dirs, path)
-			}
-		}
-		switch {
-		case len(dirs) > 0:
-			a.post(func() { a.host.openFolders(dirs) })
-		case before != nil && len(paths) == 1 && isIconFile(paths[0]):
-			a.post(func() { f.setProjectIcon(a, dir, paths[0]) })
-		}
+		a.post(func() { f.dropOnRail(a, before, paths) })
 	}
+}
+
+// dropOnRail opens files dropped from another app on the rail: in the
+// project of to, which shows, or in the project shown for nil, as a
+// project closed since they were dropped is. Folders open as projects of
+// their own, and alone switch to none. a is the project shown.
+func (f *frame) dropOnRail(a *app, to *desktop, paths []string) {
+	folders, files := splitPaths(paths)
+	if len(folders) > 0 {
+		a.host.openFolders(folders)
+	}
+	if len(files) == 0 {
+		return
+	}
+	if to == nil || to.f != f || !slices.Contains(f.tabs, to) {
+		to = f.active
+	}
+	if to == nil {
+		return
+	}
+	f.activate(to)
+	// Once it has started, which a project not shown yet does as it is
+	// built.
+	b := to.a
+	b.post(func() {
+		col := b.fileColumn()
+		b.dropFiles(files, col, col.active+1)
+	})
 }
 
 // canSetIcon reports whether the project of dir may show a picture of
@@ -773,17 +796,24 @@ func (f *frame) railTab(c *ui.Context, a *app, h *desktop, i int, label string) 
 		Label(name).Description(railDescription(where, work)).Drag(railDrag{h})
 	f.railTip(c, a, b, name, where, keys, dirty, work, alert, h.a.alertState, alertCol, conn, connCol)
 	f.railDrop(b, a, h)
-	// Another square, or a picture dragged from the sidebar or anything
-	// from another app, which may be one: it would show on this square.
-	// A tab of another project would open in this one, which shows as
-	// the drag rests here.
-	over, pic, carry := false, b.FileDragOver() && f.canSetIcon(dir), false
+	// Another square, or a picture dragged from the sidebar: it would
+	// show on this square. Files from another app would open in this
+	// project, as those dropped around the squares would in the one
+	// shown, which marks it half as much. A tab of another project would
+	// open in this one, which shows as the drag rests here.
+	over, carry := false, false
+	pic := unit(b.FileDragOver())
+	if on && f.railFiles {
+		pic = 0.5
+	}
 	switch it, _ := ui.DragOver[railTake](b); it := it.(type) {
 	case railDrag:
 		over = true
 	case dragItem:
 		a.dragSeen = true
-		pic = pic || it.file != nil && isIconFile(it.file.path) && f.canSetIcon(dir)
+		if it.file != nil && isIconFile(it.file.path) && f.canSetIcon(dir) {
+			pic = 1
+		}
 		if carry = carriable(it.tab) && f.owner(it.tab) != h; carry && !on {
 			f.hoverTab(a, h, it.tab)
 		}
@@ -802,7 +832,10 @@ func (f *frame) railTab(c *ui.Context, a *app, h *desktop, i int, label string) 
 	pill = b.Animate("pill", pill, 160*time.Millisecond)
 	fill = b.Animate("fill", fill, 120*time.Millisecond)
 	outline := b.Animate("ring", unit(on), 160*time.Millisecond)
-	drop := b.Animate("drop", unit(pic || carry), 120*time.Millisecond)
+	if carry {
+		pic = 1
+	}
+	drop := b.Animate("drop", pic, motionHover)
 	sink := b.Animate("sink", unit(pressed && !dragged), 80*time.Millisecond)
 	// The ring grows in and out as work starts and stops, following how
 	// far along the work says it is; the dot pops in, fades out in the

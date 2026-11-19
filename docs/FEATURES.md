@@ -663,12 +663,15 @@ Each folder gets its own window.
   lower corner, gray while its host is connected, amber while connecting and red while not.
 - **Rename Tab…** in a square's context menu shows up to two characters of your own, an emoji too, in place of
   its initials or logo; empty brings them back. **Tab Color** tints the square in one of the terminal's colors.
-- Drop a picture on a square, from the Finder or the Explorer, or pick one with **Choose Icon…** in its context
-  menu, and the square shows it in place of the project's logo: a PNG, JPEG, WebP, SVG, ICO or ICNS, a remote
+- Pick a picture with **Choose Icon…** in a square's context menu, or drag one from the Explorer onto the square,
+  and the square shows it in place of the project's logo: a PNG, JPEG, WebP, SVG, ICO or ICNS, a remote
   project's too, even while its host is not connected. Mayoi keeps a copy in `project-icons` beside
   `settings.json`, so the picture may move or go. **Reset Icon** brings the logo back. An icon and a label of your
   own take each other's place.
 - Drag a square along the rail to reorder the projects, and drop a folder from the Finder on the rail to add it.
+- Files dropped from the Finder on a square show that project and open as tabs in its file column, pictures and
+  files from outside its folder too; dropped on the rail around the squares, they open in the project shown. The
+  square they would open in is marked as they are dragged over.
 - Clicking a square shows that project, with its tabs, columns, terminals, Explorer and source control as it left
   them, each editor with its caret and scroll position. Each project keeps its own layout: what its sidebar shows,
   whether it is open and how wide, and the panel's height. A new project starts with the layout of the one shown. ⇧⌘] and ⇧⌘[ (**Go → Next Project** and **Previous

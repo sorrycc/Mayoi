@@ -158,8 +158,6 @@ func (a *app) restartServer(key string) {
 	s.asked = true
 	lspServers.m[key] = s
 	lspServers.Unlock()
-	// What the old one was asked is not waited for.
-	a.defAsked++
 	a.tell(note{message: locales.LspRestarting(id)})
 	go s.start(a, old)
 }

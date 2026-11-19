@@ -15,7 +15,10 @@ import (
 // "bad" is an error, on in and out, until it is told to exit. A word is
 // defined by the lines of its document that are "def" and it, and else at
 // line 3 of /tmp/def.fake. The answer of a word "late" waits for
-// test/release, and test/held says whether one waits.
+// test/release, and test/held says whether one waits; of hovers and
+// completions, a word "latenothing" or "latebroken" waits as well. The
+// hover and the completions of a word ending "nothing" are none, and of
+// one ending "broken" an error.
 func Serve(in io.Reader, out io.Writer) {
 	r := bufio.NewReader(in)
 	send := func(m any) {
@@ -52,6 +55,27 @@ func Serve(in io.Reader, out io.Writer) {
 		}
 		json.Unmarshal(body, &m)
 		reply := func(result any) { send(map[string]any{"jsonrpc": "2.0", "id": *m.ID, "result": result}) }
+		// answer replies by the word at the place asked of, held back when
+		// it starts "late", none or an error by its end.
+		answer := func(result any) {
+			name := wordAt(texts, m.Params)
+			id := *m.ID
+			respond := func() {
+				switch {
+				case strings.HasSuffix(name, "broken"):
+					send(map[string]any{"jsonrpc": "2.0", "id": id, "error": map[string]any{"code": -32603, "message": "broken"}})
+				case strings.HasSuffix(name, "nothing"):
+					send(map[string]any{"jsonrpc": "2.0", "id": id, "result": nil})
+				default:
+					send(map[string]any{"jsonrpc": "2.0", "id": id, "result": result})
+				}
+			}
+			if strings.HasPrefix(name, "late") && late == nil {
+				late = respond
+				return
+			}
+			respond()
+		}
 		switch m.Method {
 		case "initialize":
 			initialize = append(json.RawMessage(nil), m.Params...)
@@ -93,9 +117,9 @@ func Serve(in io.Reader, out io.Writer) {
 				"params": map[string]any{"uri": p.TextDocument.URI, "diagnostics": diags}})
 		case "textDocument/hover":
 			if len(options.HoverContents) > 0 {
-				reply(map[string]any{"contents": options.HoverContents})
+				answer(map[string]any{"contents": options.HoverContents})
 			} else {
-				reply(map[string]any{"contents": map[string]any{"kind": "markdown", "value": "**hello**"}})
+				answer(map[string]any{"contents": map[string]any{"kind": "markdown", "value": "**hello**"}})
 			}
 		case "test/snapshot":
 			reply(map[string]any{"initialize": initialize, "document": document})
@@ -122,7 +146,7 @@ func Serve(in io.Reader, out io.Writer) {
 			}
 			reply(nil)
 		case "textDocument/completion":
-			reply(map[string]any{"isIncomplete": false, "items": []any{map[string]any{"label": "println", "insertText": "println()"}}})
+			answer(map[string]any{"isIncomplete": false, "items": []any{map[string]any{"label": "println", "insertText": "println()"}}})
 		case "textDocument/formatting":
 			reply([]any{map[string]any{"range": map[string]any{
 				"start": map[string]any{"line": 0, "character": 0}, "end": map[string]any{"line": 0, "character": 0}}, "newText": "// formatted\n"}})
@@ -142,33 +166,17 @@ func Serve(in io.Reader, out io.Writer) {
 // the document's text, as many times as it does there, and the word: an
 // empty list when the word is "nothing", nil when it is defined in none.
 func definitions(texts map[string]string, params json.RawMessage) ([]any, string) {
+	name := wordAt(texts, params)
+	if name == "nothing" {
+		return []any{}, name
+	}
 	var p struct {
 		TextDocument struct {
 			URI string `json:"uri"`
 		} `json:"textDocument"`
-		Position struct {
-			Line      int `json:"line"`
-			Character int `json:"character"`
-		} `json:"position"`
 	}
 	json.Unmarshal(params, &p)
 	lines := strings.Split(texts[p.TextDocument.URI], "\n")
-	if p.Position.Line >= len(lines) {
-		return nil, ""
-	}
-	line := lines[p.Position.Line]
-	word := func(r byte) bool { return r >= 'a' && r <= 'z' || r >= '0' && r <= '9' }
-	s, e := min(p.Position.Character, len(line)), min(p.Position.Character, len(line))
-	for s > 0 && word(line[s-1]) {
-		s--
-	}
-	for e < len(line) && word(line[e]) {
-		e++
-	}
-	name := line[s:e]
-	if name == "nothing" {
-		return []any{}, name
-	}
 	var out []any
 	for i, l := range lines {
 		rest, ok := strings.CutPrefix(l, "def ")
@@ -185,4 +193,33 @@ func definitions(texts map[string]string, params json.RawMessage) ([]any, string
 		}
 	}
 	return out, name
+}
+
+// wordAt is the word at the place of a request's params, of the
+// document's text.
+func wordAt(texts map[string]string, params json.RawMessage) string {
+	var p struct {
+		TextDocument struct {
+			URI string `json:"uri"`
+		} `json:"textDocument"`
+		Position struct {
+			Line      int `json:"line"`
+			Character int `json:"character"`
+		} `json:"position"`
+	}
+	json.Unmarshal(params, &p)
+	lines := strings.Split(texts[p.TextDocument.URI], "\n")
+	if p.Position.Line >= len(lines) {
+		return ""
+	}
+	line := lines[p.Position.Line]
+	word := func(r byte) bool { return r >= 'a' && r <= 'z' || r >= '0' && r <= '9' }
+	s, e := min(p.Position.Character, len(line)), min(p.Position.Character, len(line))
+	for s > 0 && word(line[s-1]) {
+		s--
+	}
+	for e < len(line) && word(line[e]) {
+		e++
+	}
+	return line[s:e]
 }

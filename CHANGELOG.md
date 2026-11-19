@@ -21,6 +21,11 @@ needs a `## <version>` section here, or its build fails.
 - Go to Definition ignores an answer that arrives after you moved the caret or asked again.
 - Definitions on the same line each show in the list, with their column so you can tell them apart.
 - A language server restarted while asked for a definition no longer says none was found.
+- **Go → Show Hover** ignores an answer that arrives after you moved the caret, typed or asked again.
+- **Selection → Complete Word** no longer opens a late list or says "No completions here" once you've moved on.
+- An older completion list no longer replaces or closes the one you asked for since.
+- A language server restarted while asked for a hover or completions shows nothing from the old one.
+- Show Hover and Complete Word say when the language server isn't running instead of finding nothing.
 - Go to Definition uses the text as you just typed it, and stays put if you moved on before it answered.
 - Opening a file whose language has no server offers its plugin, once, when the server is installed.
 - When that server isn't installed, Mayoi says once how to install it.

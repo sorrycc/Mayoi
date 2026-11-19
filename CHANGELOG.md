@@ -10,6 +10,10 @@ needs a `## <version>` section here, or its build fails.
 - A hover's signature shows first in the code font and colors, with its documentation below.
 - Plaintext hovers from language servers show as written, without turning `*` or `_` into formatting.
 - The hover closes on `Esc`, a click elsewhere, typing, or moving the caret; long hovers scroll.
+- **Go → Show Hover** has a shortcut: `⌘K ⌘I` on macOS, `Ctrl+K Ctrl+I` on Windows and Linux.
+- Pressing Show Hover again while the card shows lets the arrows and `Page Up`/`Page Down` scroll it.
+- In Vim mode, `gd` goes to the definition and `K` shows the hover.
+- A late definition or hover no longer replaces Quick Open or a list you opened while waiting.
 - Lists in hovers and plugin views now show their bullets and numbers.
 - A language server that refuses to start now shows its own reason instead of "the server stopped".
 - The TypeScript server says when a folder has no TypeScript, and how to add it or point to one.

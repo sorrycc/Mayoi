@@ -392,6 +392,9 @@ type app struct {
 	// completeAsked is the Complete Word last asked, as defAsked: each
 	// its own, so one does not drop another's answer.
 	completeAsked int
+	// picksOpened counts the pickers opened, Quick Open's and the plugins':
+	// an answer asked for before one opened does not take its place.
+	picksOpened int
 	// syncOpen shows the account's panel above its part of the status
 	// bar, and tickAt is when a countdown shown repaints next.
 	syncOpen bool

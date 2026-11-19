@@ -474,10 +474,15 @@ func caretPosition(d *editor) position {
 }
 
 // showHover asks the server and the plugins of the document's language
-// what is at the caret, and shows it.
+// what is at the caret, and shows it. Asked again while its card shows,
+// it gives the card the keys that scroll it.
 func (a *app) showHover() {
 	d := a.textEditor()
 	if d == nil {
+		return
+	}
+	if h := a.hover; h != nil && h.ed == d && !a.staleHover(h) {
+		h.focused = true
 		return
 	}
 	pos := caretPosition(d)
@@ -534,12 +539,14 @@ func (a *app) showHover() {
 // lspAsked counts a question asked at the caret of d, of s or none, in
 // asked, and is whether its answer still goes: the last of its kind asked,
 // of the server still the folder's, at the caret, view and text it was
-// asked at. One gone on from, or a server restarted, leaves it too late.
+// asked at. One gone on from, a server restarted, or a picker opened
+// since, as Quick Open, leaves it too late.
 func (a *app) lspAsked(s *lspServer, d *editor, asked *int) func() bool {
 	*asked++
-	n, version, sel := *asked, d.buf.Version(), d.sel
+	n, version, sel, picks := *asked, d.buf.Version(), d.sel, a.picksOpened
 	return func() bool {
-		return *asked == n && a.activeEditor() == d && d.buf.Version() == version && d.sel == sel && (s == nil || s.current())
+		return *asked == n && a.activeEditor() == d && d.buf.Version() == version && d.sel == sel &&
+			a.picksOpened == picks && (s == nil || s.current())
 	}
 }
 

@@ -627,6 +627,9 @@ func (a *app) editorKey(d *editor, ev ui.InputEvent) bool {
 		a.hover = nil
 		return true
 	}
+	if a.hoverKey(d, ev) {
+		return true
+	}
 	if ev.Key == ui.KeyEscape && ev.Mods == 0 && d.peek >= 0 {
 		d.peek = -1
 		return true

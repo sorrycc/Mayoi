@@ -706,6 +706,7 @@ var builtinChords = map[string]string{
 	"edit.foldAll":    "cmd+k cmd+0",
 	"edit.unfoldAll":  "cmd+k cmd+j",
 	"edit.toggleFold": "cmd+k cmd+l",
+	"go.hover":        "cmd+k cmd+i",
 }
 
 // chordKeys returns the strokes of a command's own chord on the system,

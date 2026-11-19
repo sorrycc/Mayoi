@@ -3,7 +3,7 @@
 The update window shows the section of the version it offers. Every release
 needs a `## <version>` section here, or its build fails.
 
-## Unreleased
+## 0.23.0
 
 - Type at several places at once: **Selection → Add Cursor Above** and **Below** add a caret on the next line.
 - Alt-click (`⌥`-click on macOS) adds a caret or takes one away; `⌘`-click still goes to a definition.

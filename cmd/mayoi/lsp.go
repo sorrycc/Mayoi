@@ -206,6 +206,25 @@ func (a *app) lspFor(d *document, opening bool) *lspServer {
 	return s
 }
 
+// lspRunningFor returns the language server of document d that runs, nil
+// for none: unlike lspFor, it starts none, nor again one that stopped.
+func (a *app) lspRunningFor(d *document) *lspServer {
+	if a.root == "" || d.path == "" {
+		return nil
+	}
+	_, sc := serverContrib(languageOf(d))
+	if sc == nil {
+		return nil
+	}
+	lspServers.Lock()
+	s := lspServers.m[serverKey(a.root, sc.ID)]
+	lspServers.Unlock()
+	if s == nil || s.state() != lspRunning {
+		return nil
+	}
+	return s
+}
+
 // newServer is a server of root yet to start, for lspServers.
 func newServer(p *plugin.Plugin, sc plugin.ServerContrib, root string, starts int) *lspServer {
 	ctx, cancel := context.WithCancel(context.Background())
@@ -482,13 +501,29 @@ func (a *app) showHover() {
 		return
 	}
 	if h := a.hover; h != nil && h.ed == d && !a.staleHover(h) {
-		h.focused = true
+		// The pointer's card, given the keys, stays as the pointer leaves.
+		h.auto, h.focused = false, true
 		return
 	}
-	pos := caretPosition(d)
-	s := a.lspFor(d.document, false)
+	a.dropRest()
+	snap := d.buf.Snapshot()
+	a.askHover(d, min(d.sel[1], snap.Len()), nil)
+}
+
+// askHover asks the server and the plugins of d's language what is at
+// rune at, and shows it. rest is the name the pointer rests on, asked of
+// quietly: of a server that runs, saying nothing of none or a failure;
+// nil is the caret, as Show Hover asks.
+func (a *app) askHover(d *editor, at int, rest *pointerHover) {
+	pos := positionOf(d.buf.Snapshot(), at)
+	var s *lspServer
+	if rest == nil {
+		s = a.lspFor(d.document, false)
+	} else {
+		s = a.lspRunningFor(d.document)
+	}
 	doc := docJSON(d.document)
-	lang, text := languageOf(d.document), d.buf.String()
+	lang := languageOf(d.document)
 	uri := serverURI(d.path)
 	var providers []*plugin.Plugin
 	if plugins != nil {
@@ -498,9 +533,28 @@ func (a *app) showHover() {
 			}
 		}
 	}
-	current := a.lspAsked(s, d, &a.hoverAsked)
+	if rest != nil && s == nil && len(providers) == 0 {
+		return
+	}
+	text := d.buf.String()
+	var current func() bool
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	if rest == nil {
+		current = a.lspAsked(s, d, &a.hoverAsked)
+	} else {
+		// Of the editor the pointer is over, which need not have the
+		// keyboard: the name it still rests on, its text as it was.
+		a.hoverAsked++
+		n, version, word, picks := a.hoverAsked, d.buf.Version(), rest.word, a.picksOpened
+		rest.ctx, rest.cancel = ctx, cancel
+		current = func() bool {
+			r := &a.rest
+			return a.hoverAsked == n && r.ed == d && r.word == word && d.buf.Version() == version &&
+				a.picksOpened == picks && (s == nil || s.current())
+		}
+	}
+	auto := rest != nil
 	bg.Go(func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		var parts []string
 		var span *lsp.Range
@@ -512,6 +566,9 @@ func (a *app) showHover() {
 			}
 		}
 		for _, p := range providers {
+			if ctx.Err() != nil {
+				break
+			}
 			res, err := p.Request(ctx, "hover", map[string]any{"language": lang, "document": doc, "position": pos})
 			var text string
 			if err == nil && json.Unmarshal(res, &text) == nil && strings.TrimSpace(text) != "" {
@@ -523,6 +580,9 @@ func (a *app) showHover() {
 				return
 			}
 			if len(parts) == 0 {
+				if auto {
+					return // the pointer asked: nothing shows, nothing is said
+				}
 				// A server not running did not say there is nothing.
 				if s != nil && s.state() != lspRunning {
 					a.lspFailed(s)
@@ -531,7 +591,12 @@ func (a *app) showHover() {
 				a.tell(note{message: locales.HoverNone()})
 				return
 			}
-			a.hover = newHoverCard(d, strings.Join(parts, "\n\n---\n\n"), span)
+			if h := a.hover; auto && h != nil && !h.auto && !a.staleHover(h) {
+				return // the card asked for at the caret stays
+			}
+			h := newHoverCard(d, strings.Join(parts, "\n\n---\n\n"), span, at)
+			h.auto = auto
+			a.hover = h
 		})
 	})
 }

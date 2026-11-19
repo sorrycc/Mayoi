@@ -43,7 +43,7 @@ var galleryStates = []struct {
 		d := hs.a.activeEditor()
 		at := max(0, strings.Index(d.buf.String(), "func ")+5)
 		hs.place(d, at, at)
-		hs.a.hover = newHoverCard(d, "```go\nfunc main()\n```\n\n**main** runs the program, as `go run` does.\n\n- It takes no arguments\n- See [the docs](https://go.dev).", nil)
+		hs.a.hover = newHoverCard(d, "```go\nfunc main()\n```\n\n**main** runs the program, as `go run` does.\n\n- It takes no arguments\n- See [the docs](https://go.dev).", nil, d.sel[1])
 	}},
 	{"file-loading", func(hs *harness) {
 		hs.a.openFile(hs.path("main.go"), true)

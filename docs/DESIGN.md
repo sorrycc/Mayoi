@@ -31,6 +31,9 @@ The order: it works, then it is easy, then it looks good. Polish never covers a 
 - Numbers that change in place use tabular digits (`FontFeatures("tnum")`), as the caret's position in the status
   bar and find's count (`TestStatusPositionHoldsItsWidth`).
 - Hover never moves what is clicked.
+- A card the pointer asks for waits for it to rest `hoverDwell`, and stays quiet when there is nothing or the server
+  fails: a pointer only passing never asks, and what went on from a name, a key, a press, a scroll or an edit, asks
+  again only once the pointer moves (`TestRestHoverDwell`, `TestRestHoverGestures`).
 - In Live Preview, the marks of what the caret touches show, and a block it goes into shows its source: only the
   caret's lines change, and a mark shows at the size of its text, so a heading's line keeps its height. A heading
   has room above it wherever the caret is, so its line never moves as the caret comes (`TestLiveHeadingGaps`). The marks of

@@ -1499,6 +1499,8 @@
   "prefDescTabSize": "エディターでタブが占める列数です。",
   "prefTitleEditorAgentContext": "エージェントのコンテキストを収集",
   "prefDescEditorAgentContext": "通常のファイルのガターに + を表示し、コードと任意のコメントを収集します。",
+  "prefTitleEditorHover": "ポインタでホバー表示",
+  "prefDescEditorHover": "ポインタが名前の上で止まると、言語サーバーの説明を表示します。",
   "prefTitleMarkdownMode": "Markdown の開き方",
   "prefDescMarkdownMode": "Markdown ファイルをソース、表示のまま編集できるライブプレビュー、またはレンダリングして開きます。",
   "prefOptMarkdownModeLive": "ライブプレビュー",

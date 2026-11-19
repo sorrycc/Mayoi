@@ -142,6 +142,26 @@ func TestBudgets(t *testing.T) {
 			hs.place(d, 5000, 5000)
 			return func() { hs.tt.Type("a"); step(hs.tt) }
 		}},
+		// Typing at a caret on every "func" of the file: thousands of them,
+		// edited at once in one step of undo.
+		{"type frame with thousands of carets", 30 * time.Millisecond, false, func(t *testing.T, hs *harness) func() {
+			d := bigDoc(hs)
+			at := strings.Index(d.buf.String(), "func")
+			hs.place(d, at, at)
+			hs.key(ui.Super|ui.Shift, ui.KeyL)
+			if len(d.cursors) < 1000 {
+				t.Fatalf("%d selections", len(d.cursors)+1)
+			}
+			return func() { hs.tt.Type("a"); step(hs.tt) }
+		}},
+		{"select all occurrences", 15 * time.Millisecond, false, func(t *testing.T, hs *harness) func() {
+			d := bigDoc(hs)
+			at := strings.Index(d.buf.String(), "func")
+			return func() {
+				hs.place(d, at, at)
+				hs.key(ui.Super|ui.Shift, ui.KeyL)
+			}
+		}},
 		// The Table view of JSON Lines builds the rows in view only, its
 		// cells read from their lines as they show.
 		{"JSON Lines table scroll frame", 5 * time.Millisecond, false, func(t *testing.T, hs *harness) func() {

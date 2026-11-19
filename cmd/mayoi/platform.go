@@ -37,6 +37,16 @@ var otherAccels = map[string]string{
 	"git.expandAllFiles":     "",
 	"edit.fold":              "",
 	"edit.unfold":            "",
+	// Ctrl+Alt with the arrows turns the screen with Intel's graphics on
+	// Windows, and switches workspaces in GNOME and Xfce: Ctrl+Shift adds
+	// carets there, as on Linux in VS Code; a column has no keys of its
+	// own, but Shift+Alt and the middle button drag one.
+	"sel.addCursorAbove": "Ctrl+Shift+Up",
+	"sel.addCursorBelow": "Ctrl+Shift+Down",
+	"sel.columnUp":       "",
+	"sel.columnDown":     "",
+	"sel.columnLeft":     "",
+	"sel.columnRight":    "",
 	// Control and Alt with a digit show a project of the rail there.
 	"markdown.heading1": "",
 	"markdown.heading2": "",
@@ -174,7 +184,7 @@ func (a *app) shellSkip(s keymap.Stroke) (id string, ok bool) {
 	}
 	for _, cmd := range a.commands() {
 		st, ok := keymap.ParseAccel(a.menuAccel(cmd))
-		if !ok || st != s {
+		if !ok || st != s || isMultiCommand(cmd.id) {
 			continue
 		}
 		ctrlShift := s.Mods&(ui.Ctrl|ui.Shift) == ui.Ctrl|ui.Shift && s.Key != ui.KeyC && s.Key != ui.KeyV

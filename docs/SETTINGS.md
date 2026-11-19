@@ -519,7 +519,7 @@ parse is left alone until it does, and a key or a condition Mayoi can't read is 
   Mayoi doesn't have says so.
 - **`when`** is when it applies: `editorTextFocus`, `editorFocus`, `inputFocus`, `textInputFocus`,
   `filesExplorerFocus`, `terminalFocus`, `terminalHasBeenCreated`, `terminalIsOpen`, `sideBarVisible`,
-  `editorHasSelection`, `isMac`, `isLinux` and `isWindows`, with `!`, `&&`, `||` and parentheses. Other names don't hold.
+  `editorHasSelection`, `editorHasMultipleSelections`, `isMac`, `isLinux` and `isWindows`, with `!`, `&&`, `||` and parentheses. Other names don't hold.
 
 The keys of the file take the place of Mayoi's own: the menus drop a key the file binds, ⌘1 to ⌘9 and ⌃R let the file
 have theirs, and the command palette shows the file's keys. The shortcuts apply in the editor, the terminal, the
@@ -558,17 +558,21 @@ Mayoi's own, as VS Code writes them:
 
 The shortcuts are macOS's with Ctrl for ⌘, and the hints show them so, but for those VS Code has others for:
 
-| Command                                  | macOS    | Windows and Linux |
-| ---------------------------------------- | -------- | ----------------- |
-| Find Next, Find Previous                 | ⌘G, ⇧⌘G  | F3, Shift+F3      |
-| Replace                                  | ⌥⌘F      | Ctrl+H            |
-| Show the tab 1 to 8, the last            | ⌘1 to ⌘9 | Alt+1 to Alt+9    |
-| Save All, Open Folder in New Window      | ⌥⌘S, ⌥⌘O | none              |
-| Focus Next Column, Focus Previous Column | ⌥⌘→, ⌥⌘← | none              |
+| Command                                  | macOS      | Windows and Linux              |
+| ---------------------------------------- | ---------- | ------------------------------ |
+| Find Next, Find Previous                 | ⌘G, ⇧⌘G    | F3, Shift+F3                   |
+| Replace                                  | ⌥⌘F        | Ctrl+H                         |
+| Show the tab 1 to 8, the last            | ⌘1 to ⌘9   | Alt+1 to Alt+9                 |
+| Save All, Open Folder in New Window      | ⌥⌘S, ⌥⌘O   | none                           |
+| Focus Next Column, Focus Previous Column | ⌥⌘→, ⌥⌘←   | none                           |
+| Add Cursor Above, Add Cursor Below       | ⌥⌘↑, ⌥⌘↓   | Ctrl+Shift+Up, Ctrl+Shift+Down |
+| Column Select Up, Down, Left, Right      | ⇧⌥⌘ arrows | none                           |
 
 Ctrl with Alt is AltGr there, which types text, so no shortcut takes it: bind those commands in `keybindings.json`,
 as `{ "key": "ctrl+k s", "command": "workbench.action.files.saveAll" }`. A file can tell the systems apart with
-`isWindows`, `isLinux` and `isMac`.
+`isWindows`, `isLinux` and `isMac`. Ctrl+Alt with the arrows also turns the screen with Intel's graphics on Windows
+and switches workspaces in GNOME and Xfce, so adding cursors takes Ctrl+Shift there, and column selection is by the
+pointer, or by keys you bind, as `{ "key": "ctrl+shift+alt+down", "command": "cursorColumnSelectDown" }`.
 ### `diffWhitespace`
 
 Controls which whitespace participates in diff comparison: `""` for exact,

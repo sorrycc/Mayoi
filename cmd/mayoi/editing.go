@@ -219,14 +219,20 @@ func tab(d *editor, outdent bool) {
 		indentLines(d, outdent)
 		return
 	}
-	text := "\t"
-	if !d.indent.tabs {
-		s, _ := snap.LineRange(snap.LineAt(a))
-		col := columns(snap.Slice(s, a))
-		text = strings.Repeat(" ", d.indent.size-col%d.indent.size)
-	}
+	text := tabAt(d, snap, a)
 	at := a + utf8.RuneCountInString(text)
 	d.edit([2]int{at, at}, textEdit{a, b, text})
+}
+
+// tabAt returns what Tab types at offset a: a tab, or the spaces to the
+// next stop.
+func tabAt(d *editor, snap ui.TextSnapshot, a int) string {
+	if d.indent.tabs {
+		return "\t"
+	}
+	s, _ := snap.LineRange(snap.LineAt(a))
+	col := columns(snap.Slice(s, a))
+	return strings.Repeat(" ", d.indent.size-col%d.indent.size)
 }
 
 // pairs are the brackets an indented block goes between.
@@ -241,7 +247,13 @@ func newline(d *editor) {
 		return
 	}
 	snap := d.buf.Snapshot()
-	a, b := min(d.sel[0], d.sel[1]), max(d.sel[0], d.sel[1])
+	start, end, text, caret := newlineAt(d, snap, min(d.sel[0], d.sel[1]), max(d.sel[0], d.sel[1]))
+	d.edit([2]int{caret, caret}, textEdit{start, end, text})
+}
+
+// newlineAt returns what breaking the line at runes a up to b replaces,
+// with what, and where the caret goes.
+func newlineAt(d *editor, snap ui.TextSnapshot, a, b int) (start, end int, text string, caret int) {
 	line := snap.LineAt(a)
 	s, e := snap.LineRange(line)
 	before := snap.Slice(s, a)
@@ -252,8 +264,8 @@ func newline(d *editor) {
 		indent = before
 	}
 	trimmed := strings.TrimRight(before, " \t")
-	text := "\n" + indent
-	caret := a + utf8.RuneCountInString(text)
+	text = "\n" + indent
+	caret = a + utf8.RuneCountInString(text)
 	if trimmed != "" {
 		last := trimmed[len(trimmed)-1]
 		closer, opens := pairs[last]
@@ -271,8 +283,7 @@ func newline(d *editor) {
 	if trimmed == "" {
 		trim = 0
 	}
-	start := a - trim
-	d.edit([2]int{caret - trim, caret - trim}, textEdit{start, b, text})
+	return a - trim, b, text, caret - trim
 }
 
 // opensColonBlock reports whether a colon at the end of a line starts a
@@ -420,6 +431,10 @@ func (a *app) cut(d *editor) {
 	if d.locked() || a.prefs().Vim && d.vim.mode != vimInsert {
 		return
 	}
+	if len(d.cursors) > 0 {
+		a.cutSpans(d)
+		return
+	}
 	snap := d.buf.Snapshot()
 	if snap.Len() == 0 {
 		return
@@ -439,6 +454,7 @@ func (a *app) cut(d *editor) {
 // selectAll selects the whole text, leaving the view where it is, as in
 // VS Code.
 func selectAll(d *editor) {
+	d.collapse()
 	d.selectRange(0, d.buf.Snapshot().Len(), false)
 	d.quiet = true
 }
@@ -525,6 +541,18 @@ func (a *app) swipeSideways(s *ui.ScrollState, ev ui.InputEvent) bool {
 // before its text area: they queue an edit for the next frame.
 func (a *app) editorKey(d *editor, ev ui.InputEvent) bool {
 	if a.swipeSideways(&d.hscroll, ev) {
+		return true
+	}
+	// A press with Alt adds a caret, with Shift and Alt or the middle
+	// button selects a column; a plain one goes back to one selection.
+	if a.multiPointer(d, ev) {
+		return true
+	}
+	// Copy of the Edit menu with nothing selected at the primary copies
+	// all the selections, as ⌘C does.
+	if ev.Kind == ui.InputCommand && ev.Text == "copy" && len(d.cursors) > 0 {
+		d.cmds = append(d.cmds, a.copySpans)
+		a.invalidate()
 		return true
 	}
 	if ev.Kind == ui.InputPointerDown && ev.Button == 0 && len(d.sticky) > 0 && a.font.lineH > 0 {
@@ -631,8 +659,17 @@ func (a *app) editorKey(d *editor, ev ui.InputEvent) bool {
 		d.peek = -1
 		return true
 	}
+	// The keys of the commands of several selections, which the text area
+	// would take before the menus' shortcuts, then the keys that act at
+	// all of them.
+	if a.multiOK(d) && a.multiStroke(ev) {
+		return true
+	}
+	if len(d.cursors) > 0 && a.multiKey(d, ev) {
+		return true
+	}
 	if ev.Key == ui.KeySpace && ev.Mods == ui.Ctrl && !a.keyBound(ui.Ctrl, ui.KeySpace) {
-		a.post(a.complete)
+		a.post(a.completeOne)
 		return true
 	}
 	if a.prefs().Vim && a.vimKey(d, ev) {
@@ -680,13 +717,31 @@ func (a *app) editorKey(d *editor, ev ui.InputEvent) bool {
 	return true
 }
 
-// editActive queues an edit of the editor shown for its next frame.
+// editActive queues an edit of the editor shown for its next frame, at
+// its primary selection only: the others go.
 func (a *app) editActive(cmd func(d *editor)) func() {
+	return a.editAll(func(d *editor) {
+		d.collapse()
+		cmd(d)
+	})
+}
+
+// editAll queues an edit of the editor shown that takes all its
+// selections, as Undo and Cut do.
+func (a *app) editAll(cmd func(d *editor)) func() {
 	return func() {
 		if d := a.textEditor(); d != nil {
 			a.queueEdit(d, cmd)
 		}
 	}
+}
+
+// completeOne offers completions at the primary caret, the others gone.
+func (a *app) completeOne() {
+	if d := a.activeEditor(); d != nil {
+		d.collapse()
+	}
+	a.complete()
 }
 
 // queueEdit queues an edit of an editor for its next frame.

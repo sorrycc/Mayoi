@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -101,6 +102,153 @@ func TestGoToDefinitionAndBack(t *testing.T) {
 	hs.until("no definition told", func() bool { return hs.tt.HasText("No definition found") })
 	if _, l, _ := caretAt(a); l != 5 || len(a.nav.places) != places {
 		t.Fatalf("after no definition: line %d, %d places, was %d", l, len(a.nav.places), places)
+	}
+}
+
+// fakeCall asks the fake server of the harness's folder a question of
+// its own.
+func fakeCall(hs *harness, method string) json.RawMessage {
+	hs.t.Helper()
+	c := serverOf(hs.a.root + "\x00fake.server").live()
+	if c == nil {
+		hs.t.Fatal("no fake server runs")
+	}
+	res, err := c.Call(context.Background(), method, nil)
+	if err != nil {
+		hs.t.Fatalf("%s: %v", method, err)
+	}
+	return res
+}
+
+// holdLate waits for the fake server to hold back the answer of "late",
+// which settle then does not wait for.
+func holdLate(hs *harness) {
+	hs.t.Helper()
+	hs.held++
+	hs.until("the answer held", func() bool { return string(fakeCall(hs, "test/held")) == "true" })
+}
+
+// releaseLate has the fake server answer "late" and waits for the app to
+// take the answer.
+func releaseLate(hs *harness) {
+	hs.t.Helper()
+	fakeCall(hs, "test/release")
+	hs.held--
+	hs.settle()
+}
+
+// Only the definition last asked for, at the caret it was asked at, goes
+// anywhere: an older answer that comes after a newer one, or after the
+// caret moved, neither goes, offers, tells nor adds to the history.
+func TestDefinitionAnswerTooLate(t *testing.T) {
+	hs := withFakeServer(t)
+	a := hs.a
+	path := hs.path("a.fake")
+	os.WriteFile(path, []byte("use late one\ndef one\ndef late\ndef late\n"), 0o644)
+	a.openFile(path, true)
+	d := a.activeEditor()
+	serverUp(hs)
+	still := func(what string, line, col, places int) {
+		t.Helper()
+		if _, l, c := caretAt(a); l != line || c != col || len(a.nav.places) != places || a.pluginPick.open || hs.tt.HasText("No definition found") {
+			t.Fatalf("%s: at %d:%d, %d places (want %d), picker %v, %q", what, l, c, len(a.nav.places), places, a.pluginPick.open, hs.tt.Texts())
+		}
+	}
+
+	// Asked of "late", then of "one", whose answer comes first.
+	hs.place(d, 5, 5)
+	a.goToDefinition()
+	holdLate(hs)
+	hs.place(d, 10, 10)
+	a.goToDefinition()
+	hs.until("the newer definition", func() bool { _, l, c := caretAt(a); return l == 1 && c == 4 })
+	places := len(a.nav.places)
+	releaseLate(hs)
+	still("after the older answer", 1, 4, places)
+
+	// Asked of "late", the caret moved on before the answer.
+	hs.place(d, 5, 5)
+	a.goToDefinition()
+	holdLate(hs)
+	hs.place(d, 1, 1)
+	places = len(a.nav.places)
+	releaseLate(hs)
+	still("after the caret moved", 0, 1, places)
+
+	// Asked of "late" in a file left: nothing goes on in the other one.
+	other := hs.path("b.fake")
+	os.WriteFile(other, []byte("plain\n"), 0o644)
+	hs.place(d, 5, 5)
+	a.goToDefinition()
+	holdLate(hs)
+	a.openFile(other, true)
+	hs.settle()
+	places = len(a.nav.places)
+	releaseLate(hs)
+	if name, _, _ := caretAt(a); name != "b.fake" || len(a.nav.places) != places || a.pluginPick.open {
+		t.Fatalf("an answer for a file left went to %s, %d places, picker %v", name, len(a.nav.places), a.pluginPick.open)
+	}
+
+	// Asked again where it was, the answer goes: the two places offered.
+	a.openFile(path, true)
+	hs.settle()
+	d = a.activeEditor()
+	hs.place(d, 5, 5)
+	a.goToDefinition()
+	holdLate(hs)
+	releaseLate(hs)
+	hs.until("the definitions offered", func() bool { return a.pluginPick.open })
+	if items := a.pluginPick.items; len(items) != 2 || items[0].Label != "a.fake:3" || items[1].Label != "a.fake:4" {
+		t.Fatalf("offered %+v", items)
+	}
+	a.closePluginPicker(-1)
+}
+
+// A server restarted while it is asked for a definition leaves the
+// caret where it is, and says nothing of there being none.
+func TestDefinitionAcrossRestart(t *testing.T) {
+	hs := withFakeServer(t)
+	a := hs.a
+	path := hs.path("a.fake")
+	os.WriteFile(path, []byte("use late\ndef late\n"), 0o644)
+	a.openFile(path, true)
+	d := a.activeEditor()
+	serverUp(hs)
+	hs.place(d, 5, 5)
+	a.goToDefinition()
+	holdLate(hs)
+	places := len(a.nav.places)
+	a.restartServer(a.root + "\x00fake.server")
+	hs.held--
+	serverUp(hs)
+	hs.settle()
+	if _, l, c := caretAt(a); l != 0 || c != 5 || len(a.nav.places) != places || hs.tt.HasText("No definition found") {
+		t.Fatalf("after a restart: at %d:%d, %d places, %q", l, c, len(a.nav.places), hs.tt.Texts())
+	}
+}
+
+// Definitions on one line, apart, are each offered, with their columns,
+// and the one chosen is gone to; the same place twice is offered once.
+func TestDefinitionsOnOneLine(t *testing.T) {
+	hs := withFakeServer(t)
+	a := hs.a
+	path := hs.path("a.fake")
+	os.WriteFile(path, []byte("use two\ndef two x two\ndef two\n"), 0o644)
+	a.openFile(path, true)
+	d := a.activeEditor()
+	serverUp(hs)
+	hs.place(d, 5, 5)
+	a.goToDefinition()
+	hs.until("the definitions offered", func() bool { return a.pluginPick.open })
+	if items := a.pluginPick.items; len(items) != 3 || items[0].Label != "a.fake:2:5" || items[1].Label != "a.fake:2:11" || items[2].Label != "a.fake:3" {
+		t.Fatalf("offered %+v", items)
+	}
+	a.closePluginPicker(1)
+	hs.until("the second on the line", func() bool { _, l, c := caretAt(a); return l == 1 && c == 10 })
+	a.navGo(-1)
+	hs.settle()
+	if _, l, c := caretAt(a); l != 0 || c != 5 {
+		t.Fatalf("back at %d:%d", l, c)
 	}
 }
 

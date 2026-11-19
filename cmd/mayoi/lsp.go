@@ -17,6 +17,7 @@ import (
 
 	"github.com/egoist/mygo/ui"
 
+	"mayoi/internal/bg"
 	"mayoi/internal/lsp"
 	"mayoi/internal/plugin"
 	"mayoi/internal/remote"
@@ -559,14 +560,25 @@ func (a *app) definitionAt(d *editor, click bool) {
 		}
 		return
 	}
-	pos, uri, root, version := caretPosition(d), serverURI(d.path), a.root, d.buf.Version()
+	pos, uri, root, version, sel := caretPosition(d), serverURI(d.path), a.root, d.buf.Version(), d.sel
 	lang, text := languageOf(d.document), d.buf.String()
-	go func() {
+	a.defAsked++
+	asked := a.defAsked
+	// Gone on from, to another place, view or question, the answer is
+	// too late to take there.
+	current := func() bool {
+		return a.defAsked == asked && a.activeEditor() == d && d.buf.Version() == version && d.sel == sel
+	}
+	bg.Go(func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		c := s.wait(5 * time.Second)
 		if c == nil || !c.Definition() {
-			a.post(func() { a.lspFailed(s) })
+			a.post(func() {
+				if current() {
+					a.lspFailed(s)
+				}
+			})
 			return
 		}
 		// The server knows the text as it is now: not as the last change
@@ -575,8 +587,12 @@ func (a *app) definitionAt(d *editor, click bool) {
 		c.Open(uri, lang, text)
 		locs, err := c.DefinitionAt(ctx, uri, lsp.Position(pos))
 		a.post(func() {
-			// Gone on from, the answer is too late to take there.
-			if a.activeEditor() != d || d.buf.Version() != version {
+			if !current() {
+				return
+			}
+			// A server that stopped or restarted did not say there is none.
+			if err != nil && s.state() != lspRunning {
+				a.lspFailed(s)
 				return
 			}
 			if err != nil || len(locs) == 0 {
@@ -591,7 +607,7 @@ func (a *app) definitionAt(d *editor, click bool) {
 			for _, l := range locs {
 				path := serverPath(root, l.URI)
 				if path == "" || slices.ContainsFunc(places, func(p place) bool {
-					return p.path == path && p.loc.Range.Start.Line == l.Range.Start.Line
+					return p.path == path && p.loc.Range.Start == l.Range.Start
 				}) {
 					continue
 				}
@@ -605,8 +621,14 @@ func (a *app) definitionAt(d *editor, click bool) {
 			default:
 				items := make([]pickItem, len(places))
 				for i, p := range places {
-					items[i] = pickItem{Label: filepath.Base(p.path) + ":" + strconv.Itoa(p.loc.Range.Start.Line+1),
-						Description: a.relPath(filepath.Dir(p.path)), Icon: "file"}
+					label := filepath.Base(p.path) + ":" + strconv.Itoa(p.loc.Range.Start.Line+1)
+					// Places on one line are told apart by their column.
+					if slices.ContainsFunc(places, func(q place) bool {
+						return q.path == p.path && q.loc.Range.Start.Line == p.loc.Range.Start.Line && q.loc.Range.Start != p.loc.Range.Start
+					}) {
+						label += ":" + strconv.Itoa(p.loc.Range.Start.Character+1)
+					}
+					items[i] = pickItem{Label: label, Description: a.relPath(filepath.Dir(p.path)), Icon: "file"}
 				}
 				a.openPluginPicker(items, locales.DefinitionPick(), func(i int) {
 					if i >= 0 {
@@ -615,7 +637,7 @@ func (a *app) definitionAt(d *editor, click bool) {
 				})
 			}
 		})
-	}()
+	})
 }
 
 // goToLocation shows a place a language server named, the caret at its

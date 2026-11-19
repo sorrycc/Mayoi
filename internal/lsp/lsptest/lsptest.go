@@ -14,7 +14,8 @@ import (
 // Serve answers as a language server of a language whose every word
 // "bad" is an error, on in and out, until it is told to exit. A word is
 // defined by the lines of its document that are "def" and it, and else at
-// line 3 of /tmp/def.fake.
+// line 3 of /tmp/def.fake. The answer of a word "late" waits for
+// test/release, and test/held says whether one waits.
 func Serve(in io.Reader, out io.Writer) {
 	r := bufio.NewReader(in)
 	send := func(m any) {
@@ -23,6 +24,7 @@ func Serve(in io.Reader, out io.Writer) {
 	}
 	var initialize, document json.RawMessage
 	texts := map[string]string{} // by URI
+	var late func()              // the answer held back
 	var options struct {
 		HoverContents json.RawMessage `json:"hoverContents"`
 	}
@@ -100,12 +102,25 @@ func Serve(in io.Reader, out io.Writer) {
 		case "test/noReply":
 			// A response timeout must not disconnect an otherwise healthy client.
 		case "textDocument/definition":
-			if defs := definitions(texts, m.Params); defs != nil {
-				reply(defs)
+			defs, name := definitions(texts, m.Params)
+			if defs == nil {
+				defs = []any{map[string]any{"uri": "file:///tmp/def.fake", "range": map[string]any{
+					"start": map[string]any{"line": 3, "character": 1}, "end": map[string]any{"line": 3, "character": 4}}}}
+			}
+			if name == "late" && late == nil {
+				late = func() { reply(defs) }
 				break
 			}
-			reply([]any{map[string]any{"uri": "file:///tmp/def.fake", "range": map[string]any{
-				"start": map[string]any{"line": 3, "character": 1}, "end": map[string]any{"line": 3, "character": 4}}}})
+			reply(defs)
+		case "test/held":
+			reply(late != nil)
+		case "test/release":
+			// The answer held goes before this one's.
+			if late != nil {
+				late()
+				late = nil
+			}
+			reply(nil)
 		case "textDocument/completion":
 			reply(map[string]any{"isIncomplete": false, "items": []any{map[string]any{"label": "println", "insertText": "println()"}}})
 		case "textDocument/formatting":
@@ -123,10 +138,10 @@ func Serve(in io.Reader, out io.Writer) {
 	}
 }
 
-// definitions are the lines "def" and the word at a place, of the
-// document's text: an empty list when the word is "nothing", nil when it
-// is defined in none.
-func definitions(texts map[string]string, params json.RawMessage) []any {
+// definitions are where the word at a place follows "def" on a line of
+// the document's text, as many times as it does there, and the word: an
+// empty list when the word is "nothing", nil when it is defined in none.
+func definitions(texts map[string]string, params json.RawMessage) ([]any, string) {
 	var p struct {
 		TextDocument struct {
 			URI string `json:"uri"`
@@ -139,7 +154,7 @@ func definitions(texts map[string]string, params json.RawMessage) []any {
 	json.Unmarshal(params, &p)
 	lines := strings.Split(texts[p.TextDocument.URI], "\n")
 	if p.Position.Line >= len(lines) {
-		return nil
+		return nil, ""
 	}
 	line := lines[p.Position.Line]
 	word := func(r byte) bool { return r >= 'a' && r <= 'z' || r >= '0' && r <= '9' }
@@ -152,14 +167,22 @@ func definitions(texts map[string]string, params json.RawMessage) []any {
 	}
 	name := line[s:e]
 	if name == "nothing" {
-		return []any{}
+		return []any{}, name
 	}
 	var out []any
 	for i, l := range lines {
-		if l == "def "+name {
-			out = append(out, map[string]any{"uri": p.TextDocument.URI, "range": map[string]any{
-				"start": map[string]any{"line": i, "character": 4}, "end": map[string]any{"line": i, "character": 4 + len(name)}}})
+		rest, ok := strings.CutPrefix(l, "def ")
+		if !ok || name == "" {
+			continue
+		}
+		at := 4
+		for _, w := range strings.Split(rest, " ") {
+			if w == name {
+				out = append(out, map[string]any{"uri": p.TextDocument.URI, "range": map[string]any{
+					"start": map[string]any{"line": i, "character": at}, "end": map[string]any{"line": i, "character": at + len(name)}}})
+			}
+			at += len(w) + 1
 		}
 	}
-	return out
+	return out, name
 }

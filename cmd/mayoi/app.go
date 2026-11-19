@@ -378,6 +378,7 @@ type app struct {
 	viewStates map[string]*pluginView
 	hover      *hoverCard // the card Show Hover shows
 	nav        navHistory // where Go Back and Go Forward go
+	defAsked   int        // the Go to Definition last asked, whose answer alone goes
 	find       findState
 	inFiles    searchState // search in the files, of the sidebar
 	sessions   sessionsState

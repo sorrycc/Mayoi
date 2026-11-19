@@ -381,6 +381,7 @@ type app struct {
 	nav        navHistory   // where Go Back and Go Forward go
 	defAsked   int          // the Go to Definition last asked, whose answer alone goes
 	hoverAsked int          // the Show Hover last asked, as defAsked
+	restAsked  int          // the hover the pointer last asked for, apart: it never drops Show Hover's
 	find       findState
 	inFiles    searchState // search in the files, of the sidebar
 	sessions   sessionsState

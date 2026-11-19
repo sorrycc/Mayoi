@@ -55,13 +55,13 @@ func TestRestHoverDwell(t *testing.T) {
 	a := hs.a
 	d := openLate(hs)
 	hs.place(d, 1, 1)
-	asked := a.hoverAsked
+	asked := a.restAsked
 
 	x, y := restAt(t, hs, d, 10) // "one"
 	hs.tt.Move(x, y)
 	step(hs.tt)
 	hs.tt.Advance(hoverDwell - 60*time.Millisecond)
-	if a.hoverAsked != asked || a.hover != nil {
+	if a.restAsked != asked || a.hover != nil {
 		t.Fatal("asked before the pointer rested")
 	}
 	x2, _ := restAt(t, hs, d, 11)
@@ -69,8 +69,8 @@ func TestRestHoverDwell(t *testing.T) {
 	step(hs.tt)
 	hs.tt.Advance(60 * time.Millisecond)
 	hs.settle()
-	if a.hoverAsked != asked+1 {
-		t.Fatalf("asked %d times, want once", a.hoverAsked-asked)
+	if a.restAsked != asked+1 {
+		t.Fatalf("asked %d times, want once", a.restAsked-asked)
 	}
 	h := a.hover
 	if h == nil || !h.auto || h.at != 10 {
@@ -81,7 +81,7 @@ func TestRestHoverDwell(t *testing.T) {
 	}
 	hs.tt.Advance(3 * hoverDwell)
 	hs.settle()
-	if a.hoverAsked != asked+1 || a.hover != h {
+	if a.restAsked != asked+1 || a.hover != h {
 		t.Fatal("resting on asked again")
 	}
 
@@ -96,13 +96,13 @@ func TestRestHoverDwell(t *testing.T) {
 	hs.tt.Move(x, y)
 	step(hs.tt)
 	hs.tt.Advance(hoverDwell / 2)
-	if a.hoverAsked != asked+1 {
+	if a.restAsked != asked+1 {
 		t.Fatal("asked of a name the pointer passed")
 	}
 	hs.tt.Advance(hoverDwell / 2)
 	hs.settle()
-	if a.hoverAsked != asked+2 || a.hover == nil || a.hover.at != 10 {
-		t.Fatalf("asked %d times, card %v", a.hoverAsked-asked, a.hover != nil)
+	if a.restAsked != asked+2 || a.hover == nil || a.hover.at != 10 {
+		t.Fatalf("asked %d times, card %v", a.restAsked-asked, a.hover != nil)
 	}
 }
 
@@ -112,9 +112,9 @@ func TestRestHoverQuiet(t *testing.T) {
 	a := hs.a
 	d := openLate(hs)
 	for _, at := range []int{37, 45} { // "nothing", "broken"
-		asked := a.hoverAsked
+		asked := a.restAsked
 		restOn(t, hs, d, at)
-		if a.hoverAsked != asked+1 {
+		if a.restAsked != asked+1 {
 			t.Fatalf("rune %d: not asked", at)
 		}
 		if a.hover != nil || told(hs, "Nothing to show here") || told(hs, "The language server isn't running") {
@@ -256,12 +256,12 @@ func TestRestHoverCard(t *testing.T) {
 	if a.hover == nil {
 		t.Fatal("no card again")
 	}
-	asked := a.hoverAsked
+	asked := a.restAsked
 	hs.key(0, ui.KeyEscape)
 	hs.tt.Advance(3 * hoverDwell)
 	hs.settle()
-	if a.hover != nil || a.hoverAsked != asked {
-		t.Fatalf("after Escape: card %v, asked %d", a.hover != nil, a.hoverAsked-asked)
+	if a.hover != nil || a.restAsked != asked {
+		t.Fatalf("after Escape: card %v, asked %d", a.hover != nil, a.restAsked-asked)
 	}
 	rest(hs, x+1, y)
 	if a.hover == nil {
@@ -282,12 +282,12 @@ func TestRestHoverGestures(t *testing.T) {
 			t.Fatalf("%s: a card shows", what)
 		}
 	}
-	asked := a.hoverAsked
+	asked := a.restAsked
 	still := func(what string) {
 		t.Helper()
 		none(what)
-		if a.hoverAsked != asked {
-			t.Fatalf("%s: asked %d times", what, a.hoverAsked-asked)
+		if a.restAsked != asked {
+			t.Fatalf("%s: asked %d times", what, a.restAsked-asked)
 		}
 	}
 	x, y := restAt(t, hs, d, 10)

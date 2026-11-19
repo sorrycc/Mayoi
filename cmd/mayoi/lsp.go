@@ -505,7 +505,8 @@ func (a *app) showHover() {
 		h.auto, h.focused = false, true
 		return
 	}
-	a.dropRest()
+	// From the menu too, the pointer still on a name asks nothing more.
+	a.hushRest()
 	snap := d.buf.Snapshot()
 	a.askHover(d, min(d.sel[1], snap.Len()), nil)
 }
@@ -544,12 +545,12 @@ func (a *app) askHover(d *editor, at int, rest *pointerHover) {
 	} else {
 		// Of the editor the pointer is over, which need not have the
 		// keyboard: the name it still rests on, its text as it was.
-		a.hoverAsked++
-		n, version, word, picks := a.hoverAsked, d.buf.Version(), rest.word, a.picksOpened
+		a.restAsked++
+		n, version, word, picks := a.restAsked, d.buf.Version(), rest.word, a.picksOpened
 		rest.ctx, rest.cancel = ctx, cancel
 		current = func() bool {
 			r := &a.rest
-			return a.hoverAsked == n && r.ed == d && r.word == word && d.buf.Version() == version &&
+			return a.restAsked == n && r.ed == d && r.word == word && d.buf.Version() == version &&
 				a.picksOpened == picks && (s == nil || s.current())
 		}
 	}

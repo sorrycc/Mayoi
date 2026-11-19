@@ -47,6 +47,10 @@ settings window, or with `"enabled": true` in their settings. A file of a langua
 **Turn On**, once, when its program is installed, and says how to install it when it is not. Each server's `path`
 setting names its program, by name or path, when it is not on the path.
 
+TypeScript's server needs a TypeScript 5 or 6 in the folder's `node_modules`, or its `tsserverPath` setting naming a
+`tsserver.js`. TypeScript 7 has no `tsserver.js` but a server of its own: set `path` to `tsc` and `args` to
+`--lsp --stdio`. Mayoi says which applies when the server finds no TypeScript.
+
 A plugin you install under the name of one Mayoi comes with takes its place; removing it brings Mayoi's back.
 `mayoi --disable-plugins` runs Mayoi's own.
 
@@ -160,7 +164,7 @@ languages plugins declare.
 | `commands`        | Commands in the command palette, the shortcuts editor and `mayoi run`. `arg` names what `mayoi run id=arg` gives. |
 | `keybindings`     | Shortcuts in keybindings.json's format. A plugin only gets keys that are free; see below.      |
 | `menus`           | `plugins` (the Plugins menu), `explorer/context` and `tab/context`, whose commands get the path |
-| `settings`        | Settings under `plugins.<name>` in settings.json, edited on the Plugins page: `type` is `boolean`, `number` or `string`, with `enum` for a choice |
+| `settings`        | Settings under `plugins.<name>` in settings.json, edited on the Plugins page: `type` is `boolean`, `number`, `string` or `array` (of strings, typed as words apart), with `enum` for a choice |
 | `statusItems`     | Items of the status bar, `align` `left` or `right`, which the plugin fills                     |
 | `views`           | Views in the sidebar, beside Explorer, Search and Source Control, which the plugin renders     |
 | `previews`        | Previews beside the source of the files a `pattern` matches, `output` `svg`, `markdown` or `view` |
@@ -406,8 +410,10 @@ index, names that command. **Plugins → Show
 Language Servers** lists the servers of the folder, how each is and where it runs, and restarts the one chosen, after
 the old one is gone; the documents open are told of again.
 
-`command` and `args` take `${settings.key}`, the plugin's setting or its default, and `install` is the command that
-installs the program, said when it is missing:
+`command` and `args` take `${settings.key}`, the plugin's setting or its default; an argument that is all of a setting
+of `type` `array` is its strings, as many arguments. A string of `initializationOptions` that is all of
+`${settings.key}` is the setting's value, left out with its key when the setting is empty. A server that answers
+`initialize` with an error says it. `install` is the command that installs the program, said when it is missing:
 
 ```jsonc
 "settings": { "path": { "type": "string", "default": "gopls" } },

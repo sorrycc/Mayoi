@@ -18016,6 +18016,26 @@ func (msgs Messages) LspQuitClean() string {
 	return Catalog.Format(msgs.locale, "lspQuitClean", nil)
 }
 
+// LspNoTypeScript says "there's no TypeScript in this folder; add it with npm i -D typescript, or set the plugin's tsserverPath"
+// in the language the app shows.
+func LspNoTypeScript() string { return In(i18n.Locale()).LspNoTypeScript() }
+
+// LspNoTypeScript says "there's no TypeScript in this folder; add it with npm i -D typescript, or set the plugin's tsserverPath"
+// in the language of msgs.
+func (msgs Messages) LspNoTypeScript() string {
+	return Catalog.Format(msgs.locale, "lspNoTypeScript", nil)
+}
+
+// LspNoTypeScriptNative says "there's no TypeScript in this folder, and tsc is TypeScript 7, which has its own server: set the plugin's path to tsc…"
+// in the language the app shows.
+func LspNoTypeScriptNative() string { return In(i18n.Locale()).LspNoTypeScriptNative() }
+
+// LspNoTypeScriptNative says "there's no TypeScript in this folder, and tsc is TypeScript 7, which has its own server: set the plugin's path to tsc…"
+// in the language of msgs.
+func (msgs Messages) LspNoTypeScriptNative() string {
+	return Catalog.Format(msgs.locale, "lspNoTypeScriptNative", nil)
+}
+
 // LspNoAnswer says "it didn't answer in time"
 // in the language the app shows.
 func LspNoAnswer() string { return In(i18n.Locale()).LspNoAnswer() }

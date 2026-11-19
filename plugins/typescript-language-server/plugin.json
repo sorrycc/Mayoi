@@ -1,16 +1,19 @@
 {
   "name": "typescript-language-server",
   "displayName": "TypeScript",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Go to Definition, hovers, completions and problems in TypeScript and JavaScript files",
   "enabled": false,
   "contributes": {
     "settings": {
-      "path": { "type": "string", "default": "typescript-language-server", "description": "The typescript-language-server program, by name or path" }
+      "path": { "type": "string", "default": "typescript-language-server", "description": "The typescript-language-server program, by name or path; tsc for TypeScript 7's own server" },
+      "args": { "type": "array", "default": ["--stdio"], "description": "Its arguments; --lsp --stdio for TypeScript 7's tsc" },
+      "tsserverPath": { "type": "string", "default": "", "description": "The tsserver.js of a TypeScript 5 or 6, when the folder has none in node_modules" }
     },
     "languageServers": [
       { "id": "typescript-language-server.server", "languages": ["typescript", "javascript", "react"],
-        "command": "${settings.path}", "args": ["--stdio"],
+        "command": "${settings.path}", "args": ["${settings.args}"],
+        "initializationOptions": { "tsserver": { "path": "${settings.tsserverPath}" } },
         "install": "npm install -g typescript-language-server typescript" }
     ]
   }

@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"io"
 	"net/url"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
@@ -147,12 +148,19 @@ func Start(ctx context.Context, opts Options) (*Client, error) {
 			return nil, err
 		}
 	}
-	out, err := opts.Cmd.StdoutPipe()
+	// A pipe of its own, not StdoutPipe, which Wait closes as the command
+	// ends: what the server wrote as it quit, as its answer to initialize,
+	// is read all the same.
+	out, w, err := os.Pipe()
 	if err != nil {
 		return nil, err
 	}
+	opts.Cmd.Stdout = w
 	stderr, _ := opts.Cmd.StderrPipe()
-	if err := opts.Cmd.Start(); err != nil {
+	err = opts.Cmd.Start()
+	w.Close()
+	if err != nil {
+		out.Close()
 		return nil, err
 	}
 	c := &Client{cmd: opts.Cmd, in: in, h: opts.Handlers, waiting: map[int]chan response{}, done: make(chan struct{}),
@@ -164,9 +172,20 @@ func Start(ctx context.Context, opts Options) (*Client, error) {
 	if stderr != nil {
 		go c.logLines(stderr)
 	}
-	go c.read(bufio.NewReader(out))
+	read := make(chan struct{})
+	go func() {
+		c.read(bufio.NewReader(out))
+		close(read)
+	}()
 	go func() {
 		err := opts.Cmd.Wait()
+		// The answers it wrote before it ended come first, for so long: a
+		// child of its, which holds the pipe, need not end with it.
+		select {
+		case <-read:
+		case <-time.After(time.Second):
+		}
+		out.Close()
 		c.mu.Lock()
 		if c.err == nil {
 			c.err = &StoppedError{err}
@@ -204,9 +223,11 @@ func Start(ctx context.Context, opts Options) (*Client, error) {
 	res, err := c.Call(ctx, "initialize", params)
 	if err != nil {
 		c.Close()
-		// One that quit says how, rather than that its pipe broke.
+		// One that quit says how, rather than that its pipe broke; one that
+		// answered why it would not start, and quit, says why.
+		var answered *ResponseError
 		c.mu.Lock()
-		if ctx.Err() == nil && c.err != nil {
+		if ctx.Err() == nil && c.err != nil && !errors.As(err, &answered) {
 			err = c.err
 		}
 		c.mu.Unlock()
@@ -249,6 +270,15 @@ func (c *Client) Formatting() bool { return c.caps.Formatting }
 
 // Done is closed once the server stopped.
 func (c *Client) Done() <-chan struct{} { return c.done }
+
+// ResponseError is a server's answer to a request that failed, as its
+// message says.
+type ResponseError struct {
+	Code    int
+	Message string
+}
+
+func (e *ResponseError) Error() string { return e.Message }
 
 // StoppedError is what a client whose server stopped answers with: Err is
 // how its command ended, an *exec.ExitError when it exited, nil when it
@@ -424,7 +454,7 @@ func (c *Client) read(r *bufio.Reader) {
 			c.mu.Unlock()
 			if ch != nil {
 				if m.Error != nil {
-					ch <- response{nil, errors.New(m.Error.Message)}
+					ch <- response{nil, &ResponseError{m.Error.Code, m.Error.Message}}
 				} else {
 					ch <- response{m.Result, nil}
 				}

@@ -5,6 +5,10 @@ needs a `## <version>` section here, or its build fails.
 
 ## Unreleased
 
+- A language server that refuses to start now shows its own reason instead of "the server stopped".
+- The TypeScript server says when a folder has no TypeScript, and how to add it or point to one.
+- With TypeScript 7, set the TypeScript plugin's `path` to `tsc` and `args` to `--lsp --stdio` to use its server.
+- The TypeScript plugin's `tsserverPath` setting names a `tsserver.js` when the folder has none.
 - Mayoi no longer crashes when a language server exits without an error as it starts; it says so.
 - Mayoi comes with language servers for Go, TypeScript, Python, Rust and C/C++, off until you turn them on.
 - Opening a file whose built-in server is off offers **Turn On** when its program is installed.

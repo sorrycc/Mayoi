@@ -1781,6 +1781,8 @@
   "lspNotInstalledOn": "{host} 上未安装 {command}",
   "lspQuit": "启动时退出了（{err}）",
   "lspQuitClean": "启动时退出了，没有报错",
+  "lspNoTypeScript": "此文件夹里没有 TypeScript；用 npm i -D typescript 添加，或设置插件的 tsserverPath",
+  "lspNoTypeScriptNative": "此文件夹里没有 TypeScript，而 tsc 是自带语言服务器的 TypeScript 7：把插件的 path 设为 tsc，args 设为 --lsp --stdio",
   "lspNoAnswer": "未及时响应",
   "lspExitUnchecked": "以状态 127 退出，且无法连接 {host} 来确认是否已安装 {command}",
   "lspStoppedOf": "{server} 已停止",

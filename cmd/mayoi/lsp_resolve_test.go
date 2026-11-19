@@ -232,3 +232,45 @@ func TestResolverManifest(t *testing.T) {
 		}
 	}
 }
+
+// An argument that is all of a setting that is a list is its words, as
+// many arguments; a string of initializationOptions that is all of a
+// setting is its value, and goes with its key when the setting is empty.
+func TestServerSettingLists(t *testing.T) {
+	settings := map[string]json.RawMessage{
+		"path": json.RawMessage(`"tsc"`), "args": json.RawMessage(`["--lsp", "--stdio"]`),
+		"none": json.RawMessage(`[]`), "tsserverPath": json.RawMessage(`""`), "log": json.RawMessage(`"verbose"`),
+	}
+	command, args, err := expandServerCommand("${settings.path}", []string{"${settings.args}", "-x=${settings.log}", "${settings.none}"}, settings)
+	if err != nil || command != "tsc" || strings.Join(args, " ") != "--lsp --stdio -x=verbose" {
+		t.Fatalf("%q %q %v", command, args, err)
+	}
+	got := expandServerOptions(json.RawMessage(`{"tsserver": {"path": "${settings.tsserverPath}", "logVerbosity": "${settings.log}"}, "keep": "${not a setting}"}`), settings)
+	var v map[string]any
+	json.Unmarshal(got, &v)
+	if ts := v["tsserver"].(map[string]any); len(ts) != 1 || ts["logVerbosity"] != "verbose" || v["keep"] != "${not a setting}" {
+		t.Fatalf("options %s", got)
+	}
+
+	// The bundled TypeScript plugin, with its defaults, runs as before.
+	data, err := os.ReadFile(filepath.Join("..", "..", "plugins", "typescript-language-server", "plugin.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var m plugin.Manifest
+	if err := json.Unmarshal(data, &m); err != nil {
+		t.Fatal(err)
+	}
+	defaults := map[string]json.RawMessage{}
+	for key, s := range m.Contributes.Settings {
+		defaults[key] = s.Default
+	}
+	sc := m.Contributes.LanguageServers[0]
+	command, args, err = expandServerCommand(sc.Command, sc.Args, defaults)
+	if err != nil || command != "typescript-language-server" || strings.Join(args, " ") != "--stdio" {
+		t.Fatalf("defaults: %q %q %v", command, args, err)
+	}
+	if got := string(expandServerOptions(sc.Options, defaults)); got != `{"tsserver":{}}` {
+		t.Fatalf("default options %s", got)
+	}
+}

@@ -3,6 +3,7 @@ package lsp
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -95,6 +96,23 @@ func TestLanguageID(t *testing.T) {
 	} {
 		if got := LanguageID(c.language, c.uri); got != c.want {
 			t.Errorf("LanguageID(%q, %q) = %q, want %q", c.language, c.uri, got, c.want)
+		}
+	}
+}
+
+// A server that answers initialize with why it cannot start, and quits at
+// once, says why, not that it stopped.
+func TestStartRefused(t *testing.T) {
+	for range 20 {
+		cmd := exec.Command(os.Args[0])
+		cmd.Env = append(os.Environ(), "MAYOI_FAKE_LSP=1")
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		_, err := Start(ctx, Options{Cmd: cmd, RootURI: URI(t.TempDir()),
+			InitOptions: json.RawMessage(`{"failInitialize": "Could not find a valid TypeScript installation"}`)})
+		cancel()
+		var refused *ResponseError
+		if !errors.As(err, &refused) || refused.Message != "Could not find a valid TypeScript installation" {
+			t.Fatalf("err = %v", err)
 		}
 	}
 }

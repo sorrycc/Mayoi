@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"cmp"
 	"context"
 	"errors"
@@ -9,11 +10,13 @@ import (
 	"path"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 
 	"mayoi/internal/lsp"
 	"mayoi/internal/plugin"
 	"mayoi/internal/remote"
+	"mayoi/internal/vfs"
 	"mayoi/locales"
 )
 
@@ -33,6 +36,12 @@ func (s *lspServer) classify() lspFailure {
 	if errors.Is(s.err, context.DeadlineExceeded) {
 		return lspFailSilent
 	}
+	// It answered why: typescript-language-server, with no TypeScript to
+	// run in the folder.
+	var refused *lsp.ResponseError
+	if errors.As(s.err, &refused) && strings.Contains(refused.Message, "Could not find a valid TypeScript installation") {
+		return lspFailNoTypeScript
+	}
 	var stopped *lsp.StoppedError
 	if errors.As(s.err, &stopped) {
 		// env on an SSH host says it found no program with 127, as the
@@ -45,6 +54,54 @@ func (s *lspServer) classify() lspFailure {
 		return lspFailQuit
 	}
 	return lspFailOther
+}
+
+// tscVersion is what tsc --version says on the folder's machine, as a
+// server's command started with env and unset is there; "" when it could
+// not tell.
+var tscVersion = tscVersionOnHost
+
+func tscVersionOnHost(ctx context.Context, root string, env, unset []string) string {
+	if !remote.Is(root) {
+		select {
+		case <-shellPathReady:
+		case <-ctx.Done():
+			return ""
+		}
+	}
+	cmd, err := vfs.CommandEnvironment(root, env, unset, nil, "tsc", "--version")
+	if err != nil {
+		return ""
+	}
+	var out bytes.Buffer
+	cmd.Stdout = &out
+	if cmd.Start() != nil {
+		return ""
+	}
+	done := make(chan error, 1)
+	go func() { done <- cmd.Wait() }()
+	select {
+	case err := <-done:
+		if err != nil {
+			return ""
+		}
+		return strings.TrimSpace(out.String())
+	case <-ctx.Done():
+		cmd.Process.Kill()
+		<-done
+		return ""
+	}
+}
+
+// checkNativeTSC reports whether the folder's tsc is TypeScript 7 or
+// later, "Version 7.0.2" as it says, for so long.
+func (s *lspServer) checkNativeTSC() bool {
+	ctx, cancel := context.WithTimeout(s.ctx, lspCheckTimeout)
+	defer cancel()
+	v := strings.TrimPrefix(tscVersion(ctx, s.root, s.launch.environment(), s.launch.UnsetEnv), "Version ")
+	major, _, _ := strings.Cut(v, ".")
+	n, err := strconv.Atoi(major)
+	return err == nil && n >= 7
 }
 
 // checkProgram reports whether a program is found on the folder's
@@ -94,6 +151,11 @@ func (s *lspServer) reason() string {
 		return locales.LspNoAnswer()
 	case lspFailUnchecked:
 		return locales.LspExitUnchecked(s.program(), remote.HostOf(s.root))
+	case lspFailNoTypeScript:
+		if s.nativeTSC {
+			return locales.LspNoTypeScriptNative()
+		}
+		return locales.LspNoTypeScript()
 	}
 	if s.err == nil {
 		return ""

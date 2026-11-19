@@ -14,7 +14,9 @@ import (
 // Serve answers as a language server of a language whose every word
 // "bad" is an error, on in and out, until it is told to exit. A word is
 // defined by the lines of its document that are "def" and it, and else at
-// line 3 of /tmp/def.fake. The answer of a word "late" waits for
+// line 3 of /tmp/def.fake. With initializationOptions failInitialize, it
+// answers initialize with that error and quits, as a server that cannot
+// start says why. The answer of a word "late" waits for
 // test/release, and test/held says whether one waits; of hovers and
 // completions, a word "latenothing" or "latebroken" waits as well. The
 // hover and the completions of a word ending "nothing" are none, and of
@@ -29,7 +31,8 @@ func Serve(in io.Reader, out io.Writer) {
 	texts := map[string]string{} // by URI
 	var late func()              // the answer held back
 	var options struct {
-		HoverContents json.RawMessage `json:"hoverContents"`
+		HoverContents  json.RawMessage `json:"hoverContents"`
+		FailInitialize string          `json:"failInitialize"`
 	}
 	for {
 		n := -1
@@ -84,6 +87,10 @@ func Serve(in io.Reader, out io.Writer) {
 			}
 			json.Unmarshal(m.Params, &p)
 			json.Unmarshal(p.InitializationOptions, &options)
+			if options.FailInitialize != "" {
+				send(map[string]any{"jsonrpc": "2.0", "id": *m.ID, "error": map[string]any{"code": -32603, "message": options.FailInitialize}})
+				return
+			}
 			reply(map[string]any{"capabilities": map[string]any{
 				"hoverProvider": true, "definitionProvider": true, "completionProvider": map[string]any{},
 				"documentFormattingProvider": true, "textDocumentSync": 1,

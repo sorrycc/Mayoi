@@ -2009,6 +2009,8 @@
   "lspNotInstalledOn": "{command} isn't installed on {host}",
   "lspQuit": "it quit as it started ({err})",
   "lspQuitClean": "it quit as it started, without an error",
+  "lspNoTypeScript": "there's no TypeScript in this folder; add it with npm i -D typescript, or set the plugin's tsserverPath",
+  "lspNoTypeScriptNative": "there's no TypeScript in this folder, and tsc is TypeScript 7, which has its own server: set the plugin's path to tsc and its args to --lsp --stdio",
   "lspNoAnswer": "it didn't answer in time",
   "lspExitUnchecked": "it quit with status 127, and Mayoi couldn't reach {host} to check whether {command} is installed",
   "lspStoppedOf": "{server} stopped",

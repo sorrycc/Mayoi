@@ -32,18 +32,21 @@ import (
 
 // lspServer is a language server of a folder.
 type lspServer struct {
-	plugin   *plugin.Plugin
-	contrib  plugin.ServerContrib
-	root     string
-	key      string // of lspServers
-	client   *lsp.Client
-	ready    chan struct{} // closed once started, or failed to
-	err      error
-	failure  lspFailure
-	command  string       // the program it ran, once resolved
-	launch   serverLaunch // how it ran, once resolved
-	failedAt time.Time    // when it could not start
-	starts   int          // since its plugin was last loaded or turned on
+	plugin  *plugin.Plugin
+	contrib plugin.ServerContrib
+	root    string
+	key     string // of lspServers
+	client  *lsp.Client
+	ready   chan struct{} // closed once started, or failed to
+	err     error
+	failure lspFailure
+	// nativeTSC is whether, for lspFailNoTypeScript, the folder's tsc is
+	// TypeScript 7 or later.
+	nativeTSC bool
+	command   string       // the program it ran, once resolved
+	launch    serverLaunch // how it ran, once resolved
+	failedAt  time.Time    // when it could not start
+	starts    int          // since its plugin was last loaded or turned on
 	// asked is whether a person asked for it to start, as a restart does.
 	asked bool
 	// ctx is cancelled to stop it starting; stopping is set as it is
@@ -64,6 +67,10 @@ const (
 	// its program ended with 127 on the folder's host, and whether it is
 	// there could not be told
 	lspFailUnchecked
+	// typescript-language-server found no TypeScript with a tsserver in the
+	// folder: nativeTSC is whether the tsc of the folder's machine is
+	// TypeScript 7's, which brings its own server
+	lspFailNoTypeScript
 )
 
 // lspStartTimeout is how long a server has to start and answer, and
@@ -216,8 +223,11 @@ func (s *lspServer) start(a *app, prev *lspServer) {
 		// started it, unless another took its place.
 		if s.client == nil {
 			s.failure = s.classify()
-			if s.failure == lspFailUnchecked {
+			switch s.failure {
+			case lspFailUnchecked:
 				s.failure = s.check()
+			case lspFailNoTypeScript:
+				s.nativeTSC = s.checkNativeTSC()
 			}
 			s.failedAt = time.Now()
 			if s.ctx.Err() == nil && s.current() {

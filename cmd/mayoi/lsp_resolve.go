@@ -85,20 +85,88 @@ func serverSettings(p *plugin.Plugin) (all, explicit map[string]json.RawMessage)
 	return all, explicit
 }
 
+// settingRef is the key of a setting an argument is all of, as
+// "${settings.args}" is, "" for one that is not.
+func settingRef(arg string) string {
+	if key, ok := strings.CutPrefix(arg, "${settings."); ok && strings.HasSuffix(key, "}") && !strings.ContainsAny(key[:len(key)-1], "{}") {
+		return key[:len(key)-1]
+	}
+	return ""
+}
+
 // expandServerCommand substitutes the settings in a command and its
-// arguments.
+// arguments: an argument that is all of a setting that is a list of
+// strings is its strings, as many arguments.
 func expandServerCommand(command string, args []string, settings map[string]json.RawMessage) (string, []string, error) {
 	command, err := expandServerArg(command, settings)
 	if err != nil {
 		return "", nil, err
 	}
-	out := make([]string, len(args))
-	for i, arg := range args {
-		if out[i], err = expandServerArg(arg, settings); err != nil {
+	out := make([]string, 0, len(args))
+	for _, arg := range args {
+		var list []string
+		if key := settingRef(arg); key != "" && json.Unmarshal(settings[key], &list) == nil && list != nil {
+			out = append(out, list...)
+			continue
+		}
+		s, err := expandServerArg(arg, settings)
+		if err != nil {
 			return "", nil, err
 		}
+		out = append(out, s)
 	}
 	return command, out, nil
+}
+
+// expandServerOptions substitutes the settings in initializationOptions:
+// a string that is all of a setting is its value, and goes, with its key,
+// when the setting is empty.
+func expandServerOptions(options json.RawMessage, settings map[string]json.RawMessage) json.RawMessage {
+	if len(options) == 0 || !strings.Contains(string(options), "${settings.") {
+		return options
+	}
+	var v any
+	if json.Unmarshal(options, &v) != nil {
+		return options
+	}
+	var expand func(v any) (any, bool)
+	expand = func(v any) (any, bool) {
+		switch x := v.(type) {
+		case string:
+			key := settingRef(x)
+			if key == "" {
+				return x, true
+			}
+			var value any
+			if json.Unmarshal(settings[key], &value) != nil || value == nil || value == "" {
+				return nil, false
+			}
+			return value, true
+		case map[string]any:
+			for k, item := range x {
+				if item, ok := expand(item); ok {
+					x[k] = item
+				} else {
+					delete(x, k)
+				}
+			}
+		case []any:
+			out := x[:0]
+			for _, item := range x {
+				if item, ok := expand(item); ok {
+					out = append(out, item)
+				}
+			}
+			return out, true
+		}
+		return v, true
+	}
+	v, _ = expand(v)
+	data, err := json.Marshal(v)
+	if err != nil {
+		return options
+	}
+	return data
 }
 
 // serverProgram is the program a plain server's command starts, with its
@@ -119,9 +187,9 @@ func (s *lspServer) resolve(ctx context.Context) (serverLaunch, error) {
 	settings, explicit := serverSettings(s.plugin)
 	if s.contrib.Resolve == nil {
 		command, args, err := expandServerCommand(s.contrib.Command, s.contrib.Args, settings)
-		return serverLaunch{Command: command, Args: args, Options: s.contrib.Options}, err
+		return serverLaunch{Command: command, Args: args, Options: expandServerOptions(s.contrib.Options, settings)}, err
 	}
-	launch := serverLaunch{Command: s.contrib.Command, Args: s.contrib.Args, Options: s.contrib.Options}
+	launch := serverLaunch{Command: s.contrib.Command, Args: s.contrib.Args, Options: expandServerOptions(s.contrib.Options, settings)}
 	command, args, err := expandServerCommand(s.contrib.Resolve.Command, s.contrib.Resolve.Args, settings)
 	if err != nil {
 		return launch, err

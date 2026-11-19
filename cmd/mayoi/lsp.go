@@ -15,8 +15,6 @@ import (
 	"time"
 	"unicode"
 
-	"github.com/egoist/mygo/ui"
-
 	"mayoi/internal/bg"
 	"mayoi/internal/lsp"
 	"mayoi/internal/plugin"
@@ -475,12 +473,6 @@ func caretPosition(d *editor) position {
 	return positionOf(snap, min(d.sel[1], snap.Len()))
 }
 
-// hoverCard is what Show Hover shows: Markdown of the language server and
-// the plugins, over the editor.
-type hoverCard struct {
-	tree *viewNode
-}
-
 // showHover asks the server and the plugins of the document's language
 // what is at the caret, and shows it.
 func (a *app) showHover() {
@@ -506,11 +498,12 @@ func (a *app) showHover() {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		var parts []string
+		var span *lsp.Range
 		if c := s.wait(3 * time.Second); c != nil && c.Hover() {
 			// The server knows the text as it is now.
 			c.Open(uri, lang, text)
-			if hover, err := c.HoverAt(ctx, uri, lsp.Position(pos)); err == nil && strings.TrimSpace(hover) != "" {
-				parts = append(parts, hover)
+			if hover, err := c.HoverAt(ctx, uri, lsp.Position(pos)); err == nil && strings.TrimSpace(hover.Markdown) != "" {
+				parts, span = append(parts, hover.Markdown), hover.Range
 			}
 		}
 		for _, p := range providers {
@@ -533,7 +526,7 @@ func (a *app) showHover() {
 				a.tell(note{message: locales.HoverNone()})
 				return
 			}
-			a.hover = &hoverCard{tree: &viewNode{Type: "markdown", Text: strings.Join(parts, "\n\n---\n\n")}}
+			a.hover = newHoverCard(d, strings.Join(parts, "\n\n---\n\n"), span)
 		})
 	})
 }
@@ -548,30 +541,6 @@ func (a *app) lspAsked(s *lspServer, d *editor, asked *int) func() bool {
 	return func() bool {
 		return *asked == n && a.activeEditor() == d && d.buf.Version() == version && d.sel == sel && (s == nil || s.current())
 	}
-}
-
-// hoverView draws the hover card while it shows.
-func (a *app) hoverView(c *ui.Context) {
-	h := a.hover
-	if h == nil {
-		return
-	}
-	p := a.pal
-	ui.Overlay(c, func() {
-		back := a.dialogBack(c)
-		back.Children(func() {
-			box := a.floating(c, ui.Column(c).Width(620).MaxWidthPercent(92).MaxHeightPercent(70).Margin(titleBarH+8, 0, 0, 0).Radius(10), true).
-				Clip().Role(ui.RoleDialog).Label(locales.CmdGoHover())
-			box.Children(func() {
-				ui.Scroll(c.Key("hover-card")).Padding(12, 16).Background(p.editor).Children(func() {
-					a.drawViewNode(c, "hover", h.tree, nil)
-				})
-			})
-			if box.PressedOutside() || back.OverlayShortcut(0, ui.KeyEscape) {
-				a.hover = nil
-			}
-		})
-	})
 }
 
 // goToDefinition goes to where what is at the caret is defined, as the

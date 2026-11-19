@@ -5,6 +5,12 @@ needs a `## <version>` section here, or its build fails.
 
 ## Unreleased
 
+- **Go → Show Hover** now opens a small card by the word at the caret instead of a dialog in mid-window.
+- The hover card stays inside its editor and split, above the line or below it near the top.
+- A hover's signature shows first in the code font and colors, with its documentation below.
+- Plaintext hovers from language servers show as written, without turning `*` or `_` into formatting.
+- The hover closes on `Esc`, a click elsewhere, typing, or moving the caret; long hovers scroll.
+- Lists in hovers and plugin views now show their bullets and numbers.
 - A language server that refuses to start now shows its own reason instead of "the server stopped".
 - The TypeScript server says when a folder has no TypeScript, and how to add it or point to one.
 - With TypeScript 7, set the TypeScript plugin's `path` to `tsc` to use its own server.

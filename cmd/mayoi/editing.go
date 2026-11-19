@@ -622,6 +622,11 @@ func (a *app) editorKey(d *editor, ev ui.InputEvent) bool {
 		a.post(func() { a.navGo(n) })
 		return true
 	}
+	// Escape closes a hover first, and only it: in Vim's insert mode too.
+	if ev.Key == ui.KeyEscape && ev.Mods == 0 && a.hover != nil && a.hover.ed == d {
+		a.hover = nil
+		return true
+	}
 	if ev.Key == ui.KeyEscape && ev.Mods == 0 && d.peek >= 0 {
 		d.peek = -1
 		return true

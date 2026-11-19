@@ -454,14 +454,19 @@ func (a *app) drawViewNode(c *ui.Context, key any, n *viewNode, pv *pluginView) 
 // viewMarkdown draws Markdown a plugin gave: its headings, paragraphs and
 // code, as the preview has them.
 func (a *app) viewMarkdown(c *ui.Context, key any, n *viewNode) {
-	p := a.pal
 	if !n.parsed {
 		n.parsed = true
 		n.blocks = parseMarkdown([]byte(n.Text), "", "", nil)
 	}
-	size := a.settings.FontSize
+	a.markdownBlocksView(c, key, n.blocks, a.settings.FontSize)
+}
+
+// markdownBlocksView draws blocks of Markdown at a size, as a view's
+// Markdown and a hover's documentation show.
+func (a *app) markdownBlocksView(c *ui.Context, key any, blocks []markdownBlock, size float32) {
+	p := a.pal
 	ui.Column(c.Key(key)).Gap(6).Children(func() {
-		for k, b := range n.blocks {
+		for k, b := range blocks {
 			switch b.kind {
 			case markdownHeading:
 				sz := size * (1.5 - 0.12*float32(min(b.level, 4)))
@@ -485,11 +490,17 @@ func (a *app) viewMarkdown(c *ui.Context, key any, n *viewNode) {
 				for _, r := range b.runs {
 					spans = append(spans, a.markdownSpan(r, p.text, size, false))
 				}
-				if len(spans) > 0 {
-					t := ui.RichText(c.Key(k), spans...).FontSize(size).Selectable()
-					if b.marker != "" {
-						t.Padding(0, 0, 0, 14+float32(b.indent)*14)
-					}
+				switch {
+				case len(spans) == 0:
+				case b.marker != "":
+					// The item's bullet or number before it, in the room
+					// its indent leaves.
+					ui.Row(c.Key(k)).Padding(0, 0, 0, float32(b.indent)*14).Children(func() {
+						ui.Text(c, b.marker).FontSize(size).TextColor(p.muted).Width(14 + 0.65*size*float32(len([]rune(b.marker))-1)).SingleLine()
+						ui.RichText(c.Key("item"), spans...).FontSize(size).Selectable().Grow(1).MinWidth(0)
+					})
+				default:
+					ui.RichText(c.Key(k), spans...).FontSize(size).Selectable()
 				}
 			}
 		}

@@ -123,9 +123,21 @@ func Serve(in io.Reader, out io.Writer) {
 			send(map[string]any{"jsonrpc": "2.0", "method": "textDocument/publishDiagnostics",
 				"params": map[string]any{"uri": p.TextDocument.URI, "diagnostics": diags}})
 		case "textDocument/hover":
-			if len(options.HoverContents) > 0 {
+			// "plain", "marked" and "long" answer as their names say, with
+			// the range of the word.
+			line, s, e, word := wordSpan(texts, m.Params)
+			at := map[string]any{"start": map[string]any{"line": line, "character": s}, "end": map[string]any{"line": line, "character": e}}
+			switch {
+			case len(options.HoverContents) > 0:
 				answer(map[string]any{"contents": options.HoverContents})
-			} else {
+			case word == "plain":
+				answer(map[string]any{"contents": map[string]any{"kind": "plaintext", "value": "*not* bold\nnext line"}, "range": at})
+			case word == "marked":
+				answer(map[string]any{"contents": []any{map[string]any{"language": "go", "value": "func marked(x int) string"}, "Returns **x**."}, "range": at})
+			case word == "long":
+				answer(map[string]any{"contents": map[string]any{"kind": "markdown",
+					"value": "```go\nfunc long()\n```\n\n" + strings.Repeat("A line of documentation that goes on.\n\n", 60)}, "range": at})
+			default:
 				answer(map[string]any{"contents": map[string]any{"kind": "markdown", "value": "**hello**"}})
 			}
 		case "test/snapshot":
@@ -205,6 +217,13 @@ func definitions(texts map[string]string, params json.RawMessage) ([]any, string
 // wordAt is the word at the place of a request's params, of the
 // document's text.
 func wordAt(texts map[string]string, params json.RawMessage) string {
+	_, _, _, word := wordSpan(texts, params)
+	return word
+}
+
+// wordSpan is the word at the place of a request's params, its line and
+// where on it it starts and ends.
+func wordSpan(texts map[string]string, params json.RawMessage) (line, start, end int, word string) {
 	var p struct {
 		TextDocument struct {
 			URI string `json:"uri"`
@@ -217,16 +236,16 @@ func wordAt(texts map[string]string, params json.RawMessage) string {
 	json.Unmarshal(params, &p)
 	lines := strings.Split(texts[p.TextDocument.URI], "\n")
 	if p.Position.Line >= len(lines) {
-		return ""
+		return p.Position.Line, 0, 0, ""
 	}
-	line := lines[p.Position.Line]
-	word := func(r byte) bool { return r >= 'a' && r <= 'z' || r >= '0' && r <= '9' }
-	s, e := min(p.Position.Character, len(line)), min(p.Position.Character, len(line))
-	for s > 0 && word(line[s-1]) {
+	text := lines[p.Position.Line]
+	letter := func(r byte) bool { return r >= 'a' && r <= 'z' || r >= '0' && r <= '9' }
+	s, e := min(p.Position.Character, len(text)), min(p.Position.Character, len(text))
+	for s > 0 && letter(text[s-1]) {
 		s--
 	}
-	for e < len(line) && word(line[e]) {
+	for e < len(text) && letter(text[e]) {
 		e++
 	}
-	return line[s:e]
+	return p.Position.Line, s, e, text[s:e]
 }

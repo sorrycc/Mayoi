@@ -83,6 +83,27 @@ func TestBudgets(t *testing.T) {
 				step(hs.tt)
 			}
 		}},
+		// A hover open follows its word as the editor scrolls, and hides
+		// while the word is out of view.
+		{"scroll frame with a hover", 5 * time.Millisecond, false, func(t *testing.T, hs *harness) func() {
+			d := bigDoc(hs)
+			hs.place(d, 5000, 5000)
+			hs.a.hover = newHoverCard(d, "```go\nfunc f(a, b int) string\n```\n\n"+strings.Repeat("Some *documentation* of `f`.\n\n", 20), nil)
+			hs.settle()
+			i := 0
+			return func() {
+				dy := float32(60)
+				if i/30%2 == 1 {
+					dy = -60
+				}
+				i++
+				hs.tt.Scroll(1100, 400, 0, dy)
+				step(hs.tt)
+				if hs.a.hover == nil {
+					t.Fatal("scrolling closed the hover")
+				}
+			}
+		}},
 		{"wrapped CJK line scroll frame", 5 * time.Millisecond, false, func(t *testing.T, hs *harness) func() {
 			var b strings.Builder
 			for i := range 200 {

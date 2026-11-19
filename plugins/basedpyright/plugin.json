@@ -1,0 +1,16 @@
+{
+  "name": "basedpyright",
+  "displayName": "Python",
+  "version": "1.0.0",
+  "description": "Go to Definition, hovers, completions and problems in Python files, with basedpyright",
+  "enabled": false,
+  "contributes": {
+    "settings": {
+      "path": { "type": "string", "default": "basedpyright-langserver", "description": "The basedpyright-langserver program, by name or path" }
+    },
+    "languageServers": [
+      { "id": "basedpyright.server", "languages": ["python"], "command": "${settings.path}", "args": ["--stdio"],
+        "install": "pip install basedpyright" }
+    ]
+  }
+}

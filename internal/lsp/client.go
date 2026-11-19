@@ -499,6 +499,25 @@ func (c *Client) notified(method string, params json.RawMessage) {
 	}
 }
 
+// LanguageID is the protocol's identifier of a language Mayoi names, as
+// the highlighter does, for the document at uri: "c++" is "cpp", and JSX
+// and TSX are their own, which servers parse by it.
+func LanguageID(language, uri string) string {
+	switch strings.ToLower(filepath.Ext(uri)) {
+	case ".jsx":
+		return "javascriptreact"
+	case ".tsx":
+		return "typescriptreact"
+	}
+	switch language {
+	case "c++":
+		return "cpp"
+	case "react":
+		return "javascriptreact"
+	}
+	return language
+}
+
 // Open tells the server of a document open, or of its new text: the whole
 // text each time, which every server takes.
 func (c *Client) Open(uri, language, text string) {
@@ -509,7 +528,7 @@ func (c *Client) Open(uri, language, text string) {
 	c.mu.Unlock()
 	if !open {
 		c.Notify("textDocument/didOpen", map[string]any{"textDocument": map[string]any{
-			"uri": uri, "languageId": language, "version": v, "text": text,
+			"uri": uri, "languageId": LanguageID(language, uri), "version": v, "text": text,
 		}})
 		return
 	}

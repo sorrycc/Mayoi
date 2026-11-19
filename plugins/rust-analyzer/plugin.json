@@ -1,0 +1,16 @@
+{
+  "name": "rust-analyzer",
+  "displayName": "Rust",
+  "version": "1.0.0",
+  "description": "Go to Definition, hovers, completions and problems in Rust files, with rust-analyzer",
+  "enabled": false,
+  "contributes": {
+    "settings": {
+      "path": { "type": "string", "default": "rust-analyzer", "description": "The rust-analyzer program, by name or path" }
+    },
+    "languageServers": [
+      { "id": "rust-analyzer.server", "languages": ["rust"], "command": "${settings.path}",
+        "install": "rustup component add rust-analyzer" }
+    ]
+  }
+}

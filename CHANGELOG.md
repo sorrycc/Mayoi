@@ -5,6 +5,12 @@ needs a `## <version>` section here, or its build fails.
 
 ## Unreleased
 
+- Mayoi comes with language servers for Go, TypeScript, Python, Rust and C/C++, off until you turn them on.
+- Opening a file whose built-in server is off offers **Turn On** when its program is installed.
+- If a built-in server's program is missing, Mayoi says how to install it.
+- Each built-in server has a `path` setting on the **Plugins** page for a program that isn't on your PATH.
+- A plugin you install under the name of a built-in one now takes its place.
+- C++, JSX and TSX files now reach language servers as `cpp`, `javascriptreact` and `typescriptreact`.
 - Files dropped from the Finder on a project's square switch to that project and open there as tabs.
 - Files dropped on the empty part of the project rail open in the project shown.
 - Pictures dropped from the Finder on a square open as files; use **Choose Icon…** to set an icon.

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"io/fs"
@@ -97,11 +98,12 @@ func (s *lspServer) reason() string {
 }
 
 // failMessage tells that the server could not start, and why; for a
-// program that is missing, how to install it when the index of plugins
-// read for the offers says so of the server's plugin and its command.
+// program that is missing, how to install it when the server says so, or
+// the index of plugins read for the offers says so of the server's plugin
+// and its command.
 func (s *lspServer) failMessage() string {
 	if s.failure == lspFailMissing {
-		if install := serverInstallHint(s.plugin.Name, s.command); install != "" {
+		if install := cmp.Or(s.contrib.Install, serverInstallHint(s.plugin.Name, s.command)); install != "" {
 			return locales.LspCouldNotStartInstall(s.contrib.ID, s.reason(), install)
 		}
 	}

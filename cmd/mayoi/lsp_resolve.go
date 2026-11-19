@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"mayoi/internal/lsp"
+	"mayoi/internal/plugin"
 	"mayoi/internal/remote"
 	"mayoi/internal/vfs"
 )
@@ -66,33 +67,64 @@ func (b *limitedBuffer) Write(p []byte) (int, error) {
 
 func (b *limitedBuffer) String() string { return b.buffer.String() }
 
-func (s *lspServer) resolve(ctx context.Context) (serverLaunch, error) {
-	launch := serverLaunch{Command: s.contrib.Command, Args: s.contrib.Args, Options: s.contrib.Options}
-	if s.contrib.Resolve == nil {
-		return launch, nil
+// serverSettings are the settings of a plugin: those stored, explicit, and
+// with the manifest's defaults for the others, all.
+func serverSettings(p *plugin.Plugin) (all, explicit map[string]json.RawMessage) {
+	all = map[string]json.RawMessage{}
+	for key, value := range p.Contributes.Settings {
+		all[key] = value.Default
 	}
-	settings := map[string]json.RawMessage{}
-	for key, value := range s.plugin.Contributes.Settings {
-		settings[key] = value.Default
-	}
-	explicit := map[string]json.RawMessage{}
+	explicit = map[string]json.RawMessage{}
 	if plugins != nil {
-		json.Unmarshal(plugins.Settings(s.plugin.Name), &explicit)
+		json.Unmarshal(plugins.Settings(p.Name), &explicit)
 	}
 	delete(explicit, "enabled")
 	for key, value := range explicit {
-		settings[key] = value
+		all[key] = value
 	}
-	command, err := expandServerArg(s.contrib.Resolve.Command, settings)
+	return all, explicit
+}
+
+// expandServerCommand substitutes the settings in a command and its
+// arguments.
+func expandServerCommand(command string, args []string, settings map[string]json.RawMessage) (string, []string, error) {
+	command, err := expandServerArg(command, settings)
+	if err != nil {
+		return "", nil, err
+	}
+	out := make([]string, len(args))
+	for i, arg := range args {
+		if out[i], err = expandServerArg(arg, settings); err != nil {
+			return "", nil, err
+		}
+	}
+	return command, out, nil
+}
+
+// serverProgram is the program a plain server's command starts, with its
+// plugin's settings, "" for one that resolves or a setting left empty.
+func serverProgram(p *plugin.Plugin, s *plugin.ServerContrib) string {
+	if s.Resolve != nil {
+		return ""
+	}
+	settings, _ := serverSettings(p)
+	command, err := expandServerArg(s.Command, settings)
+	if err != nil {
+		return ""
+	}
+	return command
+}
+
+func (s *lspServer) resolve(ctx context.Context) (serverLaunch, error) {
+	settings, explicit := serverSettings(s.plugin)
+	if s.contrib.Resolve == nil {
+		command, args, err := expandServerCommand(s.contrib.Command, s.contrib.Args, settings)
+		return serverLaunch{Command: command, Args: args, Options: s.contrib.Options}, err
+	}
+	launch := serverLaunch{Command: s.contrib.Command, Args: s.contrib.Args, Options: s.contrib.Options}
+	command, args, err := expandServerCommand(s.contrib.Resolve.Command, s.contrib.Resolve.Args, settings)
 	if err != nil {
 		return launch, err
-	}
-	args := make([]string, len(s.contrib.Resolve.Args))
-	for i, arg := range s.contrib.Resolve.Args {
-		args[i], err = expandServerArg(arg, settings)
-		if err != nil {
-			return launch, err
-		}
 	}
 	root := s.root
 	if _, path, ok := remote.Split(root); ok {

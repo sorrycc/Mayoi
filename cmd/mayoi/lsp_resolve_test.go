@@ -82,6 +82,18 @@ func TestResolveLanguageServer(t *testing.T) {
 	if err != nil || launch.Command != "static" {
 		t.Fatalf("static: %+v %v", launch, err)
 	}
+	// A static command takes the plugin's settings, as a resolver does.
+	s.plugin = &plugin.Plugin{Manifest: plugin.Manifest{Contributes: plugin.Contributes{Settings: map[string]plugin.SettingContrib{
+		"path": {Type: "string", Default: json.RawMessage(`"/opt/gopls"`)},
+	}}}}
+	s.contrib = plugin.ServerContrib{Command: "${settings.path}", Args: []string{"-remote=${settings.path}"}}
+	launch, err = s.resolve(ctx)
+	if err != nil || launch.Command != "/opt/gopls" || launch.Args[0] != "-remote=/opt/gopls" {
+		t.Fatalf("static with settings: %+v %v", launch, err)
+	}
+	if got := serverProgram(s.plugin, &s.contrib); got != "/opt/gopls" {
+		t.Fatalf("serverProgram = %q", got)
+	}
 }
 
 func TestResolverFailures(t *testing.T) {

@@ -80,3 +80,21 @@ func TestURIs(t *testing.T) {
 		t.Fatal("marked strings")
 	}
 }
+
+// TestLanguageID: Mayoi's names of languages go to servers as the
+// protocol's identifiers, JSX and TSX by the file.
+func TestLanguageID(t *testing.T) {
+	for _, c := range []struct{ language, uri, want string }{
+		{"go", "file:///a/main.go", "go"},
+		{"c++", "file:///a/main.cpp", "cpp"},
+		{"c", "file:///a/main.h", "c"},
+		{"react", "file:///a/App.jsx", "javascriptreact"},
+		{"typescript", "file:///a/App.tsx", "typescriptreact"},
+		{"typescript", "file:///a/app.ts", "typescript"},
+		{"javascript", "file:///a/app.mjs", "javascript"},
+	} {
+		if got := LanguageID(c.language, c.uri); got != c.want {
+			t.Errorf("LanguageID(%q, %q) = %q, want %q", c.language, c.uri, got, c.want)
+		}
+	}
+}

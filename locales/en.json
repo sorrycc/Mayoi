@@ -1999,6 +1999,7 @@
   "definitionPick": "Choose a definition",
   "lspOffer": "{detect} is installed. Install the {name} plugin for Go to Definition and more?",
   "lspOfferInstall": "Install",
+  "lspOfferTurnOn": "{detect} is installed. Turn on the {name} plugin for Go to Definition and more?",
   "lspMissing": "{name} needs {detect}, which isn't installed. Install it with {command}",
   "lspInstallFailed": "Could not install {name}: {err}",
   "cmdLanguageServers": "Show Language Servers",

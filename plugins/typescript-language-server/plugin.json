@@ -1,0 +1,17 @@
+{
+  "name": "typescript-language-server",
+  "displayName": "TypeScript",
+  "version": "1.0.0",
+  "description": "Go to Definition, hovers, completions and problems in TypeScript and JavaScript files",
+  "enabled": false,
+  "contributes": {
+    "settings": {
+      "path": { "type": "string", "default": "typescript-language-server", "description": "The typescript-language-server program, by name or path" }
+    },
+    "languageServers": [
+      { "id": "typescript-language-server.server", "languages": ["typescript", "javascript", "react"],
+        "command": "${settings.path}", "args": ["--stdio"],
+        "install": "npm install -g typescript-language-server typescript" }
+    ]
+  }
+}

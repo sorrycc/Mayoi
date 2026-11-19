@@ -943,8 +943,11 @@ language servers, and they work on SSH folders with nothing installed on the hos
 - A `.ts` file in `~/.mayoi/scripts` makes each function it exports a command; **Plugins → Run Selection as Script**
   runs the selection once.
 - Signed in, the plugins you install from Git follow you to your other machines.
-- Mayoi comes with **Word Count**, the words of a Markdown file in the status bar, and **TODOs**, the folder's TODO
-  comments in the sidebar.
+- Mayoi comes with **Word Count**, the words of a Markdown file in the status bar, **TODOs**, the folder's TODO
+  comments in the sidebar, and the language servers of Go, TypeScript and JavaScript, Python, Rust and C/C++.
+- They start off. A file of a language whose server is off offers **Turn On** when its program is installed, and
+  says how to install it when it is not; a server's `path` setting names a program not on the path.
+- A plugin you install under the name of one Mayoi comes with takes its place.
 
 ## Settings
 

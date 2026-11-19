@@ -219,6 +219,9 @@ type ServerContrib struct {
 	// Resolve prepares a launch description, using workspace/settings JSON on
 	// stdin and returning command, args and LSP options as JSON on stdout.
 	Resolve *ServerResolver `json:"resolve,omitempty"`
+	// Install is the shell command that installs the server's program,
+	// which Mayoi says when the program is not found.
+	Install string `json:"install,omitempty"`
 }
 
 type ServerResolver struct {

@@ -17904,6 +17904,18 @@ func (msgs Messages) LspOfferInstall() string {
 	return Catalog.Format(msgs.locale, "lspOfferInstall", nil)
 }
 
+// LspOfferTurnOn says "{detect} is installed. Turn on the {name} plugin for Go to Definition and more?"
+// in the language the app shows.
+func LspOfferTurnOn(detect string, name string) string {
+	return In(i18n.Locale()).LspOfferTurnOn(detect, name)
+}
+
+// LspOfferTurnOn says "{detect} is installed. Turn on the {name} plugin for Go to Definition and more?"
+// in the language of msgs.
+func (msgs Messages) LspOfferTurnOn(detect string, name string) string {
+	return Catalog.Format(msgs.locale, "lspOfferTurnOn", map[string]any{"detect": detect, "name": name})
+}
+
 // LspMissing says "{name} needs {detect}, which isn't installed. Install it with {command}"
 // in the language the app shows.
 func LspMissing(name string, detect string, command string) string {

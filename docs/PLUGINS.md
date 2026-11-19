@@ -39,9 +39,16 @@ plugins you know.
 
 On Windows, `~` is `%USERPROFILE%`. With `MAYOI_DATA_DIR` set, these folders are in that folder instead.
 
-Mayoi comes with two plugins of its own, **Word Count** (the words and reading time of a Markdown or text file, in the
-status bar) and **TODOs** (the folder's TODO, FIXME and HACK comments, in the sidebar). They start off; turn them on
-on the **Plugins** page of the settings window, or with `"enabled": true` in their settings.
+Mayoi comes with plugins of its own: **Word Count** (the words and reading time of a Markdown or text file, in the
+status bar), **TODOs** (the folder's TODO, FIXME and HACK comments, in the sidebar), and the language servers of
+**Go** (`gopls`), **TypeScript** (`typescript-language-server`, for JavaScript too), **Python** (`basedpyright`),
+**Rust** (`rust-analyzer`) and **C/C++** (`clangd`). They start off; turn them on on the **Plugins** page of the
+settings window, or with `"enabled": true` in their settings. A file of a language whose server is off offers
+**Turn On**, once, when its program is installed, and says how to install it when it is not. Each server's `path`
+setting names its program, by name or path, when it is not on the path.
+
+A plugin you install under the name of one Mayoi comes with takes its place; removing it brings Mayoi's back.
+`mayoi --disable-plugins` runs Mayoi's own.
 
 ### Settings sync
 
@@ -394,9 +401,22 @@ A server that stops, or cannot start, is started again a few times as documents 
 start says why (its program is not installed, it quit, or it did not answer) and offers **Restart**. On an SSH host, a
 server that ends with status 127 is looked for there, in the folder and with the server's environment, before Mayoi
 says it is not installed: a program that is there quit by itself, and when the host cannot tell within 10 seconds, Mayoi
-says it could not check. How to install the program is said only when it is missing and the index names that command. **Plugins → Show
+says it could not check. How to install the program is said only when it is missing and the server's `install`, or the
+index, names that command. **Plugins → Show
 Language Servers** lists the servers of the folder, how each is and where it runs, and restarts the one chosen, after
 the old one is gone; the documents open are told of again.
+
+`command` and `args` take `${settings.key}`, the plugin's setting or its default, and `install` is the command that
+installs the program, said when it is missing:
+
+```jsonc
+"settings": { "path": { "type": "string", "default": "gopls" } },
+"languageServers": [{ "id": "gopls.server", "languages": ["go"], "command": "${settings.path}",
+  "install": "go install golang.org/x/tools/gopls@latest" }]
+```
+
+Servers are told a document's language by the protocol's name: `cpp` for C++, `javascriptreact` and
+`typescriptreact` for `.jsx` and `.tsx` files.
 
 For servers that need setup, use `resolve` instead of `command`:
 

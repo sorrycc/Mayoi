@@ -7,6 +7,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"testing/fstest"
 	"time"
 )
 
@@ -426,5 +427,33 @@ func TestStateIsOneOfALife(t *testing.T) {
 	h.settings["look"] = json.RawMessage(`{"enabled": false}`)
 	if got := state("look"); got != StateOff {
 		t.Fatalf("one that declares, turned off: %v", got)
+	}
+}
+
+// TestInstalledTakesBundledPlace: a plugin installed under a bundled one's
+// name runs instead of it, except in safe mode, which runs the bundled.
+func TestInstalledTakesBundledPlace(t *testing.T) {
+	r, _, dirs := newRegistry(t)
+	r.Dirs.Bundled = fstest.MapFS{
+		"gopls/plugin.json": {Data: []byte(`{"name": "gopls", "description": "bundled"}`)},
+		"todos/plugin.json": {Data: []byte(`{"name": "todos", "description": "bundled"}`)},
+	}
+	writePlugin(t, dirs.Plugins, "gopls", map[string]string{
+		"plugin.json": `{"name": "gopls", "description": "mine"}`,
+	})
+	r.Load()
+	if p := r.Plugin("gopls"); p == nil || p.Bundled || p.Description != "mine" {
+		t.Fatalf("the installed gopls does not take the bundled one's place: %+v", p)
+	}
+	if p := r.Plugin("todos"); p == nil || !p.Bundled {
+		t.Fatalf("a bundled plugin alone is lost: %+v", p)
+	}
+	if n := len(r.Plugins()); n != 2 {
+		t.Fatalf("%d plugins, want one to a name", n)
+	}
+	r.SetSafe(true)
+	r.Load()
+	if p := r.Plugin("gopls"); p == nil || !p.Bundled {
+		t.Fatalf("safe mode does not run the bundled gopls: %+v", p)
 	}
 }

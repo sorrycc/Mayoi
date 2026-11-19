@@ -35,8 +35,8 @@ var otherAccels = map[string]string{
 	"go.forward":             "Alt+Right",
 	"git.collapseAllFiles":   "",
 	"git.expandAllFiles":     "",
-	"edit.fold":              "Shift+Ctrl+[",
-	"edit.unfold":            "Shift+Ctrl+]",
+	"edit.fold":              "",
+	"edit.unfold":            "",
 	// Control and Alt with a digit show a project of the rail there.
 	"markdown.heading1": "",
 	"markdown.heading2": "",

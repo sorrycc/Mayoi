@@ -9,7 +9,7 @@ needs a `## <version>` section here, or its build fails.
 - Fold blocks of code: click the chevron beside a line number, shown as the pointer comes over the gutter.
 - JSON objects and arrays fold, as do Go, JavaScript and TypeScript blocks, Python by indent and Markdown sections.
 - A folded line ends in `⋯`; click it, or its chevron, to show the lines again.
-- **Edit → Fold** and **Unfold** use `⌥⌘[` and `⌥⌘]`, which still fold the files of a diff when it is focused.
+- On macOS, **Edit → Fold** and **Unfold** use `⌥⌘[` and `⌥⌘]`, which also fold a focused diff's files.
 - **Edit → Fold All** (`⌘K ⌘0`) and **Unfold All** (`⌘K ⌘J`) fold or open every block of the file at once.
 - The caret moves past folded lines; Find and Go to Line open the folds that hide what they go to.
 - Folds stay as you edit above them, each split view keeps its own, and they come back with your session.

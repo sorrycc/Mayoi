@@ -558,21 +558,21 @@ Mayoi's own, as VS Code writes them:
 
 The shortcuts are macOS's with Ctrl for ⌘, and the hints show them so, but for those VS Code has others for:
 
-| Command                                  | macOS      | Windows and Linux              |
-| ---------------------------------------- | ---------- | ------------------------------ |
-| Find Next, Find Previous                 | ⌘G, ⇧⌘G    | F3, Shift+F3                   |
-| Replace                                  | ⌥⌘F        | Ctrl+H                         |
-| Show the tab 1 to 8, the last            | ⌘1 to ⌘9   | Alt+1 to Alt+9                 |
-| Save All, Open Folder in New Window      | ⌥⌘S, ⌥⌘O   | none                           |
-| Focus Next Column, Focus Previous Column | ⌥⌘→, ⌥⌘←   | none                           |
-| Add Cursor Above, Add Cursor Below       | ⌥⌘↑, ⌥⌘↓   | Ctrl+Shift+Up, Ctrl+Shift+Down |
-| Column Select Up, Down, Left, Right      | ⇧⌥⌘ arrows | none                           |
+| Command                                  | macOS      | Windows and Linux                                    |
+| ---------------------------------------- | ---------- | ---------------------------------------------------- |
+| Find Next, Find Previous                 | ⌘G, ⇧⌘G    | F3, Shift+F3                                         |
+| Replace                                  | ⌥⌘F        | Ctrl+H                                               |
+| Show the tab 1 to 8, the last            | ⌘1 to ⌘9   | Alt+1 to Alt+9                                       |
+| Save All, Open Folder in New Window      | ⌥⌘S, ⌥⌘O   | none                                                 |
+| Focus Next Column, Focus Previous Column | ⌥⌘→, ⌥⌘←   | none                                                 |
+| Add Cursor Above, Add Cursor Below       | ⌥⌘↑, ⌥⌘↓   | Ctrl+Alt+Up, Ctrl+Alt+Down on Windows; none on Linux |
+| Column Select Up, Down, Left, Right      | ⇧⌥⌘ arrows | Ctrl+Shift+Alt arrows on Windows; none on Linux      |
 
 Ctrl with Alt is AltGr there, which types text, so no shortcut takes it: bind those commands in `keybindings.json`,
 as `{ "key": "ctrl+k s", "command": "workbench.action.files.saveAll" }`. A file can tell the systems apart with
-`isWindows`, `isLinux` and `isMac`. Ctrl+Alt with the arrows also turns the screen with Intel's graphics on Windows
-and switches workspaces in GNOME and Xfce, so adding cursors takes Ctrl+Shift there, and column selection is by the
-pointer, or by keys you bind, as `{ "key": "ctrl+shift+alt+down", "command": "cursorColumnSelectDown" }`.
+`isWindows`, `isLinux` and `isMac`. With the arrows, which AltGr types nothing with, Windows takes VS Code's Ctrl+Alt
+keys to add cursors and select a column. Linux has none for them, as Xfce and older GNOME switch workspaces with Ctrl+Alt
+and the arrows: bind your own, as `{ "key": "ctrl+shift+alt+down", "command": "cursorColumnSelectDown" }`.
 ### `diffWhitespace`
 
 Controls which whitespace participates in diff comparison: `""` for exact,

@@ -562,9 +562,9 @@ func TestCharStepKeepsClustersWhole(t *testing.T) {
 func TestMultiCursorKeys(t *testing.T) {
 	for goos, want := range map[string]map[string]string{
 		"darwin": {"sel.addCursorAbove": "⌥⌘↑", "sel.addNextOccurrence": "⌘D", "sel.selectAllOccurrences": "⇧⌘L", "sel.columnDown": "⌥⇧⌘↓"},
-		"windows": {"sel.addCursorAbove": "Ctrl+Shift+Up", "sel.addCursorBelow": "Ctrl+Shift+Down", "sel.addNextOccurrence": "Ctrl+D",
-			"sel.selectAllOccurrences": "Ctrl+Shift+L", "sel.columnDown": ""},
-		"linux": {"sel.addCursorAbove": "Ctrl+Shift+Up", "sel.addNextOccurrence": "Ctrl+D", "sel.columnUp": ""},
+		"windows": {"sel.addCursorAbove": "Ctrl+Alt+Up", "sel.addCursorBelow": "Ctrl+Alt+Down", "sel.addNextOccurrence": "Ctrl+D",
+			"sel.selectAllOccurrences": "Ctrl+Shift+L", "sel.columnDown": "Ctrl+Alt+Shift+Down"},
+		"linux": {"sel.addCursorAbove": "", "sel.addNextOccurrence": "Ctrl+D", "sel.selectAllOccurrences": "Ctrl+Shift+L", "sel.columnUp": ""},
 	} {
 		t.Run(goos, func(t *testing.T) {
 			onOS(t, goos)

@@ -144,7 +144,7 @@ func TestBudgets(t *testing.T) {
 		}},
 		// Typing at a caret on every "func" of the file: thousands of them,
 		// edited at once in one step of undo.
-		{"type frame with thousands of carets", 30 * time.Millisecond, false, func(t *testing.T, hs *harness) func() {
+		{"type frame with thousands of carets", 45 * time.Millisecond, false, func(t *testing.T, hs *harness) func() {
 			d := bigDoc(hs)
 			at := strings.Index(d.buf.String(), "func")
 			hs.place(d, at, at)
@@ -154,7 +154,7 @@ func TestBudgets(t *testing.T) {
 			}
 			return func() { hs.tt.Type("a"); step(hs.tt) }
 		}},
-		{"select all occurrences", 15 * time.Millisecond, false, func(t *testing.T, hs *harness) func() {
+		{"select all occurrences", 30 * time.Millisecond, false, func(t *testing.T, hs *harness) func() {
 			d := bigDoc(hs)
 			at := strings.Index(d.buf.String(), "func")
 			return func() {

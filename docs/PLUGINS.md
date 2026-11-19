@@ -421,6 +421,12 @@ fallback; substitution passes literal arguments and never invokes a shell.
 Keep resolution fast and offline; dependency installation belongs in a separate
 setup command. Resolution and initialization share a 30-second deadline.
 
+For a plugin that ships its own runtime, `localResolve` takes a `command` and a
+`script` relative to the plugin directory. In a local workspace, Mayoi passes
+the absolute script path as the first argument, runs it in the workspace, and
+uses the same resolver input and output. SSH and other remote workspaces use
+the contribution's ordinary `command` or `resolve`.
+
 The resolver must print one JSON object and exit successfully:
 
 ```ts
@@ -433,6 +439,7 @@ The resolver must print one JSON object and exit successfully:
   configuration?: Record<string, unknown>;
   workspaceFolders?: { uri: string; name: string }[];
   pathMappings?: { clientURI: string; serverURI: string }[];
+  sourceDefinition?: { method: string; capability: string };
 }
 ```
 
@@ -448,6 +455,12 @@ keys in workspace edits. Source/edit text, hover content, configuration,
 Plugins prepare server-specific paths inside their own configuration. This lets
 a server import canonical paths and the editor keep the workspace's symlink
 aliases for definitions and diagnostics. Standard declarations remain valid.
+
+`sourceDefinition` selects a document-position request for **Go to Source
+Definition** when the server sets the named `experimental` capability to
+`true`. The request and its location results use the same URI mappings as
+standard navigation. Otherwise Mayoi uses the declared
+`sourceDefinitionCommand` when that command is available.
 
 ### Coding agents
 

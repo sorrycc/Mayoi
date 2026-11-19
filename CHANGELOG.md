@@ -6,6 +6,7 @@ needs a `## <version>` section here, or its build fails.
 ## Unreleased
 
 - The **Go** menu finds type definitions, source definitions, implementations and references.
+- Language server plugins can start a bundled runtime on this machine.
 
 - Splitting a Live Preview note with tables, diagrams or formulas into two columns no longer crashes Mayoi.
 - Fold blocks of code: click the chevron beside a line number, shown as the pointer comes over the gutter.

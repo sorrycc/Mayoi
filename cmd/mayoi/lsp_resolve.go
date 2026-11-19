@@ -7,11 +7,13 @@ import (
 	"fmt"
 	"io"
 	"net/url"
+	"path/filepath"
 	"sort"
 	"strings"
 	"time"
 
 	"mayoi/internal/lsp"
+	"mayoi/internal/plugin"
 	"mayoi/internal/remote"
 	"mayoi/internal/vfs"
 )
@@ -19,14 +21,20 @@ import (
 // serverLaunch is the host-independent result of a plugin's setup command.
 // The command exits before the actual language server is started.
 type serverLaunch struct {
-	Command          string                `json:"command"`
-	Args             []string              `json:"args,omitempty"`
-	Env              map[string]string     `json:"env,omitempty"`
-	UnsetEnv         []string              `json:"unsetEnv,omitempty"`
-	Options          json.RawMessage       `json:"initializationOptions,omitempty"`
-	Configuration    map[string]any        `json:"configuration,omitempty"`
-	WorkspaceFolders []lsp.WorkspaceFolder `json:"workspaceFolders,omitempty"`
-	PathMappings     []lsp.PathMapping     `json:"pathMappings,omitempty"`
+	Command          string                   `json:"command"`
+	Args             []string                 `json:"args,omitempty"`
+	Env              map[string]string        `json:"env,omitempty"`
+	UnsetEnv         []string                 `json:"unsetEnv,omitempty"`
+	Options          json.RawMessage          `json:"initializationOptions,omitempty"`
+	Configuration    map[string]any           `json:"configuration,omitempty"`
+	WorkspaceFolders []lsp.WorkspaceFolder    `json:"workspaceFolders,omitempty"`
+	PathMappings     []lsp.PathMapping        `json:"pathMappings,omitempty"`
+	SourceDefinition *sourceDefinitionRequest `json:"sourceDefinition,omitempty"`
+}
+
+type sourceDefinitionRequest struct {
+	Method     string `json:"method"`
+	Capability string `json:"capability"`
 }
 
 // expandServerArg substitutes whole setting references without a shell.
@@ -68,7 +76,20 @@ func (b *limitedBuffer) String() string { return b.buffer.String() }
 
 func (s *lspServer) resolve(ctx context.Context) (serverLaunch, error) {
 	launch := serverLaunch{Command: s.contrib.Command, Args: s.contrib.Args, Options: s.contrib.Options}
-	if s.contrib.Resolve == nil {
+	resolver := s.contrib.Resolve
+	var script string
+	if local := s.contrib.LocalResolve; local != nil && !remote.Is(s.root) {
+		if s.plugin.Dir == "" {
+			return launch, fmt.Errorf("local resolver needs a plugin directory")
+		}
+		var err error
+		script, err = filepath.Abs(filepath.Join(s.plugin.Dir, filepath.FromSlash(local.Script)))
+		if err != nil {
+			return launch, fmt.Errorf("local resolver script: %w", err)
+		}
+		resolver = &plugin.ServerResolver{Command: local.Command}
+	}
+	if resolver == nil {
 		return launch, nil
 	}
 	settings := map[string]json.RawMessage{}
@@ -83,16 +104,20 @@ func (s *lspServer) resolve(ctx context.Context) (serverLaunch, error) {
 	for key, value := range explicit {
 		settings[key] = value
 	}
-	command, err := expandServerArg(s.contrib.Resolve.Command, settings)
+	command, err := expandServerArg(resolver.Command, settings)
 	if err != nil {
 		return launch, err
 	}
-	args := make([]string, len(s.contrib.Resolve.Args))
-	for i, arg := range s.contrib.Resolve.Args {
+	args := make([]string, len(resolver.Args))
+	for i, arg := range resolver.Args {
 		args[i], err = expandServerArg(arg, settings)
 		if err != nil {
 			return launch, err
 		}
+	}
+	// The plugin's path is a literal, including any braces in its name.
+	if script != "" {
+		args = append(args, script)
 	}
 	root := s.root
 	if _, path, ok := remote.Split(root); ok {
@@ -140,6 +165,10 @@ func (s *lspServer) resolve(ctx context.Context) (serverLaunch, error) {
 func (l serverLaunch) validate() error {
 	if strings.TrimSpace(l.Command) == "" {
 		return fmt.Errorf("resolved language server has no command")
+	}
+	if source := l.SourceDefinition; source != nil &&
+		(strings.TrimSpace(source.Method) == "" || strings.TrimSpace(source.Capability) == "") {
+		return fmt.Errorf("source definition needs a method and experimental capability")
 	}
 	for key := range l.Env {
 		if !validEnvKey(key) {

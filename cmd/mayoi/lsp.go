@@ -614,8 +614,12 @@ func (a *app) locationsAt(d *editor, kind lsp.Navigation, click bool) {
 			return
 		}
 		supported := c.CanNavigate(kind)
+		var sourceMethod string
 		if kind == sourceDefinition {
-			supported = c.SupportsCommand(command)
+			if source := s.launch.SourceDefinition; source != nil && c.SupportsExperimental(source.Capability) {
+				sourceMethod = source.Method
+			}
+			supported = sourceMethod != "" || c.SupportsCommand(command)
 		}
 		if !supported {
 			a.post(func() {
@@ -631,7 +635,9 @@ func (a *app) locationsAt(d *editor, kind lsp.Navigation, click bool) {
 		c.Open(uri, lang, text)
 		var locs []lsp.Location
 		var err error
-		if kind == sourceDefinition {
+		if sourceMethod != "" {
+			locs, err = c.SourceDefinitionRequestAt(ctx, sourceMethod, uri, lsp.Position(pos))
+		} else if kind == sourceDefinition {
 			locs, err = c.SourceDefinitionAt(ctx, command, uri, lsp.Position(pos))
 		} else {
 			locs, err = c.NavigateAt(ctx, kind, uri, lsp.Position(pos))

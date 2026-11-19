@@ -34,6 +34,10 @@ func (c *Client) SupportsCommand(name string) bool {
 	return name != "" && slices.Contains(c.caps.Commands, name)
 }
 
+func (c *Client) SupportsExperimental(name string) bool {
+	return string(c.caps.Experimental[name]) == "true"
+}
+
 func (c *Client) NavigateAt(ctx context.Context, kind Navigation, uri string, pos Position) ([]Location, error) {
 	params := docPos(uri, pos)
 	if kind == References {
@@ -52,6 +56,14 @@ func (c *Client) SourceDefinitionAt(ctx context.Context, command, uri string, po
 	res, err := c.Call(ctx, "workspace/executeCommand", map[string]any{
 		"command": command, "arguments": []any{mappedURI(uri, c.toServer, true), pos},
 	})
+	if err != nil {
+		return nil, err
+	}
+	return locations(mapURIFields(res, locationURIs, c.toClient, false))
+}
+
+func (c *Client) SourceDefinitionRequestAt(ctx context.Context, method, uri string, pos Position) ([]Location, error) {
+	res, err := c.Call(ctx, method, docPos(mappedURI(uri, c.toServer, true), pos))
 	if err != nil {
 		return nil, err
 	}

@@ -105,6 +105,7 @@ type Client struct {
 		Hover, Definition, Completion, Formatting  bool
 		TypeDefinition, Implementation, References bool
 		Commands                                   []string
+		Experimental                               map[string]json.RawMessage
 		// Sync is the text document sync kind: 1 full, 2 incremental.
 		Sync int
 	}
@@ -230,6 +231,7 @@ func Start(ctx context.Context, opts Options) (*Client, error) {
 			CompletionProvider         json.RawMessage `json:"completionProvider"`
 			DocumentFormattingProvider json.RawMessage `json:"documentFormattingProvider"`
 			TextDocumentSync           json.RawMessage `json:"textDocumentSync"`
+			Experimental               json.RawMessage `json:"experimental"`
 		} `json:"capabilities"`
 	}
 	json.Unmarshal(res, &init)
@@ -241,6 +243,7 @@ func Start(ctx context.Context, opts Options) (*Client, error) {
 	c.caps.Implementation = on(cp.ImplementationProvider)
 	c.caps.References = on(cp.ReferencesProvider)
 	c.caps.Commands = cp.ExecuteCommandProvider.Commands
+	_ = json.Unmarshal(cp.Experimental, &c.caps.Experimental)
 	c.caps.Sync = 1
 	var kind int
 	if json.Unmarshal(cp.TextDocumentSync, &kind) != nil {

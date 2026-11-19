@@ -391,7 +391,10 @@ A definition in several places offers them in a list. **Go → Back** (⌃-, Alt
 **Go → Forward** (⌃⇧-, Alt+→), or the mouse's back and forward buttons, go between the places jumps left.
 
 A server that stops, or cannot start, is started again a few times as documents of its languages open. One that cannot
-start says why (its program is not installed, it quit, or it did not answer) and offers **Restart**. **Plugins → Show
+start says why (its program is not installed, it quit, or it did not answer) and offers **Restart**. On an SSH host, a
+server that ends with status 127 is looked for there, in the folder and with the server's environment, before Mayoi
+says it is not installed: a program that is there quit by itself, and when the host cannot tell within 10 seconds, Mayoi
+says it could not check. How to install the program is said only when it is missing and the index names that command. **Plugins → Show
 Language Servers** lists the servers of the folder, how each is and where it runs, and restarts the one chosen, after
 the old one is gone; the documents open are told of again.
 

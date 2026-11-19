@@ -18004,6 +18004,18 @@ func (msgs Messages) LspNoAnswer() string {
 	return Catalog.Format(msgs.locale, "lspNoAnswer", nil)
 }
 
+// LspExitUnchecked says "it quit with status 127, and Mayoi couldn't reach {host} to check whether {command} is installed"
+// in the language the app shows.
+func LspExitUnchecked(host string, command string) string {
+	return In(i18n.Locale()).LspExitUnchecked(host, command)
+}
+
+// LspExitUnchecked says "it quit with status 127, and Mayoi couldn't reach {host} to check whether {command} is installed"
+// in the language of msgs.
+func (msgs Messages) LspExitUnchecked(host string, command string) string {
+	return Catalog.Format(msgs.locale, "lspExitUnchecked", map[string]any{"host": host, "command": command})
+}
+
 // LspStoppedOf says "{server} stopped"
 // in the language the app shows.
 func LspStoppedOf(server string) string { return In(i18n.Locale()).LspStoppedOf(server) }

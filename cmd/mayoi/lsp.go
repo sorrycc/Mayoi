@@ -39,9 +39,10 @@ type lspServer struct {
 	ready    chan struct{} // closed once started, or failed to
 	err      error
 	failure  lspFailure
-	command  string    // the program it ran, once resolved
-	failedAt time.Time // when it could not start
-	starts   int       // since its plugin was last loaded or turned on
+	command  string       // the program it ran, once resolved
+	launch   serverLaunch // how it ran, once resolved
+	failedAt time.Time    // when it could not start
+	starts   int          // since its plugin was last loaded or turned on
 	// asked is whether a person asked for it to start, as a restart does.
 	asked bool
 	// ctx is cancelled to stop it starting; stopping is set as it is
@@ -59,10 +60,18 @@ const (
 	lspFailMissing                   // its program is not on the folder's machine
 	lspFailQuit                      // its program ended before it answered
 	lspFailSilent                    // it did not answer in time
+	// its program ended with 127 on the folder's host, and whether it is
+	// there could not be told
+	lspFailUnchecked
 )
 
-// lspStartTimeout is how long a server has to start and answer.
-var lspStartTimeout = 30 * time.Second
+// lspStartTimeout is how long a server has to start and answer, and
+// lspCheckTimeout how long its host has to say whether its program is
+// there, when that is not clear from how it ended.
+var (
+	lspStartTimeout = 30 * time.Second
+	lspCheckTimeout = 10 * time.Second
+)
 
 // lspState is where a language server is in its life.
 type lspState int
@@ -205,8 +214,11 @@ func (s *lspServer) start(a *app, prev *lspServer) {
 		// One that could not start is told of once, in the window that
 		// started it, unless another took its place.
 		if s.client == nil {
-			s.failedAt = time.Now()
 			s.failure = s.classify()
+			if s.failure == lspFailUnchecked {
+				s.failure = s.check()
+			}
+			s.failedAt = time.Now()
 			if s.ctx.Err() == nil && s.current() {
 				msg := s.failMessage()
 				a.post(func() {
@@ -243,7 +255,7 @@ func (s *lspServer) start(a *app, prev *lspServer) {
 		s.err = err
 		return
 	}
-	s.command = launch.Command
+	s.command, s.launch = launch.Command, launch
 	owner := s.owner()
 	root := s.root
 	rootURI := serverURI(root)

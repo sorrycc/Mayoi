@@ -27,6 +27,7 @@ needs a `## <version>` section here, or its build fails.
 - **Plugins → Show Language Servers** lists this folder's servers, whether each runs, and where.
 - Choose a server there to restart it, even after Mayoi stopped retrying it on its own.
 - A server that can't start says why: its program isn't installed, it quit, or it didn't answer.
+- On an SSH host, a server ending with status 127 is only called not installed once the host confirms it.
 - A server that fails to start or stops offers **Restart**; files already open reconnect to it.
 - Terminals no longer crash Mayoi on macOS while many files are open.
 - Selecting text in a file with invalid UTF-8 past its first 8 KB no longer crashes Mayoi.

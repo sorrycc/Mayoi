@@ -34,14 +34,36 @@ func (s *lspServer) classify() lspFailure {
 	}
 	var stopped *lsp.StoppedError
 	if errors.As(s.err, &stopped) {
-		// A shell on an SSH host says it found no program with 127.
+		// env on an SSH host says it found no program with 127, as the
+		// program, or a script that runs it, may say of itself: check
+		// tells which.
 		var exit *exec.ExitError
 		if remote.Is(s.root) && errors.As(stopped.Err, &exit) && exit.ExitCode() == 127 {
-			return lspFailMissing
+			return lspFailUnchecked
 		}
 		return lspFailQuit
 	}
 	return lspFailOther
+}
+
+// checkProgram reports whether a program is found on the folder's
+// machine, as a server's command started with env and unset is there;
+// known is false when it could not tell.
+var checkProgram = programOnHost
+
+// check looks on the folder's host for the server's program, which ended
+// with 127, for so long, or until the server is stopped or replaced.
+func (s *lspServer) check() lspFailure {
+	ctx, cancel := context.WithTimeout(s.ctx, lspCheckTimeout)
+	defer cancel()
+	found, known := checkProgram(ctx, s.root, s.launch.environment(), s.launch.UnsetEnv, s.command)
+	switch {
+	case !known:
+		return lspFailUnchecked
+	case found:
+		return lspFailQuit
+	}
+	return lspFailMissing
 }
 
 // program is the name of the program the server ran, without its folder.
@@ -65,6 +87,8 @@ func (s *lspServer) reason() string {
 		}
 	case lspFailSilent:
 		return locales.LspNoAnswer()
+	case lspFailUnchecked:
+		return locales.LspExitUnchecked(s.program(), remote.HostOf(s.root))
 	}
 	if s.err == nil {
 		return ""
@@ -74,10 +98,10 @@ func (s *lspServer) reason() string {
 
 // failMessage tells that the server could not start, and why; for a
 // program that is missing, how to install it when the index of plugins
-// read for the offers says so of the server's plugin.
+// read for the offers says so of the server's plugin and its command.
 func (s *lspServer) failMessage() string {
 	if s.failure == lspFailMissing {
-		if install := serverInstallHint(s.plugin.Name, s.program()); install != "" {
+		if install := serverInstallHint(s.plugin.Name, s.command); install != "" {
 			return locales.LspCouldNotStartInstall(s.contrib.ID, s.reason(), install)
 		}
 	}
@@ -85,13 +109,14 @@ func (s *lspServer) failMessage() string {
 }
 
 // serverInstallHint is how to install command, as the index of plugins
-// last read says for the plugin of name, which looks for it; "" when it
-// does not, or was not read. It reads nothing anew.
+// last read says for the plugin of name, which looks for it by that name;
+// "" when it does not, as for a command of a folder, or was not read. It
+// reads nothing anew.
 func serverInstallHint(name, command string) string {
 	serverIndex.Lock()
 	defer serverIndex.Unlock()
 	for _, e := range serverIndex.entries {
-		if e.Name == name && e.Detect == command {
+		if e.Name == name && strings.TrimSuffix(e.Detect, ".exe") == strings.TrimSuffix(command, ".exe") {
 			return e.Install
 		}
 	}

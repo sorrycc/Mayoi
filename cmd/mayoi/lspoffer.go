@@ -1,10 +1,11 @@
 package main
 
 import (
+	"bytes"
 	"context"
-	"errors"
 	"os/exec"
 	"slices"
+	"strings"
 	"sync"
 	"time"
 
@@ -108,6 +109,31 @@ func serverEntry(entries []plugin.IndexEntry, lang string) (plugin.IndexEntry, b
 // machine, as a server's command is started there; known is false when it
 // could not tell, as when the host did not answer.
 func serverInstalled(ctx context.Context, root, name string) (found, known bool) {
+	return programOnHost(ctx, root, nil, nil, name)
+}
+
+// programCheck says whether env, in the folder, would find the program
+// $1: one with a slash from the folder, else on PATH, an empty entry of
+// which is the folder. What it prints is all that is taken, as an SSH
+// host that does not answer may end the command with any status.
+const programCheck = `set -f
+there() { [ -f "$1" ] && [ -x "$1" ]; }
+case $1 in
+*/*) if there "$1"; then echo mayoi:found; else echo mayoi:missing; fi; exit 0 ;;
+esac
+p=${PATH-/bin:/usr/bin}
+case $p in *:) p=$p. ;; esac
+IFS=:
+for d in $p; do
+  if there "${d:-.}/$1"; then echo mayoi:found; exit 0; fi
+done
+echo mayoi:missing`
+
+// programOnHost reports whether a program is found on the machine of
+// root, as a command started in root with env added and unset removed
+// finds it there; known is false when it could not tell, as when the host
+// did not answer in time. On this machine, env is not looked at.
+func programOnHost(ctx context.Context, root string, env, unset []string, name string) (found, known bool) {
 	if !remote.Is(root) {
 		// On the path of the user's shell, not the one Mayoi started with.
 		select {
@@ -118,24 +144,28 @@ func serverInstalled(ctx context.Context, root, name string) (found, known bool)
 		_, err := exec.LookPath(name)
 		return err == nil, true
 	}
-	cmd, err := vfs.Command(root, nil, nil, "sh", "-c", `command -v "$1" >/dev/null`, "sh", name)
+	cmd, err := vfs.CommandEnvironment(root, env, unset, nil, "/bin/sh", "-c", programCheck, "sh", name)
 	if err != nil {
 		return false, false
 	}
+	var out bytes.Buffer
+	cmd.Stdout = &out
+	if cmd.Start() != nil {
+		return false, false
+	}
 	done := make(chan error, 1)
-	go func() { done <- cmd.Run() }()
+	go func() { done <- cmd.Wait() }()
 	select {
 	case err := <-done:
-		// ssh says it could not reach the host with 255.
-		var exit *exec.ExitError
-		if errors.As(err, &exit) {
-			return false, exit.ExitCode() != 255
+		switch strings.TrimSpace(out.String()) {
+		case "mayoi:found":
+			return true, err == nil
+		case "mayoi:missing":
+			return false, err == nil
 		}
-		return err == nil, err == nil
+		return false, false
 	case <-ctx.Done():
-		if cmd.Process != nil {
-			cmd.Process.Kill()
-		}
+		cmd.Process.Kill()
 		return false, false
 	}
 }

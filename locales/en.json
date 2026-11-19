@@ -2008,6 +2008,7 @@
   "lspNotInstalledOn": "{command} isn't installed on {host}",
   "lspQuit": "it quit as it started ({err})",
   "lspNoAnswer": "it didn't answer in time",
+  "lspExitUnchecked": "it quit with status 127, and Mayoi couldn't reach {host} to check whether {command} is installed",
   "lspStoppedOf": "{server} stopped",
   "lspRestarting": "Restarting {server}…",
   "lspRestarted": "{server} is running",

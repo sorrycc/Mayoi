@@ -1780,6 +1780,7 @@
   "lspNotInstalledOn": "{host} 上未安装 {command}",
   "lspQuit": "启动时退出了（{err}）",
   "lspNoAnswer": "未及时响应",
+  "lspExitUnchecked": "以状态 127 退出，且无法连接 {host} 来确认是否已安装 {command}",
   "lspStoppedOf": "{server} 已停止",
   "lspRestarting": "正在重启 {server}…",
   "lspRestarted": "{server} 已运行",

@@ -95,15 +95,15 @@ func detectIndent(snap ui.TextSnapshot, path string) indentStyle {
 // lineComments are the line comments of languages, by Chroma's name.
 var lineComments = map[string]string{
 	"Go": "//", "C": "//", "C++": "//", "C#": "//", "Java": "//", "JavaScript": "//", "TypeScript": "//",
-	"TSX": "//", "JSX": "//", "Rust": "//", "Swift": "//", "Kotlin": "//", "Scala": "//", "Dart": "//",
+	"TSX": "//", "react": "//", "Rust": "//", "Swift": "//", "Kotlin": "//", "Scala": "//", "Dart": "//",
 	"Zig": "//", "Objective-C": "//", "PHP": "//", "Groovy": "//", "Protocol Buffer": "//", "GLSL": "//",
 	"JSON5": "//", "SCSS": "//", "Sass": "//", "Less": "//", "Odin": "//", "V": "//", "Gleam": "//",
 	"Python": "#", "Python 2": "#", "Bash": "#", "Zsh": "#", "Fish": "#", "Ruby": "#", "Perl": "#",
 	"YAML": "#", "TOML": "#", "Makefile": "#", "Docker": "#", "R": "#", "Elixir": "#", "Nix": "#",
 	"PowerShell": "#", "CMake": "#", "Nim": "#", "Julia": "#", "Crystal": "#", "INI": ";", "Terraform": "#",
-	"HCL": "#", "GDScript": "#", "Starlark": "#",
+	"HCL": "#", "GDScript": "#", "GDScript3": "#", "Starlark": "#",
 	"SQL": "--", "PostgreSQL SQL dialect": "--", "MySQL": "--", "Lua": "--", "Haskell": "--", "Elm": "--",
-	"Common Lisp": ";", "Clojure": ";", "Scheme": ";", "Racket": ";", "Emacs Lisp": ";", "Fennel": ";",
+	"Common Lisp": ";", "Clojure": ";", "Scheme": ";", "Racket": ";", "EmacsLisp": ";", "Fennel": ";",
 	"VimL": `"`, "Erlang": "%", "TeX": "%", "MATLAB": "%", "Fortran": "!",
 }
 

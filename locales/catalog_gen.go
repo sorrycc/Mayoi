@@ -15282,6 +15282,26 @@ func (msgs Messages) PrefDescEditorAgentContext() string {
 	return Catalog.Format(msgs.locale, "prefDescEditorAgentContext", nil)
 }
 
+// PrefTitleEditorHover says "Hover on Pointer Rest"
+// in the language the app shows.
+func PrefTitleEditorHover() string { return In(i18n.Locale()).PrefTitleEditorHover() }
+
+// PrefTitleEditorHover says "Hover on Pointer Rest"
+// in the language of msgs.
+func (msgs Messages) PrefTitleEditorHover() string {
+	return Catalog.Format(msgs.locale, "prefTitleEditorHover", nil)
+}
+
+// PrefDescEditorHover says "Show what a language server says of a name when the pointer rests on it."
+// in the language the app shows.
+func PrefDescEditorHover() string { return In(i18n.Locale()).PrefDescEditorHover() }
+
+// PrefDescEditorHover says "Show what a language server says of a name when the pointer rests on it."
+// in the language of msgs.
+func (msgs Messages) PrefDescEditorHover() string {
+	return Catalog.Format(msgs.locale, "prefDescEditorHover", nil)
+}
+
 // PrefTitleMarkdownMode says "Open Markdown As"
 // in the language the app shows.
 func PrefTitleMarkdownMode() string { return In(i18n.Locale()).PrefTitleMarkdownMode() }

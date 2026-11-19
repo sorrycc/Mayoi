@@ -967,6 +967,9 @@ language servers, and they work on SSH folders with nothing installed on the hos
   Windows and Linux) and **Go Forward** (⌃⇧-, Alt+Right) return.
 - **Show Hover** again while its card shows gives the card the keys: ↑ ↓, Page Up, Page Down, Home and End scroll it,
   Esc closes it, and any other key goes back to the text.
+- Rest the pointer on a name for half a second to see its hover card, without moving the caret. Move into the card
+  to read or scroll it; it closes as the pointer leaves, and on Esc, a click or a key. Nothing shows where the server
+  has nothing to say, while you drag or hold a modifier key, or with `editorHover` off.
 - An answer that comes after you opened Quick Open or another list leaves it be.
 - **Show Problems** lists every problem plugins found; the status bar counts them.
 - **Selection → Insert Snippet…** inserts a snippet of a plugin's.

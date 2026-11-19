@@ -1738,6 +1738,8 @@
   "prefDescTabSize": "How many columns a tab takes in the editor.",
   "prefTitleEditorAgentContext": "Collect Agent Context",
   "prefDescEditorAgentContext": "Show a gutter + to collect code and optional comments in ordinary files.",
+  "prefTitleEditorHover": "Hover on Pointer Rest",
+  "prefDescEditorHover": "Show what a language server says of a name when the pointer rests on it.",
   "prefTitleMarkdownMode": "Open Markdown As",
   "prefDescMarkdownMode": "Opens Markdown files as their source, as Live Preview, which you edit as it reads, or rendered.",
   "prefOptMarkdownModeLive": "Live Preview",

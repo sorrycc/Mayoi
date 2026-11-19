@@ -144,6 +144,9 @@ type Prefs struct {
 	// EditorAgentContext offers selection actions in ordinary files to
 	// collect code snippets and send them with review comments.
 	EditorAgentContext bool `json:"editorAgentContext,omitempty"`
+	// EditorHover shows a name's hover card in the editor as the pointer
+	// rests on it, as Show Hover does from the keyboard.
+	EditorHover bool `json:"editorHover"`
 	// PreviewMermaid draws the blocks of Mermaid of a Markdown preview as
 	// the diagrams they make, rather than their source.
 	PreviewMermaid bool `json:"previewMermaid"`
@@ -544,7 +547,7 @@ func Default() *Settings {
 	return &Settings{
 		Prefs: Prefs{
 			FontSize: 13, FontFamily: "monospace", FontWeight: 400, LineHeight: 1.55, TabSize: 4,
-			AutoSave: true, Blame: true, TerminalCopyOnSelect: true, TerminalBackendHcShowInHerdr: true, PreviewMermaid: true, PreviewMath: true,
+			AutoSave: true, Blame: true, EditorHover: true, TerminalCopyOnSelect: true, TerminalBackendHcShowInHerdr: true, PreviewMermaid: true, PreviewMath: true,
 			DiffAlignedRows: true, DiffContext: 3, DiffSyncScroll: true, MergeAutoApply: true,
 			UsageStats: true,
 		},

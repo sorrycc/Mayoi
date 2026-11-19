@@ -117,6 +117,28 @@ func (f codeFont) featureList() []string {
 // up to the next tab.
 func (f codeFont) width(s string) float32 { return f.widthFrom(0, s) }
 
+// runeAt returns the rune of a line of text, n runes long, whose glyph is
+// at x along it as width measures it, -1 past its end.
+func (f codeFont) runeAt(s string, n int, x float32) int {
+	if n == 0 || x < 0 || x >= f.width(s) {
+		return -1
+	}
+	offs := make([]int, 0, n)
+	for i := range s {
+		offs = append(offs, i)
+	}
+	lo, hi := 0, n-1
+	for lo < hi {
+		mid := (lo + hi + 1) / 2
+		if f.width(s[:offs[mid]]) <= x {
+			lo = mid
+		} else {
+			hi = mid - 1
+		}
+	}
+	return lo
+}
+
 // widthFrom returns where a run that starts at x along a line ends, as
 // width measures it: a line's width is the sum of its runs', but for the
 // kerning across where they meet.
@@ -526,6 +548,7 @@ func (a *app) editorView(c *ui.Context, d *editor) {
 			d.folding.hover = over && px-d.hscroll.X < gutterW
 			d.folding.reduce = c.Preferences().ReduceMotion
 		}
+		a.restHover(c, d, area, g, snap, live)
 		d.reviewHover = -1
 		if a.settings.EditorAgentContext {
 			_, py, over := area.PointerPosition()

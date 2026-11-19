@@ -376,10 +376,11 @@ type app struct {
 	// viewStates are the folders open and the row chosen in each plugin
 	// view the sidebar showed, by view id: this window's own.
 	viewStates map[string]*pluginView
-	hover      *hoverCard // the card Show Hover shows
-	nav        navHistory // where Go Back and Go Forward go
-	defAsked   int        // the Go to Definition last asked, whose answer alone goes
-	hoverAsked int        // the Show Hover last asked, as defAsked
+	hover      *hoverCard   // the card Show Hover shows
+	rest       pointerHover // the name the pointer rests on in an editor, for its card
+	nav        navHistory   // where Go Back and Go Forward go
+	defAsked   int          // the Go to Definition last asked, whose answer alone goes
+	hoverAsked int          // the Show Hover last asked, as defAsked
 	find       findState
 	inFiles    searchState // search in the files, of the sidebar
 	sessions   sessionsState

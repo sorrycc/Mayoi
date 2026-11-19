@@ -575,6 +575,13 @@ func (a *app) editorKey(d *editor, ev ui.InputEvent) bool {
 		a.invalidate()
 		return true
 	}
+	// A press goes on from the name the pointer rests on, until it moves.
+	switch {
+	case ev.Kind == ui.InputPointerDown:
+		a.hushRest()
+	case ev.Kind == ui.InputPointerMove && ev.Button < 0:
+		a.rest.hushed = false
+	}
 	// The pointer over a link or a task's box in Live Preview shows so.
 	if ev.Kind == ui.InputPointerMove && a.livePreview(d) {
 		a.livePointer(d, ev)
@@ -651,12 +658,19 @@ func (a *app) editorKey(d *editor, ev ui.InputEvent) bool {
 		return true
 	}
 	// Escape closes a hover first, and only it: in Vim's insert mode too.
-	if ev.Key == ui.KeyEscape && ev.Mods == 0 && a.hover != nil && a.hover.ed == d {
+	if ev.Key == ui.KeyEscape && ev.Mods == 0 && a.hover != nil && (a.hover.ed == d || a.hover.auto) {
+		if a.hover.auto {
+			a.hushRest()
+		}
 		a.hover = nil
 		return true
 	}
 	if a.hoverKey(d, ev) {
 		return true
+	}
+	// A key goes on from the name the pointer rests on, and its card.
+	if a.rest.ed != nil {
+		a.hushRest()
 	}
 	if ev.Key == ui.KeyEscape && ev.Mods == 0 && d.peek >= 0 {
 		d.peek = -1

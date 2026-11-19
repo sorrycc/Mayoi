@@ -83,12 +83,23 @@ func TestBudgets(t *testing.T) {
 				step(hs.tt)
 			}
 		}},
+		// The pointer moving over the text finds the name under it, for
+		// the card it rests on, a frame at a time.
+		{"pointer over text frame", 2 * time.Millisecond, false, func(t *testing.T, hs *harness) func() {
+			bigDoc(hs)
+			i := 0
+			return func() {
+				i++
+				hs.tt.Move(300+float32(i%60)*5, 150+float32(i%23)*11)
+				step(hs.tt)
+			}
+		}},
 		// A hover open follows its word as the editor scrolls, and hides
 		// while the word is out of view.
 		{"scroll frame with a hover", 5 * time.Millisecond, false, func(t *testing.T, hs *harness) func() {
 			d := bigDoc(hs)
 			hs.place(d, 5000, 5000)
-			hs.a.hover = newHoverCard(d, "```go\nfunc f(a, b int) string\n```\n\n"+strings.Repeat("Some *documentation* of `f`.\n\n", 20), nil)
+			hs.a.hover = newHoverCard(d, "```go\nfunc f(a, b int) string\n```\n\n"+strings.Repeat("Some *documentation* of `f`.\n\n", 20), nil, d.sel[1])
 			hs.settle()
 			i := 0
 			return func() {

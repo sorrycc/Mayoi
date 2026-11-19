@@ -90,6 +90,7 @@ takes its default.
 | `tabSize`               | `4`           | `1` to `8`                                                  |                                                |
 | `jsonlMode`             | `""`          | `""` (table), `"source"`                                    | **View → Open JSON Lines As**                  |
 | `editorAgentContext`    | `false`       | `true`, `false`                                             | Only this file                                 |
+| `editorHover`           | `true`        | `true`, `false`                                             | Only this file                                 |
 | `previewMermaid`        | `true`        | `true`, `false`                                             | Only this file                                 |
 | `previewMath`           | `true`        | `true`, `false`                                             | Only this file                                 |
 | `markdownMode`          | `""`          | `""` (source), `"live"`, `"reading"`                        | **View → Open Markdown As**                    |
@@ -258,6 +259,9 @@ differ in width lines them up only roughly.
   by default; changes apply immediately and do not discard pending items. Closing the draft’s tab,
   starting another comment, or jumping to code keeps its text in the Review queue. **Send** saves the
   current draft before sending the batch.
+- **`editorHover`** shows a name's hover card, from its language server or a plugin, once the pointer rests on it
+  in the editor for half a second, as **Go → Show Hover** does at the caret. Move into the card to read or scroll
+  it; it closes as the pointer leaves, on **Esc**, a click or a key. Turn it off to see hover cards only when asked.
 - **`previewMermaid`** draws the `mermaid` code blocks of Markdown as diagrams, in Live Preview and the Reading
   view. Turn it off to show them as code. A `.mmd` or `.mermaid` file's own preview draws its diagram either way.
 - **`previewMath`** draws the LaTeX math of Markdown, between `$` and `$`, `$$` and `$$`, or in a `math` code

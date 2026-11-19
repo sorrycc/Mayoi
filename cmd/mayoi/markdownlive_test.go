@@ -1197,3 +1197,87 @@ func setHome(t *testing.T, dir string) {
 	t.Setenv("HOME", dir)
 	t.Setenv("USERPROFILE", dir)
 }
+
+// TestLiveClickHoldsCaret: a click on rendered text puts one caret where
+// it went, though marks hidden and a word in bold before it lay the line
+// out otherwise than it reads, as the text area finds the pointer held
+// again each frame; a drag selects from there, and two and three clicks a
+// word and the line.
+func TestLiveClickHoldsCaret(t *testing.T) {
+	hs := newHarness(t, true)
+	a := hs.a
+	line := "**Mayoi** rewrites what's expected from the start."
+	src := "Intro.\n\n" + line + "\n"
+	path := hs.path("click.md")
+	os.WriteFile(path, []byte(src), 0o644)
+	a.settings.MarkdownMode = "live"
+	a.openFile(path, true)
+	d := a.activeEditor()
+	hs.until("parsed", func() bool { l := d.document.live; return l != nil && l.doc != nil && !l.quick })
+	start := len([]rune("Intro.\n\n"))
+	p := start + len([]rune("**Mayoi** rewrites what's ex")) // the p of expected
+	end := start + len([]rune(line))
+	// at is where in the window rune i of the text starts, as laid out now.
+	at := func(i int) (float32, float32) {
+		t.Helper()
+		x, y, h, ok := d.lines.Caret(i)
+		if !ok {
+			t.Fatal("not laid out")
+		}
+		return d.liveAt.X + d.textX + x - d.hscroll.X, d.liveAt.Y + editorPadY + y + h/2 - d.vscroll.Y
+	}
+	away := func() {
+		d.selectRange(0, 0, false)
+		hs.settle()
+	}
+
+	away()
+	x, y := at(p)
+	hs.tt.Press(x+1, y)
+	for range 5 {
+		step(hs.tt)
+	}
+	if d.sel != [2]int{p, p} {
+		t.Errorf("held, the click is at %v, not at %d", d.sel, p)
+	}
+	hs.tt.Release(x+1, y)
+	hs.settle()
+	if d.sel != [2]int{p, p} {
+		t.Errorf("clicked, the caret is at %v, not at %d", d.sel, p)
+	}
+
+	away()
+	x, y = at(p)
+	x1, _ := at(end)
+	hs.tt.Press(x+1, y)
+	step(hs.tt)
+	hs.tt.Move(x1+4, y)
+	step(hs.tt)
+	hs.tt.Release(x1+4, y)
+	hs.settle()
+	if d.sel != [2]int{p, end} {
+		t.Errorf("dragged, the selection is %v, not %v", d.sel, [2]int{p, end})
+	}
+
+	// On the line, its marks showing, two clicks take the word.
+	d.selectRange(p, p, false)
+	hs.settle()
+	x, y = at(p)
+	hs.tt.ClickAt(x+1, y)
+	hs.tt.ClickAt(x+1, y)
+	hs.settle()
+	word := strings.Index(line, "expected")
+	if want := [2]int{start + word, start + word + len("expected")}; d.sel != want && d.sel != [2]int{want[1], want[0]} {
+		t.Errorf("double-clicked, the selection is %v, not %v", d.sel, want)
+	}
+	d.selectRange(p, p, false)
+	hs.settle()
+	x, y = at(p)
+	hs.tt.ClickAt(x+1, y)
+	hs.tt.ClickAt(x+1, y)
+	hs.tt.ClickAt(x+1, y)
+	hs.settle()
+	if lo, hi := min(d.sel[0], d.sel[1]), max(d.sel[0], d.sel[1]); lo != start || hi < end {
+		t.Errorf("triple-clicked, the selection is %v, not the line from %d", d.sel, start)
+	}
+}

@@ -5,6 +5,7 @@ needs a `## <version>` section here, or its build fails.
 
 ## Unreleased
 
+- A click past bold text or hidden Markdown marks puts the caret where you click, without selecting text.
 - **Toggle Line Comment** works in JSX, Emacs Lisp and GDScript, and a typed backtick closes in JSX too.
 - Turn on `trimTrailingWhitespace` to remove the spaces and tabs at the ends of lines as you save.
 - Trimming on save keeps Markdown's two-space line breaks and comes back with one **Undo**.

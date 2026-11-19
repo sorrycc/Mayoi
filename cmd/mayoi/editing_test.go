@@ -292,8 +292,8 @@ func TestCommentKeepsIndent(t *testing.T) {
 	expectText(t, d, "func f() {\n\tx()\n\n\t\ty()\n}\n")
 }
 
-func TestCommentJSXAndEmacsLisp(t *testing.T) {
-	for file, want := range map[string]string{"App.jsx": "// x\n", "init.el": "; x\n"} {
+func TestCommentByChromaName(t *testing.T) {
+	for file, want := range map[string]string{"App.jsx": "// x\n", "init.el": "; x\n", "player.gd": "# x\n"} {
 		t.Run(file, func(t *testing.T) {
 			hs, d := editHarness(t, file, "x\n")
 			hs.a.run("sel.comment")

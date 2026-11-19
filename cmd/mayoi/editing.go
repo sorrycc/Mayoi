@@ -101,7 +101,7 @@ var lineComments = map[string]string{
 	"Python": "#", "Python 2": "#", "Bash": "#", "Zsh": "#", "Fish": "#", "Ruby": "#", "Perl": "#",
 	"YAML": "#", "TOML": "#", "Makefile": "#", "Docker": "#", "R": "#", "Elixir": "#", "Nix": "#",
 	"PowerShell": "#", "CMake": "#", "Nim": "#", "Julia": "#", "Crystal": "#", "INI": ";", "Terraform": "#",
-	"HCL": "#", "GDScript": "#", "Starlark": "#",
+	"HCL": "#", "GDScript": "#", "GDScript3": "#", "Starlark": "#",
 	"SQL": "--", "PostgreSQL SQL dialect": "--", "MySQL": "--", "Lua": "--", "Haskell": "--", "Elm": "--",
 	"Common Lisp": ";", "Clojure": ";", "Scheme": ";", "Racket": ";", "EmacsLisp": ";", "Fennel": ";",
 	"VimL": `"`, "Erlang": "%", "TeX": "%", "MATLAB": "%", "Fortran": "!",

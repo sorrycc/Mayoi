@@ -481,7 +481,7 @@ func (a *app) showHover() {
 	pos := caretPosition(d)
 	s := a.lspFor(d.document, false)
 	doc := docJSON(d.document)
-	lang := languageOf(d.document)
+	lang, text := languageOf(d.document), d.buf.String()
 	uri := serverURI(d.path)
 	var providers []*plugin.Plugin
 	if plugins != nil {
@@ -491,13 +491,16 @@ func (a *app) showHover() {
 			}
 		}
 	}
-	go func() {
+	current := a.lspAsked(s, d, &a.hoverAsked)
+	bg.Go(func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		var parts []string
 		if c := s.wait(3 * time.Second); c != nil && c.Hover() {
-			if text, err := c.HoverAt(ctx, uri, lsp.Position(pos)); err == nil && strings.TrimSpace(text) != "" {
-				parts = append(parts, text)
+			// The server knows the text as it is now.
+			c.Open(uri, lang, text)
+			if hover, err := c.HoverAt(ctx, uri, lsp.Position(pos)); err == nil && strings.TrimSpace(hover) != "" {
+				parts = append(parts, hover)
 			}
 		}
 		for _, p := range providers {
@@ -508,13 +511,34 @@ func (a *app) showHover() {
 			}
 		}
 		a.post(func() {
+			if !current() {
+				return
+			}
 			if len(parts) == 0 {
+				// A server not running did not say there is nothing.
+				if s != nil && s.state() != lspRunning {
+					a.lspFailed(s)
+					return
+				}
 				a.tell(note{message: locales.HoverNone()})
 				return
 			}
 			a.hover = &hoverCard{tree: &viewNode{Type: "markdown", Text: strings.Join(parts, "\n\n---\n\n")}}
 		})
-	}()
+	})
+}
+
+// lspAsked counts a question asked at the caret of d, of s or none, in
+// asked, and is whether its answer still goes: the last of its kind asked,
+// of the server still the folder's, at the caret, view and text it was
+// asked at. One gone on from, or a server restarted, leaves it too late.
+func (a *app) lspAsked(s *lspServer, d *editor, asked *int) func() bool {
+	*asked++
+	n, root, version, sel := *asked, a.root, d.buf.Version(), d.sel
+	return func() bool {
+		return *asked == n && a.root == root && a.activeEditor() == d &&
+			d.buf.Version() == version && d.sel == sel && (s == nil || s.current())
+	}
 }
 
 // hoverView draws the hover card while it shows.
@@ -566,23 +590,17 @@ func (a *app) definitionAt(d *editor, click bool) {
 // locationsAt uses the same document, stale-answer checks and targets for
 // keyboard commands and Cmd-click. A click says nothing about missing servers.
 func (a *app) locationsAt(d *editor, kind lsp.Navigation, click bool) {
-	a.defAsked++
-	asked := a.defAsked
 	s := a.lspFor(d.document, false)
+	current := a.lspAsked(s, d, &a.defAsked)
 	if s == nil {
 		if !click {
 			a.tell(note{message: locales.LspNone(languageOf(d.document))})
 		}
 		return
 	}
-	pos, uri, root, version, sel := caretPosition(d), serverURI(d.path), a.root, d.buf.Version(), d.sel
+	pos, uri, root := caretPosition(d), serverURI(d.path), a.root
 	lang, text := languageOf(d.document), d.buf.String()
 	command := s.contrib.SourceDefinitionCommand
-	// Gone on from, to another place, view or question, the answer is
-	// too late to take there.
-	current := func() bool {
-		return a.defAsked == asked && a.root == root && a.activeEditor() == d && d.buf.Version() == version && d.sel == sel
-	}
 	bg.Go(func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
@@ -745,26 +763,35 @@ func (a *app) complete() {
 		a.tell(note{message: locales.LspNone(languageOf(d.document))})
 		return
 	}
-	// The server knows the text as it is now.
-	if c := s.live(); c != nil {
-		c.Open(serverURI(d.path), languageOf(d.document), d.buf.String())
-	}
-	pos, uri, version := caretPosition(d), serverURI(d.path), d.buf.Version()
-	go func() {
+	pos, uri := caretPosition(d), serverURI(d.path)
+	lang, text := languageOf(d.document), d.buf.String()
+	current := a.lspAsked(s, d, &a.completeAsked)
+	bg.Go(func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		c := s.wait(5 * time.Second)
 		if c == nil || !c.Completion() {
-			a.post(func() { a.lspFailed(s) })
+			a.post(func() {
+				if current() {
+					a.lspFailed(s)
+				}
+			})
 			return
 		}
+		// The server knows the text as it is now.
+		c.Open(uri, lang, text)
 		items, err := c.CompletionAt(ctx, uri, lsp.Position(pos))
 		a.post(func() {
-			if err != nil || len(items) == 0 {
-				a.tell(note{message: locales.CompletionNone()})
+			if !current() {
 				return
 			}
-			if d.buf.Version() != version {
+			// A server that stopped did not say there is none.
+			if err != nil && s.state() != lspRunning {
+				a.lspFailed(s)
+				return
+			}
+			if err != nil || len(items) == 0 {
+				a.tell(note{message: locales.CompletionNone()})
 				return
 			}
 			slices.SortStableFunc(items, func(x, y lsp.CompletionItem) int {
@@ -783,7 +810,7 @@ func (a *app) complete() {
 				}
 			})
 		})
-	}()
+	})
 }
 
 func sortKey(it lsp.CompletionItem) string {

@@ -379,6 +379,7 @@ type app struct {
 	hover      *hoverCard // the card Show Hover shows
 	nav        navHistory // where Go Back and Go Forward go
 	defAsked   int        // the last language server jump, whose answer alone goes
+	hoverAsked int        // the Show Hover last asked, as defAsked
 	find       findState
 	inFiles    searchState // search in the files, of the sidebar
 	sessions   sessionsState
@@ -388,6 +389,9 @@ type app struct {
 	asks       []*confirm // the questions asked in the background, waiting their turn
 	signin     *signin
 	diagram    *diagramOverlay // a preview's diagram shown over the window
+	// completeAsked is the Complete Word last asked, as defAsked: each
+	// its own, so one does not drop another's answer.
+	completeAsked int
 	// syncOpen shows the account's panel above its part of the status
 	// bar, and tickAt is when a countdown shown repaints next.
 	syncOpen bool

@@ -186,8 +186,9 @@ func TestOfferLanguageServerInstalledSince(t *testing.T) {
 // as offered; installed, its server starts for the file open.
 func TestOfferLanguageServerInstallFails(t *testing.T) {
 	t.Setenv("MAYOI_FAKE_LSP", "1")
-	t.Cleanup(stopServers)
 	oh := newOfferHarness(t, func() ([]plugin.IndexEntry, error) { return []plugin.IndexEntry{zigEntry}, nil })
+	// Stopped before the folder it runs in is removed, as Windows asks.
+	t.Cleanup(stopServers)
 	oh.install()
 	var fail atomic.Bool
 	fail.Store(true)

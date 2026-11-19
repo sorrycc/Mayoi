@@ -102,7 +102,9 @@ type Client struct {
 	in   io.WriteCloser
 	h    Handlers
 	caps struct {
-		Hover, Definition, Completion, Formatting bool
+		Hover, Definition, Completion, Formatting  bool
+		TypeDefinition, Implementation, References bool
+		Commands                                   []string
 		// Sync is the text document sync kind: 1 full, 2 incremental.
 		Sync int
 	}
@@ -193,6 +195,9 @@ func Start(ctx context.Context, opts Options) (*Client, error) {
 				"synchronization":    map[string]any{"didSave": true},
 				"hover":              map[string]any{"contentFormat": []string{"markdown", "plaintext"}},
 				"definition":         map[string]any{"linkSupport": false},
+				"typeDefinition":     map[string]any{"linkSupport": true},
+				"implementation":     map[string]any{"linkSupport": true},
+				"references":         map[string]any{},
 				"completion":         map[string]any{"completionItem": map[string]any{"snippetSupport": true}},
 				"formatting":         map[string]any{},
 				"publishDiagnostics": map[string]any{"relatedInformation": false},
@@ -214,8 +219,14 @@ func Start(ctx context.Context, opts Options) (*Client, error) {
 	}
 	var init struct {
 		Capabilities struct {
-			HoverProvider              json.RawMessage `json:"hoverProvider"`
-			DefinitionProvider         json.RawMessage `json:"definitionProvider"`
+			HoverProvider          json.RawMessage `json:"hoverProvider"`
+			DefinitionProvider     json.RawMessage `json:"definitionProvider"`
+			TypeDefinitionProvider json.RawMessage `json:"typeDefinitionProvider"`
+			ImplementationProvider json.RawMessage `json:"implementationProvider"`
+			ReferencesProvider     json.RawMessage `json:"referencesProvider"`
+			ExecuteCommandProvider struct {
+				Commands []string `json:"commands"`
+			} `json:"executeCommandProvider"`
 			CompletionProvider         json.RawMessage `json:"completionProvider"`
 			DocumentFormattingProvider json.RawMessage `json:"documentFormattingProvider"`
 			TextDocumentSync           json.RawMessage `json:"textDocumentSync"`
@@ -226,6 +237,10 @@ func Start(ctx context.Context, opts Options) (*Client, error) {
 	cp := init.Capabilities
 	c.caps.Hover, c.caps.Definition, c.caps.Completion, c.caps.Formatting =
 		on(cp.HoverProvider), on(cp.DefinitionProvider), on(cp.CompletionProvider), on(cp.DocumentFormattingProvider)
+	c.caps.TypeDefinition = on(cp.TypeDefinitionProvider)
+	c.caps.Implementation = on(cp.ImplementationProvider)
+	c.caps.References = on(cp.ReferencesProvider)
+	c.caps.Commands = cp.ExecuteCommandProvider.Commands
 	c.caps.Sync = 1
 	var kind int
 	if json.Unmarshal(cp.TextDocumentSync, &kind) != nil {
@@ -595,29 +610,7 @@ func markupText(raw json.RawMessage) string {
 
 // DefinitionAt is where what is at a place is defined.
 func (c *Client) DefinitionAt(ctx context.Context, uri string, pos Position) ([]Location, error) {
-	res, err := c.Call(ctx, "textDocument/definition", docPos(uri, pos))
-	if err != nil || len(res) == 0 || string(res) == "null" {
-		return nil, err
-	}
-	var one Location
-	if json.Unmarshal(res, &one) == nil && one.URI != "" {
-		return []Location{one}, nil
-	}
-	var many []struct {
-		Location
-		TargetURI   string `json:"targetUri"`
-		TargetRange Range  `json:"targetSelectionRange"`
-	}
-	json.Unmarshal(res, &many)
-	var out []Location
-	for _, l := range many {
-		if l.TargetURI != "" {
-			out = append(out, Location{URI: l.TargetURI, Range: l.TargetRange})
-		} else if l.URI != "" {
-			out = append(out, l.Location)
-		}
-	}
-	return out, nil
+	return c.NavigateAt(ctx, Definition, uri, pos)
 }
 
 // CompletionAt are the completions at a place.

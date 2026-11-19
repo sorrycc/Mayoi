@@ -5,6 +5,8 @@ needs a `## <version>` section here, or its build fails.
 
 ## Unreleased
 
+- The **Go** menu finds type definitions, source definitions, implementations and references.
+
 - Splitting a Live Preview note with tables, diagrams or formulas into two columns no longer crashes Mayoi.
 - Fold blocks of code: click the chevron beside a line number, shown as the pointer comes over the gutter.
 - JSON objects and arrays fold, as do Go, JavaScript and TypeScript blocks, Python by indent and Markdown sections.

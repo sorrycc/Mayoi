@@ -89,7 +89,8 @@ func parameterURIs(method string) uriFields {
 	case "initialize":
 		return uriFields{"rootUri": nil, "workspaceFolders": folderURIs}
 	case "textDocument/didOpen", "textDocument/didChange", "textDocument/didSave", "textDocument/didClose",
-		"textDocument/hover", "textDocument/definition", "textDocument/completion", "textDocument/formatting":
+		"textDocument/hover", "textDocument/definition", "textDocument/typeDefinition", "textDocument/implementation",
+		"textDocument/references", "textDocument/completion", "textDocument/formatting":
 		return documentURI
 	case "textDocument/publishDiagnostics":
 		return uriFields{"uri": nil, "diagnostics": {"*": {
@@ -199,7 +200,7 @@ func mapURIValues(value any, fields uriFields, mappings []PathMapping) (any, boo
 
 func mapResult(method string, data json.RawMessage, mappings []PathMapping, toServer bool) json.RawMessage {
 	switch method {
-	case "textDocument/definition":
+	case "textDocument/definition", "textDocument/typeDefinition", "textDocument/implementation", "textDocument/references":
 		return mapURIFields(data, locationURIs, mappings, toServer)
 	case "workspace/workspaceFolders":
 		return mapURIFields(data, folderURIs, mappings, toServer)

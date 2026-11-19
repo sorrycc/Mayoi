@@ -34,6 +34,8 @@ type pluginPicker struct {
 	results     []workspace.Match
 	shown       string
 	stale       bool
+	icon        *ui.SVG
+	list        ui.ListState
 	shook       time.Time
 	done        func(i int) // the item's index, -1 for none
 }
@@ -54,7 +56,7 @@ func (a *app) openPluginPicker(items []pickItem, placeholder string, done func(i
 			labels[i] += " " + it.Description
 		}
 	}
-	a.pluginPick = pluginPicker{open: true, stale: true, items: items, labels: labels, placeholder: placeholder, done: done}
+	a.pluginPick = pluginPicker{open: true, stale: true, items: items, labels: labels, placeholder: placeholder, icon: iconPlug, done: done}
 }
 
 func (a *app) closePluginPicker(chosen int) {
@@ -107,7 +109,7 @@ func (a *app) pluginPickerView(c *ui.Context) {
 			box.Role(ui.RoleDialog).Label(pk.placeholder)
 			box.Children(func() {
 				ui.Row(c).Padding(10, 14).Gap(10).AlignItems(ui.Center).BorderWidth(0, 0, 1, 0).BorderColor(p.border).Children(func() {
-					ui.Icon(c, iconPlug).FontSize(15).TextColor(p.muted)
+					ui.Icon(c, pk.icon).FontSize(15).TextColor(p.muted)
 					in := a.textKeys(ui.TextInputBase(c.Key("plugin-pick-input"), &pk.query)).Grow(1).FontSize(14).AutoFocus().
 						Placeholder(pk.placeholder).Label(pk.placeholder)
 					if in.Shortcut(0, ui.KeyDown) {
@@ -123,6 +125,13 @@ func (a *app) pluginPickerView(c *ui.Context) {
 				})
 				if len(pk.results) == 0 {
 					ui.Text(c, locales.PluginPickNoMatches()).FontSize(13).TextColor(p.muted).Padding(12, 16)
+				} else if len(pk.results) > 200 {
+					if pk.moved {
+						pk.list.ScrollIntoView(pk.sel)
+					}
+					ui.List(c.Key("plugin-pick-large-results"), &pk.list, len(pk.results), func(i int) {
+						a.pluginPickRow(c, i, pk.results[i])
+					}).Height(380).Padding(6)
 				} else {
 					ui.Scroll(c.Key("plugin-pick-results")).MaxHeight(380).Padding(6).Children(func() {
 						for i, m := range pk.results {

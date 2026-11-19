@@ -935,6 +935,8 @@ language servers, and they work on SSH folders with nothing installed on the hos
 - **Selection → Format Document** (⇧⌥F) formats with a plugin, and `formatOnSave` formats as you save.
 - A language server a plugin declares underlines problems, and answers **Go → Go to Definition** (F12),
   **Go → Show Hover** and **Selection → Complete Word** (⌃Space).
+- The **Go** menu also finds type definitions, source definitions, implementations and references when the
+  language server supports them. Choose an entry when a jump has several destinations or when browsing references.
 - **Show Problems** lists every problem plugins found; the status bar counts them.
 - **Selection → Insert Snippet…** inserts a snippet of a plugin's.
 - A `.ts` file in `~/.mayoi/scripts` makes each function it exports a command; **Plugins → Run Selection as Script**

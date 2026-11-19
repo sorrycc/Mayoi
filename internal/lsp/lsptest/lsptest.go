@@ -22,7 +22,7 @@ func Serve(in io.Reader, out io.Writer) {
 		data, _ := json.Marshal(m)
 		fmt.Fprintf(out, "Content-Length: %d\r\n\r\n%s", len(data), data)
 	}
-	var initialize, document json.RawMessage
+	var initialize, document, navigation json.RawMessage
 	texts := map[string]string{} // by URI
 	var late func()              // the answer held back
 	var options struct {
@@ -63,6 +63,8 @@ func Serve(in io.Reader, out io.Writer) {
 			reply(map[string]any{"capabilities": map[string]any{
 				"hoverProvider": true, "definitionProvider": true, "completionProvider": map[string]any{},
 				"documentFormattingProvider": true, "textDocumentSync": 1,
+				"typeDefinitionProvider": map[string]any{}, "implementationProvider": true, "referencesProvider": true,
+				"executeCommandProvider": map[string]any{"commands": []string{"fake.sourceDefinition"}},
 			}})
 		case "textDocument/didOpen", "textDocument/didChange":
 			document = append(json.RawMessage(nil), m.Params...)
@@ -98,7 +100,7 @@ func Serve(in io.Reader, out io.Writer) {
 				reply(map[string]any{"contents": map[string]any{"kind": "markdown", "value": "**hello**"}})
 			}
 		case "test/snapshot":
-			reply(map[string]any{"initialize": initialize, "document": document})
+			reply(map[string]any{"initialize": initialize, "document": document, "navigation": navigation})
 		case "test/noReply":
 			// A response timeout must not disconnect an otherwise healthy client.
 		case "textDocument/definition":
@@ -112,6 +114,13 @@ func Serve(in io.Reader, out io.Writer) {
 				break
 			}
 			reply(defs)
+		case "textDocument/typeDefinition":
+			navigation = m.Params
+			reply(json.RawMessage(`[{"targetUri":"file:///tmp/def.fake","targetRange":{"start":{"line":1,"character":0}},
+				"targetSelectionRange":{"start":{"line":3,"character":1},"end":{"line":3,"character":4}}}]`))
+		case "textDocument/implementation", "textDocument/references", "workspace/executeCommand":
+			navigation = m.Params
+			reply(json.RawMessage(`[{"uri":"file:///tmp/def.fake","range":{"start":{"line":3,"character":1},"end":{"line":3,"character":4}}}]`))
 		case "test/held":
 			reply(late != nil)
 		case "test/release":

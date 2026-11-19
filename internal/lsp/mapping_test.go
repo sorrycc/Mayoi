@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"os/exec"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -61,6 +62,49 @@ func TestMappedClientPreservesContent(t *testing.T) {
 	locations, err := c.DefinitionAt(ctx, "file:///work/A.fake", Position{})
 	if err != nil || len(locations) != 1 || locations[0].URI != "file:///work/def.fake" {
 		t.Fatalf("definition %+v: %v", locations, err)
+	}
+	pos := Position{Line: 1, Character: 4}
+	for _, kind := range []Navigation{TypeDefinition, Implementation, References} {
+		if !c.CanNavigate(kind) {
+			t.Fatalf("%s capability was not read", kind)
+		}
+		got, err := c.NavigateAt(ctx, kind, "file:///work/A.fake", pos)
+		if err != nil || !slices.Equal(got, locations) {
+			t.Fatalf("%s = %+v, %v, want %+v", kind, got, err, locations)
+		}
+	}
+	raw, err = c.Call(ctx, "test/snapshot", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var query struct {
+		Navigation json.RawMessage
+	}
+	if err = json.Unmarshal(raw, &query); err != nil {
+		t.Fatal(err)
+	}
+	want := json.RawMessage(`{"textDocument":{"uri":"file:///tmp/A.fake"},"position":{"line":1,"character":4},"context":{"includeDeclaration":true}}`)
+	if normalizedJSON(t, query.Navigation) != normalizedJSON(t, want) {
+		t.Fatalf("references request: %s", query.Navigation)
+	}
+	command := "fake.sourceDefinition"
+	if !c.SupportsCommand(command) || c.SupportsCommand("fake.other") || c.SupportsCommand("") {
+		t.Fatal("source definition command support was not read")
+	}
+	got, err := c.SourceDefinitionAt(ctx, command, "file:///work/A.fake", pos)
+	if err != nil || !slices.Equal(got, locations) {
+		t.Fatalf("source definition = %+v, %v, want %+v", got, err, locations)
+	}
+	raw, err = c.Call(ctx, "test/snapshot", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = json.Unmarshal(raw, &query); err != nil {
+		t.Fatal(err)
+	}
+	want = json.RawMessage(`{"command":"fake.sourceDefinition","arguments":["file:///tmp/A.fake",{"line":1,"character":4}]}`)
+	if normalizedJSON(t, query.Navigation) != normalizedJSON(t, want) {
+		t.Fatalf("source definition request: %s", query.Navigation)
 	}
 	// A timed-out response cancels just that request, and later requests work.
 	slow, stop := context.WithTimeout(ctx, 50*time.Millisecond)

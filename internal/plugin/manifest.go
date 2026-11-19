@@ -216,6 +216,8 @@ type ServerContrib struct {
 	Command   string          `json:"command"`
 	Args      []string        `json:"args,omitempty"`
 	Options   json.RawMessage `json:"initializationOptions,omitempty"`
+	// SourceDefinitionCommand takes a document URI and position and returns locations.
+	SourceDefinitionCommand string `json:"sourceDefinitionCommand,omitempty"`
 	// Resolve prepares a launch description, using workspace/settings JSON on
 	// stdin and returning command, args and LSP options as JSON on stdout.
 	Resolve *ServerResolver `json:"resolve,omitempty"`

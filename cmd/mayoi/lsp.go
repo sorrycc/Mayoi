@@ -541,6 +541,16 @@ func (a *app) hoverView(c *ui.Context) {
 	})
 }
 
+const sourceDefinition lsp.Navigation = "sourceDefinition"
+
+func (a *app) jumpCommand(kind lsp.Navigation) func() {
+	return func() {
+		if d := a.textEditor(); d != nil {
+			a.locationsAt(d, kind, false)
+		}
+	}
+}
+
 // goToDefinition goes to where what is at the caret is defined, as the
 // document's language server says.
 func (a *app) goToDefinition() {
@@ -549,10 +559,15 @@ func (a *app) goToDefinition() {
 	}
 }
 
-// definitionAt goes to where what is at the caret of d is defined, or
-// offers the places when there are several. A click, which a Cmd-click is,
-// says nothing of a language with no server.
 func (a *app) definitionAt(d *editor, click bool) {
+	a.locationsAt(d, lsp.Definition, click)
+}
+
+// locationsAt uses the same document, stale-answer checks and targets for
+// keyboard commands and Cmd-click. A click says nothing about missing servers.
+func (a *app) locationsAt(d *editor, kind lsp.Navigation, click bool) {
+	a.defAsked++
+	asked := a.defAsked
 	s := a.lspFor(d.document, false)
 	if s == nil {
 		if !click {
@@ -562,21 +577,32 @@ func (a *app) definitionAt(d *editor, click bool) {
 	}
 	pos, uri, root, version, sel := caretPosition(d), serverURI(d.path), a.root, d.buf.Version(), d.sel
 	lang, text := languageOf(d.document), d.buf.String()
-	a.defAsked++
-	asked := a.defAsked
+	command := s.contrib.SourceDefinitionCommand
 	// Gone on from, to another place, view or question, the answer is
 	// too late to take there.
 	current := func() bool {
-		return a.defAsked == asked && a.activeEditor() == d && d.buf.Version() == version && d.sel == sel
+		return a.defAsked == asked && a.root == root && a.activeEditor() == d && d.buf.Version() == version && d.sel == sel
 	}
 	bg.Go(func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		c := s.wait(5 * time.Second)
-		if c == nil || !c.Definition() {
+		if c == nil {
 			a.post(func() {
 				if current() {
 					a.lspFailed(s)
+				}
+			})
+			return
+		}
+		supported := c.CanNavigate(kind)
+		if kind == sourceDefinition {
+			supported = c.SupportsCommand(command)
+		}
+		if !supported {
+			a.post(func() {
+				if current() && !click {
+					a.tell(note{message: locales.LspNavigationUnsupported()})
 				}
 			})
 			return
@@ -585,7 +611,13 @@ func (a *app) definitionAt(d *editor, click bool) {
 		// it was told of a moment ago, nor before the documents open are
 		// told of, as a server that just started is.
 		c.Open(uri, lang, text)
-		locs, err := c.DefinitionAt(ctx, uri, lsp.Position(pos))
+		var locs []lsp.Location
+		var err error
+		if kind == sourceDefinition {
+			locs, err = c.SourceDefinitionAt(ctx, command, uri, lsp.Position(pos))
+		} else {
+			locs, err = c.NavigateAt(ctx, kind, uri, lsp.Position(pos))
+		}
 		a.post(func() {
 			if !current() {
 				return
@@ -595,47 +627,75 @@ func (a *app) definitionAt(d *editor, click bool) {
 				a.lspFailed(s)
 				return
 			}
-			if err != nil || len(locs) == 0 {
-				a.tell(note{message: locales.DefinitionNone()})
+			if err != nil {
+				s.plugin.Log("warn", fmt.Sprintf("%s: %v", kind, err))
+				a.tell(note{message: locales.LspNavigationFailed()})
+				return
+			}
+			if len(locs) == 0 {
+				message := locales.LspNavigationNone()
+				if kind == lsp.Definition {
+					message = locales.DefinitionNone()
+				}
+				a.tell(note{message: message})
 				return
 			}
 			type place struct {
 				path string
 				loc  lsp.Location
 			}
-			var places []place
+			type spot struct {
+				path string
+				pos  lsp.Position
+			}
+			places := make([]place, 0, len(locs))
+			seen := make(map[spot]bool, len(locs))
+			lines := make(map[spot]int)
 			for _, l := range locs {
 				path := serverPath(root, l.URI)
-				if path == "" || slices.ContainsFunc(places, func(p place) bool {
-					return p.path == path && p.loc.Range.Start == l.Range.Start
-				}) {
+				target := spot{path: path, pos: l.Range.Start}
+				if path == "" || seen[target] {
 					continue
 				}
+				seen[target] = true
+				lines[spot{path: path, pos: lsp.Position{Line: target.pos.Line}}]++
 				places = append(places, place{path, l})
 			}
-			switch len(places) {
-			case 0:
-				a.tell(note{message: locales.DefinitionElsewhere(locs[0].URI)})
-			case 1:
-				a.goToLocation(places[0].path, places[0].loc)
-			default:
-				items := make([]pickItem, len(places))
-				for i, p := range places {
-					label := filepath.Base(p.path) + ":" + strconv.Itoa(p.loc.Range.Start.Line+1)
-					// Places on one line are told apart by their column.
-					if slices.ContainsFunc(places, func(q place) bool {
-						return q.path == p.path && q.loc.Range.Start.Line == p.loc.Range.Start.Line && q.loc.Range.Start != p.loc.Range.Start
-					}) {
-						label += ":" + strconv.Itoa(p.loc.Range.Start.Character+1)
-					}
-					items[i] = pickItem{Label: label, Description: a.relPath(filepath.Dir(p.path)), Icon: "file"}
+			if len(places) == 0 {
+				message := locales.LspLocationElsewhere(locs[0].URI)
+				if kind == lsp.Definition {
+					message = locales.DefinitionElsewhere(locs[0].URI)
 				}
-				a.openPluginPicker(items, locales.DefinitionPick(), func(i int) {
-					if i >= 0 {
-						a.goToLocation(places[i].path, places[i].loc)
-					}
-				})
+				a.tell(note{message: message})
+				return
 			}
+			if len(places) == 1 && kind != lsp.References {
+				a.goToLocation(places[0].path, places[0].loc)
+				return
+			}
+			items := make([]pickItem, len(places))
+			for i, p := range places {
+				start := p.loc.Range.Start
+				label := filepath.Base(p.path) + ":" + strconv.Itoa(start.Line+1)
+				// Places on one line are told apart by their column.
+				if kind == lsp.References || lines[spot{path: p.path, pos: lsp.Position{Line: start.Line}}] > 1 {
+					label += ":" + strconv.Itoa(start.Character+1)
+				}
+				items[i] = pickItem{Label: label, Description: a.relPath(filepath.Dir(p.path)), Icon: "file"}
+			}
+			title := locales.LspChooseLocation()
+			switch kind {
+			case lsp.Definition:
+				title = locales.DefinitionPick()
+			case lsp.References:
+				title = locales.CmdGoReferences()
+			}
+			a.openPluginPicker(items, title, func(i int) {
+				if i >= 0 && current() {
+					a.goToLocation(places[i].path, places[i].loc)
+				}
+			})
+			a.pluginPick.icon = iconFileSearch
 		})
 	})
 }

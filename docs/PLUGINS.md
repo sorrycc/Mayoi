@@ -398,6 +398,11 @@ says it could not check. How to install the program is said only when it is miss
 Language Servers** lists the servers of the folder, how each is and where it runs, and restarts the one chosen, after
 the old one is gone; the documents open are told of again.
 
+Mayoi also asks for type definitions, implementations, and references when the server declares support for them.
+Set `sourceDefinitionCommand` to offer **Go → Go to Source Definition**. Mayoi sends the advertised command through
+`workspace/executeCommand` with arguments `[documentUri, position]` and expects an LSP location list or null.
+Mayoi applies path mappings to that command's URI and locations.
+
 For servers that need setup, use `resolve` instead of `command`:
 
 ```jsonc

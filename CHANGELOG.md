@@ -24,6 +24,10 @@ needs a `## <version>` section here, or its build fails.
 - Once you install a server Mayoi said was missing, opening a file of its language offers its plugin.
 - A plugin that fails to install from that offer says why and offers **Try Again**.
 - The installed plugin's server starts at once for the files already open.
+- **Plugins → Show Language Servers** lists this folder's servers, whether each runs, and where.
+- Choose a server there to restart it, even after Mayoi stopped retrying it on its own.
+- A server that can't start says why: its program isn't installed, it quit, or it didn't answer.
+- A server that fails to start or stops offers **Restart**; files already open reconnect to it.
 - Terminals no longer crash Mayoi on macOS while many files are open.
 - Selecting text in a file with invalid UTF-8 past its first 8 KB no longer crashes Mayoi.
 - **Settings → Terminal → Shell** picks the program new terminals run, as PowerShell 7 Preview or Git Bash.

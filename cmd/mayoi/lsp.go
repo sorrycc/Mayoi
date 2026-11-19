@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 	"unicode"
 
@@ -33,12 +34,35 @@ type lspServer struct {
 	plugin   *plugin.Plugin
 	contrib  plugin.ServerContrib
 	root     string
+	key      string // of lspServers
 	client   *lsp.Client
 	ready    chan struct{} // closed once started, or failed to
 	err      error
+	failure  lspFailure
+	command  string    // the program it ran, once resolved
 	failedAt time.Time // when it could not start
 	starts   int       // since its plugin was last loaded or turned on
+	// asked is whether a person asked for it to start, as a restart does.
+	asked bool
+	// ctx is cancelled to stop it starting; stopping is set as it is
+	// stopped on purpose, so its end is not told of.
+	ctx      context.Context
+	cancel   context.CancelFunc
+	stopping atomic.Bool
 }
+
+// lspFailure is why a language server could not start.
+type lspFailure int
+
+const (
+	lspFailOther   lspFailure = iota // as err says
+	lspFailMissing                   // its program is not on the folder's machine
+	lspFailQuit                      // its program ended before it answered
+	lspFailSilent                    // it did not answer in time
+)
+
+// lspStartTimeout is how long a server has to start and answer.
+var lspStartTimeout = 30 * time.Second
 
 // lspState is where a language server is in its life.
 type lspState int
@@ -73,6 +97,18 @@ var lspServers = struct {
 	sync.Mutex
 	m map[string]*lspServer // by folder and server id
 }{m: map[string]*lspServer{}}
+
+// serverKey is the key of the server of id in the folder root.
+func serverKey(root, id string) string { return root + "\x00" + id }
+
+// current reports whether s is still the server of its folder: one
+// restarted, forgotten or stopped as the app quits is not, and what it
+// would do then is left to the one after it.
+func (s *lspServer) current() bool {
+	lspServers.Lock()
+	defer lspServers.Unlock()
+	return lspServers.m[s.key] == s
+}
 
 // maxServerStarts is how many times a server is started, after it stops
 // or fails to start, until its plugin is reloaded or turned on again.
@@ -131,7 +167,7 @@ func (a *app) lspFor(d *document, opening bool) *lspServer {
 	if p == nil {
 		return nil
 	}
-	key := a.root + "\x00" + sc.ID
+	key := serverKey(a.root, sc.ID)
 	lspServers.Lock()
 	defer lspServers.Unlock()
 	s := lspServers.m[key]
@@ -149,26 +185,50 @@ func (a *app) lspFor(d *document, opening bool) *lspServer {
 	if s != nil {
 		starts = s.starts
 	}
-	s = &lspServer{plugin: p, contrib: *sc, root: a.root, ready: make(chan struct{}), starts: starts + 1}
+	s = newServer(p, *sc, a.root, starts+1)
 	lspServers.m[key] = s
-	go s.start(a)
+	go s.start(a, nil)
 	return s
 }
 
-// start starts the server on the folder's machine.
-func (s *lspServer) start(a *app) {
+// newServer is a server of root yet to start, for lspServers.
+func newServer(p *plugin.Plugin, sc plugin.ServerContrib, root string, starts int) *lspServer {
+	ctx, cancel := context.WithCancel(context.Background())
+	return &lspServer{plugin: p, contrib: sc, root: root, key: serverKey(root, sc.ID), ready: make(chan struct{}), starts: starts,
+		ctx: ctx, cancel: cancel}
+}
+
+// start starts the server on the folder's machine, once prev, the one
+// before it there, is gone.
+func (s *lspServer) start(a *app, prev *lspServer) {
 	defer func() {
 		// One that could not start is told of once, in the window that
-		// started it.
+		// started it, unless another took its place.
 		if s.client == nil {
 			s.failedAt = time.Now()
-			msg := locales.LspFailed(firstLine(s.err.Error()))
-			a.post(func() { a.fail("%s", msg) })
+			s.failure = s.classify()
+			if s.ctx.Err() == nil && s.current() {
+				msg := s.failMessage()
+				a.post(func() {
+					a.fails++
+					a.tell(note{message: msg, label: locales.RunningRestart(), action: func() { a.restartServer(s.key) }})
+				})
+			}
 		}
 		close(s.ready)
 	}()
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	if prev != nil {
+		prev.stop()
+		if plugins != nil {
+			plugins.setDiagnosticList(s.owner(), "", "", true, nil)
+		}
+	}
+	ctx, cancel := context.WithTimeout(s.ctx, lspStartTimeout)
 	defer cancel()
+	if ctx.Err() != nil {
+		s.err = ctx.Err()
+		return
+	}
 	launch, err := s.resolve(ctx)
 	if err != nil {
 		s.err = err
@@ -183,7 +243,8 @@ func (s *lspServer) start(a *app) {
 		s.err = err
 		return
 	}
-	owner := "lsp:" + s.contrib.ID
+	s.command = launch.Command
+	owner := s.owner()
 	root := s.root
 	rootURI := serverURI(root)
 	if len(launch.WorkspaceFolders) > 0 {
@@ -194,7 +255,7 @@ func (s *lspServer) start(a *app) {
 		Handlers: lsp.Handlers{
 			Diagnostics: func(uri string, items []lsp.Diagnostic) {
 				path := serverPath(root, uri)
-				if path == "" || plugins == nil {
+				if path == "" || plugins == nil || !s.current() {
 					return
 				}
 				list := make([]diagnostic, len(items))
@@ -214,37 +275,85 @@ func (s *lspServer) start(a *app) {
 	if err != nil {
 		pr.Close()
 		pw.Close()
-		s.err = fmt.Errorf("%s: %v", launch.Command, err)
+		s.err = fmt.Errorf("%s: %w", launch.Command, err)
 		s.plugin.Log("error", "could not start "+s.contrib.ID+": "+err.Error())
 		return
 	}
 	s.client = c
 	s.plugin.Log("info", "started "+s.contrib.ID)
-	// The documents open of its languages.
+	// The documents open of its languages, in each window of the folder.
 	a.post(func() {
-		for _, d := range a.docs {
-			if slices.Contains(s.contrib.Languages, languageOf(d)) {
-				c.Open(serverURI(d.path), languageOf(d), d.buf.String())
+		if !s.current() {
+			return
+		}
+		for _, w := range s.windows(a) {
+			for _, d := range w.docs {
+				if slices.Contains(s.contrib.Languages, languageOf(d)) {
+					c.Open(serverURI(d.path), languageOf(d), d.buf.String())
+				}
 			}
+		}
+		if s.asked {
+			a.tell(note{message: locales.LspRestarted(s.contrib.ID)})
 		}
 	})
 	go func() {
 		<-c.Done()
 		s.plugin.Log("warn", s.contrib.ID+" stopped")
+		// One stopped on purpose, or replaced, leaves the diagnostics to
+		// what comes after it.
+		if s.stopping.Load() || !s.current() {
+			return
+		}
 		if plugins != nil {
 			plugins.setDiagnosticList(owner, "", "", true, nil)
 		}
+		a.post(func() {
+			a.tell(note{message: locales.LspStoppedOf(s.contrib.ID), label: locales.RunningRestart(),
+				action: func() { a.restartServer(s.key) }})
+		})
 	}()
 }
 
+// owner is whose the server's diagnostics are, of its folder's.
+func (s *lspServer) owner() string { return "lsp:" + s.contrib.ID + "\x00" + s.root }
+
+// windows are the windows of the server's folder, a among them when it
+// still shows it.
+func (s *lspServer) windows(a *app) []*app {
+	var ws []*app
+	if a.root == s.root {
+		ws = append(ws, a)
+	}
+	if plugins != nil {
+		for _, w := range plugins.apps() {
+			if w != a && w.root == s.root {
+				ws = append(ws, w)
+			}
+		}
+	}
+	return ws
+}
+
+// stop stops the server, starting or running, and returns once its
+// process is gone.
+func (s *lspServer) stop() {
+	s.stopping.Store(true)
+	s.cancel()
+	<-s.ready
+	if s.client != nil {
+		s.client.Close()
+	}
+}
+
 // forgetFailedServers forgets the servers of the plugins of names, or of
-// every plugin for none, that could not start, so that a document of their
-// languages opening starts them afresh.
+// every plugin for none, that could not start or stopped, so that a
+// document of their languages opening starts them afresh.
 func forgetFailedServers(names ...string) {
 	lspServers.Lock()
 	defer lspServers.Unlock()
 	for key, s := range lspServers.m {
-		if s.state() == lspFailed && (len(names) == 0 || slices.Contains(names, s.plugin.Name)) {
+		if st := s.state(); (st == lspFailed || st == lspStopped) && (len(names) == 0 || slices.Contains(names, s.plugin.Name)) {
 			delete(lspServers.m, key)
 		}
 	}
@@ -328,13 +437,11 @@ func stopServers() {
 	lspServers.Unlock()
 	var wg sync.WaitGroup
 	for _, s := range servers {
-		if c := s.live(); c != nil {
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				c.Close()
-			}()
-		}
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			s.stop()
+		}()
 	}
 	wg.Wait()
 }
@@ -516,8 +623,12 @@ func (a *app) goToLocation(path string, loc lsp.Location) {
 // lspFailed tells why a language server did not answer: one that could
 // not start was told of as it failed.
 func (a *app) lspFailed(s *lspServer) {
-	if s != nil && (s.state() == lspFailed || s.state() == lspStopped) {
-		a.tell(note{message: locales.LspDown()})
+	switch {
+	case s != nil && s.state() == lspFailed:
+		a.tell(note{message: s.failMessage(), label: locales.RunningRestart(), action: func() { a.restartServer(s.key) }})
+		return
+	case s != nil && s.state() == lspStopped:
+		a.tell(note{message: locales.LspDown(), label: locales.RunningRestart(), action: func() { a.restartServer(s.key) }})
 		return
 	}
 	a.tell(note{message: locales.LspNotReady()})

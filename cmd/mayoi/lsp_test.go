@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -12,10 +13,17 @@ import (
 )
 
 // The test binary is a fake language server when asked, for the plugins'
-// language servers.
+// language servers: one that answers, one that quits as it starts, or one
+// that never answers.
 func init() {
-	if os.Getenv("MAYOI_FAKE_LSP") == "1" {
+	switch os.Getenv("MAYOI_FAKE_LSP") {
+	case "1":
 		lsptest.Serve(os.Stdin, os.Stdout)
+		os.Exit(0)
+	case "crash":
+		os.Exit(3)
+	case "hang":
+		io.Copy(io.Discard, os.Stdin)
 		os.Exit(0)
 	}
 }

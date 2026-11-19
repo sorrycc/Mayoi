@@ -469,6 +469,7 @@ func (a *app) pluginCommands(t locales.Messages, own []command) []command {
 		command{"plugins.reload", t.CmdPluginsReload(), "", func() { plugins.reloadAll() }},
 		command{"plugins.log", t.CmdPluginsLog(), "", a.showPluginLog},
 		command{"plugins.running", t.CmdPluginsRunning(), "", a.showRunningPlugins},
+		command{"plugins.languageServers", t.CmdLanguageServers(), "", a.showLanguageServers},
 		command{"plugins.openFolder", t.CmdPluginsOpenFolder(), "", a.openPluginsFolder},
 		command{"plugins.openScripts", t.CmdPluginsOpenScripts(), "", a.openScriptsFolder},
 		command{"plugins.runSelection", t.CmdPluginsRunSelection(), "", a.runSelectionScript},
@@ -590,7 +591,7 @@ func (a *app) pluginMenu(item func(id string) *mygo.MenuItem) *mygo.MenuItem {
 	if len(items) > 0 {
 		items = append(items, mygo.Separator())
 	}
-	items = append(items, item("plugins.manage"), item("plugins.reload"), item("plugins.log"), item("plugins.running"), item("plugins.problems"), mygo.Separator(),
+	items = append(items, item("plugins.manage"), item("plugins.reload"), item("plugins.log"), item("plugins.running"), item("plugins.languageServers"), item("plugins.problems"), mygo.Separator(),
 		item("plugins.openFolder"), item("plugins.openScripts"), item("plugins.runSelection"))
 	return &mygo.MenuItem{Label: locales.MenuPlugins(), Submenu: items}
 }

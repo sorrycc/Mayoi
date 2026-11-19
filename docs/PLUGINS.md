@@ -390,6 +390,11 @@ folder's machine, so it runs on the SSH host of a remote folder. Mayoi shows the
 A definition in several places offers them in a list. **Go → Back** (⌃-, Alt+← on Windows and Linux) and
 **Go → Forward** (⌃⇧-, Alt+→), or the mouse's back and forward buttons, go between the places jumps left.
 
+A server that stops, or cannot start, is started again a few times as documents of its languages open. One that cannot
+start says why (its program is not installed, it quit, or it did not answer) and offers **Restart**. **Plugins → Show
+Language Servers** lists the servers of the folder, how each is and where it runs, and restarts the one chosen, after
+the old one is gone; the documents open are told of again.
+
 For servers that need setup, use `resolve` instead of `command`:
 
 ```jsonc

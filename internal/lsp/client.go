@@ -169,7 +169,7 @@ func Start(ctx context.Context, opts Options) (*Client, error) {
 		err := opts.Cmd.Wait()
 		c.mu.Lock()
 		if c.err == nil {
-			c.err = fmt.Errorf("the server stopped: %v", err)
+			c.err = &StoppedError{err}
 		}
 		for id, ch := range c.waiting {
 			ch <- response{nil, c.err}
@@ -204,6 +204,12 @@ func Start(ctx context.Context, opts Options) (*Client, error) {
 	res, err := c.Call(ctx, "initialize", params)
 	if err != nil {
 		c.Close()
+		// One that quit says how, rather than that its pipe broke.
+		c.mu.Lock()
+		if ctx.Err() == nil && c.err != nil {
+			err = c.err
+		}
+		c.mu.Unlock()
 		return nil, err
 	}
 	var init struct {
@@ -244,7 +250,15 @@ func (c *Client) Formatting() bool { return c.caps.Formatting }
 // Done is closed once the server stopped.
 func (c *Client) Done() <-chan struct{} { return c.done }
 
-// Close asks the server to shut down, and stops it after a moment.
+// StoppedError is what a client whose server stopped answers with: Err is
+// how its command ended, an *exec.ExitError when it exited.
+type StoppedError struct{ Err error }
+
+func (e *StoppedError) Error() string { return fmt.Sprintf("the server stopped: %v", e.Err) }
+func (e *StoppedError) Unwrap() error { return e.Err }
+
+// Close asks the server to shut down, and stops it after a moment; it
+// returns once its process is gone.
 func (c *Client) Close() {
 	select {
 	case <-c.done:
@@ -263,6 +277,7 @@ func (c *Client) Close() {
 		if c.cmd.Process != nil {
 			c.cmd.Process.Kill()
 		}
+		<-c.done
 	}
 }
 

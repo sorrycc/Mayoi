@@ -17928,6 +17928,212 @@ func (msgs Messages) LspInstallFailed(name string, err string) string {
 	return Catalog.Format(msgs.locale, "lspInstallFailed", map[string]any{"name": name, "err": err})
 }
 
+// CmdLanguageServers says "Show Language Servers"
+// in the language the app shows.
+func CmdLanguageServers() string { return In(i18n.Locale()).CmdLanguageServers() }
+
+// CmdLanguageServers says "Show Language Servers"
+// in the language of msgs.
+func (msgs Messages) CmdLanguageServers() string {
+	return Catalog.Format(msgs.locale, "cmdLanguageServers", nil)
+}
+
+// LspCouldNotStart says "Couldn't start {server}: {reason}"
+// in the language the app shows.
+func LspCouldNotStart(server string, reason string) string {
+	return In(i18n.Locale()).LspCouldNotStart(server, reason)
+}
+
+// LspCouldNotStart says "Couldn't start {server}: {reason}"
+// in the language of msgs.
+func (msgs Messages) LspCouldNotStart(server string, reason string) string {
+	return Catalog.Format(msgs.locale, "lspCouldNotStart", map[string]any{"server": server, "reason": reason})
+}
+
+// LspCouldNotStartInstall says "Couldn't start {server}: {reason}. Install it with {command}"
+// in the language the app shows.
+func LspCouldNotStartInstall(server string, reason string, command string) string {
+	return In(i18n.Locale()).LspCouldNotStartInstall(server, reason, command)
+}
+
+// LspCouldNotStartInstall says "Couldn't start {server}: {reason}. Install it with {command}"
+// in the language of msgs.
+func (msgs Messages) LspCouldNotStartInstall(server string, reason string, command string) string {
+	return Catalog.Format(msgs.locale, "lspCouldNotStartInstall", map[string]any{"server": server, "reason": reason, "command": command})
+}
+
+// LspNotInstalled says "{command} isn't installed"
+// in the language the app shows.
+func LspNotInstalled(command string) string { return In(i18n.Locale()).LspNotInstalled(command) }
+
+// LspNotInstalled says "{command} isn't installed"
+// in the language of msgs.
+func (msgs Messages) LspNotInstalled(command string) string {
+	return Catalog.Format(msgs.locale, "lspNotInstalled", map[string]any{"command": command})
+}
+
+// LspNotInstalledOn says "{command} isn't installed on {host}"
+// in the language the app shows.
+func LspNotInstalledOn(command string, host string) string {
+	return In(i18n.Locale()).LspNotInstalledOn(command, host)
+}
+
+// LspNotInstalledOn says "{command} isn't installed on {host}"
+// in the language of msgs.
+func (msgs Messages) LspNotInstalledOn(command string, host string) string {
+	return Catalog.Format(msgs.locale, "lspNotInstalledOn", map[string]any{"command": command, "host": host})
+}
+
+// LspQuit says "it quit as it started ({err})"
+// in the language the app shows.
+func LspQuit(err string) string { return In(i18n.Locale()).LspQuit(err) }
+
+// LspQuit says "it quit as it started ({err})"
+// in the language of msgs.
+func (msgs Messages) LspQuit(err string) string {
+	return Catalog.Format(msgs.locale, "lspQuit", map[string]any{"err": err})
+}
+
+// LspNoAnswer says "it didn't answer in time"
+// in the language the app shows.
+func LspNoAnswer() string { return In(i18n.Locale()).LspNoAnswer() }
+
+// LspNoAnswer says "it didn't answer in time"
+// in the language of msgs.
+func (msgs Messages) LspNoAnswer() string {
+	return Catalog.Format(msgs.locale, "lspNoAnswer", nil)
+}
+
+// LspStoppedOf says "{server} stopped"
+// in the language the app shows.
+func LspStoppedOf(server string) string { return In(i18n.Locale()).LspStoppedOf(server) }
+
+// LspStoppedOf says "{server} stopped"
+// in the language of msgs.
+func (msgs Messages) LspStoppedOf(server string) string {
+	return Catalog.Format(msgs.locale, "lspStoppedOf", map[string]any{"server": server})
+}
+
+// LspRestarting says "Restarting {server}…"
+// in the language the app shows.
+func LspRestarting(server string) string { return In(i18n.Locale()).LspRestarting(server) }
+
+// LspRestarting says "Restarting {server}…"
+// in the language of msgs.
+func (msgs Messages) LspRestarting(server string) string {
+	return Catalog.Format(msgs.locale, "lspRestarting", map[string]any{"server": server})
+}
+
+// LspRestarted says "{server} is running"
+// in the language the app shows.
+func LspRestarted(server string) string { return In(i18n.Locale()).LspRestarted(server) }
+
+// LspRestarted says "{server} is running"
+// in the language of msgs.
+func (msgs Messages) LspRestarted(server string) string {
+	return Catalog.Format(msgs.locale, "lspRestarted", map[string]any{"server": server})
+}
+
+// LspGone says "No plugin that's on has {server} now"
+// in the language the app shows.
+func LspGone(server string) string { return In(i18n.Locale()).LspGone(server) }
+
+// LspGone says "No plugin that's on has {server} now"
+// in the language of msgs.
+func (msgs Messages) LspGone(server string) string {
+	return Catalog.Format(msgs.locale, "lspGone", map[string]any{"server": server})
+}
+
+// LspNoneHere says "No language server for this folder or file"
+// in the language the app shows.
+func LspNoneHere() string { return In(i18n.Locale()).LspNoneHere() }
+
+// LspNoneHere says "No language server for this folder or file"
+// in the language of msgs.
+func (msgs Messages) LspNoneHere() string {
+	return Catalog.Format(msgs.locale, "lspNoneHere", nil)
+}
+
+// LspPickRestart says "Choose a language server to restart"
+// in the language the app shows.
+func LspPickRestart() string { return In(i18n.Locale()).LspPickRestart() }
+
+// LspPickRestart says "Choose a language server to restart"
+// in the language of msgs.
+func (msgs Messages) LspPickRestart() string {
+	return Catalog.Format(msgs.locale, "lspPickRestart", nil)
+}
+
+// LspStateStarting says "Starting…"
+// in the language the app shows.
+func LspStateStarting() string { return In(i18n.Locale()).LspStateStarting() }
+
+// LspStateStarting says "Starting…"
+// in the language of msgs.
+func (msgs Messages) LspStateStarting() string {
+	return Catalog.Format(msgs.locale, "lspStateStarting", nil)
+}
+
+// LspStateRunning says "Running"
+// in the language the app shows.
+func LspStateRunning() string { return In(i18n.Locale()).LspStateRunning() }
+
+// LspStateRunning says "Running"
+// in the language of msgs.
+func (msgs Messages) LspStateRunning() string {
+	return Catalog.Format(msgs.locale, "lspStateRunning", nil)
+}
+
+// LspStateFailed says "Couldn't start: {reason}"
+// in the language the app shows.
+func LspStateFailed(reason string) string { return In(i18n.Locale()).LspStateFailed(reason) }
+
+// LspStateFailed says "Couldn't start: {reason}"
+// in the language of msgs.
+func (msgs Messages) LspStateFailed(reason string) string {
+	return Catalog.Format(msgs.locale, "lspStateFailed", map[string]any{"reason": reason})
+}
+
+// LspStateGaveUp says "Couldn't start, not retrying on its own: {reason}"
+// in the language the app shows.
+func LspStateGaveUp(reason string) string { return In(i18n.Locale()).LspStateGaveUp(reason) }
+
+// LspStateGaveUp says "Couldn't start, not retrying on its own: {reason}"
+// in the language of msgs.
+func (msgs Messages) LspStateGaveUp(reason string) string {
+	return Catalog.Format(msgs.locale, "lspStateGaveUp", map[string]any{"reason": reason})
+}
+
+// LspStateStopped says "Stopped"
+// in the language the app shows.
+func LspStateStopped() string { return In(i18n.Locale()).LspStateStopped() }
+
+// LspStateStopped says "Stopped"
+// in the language of msgs.
+func (msgs Messages) LspStateStopped() string {
+	return Catalog.Format(msgs.locale, "lspStateStopped", nil)
+}
+
+// LspStateStoppedGaveUp says "Stopped, not restarting on its own"
+// in the language the app shows.
+func LspStateStoppedGaveUp() string { return In(i18n.Locale()).LspStateStoppedGaveUp() }
+
+// LspStateStoppedGaveUp says "Stopped, not restarting on its own"
+// in the language of msgs.
+func (msgs Messages) LspStateStoppedGaveUp() string {
+	return Catalog.Format(msgs.locale, "lspStateStoppedGaveUp", nil)
+}
+
+// LspStateNotStarted says "Not started"
+// in the language the app shows.
+func LspStateNotStarted() string { return In(i18n.Locale()).LspStateNotStarted() }
+
+// LspStateNotStarted says "Not started"
+// in the language of msgs.
+func (msgs Messages) LspStateNotStarted() string {
+	return Catalog.Format(msgs.locale, "lspStateNotStarted", nil)
+}
+
 // CompletionNone says "No completions here"
 // in the language the app shows.
 func CompletionNone() string { return In(i18n.Locale()).CompletionNone() }

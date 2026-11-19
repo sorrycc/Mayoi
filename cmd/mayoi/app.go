@@ -840,10 +840,11 @@ func (a *app) reloadDoc(d *document) {
 	if err != nil {
 		return
 	}
-	data, enc, err := decodeFile(data)
+	data, enc, long, err := decodeDocument(d.path, data)
 	if err != nil {
 		return
 	}
+	d.longLine = long
 	d.takeText(data, enc)
 }
 

@@ -68,6 +68,10 @@ type document struct {
 	crlf      bool // saved with CRLF line endings
 	// encoding is the one the file is written in, nil for UTF-8.
 	encoding *textEncoding
+	// longLine is the first line, from 1, of the text longer than
+	// maxLineBytes, 0 for none. Only a file of JSON Lines has one: its
+	// table shows it, and in place of its source the editor says why not.
+	longLine int
 	diskCRLF bool     // the file on disk has CRLF line endings
 	trimmed  trimSeen // the text last found without trailing whitespace
 	hl       *highlight.Highlighter
@@ -408,17 +412,23 @@ func isBinary(data []byte) bool {
 	return !utf8.Valid(head)
 }
 
-// hasLongLine reports whether a line of data is longer than maxLineBytes.
-func hasLongLine(data []byte) bool {
+// longLineOf returns the first line of data, from 1, longer than
+// maxLineBytes, 0 for none.
+func longLineOf(data []byte) int {
+	line := 1
 	for len(data) > maxLineBytes {
 		i := bytes.IndexByte(data[:maxLineBytes+1], '\n')
 		if i < 0 {
-			return true
+			return line
 		}
+		line++
 		data = data[i+1:]
 	}
-	return false
+	return 0
 }
+
+// hasLongLine reports whether a line of data is longer than maxLineBytes.
+func hasLongLine(data []byte) bool { return longLineOf(data) > 0 }
 
 // save writes the document to its path, beside it first and renamed, so
 // that a failure keeps the old file.
@@ -507,7 +517,7 @@ func columns(s string) int {
 // areaShown reports whether the build before this one made the editor's
 // text area in col: its state lives on as this build makes it there again.
 func (d *editor) areaShown(a *app, col *column) bool {
-	return d.areaCol == col && d.areaBuild == a.builds-1
+	return d.areaCol == col && d.areaBuild == a.builds-1 && d.longLine == 0
 }
 
 // editedAt returns the line of the caret an edit asked for, if one did.

@@ -340,8 +340,9 @@ func (a *app) remoteLoaded(d *document, path string, info fs.FileInfo, data []by
 	}
 	defer d.readDone()
 	var enc *textEncoding
+	long := 0
 	if err == nil {
-		data, enc, err = decodeFile(data)
+		data, enc, long, err = decodeDocument(path, data)
 	}
 	if err != nil {
 		d.sync, d.loadErr = syncLoadFailed, err
@@ -368,7 +369,7 @@ func (a *app) remoteLoaded(d *document, path string, info fs.FileInfo, data []by
 		a.dropDocTabs(d)
 		return
 	}
-	d.sync, d.loadErr = syncIdle, nil
+	d.sync, d.loadErr, d.longLine = syncIdle, nil, long
 	crlf := bytes.Contains(data, []byte("\r\n"))
 	if crlf {
 		data = bytes.ReplaceAll(data, []byte("\r\n"), []byte("\n"))
@@ -434,7 +435,7 @@ func (a *app) reloadRemote(d *document) {
 		if err != nil {
 			return
 		}
-		data, enc, err := decodeFile(data)
+		data, enc, long, err := decodeDocument(path, data)
 		if err != nil {
 			return
 		}
@@ -443,6 +444,7 @@ func (a *app) reloadRemote(d *document) {
 			if !slices.Contains(a.docs, d) || d.path != path || d.sync != syncIdle && d.sync != syncConflict || d.dirty() || d.stamp != old {
 				return
 			}
+			d.longLine = long
 			d.takeText(data, enc)
 			d.stamp = stampOf(info)
 			// The file's text, unchanged here, settles a conflict.
@@ -867,7 +869,7 @@ func (a *app) revertRemote(d *document) {
 				a.fail("%s", locales.RemoteCouldNotRead(d.name(), err.Error()))
 				return
 			}
-			data, enc, err := decodeFile(data)
+			data, enc, long, err := decodeDocument(path, data)
 			if errors.Is(err, errBinary) {
 				a.fail("%s", locales.FailBinaryNow(d.name()))
 				return
@@ -876,6 +878,7 @@ func (a *app) revertRemote(d *document) {
 				a.fail("%s", locales.FailLongLine(d.name()))
 				return
 			}
+			d.longLine = long
 			d.takeText(data, enc)
 			d.stamp = stampOf(info)
 		})

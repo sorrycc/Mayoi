@@ -348,6 +348,8 @@
   "jsonlRemoveFilter": "絞り込みを外す",
   "jsonlClearFilters": "絞り込みを解除",
   "jsonlNoMatchFilters": "絞り込みに合う行はありません",
+  "jsonlLongSource": "{name} の {line, plural, other {#}} 行目はソースとして表示するには長すぎます",
+  "jsonlShowTable": "テーブルを表示",
   "cmdViewJsonlOpenTable": "テーブル",
   "cmdViewJsonlOpenSource": "ソース",
   "menuOpenJsonlAs": "JSON Lines の開き方",

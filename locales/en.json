@@ -614,6 +614,8 @@
   "jsonlRemoveFilter": "Remove Filter",
   "jsonlClearFilters": "Clear Filters",
   "jsonlNoMatchFilters": "No rows match the filters",
+  "jsonlLongSource": "Line {line, plural, one {#} other {#}} of {name} is too long to show as source",
+  "jsonlShowTable": "Show Table",
   "cmdViewJsonlOpenTable": "Table",
   "cmdViewJsonlOpenSource": "Source",
   "menuOpenJsonlAs": "Open JSON Lines As",

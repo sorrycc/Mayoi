@@ -3908,6 +3908,28 @@ func (msgs Messages) JsonlNoMatchFilters() string {
 	return Catalog.Format(msgs.locale, "jsonlNoMatchFilters", nil)
 }
 
+// JsonlLongSource says "Line {line, plural, one {#} other {#}} of {name} is too long to show as source"
+// in the language the app shows.
+func JsonlLongSource(line int, name string) string {
+	return In(i18n.Locale()).JsonlLongSource(line, name)
+}
+
+// JsonlLongSource says "Line {line, plural, one {#} other {#}} of {name} is too long to show as source"
+// in the language of msgs.
+func (msgs Messages) JsonlLongSource(line int, name string) string {
+	return Catalog.Format(msgs.locale, "jsonlLongSource", map[string]any{"line": line, "name": name})
+}
+
+// JsonlShowTable says "Show Table"
+// in the language the app shows.
+func JsonlShowTable() string { return In(i18n.Locale()).JsonlShowTable() }
+
+// JsonlShowTable says "Show Table"
+// in the language of msgs.
+func (msgs Messages) JsonlShowTable() string {
+	return Catalog.Format(msgs.locale, "jsonlShowTable", nil)
+}
+
 // CmdViewJsonlOpenTable says "Table"
 // in the language the app shows.
 func CmdViewJsonlOpenTable() string { return In(i18n.Locale()).CmdViewJsonlOpenTable() }

@@ -38,6 +38,7 @@ needs a `## <version>` section here, or its build fails.
 - Right-click a JSON Lines cell and choose **Filter to This Value** or **Hide Rows with This Value**.
 - Value filters show as chips beside **Filter rows**; click a chip's `×` to remove it, or press `Esc` to clear all.
 - When no row matches, the table offers **Clear Filters** to show every row again.
+- JSON Lines files with records over 64 KB open as their table again; their source names the long line.
 
 ## 0.22.4
 

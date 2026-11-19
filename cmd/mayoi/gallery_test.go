@@ -89,6 +89,11 @@ var galleryStates = []struct {
 		j.addWhere(j.column(pathID([]jsonlStep{{key: "name"}})), `"bob"`, true)
 		j.addWhere(j.column(pathID([]jsonlStep{{key: "age"}})), `45`, true)
 	}},
+	{"jsonl-long-source", func(hs *harness) {
+		hs.a.settings.JSONLMode = "source"
+		os.WriteFile(hs.path("long.jsonl"), []byte(jsonlLongText(20, 12)), 0o644)
+		hs.a.openFile(hs.path("long.jsonl"), true)
+	}},
 	{"jsonl-empty", func(hs *harness) {
 		os.WriteFile(hs.path("empty.jsonl"), []byte("\n"), 0o644)
 		hs.a.openFile(hs.path("empty.jsonl"), true)

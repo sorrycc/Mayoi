@@ -104,6 +104,20 @@ func decodeFileWith(data []byte, legacy *textEncoding) ([]byte, *textEncoding, e
 	return text, enc, nil
 }
 
+// decodeDocument is decodeFile for the file at path, which a document
+// shows: a file of JSON Lines may have lines too long for the editor, as
+// its table shows them: long is the first, from 1, 0 for none.
+func decodeDocument(path string, data []byte) (text []byte, enc *textEncoding, long int, err error) {
+	text, enc, ok := decodeText(data, systemText())
+	if !ok {
+		return nil, nil, 0, errBinary
+	}
+	if long = longLineOf(text); long > 0 && !isJSONLPath(path) {
+		return nil, nil, 0, errLongLine
+	}
+	return text, enc, long, nil
+}
+
 func decodeText(data []byte, legacy *textEncoding) ([]byte, *textEncoding, bool) {
 	switch {
 	case bytes.HasPrefix(data, utf8BOMText.bom):

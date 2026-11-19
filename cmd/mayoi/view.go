@@ -658,6 +658,9 @@ func (a *app) columnView(c *ui.Context, col *column) {
 					if col == a.findCol && v.markdown != nil {
 						a.previewFindView(c, v)
 					}
+				case shown.ed.longLine > 0:
+					a.hideEditor(shown.ed)
+					a.longLineView(c, shown.ed)
 				default:
 					if a.editorReviewView(c, shown.ed) {
 						break

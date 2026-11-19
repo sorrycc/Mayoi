@@ -3,10 +3,15 @@ package main
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/egoist/mygo/ui"
+
+	"mayoi/internal/settings"
+	"mayoi/locales"
 )
 
 const testJSONL = `{"id":1,"name":"ann","age":31,"user":{"plan":"pro"}}
@@ -362,5 +367,118 @@ func TestJSONLFiltersByValue(t *testing.T) {
 	hs.until("every row", func() bool { return j.shown.where == "" && !j.reading })
 	if j.count() != 4 {
 		t.Errorf("%d rows after clearing", j.count())
+	}
+}
+
+// jsonlLongRecord is the size of the long record of jsonlLongText, as long
+// as one a transcript was found to hold.
+const jsonlLongRecord = 1_351_246
+
+// jsonlLongText is n rows of JSON Lines, the row at line at, from 1, of
+// at least jsonlLongRecord bytes and the others short.
+func jsonlLongText(n, at int) string {
+	var b strings.Builder
+	for i := range n {
+		if i+1 == at {
+			fmt.Fprintf(&b, `{"id":%d,"kind":"long","blob":"%s"}`+"\n", i, strings.Repeat("ab", jsonlLongRecord/2))
+			continue
+		}
+		fmt.Fprintf(&b, `{"id":%d,"kind":"short","text":"row %d"}`+"\n", i, i)
+	}
+	return b.String()
+}
+
+// A file of JSON Lines with a record longer than the editor shows opens as
+// its table, the record a row of it; its source says which line is too
+// long, and Show Table goes back. Other files still refuse such a line.
+func TestJSONLLongRecordOpens(t *testing.T) {
+	hs := newHarness(t, true)
+	a, tt := hs.a, hs.tt
+	text := jsonlLongText(2000, 1122)
+	d := openJSONL(t, hs, "long.jsonl", text)
+	j := d.preview.jsonl
+	if j.count() != 2000 || d.longLine != 1122 || d.buf.Len() != len(text) {
+		t.Fatalf("%d rows, long line %d, %d of %d bytes", j.count(), d.longLine, d.buf.Len(), len(text))
+	}
+	j.row = 1121
+	j.chosen.Clear()
+	j.chosen.Add(1121)
+	j.list.ScrollTo(1121, ui.Start)
+	hs.settle()
+	if !tt.HasText("Line 1,122") || len(j.prettyText) > jsonlPrettyMax+64 {
+		t.Fatalf("the long row's details: %d bytes, texts %q", len(j.prettyText), tt.Texts())
+	}
+	// Moving through the rows past it stays quick.
+	start := time.Now()
+	for i := range 20 {
+		key := ui.KeyDown
+		if i%2 == 1 {
+			key = ui.KeyUp
+		}
+		tt.Key(0, key)
+		tt.Frame()
+	}
+	if per := time.Since(start) / 20; per > 100*time.Millisecond {
+		t.Errorf("%v a frame about the long row", per)
+	}
+
+	a.run("view.togglePreview")
+	hs.settle()
+	msg := locales.JsonlLongSource(1122, "long.jsonl")
+	if d.preview != nil || !tt.HasText(msg) || d.areaCol != nil {
+		t.Fatalf("the source: preview %v, laid out %v, texts %q", d.preview != nil, d.areaCol != nil, tt.Texts())
+	}
+	if err := tt.Click("Show Table"); err != nil {
+		t.Fatal(err)
+	}
+	hs.settle()
+	if d.preview == nil || d.preview.jsonl == nil {
+		t.Fatal("Show Table left the source")
+	}
+
+	// Opened as source by the setting, it says so too.
+	a.settings.JSONLMode = "source"
+	os.WriteFile(hs.path("src.ndjson"), []byte(text), 0o644)
+	a.openFile(hs.path("src.ndjson"), true)
+	hs.settle()
+	if e := a.activeEditor(); e.preview != nil || e.longLine != 1122 || !tt.HasText(locales.JsonlLongSource(1122, "src.ndjson")) {
+		t.Fatalf("as source: %q", tt.Texts())
+	}
+
+	// A file of plain JSON keeps the editor's guard.
+	os.WriteFile(hs.path("one.json"), []byte(text), 0o644)
+	a.openFile(hs.path("one.json"), true)
+	hs.settle()
+	if e := a.activeEditor(); e.sync != syncLoadFailed || e.loadErr != errLongLine || e.buf.Len() != 0 {
+		t.Fatalf("one.json: %v, %d bytes", e.loadErr, e.buf.Len())
+	}
+}
+
+// A restored tab of JSON Lines with a long record shows its table, or, as
+// source, which line is too long, without laying its text out.
+func TestRestoreJSONLLongRecord(t *testing.T) {
+	root := workspaceFixture(t)
+	long := filepath.Join(root, "long.jsonl")
+	os.WriteFile(long, []byte(jsonlLongText(50, 7)), 0o644)
+	for _, preview := range []bool{true, false} {
+		s := settings.Default()
+		w := s.NewWindow()
+		w.Folder = root
+		w.Columns = []settings.Column{{Tabs: []settings.Tab{{File: long, Preview: preview}}, Active: 0, Weight: 1}}
+		a := newApp(&fakeHost{folder: root}, s, w)
+		tt := ui.NewTester(a.view, 1200, 760)
+		hs := &harness{t: t, a: a, tt: tt}
+		hs.until("the read", func() bool { return a.cols[0].tabs[0].ed.sync != syncLoading })
+		hs.settle()
+		d := a.cols[0].tabs[0].ed
+		switch {
+		case d.longLine != 7:
+			t.Errorf("preview %v: long line %d, %v", preview, d.longLine, d.loadErr)
+		case preview && (d.preview == nil || !tt.HasText("50 rows")):
+			t.Errorf("restored table: %q", tt.Texts())
+		case !preview && (d.preview != nil || !tt.HasText(locales.JsonlLongSource(7, "long.jsonl")) || d.areaCol != nil):
+			t.Errorf("restored source: %q", tt.Texts())
+		}
+		a.shutdown()
 	}
 }

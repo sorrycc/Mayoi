@@ -1240,3 +1240,19 @@ func markSpans(spans []ui.Span, from, to int, bg ui.Color) []ui.Span {
 	}
 	return out
 }
+
+// longLineView shows in place of the source of a file of JSON Lines with a
+// line too long for the editor, which would lay it out whole: which line,
+// and a button back to the table, which shows every row.
+func (a *app) longLineView(c *ui.Context, d *editor) {
+	ui.Column(c.Key("long-line")).Fill().AlignItems(ui.Center).Background(a.pal.editor).Children(func() {
+		a.viewEmpty(c, "file-text", locales.JsonlLongSource(d.longLine, d.name()))
+		b := a.barButton(c, "long-line-table", locales.JsonlShowTable()).Tooltip(a.withKey(locales.JsonlShowTable(), "view.togglePreview"))
+		if b.Clicked() {
+			a.post(func() {
+				a.setPreview(d, true)
+				a.focusColumn()
+			})
+		}
+	})
+}

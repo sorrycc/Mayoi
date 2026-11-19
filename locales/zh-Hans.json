@@ -348,6 +348,8 @@
   "jsonlRemoveFilter": "移除筛选",
   "jsonlClearFilters": "清除筛选",
   "jsonlNoMatchFilters": "没有符合筛选的行",
+  "jsonlLongSource": "{name} 的第 {line, plural, other {#}} 行太长，无法以源码显示",
+  "jsonlShowTable": "显示表格",
   "cmdViewJsonlOpenTable": "表格",
   "cmdViewJsonlOpenSource": "源代码",
   "menuOpenJsonlAs": "JSON Lines 打开方式",

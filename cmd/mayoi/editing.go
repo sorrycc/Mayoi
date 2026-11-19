@@ -535,6 +535,12 @@ func (a *app) editorKey(d *editor, ev ui.InputEvent) bool {
 			return true
 		}
 	}
+	// A click on a chevron in the gutter folds its lines or opens them, as
+	// one on the mark after a folded line opens it.
+	if ev.Kind == ui.InputPointerDown && ev.Button == 0 && ev.Mods == 0 && a.foldClick(d, ev.X, ev.Y) {
+		a.invalidate()
+		return true
+	}
 	// A click on the mark of lines changed since the last commit shows
 	// what they were.
 	if ev.Kind == ui.InputPointerDown && ev.Button == 0 && ev.Clicks == 1 && a.gutterClick(d, ev.X, ev.Y) {

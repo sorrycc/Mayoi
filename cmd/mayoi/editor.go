@@ -245,6 +245,13 @@ func (a *app) editorView(c *ui.Context, d *editor) {
 	if live {
 		gutterW = 0
 	}
+	// The runs of lines that fold, found off the main thread; a jump into
+	// lines folded opens them, but Select All.
+	foldRanges := a.shownFolds(d, live)
+	if r := d.pending; r != nil && len(d.folding.marks) > 0 && !(r[0] == 0 && r[1] > 0 && r[1] == snap.Len()) {
+		d.revealAt(snap, r[1])
+		d.revealAt(snap, r[0])
+	}
 	d.gutterW = gutterW
 	view := d.hscroll.Bounds(c)
 	if view.H > 0 {
@@ -342,9 +349,20 @@ func (a *app) editorView(c *ui.Context, d *editor) {
 			}
 		} else {
 			area.NoWrap()
+			if g.folds != nil {
+				area.TrackLines(&d.lines)
+			}
 			if keepLine >= 0 {
 				d.vscroll.Y = max(0, editorPadY+g.top(keepLine)-keepY)
 			}
+		}
+		// The lines folded take no room; the area is told the heights of
+		// those out of view.
+		for _, r := range g.runs {
+			area.TextBlocks(ui.TextBlock{First: r.from, Last: r.to})
+		}
+		if g.laid() != nil {
+			a.settleFolds(c, d, g.runs)
 		}
 
 		// A new area puts the caret at the end: at the editor's selection,
@@ -405,6 +423,22 @@ func (a *app) editorView(c *ui.Context, d *editor) {
 		if whole {
 			anchor, caret = d.sel[0], d.sel[1] // the area selects after this build
 		}
+		// The caret never stands in lines folded: a key that moves it in
+		// moves it past them, and anything else opens them.
+		if len(g.runs) > 0 && d.parked < 0 {
+			if r, ok := runAt(g.runs, snap.LineAt(min(caret, snap.Len()))); ok {
+				if d.areaInput {
+					to := snapOut(snap, r, caret, d.caret)
+					if anchor == caret {
+						anchor = to
+					}
+					caret = to
+					area.SetTextSelection(anchor, caret)
+				} else if d.revealAt(snap, caret) {
+					a.invalidate()
+				}
+			}
+		}
 		d.areaInput = false
 		if d.parked >= 0 {
 			switch {
@@ -460,6 +494,10 @@ func (a *app) editorView(c *ui.Context, d *editor) {
 		var sticky []stickyRow
 		if len(d.sticky) > 0 {
 			sticky = d.stuck.rows(a, d, snap, d.sticky)
+		}
+		if px, _, over := area.PointerPosition(); !live {
+			d.folding.hover = over && px-d.hscroll.X < gutterW
+			d.folding.reduce = c.Preferences().ReduceMotion
 		}
 		d.reviewHover = -1
 		if a.settings.EditorAgentContext {
@@ -681,10 +719,18 @@ func (a *app) editorView(c *ui.Context, d *editor) {
 		}
 		lineY := func(r ui.Rect, i int) float32 { return r.Y + editorPadY + g.top(i) - d.vscroll.Y }
 		// lineHeight is the height of line i, all its rows.
-		lineHeight := func(i int) float32 { return float32(wr.rowCount(i)) * lineH }
+		lineHeight := func(i int) float32 {
+			if g.hidden(i) {
+				return 0
+			}
+			return float32(wr.rowCount(i)) * lineH
+		}
 		// place calls fn with the part on each row of a run along line i:
 		// its top, and its x's in the area.
 		place := func(r ui.Rect, i int, x0, x1 float32, fn func(y, x0, x1 float32)) {
+			if g.hidden(i) {
+				return
+			}
 			y := lineY(r, i)
 			wr.pieces(i, x0, x1, func(row int, x0, x1 float32) {
 				fn(y+float32(row)*lineH, r.X+textX+x0, r.X+textX+x1)
@@ -740,6 +786,9 @@ func (a *app) editorView(c *ui.Context, d *editor) {
 			// rows of a line that wraps.
 			for k, level := range deco.levels {
 				i := deco.first + k
+				if g.hidden(i) {
+					continue
+				}
 				y, h := lineY(r, i), lineHeight(i)
 				for l := range level {
 					col := p.guide
@@ -787,6 +836,9 @@ func (a *app) editorView(c *ui.Context, d *editor) {
 				})
 			}
 			for _, h := range hints {
+				if g.hidden(h.line) {
+					continue
+				}
 				y := lineY(r, h.line)
 				pt.Fill(ui.Rect{X: r.X + h.x - 4, Y: y + 2, W: h.w + 8, H: lineH - 4}, p.accent.Alpha(0.09), 4)
 				icon := size * 0.85
@@ -821,11 +873,13 @@ func (a *app) editorView(c *ui.Context, d *editor) {
 			x := r.X + d.hscroll.X
 			top := d.vscroll.Y
 			from, to := a.linesInView(g, top, r.H)
+			// A mark after each line folded, which a click opens.
+			a.paintFoldPills(pt, d, snap, g, from, to, r, place)
 			stuck := float32(len(sticky)) * lineH
 			_, numH := pt.MeasureText(0, ui.Span{Text: "0", Font: family, Size: size})
 			number := func(i int, y float32, col ui.Color) {
 				label := strconv.Itoa(i + 1)
-				pt.RichText(x+gutterW-14-float32(len(label))*charW, y+(lineH-numH)/2, 0,
+				pt.RichText(x+gutterW-14-foldColW-float32(len(label))*charW, y+(lineH-numH)/2, 0,
 					ui.Span{Text: label, Font: family, Size: size, Color: col})
 			}
 
@@ -887,6 +941,9 @@ func (a *app) editorView(c *ui.Context, d *editor) {
 				// notch where lines were removed.
 				barX := x + gutterW - 7
 				for i := from; i <= min(to, len(marks)-1); i++ {
+					if g.hidden(i) {
+						continue
+					}
 					y, h := lineY(r, i), lineHeight(i)
 					switch marks[i] {
 					case linediff.Added:
@@ -907,6 +964,9 @@ func (a *app) editorView(c *ui.Context, d *editor) {
 				}
 				// A number by the first row of each line.
 				for i := from; i <= to; i++ {
+					if g.hidden(i) {
+						continue
+					}
 					col := p.gutter
 					if i == caretLine && focused {
 						col = p.gutterNow
@@ -915,6 +975,7 @@ func (a *app) editorView(c *ui.Context, d *editor) {
 					}
 					number(i, lineY(r, i), col)
 				}
+				a.paintFoldChevrons(pt, d, snap, g, foldRanges, from, to, x+gutterW-14-foldColW, func(i int) float32 { return lineY(r, i) })
 			})
 			for k, row := range sticky {
 				number(row.line, r.Y+float32(k)*lineH, p.muted)
@@ -962,7 +1023,7 @@ func (a *app) topLine(d *editor) (line int, y float32) {
 // linesInView returns the first and last lines that show, a little of
 // them or all, in a view viewH high, the area scrolled to y.
 func (a *app) linesInView(g geometry, y, viewH float32) (first, last int) {
-	if g.lines == nil {
+	if g.laid() == nil {
 		first = max(0, int((y-editorPadY)/g.lineH))
 		return first, min(g.n-1, first+int(viewH/g.lineH)+1)
 	}

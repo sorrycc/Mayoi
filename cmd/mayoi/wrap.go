@@ -69,11 +69,15 @@ func (a *app) toggleMergeWrap(v *mergeView) {
 
 // geometry places the lines of an editor in the text area's content,
 // below its padding: one row each, lineH apart, or where the area laid
-// them out, as it wraps them.
+// them out, as it wraps them or as it folds them.
 type geometry struct {
 	lines *ui.TextLines // nil while the editor does not wrap
 	lineH float32
 	n     int // the lines
+	// folds is where the area laid out the lines of an editor that does
+	// not wrap while it folds some, and runs the lines hidden.
+	folds *ui.TextLines
+	runs  []hiddenRun
 }
 
 func (a *app) geometry(d *editor, n int) geometry {
@@ -81,23 +85,47 @@ func (a *app) geometry(d *editor, n int) geometry {
 	if a.wraps(d) {
 		g.lines = &d.lines
 	}
+	if len(d.folding.marks) > 0 || d.folding.settle {
+		g.runs = a.hiddenRuns(d, d.buf.Snapshot())
+		if g.lines == nil {
+			g.folds = &d.lines
+		}
+	}
 	return g
+}
+
+// laid returns where the area laid out the lines, nil where they are all
+// lineH apart.
+func (g geometry) laid() *ui.TextLines {
+	if g.lines != nil {
+		return g.lines
+	}
+	return g.folds
 }
 
 // top returns the top of line i.
 func (g geometry) top(i int) float32 {
-	if g.lines != nil {
-		return g.lines.Top(i)
+	if l := g.laid(); l != nil {
+		return l.Top(i)
 	}
 	return float32(i) * g.lineH
 }
 
-// at returns the line at y, within the text.
+// at returns the line at y, within the text: one that shows, not one a
+// fold hides.
 func (g geometry) at(y float32) int {
-	if g.lines != nil {
-		return g.lines.At(y)
+	l := g.laid()
+	if l == nil {
+		return min(max(0, int(y/g.lineH)), g.n-1)
 	}
-	return min(max(0, int(y/g.lineH)), g.n-1)
+	i := l.At(y)
+	if r, ok := runAt(g.runs, i); ok {
+		if r.to+1 < g.n {
+			return r.to + 1
+		}
+		return max(0, r.from-1)
+	}
+	return i
 }
 
 // topF returns the top of a fractional line i, between the tops of the
@@ -105,34 +133,42 @@ func (g geometry) at(y float32) int {
 // Below the first line it goes on by the first line's rows, as i*lineH
 // does and as atF reads it back.
 func (g geometry) topF(i float32) float32 {
-	if g.lines == nil {
+	l := g.laid()
+	if l == nil {
 		return i * g.lineH
 	}
 	if i < 0 {
-		return i * (g.lines.Top(1) - g.lines.Top(0))
+		return i * (l.Top(1) - l.Top(0))
 	}
 	lo, f := float32(int(i)), i-float32(int(i))
-	t0 := g.lines.Top(int(lo))
+	t0 := l.Top(int(lo))
 	if f == 0 {
 		return t0
 	}
-	return t0 + f*(g.lines.Top(int(lo)+1)-t0)
+	return t0 + f*(l.Top(int(lo)+1)-t0)
 }
 
 // atF returns the fractional line at y: the line y falls in, and how far
 // into it, as the line across from y goes. Past the last line it stays
 // at the last.
 func (g geometry) atF(y float32) float32 {
-	if g.lines == nil {
+	l := g.laid()
+	if l == nil {
 		return min(y/g.lineH, float32(g.n))
 	}
-	i := g.lines.At(y)
-	t0 := g.lines.Top(i)
-	t1 := g.lines.Top(i + 1)
+	i := g.at(y)
+	t0 := l.Top(i)
+	t1 := l.Top(i + 1)
 	if t1 <= t0 {
 		return float32(i)
 	}
 	return min(float32(i)+(y-t0)/(t1-t0), float32(g.n))
+}
+
+// hidden reports whether a fold hides line i.
+func (g geometry) hidden(i int) bool {
+	_, ok := runAt(g.runs, i)
+	return ok
 }
 
 // height returns the height of all the lines.

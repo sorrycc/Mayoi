@@ -507,6 +507,9 @@ type Tab struct {
 	ScrollX float32 `json:"scrollX,omitempty"`
 	ScrollY float32 `json:"scrollY,omitempty"`
 	Wrap    *bool   `json:"wrap,omitempty"`
+	// Folds are the lines of the runs of lines the tab's editor folded,
+	// the lines that show of them.
+	Folds []int `json:"folds,omitempty"`
 	// Untitled is the file in the untitled folder beside the settings that
 	// keeps the text of an untitled document as the app quit, and Number
 	// the number of its name.

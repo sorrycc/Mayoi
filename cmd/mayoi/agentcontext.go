@@ -11,7 +11,7 @@ import (
 
 // editorGutterWidth reserves an action lane clear of numbers and Git marks.
 func (a *app) editorGutterWidth(lines int) float32 {
-	w := a.font.gutterWidth(lines)
+	w := a.font.gutterWidth(lines) + foldColW
 	if a.settings.EditorAgentContext {
 		w += lineCommentSize + 2
 	}
@@ -178,7 +178,7 @@ func (a *app) editorReviewView(c *ui.Context, d *editor) bool {
 				y, lineH := r.Y+top(i), v.tops[i+1]-v.tops[i]
 				span := a.font.span(strconv.Itoa(i+1), a.pal.gutter)
 				nw, nh := pt.MeasureText(0, span)
-				pt.RichText(x+d.gutterW-14-nw, y+(a.font.lineH-nh)/2, 0, span)
+				pt.RichText(x+d.gutterW-14-foldColW-nw, y+(a.font.lineH-nh)/2, 0, span)
 				if i >= n.from && i < n.to {
 					pt.Fill(ui.Rect{X: x + 3, Y: y, W: noteStripe, H: lineH}, a.pal.accent, 0)
 				}

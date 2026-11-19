@@ -122,6 +122,13 @@ func (a *app) commandsIn(t locales.Messages) []command {
 		{"markdown.heading6", t.CmdMarkdownHeading("6"), "Alt+CmdOrCtrl+6", a.editActive(func(d *editor) { toggleMdHeading(d, 6) })},
 		{"markdown.clearFormatting", t.CmdMarkdownClearFormatting(), "", a.editActive(clearMdFormatting)},
 		{"markdown.toggleEmbed", t.CmdMarkdownToggleEmbed(), "", a.editActive(toggleMdEmbed)},
+		// ⌥⌘[ and ⌥⌘] fold and open the lines of an editor, and the files
+		// of a diff where one is shown.
+		{"edit.fold", t.CmdEditFold(), "Alt+CmdOrCtrl+[", func() { a.foldInContext(true) }},
+		{"edit.unfold", t.CmdEditUnfold(), "Alt+CmdOrCtrl+]", func() { a.foldInContext(false) }},
+		{"edit.toggleFold", t.CmdEditToggleFold(), "", a.editActive(a.toggleFoldCmd)},
+		{"edit.foldAll", t.CmdEditFoldAll(), "", a.editActive(a.foldAllCmd)},
+		{"edit.unfoldAll", t.CmdEditUnfoldAll(), "", a.editActive(a.unfoldAllCmd)},
 		{"go.bracket", t.CmdGoBracket(), "Shift+CmdOrCtrl+\\", a.editActive(goToBracket)},
 		{"go.definition", t.CmdGoDefinition(), "F12", a.goToDefinition},
 		{"go.hover", t.CmdGoHover(), "", a.showHover},
@@ -154,8 +161,8 @@ func (a *app) commandsIn(t locales.Messages) []command {
 		{"git.prevChange", t.CmdGitPrevChange(), "Shift+Alt+F5", func() { a.stepChange(-1) }},
 		{"git.nextFile", t.CmdGitNextFile(), "", func() { a.stepDiffFile(1) }},
 		{"git.prevFile", t.CmdGitPrevFile(), "", func() { a.stepDiffFile(-1) }},
-		{"git.collapseAllFiles", t.CmdGitCollapseAllFiles(), "Alt+CmdOrCtrl+[", func() { a.foldDiffFiles(true) }},
-		{"git.expandAllFiles", t.CmdGitExpandAllFiles(), "Alt+CmdOrCtrl+]", func() { a.foldDiffFiles(false) }},
+		{"git.collapseAllFiles", t.CmdGitCollapseAllFiles(), "", func() { a.foldDiffFiles(true) }},
+		{"git.expandAllFiles", t.CmdGitExpandAllFiles(), "", func() { a.foldDiffFiles(false) }},
 		{"git.toggleCommitFiles", t.CmdGitToggleCommitFiles(), "", a.toggleCommitFiles},
 		{"git.appendChange", t.CmdGitAppendChange(), "", a.appendAtCursor},
 		{"git.showChange", t.CmdGitShowChange(), "", a.editActive(func(d *editor) { d.peekHunk(caretLine(d)) })},
@@ -670,6 +677,7 @@ func (a *app) menu(cli bool, run func(id string, win *mygo.Window)) *mygo.Menu {
 			cut, {Role: mygo.RoleCopy}, {Role: mygo.RolePaste}, selectAll, mygo.Separator(),
 			item("edit.find"), item("edit.replace"), item("edit.findNext"), item("edit.findPrev"), mygo.Separator(),
 			item("edit.findInFiles"), item("edit.replaceInFiles"), mygo.Separator(),
+			item("edit.fold"), item("edit.unfold"), item("edit.toggleFold"), item("edit.foldAll"), item("edit.unfoldAll"), mygo.Separator(),
 			{Label: locales.MenuMarkdown(), Submenu: []*mygo.MenuItem{
 				item("markdown.toggleTask"), item("markdown.toggleList"), item("markdown.toggleQuote"), mygo.Separator(),
 				item("markdown.moveItemUp"), item("markdown.moveItemDown"), mygo.Separator(),

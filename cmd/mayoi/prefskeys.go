@@ -183,6 +183,11 @@ func (k *keysPane) rows(a *app) []keyRow {
 			if km.Removes(names...) {
 				r.keys, r.source = nil, keyRemoved
 			}
+		} else if keys := chordKeys(cmd.id); keys != nil {
+			r.keys, r.source = keys, keyDefault
+			if km.Removes(names...) {
+				r.keys, r.source = nil, keyRemoved
+			}
 		}
 		if km != nil {
 			for _, b := range km.Bindings {

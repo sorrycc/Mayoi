@@ -107,6 +107,21 @@ func TestDiffFoldAllCommands(t *testing.T) {
 	if other.foldFiles != nil || other.files[0].folded {
 		t.Fatal("bulk folding changed another diff tab")
 	}
+	// Fold's keys, ⌥⌘[ and ⌥⌘], fold the files of the diff shown.
+	a.run("edit.fold")
+	hs.settle()
+	for _, f := range v.files {
+		if !f.folded {
+			t.Fatalf("Fold left %s open in a diff", f.path)
+		}
+	}
+	a.run("edit.unfold")
+	hs.settle()
+	for _, f := range v.files {
+		if f.folded {
+			t.Fatalf("Unfold left %s collapsed in a diff", f.path)
+		}
+	}
 	a.openFile(hs.path("a.txt"), true)
 	hs.settle()
 	a.run("git.collapseAllFiles")

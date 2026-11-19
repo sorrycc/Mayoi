@@ -82,11 +82,20 @@ func (a *app) keyInput(ev ui.InputEvent, where keyPlace) bool {
 // keyStroke runs the binding of a stroke, after the strokes of the chord
 // typed so far, with the next frame.
 func (a *app) keyStroke(s keymap.Stroke, where keyPlace) bool {
-	if a.keys == nil || len(a.keys.Bindings) == 0 {
-		return false
-	}
 	seq := append(slices.Clone(a.chord), s)
-	b, more := a.keys.Lookup(seq, a.whenContext(where))
+	var b *keymap.Binding
+	more := false
+	if a.keys != nil && len(a.keys.Bindings) > 0 {
+		b, more = a.keys.Lookup(seq, a.whenContext(where))
+	}
+	if b == nil && !more && where == placeEditor {
+		// Mayoi's own keys of more than one stroke, after the file's.
+		if id, pre := a.builtinChord(seq); id != "" {
+			b = &keymap.Binding{Command: id}
+		} else {
+			more = pre
+		}
+	}
 	switch {
 	case more:
 		a.chord = seq
@@ -234,6 +243,11 @@ var vscodeCommands = map[string]string{
 	"editor.action.sortLinesDescending":          "sel.sortDesc",
 	"editor.action.trimTrailingWhitespace":       "sel.trimWhitespace",
 	"editor.action.jumpToBracket":                "go.bracket",
+	"editor.fold":                                "edit.fold",
+	"editor.unfold":                              "edit.unfold",
+	"editor.toggleFold":                          "edit.toggleFold",
+	"editor.foldAll":                             "edit.foldAll",
+	"editor.unfoldAll":                           "edit.unfoldAll",
 	"workbench.action.quickOpen":                 "go.quickOpen",
 	"workbench.action.showCommands":              "go.commands",
 	"workbench.action.gotoLine":                  "go.line",

@@ -145,6 +145,7 @@ func (d *editor) edit(sel [2]int, edits ...textEdit) {
 	}
 	d.follow(moved)
 	d.moveMarks(moved)
+	d.foldsFollow(edits, moved, h.snap)
 	if len(edits) > 0 {
 		d.changed = min(edits[len(edits)-1].start, n)
 	}
@@ -189,7 +190,7 @@ func (d *editor) follow(moved func(x int) int) {
 // followChange is follow for an edit that is only known by the text
 // before and after it, as typing is, made near offset hint.
 func (d *editor) followChange(old, now ui.TextSnapshot, hint int) {
-	if len(d.views) < 2 && !d.marked() {
+	if len(d.views) < 2 && !d.marked() && !d.hasFolds() {
 		return
 	}
 	start, end, ok := changedRunes(old, now, hint)
@@ -200,6 +201,11 @@ func (d *editor) followChange(old, now ui.TextSnapshot, hint int) {
 		}
 		return movedBy(x, start, end, n)
 	}
+	var edits []textEdit
+	if ok {
+		edits = []textEdit{{start, end, now.Slice(start, start+n)}}
+	}
+	d.foldsFollow(edits, moved, now)
 	d.follow(moved)
 	if ok {
 		d.moveMarks(moved)

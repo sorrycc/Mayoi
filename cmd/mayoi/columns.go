@@ -913,6 +913,9 @@ func cloneEditor(d *editor) *editor {
 	ed.vscroll.Y, ed.hscroll.X = d.vscroll.Y, d.hscroll.X
 	ed.wrap, ed.wrapGen = d.wrap, d.wrapGen
 	ed.live = d.live
+	// What it folded, the other folding on its own from there.
+	ed.folding.marks = slices.Clone(d.folding.marks)
+	ed.folding.changed()
 	return ed
 }
 
@@ -1071,10 +1074,10 @@ func (a *app) rememberTabs() {
 			}
 			if ed := t.ed; ed != nil {
 				if saved := ed.restoreTab; saved != nil {
-					ts.Preview, ts.Live, ts.Sel = saved.Preview, saved.Live, saved.Sel
+					ts.Preview, ts.Live, ts.Sel, ts.Folds = saved.Preview, saved.Live, saved.Sel, saved.Folds
 					ts.ScrollX, ts.ScrollY, ts.Wrap = saved.ScrollX, saved.ScrollY, saved.Wrap
 				} else {
-					ts.Sel, ts.ScrollX, ts.ScrollY = ed.sel, ed.hscroll.X, ed.vscroll.Y
+					ts.Sel, ts.ScrollX, ts.ScrollY, ts.Folds = ed.sel, ed.hscroll.X, ed.vscroll.Y, ed.foldLines()
 					if ed.hidden {
 						ts.ScrollY = ed.hiddenY
 					}
@@ -1190,6 +1193,10 @@ func (a *app) restoreEditor(ed *editor, ts settings.Tab) {
 	ed.sel = [2]int{min(max(ts.Sel[0], 0), n), min(max(ts.Sel[1], 0), n)}
 	ed.caret = ed.sel[1]
 	ed.vscroll.Y, ed.hscroll.X = ts.ScrollY, ts.ScrollX
+	// The lines it folded fold again once the text is read for its folds.
+	if len(ts.Folds) > 0 {
+		ed.folding.restore = slices.Clone(ts.Folds)
+	}
 	if ed.hidden {
 		ed.hiddenY, ed.hiddenPlaced = ts.ScrollY, false
 	}

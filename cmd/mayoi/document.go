@@ -57,11 +57,13 @@ type document struct {
 	// the Reading view show them; foldKey is the one folded or opened
 	// last, at foldAt, from which its chevron turns, foldNow set until
 	// a frame notes when.
-	folds   map[string]bool
-	foldKey string
-	foldAt  time.Time
-	foldNow bool
-	saved   uint64 // the buffer's version on disk
+	folds map[string]bool
+	// foldScan holds the runs of lines the text folds as code.
+	foldScan foldScan
+	foldKey  string
+	foldAt   time.Time
+	foldNow  bool
+	saved    uint64 // the buffer's version on disk
 	// savedSnap is the text on disk, which undoing back to makes the
 	// document clean again.
 	savedSnap ui.TextSnapshot
@@ -133,6 +135,8 @@ type editor struct {
 	// frame, which a click goes to.
 	sticky []int
 	scopes scopeCache
+	// folding is the runs of lines the editor folded.
+	folding foldView
 	// win is the text of the lines around the view, of version winVersion,
 	// which the decorations and the scopes read their lines from.
 	win        *lineWindow

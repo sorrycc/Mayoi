@@ -33,6 +33,8 @@ var otherAccels = map[string]string{
 	"view.prevColumn":        "",
 	"git.collapseAllFiles":   "",
 	"git.expandAllFiles":     "",
+	"edit.fold":              "Shift+Ctrl+[",
+	"edit.unfold":            "Shift+Ctrl+]",
 	// Control and Alt with a digit show a project of the rail there.
 	"markdown.heading1": "",
 	"markdown.heading2": "",
@@ -126,6 +128,9 @@ func (a *app) commandCaps(cmd command) []string {
 	accel := a.menuAccel(cmd)
 	if accel == "" && cmd.accel == "" {
 		accel = platformAccel(cmd.id, viewKeys[cmd.id])
+	}
+	if keys := chordKeys(cmd.id); accel == "" && keys != nil && !a.keys.Removes(commandNames(cmd.id)...) {
+		return chordCaps(keys)
 	}
 	return accelCaps(accel, macKeys())
 }

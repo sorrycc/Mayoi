@@ -2738,6 +2738,56 @@ func (msgs Messages) CmdGitWriteMessage() string {
 	return Catalog.Format(msgs.locale, "cmdGitWriteMessage", nil)
 }
 
+// CmdEditFold says "Fold"
+// in the language the app shows.
+func CmdEditFold() string { return In(i18n.Locale()).CmdEditFold() }
+
+// CmdEditFold says "Fold"
+// in the language of msgs.
+func (msgs Messages) CmdEditFold() string {
+	return Catalog.Format(msgs.locale, "cmdEditFold", nil)
+}
+
+// CmdEditUnfold says "Unfold"
+// in the language the app shows.
+func CmdEditUnfold() string { return In(i18n.Locale()).CmdEditUnfold() }
+
+// CmdEditUnfold says "Unfold"
+// in the language of msgs.
+func (msgs Messages) CmdEditUnfold() string {
+	return Catalog.Format(msgs.locale, "cmdEditUnfold", nil)
+}
+
+// CmdEditToggleFold says "Toggle Fold"
+// in the language the app shows.
+func CmdEditToggleFold() string { return In(i18n.Locale()).CmdEditToggleFold() }
+
+// CmdEditToggleFold says "Toggle Fold"
+// in the language of msgs.
+func (msgs Messages) CmdEditToggleFold() string {
+	return Catalog.Format(msgs.locale, "cmdEditToggleFold", nil)
+}
+
+// CmdEditFoldAll says "Fold All"
+// in the language the app shows.
+func CmdEditFoldAll() string { return In(i18n.Locale()).CmdEditFoldAll() }
+
+// CmdEditFoldAll says "Fold All"
+// in the language of msgs.
+func (msgs Messages) CmdEditFoldAll() string {
+	return Catalog.Format(msgs.locale, "cmdEditFoldAll", nil)
+}
+
+// CmdEditUnfoldAll says "Unfold All"
+// in the language the app shows.
+func CmdEditUnfoldAll() string { return In(i18n.Locale()).CmdEditUnfoldAll() }
+
+// CmdEditUnfoldAll says "Unfold All"
+// in the language of msgs.
+func (msgs Messages) CmdEditUnfoldAll() string {
+	return Catalog.Format(msgs.locale, "cmdEditUnfoldAll", nil)
+}
+
 // CmdGoBracket says "Go to Bracket"
 // in the language the app shows.
 func CmdGoBracket() string { return In(i18n.Locale()).CmdGoBracket() }

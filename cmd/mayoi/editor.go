@@ -200,6 +200,10 @@ func (a *app) editorView(c *ui.Context, d *editor) {
 		d.hiddenPlaced = placed
 	}
 
+	// Vim mode and Live Preview have one caret of their own.
+	if len(d.cursors) > 0 && !a.multiOK(d) {
+		d.collapse()
+	}
 	if !a.prefs().Vim {
 		vimReset(d)
 		if a.vimLine.d == d {
@@ -307,6 +311,24 @@ func (a *app) editorView(c *ui.Context, d *editor) {
 			Padding(editorPadY, padR, editorPadY, textX).
 			Label(locales.EditorLabel(d.name())).
 			ReadOnly(vimKeys || a.chording() || d.locked())
+		// What an input method composes stays at the primary until it
+		// commits, which then types at the other selections too.
+		if composing := area.Composing(); composing != d.composing {
+			d.composing = composing
+			if !composing && d.held {
+				a.invalidate()
+			}
+		}
+		// A paste goes to every selection, a line at each when it has as
+		// many lines as there are of them.
+		area.OnPaste(func(text string) bool {
+			if len(d.cursors) == 0 || text == "" {
+				return false
+			}
+			d.cmds = append(d.cmds, func(d *editor) { a.pasteSpans(d, text) })
+			a.invalidate()
+			return true
+		})
 		a.takeKeys(area, placeEditor, func(ev ui.InputEvent) bool {
 			switch ev.Kind {
 			case ui.InputPointerDown:
@@ -457,6 +479,11 @@ func (a *app) editorView(c *ui.Context, d *editor) {
 			}
 		}
 		if sel := [2]int{anchor, caret}; sel != d.sel {
+			// The area moved its selection itself, as a drag or Find
+			// does: one selection again.
+			if !edited && !d.held && len(d.cursors) > 0 {
+				d.collapse()
+			}
 			if !edited {
 				d.hist.typing = false // the caret moved: typing after starts a step
 				if n := snap.Len(); snap.LineAt(min(caret, n)) != snap.LineAt(min(d.sel[1], n)) {
@@ -659,6 +686,11 @@ func (a *app) editorView(c *ui.Context, d *editor) {
 		if !shape.native {
 			area.SelectionColor(ui.Color{})
 		}
+		// The carets of the other selections on the lines in view, painted
+		// still, as the primary's blinks, and the lines of those that
+		// select nothing, lit as the caret's is.
+		carets, caretLines := a.otherCarets(d, snap, first, last, caretLine, focused)
+		caretCol := c.Theme().Accent.Alpha(0.8)
 		// The block of vim's cursor: from the cursor to the next rune, or a
 		// cell wide at the end of a line.
 		var block *runeRect
@@ -740,6 +772,11 @@ func (a *app) editorView(c *ui.Context, d *editor) {
 			rowsAt(r)
 			if y := lineY(r, caretLine); !selecting && y+lineH > r.Y && y < r.Y+r.H {
 				pt.Fill(ui.Rect{X: r.X, Y: y, W: r.W, H: lineHeight(caretLine)}, p.line, 0)
+			}
+			for _, l := range caretLines {
+				if !g.hidden(l) {
+					pt.Fill(ui.Rect{X: r.X, Y: lineY(r, l), W: r.W, H: lineHeight(l)}, p.line, 0)
+				}
 			}
 			// The line a jump landed on, lit, fading as the eye finds it.
 			if since := pt.Now().Sub(d.landAt); !d.landAt.IsZero() && since >= 0 && since < landFor && d.landLine < lines {
@@ -857,6 +894,11 @@ func (a *app) editorView(c *ui.Context, d *editor) {
 		area.DrawOver(func(pt *ui.Painter, r ui.Rect) {
 			if wr == nil {
 				rowsAt(r)
+			}
+			for _, cr := range carets {
+				place(r, cr.line, cr.x0, cr.x0+0.01, func(y, x0, _ float32) {
+					pt.Fill(ui.Rect{X: x0 - 0.75, Y: y, W: 1.5, H: lineH}, caretCol, 0)
+				})
 			}
 			// Struck text has a line through it, over the text.
 			for _, m := range strikes {

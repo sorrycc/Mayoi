@@ -175,6 +175,9 @@ func (a *app) whenContext(where keyPlace) func(string) bool {
 		case "editorHasSelection":
 			d := a.activeEditor()
 			return where == placeEditor && d != nil && d.sel[0] != d.sel[1]
+		case "editorHasMultipleSelections":
+			d := a.activeEditor()
+			return where == placeEditor && d != nil && len(d.cursors) > 0
 		case "editorReadonly":
 			return false
 		case "isMac":
@@ -239,6 +242,15 @@ var vscodeCommands = map[string]string{
 	"editor.action.indentUsingTabs":              "sel.indentTabs",
 	"editor.action.transformToCamelcase":         "sel.camelCase",
 	"editor.action.joinLines":                    "sel.joinLines",
+	"editor.action.insertCursorAbove":            "sel.addCursorAbove",
+	"editor.action.insertCursorBelow":            "sel.addCursorBelow",
+	"editor.action.addSelectionToNextFindMatch":  "sel.addNextOccurrence",
+	"editor.action.selectHighlights":             "sel.selectAllOccurrences",
+	"cursorColumnSelectUp":                       "sel.columnUp",
+	"cursorColumnSelectDown":                     "sel.columnDown",
+	"cursorColumnSelectLeft":                     "sel.columnLeft",
+	"cursorColumnSelectRight":                    "sel.columnRight",
+	"removeSecondaryCursors":                     "sel.removeCursors",
 	"editor.action.sortLinesAscending":           "sel.sortAsc",
 	"editor.action.sortLinesDescending":          "sel.sortDesc",
 	"editor.action.trimTrailingWhitespace":       "sel.trimWhitespace",

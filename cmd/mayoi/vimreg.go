@@ -425,7 +425,7 @@ func (d *editor) vimSquash(from int, before histStep) {
 // they move with what fn changes; the changes undo as one.
 func (a *app) vimEachLine(d *editor, lines []int, fn func()) {
 	d.observe()
-	from, before := len(d.hist.undo), histStep{d.hist.snap, d.sel}
+	from, before := len(d.hist.undo), histStep{snap: d.hist.snap, sel: d.sel}
 	snap := d.buf.Snapshot()
 	old := d.tracked
 	starts := make([]int, len(lines))

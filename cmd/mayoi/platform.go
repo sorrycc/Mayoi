@@ -37,6 +37,13 @@ var otherAccels = map[string]string{
 	"git.expandAllFiles":     "",
 	"edit.fold":              "",
 	"edit.unfold":            "",
+	// VS Code's on Windows: AltGr with an arrow types nothing.
+	"sel.addCursorAbove": "Ctrl+Alt+Up",
+	"sel.addCursorBelow": "Ctrl+Alt+Down",
+	"sel.columnUp":       "Ctrl+Shift+Alt+Up",
+	"sel.columnDown":     "Ctrl+Shift+Alt+Down",
+	"sel.columnLeft":     "Ctrl+Shift+Alt+Left",
+	"sel.columnRight":    "Ctrl+Shift+Alt+Right",
 	// Control and Alt with a digit show a project of the rail there.
 	"markdown.heading1": "",
 	"markdown.heading2": "",
@@ -46,11 +53,28 @@ var otherAccels = map[string]string{
 	"markdown.heading6": "",
 }
 
+// linuxAccels are the shortcuts of commands on Linux where they are not
+// Windows': none for adding carets and selecting a column, whose Ctrl+Alt
+// with the arrows switches workspaces in Xfce and older GNOME, and whose
+// VS Code keys there, Shift+Alt, copy lines in Mayoi. Alt-click and the
+// middle button still add them, and the commands can be bound.
+var linuxAccels = map[string]string{
+	"sel.addCursorAbove": "",
+	"sel.addCursorBelow": "",
+	"sel.columnUp":       "",
+	"sel.columnDown":     "",
+	"sel.columnLeft":     "",
+	"sel.columnRight":    "",
+}
+
 // platformAccel is a command's accelerator on the system: on Windows and
 // Linux its own there, or Control for Command.
 func platformAccel(id, accel string) string {
 	if macKeys() {
 		return accel
+	}
+	if o, ok := linuxAccels[id]; ok && hostOS == "linux" {
+		return o
 	}
 	if o, ok := otherAccels[id]; ok {
 		return o
@@ -174,7 +198,7 @@ func (a *app) shellSkip(s keymap.Stroke) (id string, ok bool) {
 	}
 	for _, cmd := range a.commands() {
 		st, ok := keymap.ParseAccel(a.menuAccel(cmd))
-		if !ok || st != s {
+		if !ok || st != s || isMultiCommand(cmd.id) {
 			continue
 		}
 		ctrlShift := s.Mods&(ui.Ctrl|ui.Shift) == ui.Ctrl|ui.Shift && s.Key != ui.KeyC && s.Key != ui.KeyV

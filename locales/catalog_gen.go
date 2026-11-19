@@ -2088,6 +2088,16 @@ func (msgs Messages) CmdEditCut() string {
 	return Catalog.Format(msgs.locale, "cmdEditCut", nil)
 }
 
+// CmdEditCopy says "Copy"
+// in the language the app shows.
+func CmdEditCopy() string { return In(i18n.Locale()).CmdEditCopy() }
+
+// CmdEditCopy says "Copy"
+// in the language of msgs.
+func (msgs Messages) CmdEditCopy() string {
+	return Catalog.Format(msgs.locale, "cmdEditCopy", nil)
+}
+
 // CmdEditFind says "Find"
 // in the language the app shows.
 func CmdEditFind() string { return In(i18n.Locale()).CmdEditFind() }
@@ -3116,6 +3126,96 @@ func CmdSelLine() string { return In(i18n.Locale()).CmdSelLine() }
 // in the language of msgs.
 func (msgs Messages) CmdSelLine() string {
 	return Catalog.Format(msgs.locale, "cmdSelLine", nil)
+}
+
+// CmdSelAddCursorAbove says "Add Cursor Above"
+// in the language the app shows.
+func CmdSelAddCursorAbove() string { return In(i18n.Locale()).CmdSelAddCursorAbove() }
+
+// CmdSelAddCursorAbove says "Add Cursor Above"
+// in the language of msgs.
+func (msgs Messages) CmdSelAddCursorAbove() string {
+	return Catalog.Format(msgs.locale, "cmdSelAddCursorAbove", nil)
+}
+
+// CmdSelAddCursorBelow says "Add Cursor Below"
+// in the language the app shows.
+func CmdSelAddCursorBelow() string { return In(i18n.Locale()).CmdSelAddCursorBelow() }
+
+// CmdSelAddCursorBelow says "Add Cursor Below"
+// in the language of msgs.
+func (msgs Messages) CmdSelAddCursorBelow() string {
+	return Catalog.Format(msgs.locale, "cmdSelAddCursorBelow", nil)
+}
+
+// CmdSelAddNextOccurrence says "Add Next Occurrence"
+// in the language the app shows.
+func CmdSelAddNextOccurrence() string { return In(i18n.Locale()).CmdSelAddNextOccurrence() }
+
+// CmdSelAddNextOccurrence says "Add Next Occurrence"
+// in the language of msgs.
+func (msgs Messages) CmdSelAddNextOccurrence() string {
+	return Catalog.Format(msgs.locale, "cmdSelAddNextOccurrence", nil)
+}
+
+// CmdSelSelectAllOccurrences says "Select All Occurrences"
+// in the language the app shows.
+func CmdSelSelectAllOccurrences() string { return In(i18n.Locale()).CmdSelSelectAllOccurrences() }
+
+// CmdSelSelectAllOccurrences says "Select All Occurrences"
+// in the language of msgs.
+func (msgs Messages) CmdSelSelectAllOccurrences() string {
+	return Catalog.Format(msgs.locale, "cmdSelSelectAllOccurrences", nil)
+}
+
+// CmdSelColumnUp says "Column Select Up"
+// in the language the app shows.
+func CmdSelColumnUp() string { return In(i18n.Locale()).CmdSelColumnUp() }
+
+// CmdSelColumnUp says "Column Select Up"
+// in the language of msgs.
+func (msgs Messages) CmdSelColumnUp() string {
+	return Catalog.Format(msgs.locale, "cmdSelColumnUp", nil)
+}
+
+// CmdSelColumnDown says "Column Select Down"
+// in the language the app shows.
+func CmdSelColumnDown() string { return In(i18n.Locale()).CmdSelColumnDown() }
+
+// CmdSelColumnDown says "Column Select Down"
+// in the language of msgs.
+func (msgs Messages) CmdSelColumnDown() string {
+	return Catalog.Format(msgs.locale, "cmdSelColumnDown", nil)
+}
+
+// CmdSelColumnLeft says "Column Select Left"
+// in the language the app shows.
+func CmdSelColumnLeft() string { return In(i18n.Locale()).CmdSelColumnLeft() }
+
+// CmdSelColumnLeft says "Column Select Left"
+// in the language of msgs.
+func (msgs Messages) CmdSelColumnLeft() string {
+	return Catalog.Format(msgs.locale, "cmdSelColumnLeft", nil)
+}
+
+// CmdSelColumnRight says "Column Select Right"
+// in the language the app shows.
+func CmdSelColumnRight() string { return In(i18n.Locale()).CmdSelColumnRight() }
+
+// CmdSelColumnRight says "Column Select Right"
+// in the language of msgs.
+func (msgs Messages) CmdSelColumnRight() string {
+	return Catalog.Format(msgs.locale, "cmdSelColumnRight", nil)
+}
+
+// CmdSelRemoveCursors says "Remove Secondary Cursors"
+// in the language the app shows.
+func CmdSelRemoveCursors() string { return In(i18n.Locale()).CmdSelRemoveCursors() }
+
+// CmdSelRemoveCursors says "Remove Secondary Cursors"
+// in the language of msgs.
+func (msgs Messages) CmdSelRemoveCursors() string {
+	return Catalog.Format(msgs.locale, "cmdSelRemoveCursors", nil)
 }
 
 // CmdSelLineAbove says "Insert Line Above"
@@ -12372,6 +12472,16 @@ func StatusSelected(n int) string { return In(i18n.Locale()).StatusSelected(n) }
 // in the language of msgs.
 func (msgs Messages) StatusSelected(n int) string {
 	return Catalog.Format(msgs.locale, "statusSelected", map[string]any{"n": n})
+}
+
+// StatusSelections says "{count, plural, one { (# selection)} other { (# selections)}}"
+// in the language the app shows.
+func StatusSelections(count int) string { return In(i18n.Locale()).StatusSelections(count) }
+
+// StatusSelections says "{count, plural, one { (# selection)} other { (# selections)}}"
+// in the language of msgs.
+func (msgs Messages) StatusSelections(count int) string {
+	return Catalog.Format(msgs.locale, "statusSelections", map[string]any{"count": count})
 }
 
 // StatusTypeChanged says "Type Changed"

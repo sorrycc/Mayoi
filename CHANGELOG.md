@@ -5,6 +5,12 @@ needs a `## <version>` section here, or its build fails.
 
 ## Unreleased
 
+- Type at several places at once: **Selection → Add Cursor Above** and **Below** add a caret on the next line.
+- Alt-click (`⌥`-click on macOS) adds a caret or takes one away; `⌘`-click still goes to a definition.
+- `⌘D` selects the next match of the word or selection, and `⇧⌘L` selects every match at once.
+- Drag with `Shift+Alt` or the middle button to select a column; `⇧⌥⌘` with the arrows does it from the keyboard.
+- Typing, delete, Enter, Tab, copy, cut, paste and the arrows act at every caret, and one undo takes an edit back.
+- The status bar counts the selections, and Escape or a plain click goes back to one caret.
 - **Go → Show Hover** now opens a small card by the word at the caret instead of a dialog in mid-window.
 - The hover card stays inside its editor and split, above the line or below it near the top.
 - A hover's signature shows first in the code font and colors, with its documentation below.

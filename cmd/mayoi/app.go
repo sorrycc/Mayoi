@@ -416,7 +416,10 @@ type app struct {
 	chord       []keymap.Stroke
 	keyFocus    keyPlace
 	cutInEditor bool
-	keyTerm     *session
+	// copyAll is whether the editor with the keyboard has several
+	// selections, which the Edit menu's Copy copies.
+	copyAll bool
+	keyTerm *session
 	// held is the key the keymap took last, until it is let go of.
 	held *ui.Key
 	// chain are the commands of runCommands still to run, which stop at

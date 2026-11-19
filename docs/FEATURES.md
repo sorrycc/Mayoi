@@ -57,6 +57,29 @@ Closing a changed file saves it without asking. Untitled files wait for ⌘S. Tu
 - Home goes to the first non-blank character of the line.
 - The status bar shows the file's indentation and line endings, and you can change either from there.
 
+### Multiple cursors
+
+Type, delete, paste and undo at several places at once, as in VS Code.
+
+- **Selection → Add Cursor Above** and **Add Cursor Below** (⌥⌘↑, ⌥⌘↓; Ctrl+Alt+Up and Down on Windows)
+  add a caret on the next line at the same column; going back the other way takes the last one away.
+- ⌥-click (Alt-click) adds a caret, or takes one away; ⌥-drag selects from it. ⌘-click still goes to a definition.
+  Linux desktops that move windows with Alt-drag take the click first: use the middle button, or the commands, which
+  have no keys on Linux, as its desktops switch workspaces with Ctrl+Alt and the arrows; bind your own.
+- **Add Next Occurrence** (⌘D) selects the word at the caret, then the next match each time: whole words when it
+  started from a caret. **Select All Occurrences** (⇧⌘L) selects every match at once.
+- Column selection selects the same columns on each line: drag with ⇧⌥ (Shift+Alt) or the middle button, or use
+  **Column Select Up**, **Down**, **Left** and **Right** (⇧⌥⌘ with the arrows on macOS, Ctrl+Shift+Alt on Windows). Tabs and wide characters count
+  by their width, and lines too short are left out.
+- Typing, input methods, Backspace and Delete (also by word), Enter, Tab, the arrows, Home and End act at every caret.
+  Brackets close at each. Up and Down move each caret a line of the file, not a wrapped row, and skip folded lines. Copy joins the selections with newlines, and pasting as many lines as there are cursors puts
+  one at each. One undo takes back an edit at all of them.
+- The newest caret blinks; the others hold still. The status bar counts the selections. Escape, or a plain click,
+  goes back to one caret.
+- Other commands, such as moving or commenting lines and completion, act at the newest caret only. Vim mode, Live
+  Preview and diffs keep one caret. While an input method composes, its text shows at the newest caret, and goes to
+  all of them once committed.
+
 ### Vim mode
 
 **View → Vim Mode** edits with vim's keys. Each tab has its own mode, shown in the status bar, and starts in normal

@@ -84,6 +84,10 @@ func (s *lspServer) reason() string {
 	case lspFailQuit:
 		var stopped *lsp.StoppedError
 		if errors.As(s.err, &stopped) {
+			// Its command ended with 0, as it would asked to stop.
+			if stopped.Err == nil {
+				return locales.LspQuitClean()
+			}
 			return locales.LspQuit(firstLine(stopped.Err.Error()))
 		}
 	case lspFailSilent:

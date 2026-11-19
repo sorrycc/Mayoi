@@ -1780,6 +1780,7 @@
   "lspNotInstalled": "{command} がインストールされていません",
   "lspNotInstalledOn": "{host} に {command} がインストールされていません",
   "lspQuit": "起動中に終了しました（{err}）",
+  "lspQuitClean": "起動中にエラーなしで終了しました",
   "lspNoAnswer": "時間内に応答しませんでした",
   "lspExitUnchecked": "ステータス 127 で終了しました。{host} に接続できず、{command} がインストールされているか確認できませんでした",
   "lspStoppedOf": "{server} が停止しました",

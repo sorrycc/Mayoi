@@ -5,6 +5,7 @@ needs a `## <version>` section here, or its build fails.
 
 ## Unreleased
 
+- Mayoi no longer crashes when a language server exits without an error as it starts; it says so.
 - Mayoi comes with language servers for Go, TypeScript, Python, Rust and C/C++, off until you turn them on.
 - Opening a file whose built-in server is off offers **Turn On** when its program is installed.
 - If a built-in server's program is missing, Mayoi says how to install it.

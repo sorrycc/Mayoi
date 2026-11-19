@@ -18006,6 +18006,16 @@ func (msgs Messages) LspQuit(err string) string {
 	return Catalog.Format(msgs.locale, "lspQuit", map[string]any{"err": err})
 }
 
+// LspQuitClean says "it quit as it started, without an error"
+// in the language the app shows.
+func LspQuitClean() string { return In(i18n.Locale()).LspQuitClean() }
+
+// LspQuitClean says "it quit as it started, without an error"
+// in the language of msgs.
+func (msgs Messages) LspQuitClean() string {
+	return Catalog.Format(msgs.locale, "lspQuitClean", nil)
+}
+
 // LspNoAnswer says "it didn't answer in time"
 // in the language the app shows.
 func LspNoAnswer() string { return In(i18n.Locale()).LspNoAnswer() }

@@ -187,3 +187,25 @@ func TestLanguageServerFailures(t *testing.T) {
 		t.Fatal("a server stopped as the app quit was told of")
 	}
 }
+
+// A server that exits with 0 as it starts, as a wrapper that found nothing
+// to run may, says it quit without an error.
+func TestLanguageServerQuitsCleanly(t *testing.T) {
+	t.Setenv("MAYOI_FAKE_LSP", "quit")
+	hs := newHarness(t, false)
+	fakeServers(hs, map[string]string{"fake": os.Args[0]})
+	a := hs.a
+	path := hs.path("a.fake")
+	os.WriteFile(path, []byte("x\n"), 0o644)
+	a.openFile(path, true)
+	key := serverKey(a.root, "fake.fake")
+	hs.until("the failed start", func() bool {
+		s := serverOf(key)
+		return s != nil && s.state() == lspFailed
+	})
+	hs.settle()
+	s := serverOf(key)
+	if got, want := s.failMessage(), locales.LspCouldNotStart("fake.fake", locales.LspQuitClean()); s.failure != lspFailQuit || got != want {
+		t.Fatalf("failure %d, message %q, want %q", s.failure, got, want)
+	}
+}

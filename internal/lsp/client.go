@@ -251,10 +251,16 @@ func (c *Client) Formatting() bool { return c.caps.Formatting }
 func (c *Client) Done() <-chan struct{} { return c.done }
 
 // StoppedError is what a client whose server stopped answers with: Err is
-// how its command ended, an *exec.ExitError when it exited.
+// how its command ended, an *exec.ExitError when it exited, nil when it
+// exited with 0.
 type StoppedError struct{ Err error }
 
-func (e *StoppedError) Error() string { return fmt.Sprintf("the server stopped: %v", e.Err) }
+func (e *StoppedError) Error() string {
+	if e.Err == nil {
+		return "the server stopped"
+	}
+	return fmt.Sprintf("the server stopped: %v", e.Err)
+}
 func (e *StoppedError) Unwrap() error { return e.Err }
 
 // Close asks the server to shut down, and stops it after a moment; it

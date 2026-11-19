@@ -7,6 +7,9 @@ import (
 	"fmt"
 	"io"
 	"net/url"
+	"path"
+	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -118,6 +121,41 @@ func expandServerCommand(command string, args []string, settings map[string]json
 	return command, out, nil
 }
 
+// serverCommand is the command and arguments of a plain server, with its
+// plugin's settings: the arguments of its program's own, as tsc's, when
+// none of the settings of its arguments is set.
+func serverCommand(sc *plugin.ServerContrib, settings, explicit map[string]json.RawMessage) (string, []string, error) {
+	command, args, err := expandServerCommand(sc.Command, sc.Args, settings)
+	if pa, ok := sc.ProgramArgs[programName(command)]; ok && err == nil && !argsSet(sc.Args, explicit) {
+		args = slices.Clone(pa)
+	}
+	return command, args, err
+}
+
+// programName is a command's program without its folder or .exe.
+func programName(command string) string {
+	return strings.TrimSuffix(path.Base(filepath.ToSlash(command)), ".exe")
+}
+
+// argsSet reports whether a setting that args take is set, not left to
+// its default.
+func argsSet(args []string, explicit map[string]json.RawMessage) bool {
+	for _, arg := range args {
+		for rest := arg; ; {
+			_, after, found := strings.Cut(rest, "${settings.")
+			if !found {
+				break
+			}
+			key, tail, _ := strings.Cut(after, "}")
+			if _, ok := explicit[key]; ok {
+				return true
+			}
+			rest = tail
+		}
+	}
+	return false
+}
+
 // expandServerOptions substitutes the settings in initializationOptions:
 // a string that is all of a setting is its value, and goes, with its key,
 // when the setting is empty.
@@ -186,7 +224,7 @@ func serverProgram(p *plugin.Plugin, s *plugin.ServerContrib) string {
 func (s *lspServer) resolve(ctx context.Context) (serverLaunch, error) {
 	settings, explicit := serverSettings(s.plugin)
 	if s.contrib.Resolve == nil {
-		command, args, err := expandServerCommand(s.contrib.Command, s.contrib.Args, settings)
+		command, args, err := serverCommand(&s.contrib, settings, explicit)
 		return serverLaunch{Command: command, Args: args, Options: expandServerOptions(s.contrib.Options, settings)}, err
 	}
 	launch := serverLaunch{Command: s.contrib.Command, Args: s.contrib.Args, Options: expandServerOptions(s.contrib.Options, settings)}

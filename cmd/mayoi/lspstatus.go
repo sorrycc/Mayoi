@@ -7,8 +7,6 @@ import (
 	"errors"
 	"io/fs"
 	"os/exec"
-	"path"
-	"path/filepath"
 	"slices"
 	"strconv"
 	"strings"
@@ -125,10 +123,7 @@ func (s *lspServer) check() lspFailure {
 }
 
 // program is the name of the program the server ran, without its folder.
-func (s *lspServer) program() string {
-	name := path.Base(filepath.ToSlash(s.command))
-	return strings.TrimSuffix(name, ".exe")
-}
+func (s *lspServer) program() string { return programName(s.command) }
 
 // reason is why the server could not start, in a few words.
 func (s *lspServer) reason() string {

@@ -48,8 +48,8 @@ settings window, or with `"enabled": true` in their settings. A file of a langua
 setting names its program, by name or path, when it is not on the path.
 
 TypeScript's server needs a TypeScript 5 or 6 in the folder's `node_modules`, or its `tsserverPath` setting naming a
-`tsserver.js`. TypeScript 7 has no `tsserver.js` but a server of its own: set `path` to `tsc` and `args` to
-`--lsp --stdio`. Mayoi says which applies when the server finds no TypeScript.
+`tsserver.js`. TypeScript 7 has no `tsserver.js` but a server of its own: set `path` to `tsc`, which then runs with
+`--lsp --stdio` while `args` is left as it is. Mayoi says which applies when the server finds no TypeScript.
 
 A plugin you install under the name of one Mayoi comes with takes its place; removing it brings Mayoi's back.
 `mayoi --disable-plugins` runs Mayoi's own.
@@ -413,7 +413,9 @@ the old one is gone; the documents open are told of again.
 `command` and `args` take `${settings.key}`, the plugin's setting or its default; an argument that is all of a setting
 of `type` `array` is its strings, as many arguments. A string of `initializationOptions` that is all of
 `${settings.key}` is the setting's value, left out with its key when the setting is empty. A server that answers
-`initialize` with an error says it. `install` is the command that installs the program, said when it is missing:
+`initialize` with an error says it. `programArgs` are the arguments of a program by name, as
+`{"tsc": ["--lsp", "--stdio"]}`, in place of `args` when the command starts that program and no setting that `args` takes
+is set. `install` is the command that installs the program, said when it is missing:
 
 ```jsonc
 "settings": { "path": { "type": "string", "default": "gopls" } },

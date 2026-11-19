@@ -222,6 +222,10 @@ type ServerContrib struct {
 	// Install is the shell command that installs the server's program,
 	// which Mayoi says when the program is not found.
 	Install string `json:"install,omitempty"`
+	// ProgramArgs are the arguments of a program by its name, as "tsc"
+	// serves with ["--lsp", "--stdio"], in place of Args when the command
+	// starts it and no setting of Args is set.
+	ProgramArgs map[string][]string `json:"programArgs,omitempty"`
 }
 
 type ServerResolver struct {

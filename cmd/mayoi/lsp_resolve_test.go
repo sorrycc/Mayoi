@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"maps"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -272,5 +273,44 @@ func TestServerSettingLists(t *testing.T) {
 	}
 	if got := string(expandServerOptions(sc.Options, defaults)); got != `{"tsserver":{}}` {
 		t.Fatalf("default options %s", got)
+	}
+}
+
+// The program a server's path names may have arguments of its own, as tsc
+// serves with --lsp --stdio, while its args are left as they are.
+func TestServerProgramArgs(t *testing.T) {
+	data, err := os.ReadFile(filepath.Join("..", "..", "plugins", "typescript-language-server", "plugin.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var m plugin.Manifest
+	if err := json.Unmarshal(data, &m); err != nil {
+		t.Fatal(err)
+	}
+	sc := &m.Contributes.LanguageServers[0]
+	run := func(explicit map[string]json.RawMessage) string {
+		settings := map[string]json.RawMessage{}
+		for key, s := range m.Contributes.Settings {
+			settings[key] = s.Default
+		}
+		maps.Copy(settings, explicit)
+		command, args, err := serverCommand(sc, settings, explicit)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return strings.Join(append([]string{command}, args...), " ")
+	}
+	for _, c := range []struct {
+		explicit map[string]json.RawMessage
+		want     string
+	}{
+		{nil, "typescript-language-server --stdio"},
+		{map[string]json.RawMessage{"path": json.RawMessage(`"tsc"`)}, "tsc --lsp --stdio"},
+		{map[string]json.RawMessage{"path": json.RawMessage(`"/opt/ts/bin/tsc.exe"`)}, "/opt/ts/bin/tsc.exe --lsp --stdio"},
+		{map[string]json.RawMessage{"path": json.RawMessage(`"tsc"`), "args": json.RawMessage(`["--lsp", "--stdio", "--pprofDir", "/tmp"]`)}, "tsc --lsp --stdio --pprofDir /tmp"},
+	} {
+		if got := run(c.explicit); got != c.want {
+			t.Errorf("%s: %q, want %q", c.explicit, got, c.want)
+		}
 	}
 }

@@ -2539,13 +2539,18 @@ func (a *app) openPath(path string, focus bool) {
 	a.openFile(path, focus)
 }
 
-// openFileAt shows a file with the caret at the start of a line.
+// openFileAt shows a file with the caret at the start of a line, which
+// Go Back comes back from to the place it left.
 func (a *app) openFileAt(path string, line int, focus bool) {
+	from := a.navHere()
 	// The line is in the text, whatever markdownPreview says.
 	a.openText(func() { a.openPath(path, focus) })
 	if d := a.activeEditor(); d != nil && d.path == path {
 		if a.review.ed == d {
 			a.keepDraft()
+		}
+		if from != nil {
+			a.navPush(from)
 		}
 		d.goToLine(line+1, 1)
 	}

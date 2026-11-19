@@ -151,6 +151,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for development and testing.
 | Shortcut | Action |
 |---|---|
 | ⌘P / ⇧⌘O / ⌃G | Quick open / go to symbol / go to line |
+| F12 or ⌘-click / ⌃- / ⌃⇧- | Go to definition / go back / go forward |
 | ⌘F / ⌥⌘F / ⌘G | Find / replace / next match |
 | ⇧⌘F / ⇧⌘H | Find in files / replace in files |
 | ⌘S / ⇧⌘S / ⌥⌘S | Save / save as / save all |

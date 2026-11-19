@@ -83,10 +83,12 @@ type document struct {
 	// marks are vim mode's marks in the text, which move with its edits:
 	// those of m, and ' for where the cursor jumped from. changed is where
 	// the last change was, the mark . of vim. tracked are offsets that a
-	// command of many steps, as :g, follows the lines of.
+	// command of many steps, as :g, follows the lines of, and navs the
+	// places of Go Back's history in the text.
 	marks   map[rune]int
 	changed int
 	tracked []int
+	navs    []*navPlace
 
 	// widest is the longest line in columns seen, which sizes the text
 	// area's width; widestVersion is the version it was last measured at
@@ -134,7 +136,10 @@ type editor struct {
 	// sticky are the lines stuck at the top of the editor in the last
 	// frame, which a click goes to.
 	sticky []int
-	scopes scopeCache
+	// defClick is set while a Cmd-click, which goes to a definition as it
+	// is let go, is held.
+	defClick bool
+	scopes   scopeCache
 	// folding is the runs of lines the editor folded.
 	folding foldView
 	// win is the text of the lines around the view, of version winVersion,

@@ -36,6 +36,11 @@ brings. See [Settings sync](PLUGINS.md#settings-sync).
 
 Mayoi asks GitHub for the latest release once an hour, as any download from GitHub does.
 
+## Plugins
+
+Opening a file of a language that no plugin brings a language server for reads the index of plugins from GitHub, at
+most once an hour, to offer a plugin for it. The request is for the index alone and tells nothing of your files.
+
 ## usemayoi.com
 
 The website counts visits with the same Umami, without cookies, and not at all when your browser sends Do Not Track. It

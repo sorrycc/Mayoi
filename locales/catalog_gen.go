@@ -17784,6 +17784,100 @@ func (msgs Messages) DefinitionNone() string {
 	return Catalog.Format(msgs.locale, "definitionNone", nil)
 }
 
+// CmdGoBack says "Go Back"
+// in the language the app shows.
+func CmdGoBack() string { return In(i18n.Locale()).CmdGoBack() }
+
+// CmdGoBack says "Go Back"
+// in the language of msgs.
+func (msgs Messages) CmdGoBack() string {
+	return Catalog.Format(msgs.locale, "cmdGoBack", nil)
+}
+
+// CmdGoForward says "Go Forward"
+// in the language the app shows.
+func CmdGoForward() string { return In(i18n.Locale()).CmdGoForward() }
+
+// CmdGoForward says "Go Forward"
+// in the language of msgs.
+func (msgs Messages) CmdGoForward() string {
+	return Catalog.Format(msgs.locale, "cmdGoForward", nil)
+}
+
+// NavGone says "{path} no longer exists"
+// in the language the app shows.
+func NavGone(path string) string { return In(i18n.Locale()).NavGone(path) }
+
+// NavGone says "{path} no longer exists"
+// in the language of msgs.
+func (msgs Messages) NavGone(path string) string {
+	return Catalog.Format(msgs.locale, "navGone", map[string]any{"path": path})
+}
+
+// DefinitionElsewhere says "The definition is at {uri}, which Mayoi can't open"
+// in the language the app shows.
+func DefinitionElsewhere(uri string) string { return In(i18n.Locale()).DefinitionElsewhere(uri) }
+
+// DefinitionElsewhere says "The definition is at {uri}, which Mayoi can't open"
+// in the language of msgs.
+func (msgs Messages) DefinitionElsewhere(uri string) string {
+	return Catalog.Format(msgs.locale, "definitionElsewhere", map[string]any{"uri": uri})
+}
+
+// DefinitionPick says "Choose a definition"
+// in the language the app shows.
+func DefinitionPick() string { return In(i18n.Locale()).DefinitionPick() }
+
+// DefinitionPick says "Choose a definition"
+// in the language of msgs.
+func (msgs Messages) DefinitionPick() string {
+	return Catalog.Format(msgs.locale, "definitionPick", nil)
+}
+
+// LspOffer says "{detect} is installed. Install the {name} plugin for Go to Definition and more?"
+// in the language the app shows.
+func LspOffer(detect string, name string) string { return In(i18n.Locale()).LspOffer(detect, name) }
+
+// LspOffer says "{detect} is installed. Install the {name} plugin for Go to Definition and more?"
+// in the language of msgs.
+func (msgs Messages) LspOffer(detect string, name string) string {
+	return Catalog.Format(msgs.locale, "lspOffer", map[string]any{"detect": detect, "name": name})
+}
+
+// LspOfferInstall says "Install"
+// in the language the app shows.
+func LspOfferInstall() string { return In(i18n.Locale()).LspOfferInstall() }
+
+// LspOfferInstall says "Install"
+// in the language of msgs.
+func (msgs Messages) LspOfferInstall() string {
+	return Catalog.Format(msgs.locale, "lspOfferInstall", nil)
+}
+
+// LspMissing says "{name} needs {detect}, which isn't installed. Install it with {command}"
+// in the language the app shows.
+func LspMissing(name string, detect string, command string) string {
+	return In(i18n.Locale()).LspMissing(name, detect, command)
+}
+
+// LspMissing says "{name} needs {detect}, which isn't installed. Install it with {command}"
+// in the language of msgs.
+func (msgs Messages) LspMissing(name string, detect string, command string) string {
+	return Catalog.Format(msgs.locale, "lspMissing", map[string]any{"name": name, "detect": detect, "command": command})
+}
+
+// LspInstallFailed says "Could not install {name}: {err}"
+// in the language the app shows.
+func LspInstallFailed(name string, err string) string {
+	return In(i18n.Locale()).LspInstallFailed(name, err)
+}
+
+// LspInstallFailed says "Could not install {name}: {err}"
+// in the language of msgs.
+func (msgs Messages) LspInstallFailed(name string, err string) string {
+	return Catalog.Format(msgs.locale, "lspInstallFailed", map[string]any{"name": name, "err": err})
+}
+
 // CompletionNone says "No completions here"
 // in the language the app shows.
 func CompletionNone() string { return In(i18n.Locale()).CompletionNone() }

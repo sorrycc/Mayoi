@@ -132,6 +132,10 @@ func (a *app) commandsIn(t locales.Messages) []command {
 		{"go.bracket", t.CmdGoBracket(), "Shift+CmdOrCtrl+\\", a.editActive(goToBracket)},
 		{"go.definition", t.CmdGoDefinition(), "F12", a.goToDefinition},
 		{"go.hover", t.CmdGoHover(), "", a.showHover},
+		// ⌃- and ⌃⇧- on macOS, as VS Code has them, where ⌥⌘← goes to the
+		// column on the left and ⌥← by words.
+		{"go.back", t.CmdGoBack(), "Ctrl+-", func() { a.navGo(-1) }},
+		{"go.forward", t.CmdGoForward(), "Ctrl+Shift+-", func() { a.navGo(1) }},
 		{"go.quickOpen", t.CmdGoQuickOpen(), "CmdOrCtrl+P", func() { a.openQuick("") }},
 		{"go.commands", t.CmdGoCommands(), "Shift+CmdOrCtrl+P", func() { a.openQuick(">") }},
 		{"go.line", t.CmdGoLine(), "Ctrl+G", func() { a.openQuick(":") }},
@@ -733,6 +737,7 @@ func (a *app) menu(cli bool, run func(id string, win *mygo.Window)) *mygo.Menu {
 		{Label: locales.MenuGo(), Submenu: []*mygo.MenuItem{
 			item("go.quickOpen"), item("go.commands"), item("go.symbol"), item("go.line"), item("go.bracket"), mygo.Separator(),
 			item("go.definition"), item("go.hover"), mygo.Separator(),
+			item("go.back"), item("go.forward"), mygo.Separator(),
 			item("go.nextTab"), item("go.prevTab"), mygo.Separator(),
 			item("go.nextProject"), item("go.prevProject"),
 		}},

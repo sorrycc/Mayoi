@@ -13,6 +13,14 @@ needs a `## <version>` section here, or its build fails.
 - **Edit → Fold All** (`⌘K ⌘0`) and **Unfold All** (`⌘K ⌘J`) fold or open every block of the file at once.
 - The caret moves past folded lines; Find and Go to Line open the folds that hide what they go to.
 - Folds stay as you edit above them, each split view keeps its own, and they come back with your session.
+- ⌘-click a name, or Ctrl-click on Windows and Linux, to go to its definition, as `F12` does.
+- **Go → Back** (`⌃-`) and **Go → Forward** (`⌃⇧-`) return to where a jump, as to a definition, left.
+- On Windows and Linux, `Alt+←` and `Alt+→` go back and forward; the mouse's side buttons do too.
+- Go back lands where you were even after edits above it, and reopens a file you closed since.
+- A name defined in several places offers them in a list instead of going to the first.
+- Go to Definition uses the text as you just typed it, and stays put if you moved on before it answered.
+- Opening a file whose language has no server offers its plugin, once, when the server is installed.
+- When that server isn't installed, Mayoi says once how to install it.
 - Terminals no longer crash Mayoi on macOS while many files are open.
 - Selecting text in a file with invalid UTF-8 past its first 8 KB no longer crashes Mayoi.
 - A click past bold text or hidden Markdown marks puts the caret where you click, without selecting text.

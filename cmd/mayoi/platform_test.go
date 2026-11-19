@@ -1,8 +1,10 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"net/http"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -14,6 +16,7 @@ import (
 
 	"mayoi/internal/git"
 	"mayoi/internal/keymap"
+	"mayoi/internal/plugin"
 	"mayoi/internal/remote"
 	"mayoi/internal/settings"
 )
@@ -40,6 +43,8 @@ func TestMain(m *testing.M) {
 	// The previews' pictures of the web are not fetched, but by the tests
 	// of them, from servers of their own.
 	markdownRemote.get = func(string) ([]byte, error) { return nil, errors.New("offline") }
+	// Nor the index of plugins, for the language servers to offer.
+	fetchServerIndex = func(context.Context, *http.Client) ([]plugin.IndexEntry, error) { return nil, errors.New("offline") }
 	// Nor is GitHub asked, by the gh of the machine, of the repositories
 	// whose remotes the tests make up: it answers as to one not signed in,
 	// at once, as on CI.

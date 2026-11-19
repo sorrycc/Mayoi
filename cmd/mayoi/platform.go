@@ -31,6 +31,8 @@ var otherAccels = map[string]string{
 	"file.openFolderWindow":  "",
 	"view.nextColumn":        "",
 	"view.prevColumn":        "",
+	"go.back":                "Alt+Left",
+	"go.forward":             "Alt+Right",
 	"git.collapseAllFiles":   "",
 	"git.expandAllFiles":     "",
 	"edit.fold":              "Shift+Ctrl+[",

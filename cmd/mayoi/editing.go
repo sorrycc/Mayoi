@@ -583,6 +583,22 @@ func (a *app) editorKey(d *editor, ev ui.InputEvent) bool {
 			d.cmds = append(d.cmds, a.followLiveLink)
 		}
 	}
+	// A Cmd-click on a name of code goes to where it is defined, as F12
+	// does, as it is let go where the click put the caret: not a drag,
+	// which selects.
+	if ev.Kind == ui.InputPointerDown && ev.Button == 0 && ev.Clicks == 1 && ev.Mods == ui.Cmd && !isMarkdown(d.document) {
+		d.defClick = true
+	} else if ev.Kind == ui.InputPointerDown {
+		d.defClick = false
+	}
+	if ev.Kind == ui.InputPointerUp && ev.Button == 0 && d.defClick {
+		d.defClick = false
+		d.cmds = append(d.cmds, func(d *editor) {
+			if d.sel[0] == d.sel[1] {
+				a.definitionAt(d, true)
+			}
+		})
+	}
 	if ev.Kind == ui.InputPointerDown && a.prefs().Vim && d.vim.mode.visual() {
 		// A click ends visual mode; a drag selects anew.
 		d.vim.lastVisual = vimVisualArea{d.vim.anchor, d.vim.cursor, d.vim.mode}
@@ -594,6 +610,16 @@ func (a *app) editorKey(d *editor, ev ui.InputEvent) bool {
 	// The suggestions of a wiki link being typed take the keys that
 	// choose among them.
 	if a.wikiKey(d, ev) {
+		return true
+	}
+	// The mouse's back and forward buttons go through the history of the
+	// jumps, as a browser's do.
+	if (ev.Key == ui.KeyBack || ev.Key == ui.KeyForward) && ev.Mods == 0 {
+		n := 1
+		if ev.Key == ui.KeyBack {
+			n = -1
+		}
+		a.post(func() { a.navGo(n) })
 		return true
 	}
 	if ev.Key == ui.KeyEscape && ev.Mods == 0 && d.peek >= 0 {

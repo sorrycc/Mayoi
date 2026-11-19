@@ -6,7 +6,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -299,6 +301,9 @@ func (a *app) lspDoc(event string, d *document) {
 		return
 	}
 	s := a.lspFor(d, event == "open")
+	if s == nil && event == "open" {
+		a.offerServer(d)
+	}
 	c := s.live()
 	if c == nil {
 		return // the server opens it as it starts
@@ -419,16 +424,24 @@ func (a *app) hoverView(c *ui.Context) {
 // goToDefinition goes to where what is at the caret is defined, as the
 // document's language server says.
 func (a *app) goToDefinition() {
-	d := a.textEditor()
-	if d == nil {
-		return
+	if d := a.textEditor(); d != nil {
+		a.definitionAt(d, false)
 	}
+}
+
+// definitionAt goes to where what is at the caret of d is defined, or
+// offers the places when there are several. A click, which a Cmd-click is,
+// says nothing of a language with no server.
+func (a *app) definitionAt(d *editor, click bool) {
 	s := a.lspFor(d.document, false)
 	if s == nil {
-		a.tell(note{message: locales.LspNone(languageOf(d.document))})
+		if !click {
+			a.tell(note{message: locales.LspNone(languageOf(d.document))})
+		}
 		return
 	}
-	pos, uri, root := caretPosition(d), serverURI(d.path), a.root
+	pos, uri, root, version := caretPosition(d), serverURI(d.path), a.root, d.buf.Version()
+	lang, text := languageOf(d.document), d.buf.String()
 	go func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
@@ -437,27 +450,67 @@ func (a *app) goToDefinition() {
 			a.post(func() { a.lspFailed(s) })
 			return
 		}
+		// The server knows the text as it is now: not as the last change
+		// it was told of a moment ago, nor before the documents open are
+		// told of, as a server that just started is.
+		c.Open(uri, lang, text)
 		locs, err := c.DefinitionAt(ctx, uri, lsp.Position(pos))
 		a.post(func() {
+			// Gone on from, the answer is too late to take there.
+			if a.activeEditor() != d || d.buf.Version() != version {
+				return
+			}
 			if err != nil || len(locs) == 0 {
 				a.tell(note{message: locales.DefinitionNone()})
 				return
 			}
-			path := serverPath(root, locs[0].URI)
-			if path == "" {
-				return
+			type place struct {
+				path string
+				loc  lsp.Location
 			}
-			a.openFileAt(path, locs[0].Range.Start.Line, true)
-			if ed := a.activeEditor(); ed != nil && ed.path == path {
-				// At the name, once the file is read, not the line's start.
-				ed.whenRead(func(ed *editor) {
-					at := posRune(ed.buf.Snapshot(), fromLSP(locs[0].Range.Start))
-					ed.selectRange(at, at, true)
-					ed.lightLanding()
+			var places []place
+			for _, l := range locs {
+				path := serverPath(root, l.URI)
+				if path == "" || slices.ContainsFunc(places, func(p place) bool {
+					return p.path == path && p.loc.Range.Start.Line == l.Range.Start.Line
+				}) {
+					continue
+				}
+				places = append(places, place{path, l})
+			}
+			switch len(places) {
+			case 0:
+				a.tell(note{message: locales.DefinitionElsewhere(locs[0].URI)})
+			case 1:
+				a.goToLocation(places[0].path, places[0].loc)
+			default:
+				items := make([]pickItem, len(places))
+				for i, p := range places {
+					items[i] = pickItem{Label: filepath.Base(p.path) + ":" + strconv.Itoa(p.loc.Range.Start.Line+1),
+						Description: a.relPath(filepath.Dir(p.path)), Icon: "file"}
+				}
+				a.openPluginPicker(items, locales.DefinitionPick(), func(i int) {
+					if i >= 0 {
+						a.goToLocation(places[i].path, places[i].loc)
+					}
 				})
 			}
 		})
 	}()
+}
+
+// goToLocation shows a place a language server named, the caret at its
+// start.
+func (a *app) goToLocation(path string, loc lsp.Location) {
+	a.openFileAt(path, loc.Range.Start.Line, true)
+	if ed := a.activeEditor(); ed != nil && ed.path == path {
+		// At the name, once the file is read, not the line's start.
+		ed.whenRead(func(ed *editor) {
+			at := posRune(ed.buf.Snapshot(), fromLSP(loc.Range.Start))
+			ed.selectRange(at, at, true)
+			ed.lightLanding()
+		})
+	}
 }
 
 // lspFailed tells why a language server did not answer: one that could

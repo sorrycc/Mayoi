@@ -12,7 +12,9 @@ import (
 )
 
 // Serve answers as a language server of a language whose every word
-// "bad" is an error, on in and out, until it is told to exit.
+// "bad" is an error, on in and out, until it is told to exit. A word is
+// defined by the lines of its document that are "def" and it, and else at
+// line 3 of /tmp/def.fake.
 func Serve(in io.Reader, out io.Writer) {
 	r := bufio.NewReader(in)
 	send := func(m any) {
@@ -20,6 +22,7 @@ func Serve(in io.Reader, out io.Writer) {
 		fmt.Fprintf(out, "Content-Length: %d\r\n\r\n%s", len(data), data)
 	}
 	var initialize, document json.RawMessage
+	texts := map[string]string{} // by URI
 	var options struct {
 		HoverContents json.RawMessage `json:"hoverContents"`
 	}
@@ -75,6 +78,7 @@ func Serve(in io.Reader, out io.Writer) {
 			if len(p.ContentChanges) > 0 {
 				text = p.ContentChanges[0].Text
 			}
+			texts[p.TextDocument.URI] = text
 			var diags []any
 			for i, line := range strings.Split(text, "\n") {
 				if at := strings.Index(line, "bad"); at >= 0 {
@@ -96,6 +100,10 @@ func Serve(in io.Reader, out io.Writer) {
 		case "test/noReply":
 			// A response timeout must not disconnect an otherwise healthy client.
 		case "textDocument/definition":
+			if defs := definitions(texts, m.Params); defs != nil {
+				reply(defs)
+				break
+			}
 			reply([]any{map[string]any{"uri": "file:///tmp/def.fake", "range": map[string]any{
 				"start": map[string]any{"line": 3, "character": 1}, "end": map[string]any{"line": 3, "character": 4}}}})
 		case "textDocument/completion":
@@ -113,4 +121,45 @@ func Serve(in io.Reader, out io.Writer) {
 			}
 		}
 	}
+}
+
+// definitions are the lines "def" and the word at a place, of the
+// document's text: an empty list when the word is "nothing", nil when it
+// is defined in none.
+func definitions(texts map[string]string, params json.RawMessage) []any {
+	var p struct {
+		TextDocument struct {
+			URI string `json:"uri"`
+		} `json:"textDocument"`
+		Position struct {
+			Line      int `json:"line"`
+			Character int `json:"character"`
+		} `json:"position"`
+	}
+	json.Unmarshal(params, &p)
+	lines := strings.Split(texts[p.TextDocument.URI], "\n")
+	if p.Position.Line >= len(lines) {
+		return nil
+	}
+	line := lines[p.Position.Line]
+	word := func(r byte) bool { return r >= 'a' && r <= 'z' || r >= '0' && r <= '9' }
+	s, e := min(p.Position.Character, len(line)), min(p.Position.Character, len(line))
+	for s > 0 && word(line[s-1]) {
+		s--
+	}
+	for e < len(line) && word(line[e]) {
+		e++
+	}
+	name := line[s:e]
+	if name == "nothing" {
+		return []any{}
+	}
+	var out []any
+	for i, l := range lines {
+		if l == "def "+name {
+			out = append(out, map[string]any{"uri": p.TextDocument.URI, "range": map[string]any{
+				"start": map[string]any{"line": i, "character": 4}, "end": map[string]any{"line": i, "character": 4 + len(name)}}})
+		}
+	}
+	return out
 }

@@ -132,13 +132,17 @@ func vimMarkAt(d *editor, snap ui.TextSnapshot, r rune) (int, bool) {
 
 // moveMarks moves what points into the text with an edit, by where moved
 // leaves an offset of the text before it: the marks, the lines a command
-// goes over, and each editor's jumps, last selection and last insert.
+// goes over, the places of Go Back's history, and each editor's jumps,
+// last selection and last insert.
 func (doc *document) moveMarks(moved func(x int) int) {
 	for k, x := range doc.marks {
 		doc.marks[k] = moved(x)
 	}
 	for i, x := range doc.tracked {
 		doc.tracked[i] = moved(x)
+	}
+	for _, p := range doc.navs {
+		p.at = moved(p.at)
 	}
 	doc.changed = moved(doc.changed)
 	for _, o := range doc.views {
@@ -156,7 +160,7 @@ func (doc *document) moveMarks(moved func(x int) int) {
 // marked reports whether anything points into the text that moveMarks
 // would move.
 func (doc *document) marked() bool {
-	if len(doc.marks) > 0 || len(doc.tracked) > 0 {
+	if len(doc.marks) > 0 || len(doc.tracked) > 0 || len(doc.navs) > 0 {
 		return true
 	}
 	for _, o := range doc.views {

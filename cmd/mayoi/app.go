@@ -377,6 +377,7 @@ type app struct {
 	// view the sidebar showed, by view id: this window's own.
 	viewStates map[string]*pluginView
 	hover      *hoverCard // the card Show Hover shows
+	nav        navHistory // where Go Back and Go Forward go
 	find       findState
 	inFiles    searchState // search in the files, of the sidebar
 	sessions   sessionsState

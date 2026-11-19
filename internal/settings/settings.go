@@ -67,6 +67,10 @@ type State struct {
 	// window has open, by folder, which the next window to open one gets
 	// back.
 	Sessions map[string]*Session `json:"sessions,omitempty"`
+	// ServerOffers are the languages whose plugin of the index Mayoi
+	// offered, and, as "missing:" and the language, those whose server it
+	// said was not installed: each is told of once.
+	ServerOffers []string `json:"serverOffers,omitempty"`
 }
 
 // oldLayout is the layout an older version kept for every window, in the

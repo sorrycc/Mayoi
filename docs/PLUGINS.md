@@ -385,8 +385,10 @@ placeholders, choices and variables as `TM_FILENAME` and `CURRENT_YEAR`; **Selec
 
 A plugin of a few lines brings a language: Mayoi starts the server as a document of its languages opens, on the
 folder's machine, so it runs on the SSH host of a remote folder. Mayoi shows the server's diagnostics, and asks it for
-**Go → Go to Definition** (F12), **Go → Show Hover**, **Selection → Complete Word** (⌃Space in the editor), and
-**Format Document** when no plugin formats the language.
+**Go → Go to Definition** (F12, or ⌘-click a name, Ctrl-click on Windows and Linux), **Go → Show Hover**,
+**Selection → Complete Word** (⌃Space in the editor), and **Format Document** when no plugin formats the language.
+A definition in several places offers them in a list. **Go → Back** (⌃-, Alt+← on Windows and Linux) and
+**Go → Forward** (⌃⇧-, Alt+→), or the mouse's back and forward buttons, go between the places jumps left.
 
 For servers that need setup, use `resolve` instead of `command`:
 
@@ -491,4 +493,13 @@ Push the folder to a Git repository: `mayoi plugin install owner/repo` installs 
 
 ```json
 { "name": "word-stats", "description": "Words of the selection", "author": "Ann", "repository": "https://github.com/me/word-stats", "tags": ["text"] }
+```
+
+A plugin that brings a language server also lists its `languages`, the program to `detect` and the command that
+installs it. As a file of one of those languages opens with no server, Mayoi looks for the program on the folder's
+machine: found, it offers to install the plugin, once; not found, it says how to install the program, once.
+
+```json
+{ "name": "gopls", "displayName": "Go", "description": "Go with gopls", "repository": "https://github.com/me/mayoi-gopls",
+  "languages": ["go"], "detect": "gopls", "install": "go install golang.org/x/tools/gopls@latest" }
 ```

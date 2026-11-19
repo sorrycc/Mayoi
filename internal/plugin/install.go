@@ -62,6 +62,13 @@ type IndexEntry struct {
 	Author      string   `json:"author,omitempty"`
 	Repository  string   `json:"repository"`
 	Tags        []string `json:"tags,omitempty"`
+	// Languages are the languages of the language server the plugin
+	// brings, which Mayoi offers it for as a file of one opens; Detect is
+	// the program of the server, looked for on the folder's machine, and
+	// Install the command that installs it there.
+	Languages []string `json:"languages,omitempty"`
+	Detect    string   `json:"detect,omitempty"`
+	Install   string   `json:"install,omitempty"`
 }
 
 // FetchIndex reads the index of plugins.

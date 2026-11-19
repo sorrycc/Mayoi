@@ -378,6 +378,14 @@ func settingsPath() string {
 	return filepath.Join(dir, "settings.json")
 }
 
+// shellPathReady is closed once PATH is the user's shell's, which main
+// reads in the background; closed from the start where it is not read.
+var shellPathReady = func() chan struct{} {
+	c := make(chan struct{})
+	close(c)
+	return c
+}()
+
 func main() {
 	// The bridge is an internal process of this executable. It has to run
 	// before the command client and the single-instance lock: those would
@@ -420,7 +428,7 @@ func main() {
 	// where the user's shell does, and ssh signs with the agent of the
 	// user's session, whose socket the app does not inherit either. In the
 	// background, as a slow shell would hold up the window.
-	shellPathReady := make(chan struct{})
+	shellPathReady = make(chan struct{})
 	if runtime.GOOS != "windows" && os.Getenv("MAYOI_SNAPSHOT") == "" {
 		go func() {
 			path, env := cli.ShellEnvironment()

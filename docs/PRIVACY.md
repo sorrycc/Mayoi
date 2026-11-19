@@ -39,7 +39,8 @@ Mayoi asks GitHub for the latest release once an hour, as any download from GitH
 ## Plugins
 
 Opening a file of a language that no plugin brings a language server for reads the index of plugins from GitHub, at
-most once an hour, to offer a plugin for it. The request is for the index alone and tells nothing of your files.
+most once an hour, or five minutes after it could not be read, to offer a plugin for it. The request is for the index
+alone and tells nothing of your files.
 
 ## usemayoi.com
 

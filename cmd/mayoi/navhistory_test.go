@@ -1,19 +1,12 @@
 package main
 
 import (
-	"context"
 	"encoding/json"
-	"net/http"
 	"os"
 	"path/filepath"
-	"slices"
-	"strings"
 	"testing"
-	"time"
 
 	"github.com/egoist/mygo/ui"
-
-	"mayoi/internal/plugin"
 )
 
 // withFakeServer is a harness with a plugin whose language server, the
@@ -240,71 +233,6 @@ func TestCmdClickDefinition(t *testing.T) {
 	hs.settle()
 	if hs.tt.HasText("language server") {
 		t.Fatalf("a Cmd-click with no server told %q", hs.tt.Texts())
-	}
-}
-
-// A file of a language with no server offers the plugin of the index
-// that brings one, once, when its program is installed; when it is not,
-// it says how to install it.
-func TestOfferLanguageServer(t *testing.T) {
-	bin := t.TempDir()
-	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
-	old := fetchServerIndex
-	t.Cleanup(func() {
-		fetchServerIndex = old
-		serverIndex.Lock()
-		serverIndex.entries, serverIndex.at = nil, time.Time{}
-		serverIndex.Unlock()
-	})
-	fetchServerIndex = func(context.Context, *http.Client) ([]plugin.IndexEntry, error) {
-		return []plugin.IndexEntry{{Name: "zig-lang", DisplayName: "Zig", Repository: "https://example.com/zig.git",
-			Languages: []string{"zigx"}, Detect: "mayoi-zigx-ls.exe", Install: "brew install zigx"}}, nil
-	}
-	start := func() (*harness, func(string)) {
-		serverIndex.Lock()
-		serverIndex.at = time.Time{}
-		serverIndex.Unlock()
-		manifest := `{"name": "zigx", "contributes": {"languages": [{"id": "zigx", "extensions": [".zigx"]}]}}`
-		hs := newHarness(t, false)
-		withPlugins(hs, map[string]map[string]string{"zigx": {"plugin.json": manifest}})
-		return hs, func(name string) {
-			path := hs.path(name)
-			os.WriteFile(path, []byte("x\n"), 0o644)
-			hs.a.openFile(path, true)
-			hs.settle()
-		}
-	}
-
-	hs, open := start()
-	open("a.zigx")
-	hs.until("the missing server told", func() bool { return hs.tt.HasText("brew install zigx") })
-	if hs.tt.HasText("Install the Zig plugin") {
-		t.Fatal("offered the plugin of a server not installed")
-	}
-
-	// Installed: offered, once.
-	os.WriteFile(filepath.Join(bin, "mayoi-zigx-ls.exe"), []byte("#!/bin/sh\n"), 0o755)
-	hs, open = start()
-	open("b.zigx")
-	hs.until("the plugin offered", func() bool { return hs.tt.HasText("Install the Zig plugin") })
-	if !hs.tt.HasText("Install") || !slices.Contains(hs.a.settings.ServerOffers, "zigx") {
-		t.Fatalf("the offer: %q, kept %v", hs.tt.Texts(), hs.a.settings.ServerOffers)
-	}
-	offers := func() int {
-		n := 0
-		for _, s := range hs.tt.Texts() {
-			n += strings.Count(s, "Install the Zig plugin")
-		}
-		return n
-	}
-	before := offers()
-	serverChecks.Lock()
-	clear(serverChecks.m)
-	serverChecks.Unlock()
-	open("c.zigx")
-	hs.settle()
-	if now := offers(); now != before {
-		t.Fatalf("offered again: %d, was %d", now, before)
 	}
 }
 

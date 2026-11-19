@@ -250,11 +250,14 @@ func (h *pluginHost) toggled(old, now map[string]json.RawMessage) {
 		forgetFailedServers(names...)
 		h.syncAgents()
 	}
-	if !started {
-		return
+	if started {
+		h.startForOpen()
 	}
-	// The plugins turned on start for the folders and files open, as
-	// those opening would start them.
+}
+
+// startForOpen starts the plugins and language servers for the folders
+// and files open, as those opening would start them, on the main thread.
+func (h *pluginHost) startForOpen() {
 	for _, a := range h.apps() {
 		a.pluginSeen.indexed = false
 		for _, d := range a.docs {

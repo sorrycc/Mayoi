@@ -497,7 +497,9 @@ Push the folder to a Git repository: `mayoi plugin install owner/repo` installs 
 
 A plugin that brings a language server also lists its `languages`, the program to `detect` and the command that
 installs it. As a file of one of those languages opens with no server, Mayoi looks for the program on the folder's
-machine: found, it offers to install the plugin, once; not found, it says how to install the program, once.
+machine: found, it offers to install the plugin, once; not found, it says how to install the program, once, and looks
+again as a file of the language opens a minute or more later. A plugin that could not install can be tried again from
+the failure, and its server starts for the files open once it is installed.
 
 ```json
 { "name": "gopls", "displayName": "Go", "description": "Go with gopls", "repository": "https://github.com/me/mayoi-gopls",

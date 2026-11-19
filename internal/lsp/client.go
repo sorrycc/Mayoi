@@ -604,21 +604,30 @@ func docPos(uri string, pos Position) map[string]any {
 	return map[string]any{"textDocument": map[string]any{"uri": uri}, "position": pos}
 }
 
-// HoverAt is the hover of a place, as Markdown, "" for none.
-func (c *Client) HoverAt(ctx context.Context, uri string, pos Position) (string, error) {
+// Hover is what a server says of a place: Markdown, and the range of the
+// text it is of, nil when it names none.
+type Hover struct {
+	Markdown string
+	Range    *Range
+}
+
+// HoverAt is the hover of a place, its Markdown "" for none.
+func (c *Client) HoverAt(ctx context.Context, uri string, pos Position) (Hover, error) {
 	res, err := c.Call(ctx, "textDocument/hover", docPos(uri, pos))
 	if err != nil || len(res) == 0 || string(res) == "null" {
-		return "", err
+		return Hover{}, err
 	}
 	var h struct {
 		Contents json.RawMessage `json:"contents"`
+		Range    *Range          `json:"range"`
 	}
 	json.Unmarshal(res, &h)
-	return markupText(h.Contents), nil
+	return Hover{Markdown: markupText(h.Contents), Range: h.Range}, nil
 }
 
-// markupText reads hover contents: MarkupContent, a MarkedString, or a
-// list of them.
+// markupText reads hover contents as Markdown: MarkupContent, its
+// plaintext escaped; a MarkedString, a string of Markdown or code in a
+// language; or a list of them.
 func markupText(raw json.RawMessage) string {
 	var s string
 	if json.Unmarshal(raw, &s) == nil {
@@ -630,8 +639,11 @@ func markupText(raw json.RawMessage) string {
 		Language string `json:"language"`
 	}
 	if json.Unmarshal(raw, &mc) == nil && mc.Value != "" {
-		if mc.Language != "" {
+		switch {
+		case mc.Language != "":
 			return "```" + mc.Language + "\n" + mc.Value + "\n```"
+		case mc.Kind == "plaintext":
+			return PlainMarkdown(mc.Value)
 		}
 		return mc.Value
 	}
@@ -646,6 +658,33 @@ func markupText(raw json.RawMessage) string {
 		return strings.Join(parts, "\n\n")
 	}
 	return ""
+}
+
+// PlainMarkdown is Markdown that reads as plain text does: its marks
+// escaped, each of its lines a line and its indents kept.
+func PlainMarkdown(text string) string {
+	var b strings.Builder
+	lines := strings.Split(strings.ReplaceAll(text, "\r\n", "\n"), "\n")
+	for i := range lines {
+		lines[i] = strings.TrimRight(lines[i], " \t")
+	}
+	for i, line := range lines {
+		if i > 0 {
+			if line != "" && lines[i-1] != "" {
+				b.WriteString("\\")
+			}
+			b.WriteString("\n")
+		}
+		rest := strings.TrimLeft(line, " ")
+		b.WriteString(strings.Repeat("\u00a0", len(line)-len(rest)))
+		for _, r := range rest {
+			if r < 0x80 && strings.ContainsRune("\\`*_{}[]()<>#+-.!|~&\"'=", r) {
+				b.WriteByte('\\')
+			}
+			b.WriteRune(r)
+		}
+	}
+	return b.String()
 }
 
 // DefinitionAt is where what is at a place is defined.

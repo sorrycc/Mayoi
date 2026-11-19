@@ -40,19 +40,12 @@ type liveState struct {
 	mermaid *mermaidStyle
 	math    bool
 	stale   bool
-	// views are the blocks rendered, by their keys.
-	views map[string]*liveView
 	// measure is how wide the text is at most, in font: the Reading
 	// view's column, so that switching keeps its lines.
 	measure  float32
 	measured ui.Font
 	// widths are how wide runs of text are in their fonts, as measured.
 	widths map[liveWidthKey]float32
-	// in is the block the caret is in, or left last.
-	in liveIn
-	// rooms are how high the lines of callouts that fold showed below
-	// their titles, by their keys, the room that glides as one folds.
-	rooms map[string]float32
 	// titles are the keys of the callouts that fold, by the runes their
 	// lines start at, as the last frame saw them, by which one keeps
 	// whether it is folded as its title is edited.
@@ -83,6 +76,19 @@ func (l *liveState) width(text string, font ui.Font) float32 {
 	w, _ := ui.ShapeText(text, font, 0).Size()
 	l.widths[k] = w
 	return w
+}
+
+// livePane is what Live Preview shows of a document in one editor: two
+// columns split on one document draw its blocks each on their own, as
+// a handle binds one control in a frame, and each its own widths.
+type livePane struct {
+	// views are the blocks rendered, by their keys.
+	views map[string]*liveView
+	// in is the block the caret is in, or left last.
+	in liveIn
+	// rooms are how high the lines of callouts that fold showed below
+	// their titles, by their keys, the room that glides as one folds.
+	rooms map[string]float32
 }
 
 // liveIn is the block the caret went into, by its first line and its last,
@@ -355,6 +361,7 @@ func (a *app) liveArea(c *ui.Context, d *editor, area ui.Element, f liveFrame) {
 	size := a.settings.FontSize
 	doc := a.followLive(d.document)
 	l := d.document.live
+	pane := &d.livePane
 	snap := f.snap
 	n := snap.Len()
 	from, _ := snap.LineRange(max(0, f.first-liveSlack))
@@ -602,11 +609,11 @@ func (a *app) liveArea(c *ui.Context, d *editor, area ui.Element, f liveFrame) {
 		area.TextGaps(a.liveGaps(doc, snap, from, to, hidden)...)
 	}
 	if doc != nil {
-		if l.views == nil {
-			l.views = map[string]*liveView{}
+		if pane.views == nil {
+			pane.views = map[string]*liveView{}
 		}
 		lineH := size * a.settings.LineHeight
-		in := &l.in
+		in := &pane.in
 		caretIn := false
 		// sourceH is how high a block's lines show as source, as they did
 		// last, and room how high it shows drawn: its drawing with its
@@ -629,7 +636,7 @@ func (a *app) liveArea(c *ui.Context, d *editor, area ui.Element, f liveFrame) {
 			if hidden(first) {
 				return
 			}
-			lv := l.views[b.key]
+			lv := pane.views[b.key]
 			if onLines(b.start, b.end) {
 				if caretIn {
 					return
@@ -695,7 +702,7 @@ func (a *app) liveArea(c *ui.Context, d *editor, area ui.Element, f liveFrame) {
 					// it shows how high it draws now.
 					lv.height, lv.measured = in.drawn-size, true
 				}
-				l.views[b.key] = lv
+				pane.views[b.key] = lv
 			} else if &lv.v.markdown.blocks[0] != &b.blocks[0] {
 				// Drawn again, as in another theme's colors: the view shows
 				// the new drawing, at the height it had.
@@ -739,9 +746,9 @@ func (a *app) liveArea(c *ui.Context, d *editor, area ui.Element, f liveFrame) {
 			*in = liveIn{first: -1}
 		}
 		// The blocks out of view for long are let go.
-		for k, lv := range l.views {
+		for k, lv := range pane.views {
 			if a.frame-lv.frame > 600 {
-				delete(l.views, k)
+				delete(pane.views, k)
 			}
 		}
 	}
@@ -1773,6 +1780,7 @@ func (a *app) liveFolds(c *ui.Context, d *editor, l *liveState, doc *liveDoc, ar
 	snap := f.snap
 	n := snap.Len()
 	now := c.Now()
+	pane := &d.livePane
 	var folds []liveFold
 	for _, co := range doc.callouts {
 		if co.end < from || co.start > to || co.start >= n {
@@ -1797,7 +1805,7 @@ func (a *app) liveFolds(c *ui.Context, d *editor, l *liveState, doc *liveDoc, ar
 		}
 		since := calloutSince(d.document, now)
 		glide := key == d.document.foldKey && since >= 0 && since < motionMove && !c.Preferences().ReduceMotion
-		room, ok := l.rooms[key]
+		room, ok := pane.rooms[key]
 		if !ok {
 			room = float32(last-title) * f.g.lineH
 		}
@@ -1812,11 +1820,11 @@ func (a *app) liveFolds(c *ui.Context, d *editor, l *liveState, doc *liveDoc, ar
 			c.AnimationFrame()
 		case !fd.folded:
 			// Open: its lines show, as high as they lay out.
-			if l.rooms == nil || len(l.rooms) > 256 {
-				l.rooms = map[string]float32{}
+			if pane.rooms == nil || len(pane.rooms) > 256 {
+				pane.rooms = map[string]float32{}
 			}
 			if h := f.g.top(last+1) - f.g.top(title+1); h > 0 {
-				l.rooms[key] = h
+				pane.rooms[key] = h
 			}
 			folds = append(folds, fd)
 			continue

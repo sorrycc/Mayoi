@@ -5,6 +5,7 @@ needs a `## <version>` section here, or its build fails.
 
 ## Unreleased
 
+- Splitting a Live Preview note with tables, diagrams or formulas into two columns no longer crashes Mayoi.
 - Fold blocks of code: click the chevron beside a line number, shown as the pointer comes over the gutter.
 - JSON objects and arrays fold, as do Go, JavaScript and TypeScript blocks, Python by indent and Markdown sections.
 - A folded line ends in `⋯`; click it, or its chevron, to show the lines again.

@@ -249,10 +249,11 @@ type editor struct {
 	// live shows a Markdown document's text as Live Preview, styled as it
 	// reads, rather than as its source; liveHits are the tasks' boxes the
 	// last frame drew, by where they show in the text area, and liveAt
-	// where the area showed.
+	// where the area showed, and livePane the blocks it drew.
 	live     bool
 	liveHits []liveHit
 	liveAt   ui.Point
+	livePane livePane
 	// liveBox is the task's box the pointer is over, as its rune plus
 	// one, 0 for none.
 	liveBox int

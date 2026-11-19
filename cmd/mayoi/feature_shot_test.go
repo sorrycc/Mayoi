@@ -939,7 +939,10 @@ func TestFeatLiveCallouts(t *testing.T) {
 		a.settings.MarkdownMode = "live"
 		a.openFile(hs.path("callouts.md"), true)
 		d := a.activeEditor()
-		hs.until("the note parsed", func() bool { l := d.document.live; return l != nil && l.doc != nil && !l.quick && len(l.views) > 0 })
+		hs.until("the note parsed", func() bool {
+			l := d.document.live
+			return l != nil && l.doc != nil && !l.quick && len(d.livePane.views) > 0
+		})
 		hs.caretAt(d, "After the embed", 0, 0)
 		hs.settle()
 		time.Sleep(300 * time.Millisecond)
@@ -979,7 +982,10 @@ func TestFeatLivePreviewDetails(t *testing.T) {
 		a.settings.MarkdownMode = "live"
 		a.openFile(hs.path("details.md"), true)
 		d := a.activeEditor()
-		hs.until("the note parsed", func() bool { l := d.document.live; return l != nil && l.doc != nil && !l.quick && len(l.views) == 2 })
+		hs.until("the note parsed", func() bool {
+			l := d.document.live
+			return l != nil && l.doc != nil && !l.quick && len(d.livePane.views) == 2
+		})
 		hs.caretAt(d, "keep their", 0, 0)
 		hs.settle()
 		time.Sleep(300 * time.Millisecond)
@@ -1012,7 +1018,10 @@ func TestFeatLiveNestedEmbeds(t *testing.T) {
 		a.settings.MarkdownMode = "live"
 		a.openFile(hs.path("nested.md"), true)
 		d := a.activeEditor()
-		hs.until("the note parsed", func() bool { l := d.document.live; return l != nil && l.doc != nil && !l.quick && len(l.views) > 0 })
+		hs.until("the note parsed", func() bool {
+			l := d.document.live
+			return l != nil && l.doc != nil && !l.quick && len(d.livePane.views) > 0
+		})
 		hs.caretAt(d, "After.", 0, 0)
 		hs.settle()
 		time.Sleep(300 * time.Millisecond)

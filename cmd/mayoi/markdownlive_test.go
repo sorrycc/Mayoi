@@ -207,15 +207,14 @@ func TestLivePreview(t *testing.T) {
 		l := d.document.live
 		return a.livePreview(d) && l != nil && l.doc != nil && !l.quick && len(d.liveHits) == 1
 	})
-	l := d.document.live
 	// Laid out and measured, not only made: a view made in the last frame
 	// has no place yet, and the wheel would go elsewhere.
 	var table *liveView
 	hs.until("the table rendered", func() bool {
-		for _, lv := range l.views {
+		for _, lv := range d.livePane.views {
 			table = lv
 		}
-		return len(l.views) == 1 && table.measured && table.at.H > 0
+		return len(d.livePane.views) == 1 && table.measured && table.at.H > 0
 	})
 	// Faded in.
 	hs.settle()
@@ -414,6 +413,38 @@ func TestLiveStrike(t *testing.T) {
 	}
 }
 
+// A note split into two columns draws its table in each, each its own
+// view measured, rather than one view bound in both, which crashed.
+func TestLiveBlockInSplitColumns(t *testing.T) {
+	hs := newHarness(t, true)
+	a := hs.a
+	left := openLive(t, hs, "split.md", "intro\n\n| a | b |\n|---|---|\n| 1 | 2 |\n\nend\n", 1)
+	a.splitRight()
+	right := a.activeEditor()
+	hs.settle()
+	if right == left || right.document != left.document || !a.livePreview(right) {
+		t.Fatal("the split column does not show the note in Live Preview")
+	}
+	hs.until("both tables measured", func() bool {
+		for _, d := range []*editor{left, right} {
+			if len(d.livePane.views) != 1 {
+				return false
+			}
+			for _, lv := range d.livePane.views {
+				if !lv.measured || lv.at.H <= 0 || lv.frame != a.frame {
+					return false
+				}
+			}
+		}
+		return true
+	})
+	for k, lv := range left.livePane.views {
+		if right.livePane.views[k] == lv {
+			t.Fatal("the columns share the table's view")
+		}
+	}
+}
+
 // The text below a table glides to its place as the caret goes into the
 // table and its source shows, and back as the caret leaves, rather than
 // jumps.
@@ -427,7 +458,7 @@ func TestLiveBlockGlides(t *testing.T) {
 	a.openFile(path, true)
 	d := a.activeEditor()
 	l := func() *liveState { return d.document.live }
-	hs.until("the table rendered", func() bool { return l() != nil && l().doc != nil && !l().quick && len(l().views) == 1 })
+	hs.until("the table rendered", func() bool { return l() != nil && l().doc != nil && !l().quick && len(d.livePane.views) == 1 })
 	hs.settle()
 	end := d.buf.Snapshot().LineCount() - 2
 	drawn := d.lines.Top(end)
@@ -824,7 +855,7 @@ func openLive(t *testing.T, hs *harness, name, src string, blocks int) *editor {
 	d := hs.a.activeEditor()
 	hs.until("Live Preview parsed", func() bool {
 		l := d.document.live
-		return l != nil && l.doc != nil && !l.quick && len(l.views) == blocks
+		return l != nil && l.doc != nil && !l.quick && len(d.livePane.views) == blocks
 	})
 	hs.settle()
 	return d
@@ -897,7 +928,7 @@ func TestLiveDiagramInput(t *testing.T) {
 	src := "intro\n\n```mermaid\ngraph TD\n  A --> B\n  B --> C\n```\n\nend\n" + strings.Repeat("more\n", 80)
 	d := openLive(t, hs, "diagram-input.md", src, 1)
 	var lv *liveView
-	for _, v := range d.document.live.views {
+	for _, v := range d.livePane.views {
 		lv = v
 	}
 	x, y := lv.at.X+lv.at.W/2, lv.at.Y+lv.at.H/2

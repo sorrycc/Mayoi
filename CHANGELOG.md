@@ -5,6 +5,7 @@ needs a `## <version>` section here, or its build fails.
 
 ## Unreleased
 
+- Terminals no longer crash Mayoi on macOS while many files are open.
 - A click past bold text or hidden Markdown marks puts the caret where you click, without selecting text.
 - **Toggle Line Comment** works in JSX, Emacs Lisp and GDScript, and a typed backtick closes in JSX too.
 - Turn on `trimTrailingWhitespace` to remove the spaces and tabs at the ends of lines as you save.

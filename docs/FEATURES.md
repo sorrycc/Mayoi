@@ -81,6 +81,8 @@ mode, where the caret is a block.
 - **Marks and jumps:** `ma` sets a mark, `'a` goes to its line and `` `a `` to it, and the marks move with the text as
   it changes. `''` goes back to where the cursor jumped from. Jumps, as `G`, `%`, a search or a mark, are kept: ⌃O goes
   back through them and ⌃I (Tab) forward again. `:marks` lists the marks.
+- **Language servers:** `gd` goes to the definition, a jump ⌃O comes back from, and `K` shows the hover; `K` again
+  lets ↑ ↓ and Page Up and Page Down scroll it.
 - **Visual mode:** `v` selects characters and `V` lines, and `gv` the last selection again. A selection made with the
   mouse is one too. Motions extend it, `o` swaps its ends, and operators, `r`, `J`, `~ u U` and `p` act on it.
 - **Search:** `/` and `?` open a line over the bottom of the editor. The cursor goes to the first match as you type,
@@ -937,7 +939,12 @@ language servers, and they work on SSH folders with nothing installed on the hos
 - **Plugins → Show Plugin Log** and **Show Running Plugins** tell what plugins logged and what they use.
 - **Selection → Format Document** (⇧⌥F) formats with a plugin, and `formatOnSave` formats as you save.
 - A language server a plugin declares underlines problems, and answers **Go → Go to Definition** (F12),
-  **Go → Show Hover** and **Selection → Complete Word** (⌃Space).
+  **Go → Show Hover** (⌘K ⌘I, Ctrl+K Ctrl+I on Windows and Linux) and **Selection → Complete Word** (⌃Space).
+- Several definitions are offered in a list: ↑ ↓ choose, Return goes, Esc stays. **Go → Go Back** (⌃-, Alt+Left on
+  Windows and Linux) and **Go Forward** (⌃⇧-, Alt+Right) return.
+- **Show Hover** again while its card shows gives the card the keys: ↑ ↓, Page Up, Page Down, Home and End scroll it,
+  Esc closes it, and any other key goes back to the text.
+- An answer that comes after you opened Quick Open or another list leaves it be.
 - **Show Problems** lists every problem plugins found; the status bar counts them.
 - **Selection → Insert Snippet…** inserts a snippet of a plugin's.
 - A `.ts` file in `~/.mayoi/scripts` makes each function it exports a command; **Plugins → Run Selection as Script**

@@ -46,6 +46,7 @@ func (q *quickOpen) resetResults(query string) {
 func (a *app) openQuick(query string) {
 	q := &a.quick
 	q.probe.epoch++
+	a.picksOpened++
 	q.open, q.query, q.sel, q.stale = true, query, 0, true
 	if a.index == nil {
 		a.indexRead.Invalidate()

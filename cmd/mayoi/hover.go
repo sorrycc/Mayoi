@@ -36,6 +36,10 @@ type hoverCard struct {
 	x      float32
 	xKnown bool
 	rect   ui.Rect // where the card laid out last, empty before
+	// focused has the arrows and the page keys scroll the card, as Show
+	// Hover asked again while it shows does, until another key.
+	focused bool
+	scroll  ui.ScrollState
 }
 
 // newHoverCard is the card of Markdown text for the caret of d, of the
@@ -65,6 +69,41 @@ func newHoverCard(d *editor, text string, span *lsp.Range) *hoverCard {
 // active one, or its caret or text changed.
 func (a *app) staleHover(h *hoverCard) bool {
 	return a.activeEditor() != h.ed || h.ed.buf.Version() != h.version || h.ed.sel != h.sel
+}
+
+// hoverKey scrolls a focused card of d by a key: a line with the arrows,
+// a page with Page Up and Page Down, to its ends with Home and End. Any
+// other key leaves it to the editor, which types or moves the caret and
+// so closes the card.
+func (a *app) hoverKey(d *editor, ev ui.InputEvent) bool {
+	h := a.hover
+	if h == nil || h.ed != d || !h.focused || ev.Mods != 0 {
+		return false
+	}
+	line := a.font.lineH
+	page := max(h.rect.H-line, line)
+	var dy float32
+	switch ev.Key {
+	case ui.KeyUp:
+		dy = -line
+	case ui.KeyDown:
+		dy = line
+	case ui.KeyPageUp:
+		dy = -page
+	case ui.KeyPageDown:
+		dy = page
+	case ui.KeyHome:
+		dy = -h.scroll.MaxY
+	case ui.KeyEnd:
+		dy = h.scroll.MaxY
+	default:
+		h.focused = false
+		return false
+	}
+	// With the keys, at once, as a list's choice moves.
+	h.scroll.Y = max(0, min(h.scroll.Y+dy, h.scroll.MaxY))
+	a.invalidate()
+	return true
 }
 
 // hoverAnchor is where the rune h is of shows in the window, one pixel
@@ -148,13 +187,17 @@ func (a *app) hoverView(c *ui.Context) {
 	ui.Overlay(c, func() {
 		box := a.floating(c, ui.Column(c.Key("hover-card")).Absolute().Left(x).MaxWidth(w).MaxHeight(maxH).Radius(8).Clip(), false).
 			Transition(popIn).Role(ui.RoleTooltip).Label(locales.CmdGoHover())
+		if h.focused {
+			// Its keys scroll it: the accent says so, its border as wide.
+			box.BorderColor(p.accent)
+		}
 		if above {
 			box.Bottom(winH - edge)
 		} else {
 			box.Top(edge)
 		}
 		box.Children(func() {
-			ui.Scroll(c.Key("hover-scroll")).Children(func() {
+			ui.Scroll(c.Key("hover-scroll")).TrackScroll(&h.scroll).Children(func() {
 				if len(h.sig) > 0 {
 					col := ui.Column(c.Key("hover-sig")).Gap(4).Padding(8, 12).Background(p.editor)
 					if len(h.docs) > 0 {

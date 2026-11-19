@@ -122,6 +122,24 @@ func TestShortcutsDoNotCollide(t *testing.T) {
 					t.Errorf("%s takes %s, which is AltGr", cmd.id, accel)
 				}
 			}
+			// Mayoi's chords start with no command's key, and are each
+			// their own.
+			chords := map[string]string{}
+			for id := range builtinChords {
+				keys := chordKeys(id)
+				if len(keys) < 2 {
+					t.Errorf("%s: its chord %q does not parse", id, builtinChords[id])
+					continue
+				}
+				if other, ok := taken[keys[0]]; ok {
+					t.Errorf("the chord of %s starts with the key of %s", id, other)
+				}
+				s := fmt.Sprint(keys)
+				if other, ok := chords[s]; ok {
+					t.Errorf("%s and %s both take %s", id, other, builtinChords[id])
+				}
+				chords[s] = id
+			}
 		})
 	}
 }

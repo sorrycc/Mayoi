@@ -7,6 +7,10 @@ needs a `## <version>` section here, or its build fails.
 
 - Set the TypeScript plugin's `path` to `tsrs` to use tsrs.
 - Python's language server is the `python-language-server` plugin; set its `path` to `ty` to use ty.
+- Archive sessions from a row's menu, its archive button or `⌫`, and **Undo** from the toast.
+- Choose several sessions to archive them together.
+- The archive button in the Sessions title, or **View → Archived Sessions**, lists archived sessions to restore.
+- Resuming an archived session brings it back to the list; its terminal and transcript are left alone.
 - Give a language server your own startup options with `languageServers` in settings.json, by the server's id.
 - Options go over the plugin's own, deeply, and `null` takes one away, as in `{"tsserver": {"path": null}}`.
 - Saving changed options restarts only the servers they're for, in every folder.

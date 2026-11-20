@@ -161,6 +161,7 @@ func (a *app) commandsIn(t locales.Messages) []command {
 		{"view.search", t.CmdViewSearch(), "", func() { a.showSearch(false) }},
 		{"view.scm", t.CmdViewScm(), "Ctrl+Shift+G", a.showSourceControl},
 		{"view.sessions", t.CmdViewSessions(), "", a.showSessions},
+		{"view.archivedSessions", t.CmdViewArchivedSessions(), "", a.toggleArchivedSessions},
 		{"view.github", t.CmdViewGitHub(), "", a.showGitHub},
 		{"git.commit", t.CmdGitCommit(), "", func() { a.commit(false) }},
 		{"git.commitPush", t.CmdGitCommitPush(), "", func() { a.commit(true) }},
@@ -614,6 +615,8 @@ func (a *app) menu(cli bool, run func(id string, win *mygo.Window)) *mygo.Menu {
 	// The sessions listed are of this machine, as a folder's own settings.
 	sessions := item("view.sessions")
 	sessions.Disabled = !a.hasSessions()
+	archived := checkbox("view.archivedSessions", a.sessions.archived && a.window.SidebarView == "sessions" && !a.window.SidebarClosed)
+	archived.Disabled = !a.hasSessions()
 	github := item("view.github")
 	github.Disabled = !a.hasGitHub()
 	// A folder's own settings are of a folder on this machine.
@@ -718,7 +721,7 @@ func (a *app) menu(cli bool, run func(id string, win *mygo.Window)) *mygo.Menu {
 			item("sel.format"), item("sel.insertSnippet"), item("sel.complete"),
 		}},
 		{Label: locales.MenuView(), Submenu: []*mygo.MenuItem{
-			item("view.sidebar"), checkbox("view.sidebarRight", a.settings.SidebarRight), item("view.explorer"), item("view.search"), item("view.scm"), github, sessions, mygo.Separator(),
+			item("view.sidebar"), checkbox("view.sidebarRight", a.settings.SidebarRight), item("view.explorer"), item("view.search"), item("view.scm"), github, sessions, archived, mygo.Separator(),
 			checkbox("view.compactFolders", a.settings.ExplorerCompactFolders), mygo.Separator(),
 			checkbox("view.wordWrap", a.prefs().WordWrap), item("view.wordWrapTab"), item("view.togglePreview"), item("view.toggleLivePreview"), item("view.previewToSide"),
 			{Label: locales.MenuOpenMarkdownAs(), Submenu: []*mygo.MenuItem{

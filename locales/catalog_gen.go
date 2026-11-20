@@ -18642,6 +18642,118 @@ func (msgs Messages) SessionsDirGone(dir string) string {
 	return Catalog.Format(msgs.locale, "sessionsDirGone", map[string]any{"dir": dir})
 }
 
+// CmdViewArchivedSessions says "Archived Sessions"
+// in the language the app shows.
+func CmdViewArchivedSessions() string { return In(i18n.Locale()).CmdViewArchivedSessions() }
+
+// CmdViewArchivedSessions says "Archived Sessions"
+// in the language of msgs.
+func (msgs Messages) CmdViewArchivedSessions() string {
+	return Catalog.Format(msgs.locale, "cmdViewArchivedSessions", nil)
+}
+
+// SidebarTitleSessionsArchived says "SESSIONS · ARCHIVED"
+// in the language the app shows.
+func SidebarTitleSessionsArchived() string { return In(i18n.Locale()).SidebarTitleSessionsArchived() }
+
+// SidebarTitleSessionsArchived says "SESSIONS · ARCHIVED"
+// in the language of msgs.
+func (msgs Messages) SidebarTitleSessionsArchived() string {
+	return Catalog.Format(msgs.locale, "sidebarTitleSessionsArchived", nil)
+}
+
+// SidebarTitleSessionsArchivedShort says "ARCHIVED"
+// in the language the app shows.
+func SidebarTitleSessionsArchivedShort() string {
+	return In(i18n.Locale()).SidebarTitleSessionsArchivedShort()
+}
+
+// SidebarTitleSessionsArchivedShort says "ARCHIVED"
+// in the language of msgs.
+func (msgs Messages) SidebarTitleSessionsArchivedShort() string {
+	return Catalog.Format(msgs.locale, "sidebarTitleSessionsArchivedShort", nil)
+}
+
+// SessionsArchive says "Archive"
+// in the language the app shows.
+func SessionsArchive() string { return In(i18n.Locale()).SessionsArchive() }
+
+// SessionsArchive says "Archive"
+// in the language of msgs.
+func (msgs Messages) SessionsArchive() string {
+	return Catalog.Format(msgs.locale, "sessionsArchive", nil)
+}
+
+// SessionsArchiveN says "{count, plural, one {Archive # Session} other {Archive # Sessions}}"
+// in the language the app shows.
+func SessionsArchiveN(count int) string { return In(i18n.Locale()).SessionsArchiveN(count) }
+
+// SessionsArchiveN says "{count, plural, one {Archive # Session} other {Archive # Sessions}}"
+// in the language of msgs.
+func (msgs Messages) SessionsArchiveN(count int) string {
+	return Catalog.Format(msgs.locale, "sessionsArchiveN", map[string]any{"count": count})
+}
+
+// SessionsRestore says "Restore"
+// in the language the app shows.
+func SessionsRestore() string { return In(i18n.Locale()).SessionsRestore() }
+
+// SessionsRestore says "Restore"
+// in the language of msgs.
+func (msgs Messages) SessionsRestore() string {
+	return Catalog.Format(msgs.locale, "sessionsRestore", nil)
+}
+
+// SessionsRestoreN says "{count, plural, one {Restore # Session} other {Restore # Sessions}}"
+// in the language the app shows.
+func SessionsRestoreN(count int) string { return In(i18n.Locale()).SessionsRestoreN(count) }
+
+// SessionsRestoreN says "{count, plural, one {Restore # Session} other {Restore # Sessions}}"
+// in the language of msgs.
+func (msgs Messages) SessionsRestoreN(count int) string {
+	return Catalog.Format(msgs.locale, "sessionsRestoreN", map[string]any{"count": count})
+}
+
+// SessionsArchived says "{count, plural, one {Archived # session} other {Archived # sessions}}"
+// in the language the app shows.
+func SessionsArchived(count int) string { return In(i18n.Locale()).SessionsArchived(count) }
+
+// SessionsArchived says "{count, plural, one {Archived # session} other {Archived # sessions}}"
+// in the language of msgs.
+func (msgs Messages) SessionsArchived(count int) string {
+	return Catalog.Format(msgs.locale, "sessionsArchived", map[string]any{"count": count})
+}
+
+// SessionsRestored says "{count, plural, one {Restored # session} other {Restored # sessions}}"
+// in the language the app shows.
+func SessionsRestored(count int) string { return In(i18n.Locale()).SessionsRestored(count) }
+
+// SessionsRestored says "{count, plural, one {Restored # session} other {Restored # sessions}}"
+// in the language of msgs.
+func (msgs Messages) SessionsRestored(count int) string {
+	return Catalog.Format(msgs.locale, "sessionsRestored", map[string]any{"count": count})
+}
+
+// SessionsNoneArchived says "No session is archived."
+// in the language the app shows.
+func SessionsNoneArchived() string { return In(i18n.Locale()).SessionsNoneArchived() }
+
+// SessionsNoneArchived says "No session is archived."
+// in the language of msgs.
+func (msgs Messages) SessionsNoneArchived() string {
+	return Catalog.Format(msgs.locale, "sessionsNoneArchived", nil)
+}
+
+// SessionsArchivedHint says "Archive a session from its menu to keep it out of the list. It waits here, to resume or restore."
+// in the language the app shows.
+func SessionsArchivedHint() string { return In(i18n.Locale()).SessionsArchivedHint() }
+
+// SessionsArchivedHint says "Archive a session from its menu to keep it out of the list. It waits here, to resume or restore."
+// in the language of msgs.
+func (msgs Messages) SessionsArchivedHint() string {
+	return Catalog.Format(msgs.locale, "sessionsArchivedHint", nil)
+}
+
 // PrefTitleAgentSessionsClaudeDirs says "More Claude Code Folders"
 // in the language the app shows.
 func PrefTitleAgentSessionsClaudeDirs() string {

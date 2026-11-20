@@ -62,7 +62,10 @@ func (a *app) sidebar(c *ui.Context) {
 					actions = 3
 				}
 			case sessions:
-				title = locales.SidebarTitleSessions()
+				title, actions = locales.SidebarTitleSessions(), 1
+				if a.sessions.archived {
+					title, short = locales.SidebarTitleSessionsArchived(), locales.SidebarTitleSessionsArchivedShort()
+				}
 			case github:
 				title = locales.SidebarTitleGitHub()
 				if hovered {
@@ -98,6 +101,10 @@ func (a *app) sidebar(c *ui.Context) {
 			}
 			if github {
 				a.githubTitleActions(c, hovered)
+				return
+			}
+			if sessions {
+				a.sessionsTitleActions(c)
 				return
 			}
 		})

@@ -698,3 +698,46 @@ func TestTrimTrailingWhitespace(t *testing.T) {
 		t.Error("a folder can't choose it")
 	}
 }
+
+// The sessions archived are kept in state.json, by agent, Claude Code
+// folder and id, and come back archived after a restart; archiving one
+// twice, or bringing back one not archived, changes nothing.
+func TestArchivedSessionsPersist(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "settings.json")
+	s := Load(path)
+	a := SessionRef{Agent: "claude", Root: "/h/.claude", ID: "s1"}
+	b := SessionRef{Agent: "claude", Root: "/h/.claude-work", ID: "s1"}
+	at := time.Date(2026, 11, 20, 9, 0, 0, 0, time.UTC)
+	gen := s.ArchiveGen()
+	if got := s.Archive([]ArchivedSession{{a, at}, {a, at}}); len(got) != 1 || !s.IsArchived(a) || s.IsArchived(b) {
+		t.Fatalf("archived %v: a %v, b %v", got, s.IsArchived(a), s.IsArchived(b))
+	}
+	if s.ArchiveGen() == gen {
+		t.Error("archiving left the generation be")
+	}
+	if got := s.Archive([]ArchivedSession{{a, at}}); got != nil {
+		t.Errorf("archived again: %v", got)
+	}
+	s.Flush()
+	state, _ := os.ReadFile(filepath.Join(dir, "state.json"))
+	if !strings.Contains(string(state), `"archivedSessions"`) {
+		t.Fatalf("state %s", state)
+	}
+	again := Load(path)
+	if !again.IsArchived(a) || again.IsArchived(b) || !again.ArchivedSessions[0].At.Equal(at) {
+		t.Fatalf("loaded again: %+v", again.ArchivedSessions)
+	}
+	if got := again.Unarchive([]SessionRef{b}); got != nil {
+		t.Errorf("brought back one not archived: %v", got)
+	}
+	gone := again.Unarchive([]SessionRef{a})
+	if len(gone) != 1 || again.IsArchived(a) || len(again.ArchivedSessions) != 0 {
+		t.Fatalf("brought back %v, left %v", gone, again.ArchivedSessions)
+	}
+	// What Unarchive returns archives them again as they were.
+	again.Archive(gone)
+	if !again.IsArchived(a) || !again.ArchivedSessions[0].At.Equal(at) {
+		t.Errorf("archived again: %+v", again.ArchivedSessions)
+	}
+}

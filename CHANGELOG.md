@@ -16,6 +16,7 @@ needs a `## <version>` section here, or its build fails.
 - A language server plugin's details show where to set its `initializationOptions`.
 - Holding `Cmd` (`Ctrl` on Windows and Linux) over a name shows a hand, as a click goes to its definition.
 - Drag a file or folder onto a folder in the Explorer to move it there; open tabs follow it.
+- On Windows a new terminal is titled by its shell, as `pwsh`, rather than the shell's full path.
 
 ## 0.23.0
 

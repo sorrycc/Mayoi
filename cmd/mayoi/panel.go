@@ -108,6 +108,7 @@ func (s *session) label() string {
 // a terminal: by a shell, a folder (as "~/src" or "me@host: ~/src"), or
 // the command line the shell runs (as "claude --resume …").
 func (s *session) retitle(title string) {
+	title = s.shellTitle(title)
 	s.title = title
 	if s.sessionTitle == "" {
 		return
@@ -121,6 +122,26 @@ func (s *session) retitle(title string) {
 	if !shellish {
 		s.sessionTitle = ""
 	}
+}
+
+// shellTitle is a title as the terminal shows it: on Windows, where the
+// console titles a shell by its program's path, as
+// "C:\Program Files\WindowsApps\…\pwsh.exe", the shell's name, as "pwsh";
+// any other title, and a path with arguments, as it is.
+func (s *session) shellTitle(title string) string {
+	if hostOS != "windows" || !strings.ContainsAny(title, `/\`) {
+		return title
+	}
+	t := strings.TrimSpace(title)
+	// One program's path and nothing after it: ".exe" only at its end.
+	if lower := strings.ToLower(t); !strings.HasSuffix(lower, ".exe") || strings.Index(lower, ".exe") != len(lower)-len(".exe") {
+		return title
+	}
+	name := shellBase(t)
+	if isShellName(name) || (s.shell != "" && name == shellBase(s.shell)) {
+		return name
+	}
+	return title
 }
 
 type panelHeaderLayout struct {

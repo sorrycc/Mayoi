@@ -85,37 +85,50 @@ func (d *editor) typed(now ui.TextSnapshot, at int, r rune) bool {
 		d.selectTyped(at+1, at+1)
 		return true
 	}
-	c, ok := autoPairs[r]
+	var prev rune
+	if at > 0 {
+		prev = runeAt(now, at-1)
+	}
+	c, ok := closeFor(d, prev, next, r)
 	if !ok {
 		return false
-	}
-	// Only before the end of a line, a space or a closing bracket, so that
-	// a bracket typed before a word does not close.
-	if next != 0 && next != '\n' && !strings.ContainsRune(" \t)]};,:", next) {
-		return false
-	}
-	if r == c {
-		// A quote: not after a word, as an apostrophe is, or in a language
-		// that does not quote with it.
-		prev := runeAt(now, at-1)
-		if at > 0 && (isWordRune(prev) || prev == r) {
-			return false
-		}
-		switch highlight.Name(d.hl.Lexer()) {
-		case "markdown", "Markdown", "reStructuredText", "plaintext", "TeX":
-			return false
-		}
-		if r == '\'' && strings.Contains("Go Rust OCaml Haskell", highlight.Name(d.hl.Lexer())) {
-			return false
-		}
-		if r == '`' && !strings.Contains("Go JavaScript TypeScript TSX react Markdown Bash Zsh Kotlin Scala", highlight.Name(d.hl.Lexer())) {
-			return false
-		}
 	}
 	d.buf.Replace(at+1, at+1, string(c))
 	d.closers = append(d.closers, at+1)
 	d.selectTyped(at+1, at+1)
 	return true
+}
+
+// closeFor returns the closing rune that rune r, typed between runes
+// prev and next (0 for none), gets: an opening bracket or quote, only
+// before the end of a line, a space or a closing bracket, so that a
+// bracket typed before a word does not close.
+func closeFor(d *editor, prev, next, r rune) (rune, bool) {
+	c, ok := autoPairs[r]
+	if !ok {
+		return 0, false
+	}
+	if next != 0 && next != '\n' && !strings.ContainsRune(" \t)]};,:", next) {
+		return 0, false
+	}
+	if r == c {
+		// A quote: not after a word, as an apostrophe is, or in a language
+		// that does not quote with it.
+		if isWordRune(prev) || prev == r {
+			return 0, false
+		}
+		switch highlight.Name(d.hl.Lexer()) {
+		case "markdown", "Markdown", "reStructuredText", "plaintext", "TeX":
+			return 0, false
+		}
+		if r == '\'' && strings.Contains("Go Rust OCaml Haskell", highlight.Name(d.hl.Lexer())) {
+			return 0, false
+		}
+		if r == '`' && !strings.Contains("Go JavaScript TypeScript TSX react Markdown Bash Zsh Kotlin Scala", highlight.Name(d.hl.Lexer())) {
+			return 0, false
+		}
+	}
+	return c, true
 }
 
 // selectTyped selects runes start up to end in the next frame, as typing

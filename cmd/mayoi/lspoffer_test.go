@@ -11,6 +11,7 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+	"testing/fstest"
 	"time"
 
 	"mayoi/internal/plugin"
@@ -217,4 +218,46 @@ func TestOfferLanguageServerInstallFails(t *testing.T) {
 	fail.Store(false)
 	oh.a.installServerPlugin(zigEntry, "zigx")
 	oh.until("the server's diagnostics", func() bool { return len(plugins.diagnosticsOf(path)) == 1 })
+}
+
+// zigBundled is a bundled plugin, off, whose server is for zigx.
+const zigBundled = `{"name": "zig-ls", "displayName": "Zig", "enabled": false, "contributes": {
+  "settings": {"path": {"type": "string", "default": "mayoi-zigx-ls.exe"}},
+  "languageServers": [{"id": "zig-ls.server", "languages": ["zigx"], "command": "${settings.path}", "install": "brew install zigx"}]}}`
+
+// A file of a language a bundled plugin that is off has a server for says
+// how to install its program, and offers to turn the plugin on once it is
+// installed, without reading the index.
+func TestOfferBundledServer(t *testing.T) {
+	oh := newOfferHarness(t, func() ([]plugin.IndexEntry, error) { return nil, nil })
+	plugins.reg.Dirs.Bundled = fstest.MapFS{"zig-ls/plugin.json": {Data: []byte(zigBundled)}}
+	plugins.reg.Load()
+	oh.open("a.zigx")
+	oh.until("the missing server told", func() bool {
+		return oh.tt.HasText("Zig needs mayoi-zigx-ls, which isn't installed. Install it with brew install zigx")
+	})
+
+	oh.install()
+	serverChecks.Lock()
+	clear(serverChecks.m)
+	serverChecks.Unlock()
+	oh.open("b.zigx")
+	oh.until("turning it on offered", func() bool {
+		return oh.tt.HasText("mayoi-zigx-ls is installed. Turn on the Zig plugin for Go to Definition and more?")
+	})
+	if !oh.tt.HasText("Turn On") || oh.reads.Load() != 0 {
+		t.Fatalf("the offer: %q, %d reads of the index", oh.tt.Texts(), oh.reads.Load())
+	}
+}
+
+// A bundled plugin the settings turned off is not offered.
+func TestOfferBundledServerTurnedOff(t *testing.T) {
+	oh := newOfferHarness(t, func() ([]plugin.IndexEntry, error) { return nil, nil })
+	plugins.reg.Dirs.Bundled = fstest.MapFS{"zig-ls/plugin.json": {Data: []byte(zigBundled)}}
+	oh.a.settings.Prefs.Plugins = map[string]json.RawMessage{"zig-ls": json.RawMessage(`{"enabled": false}`)}
+	plugins.syncPrefs()
+	plugins.reg.Load()
+	if p, _ := offServer("zigx"); p != nil {
+		t.Fatalf("offered %s, turned off", p.Name)
+	}
 }

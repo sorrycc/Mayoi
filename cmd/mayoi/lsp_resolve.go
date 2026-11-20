@@ -7,7 +7,9 @@ import (
 	"fmt"
 	"io"
 	"net/url"
+	"path"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"time"
@@ -21,14 +23,16 @@ import (
 // serverLaunch is the host-independent result of a plugin's setup command.
 // The command exits before the actual language server is started.
 type serverLaunch struct {
-	Command          string                   `json:"command"`
-	Args             []string                 `json:"args,omitempty"`
-	Env              map[string]string        `json:"env,omitempty"`
-	UnsetEnv         []string                 `json:"unsetEnv,omitempty"`
-	Options          json.RawMessage          `json:"initializationOptions,omitempty"`
-	Configuration    map[string]any           `json:"configuration,omitempty"`
-	WorkspaceFolders []lsp.WorkspaceFolder    `json:"workspaceFolders,omitempty"`
-	PathMappings     []lsp.PathMapping        `json:"pathMappings,omitempty"`
+	Command          string                `json:"command"`
+	Args             []string              `json:"args,omitempty"`
+	Env              map[string]string     `json:"env,omitempty"`
+	UnsetEnv         []string              `json:"unsetEnv,omitempty"`
+	Options          json.RawMessage       `json:"initializationOptions,omitempty"`
+	Configuration    map[string]any        `json:"configuration,omitempty"`
+	WorkspaceFolders []lsp.WorkspaceFolder `json:"workspaceFolders,omitempty"`
+	PathMappings     []lsp.PathMapping     `json:"pathMappings,omitempty"`
+	// SourceDefinition is the request Go to Source Definition sends, when
+	// the server sets its experimental capability.
 	SourceDefinition *sourceDefinitionRequest `json:"sourceDefinition,omitempty"`
 }
 
@@ -74,46 +78,287 @@ func (b *limitedBuffer) Write(p []byte) (int, error) {
 
 func (b *limitedBuffer) String() string { return b.buffer.String() }
 
+// serverSettings are the settings of a plugin: those stored, explicit, and
+// with the manifest's defaults for the others, all.
+func serverSettings(p *plugin.Plugin) (all, explicit map[string]json.RawMessage) {
+	all = map[string]json.RawMessage{}
+	for key, value := range p.Contributes.Settings {
+		all[key] = value.Default
+	}
+	explicit = map[string]json.RawMessage{}
+	if plugins != nil {
+		json.Unmarshal(plugins.Settings(p.Name), &explicit)
+	}
+	delete(explicit, "enabled")
+	for key, value := range explicit {
+		all[key] = value
+	}
+	return all, explicit
+}
+
+// settingRef is the key of a setting an argument is all of, as
+// "${settings.args}" is, "" for one that is not.
+func settingRef(arg string) string {
+	if key, ok := strings.CutPrefix(arg, "${settings."); ok && strings.HasSuffix(key, "}") && !strings.ContainsAny(key[:len(key)-1], "{}") {
+		return key[:len(key)-1]
+	}
+	return ""
+}
+
+// expandServerCommand substitutes the settings in a command and its
+// arguments: an argument that is all of a setting that is a list of
+// strings is its strings, as many arguments.
+func expandServerCommand(command string, args []string, settings map[string]json.RawMessage) (string, []string, error) {
+	command, err := expandServerArg(command, settings)
+	if err != nil {
+		return "", nil, err
+	}
+	out := make([]string, 0, len(args))
+	for _, arg := range args {
+		var list []string
+		if key := settingRef(arg); key != "" && json.Unmarshal(settings[key], &list) == nil && list != nil {
+			out = append(out, list...)
+			continue
+		}
+		s, err := expandServerArg(arg, settings)
+		if err != nil {
+			return "", nil, err
+		}
+		out = append(out, s)
+	}
+	return command, out, nil
+}
+
+// serverCommand is the command and arguments of a plain server, with its
+// plugin's settings: the arguments of its program's own, as tsc's, when
+// none of the settings of its arguments is set.
+func serverCommand(sc *plugin.ServerContrib, settings, explicit map[string]json.RawMessage) (string, []string, error) {
+	command, args, err := expandServerCommand(sc.Command, sc.Args, settings)
+	if pa, ok := sc.ProgramArgs[programName(command)]; ok && err == nil && !argsSet(sc.Args, explicit) {
+		args = slices.Clone(pa)
+	}
+	return command, args, err
+}
+
+// programName is a command's program without its folder or .exe.
+func programName(command string) string {
+	return strings.TrimSuffix(path.Base(filepath.ToSlash(command)), ".exe")
+}
+
+// argsSet reports whether a setting that args take is set, not left to
+// its default.
+func argsSet(args []string, explicit map[string]json.RawMessage) bool {
+	for _, arg := range args {
+		for rest := arg; ; {
+			_, after, found := strings.Cut(rest, "${settings.")
+			if !found {
+				break
+			}
+			key, tail, _ := strings.Cut(after, "}")
+			if _, ok := explicit[key]; ok {
+				return true
+			}
+			rest = tail
+		}
+	}
+	return false
+}
+
+// expandServerOptions substitutes the settings in initializationOptions:
+// a string that is all of a setting is its value, and goes, with its key,
+// when the setting is empty.
+func expandServerOptions(options json.RawMessage, settings map[string]json.RawMessage) json.RawMessage {
+	if len(options) == 0 || !strings.Contains(string(options), "${settings.") {
+		return options
+	}
+	var v any
+	if decodeJSON(options, &v) != nil {
+		return options
+	}
+	var expand func(v any) (any, bool)
+	expand = func(v any) (any, bool) {
+		switch x := v.(type) {
+		case string:
+			key := settingRef(x)
+			if key == "" {
+				return x, true
+			}
+			var value any
+			if decodeJSON(settings[key], &value) != nil || value == nil || value == "" {
+				return nil, false
+			}
+			return value, true
+		case map[string]any:
+			for k, item := range x {
+				if item, ok := expand(item); ok {
+					x[k] = item
+				} else {
+					delete(x, k)
+				}
+			}
+		case []any:
+			out := x[:0]
+			for _, item := range x {
+				if item, ok := expand(item); ok {
+					out = append(out, item)
+				}
+			}
+			return out, true
+		}
+		return v, true
+	}
+	v, _ = expand(v)
+	data, err := encodeJSON(v)
+	if err != nil {
+		return options
+	}
+	return data
+}
+
+// serverProgram is the program a plain server's command starts, with its
+// plugin's settings, "" for one that resolves or a setting left empty.
+func serverProgram(p *plugin.Plugin, s *plugin.ServerContrib) string {
+	if s.Resolve != nil {
+		return ""
+	}
+	settings, _ := serverSettings(p)
+	command, err := expandServerArg(s.Command, settings)
+	if err != nil {
+		return ""
+	}
+	return command
+}
+
+// resolve is how the server starts: its plugin's command or resolver's
+// launch, with the initializationOptions of settings.json laid over it.
 func (s *lspServer) resolve(ctx context.Context) (serverLaunch, error) {
-	launch := serverLaunch{Command: s.contrib.Command, Args: s.contrib.Args, Options: s.contrib.Options}
+	launch, err := s.resolveLaunch(ctx)
+	if err == nil {
+		launch.Options = s.withUserOptions(launch.Options)
+	}
+	return launch, err
+}
+
+// withUserOptions lays the server's initializationOptions of
+// settings.json's languageServers over options. What it says is never
+// logged, as it may hold a token.
+func (s *lspServer) withUserOptions(options json.RawMessage) json.RawMessage {
+	if plugins == nil {
+		return options
+	}
+	patch, ok := userInitOptions(plugins.languageServer(s.contrib.ID))
+	if !ok {
+		return options
+	}
+	where := "languageServers." + s.contrib.ID + ".initializationOptions"
+	merged, err := mergeOptions(options, patch)
+	if err != nil {
+		s.plugin.Log("warn", where+" "+err.Error()+"; left out")
+		return options
+	}
+	s.plugin.Log("info", "starting "+s.contrib.ID+" with "+where)
+	return merged
+}
+
+// userInitOptions is the initializationOptions of a server's settings in
+// languageServers, and whether they set it: null too.
+func userInitOptions(prefs json.RawMessage) (json.RawMessage, bool) {
+	var fields map[string]json.RawMessage
+	if json.Unmarshal(prefs, &fields) != nil {
+		return nil, false
+	}
+	patch, ok := fields["initializationOptions"]
+	return patch, ok
+}
+
+// decodeJSON decodes data into v with its numbers as they are written,
+// as json.Number, so that none loses its digits.
+func decodeJSON(data []byte, v any) error {
+	d := json.NewDecoder(bytes.NewReader(data))
+	d.UseNumber()
+	return d.Decode(v)
+}
+
+// encodeJSON is v as JSON, its <, > and & as they are.
+func encodeJSON(v any) (json.RawMessage, error) {
+	var b bytes.Buffer
+	e := json.NewEncoder(&b)
+	e.SetEscapeHTML(false)
+	if err := e.Encode(v); err != nil {
+		return nil, err
+	}
+	return bytes.TrimSuffix(b.Bytes(), []byte("\n")), nil
+}
+
+// mergeOptions lays patch over options as a JSON merge patch (RFC 7386):
+// an object's keys go into the object of options, deeply, null takes a
+// key away, and any other value, an array too, takes the place of what
+// was there. A patch of null leaves no options; one that is not an
+// object is an error.
+func mergeOptions(options, patch json.RawMessage) (json.RawMessage, error) {
+	var p any
+	if err := decodeJSON(patch, &p); err != nil {
+		return nil, fmt.Errorf("is not JSON")
+	}
+	if p == nil {
+		return nil, nil
+	}
+	po, ok := p.(map[string]any)
+	if !ok {
+		return nil, fmt.Errorf("must be an object or null")
+	}
+	var base any
+	if len(options) > 0 {
+		decodeJSON(options, &base)
+	}
+	return encodeJSON(mergePatch(base, po))
+}
+
+// mergePatch lays the object patch over target, as mergeOptions says.
+func mergePatch(target any, patch map[string]any) map[string]any {
+	out, _ := target.(map[string]any)
+	if out == nil {
+		out = map[string]any{}
+	}
+	for key, value := range patch {
+		switch v := value.(type) {
+		case nil:
+			delete(out, key)
+		case map[string]any:
+			out[key] = mergePatch(out[key], v)
+		default:
+			out[key] = v
+		}
+	}
+	return out
+}
+
+// resolveLaunch is how the server starts, as its plugin says.
+func (s *lspServer) resolveLaunch(ctx context.Context) (serverLaunch, error) {
+	settings, explicit := serverSettings(s.plugin)
 	resolver := s.contrib.Resolve
+	// A local folder runs the resolver shipped in the plugin, given its
+	// script's path; an SSH folder keeps the command or resolve.
 	var script string
 	if local := s.contrib.LocalResolve; local != nil && !remote.Is(s.root) {
 		if s.plugin.Dir == "" {
-			return launch, fmt.Errorf("local resolver needs a plugin directory")
+			return serverLaunch{}, fmt.Errorf("local resolver needs a plugin directory")
 		}
 		var err error
 		script, err = filepath.Abs(filepath.Join(s.plugin.Dir, filepath.FromSlash(local.Script)))
 		if err != nil {
-			return launch, fmt.Errorf("local resolver script: %w", err)
+			return serverLaunch{}, fmt.Errorf("local resolver script: %w", err)
 		}
 		resolver = &plugin.ServerResolver{Command: local.Command}
 	}
 	if resolver == nil {
-		return launch, nil
+		command, args, err := serverCommand(&s.contrib, settings, explicit)
+		return serverLaunch{Command: command, Args: args, Options: expandServerOptions(s.contrib.Options, settings)}, err
 	}
-	settings := map[string]json.RawMessage{}
-	for key, value := range s.plugin.Contributes.Settings {
-		settings[key] = value.Default
-	}
-	explicit := map[string]json.RawMessage{}
-	if plugins != nil {
-		json.Unmarshal(plugins.Settings(s.plugin.Name), &explicit)
-	}
-	delete(explicit, "enabled")
-	for key, value := range explicit {
-		settings[key] = value
-	}
-	command, err := expandServerArg(resolver.Command, settings)
+	launch := serverLaunch{Command: s.contrib.Command, Args: s.contrib.Args, Options: expandServerOptions(s.contrib.Options, settings)}
+	command, args, err := expandServerCommand(resolver.Command, resolver.Args, settings)
 	if err != nil {
 		return launch, err
-	}
-	args := make([]string, len(resolver.Args))
-	for i, arg := range resolver.Args {
-		args[i], err = expandServerArg(arg, settings)
-		if err != nil {
-			return launch, err
-		}
 	}
 	// The plugin's path is a literal, including any braces in its name.
 	if script != "" {

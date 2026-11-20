@@ -56,8 +56,8 @@ func TestMappedClientPreservesContent(t *testing.T) {
 		t.Fatalf("document: %s", raw)
 	}
 	hover, err := c.HoverAt(ctx, "file:///work/A.fake", Position{})
-	if err != nil || hover != "file:///tmp/literal" {
-		t.Fatalf("hover %q: %v", hover, err)
+	if err != nil || hover.Markdown != "file:///tmp/literal" {
+		t.Fatalf("hover %q: %v", hover.Markdown, err)
 	}
 	locations, err := c.DefinitionAt(ctx, "file:///work/A.fake", Position{})
 	if err != nil || len(locations) != 1 || locations[0].URI != "file:///work/def.fake" {

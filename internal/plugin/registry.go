@@ -340,15 +340,16 @@ func (r *Registry) Load() {
 			found = append(found, r.readScript(e.Name()))
 		}
 	}
-	// One plugin to a name: a bundled one, then the first found.
-	seen := map[string]bool{}
-	found = slices.DeleteFunc(found, func(p *Plugin) bool {
-		if seen[p.Name] {
-			return true
+	// One plugin to a name: the first installed or script, which takes the
+	// place of a bundled one, unless safe mode runs only the bundled.
+	safe := r.safe.Load()
+	keep := map[string]*Plugin{}
+	for _, p := range found {
+		if k := keep[p.Name]; k == nil || k.Bundled && !p.Bundled && !safe {
+			keep[p.Name] = p
 		}
-		seen[p.Name] = true
-		return false
-	})
+	}
+	found = slices.DeleteFunc(found, func(p *Plugin) bool { return keep[p.Name] != p })
 	r.mu.Lock()
 	old := r.list
 	for i, p := range found {

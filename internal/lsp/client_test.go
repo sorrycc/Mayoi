@@ -3,6 +3,7 @@ package lsp
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -51,8 +52,8 @@ func TestClient(t *testing.T) {
 	if d := <-diags; len(d) != 0 {
 		t.Fatalf("after the change: %+v", d)
 	}
-	if h, err := c.HoverAt(ctx, uri, Position{0, 1}); err != nil || h != "**hello**" {
-		t.Fatalf("hover = %q, %v", h, err)
+	if h, err := c.HoverAt(ctx, uri, Position{0, 1}); err != nil || h.Markdown != "**hello**" {
+		t.Fatalf("hover = %q, %v", h.Markdown, err)
 	}
 	if locs, err := c.DefinitionAt(ctx, uri, Position{0, 1}); err != nil || len(locs) != 1 || Path(locs[0].URI) != filepath.FromSlash("/tmp/def.fake") || locs[0].Range.Start.Line != 3 {
 		t.Fatalf("definition = %+v, %v", locs, err)
@@ -78,5 +79,55 @@ func TestURIs(t *testing.T) {
 	}
 	if markupText(json.RawMessage(`[{"language":"go","value":"func f()"},"doc"]`)) != "```go\nfunc f()\n```\n\ndoc" {
 		t.Fatal("marked strings")
+	}
+}
+
+// Hover contents read as Markdown: plaintext escaped, line by line, a
+// MarkedString in a language fenced, Markdown as it is.
+func TestHoverMarkup(t *testing.T) {
+	for _, c := range []struct{ raw, want string }{
+		{`{"kind":"markdown","value":"**b**"}`, "**b**"},
+		{`{"kind":"plaintext","value":"*a* 1. b\n  c\n\nd"}`, "\\*a\\* 1\\. b\\\n\u00a0\u00a0c\n\nd"},
+		{`"_md_"`, "_md_"},
+		{`{"language":"go","value":"func f()"}`, "```go\nfunc f()\n```"},
+	} {
+		if got := markupText(json.RawMessage(c.raw)); got != c.want {
+			t.Errorf("%s: %q, want %q", c.raw, got, c.want)
+		}
+	}
+}
+
+// TestLanguageID: Mayoi's names of languages go to servers as the
+// protocol's identifiers, JSX and TSX by the file.
+func TestLanguageID(t *testing.T) {
+	for _, c := range []struct{ language, uri, want string }{
+		{"go", "file:///a/main.go", "go"},
+		{"c++", "file:///a/main.cpp", "cpp"},
+		{"c", "file:///a/main.h", "c"},
+		{"react", "file:///a/App.jsx", "javascriptreact"},
+		{"typescript", "file:///a/App.tsx", "typescriptreact"},
+		{"typescript", "file:///a/app.ts", "typescript"},
+		{"javascript", "file:///a/app.mjs", "javascript"},
+	} {
+		if got := LanguageID(c.language, c.uri); got != c.want {
+			t.Errorf("LanguageID(%q, %q) = %q, want %q", c.language, c.uri, got, c.want)
+		}
+	}
+}
+
+// A server that answers initialize with why it cannot start, and quits at
+// once, says why, not that it stopped.
+func TestStartRefused(t *testing.T) {
+	for range 20 {
+		cmd := exec.Command(os.Args[0])
+		cmd.Env = append(os.Environ(), "MAYOI_FAKE_LSP=1")
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		_, err := Start(ctx, Options{Cmd: cmd, RootURI: URI(t.TempDir()),
+			InitOptions: json.RawMessage(`{"failInitialize": "Could not find a valid TypeScript installation"}`)})
+		cancel()
+		var refused *ResponseError
+		if !errors.As(err, &refused) || refused.Message != "Could not find a valid TypeScript installation" {
+			t.Fatalf("err = %v", err)
+		}
 	}
 }

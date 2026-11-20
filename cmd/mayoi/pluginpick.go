@@ -46,6 +46,7 @@ func (a *app) openPluginPicker(items []pickItem, placeholder string, done func(i
 	if pk := &a.pluginPick; pk.open && pk.done != nil {
 		pk.done(-1)
 	}
+	a.picksOpened++
 	labels := make([]string, len(items))
 	for i, it := range items {
 		if it.Icon != "" {

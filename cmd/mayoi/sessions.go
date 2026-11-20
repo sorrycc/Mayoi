@@ -20,6 +20,7 @@ import (
 	"mayoi/internal/agents"
 	"mayoi/internal/bg"
 	"mayoi/internal/remote"
+	"mayoi/internal/settings"
 	"mayoi/locales"
 )
 
@@ -53,10 +54,13 @@ type sessionsState struct {
 	// all lists the sessions of every folder rather than the window's:
 	// 1 for every folder, 0 for the window's, as a segmented control has
 	// it.
-	all   int
-	input ui.Handle
-	list  ui.ListState
-	row   int
+	all int
+	// archived shows the sessions archived, which the list leaves out
+	// otherwise.
+	archived bool
+	input    ui.Handle
+	list     ui.ListState
+	row      int
 	// rowKey is the key of the session chosen, which the choice stays on
 	// as the sessions are read again and move.
 	rowKey string
@@ -154,9 +158,11 @@ type openTerm struct {
 
 // sessionsKey is what the sessions shown depend on.
 type sessionsKey struct {
-	query, root string
-	all         bool
-	version     int
+	query, root   string
+	all, archived bool
+	version       int
+	// archiveGen is the count of the changes of the sessions archived.
+	archiveGen uint64
 }
 
 // agentEnv is where the agents keep their sessions.
@@ -375,11 +381,12 @@ func (st *sessionsState) noteLive(running map[string]hcAgent, now time.Time) {
 }
 
 // sessionRows are the sessions the view shows: of the window's folder or
-// of every folder, that match the query.
+// of every folder, that match the query, and are archived as the view
+// shows those archived or not.
 func (a *app) sessionRows() []agents.Session {
 	st := &a.sessions
 	all := st.all == 1 || a.root == ""
-	k := sessionsKey{query: st.query, root: a.root, all: all, version: st.version}
+	k := sessionsKey{query: st.query, root: a.root, all: all, archived: st.archived, version: st.version, archiveGen: a.settings.ArchiveGen()}
 	if k == st.rowsKey && st.rows != nil {
 		return st.rows
 	}
@@ -393,7 +400,8 @@ func (a *app) sessionRows() []agents.Session {
 	}
 	rows := []agents.Session{}
 	for i, s := range st.sessions {
-		if (all || s.In(a.root)) && (len(words) == 0 || agents.HasWords(st.texts[i], words)) {
+		if (all || s.In(a.root)) && a.settings.IsArchived(sessionRef(s)) == st.archived &&
+			(len(words) == 0 || agents.HasWords(st.texts[i], words)) {
 			rows = append(rows, s)
 		}
 	}
@@ -545,6 +553,9 @@ func (a *app) revealChoice(lines []sessionLine) {
 	}
 	read := slices.ContainsFunc(st.sessions, func(s agents.Session) bool { return s.Key() == k })
 	switch {
+	case read && a.settings.IsArchived(sessionRefOfKey(k)) != st.archived:
+		// The other list has it: this one never will.
+		st.reveal = ""
 	case read && st.query != "":
 		st.query = ""
 		a.invalidate()
@@ -562,7 +573,7 @@ func (a *app) keepChoice(lines []sessionLine, now time.Time) []sessionLine {
 	fresh := false
 	if st.appearKey != st.rowsKey {
 		k, was := st.rowsKey, st.appearKey
-		fresh = k.query != was.query || k.root != was.root || k.all != was.all
+		fresh = k.query != was.query || k.root != was.root || k.all != was.all || k.archived != was.archived
 		if fresh {
 			st.selection.Clear()
 		}
@@ -1130,6 +1141,13 @@ func (a *app) sessionsView(c *ui.Context) {
 			a.invalidate()
 		}
 	}
+	// Delete and Backspace archive the sessions chosen, or bring them back
+	// of those archived, as the row's menu does.
+	if (st.list.Shortcut(c, 0, ui.KeyBackspace) || st.list.Shortcut(c, 0, ui.KeyDelete)) &&
+		st.row >= 0 && st.row < len(rows) && rows[st.row].session() && action == nil {
+		picked := st.pickedSessions(rows, rows[st.row])
+		action = func() { a.archiveSessions(picked, st.archived) }
+	}
 	if st.list.Shortcut(c, 0, ui.KeyEscape) {
 		// The sessions chosen go first, then the keyboard.
 		if st.selection.Len() > 0 {
@@ -1242,16 +1260,19 @@ func (a *app) sessionsEmpty(c *ui.Context) {
 		ui.Text(c, locales.SessionsNoMatch()).FontSize(12).TextColor(p.muted).Padding(10, 18, 0, 18)
 		return
 	}
-	msg := locales.SessionsNone()
-	if st.all == 1 || a.root == "" {
+	msg, hint, icon := locales.SessionsNone(), locales.SessionsHint(), iconClock
+	switch {
+	case st.archived:
+		msg, hint, icon = locales.SessionsNoneArchived(), locales.SessionsArchivedHint(), iconArchive
+	case st.all == 1 || a.root == "":
 		msg = locales.SessionsNoneAll()
 	}
 	ui.Column(c.Key("sessions-empty")).Padding(28, 20, 8, 20).Gap(8).AlignItems(ui.Center).Shrink(0).Children(func() {
 		popUp(ui.Box(c.Key("badge")).Size(44, 44).Radius(22).Background(p.text.Alpha(0.06)).Justify(ui.Center).AlignItems(ui.Center)).Children(func() {
-			ui.Icon(c, iconClock).FontSize(20).TextColor(p.muted)
+			ui.Icon(c, icon).FontSize(20).TextColor(p.muted)
 		})
 		ui.Text(c, msg).FontSize(13).FontWeight(600).TextColor(p.text).TextAlign(ui.Center).Margin(4, 0, 0, 0)
-		ui.Text(c, locales.SessionsHint()).FontSize(12).TextColor(p.muted).TextAlign(ui.Center).LineHeight(1.45)
+		ui.Text(c, hint).FontSize(12).TextColor(p.muted).TextAlign(ui.Center).LineHeight(1.45)
 	})
 }
 
@@ -1331,6 +1352,22 @@ func (a *app) sessionRow(c *ui.Context, l sessionLine, now time.Time, choice *se
 		}
 		if m.Item(revealLabel()).Disabled(none).Chosen() {
 			*action = func() { a.host.reveal(s.Transcript) }
+		}
+		// Archive, or Restore of those archived, of the sessions chosen
+		// with it too.
+		m.Separator()
+		label = locales.SessionsArchive()
+		switch {
+		case st.archived && len(ids) > 1:
+			label = locales.SessionsRestoreN(len(ids))
+		case st.archived:
+			label = locales.SessionsRestore()
+		case len(ids) > 1:
+			label = locales.SessionsArchiveN(len(ids))
+		}
+		if m.Item(label).Shortcut(0, ui.KeyBackspace).Chosen() {
+			restore := st.archived
+			*action = func() { a.archiveSessions(ids, restore) }
 		}
 	})
 	if !going && isFile(s.Transcript) {
@@ -1656,8 +1693,9 @@ func (a *app) sessionOpenChip(c *ui.Context, o openTerm) {
 	})
 }
 
-// sessionActions are the buttons of a session's row: one resumes it, the
-// other copies the command that does.
+// sessionActions are the buttons of a session's row: one resumes it,
+// one copies the command that does, and one archives it, or restores it
+// of those archived.
 func (a *app) sessionActions(c *ui.Context, s agents.Session, action *func()) {
 	if a.smallButton(c, iconTerminal, locales.SessionsResume()) {
 		*action = func() { a.resumeSession(s) }
@@ -1665,6 +1703,103 @@ func (a *app) sessionActions(c *ui.Context, s agents.Session, action *func()) {
 	if a.smallButton(c, iconCopy, locales.SessionsCopyCommand()) {
 		cmd := a.agentEnv().ResumeCommand(s)
 		*action = func() { a.copyText(cmd) }
+	}
+	icon, label, restore := iconArchive, locales.SessionsArchive(), a.sessions.archived
+	if restore {
+		icon, label = iconUnarchive, locales.SessionsRestore()
+	}
+	if a.smallButton(c, icon, label) {
+		*action = func() { a.archiveSessions([]agents.Session{s}, restore) }
+	}
+}
+
+// sessionRef is what tells the session s apart as it is archived: its
+// agent, its Claude Code folder and its id, as its Key does.
+func sessionRef(s agents.Session) settings.SessionRef {
+	return settings.SessionRef{Agent: string(s.Harness), Root: s.Root, ID: s.ID}
+}
+
+// sessionRefOfKey is the ref of the session of a Key.
+func sessionRefOfKey(k string) settings.SessionRef {
+	agent, rest, _ := strings.Cut(k, "\x00")
+	root, id, _ := strings.Cut(rest, "\x00")
+	return settings.SessionRef{Agent: agent, Root: root, ID: id}
+}
+
+// archiveSessions archives ss, which the list then leaves out and the
+// view's Archived shows, or, with restore, brings them back to the list;
+// a toast says so, and undoes it. Only Mayoi's state changes: the agents'
+// files, and a terminal one runs in, are let be.
+func (a *app) archiveSessions(ss []agents.Session, restore bool) {
+	refs := make([]settings.SessionRef, len(ss))
+	for i, s := range ss {
+		refs[i] = sessionRef(s)
+	}
+	if restore {
+		gone := a.settings.Unarchive(refs)
+		if len(gone) == 0 {
+			return
+		}
+		a.archivedChanged()
+		a.tell(note{message: locales.SessionsRestored(len(gone)), label: locales.ButtonUndo(), action: func() {
+			a.settings.Archive(gone)
+			a.archivedChanged()
+		}})
+		return
+	}
+	now := time.Now()
+	add := make([]settings.ArchivedSession, len(refs))
+	for i, r := range refs {
+		add[i] = settings.ArchivedSession{SessionRef: r, At: now}
+	}
+	added := a.settings.Archive(add)
+	if len(added) == 0 {
+		return
+	}
+	a.archivedChanged()
+	a.tell(note{message: locales.SessionsArchived(len(added)), label: locales.ButtonUndo(), action: func() {
+		back := make([]settings.SessionRef, len(added))
+		for i, as := range added {
+			back[i] = as.SessionRef
+		}
+		a.settings.Unarchive(back)
+		a.archivedChanged()
+	}})
+}
+
+// archivedChanged has every project's Sessions view list the sessions
+// again, as which are archived changed.
+func (a *app) archivedChanged() {
+	for _, p := range a.projects() {
+		p.invalidate()
+	}
+}
+
+// toggleArchivedSessions shows the sessions archived in the Sessions
+// view, or, as it shows them, the others, with the keyboard in its query.
+func (a *app) toggleArchivedSessions() {
+	if !a.hasSessions() {
+		return
+	}
+	st := &a.sessions
+	st.archived = !st.archived || a.window.SidebarView != "sessions" || a.window.SidebarClosed
+	st.row, st.rowKey, st.reveal = 0, "", ""
+	st.selection.Clear()
+	st.anchor, st.cursor = "", ""
+	a.showSessions()
+}
+
+// sessionsTitleActions are the buttons of the Sessions view's title: one
+// shows the sessions archived, or the others again, marked while it does.
+func (a *app) sessionsTitleActions(c *ui.Context) {
+	st := &a.sessions
+	b := a.iconButton(c, iconArchive, a.withKey(locales.CmdViewArchivedSessions(), "view.archivedSessions"), st.archived)
+	if st.archived {
+		// On while it shows them, as a switch of the sidebar is.
+		b.Background(a.pal.active)
+	}
+	if b.Clicked() {
+		a.post(a.toggleArchivedSessions)
 	}
 }
 
@@ -1806,7 +1941,15 @@ func (a *app) copyTranscripts(paths []string) {
 // that resumed it before, in the column it is in, or else a terminal of its
 // folder starts in the column that has the keyboard, which runs the
 // agent's command that resumes it.
+//
+// One archived comes back to the list as it resumes.
 func (a *app) resumeSession(s agents.Session) {
+	resumed := true
+	defer func() {
+		if resumed && a.settings.Unarchive([]settings.SessionRef{sessionRef(s)}) != nil {
+			a.archivedChanged()
+		}
+	}()
 	k := liveKey(s.Harness, s.ID)
 	if o, ok := a.sessions.open[k]; ok && a.showOpen(o, s.Key()) {
 		return
@@ -1827,10 +1970,12 @@ func (a *app) resumeSession(s agents.Session) {
 	}
 	if fi, err := os.Stat(s.Dir); s.Dir == "" || err != nil || !fi.IsDir() {
 		a.tell(note{message: locales.SessionsDirGone(s.Dir)})
+		resumed = false
 		return
 	}
 	t := a.startTerminal(s.Dir)
 	if t == nil {
+		resumed = false
 		return
 	}
 	cmd := a.agentEnv().ResumeCommand(s)

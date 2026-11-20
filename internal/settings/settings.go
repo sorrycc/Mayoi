@@ -51,6 +51,11 @@ type Settings struct {
 	gen          uint64
 	prefsSeen    []byte
 	prefsChanged func()
+	// archiveGen counts the changes of ArchivedSessions, and archived is
+	// them by their refs, as of archivedGen.
+	archiveGen  uint64
+	archived    map[SessionRef]bool
+	archivedGen uint64
 }
 
 // State is what Mayoi keeps itself, not what a person chooses: the
@@ -71,6 +76,26 @@ type State struct {
 	// offered, and, as "missing:" and the language, those whose server it
 	// said was not installed: each is told of once.
 	ServerOffers []string `json:"serverOffers,omitempty"`
+	// ArchivedSessions are the sessions of the coding agents the Sessions
+	// view keeps out of its list, and shows under Archived, the one
+	// archived first first. Mayoi keeps them here, never in the agents'
+	// own files.
+	ArchivedSessions []ArchivedSession `json:"archivedSessions,omitempty"`
+}
+
+// SessionRef tells a session of a coding agent apart from every other:
+// its agent, the config folder of Claude Code it is of, "" for the other
+// agents, and its id.
+type SessionRef struct {
+	Agent string `json:"agent"`
+	Root  string `json:"root,omitempty"`
+	ID    string `json:"id"`
+}
+
+// ArchivedSession is a session archived, and when.
+type ArchivedSession struct {
+	SessionRef
+	At time.Time `json:"at"`
 }
 
 // oldLayout is the layout an older version kept for every window, in the
@@ -144,6 +169,9 @@ type Prefs struct {
 	// EditorAgentContext offers selection actions in ordinary files to
 	// collect code snippets and send them with review comments.
 	EditorAgentContext bool `json:"editorAgentContext,omitempty"`
+	// EditorHover shows a name's hover card in the editor as the pointer
+	// rests on it, as Show Hover does from the keyboard.
+	EditorHover bool `json:"editorHover"`
 	// PreviewMermaid draws the blocks of Mermaid of a Markdown preview as
 	// the diagrams they make, rather than their source.
 	PreviewMermaid bool `json:"previewMermaid"`
@@ -292,6 +320,10 @@ type Prefs struct {
 	// object of the settings its plugin.json declares, and "enabled":
 	// false to turn the plugin off.
 	Plugins map[string]json.RawMessage `json:"plugins,omitempty"`
+	// LanguageServers are the settings of each language server, by its
+	// id, as "gopls.server": its "initializationOptions", laid over those
+	// of its plugin as it starts.
+	LanguageServers map[string]json.RawMessage `json:"languageServers,omitempty"`
 	// FormatOnSave formats a document with a plugin's formatter as it
 	// saves, by language, as "go", or "*" for every language.
 	FormatOnSave map[string]bool `json:"formatOnSave,omitempty"`
@@ -544,7 +576,7 @@ func Default() *Settings {
 	return &Settings{
 		Prefs: Prefs{
 			FontSize: 13, FontFamily: "monospace", FontWeight: 400, LineHeight: 1.55, TabSize: 4,
-			AutoSave: true, Blame: true, TerminalCopyOnSelect: true, TerminalBackendHcShowInHerdr: true, PreviewMermaid: true, PreviewMath: true,
+			AutoSave: true, Blame: true, EditorHover: true, TerminalCopyOnSelect: true, TerminalBackendHcShowInHerdr: true, PreviewMermaid: true, PreviewMath: true,
 			DiffAlignedRows: true, DiffContext: 3, DiffSyncScroll: true, MergeAutoApply: true,
 			UsageStats: true,
 		},
@@ -805,6 +837,61 @@ func (s *Settings) TakeSession(dir string) *Session {
 		s.Changed()
 	}
 	return ses
+}
+
+// ArchiveGen counts the changes of the sessions archived, which what is
+// made of them is made again as.
+func (s *Settings) ArchiveGen() uint64 { return s.archiveGen }
+
+// IsArchived reports whether the session of ref is archived.
+func (s *Settings) IsArchived(ref SessionRef) bool {
+	if s.archived == nil || s.archivedGen != s.archiveGen {
+		s.archived = make(map[SessionRef]bool, len(s.ArchivedSessions))
+		for _, as := range s.ArchivedSessions {
+			s.archived[as.SessionRef] = true
+		}
+		s.archivedGen = s.archiveGen
+	}
+	return s.archived[ref]
+}
+
+// Archive archives the sessions of ss not archived yet, and returns
+// them. It saves the change.
+func (s *Settings) Archive(ss []ArchivedSession) []ArchivedSession {
+	var added []ArchivedSession
+	for _, as := range ss {
+		if !s.IsArchived(as.SessionRef) && !slices.ContainsFunc(added, func(o ArchivedSession) bool { return o.SessionRef == as.SessionRef }) {
+			added = append(added, as)
+		}
+	}
+	if len(added) == 0 {
+		return nil
+	}
+	s.ArchivedSessions = append(slices.Clone(s.ArchivedSessions), added...)
+	s.archiveGen++
+	s.Changed()
+	return added
+}
+
+// Unarchive brings back the sessions of refs that are archived, and
+// returns them as they were, to archive again. It saves the change.
+func (s *Settings) Unarchive(refs []SessionRef) []ArchivedSession {
+	var gone []ArchivedSession
+	kept := make([]ArchivedSession, 0, len(s.ArchivedSessions))
+	for _, as := range s.ArchivedSessions {
+		if slices.Contains(refs, as.SessionRef) {
+			gone = append(gone, as)
+		} else {
+			kept = append(kept, as)
+		}
+	}
+	if len(gone) == 0 {
+		return nil
+	}
+	s.ArchivedSessions = kept
+	s.archiveGen++
+	s.Changed()
+	return gone
 }
 
 func clamp(v, lo, hi float32) float32 { return max(lo, min(v, hi)) }

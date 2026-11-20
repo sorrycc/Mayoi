@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"os"
 	"testing"
@@ -185,5 +186,63 @@ func TestLanguageServerFailures(t *testing.T) {
 	hs.settle()
 	if a.fails != fails {
 		t.Fatal("a server stopped as the app quit was told of")
+	}
+}
+
+// A server that exits with 0 as it starts, as a wrapper that found nothing
+// to run may, says it quit without an error.
+func TestLanguageServerQuitsCleanly(t *testing.T) {
+	t.Setenv("MAYOI_FAKE_LSP", "quit")
+	hs := newHarness(t, false)
+	fakeServers(hs, map[string]string{"fake": os.Args[0]})
+	a := hs.a
+	path := hs.path("a.fake")
+	os.WriteFile(path, []byte("x\n"), 0o644)
+	a.openFile(path, true)
+	key := serverKey(a.root, "fake.fake")
+	hs.until("the failed start", func() bool {
+		s := serverOf(key)
+		return s != nil && s.state() == lspFailed
+	})
+	hs.settle()
+	s := serverOf(key)
+	if got, want := s.failMessage(), locales.LspCouldNotStart("fake.fake", locales.LspQuitClean()); s.failure != lspFailQuit || got != want {
+		t.Fatalf("failure %d, message %q, want %q", s.failure, got, want)
+	}
+}
+
+// typescript-language-server that finds no TypeScript in the folder says
+// so, and how to add it; with TypeScript 7's tsc, how to run its server.
+func TestLanguageServerNoTypeScript(t *testing.T) {
+	t.Setenv("MAYOI_FAKE_LSP", "1")
+	old := tscVersion
+	t.Cleanup(func() { tscVersion = old })
+	manifest, _ := json.Marshal(map[string]any{"name": "fake", "contributes": map[string]any{
+		"languages": []any{map[string]any{"id": "fake", "extensions": []string{".fake"}}},
+		"languageServers": []any{map[string]any{"id": "fake.fake", "languages": []string{"fake"}, "command": os.Args[0], "args": []string{"-test.run=^$"},
+			"initializationOptions": map[string]any{"failInitialize": "Request initialize failed with message: Could not find a valid TypeScript installation. Please ensure that the \"typescript\" dependency is installed in the workspace. Exiting."}}},
+	}})
+	for _, c := range []struct {
+		version string
+		want    string
+	}{{"", locales.LspNoTypeScript()}, {"Version 7.0.2", locales.LspNoTypeScriptNative()}, {"Version 5.9.3", locales.LspNoTypeScript()}} {
+		tscVersion = func(context.Context, string, []string, []string) string { return c.version }
+		hs := newHarness(t, false)
+		withPlugins(hs, map[string]map[string]string{"fake": {"plugin.json": string(manifest)}})
+		a := hs.a
+		path := hs.path("a.fake")
+		os.WriteFile(path, []byte("x\n"), 0o644)
+		a.openFile(path, true)
+		key := serverKey(a.root, "fake.fake")
+		hs.until("the failed start", func() bool {
+			s := serverOf(key)
+			return s != nil && s.state() == lspFailed
+		})
+		hs.settle()
+		s := serverOf(key)
+		if got, want := s.failMessage(), locales.LspCouldNotStart("fake.fake", c.want); s.failure != lspFailNoTypeScript || got != want {
+			t.Fatalf("tsc %q: failure %d, message %q, want %q", c.version, s.failure, got, want)
+		}
+		stopServers()
 	}
 }

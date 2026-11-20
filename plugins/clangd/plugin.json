@@ -1,0 +1,15 @@
+{
+  "name": "clangd",
+  "displayName": "C/C++",
+  "version": "1.0.0",
+  "description": "Go to Definition, hovers, completions and problems in C and C++ files, with clangd",
+  "enabled": false,
+  "contributes": {
+    "settings": {
+      "path": { "type": "string", "default": "clangd", "description": "The clangd program, by name or path" }
+    },
+    "languageServers": [
+      { "id": "clangd.server", "languages": ["c", "c++"], "command": "${settings.path}" }
+    ]
+  }
+}

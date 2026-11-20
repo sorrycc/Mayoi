@@ -1,9 +1,11 @@
 package main
 
 import (
+	"io/fs"
 	"os"
 	"strings"
 	"testing"
+	"testing/fstest"
 
 	"github.com/egoist/mygo/ui"
 
@@ -30,6 +32,26 @@ const prettierManifest = `{
   }
 }`
 
+// bundledOf is the plugins of names that Mayoi comes with, alone.
+func bundledOf(t *testing.T, names ...string) fstest.MapFS {
+	t.Helper()
+	out := fstest.MapFS{}
+	for _, name := range names {
+		err := fs.WalkDir(bundled.FS, name, func(path string, d fs.DirEntry, err error) error {
+			if err != nil || d.IsDir() {
+				return err
+			}
+			data, err := fs.ReadFile(bundled.FS, path)
+			out[path] = &fstest.MapFile{Data: data}
+			return err
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	return out
+}
+
 // withPluginsPage opens the Plugins page of the settings window over
 // plugins of each kind: from Git with an update waiting, copied in,
 // broken, and those Mayoi comes with; and an index of three.
@@ -41,7 +63,7 @@ func withPluginsPage(t *testing.T) (*prefsHarness, *pluginHost) {
 		"rainbow":  {"plugin.json": `{"name": "rainbow", "displayName": "Rainbow Brackets", "version": "1.2.0", "description": "Colors brackets by how deep they are", "main": "main.ts"}`, "main.ts": ``},
 	})
 	plugin.WriteRecords(h.reg.Dirs.Plugins, plugin.Records{"prettier": {URL: "https://github.com/mayoi-editor/plugin-prettier", Commit: "abc"}})
-	h.reg.Dirs.Bundled = bundled.FS
+	h.reg.Dirs.Bundled = bundledOf(t, "word-count", "todos")
 	h.reg.Load()
 	h.mu.Lock()
 	h.updates = map[string]string{"prettier": "def"}

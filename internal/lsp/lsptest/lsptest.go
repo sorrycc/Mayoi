@@ -14,7 +14,9 @@ import (
 // Serve answers as a language server of a language whose every word
 // "bad" is an error, on in and out, until it is told to exit. A word is
 // defined by the lines of its document that are "def" and it, and else at
-// line 3 of /tmp/def.fake. The answer of a word "late" waits for
+// line 3 of /tmp/def.fake. With initializationOptions failInitialize, it
+// answers initialize with that error and quits, as a server that cannot
+// start says why. The answer of a word "late" waits for
 // test/release, and test/held says whether one waits; of hovers and
 // completions, a word "latenothing" or "latebroken" waits as well. The
 // hover and the completions of a word ending "nothing" are none, and of
@@ -29,7 +31,8 @@ func Serve(in io.Reader, out io.Writer) {
 	texts := map[string]string{} // by URI
 	var late func()              // the answer held back
 	var options struct {
-		HoverContents json.RawMessage `json:"hoverContents"`
+		HoverContents  json.RawMessage `json:"hoverContents"`
+		FailInitialize string          `json:"failInitialize"`
 	}
 	for {
 		n := -1
@@ -84,6 +87,10 @@ func Serve(in io.Reader, out io.Writer) {
 			}
 			json.Unmarshal(m.Params, &p)
 			json.Unmarshal(p.InitializationOptions, &options)
+			if options.FailInitialize != "" {
+				send(map[string]any{"jsonrpc": "2.0", "id": *m.ID, "error": map[string]any{"code": -32603, "message": options.FailInitialize}})
+				return
+			}
 			reply(map[string]any{"capabilities": map[string]any{
 				"hoverProvider": true, "definitionProvider": true, "completionProvider": map[string]any{},
 				"documentFormattingProvider": true, "textDocumentSync": 1,
@@ -118,9 +125,21 @@ func Serve(in io.Reader, out io.Writer) {
 			send(map[string]any{"jsonrpc": "2.0", "method": "textDocument/publishDiagnostics",
 				"params": map[string]any{"uri": p.TextDocument.URI, "diagnostics": diags}})
 		case "textDocument/hover":
-			if len(options.HoverContents) > 0 {
+			// "plain", "marked" and "long" answer as their names say, with
+			// the range of the word.
+			line, s, e, word := wordSpan(texts, m.Params)
+			at := map[string]any{"start": map[string]any{"line": line, "character": s}, "end": map[string]any{"line": line, "character": e}}
+			switch {
+			case len(options.HoverContents) > 0:
 				answer(map[string]any{"contents": options.HoverContents})
-			} else {
+			case word == "plain":
+				answer(map[string]any{"contents": map[string]any{"kind": "plaintext", "value": "*not* bold\nnext line"}, "range": at})
+			case word == "marked":
+				answer(map[string]any{"contents": []any{map[string]any{"language": "go", "value": "func marked(x int) string"}, "Returns **x**."}, "range": at})
+			case word == "long":
+				answer(map[string]any{"contents": map[string]any{"kind": "markdown",
+					"value": "```go\nfunc long()\n```\n\n" + strings.Repeat("A line of documentation that goes on.\n\n", 60)}, "range": at})
+			default:
 				answer(map[string]any{"contents": map[string]any{"kind": "markdown", "value": "**hello**"}})
 			}
 		case "test/snapshot":
@@ -144,6 +163,11 @@ func Serve(in io.Reader, out io.Writer) {
 				"targetSelectionRange":{"start":{"line":3,"character":1},"end":{"line":3,"character":4}}}]`))
 		case "textDocument/implementation", "textDocument/references", "workspace/executeCommand":
 			navigation = m.Params
+			// References of a word of a document are where it is defined.
+			if defs, _ := definitions(texts, m.Params); defs != nil && m.Method == "textDocument/references" {
+				reply(defs)
+				break
+			}
 			reply(json.RawMessage(`[{"uri":"file:///tmp/def.fake","range":{"start":{"line":3,"character":1},"end":{"line":3,"character":4}}}]`))
 		case "test/held":
 			reply(late != nil)
@@ -207,6 +231,13 @@ func definitions(texts map[string]string, params json.RawMessage) ([]any, string
 // wordAt is the word at the place of a request's params, of the
 // document's text.
 func wordAt(texts map[string]string, params json.RawMessage) string {
+	_, _, _, word := wordSpan(texts, params)
+	return word
+}
+
+// wordSpan is the word at the place of a request's params, its line and
+// where on it it starts and ends.
+func wordSpan(texts map[string]string, params json.RawMessage) (line, start, end int, word string) {
 	var p struct {
 		TextDocument struct {
 			URI string `json:"uri"`
@@ -219,16 +250,16 @@ func wordAt(texts map[string]string, params json.RawMessage) string {
 	json.Unmarshal(params, &p)
 	lines := strings.Split(texts[p.TextDocument.URI], "\n")
 	if p.Position.Line >= len(lines) {
-		return ""
+		return p.Position.Line, 0, 0, ""
 	}
-	line := lines[p.Position.Line]
-	word := func(r byte) bool { return r >= 'a' && r <= 'z' || r >= '0' && r <= '9' }
-	s, e := min(p.Position.Character, len(line)), min(p.Position.Character, len(line))
-	for s > 0 && word(line[s-1]) {
+	text := lines[p.Position.Line]
+	letter := func(r byte) bool { return r >= 'a' && r <= 'z' || r >= '0' && r <= '9' }
+	s, e := min(p.Position.Character, len(text)), min(p.Position.Character, len(text))
+	for s > 0 && letter(text[s-1]) {
 		s--
 	}
-	for e < len(line) && word(line[e]) {
+	for e < len(text) && letter(text[e]) {
 		e++
 	}
-	return line[s:e]
+	return p.Position.Line, s, e, text[s:e]
 }

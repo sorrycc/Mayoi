@@ -324,6 +324,16 @@ func (h *pluginHost) Settings(name string) json.RawMessage {
 	return p.Plugins[name]
 }
 
+// languageServer is the settings of the language server of id in
+// settings.json's languageServers, nil for none.
+func (h *pluginHost) languageServer(id string) json.RawMessage {
+	p := h.prefsSnap.Load()
+	if p == nil {
+		return nil
+	}
+	return p.LanguageServers[id]
+}
+
 // MayoiSetting implements plugin.Host: a preference by its key in
 // settings.json.
 func (h *pluginHost) MayoiSetting(key string) any {

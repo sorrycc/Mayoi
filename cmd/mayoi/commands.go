@@ -74,9 +74,9 @@ func (a *app) commandsIn(t locales.Messages) []command {
 		{"file.removeContextMenu", t.CmdFileRemoveContextMenu(), "", func() { a.host.removeContextMenu() }},
 		// Undo and Redo take no keys in the menu: ⌘Z goes to the focused
 		// control, the editor's history or a text field's.
-		{"edit.undo", t.CmdEditUndo(), "", a.editActive(func(d *editor) { d.undo() })},
-		{"edit.redo", t.CmdEditRedo(), "", a.editActive(func(d *editor) { d.redo() })},
-		{"edit.cut", t.CmdEditCut(), "CmdOrCtrl+X", a.editActive(a.cut)},
+		{"edit.undo", t.CmdEditUndo(), "", a.editAll(func(d *editor) { d.undo() })},
+		{"edit.redo", t.CmdEditRedo(), "", a.editAll(func(d *editor) { d.redo() })},
+		{"edit.cut", t.CmdEditCut(), "CmdOrCtrl+X", a.editAll(a.cut)},
 		{"edit.selectAll", t.CmdEditSelectAll(), "CmdOrCtrl+A", a.editActive(selectAll)},
 		{"edit.find", t.CmdEditFind(), "CmdOrCtrl+F", func() { a.openFind(false) }},
 		{"edit.replace", t.CmdEditReplace(), "Alt+CmdOrCtrl+F", func() { a.openFind(true) }},
@@ -97,6 +97,16 @@ func (a *app) commandsIn(t locales.Messages) []command {
 		{"sel.lineBelow", t.CmdSelLineBelow(), "", a.editActive(func(d *editor) { insertLine(d, false) })},
 		{"sel.lineAbove", t.CmdSelLineAbove(), "", a.editActive(func(d *editor) { insertLine(d, true) })},
 		{"sel.line", t.CmdSelLine(), "CmdOrCtrl+L", a.editActive(selectLines)},
+		// Several selections (multicursor.go): their keys, as VS Code's.
+		{"sel.addCursorAbove", t.CmdSelAddCursorAbove(), "Alt+CmdOrCtrl+Up", a.multiCmd(func(d *editor) { a.addCursor(d, -1) })},
+		{"sel.addCursorBelow", t.CmdSelAddCursorBelow(), "Alt+CmdOrCtrl+Down", a.multiCmd(func(d *editor) { a.addCursor(d, 1) })},
+		{"sel.addNextOccurrence", t.CmdSelAddNextOccurrence(), "CmdOrCtrl+D", a.multiCmd(a.addNextOccurrence)},
+		{"sel.selectAllOccurrences", t.CmdSelSelectAllOccurrences(), "Shift+CmdOrCtrl+L", a.multiCmd(a.selectAllOccurrences)},
+		{"sel.columnUp", t.CmdSelColumnUp(), "Shift+Alt+CmdOrCtrl+Up", a.multiCmd(func(d *editor) { a.columnSelect(d, -1, 0) })},
+		{"sel.columnDown", t.CmdSelColumnDown(), "Shift+Alt+CmdOrCtrl+Down", a.multiCmd(func(d *editor) { a.columnSelect(d, 1, 0) })},
+		{"sel.columnLeft", t.CmdSelColumnLeft(), "Shift+Alt+CmdOrCtrl+Left", a.multiCmd(func(d *editor) { a.columnSelect(d, 0, -1) })},
+		{"sel.columnRight", t.CmdSelColumnRight(), "Shift+Alt+CmdOrCtrl+Right", a.multiCmd(func(d *editor) { a.columnSelect(d, 0, 1) })},
+		{"sel.removeCursors", t.CmdSelRemoveCursors(), "", a.editActive(func(d *editor) { d.selectTyped(d.sel[0], d.sel[1]) })},
 		{"sel.indentTabs", t.CmdSelIndentTabs(), "", a.editActive(func(d *editor) { d.indent.tabs = true })},
 		{"sel.indent2", t.CmdSelIndentSpaces(2), "", a.editActive(func(d *editor) { d.indent = indentStyle{size: 2} })},
 		{"sel.indent4", t.CmdSelIndentSpaces(4), "", a.editActive(func(d *editor) { d.indent = indentStyle{size: 4} })},
@@ -109,7 +119,7 @@ func (a *app) commandsIn(t locales.Messages) []command {
 		{"sel.trimWhitespace", t.CmdSelTrimWhitespace(), "", a.editActive(a.trimActive)},
 		{"sel.insertSnippet", t.CmdSelInsertSnippet(), "", a.insertSnippet},
 		// ⌃Space, which the editor takes itself, so that a terminal keeps it.
-		{"sel.complete", t.CmdSelComplete(), "", a.complete},
+		{"sel.complete", t.CmdSelComplete(), "", a.completeOne},
 		{"markdown.toggleTask", t.CmdMarkdownToggleTask(), "", a.editActive(toggleMdTask)},
 		{"markdown.moveItemUp", t.CmdMarkdownMoveItemUp(), "", a.editActive(func(d *editor) { mdMoveItem(d, false) })},
 		{"markdown.moveItemDown", t.CmdMarkdownMoveItemDown(), "", a.editActive(func(d *editor) { mdMoveItem(d, true) })},
@@ -156,6 +166,7 @@ func (a *app) commandsIn(t locales.Messages) []command {
 		{"view.search", t.CmdViewSearch(), "", func() { a.showSearch(false) }},
 		{"view.scm", t.CmdViewScm(), "Ctrl+Shift+G", a.showSourceControl},
 		{"view.sessions", t.CmdViewSessions(), "", a.showSessions},
+		{"view.archivedSessions", t.CmdViewArchivedSessions(), "", a.toggleArchivedSessions},
 		{"view.github", t.CmdViewGitHub(), "", a.showGitHub},
 		{"git.commit", t.CmdGitCommit(), "", func() { a.commit(false) }},
 		{"git.commitPush", t.CmdGitCommitPush(), "", func() { a.commit(true) }},
@@ -609,6 +620,8 @@ func (a *app) menu(cli bool, run func(id string, win *mygo.Window)) *mygo.Menu {
 	// The sessions listed are of this machine, as a folder's own settings.
 	sessions := item("view.sessions")
 	sessions.Disabled = !a.hasSessions()
+	archived := checkbox("view.archivedSessions", a.sessions.archived && a.window.SidebarView == "sessions" && !a.window.SidebarClosed)
+	archived.Disabled = !a.hasSessions()
 	github := item("view.github")
 	github.Disabled = !a.hasGitHub()
 	// A folder's own settings are of a folder on this machine.
@@ -669,8 +682,16 @@ func (a *app) menu(cli bool, run func(id string, win *mygo.Window)) *mygo.Menu {
 		return it
 	}
 	cut, selectAll := &mygo.MenuItem{Role: mygo.RoleCut}, &mygo.MenuItem{Role: mygo.RoleSelectAll}
+	copyItem := &mygo.MenuItem{Role: mygo.RoleCopy}
 	if a.keyFocus == placeEditor {
 		cut, selectAll = item("edit.cut"), item("edit.selectAll")
+		// With several selections, Copy takes them all, which the text
+		// area's own Copy would not.
+		if a.copyAll {
+			copyItem = &mygo.MenuItem{Label: locales.CmdEditCopy(), Accelerator: "CmdOrCtrl+C", Click: func(*mygo.MenuItem, *mygo.Window) {
+				a.editAll(a.copySpans)()
+			}}
+		}
 	}
 	installHC := item("view.installHC")
 	// Attach to Terminal in herdr-core… is not a command while hc is
@@ -683,7 +704,7 @@ func (a *app) menu(cli bool, run func(id string, win *mygo.Window)) *mygo.Menu {
 		{Label: locales.MenuFile(), Submenu: file},
 		{Label: locales.MenuEdit(), Submenu: []*mygo.MenuItem{
 			item("edit.undo"), item("edit.redo"), mygo.Separator(),
-			cut, {Role: mygo.RoleCopy}, {Role: mygo.RolePaste}, selectAll, mygo.Separator(),
+			cut, copyItem, {Role: mygo.RolePaste}, selectAll, mygo.Separator(),
 			item("edit.find"), item("edit.replace"), item("edit.findNext"), item("edit.findPrev"), mygo.Separator(),
 			item("edit.findInFiles"), item("edit.replaceInFiles"), mygo.Separator(),
 			item("edit.fold"), item("edit.unfold"), item("edit.toggleFold"), item("edit.foldAll"), item("edit.unfoldAll"), mygo.Separator(),
@@ -697,6 +718,7 @@ func (a *app) menu(cli bool, run func(id string, win *mygo.Window)) *mygo.Menu {
 		}},
 		{Label: locales.MenuSelection(), Submenu: []*mygo.MenuItem{
 			item("sel.line"), mygo.Separator(),
+			item("sel.addCursorAbove"), item("sel.addCursorBelow"), item("sel.addNextOccurrence"), item("sel.selectAllOccurrences"), mygo.Separator(),
 			item("sel.comment"), item("sel.indent"), item("sel.outdent"), mygo.Separator(),
 			item("sel.moveUp"), item("sel.moveDown"), item("sel.copyUp"), item("sel.copyDown"), mygo.Separator(),
 			item("sel.lineBelow"), item("sel.lineAbove"), item("sel.deleteLine"), item("sel.joinLines"), mygo.Separator(),
@@ -704,7 +726,7 @@ func (a *app) menu(cli bool, run func(id string, win *mygo.Window)) *mygo.Menu {
 			item("sel.format"), item("sel.insertSnippet"), item("sel.complete"),
 		}},
 		{Label: locales.MenuView(), Submenu: []*mygo.MenuItem{
-			item("view.sidebar"), checkbox("view.sidebarRight", a.settings.SidebarRight), item("view.explorer"), item("view.search"), item("view.scm"), github, sessions, mygo.Separator(),
+			item("view.sidebar"), checkbox("view.sidebarRight", a.settings.SidebarRight), item("view.explorer"), item("view.search"), item("view.scm"), github, sessions, archived, mygo.Separator(),
 			checkbox("view.compactFolders", a.settings.ExplorerCompactFolders), mygo.Separator(),
 			checkbox("view.wordWrap", a.prefs().WordWrap), item("view.wordWrapTab"), item("view.togglePreview"), item("view.toggleLivePreview"), item("view.previewToSide"),
 			{Label: locales.MenuOpenMarkdownAs(), Submenu: []*mygo.MenuItem{

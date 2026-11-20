@@ -108,6 +108,9 @@ func (m *mayoi) showPrefs(section, key string, from *desktop) {
 			Title: locales.PrefsTitle(), Width: 940, Height: 680, MinWidth: 640, MinHeight: 420,
 			StateKey: "settings", BackgroundColor: "#131317", Content: ui.View(w.view),
 		})
+		// A field closed with the window, which no frame draws without,
+		// keeps what was typed in it.
+		w.win.OnClose(func(*mygo.CloseEvent) { w.closing() })
 		w.win.OnClosed(func() {
 			if m.prefs == w {
 				m.prefs = nil
@@ -904,6 +907,36 @@ func (w *prefsWindow) settleDrafts() {
 		}
 	}
 	clear(w.drawn)
+}
+
+// commitDrafts applies what was typed in the fields the window closes with.
+// A field that goes away with its page applies as the window is drawn
+// without it, but a window closing draws no frame after the one that typed:
+// it applies here instead.
+func (w *prefsWindow) commitDrafts() {
+	for key, apply := range w.drafts {
+		delete(w.drafts, key)
+		w.editing[key] = false
+		apply()
+	}
+}
+
+// closing applies what was typed in the fields the window closes with,
+// and has the window in front show what failed, as this one no longer
+// draws.
+func (w *prefsWindow) closing() {
+	w.commitDrafts()
+	if len(w.errors) == 0 || len(w.m.wins) == 0 {
+		return
+	}
+	errs := slices.Clone(w.errors)
+	w.errors = w.errors[:0]
+	h := w.m.wins[0]
+	h.do(func() {
+		for _, msg := range errs {
+			h.a.fail("%s", msg)
+		}
+	})
 }
 
 // listSuggestions are what a list of a preference offers.

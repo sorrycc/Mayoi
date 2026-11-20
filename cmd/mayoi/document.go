@@ -139,6 +139,10 @@ type editor struct {
 	// defClick is set while a Cmd-click, which goes to a definition as it
 	// is let go, is held.
 	defClick bool
+	// defProbe is where the pointer was when defFound was found: that a
+	// name is there, which a Cmd-click goes to the definition of.
+	defProbe restProbe
+	defFound bool
 	scopes   scopeCache
 	// folding is the runs of lines the editor folded.
 	folding foldView
@@ -176,9 +180,29 @@ type editor struct {
 	// out.
 	rows wrapRows
 
-	caret         int           // the caret's rune offset in the last frame
-	textX         float32       // where the text starts in the view, in the last frame
-	sel           [2]int        // the selection in the last frame
+	caret int     // the caret's rune offset in the last frame
+	textX float32 // where the text starts in the view, in the last frame
+	sel   [2]int  // the selection in the last frame
+	// cursors are the selections besides sel, which edit with it, sorted
+	// and apart, nil while there is one (multicursor.go). goal is the
+	// column moves up and down keep for sel while it is goalSel; column
+	// is the rectangle a column selection grows, added the carets Add
+	// Cursor Above or Below added in a row, and mdrag a press that adds
+	// a caret or selects a column. matchWhole is the text Add Next
+	// Occurrence matches as a whole word, as it started from a caret.
+	cursors    []cursor
+	goal       int
+	goalSel    [2]int
+	column     *columnSel
+	added      *addRun
+	mdrag      *multiDrag
+	matchWhole string
+	// composing is whether an input method composed in the text area in
+	// the last frame; held is set while what was typed at sel waits for
+	// it, from heldSel, to be typed at the others.
+	composing     bool
+	held          bool
+	heldSel       [2]int
 	selecting     bool          // the pointer is dragging a text selection
 	reviewSource  *editorReview // source layout while writing an inline review
 	releaseReview func()        // keep a draft before any editor release path

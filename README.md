@@ -152,6 +152,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for development and testing.
 |---|---|
 | ⌘P / ⇧⌘O / ⌃G | Quick open / go to symbol / go to line |
 | F12 or ⌘-click / ⌃- / ⌃⇧- | Go to definition / go back / go forward |
+| ⌘K ⌘I | Show hover; again to scroll it with the arrows |
 | ⌘F / ⌥⌘F / ⌘G | Find / replace / next match |
 | ⇧⌘F / ⇧⌘H | Find in files / replace in files |
 | ⌘S / ⇧⌘S / ⌥⌘S | Save / save as / save all |

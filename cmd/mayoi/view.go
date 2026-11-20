@@ -192,8 +192,11 @@ func (a *app) view(c *ui.Context) {
 	a.confirmView(c)
 	a.signinView(c)
 	a.windowKeys(c)
-	if inEditor := a.keyFocus == placeEditor; inEditor != a.cutInEditor {
-		a.cutInEditor = inEditor
+	inEditor := a.keyFocus == placeEditor
+	d := a.activeEditor()
+	copyAll := inEditor && d != nil && len(d.cursors) > 0
+	if inEditor != a.cutInEditor || copyAll != a.copyAll {
+		a.cutInEditor, a.copyAll = inEditor, copyAll
 		a.host.menuChanged()
 	}
 	for _, msg := range a.errors {
@@ -738,12 +741,14 @@ func (a *app) hideEditor(d *editor) {
 
 // dragItem is what is dragged to a column: one of its tabs, or of
 // another's, a terminal of the panel, a file of the sidebar, or issues and
-// pull requests of the GitHub view.
+// pull requests of the GitHub view. tree is set for a file of the
+// explorer, which moves to the folder of a row it is dropped on.
 type dragItem struct {
 	tab  *colTab
 	term *session
 	file *fileDrag
 	link *linkDrag
+	tree *treeDrag
 }
 
 // owns reports whether what was dragged is this window's to take: a tab or
@@ -1497,7 +1502,9 @@ func (a *app) statusBar(c *ui.Context) {
 		line := snap.LineAt(caret)
 		s, _ := snap.LineRange(line)
 		pos := locales.StatusPos(line+1, columns(snap.Slice(s, caret))+1)
-		if n := abs(d.sel[1] - d.sel[0]); n > 0 {
+		if len(d.cursors) > 0 {
+			pos += locales.StatusSelections(len(d.cursors) + 1)
+		} else if n := abs(d.sel[1] - d.sel[0]); n > 0 {
 			pos += locales.StatusSelected(n)
 		}
 		if a.prefs().Vim {

@@ -159,12 +159,12 @@ const (
 var vimOps = map[string]bool{"d": true, "c": true, "y": true, ">": true, "<": true, "gc": true, "g~": true, "gu": true, "gU": true}
 
 // vimActions are the keys of normal mode that do something themselves.
-const vimActions = "xXDCYpPoOJsS~u.iaIAvV:&\t\x0f\x04\x15\x06\x02\x05\x19\x12\x7f\x01\x18"
+const vimActions = "xXDCYpPoOJsS~u.iaIAvV:&K\t\x0f\x04\x15\x06\x02\x05\x19\x12\x7f\x01\x18"
 
 // vimPairActions are the commands of normal mode of two keys, after a g,
 // a z or a Z.
 var vimPairActions = map[string]bool{
-	"gv": true, "gi": true, "gJ": true, "gp": true, "gP": true, "g&": true,
+	"gv": true, "gi": true, "gJ": true, "gd": true, "gp": true, "gP": true, "g&": true,
 	"zz": true, "zt": true, "zb": true, "z.": true, "z\r": true, "z-": true,
 	"ZZ": true, "ZQ": true,
 }
@@ -1803,6 +1803,13 @@ func (a *app) vimNormalRun(d *editor, c vimCmd, next vimMode) {
 		a.vimEx(d, "q")
 	case "m":
 		vimSetMark(d, c.arg, cur)
+	case "gd":
+		// The language server's definition, the jump list keeping where
+		// it went from, in this file.
+		vimPushJump(d, cur)
+		a.post(func() { a.definitionAt(d, false) })
+	case "K":
+		a.post(a.showHover)
 	case "\x0f":
 		a.vimJumpBy(d, cur, -cnt)
 	case "\t":

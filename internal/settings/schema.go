@@ -81,6 +81,7 @@ var Schema = []Field{
 	{Key: "tabSize", Category: CatEditor, Kind: KindNumber, Min: 1, Max: 8, Step: 1},
 	{Key: "jsonlMode", Category: CatEditor, Kind: KindEnum, Options: []string{"", "source"}, Folder: true},
 	{Key: "editorAgentContext", Category: CatEditor, Kind: KindBool},
+	{Key: "editorHover", Category: CatEditor, Kind: KindBool},
 
 	{Key: "markdownMode", Category: CatMarkdown, Kind: KindEnum, Options: []string{"", "live", "reading"}, Folder: true},
 	{Key: "previewMermaid", Category: CatMarkdown, Kind: KindBool, Folder: true},
@@ -121,6 +122,7 @@ var Schema = []Field{
 	{Key: "vimCtrlKeys", Category: CatVim, Kind: KindBool, Folder: true},
 
 	{Key: "plugins", Category: CatPlugins, Kind: KindJSON},
+	{Key: "languageServers", Category: CatPlugins, Kind: KindJSON},
 	{Key: "formatOnSave", Category: CatPlugins, Kind: KindJSON, Folder: true},
 	{Key: "formatters", Category: CatPlugins, Kind: KindJSON, Folder: true},
 	{Key: "pluginSources", Category: CatPlugins, Kind: KindJSON, Memory: true},

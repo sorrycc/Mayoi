@@ -1,18 +1,23 @@
 package main
 
 import (
+	"bytes"
+	"cmp"
 	"context"
+	"encoding/json"
 	"errors"
 	"io/fs"
+	"maps"
 	"os/exec"
-	"path"
-	"path/filepath"
+	"reflect"
 	"slices"
+	"strconv"
 	"strings"
 
 	"mayoi/internal/lsp"
 	"mayoi/internal/plugin"
 	"mayoi/internal/remote"
+	"mayoi/internal/vfs"
 	"mayoi/locales"
 )
 
@@ -32,6 +37,12 @@ func (s *lspServer) classify() lspFailure {
 	if errors.Is(s.err, context.DeadlineExceeded) {
 		return lspFailSilent
 	}
+	// It answered why: typescript-language-server, with no TypeScript to
+	// run in the folder.
+	var refused *lsp.ResponseError
+	if errors.As(s.err, &refused) && strings.Contains(refused.Message, "Could not find a valid TypeScript installation") {
+		return lspFailNoTypeScript
+	}
 	var stopped *lsp.StoppedError
 	if errors.As(s.err, &stopped) {
 		// env on an SSH host says it found no program with 127, as the
@@ -44,6 +55,54 @@ func (s *lspServer) classify() lspFailure {
 		return lspFailQuit
 	}
 	return lspFailOther
+}
+
+// tscVersion is what tsc --version says on the folder's machine, as a
+// server's command started with env and unset is there; "" when it could
+// not tell.
+var tscVersion = tscVersionOnHost
+
+func tscVersionOnHost(ctx context.Context, root string, env, unset []string) string {
+	if !remote.Is(root) {
+		select {
+		case <-shellPathReady:
+		case <-ctx.Done():
+			return ""
+		}
+	}
+	cmd, err := vfs.CommandEnvironment(root, env, unset, nil, "tsc", "--version")
+	if err != nil {
+		return ""
+	}
+	var out bytes.Buffer
+	cmd.Stdout = &out
+	if cmd.Start() != nil {
+		return ""
+	}
+	done := make(chan error, 1)
+	go func() { done <- cmd.Wait() }()
+	select {
+	case err := <-done:
+		if err != nil {
+			return ""
+		}
+		return strings.TrimSpace(out.String())
+	case <-ctx.Done():
+		cmd.Process.Kill()
+		<-done
+		return ""
+	}
+}
+
+// checkNativeTSC reports whether the folder's tsc is TypeScript 7 or
+// later, "Version 7.0.2" as it says, for so long.
+func (s *lspServer) checkNativeTSC() bool {
+	ctx, cancel := context.WithTimeout(s.ctx, lspCheckTimeout)
+	defer cancel()
+	v := strings.TrimPrefix(tscVersion(ctx, s.root, s.launch.environment(), s.launch.UnsetEnv), "Version ")
+	major, _, _ := strings.Cut(v, ".")
+	n, err := strconv.Atoi(major)
+	return err == nil && n >= 7
 }
 
 // checkProgram reports whether a program is found on the folder's
@@ -67,10 +126,7 @@ func (s *lspServer) check() lspFailure {
 }
 
 // program is the name of the program the server ran, without its folder.
-func (s *lspServer) program() string {
-	name := path.Base(filepath.ToSlash(s.command))
-	return strings.TrimSuffix(name, ".exe")
-}
+func (s *lspServer) program() string { return programName(s.command) }
 
 // reason is why the server could not start, in a few words.
 func (s *lspServer) reason() string {
@@ -83,12 +139,21 @@ func (s *lspServer) reason() string {
 	case lspFailQuit:
 		var stopped *lsp.StoppedError
 		if errors.As(s.err, &stopped) {
+			// Its command ended with 0, as it would asked to stop.
+			if stopped.Err == nil {
+				return locales.LspQuitClean()
+			}
 			return locales.LspQuit(firstLine(stopped.Err.Error()))
 		}
 	case lspFailSilent:
 		return locales.LspNoAnswer()
 	case lspFailUnchecked:
 		return locales.LspExitUnchecked(s.program(), remote.HostOf(s.root))
+	case lspFailNoTypeScript:
+		if s.nativeTSC {
+			return locales.LspNoTypeScriptNative()
+		}
+		return locales.LspNoTypeScript()
 	}
 	if s.err == nil {
 		return ""
@@ -97,11 +162,12 @@ func (s *lspServer) reason() string {
 }
 
 // failMessage tells that the server could not start, and why; for a
-// program that is missing, how to install it when the index of plugins
-// read for the offers says so of the server's plugin and its command.
+// program that is missing, how to install it when the server says so, or
+// the index of plugins read for the offers says so of the server's plugin
+// and its command.
 func (s *lspServer) failMessage() string {
 	if s.failure == lspFailMissing {
-		if install := serverInstallHint(s.plugin.Name, s.command); install != "" {
+		if install := cmp.Or(s.contrib.Install, serverInstallHint(s.plugin.Name, s.command)); install != "" {
 			return locales.LspCouldNotStartInstall(s.contrib.ID, s.reason(), install)
 		}
 	}
@@ -232,4 +298,62 @@ func (a *app) showLanguageServers() {
 			a.restartServer(serverKey(root, rows[i].id))
 		}
 	})
+}
+
+// changedInitOptions are the ids of the servers whose initializationOptions
+// of settings.json's languageServers differ from old to now: set, taken
+// away or changed, but not only written otherwise.
+func changedInitOptions(old, now map[string]json.RawMessage) []string {
+	var ids []string
+	for id := range maps.Keys(old) {
+		if _, ok := now[id]; !ok {
+			if _, set := userInitOptions(old[id]); set {
+				ids = append(ids, id)
+			}
+		}
+	}
+	for id, prefs := range now {
+		a, aSet := userInitOptions(old[id])
+		b, bSet := userInitOptions(prefs)
+		if aSet != bSet || !sameJSON(a, b) {
+			ids = append(ids, id)
+		}
+	}
+	slices.Sort(ids)
+	return ids
+}
+
+// sameJSON reports whether a and b are the same JSON value, however each
+// is written.
+func sameJSON(a, b json.RawMessage) bool {
+	if bytes.Equal(a, b) {
+		return true
+	}
+	var va, vb any
+	return decodeJSON(a, &va) == nil && decodeJSON(b, &vb) == nil && reflect.DeepEqual(va, vb)
+}
+
+// restartServersOf restarts the servers of ids, in every folder, each
+// as its Restart would, so that their new initializationOptions reach
+// them; the others are left as they are.
+func (m *mayoi) restartServersOf(ids []string) {
+	if len(ids) == 0 || len(m.wins) == 0 {
+		return
+	}
+	lspServers.Lock()
+	var servers []*lspServer
+	for _, s := range lspServers.m {
+		if slices.Contains(ids, s.contrib.ID) {
+			servers = append(servers, s)
+		}
+	}
+	lspServers.Unlock()
+	slices.SortFunc(servers, func(x, y *lspServer) int { return strings.Compare(x.key, y.key) })
+	for _, s := range servers {
+		a := m.wins[0].a
+		if w := m.showing(s.root); w != nil {
+			a = w.a
+		}
+		a.restartServer(s.key)
+	}
 }

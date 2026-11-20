@@ -83,6 +83,38 @@ func TestBudgets(t *testing.T) {
 				step(hs.tt)
 			}
 		}},
+		// The pointer moving over the text finds the name under it, for
+		// the card it rests on, a frame at a time.
+		{"pointer over text frame", 2 * time.Millisecond, false, func(t *testing.T, hs *harness) func() {
+			bigDoc(hs)
+			i := 0
+			return func() {
+				i++
+				hs.tt.Move(300+float32(i%60)*5, 150+float32(i%23)*11)
+				step(hs.tt)
+			}
+		}},
+		// A hover open follows its word as the editor scrolls, and hides
+		// while the word is out of view.
+		{"scroll frame with a hover", 5 * time.Millisecond, false, func(t *testing.T, hs *harness) func() {
+			d := bigDoc(hs)
+			hs.place(d, 5000, 5000)
+			hs.a.hover = newHoverCard(d, "```go\nfunc f(a, b int) string\n```\n\n"+strings.Repeat("Some *documentation* of `f`.\n\n", 20), nil, d.sel[1])
+			hs.settle()
+			i := 0
+			return func() {
+				dy := float32(60)
+				if i/30%2 == 1 {
+					dy = -60
+				}
+				i++
+				hs.tt.Scroll(1100, 400, 0, dy)
+				step(hs.tt)
+				if hs.a.hover == nil {
+					t.Fatal("scrolling closed the hover")
+				}
+			}
+		}},
 		{"wrapped CJK line scroll frame", 5 * time.Millisecond, false, func(t *testing.T, hs *harness) func() {
 			var b strings.Builder
 			for i := range 200 {
@@ -120,6 +152,26 @@ func TestBudgets(t *testing.T) {
 			d.vscroll.Focus()
 			hs.place(d, 5000, 5000)
 			return func() { hs.tt.Type("a"); step(hs.tt) }
+		}},
+		// Typing at a caret on every "func" of the file: thousands of them,
+		// edited at once in one step of undo.
+		{"type frame with thousands of carets", 45 * time.Millisecond, false, func(t *testing.T, hs *harness) func() {
+			d := bigDoc(hs)
+			at := strings.Index(d.buf.String(), "func")
+			hs.place(d, at, at)
+			hs.key(ui.Super|ui.Shift, ui.KeyL)
+			if len(d.cursors) < 1000 {
+				t.Fatalf("%d selections", len(d.cursors)+1)
+			}
+			return func() { hs.tt.Type("a"); step(hs.tt) }
+		}},
+		{"select all occurrences", 30 * time.Millisecond, false, func(t *testing.T, hs *harness) func() {
+			d := bigDoc(hs)
+			at := strings.Index(d.buf.String(), "func")
+			return func() {
+				hs.place(d, at, at)
+				hs.key(ui.Super|ui.Shift, ui.KeyL)
+			}
 		}},
 		// The Table view of JSON Lines builds the rows in view only, its
 		// cells read from their lines as they show.

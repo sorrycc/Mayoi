@@ -2088,6 +2088,16 @@ func (msgs Messages) CmdEditCut() string {
 	return Catalog.Format(msgs.locale, "cmdEditCut", nil)
 }
 
+// CmdEditCopy says "Copy"
+// in the language the app shows.
+func CmdEditCopy() string { return In(i18n.Locale()).CmdEditCopy() }
+
+// CmdEditCopy says "Copy"
+// in the language of msgs.
+func (msgs Messages) CmdEditCopy() string {
+	return Catalog.Format(msgs.locale, "cmdEditCopy", nil)
+}
+
 // CmdEditFind says "Find"
 // in the language the app shows.
 func CmdEditFind() string { return In(i18n.Locale()).CmdEditFind() }
@@ -3116,6 +3126,96 @@ func CmdSelLine() string { return In(i18n.Locale()).CmdSelLine() }
 // in the language of msgs.
 func (msgs Messages) CmdSelLine() string {
 	return Catalog.Format(msgs.locale, "cmdSelLine", nil)
+}
+
+// CmdSelAddCursorAbove says "Add Cursor Above"
+// in the language the app shows.
+func CmdSelAddCursorAbove() string { return In(i18n.Locale()).CmdSelAddCursorAbove() }
+
+// CmdSelAddCursorAbove says "Add Cursor Above"
+// in the language of msgs.
+func (msgs Messages) CmdSelAddCursorAbove() string {
+	return Catalog.Format(msgs.locale, "cmdSelAddCursorAbove", nil)
+}
+
+// CmdSelAddCursorBelow says "Add Cursor Below"
+// in the language the app shows.
+func CmdSelAddCursorBelow() string { return In(i18n.Locale()).CmdSelAddCursorBelow() }
+
+// CmdSelAddCursorBelow says "Add Cursor Below"
+// in the language of msgs.
+func (msgs Messages) CmdSelAddCursorBelow() string {
+	return Catalog.Format(msgs.locale, "cmdSelAddCursorBelow", nil)
+}
+
+// CmdSelAddNextOccurrence says "Add Next Occurrence"
+// in the language the app shows.
+func CmdSelAddNextOccurrence() string { return In(i18n.Locale()).CmdSelAddNextOccurrence() }
+
+// CmdSelAddNextOccurrence says "Add Next Occurrence"
+// in the language of msgs.
+func (msgs Messages) CmdSelAddNextOccurrence() string {
+	return Catalog.Format(msgs.locale, "cmdSelAddNextOccurrence", nil)
+}
+
+// CmdSelSelectAllOccurrences says "Select All Occurrences"
+// in the language the app shows.
+func CmdSelSelectAllOccurrences() string { return In(i18n.Locale()).CmdSelSelectAllOccurrences() }
+
+// CmdSelSelectAllOccurrences says "Select All Occurrences"
+// in the language of msgs.
+func (msgs Messages) CmdSelSelectAllOccurrences() string {
+	return Catalog.Format(msgs.locale, "cmdSelSelectAllOccurrences", nil)
+}
+
+// CmdSelColumnUp says "Column Select Up"
+// in the language the app shows.
+func CmdSelColumnUp() string { return In(i18n.Locale()).CmdSelColumnUp() }
+
+// CmdSelColumnUp says "Column Select Up"
+// in the language of msgs.
+func (msgs Messages) CmdSelColumnUp() string {
+	return Catalog.Format(msgs.locale, "cmdSelColumnUp", nil)
+}
+
+// CmdSelColumnDown says "Column Select Down"
+// in the language the app shows.
+func CmdSelColumnDown() string { return In(i18n.Locale()).CmdSelColumnDown() }
+
+// CmdSelColumnDown says "Column Select Down"
+// in the language of msgs.
+func (msgs Messages) CmdSelColumnDown() string {
+	return Catalog.Format(msgs.locale, "cmdSelColumnDown", nil)
+}
+
+// CmdSelColumnLeft says "Column Select Left"
+// in the language the app shows.
+func CmdSelColumnLeft() string { return In(i18n.Locale()).CmdSelColumnLeft() }
+
+// CmdSelColumnLeft says "Column Select Left"
+// in the language of msgs.
+func (msgs Messages) CmdSelColumnLeft() string {
+	return Catalog.Format(msgs.locale, "cmdSelColumnLeft", nil)
+}
+
+// CmdSelColumnRight says "Column Select Right"
+// in the language the app shows.
+func CmdSelColumnRight() string { return In(i18n.Locale()).CmdSelColumnRight() }
+
+// CmdSelColumnRight says "Column Select Right"
+// in the language of msgs.
+func (msgs Messages) CmdSelColumnRight() string {
+	return Catalog.Format(msgs.locale, "cmdSelColumnRight", nil)
+}
+
+// CmdSelRemoveCursors says "Remove Secondary Cursors"
+// in the language the app shows.
+func CmdSelRemoveCursors() string { return In(i18n.Locale()).CmdSelRemoveCursors() }
+
+// CmdSelRemoveCursors says "Remove Secondary Cursors"
+// in the language of msgs.
+func (msgs Messages) CmdSelRemoveCursors() string {
+	return Catalog.Format(msgs.locale, "cmdSelRemoveCursors", nil)
 }
 
 // CmdSelLineAbove says "Insert Line Above"
@@ -6166,6 +6266,26 @@ func FailRename(name string, err string) string { return In(i18n.Locale()).FailR
 // in the language of msgs.
 func (msgs Messages) FailRename(name string, err string) string {
 	return Catalog.Format(msgs.locale, "failRename", map[string]any{"name": name, "err": err})
+}
+
+// FailMove says "Could not move {name}: {err}"
+// in the language the app shows.
+func FailMove(name string, err string) string { return In(i18n.Locale()).FailMove(name, err) }
+
+// FailMove says "Could not move {name}: {err}"
+// in the language of msgs.
+func (msgs Messages) FailMove(name string, err string) string {
+	return Catalog.Format(msgs.locale, "failMove", map[string]any{"name": name, "err": err})
+}
+
+// ErrMoveIntoItself says "a folder cannot move into a folder inside it"
+// in the language the app shows.
+func ErrMoveIntoItself() string { return In(i18n.Locale()).ErrMoveIntoItself() }
+
+// ErrMoveIntoItself says "a folder cannot move into a folder inside it"
+// in the language of msgs.
+func (msgs Messages) ErrMoveIntoItself() string {
+	return Catalog.Format(msgs.locale, "errMoveIntoItself", nil)
 }
 
 // FailReplaceIn says "Could not replace in {what}"
@@ -12374,6 +12494,16 @@ func (msgs Messages) StatusSelected(n int) string {
 	return Catalog.Format(msgs.locale, "statusSelected", map[string]any{"n": n})
 }
 
+// StatusSelections says "{count, plural, one { (# selection)} other { (# selections)}}"
+// in the language the app shows.
+func StatusSelections(count int) string { return In(i18n.Locale()).StatusSelections(count) }
+
+// StatusSelections says "{count, plural, one { (# selection)} other { (# selections)}}"
+// in the language of msgs.
+func (msgs Messages) StatusSelections(count int) string {
+	return Catalog.Format(msgs.locale, "statusSelections", map[string]any{"count": count})
+}
+
 // StatusTypeChanged says "Type Changed"
 // in the language the app shows.
 func StatusTypeChanged() string { return In(i18n.Locale()).StatusTypeChanged() }
@@ -15172,6 +15302,26 @@ func (msgs Messages) PrefDescEditorAgentContext() string {
 	return Catalog.Format(msgs.locale, "prefDescEditorAgentContext", nil)
 }
 
+// PrefTitleEditorHover says "Hover on Pointer Rest"
+// in the language the app shows.
+func PrefTitleEditorHover() string { return In(i18n.Locale()).PrefTitleEditorHover() }
+
+// PrefTitleEditorHover says "Hover on Pointer Rest"
+// in the language of msgs.
+func (msgs Messages) PrefTitleEditorHover() string {
+	return Catalog.Format(msgs.locale, "prefTitleEditorHover", nil)
+}
+
+// PrefDescEditorHover says "Show what a language server says of a name when the pointer rests on it."
+// in the language the app shows.
+func PrefDescEditorHover() string { return In(i18n.Locale()).PrefDescEditorHover() }
+
+// PrefDescEditorHover says "Show what a language server says of a name when the pointer rests on it."
+// in the language of msgs.
+func (msgs Messages) PrefDescEditorHover() string {
+	return Catalog.Format(msgs.locale, "prefDescEditorHover", nil)
+}
+
 // PrefTitleMarkdownMode says "Open Markdown As"
 // in the language the app shows.
 func PrefTitleMarkdownMode() string { return In(i18n.Locale()).PrefTitleMarkdownMode() }
@@ -17482,6 +17632,16 @@ func (msgs Messages) PluginsFormatters() string {
 	return Catalog.Format(msgs.locale, "pluginsFormatters", nil)
 }
 
+// PluginsInitOptions says "Sent to {id} as it starts. Set them in settings.json under languageServers, by this id."
+// in the language the app shows.
+func PluginsInitOptions(id string) string { return In(i18n.Locale()).PluginsInitOptions(id) }
+
+// PluginsInitOptions says "Sent to {id} as it starts. Set them in settings.json under languageServers, by this id."
+// in the language of msgs.
+func (msgs Messages) PluginsInitOptions(id string) string {
+	return Catalog.Format(msgs.locale, "pluginsInitOptions", map[string]any{"id": id})
+}
+
 // PluginsLanguageServers says "Language servers"
 // in the language the app shows.
 func PluginsLanguageServers() string { return In(i18n.Locale()).PluginsLanguageServers() }
@@ -17580,6 +17740,26 @@ func PrefDescPlugins() string { return In(i18n.Locale()).PrefDescPlugins() }
 // in the language of msgs.
 func (msgs Messages) PrefDescPlugins() string {
 	return Catalog.Format(msgs.locale, "prefDescPlugins", nil)
+}
+
+// PrefTitleLanguageServers says "Language Servers"
+// in the language the app shows.
+func PrefTitleLanguageServers() string { return In(i18n.Locale()).PrefTitleLanguageServers() }
+
+// PrefTitleLanguageServers says "Language Servers"
+// in the language of msgs.
+func (msgs Messages) PrefTitleLanguageServers() string {
+	return Catalog.Format(msgs.locale, "prefTitleLanguageServers", nil)
+}
+
+// PrefDescLanguageServers says "Each language server's initializationOptions, by its id, as \"gopls.server\", laid over its plugin's as it starts."
+// in the language the app shows.
+func PrefDescLanguageServers() string { return In(i18n.Locale()).PrefDescLanguageServers() }
+
+// PrefDescLanguageServers says "Each language server's initializationOptions, by its id, as \"gopls.server\", laid over its plugin's as it starts."
+// in the language of msgs.
+func (msgs Messages) PrefDescLanguageServers() string {
+	return Catalog.Format(msgs.locale, "prefDescLanguageServers", nil)
 }
 
 // PrefTitleFormatOnSave says "Format on Save"
@@ -17994,6 +18174,18 @@ func (msgs Messages) LspOfferInstall() string {
 	return Catalog.Format(msgs.locale, "lspOfferInstall", nil)
 }
 
+// LspOfferTurnOn says "{detect} is installed. Turn on the {name} plugin for Go to Definition and more?"
+// in the language the app shows.
+func LspOfferTurnOn(detect string, name string) string {
+	return In(i18n.Locale()).LspOfferTurnOn(detect, name)
+}
+
+// LspOfferTurnOn says "{detect} is installed. Turn on the {name} plugin for Go to Definition and more?"
+// in the language of msgs.
+func (msgs Messages) LspOfferTurnOn(detect string, name string) string {
+	return Catalog.Format(msgs.locale, "lspOfferTurnOn", map[string]any{"detect": detect, "name": name})
+}
+
 // LspMissing says "{name} needs {detect}, which isn't installed. Install it with {command}"
 // in the language the app shows.
 func LspMissing(name string, detect string, command string) string {
@@ -18082,6 +18274,36 @@ func LspQuit(err string) string { return In(i18n.Locale()).LspQuit(err) }
 // in the language of msgs.
 func (msgs Messages) LspQuit(err string) string {
 	return Catalog.Format(msgs.locale, "lspQuit", map[string]any{"err": err})
+}
+
+// LspQuitClean says "it quit as it started, without an error"
+// in the language the app shows.
+func LspQuitClean() string { return In(i18n.Locale()).LspQuitClean() }
+
+// LspQuitClean says "it quit as it started, without an error"
+// in the language of msgs.
+func (msgs Messages) LspQuitClean() string {
+	return Catalog.Format(msgs.locale, "lspQuitClean", nil)
+}
+
+// LspNoTypeScript says "there's no TypeScript in this folder; add it with npm i -D typescript, or set the plugin's tsserverPath"
+// in the language the app shows.
+func LspNoTypeScript() string { return In(i18n.Locale()).LspNoTypeScript() }
+
+// LspNoTypeScript says "there's no TypeScript in this folder; add it with npm i -D typescript, or set the plugin's tsserverPath"
+// in the language of msgs.
+func (msgs Messages) LspNoTypeScript() string {
+	return Catalog.Format(msgs.locale, "lspNoTypeScript", nil)
+}
+
+// LspNoTypeScriptNative says "there's no TypeScript in this folder, and tsc is TypeScript 7, which has its own server: set the plugin's path to tsc…"
+// in the language the app shows.
+func LspNoTypeScriptNative() string { return In(i18n.Locale()).LspNoTypeScriptNative() }
+
+// LspNoTypeScriptNative says "there's no TypeScript in this folder, and tsc is TypeScript 7, which has its own server: set the plugin's path to tsc…"
+// in the language of msgs.
+func (msgs Messages) LspNoTypeScriptNative() string {
+	return Catalog.Format(msgs.locale, "lspNoTypeScriptNative", nil)
 }
 
 // LspNoAnswer says "it didn't answer in time"
@@ -18528,6 +18750,118 @@ func SessionsDirGone(dir string) string { return In(i18n.Locale()).SessionsDirGo
 // in the language of msgs.
 func (msgs Messages) SessionsDirGone(dir string) string {
 	return Catalog.Format(msgs.locale, "sessionsDirGone", map[string]any{"dir": dir})
+}
+
+// CmdViewArchivedSessions says "Archived Sessions"
+// in the language the app shows.
+func CmdViewArchivedSessions() string { return In(i18n.Locale()).CmdViewArchivedSessions() }
+
+// CmdViewArchivedSessions says "Archived Sessions"
+// in the language of msgs.
+func (msgs Messages) CmdViewArchivedSessions() string {
+	return Catalog.Format(msgs.locale, "cmdViewArchivedSessions", nil)
+}
+
+// SidebarTitleSessionsArchived says "SESSIONS · ARCHIVED"
+// in the language the app shows.
+func SidebarTitleSessionsArchived() string { return In(i18n.Locale()).SidebarTitleSessionsArchived() }
+
+// SidebarTitleSessionsArchived says "SESSIONS · ARCHIVED"
+// in the language of msgs.
+func (msgs Messages) SidebarTitleSessionsArchived() string {
+	return Catalog.Format(msgs.locale, "sidebarTitleSessionsArchived", nil)
+}
+
+// SidebarTitleSessionsArchivedShort says "ARCHIVED"
+// in the language the app shows.
+func SidebarTitleSessionsArchivedShort() string {
+	return In(i18n.Locale()).SidebarTitleSessionsArchivedShort()
+}
+
+// SidebarTitleSessionsArchivedShort says "ARCHIVED"
+// in the language of msgs.
+func (msgs Messages) SidebarTitleSessionsArchivedShort() string {
+	return Catalog.Format(msgs.locale, "sidebarTitleSessionsArchivedShort", nil)
+}
+
+// SessionsArchive says "Archive"
+// in the language the app shows.
+func SessionsArchive() string { return In(i18n.Locale()).SessionsArchive() }
+
+// SessionsArchive says "Archive"
+// in the language of msgs.
+func (msgs Messages) SessionsArchive() string {
+	return Catalog.Format(msgs.locale, "sessionsArchive", nil)
+}
+
+// SessionsArchiveN says "{count, plural, one {Archive # Session} other {Archive # Sessions}}"
+// in the language the app shows.
+func SessionsArchiveN(count int) string { return In(i18n.Locale()).SessionsArchiveN(count) }
+
+// SessionsArchiveN says "{count, plural, one {Archive # Session} other {Archive # Sessions}}"
+// in the language of msgs.
+func (msgs Messages) SessionsArchiveN(count int) string {
+	return Catalog.Format(msgs.locale, "sessionsArchiveN", map[string]any{"count": count})
+}
+
+// SessionsRestore says "Restore"
+// in the language the app shows.
+func SessionsRestore() string { return In(i18n.Locale()).SessionsRestore() }
+
+// SessionsRestore says "Restore"
+// in the language of msgs.
+func (msgs Messages) SessionsRestore() string {
+	return Catalog.Format(msgs.locale, "sessionsRestore", nil)
+}
+
+// SessionsRestoreN says "{count, plural, one {Restore # Session} other {Restore # Sessions}}"
+// in the language the app shows.
+func SessionsRestoreN(count int) string { return In(i18n.Locale()).SessionsRestoreN(count) }
+
+// SessionsRestoreN says "{count, plural, one {Restore # Session} other {Restore # Sessions}}"
+// in the language of msgs.
+func (msgs Messages) SessionsRestoreN(count int) string {
+	return Catalog.Format(msgs.locale, "sessionsRestoreN", map[string]any{"count": count})
+}
+
+// SessionsArchived says "{count, plural, one {Archived # session} other {Archived # sessions}}"
+// in the language the app shows.
+func SessionsArchived(count int) string { return In(i18n.Locale()).SessionsArchived(count) }
+
+// SessionsArchived says "{count, plural, one {Archived # session} other {Archived # sessions}}"
+// in the language of msgs.
+func (msgs Messages) SessionsArchived(count int) string {
+	return Catalog.Format(msgs.locale, "sessionsArchived", map[string]any{"count": count})
+}
+
+// SessionsRestored says "{count, plural, one {Restored # session} other {Restored # sessions}}"
+// in the language the app shows.
+func SessionsRestored(count int) string { return In(i18n.Locale()).SessionsRestored(count) }
+
+// SessionsRestored says "{count, plural, one {Restored # session} other {Restored # sessions}}"
+// in the language of msgs.
+func (msgs Messages) SessionsRestored(count int) string {
+	return Catalog.Format(msgs.locale, "sessionsRestored", map[string]any{"count": count})
+}
+
+// SessionsNoneArchived says "No session is archived."
+// in the language the app shows.
+func SessionsNoneArchived() string { return In(i18n.Locale()).SessionsNoneArchived() }
+
+// SessionsNoneArchived says "No session is archived."
+// in the language of msgs.
+func (msgs Messages) SessionsNoneArchived() string {
+	return Catalog.Format(msgs.locale, "sessionsNoneArchived", nil)
+}
+
+// SessionsArchivedHint says "Archive a session from its menu to keep it out of the list. It waits here, to resume or restore."
+// in the language the app shows.
+func SessionsArchivedHint() string { return In(i18n.Locale()).SessionsArchivedHint() }
+
+// SessionsArchivedHint says "Archive a session from its menu to keep it out of the list. It waits here, to resume or restore."
+// in the language of msgs.
+func (msgs Messages) SessionsArchivedHint() string {
+	return Catalog.Format(msgs.locale, "sessionsArchivedHint", nil)
 }
 
 // PrefTitleAgentSessionsClaudeDirs says "More Claude Code Folders"

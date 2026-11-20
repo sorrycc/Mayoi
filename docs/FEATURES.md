@@ -11,6 +11,12 @@ A click on the space below the files, or Escape, unselects the file or folder ch
 folder. A right click there opens the workspace's menu: New File…, New Folder…, Reveal in Finder, Open in Terminal and
 Paste.
 
+Drag a file or a folder onto a folder's row to move it there, onto a file's row to move it beside that file, or onto
+the folder's row at the top or below the rows to move it into the workspace's folder. The row it would go to is
+highlighted. Open tabs follow the file, unsaved changes included. A move never replaces a file or folder of the same
+name, never puts a folder inside itself, and stays within the folder's own project and host. On a remote folder it runs
+on the host.
+
 **View → Compact Folders** shows a chain of folders that each hold only one folder on one row, as
 `src/main/java/com/example`. The row's actions use its last folder.
 
@@ -57,6 +63,29 @@ Closing a changed file saves it without asking. Untitled files wait for ⌘S. Tu
 - Home goes to the first non-blank character of the line.
 - The status bar shows the file's indentation and line endings, and you can change either from there.
 
+### Multiple cursors
+
+Type, delete, paste and undo at several places at once, as in VS Code.
+
+- **Selection → Add Cursor Above** and **Add Cursor Below** (⌥⌘↑, ⌥⌘↓; Ctrl+Alt+Up and Down on Windows)
+  add a caret on the next line at the same column; going back the other way takes the last one away.
+- ⌥-click (Alt-click) adds a caret, or takes one away; ⌥-drag selects from it. ⌘-click still goes to a definition.
+  Linux desktops that move windows with Alt-drag take the click first: use the middle button, or the commands, which
+  have no keys on Linux, as its desktops switch workspaces with Ctrl+Alt and the arrows; bind your own.
+- **Add Next Occurrence** (⌘D) selects the word at the caret, then the next match each time: whole words when it
+  started from a caret. **Select All Occurrences** (⇧⌘L) selects every match at once.
+- Column selection selects the same columns on each line: drag with ⇧⌥ (Shift+Alt) or the middle button, or use
+  **Column Select Up**, **Down**, **Left** and **Right** (⇧⌥⌘ with the arrows on macOS, Ctrl+Shift+Alt on Windows). Tabs and wide characters count
+  by their width, and lines too short are left out.
+- Typing, input methods, Backspace and Delete (also by word), Enter, Tab, the arrows, Home and End act at every caret.
+  Brackets close at each. Up and Down move each caret a line of the file, not a wrapped row, and skip folded lines. Copy joins the selections with newlines, and pasting as many lines as there are cursors puts
+  one at each. One undo takes back an edit at all of them.
+- The newest caret blinks; the others hold still. The status bar counts the selections. Escape, or a plain click,
+  goes back to one caret.
+- Other commands, such as moving or commenting lines and completion, act at the newest caret only. Vim mode, Live
+  Preview and diffs keep one caret. While an input method composes, its text shows at the newest caret, and goes to
+  all of them once committed.
+
 ### Vim mode
 
 **View → Vim Mode** edits with vim's keys. Each tab has its own mode, shown in the status bar, and starts in normal
@@ -81,6 +110,8 @@ mode, where the caret is a block.
 - **Marks and jumps:** `ma` sets a mark, `'a` goes to its line and `` `a `` to it, and the marks move with the text as
   it changes. `''` goes back to where the cursor jumped from. Jumps, as `G`, `%`, a search or a mark, are kept: ⌃O goes
   back through them and ⌃I (Tab) forward again. `:marks` lists the marks.
+- **Language servers:** `gd` goes to the definition, a jump ⌃O comes back from, and `K` shows the hover; `K` again
+  lets ↑ ↓ and Page Up and Page Down scroll it.
 - **Visual mode:** `v` selects characters and `V` lines, and `gv` the last selection again. A selection made with the
   mouse is one too. Motions extend it, `o` swaps its ends, and operators, `r`, `J`, `~ u U` and `p` act on it.
 - **Search:** `/` and `?` open a line over the bottom of the editor. The cursor goes to the first match as you type,
@@ -578,6 +609,13 @@ resume it and copy the command, as they do on the chosen row while the list has 
 command. Sessions of a folder that
 is gone say so instead. The view reads only the start and end of each transcript, again as files change, while it shows.
 
+A row's menu, its archive button or ⌫ in the list archives a session, or every session chosen: it leaves the list, as
+it stays after the sessions are read again and after a restart, and a toast offers **Undo**. The archive button in
+the view's title, or **View → Archived Sessions**, lists the archived ones instead, with the same search and **This
+Project** and **All Projects**; there the menu, the button or ⌫ restores them, and resuming one brings it back to the
+list too. Archiving only hides a session: Mayoi keeps which are archived in its own `state.json`, by agent, Claude
+Code folder and id, and leaves the agent's files and any terminal the session runs in alone.
+
 With `terminalBackend` set to `"hc"`, a session that runs in a terminal of herdr-core, in this window, another or the
 Herdr app, has a dot in the color of what it says it does (OSC 7501), and says it: working, waiting for you, done or
 failed. Resuming it shows that terminal, attaching it here when no terminal of the window does. hc names the session that
@@ -937,16 +975,27 @@ language servers, and they work on SSH folders with nothing installed on the hos
 - **Plugins → Show Plugin Log** and **Show Running Plugins** tell what plugins logged and what they use.
 - **Selection → Format Document** (⇧⌥F) formats with a plugin, and `formatOnSave` formats as you save.
 - A language server a plugin declares underlines problems, and answers **Go → Go to Definition** (F12),
-  **Go → Show Hover** and **Selection → Complete Word** (⌃Space).
-- The **Go** menu also finds type definitions, source definitions, implementations and references when the
-  language server supports them. Choose an entry when a jump has several destinations or when browsing references.
+  **Go → Show Hover** (⌘K ⌘I, Ctrl+K Ctrl+I on Windows and Linux) and **Selection → Complete Word** (⌃Space).
+- **Go → Go to Type Definition**, **Go to Source Definition**, **Go to Implementation** (⌘F12, Ctrl+F12 on Windows and
+  Linux) and **Find References** (⇧F12) ask the server, when it supports them. References always open in a list.
+- Several definitions are offered in a list: ↑ ↓ choose, Return goes, Esc stays. **Go → Go Back** (⌃-, Alt+Left on
+  Windows and Linux) and **Go Forward** (⌃⇧-, Alt+Right) return.
+- **Show Hover** again while its card shows gives the card the keys: ↑ ↓, Page Up, Page Down, Home and End scroll it,
+  Esc closes it, and any other key goes back to the text.
+- Rest the pointer on a name for half a second to see its hover card, without moving the caret. Move into the card
+  to read or scroll it; it closes as the pointer leaves, and on Esc, a click or a key. Nothing shows where the server
+  has nothing to say, while you drag or hold a modifier key, or with `editorHover` off.
+- An answer that comes after you opened Quick Open or another list leaves it be.
 - **Show Problems** lists every problem plugins found; the status bar counts them.
 - **Selection → Insert Snippet…** inserts a snippet of a plugin's.
 - A `.ts` file in `~/.mayoi/scripts` makes each function it exports a command; **Plugins → Run Selection as Script**
   runs the selection once.
 - Signed in, the plugins you install from Git follow you to your other machines.
-- Mayoi comes with **Word Count**, the words of a Markdown file in the status bar, and **TODOs**, the folder's TODO
-  comments in the sidebar.
+- Mayoi comes with **Word Count**, the words of a Markdown file in the status bar, **TODOs**, the folder's TODO
+  comments in the sidebar, and the language servers of Go, TypeScript and JavaScript, Python, Rust and C/C++.
+- They start off. A file of a language whose server is off offers **Turn On** when its program is installed, and
+  says how to install it when it is not; a server's `path` setting names a program not on the path.
+- A plugin you install under the name of one Mayoi comes with takes its place.
 
 ## Settings
 

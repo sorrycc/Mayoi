@@ -222,6 +222,13 @@ type ServerContrib struct {
 	// Resolve prepares a launch description, using workspace/settings JSON on
 	// stdin and returning command, args and LSP options as JSON on stdout.
 	Resolve *ServerResolver `json:"resolve,omitempty"`
+	// Install is the shell command that installs the server's program,
+	// which Mayoi says when the program is not found.
+	Install string `json:"install,omitempty"`
+	// ProgramArgs are the arguments of a program by its name, as "tsc"
+	// serves with ["--lsp", "--stdio"], in place of Args when the command
+	// starts it and no setting of Args is set.
+	ProgramArgs map[string][]string `json:"programArgs,omitempty"`
 	// LocalResolve prepares a launch using a script shipped with the plugin.
 	// Remote workspaces keep using Command or Resolve.
 	LocalResolve *LocalServerResolver `json:"localResolve,omitempty"`

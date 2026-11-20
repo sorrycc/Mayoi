@@ -5,11 +5,57 @@ needs a `## <version>` section here, or its build fails.
 
 ## Unreleased
 
+- Set the TypeScript plugin's `path` to `tsrs` to use tsrs.
+- Set the Python plugin's `path` to `ty` to use ty.
+- Closing the settings window keeps what was typed in a text field, rather than losing it.
+- Archive sessions from a row's menu, its archive button or `⌫`, and **Undo** from the toast.
+- Choose several sessions to archive them together.
+- The archive button in the Sessions title, or **View → Archived Sessions**, lists archived sessions to restore.
+- Resuming an archived session brings it back to the list; its terminal and transcript are left alone.
+- Give a language server your own startup options with `languageServers` in settings.json, by the server's id.
+- Options go over the plugin's own, deeply, and `null` takes one away, as in `{"tsserver": {"path": null}}`.
+- Saving changed options restarts only the servers they're for, in every folder.
+- A language server plugin's details show where to set its `initializationOptions`.
+- Holding `Cmd` (`Ctrl` on Windows and Linux) over a name shows a hand, as a click goes to its definition.
+- Drag a file or folder onto a folder in the Explorer to move it there; open tabs follow it.
+- On Windows a new terminal is titled by its shell, as `pwsh`, rather than the shell's full path.
+- The **Go** menu finds type definitions, source definitions, implementations and references.
+- Language server plugins can start a bundled runtime on this machine.
+
+## 0.23.0
+
+- Type at several places at once: **Selection → Add Cursor Above** and **Below** add a caret on the next line.
+- Alt-click (`⌥`-click on macOS) adds a caret or takes one away; `⌘`-click still goes to a definition.
+- `⌘D` selects the next match of the word or selection, and `⇧⌘L` selects every match at once.
+- Drag with `Shift+Alt` or the middle button to select a column; `⇧⌥⌘` with the arrows does it from the keyboard.
+- Typing, delete, Enter, Tab, copy, cut, paste and the arrows act at every caret, and one undo takes an edit back.
+- The status bar counts the selections, and Escape or a plain click goes back to one caret.
+- **Go → Show Hover** now opens a small card by the word at the caret instead of a dialog in mid-window.
+- The hover card stays inside its editor and split, above the line or below it near the top.
+- A hover's signature shows first in the code font and colors, with its documentation below.
+- Plaintext hovers from language servers show as written, without turning `*` or `_` into formatting.
+- The hover closes on `Esc`, a click elsewhere, typing, or moving the caret; long hovers scroll.
+- **Go → Show Hover** has a shortcut: `⌘K ⌘I` on macOS, `Ctrl+K Ctrl+I` on Windows and Linux.
+- Pressing Show Hover again while the card shows lets the arrows and `Page Up`/`Page Down` scroll it.
+- Rest the pointer on a name in code to see its hover card; move into the card to read or scroll it.
+- Turn off the pointer's hover cards with the `editorHover` setting.
+- In Vim mode, `gd` goes to the definition and `K` shows the hover.
+- A late definition or hover no longer replaces Quick Open or a list you opened while waiting.
+- Lists in hovers and plugin views now show their bullets and numbers.
+- A language server that refuses to start now shows its own reason instead of "the server stopped".
+- The TypeScript server says when a folder has no TypeScript, and how to add it or point to one.
+- With TypeScript 7, set the TypeScript plugin's `path` to `tsc` to use its own server.
+- The TypeScript plugin's `tsserverPath` setting names a `tsserver.js` when the folder has none.
+- Mayoi no longer crashes when a language server exits without an error as it starts; it says so.
+- Mayoi comes with language servers for Go, TypeScript, Python, Rust and C/C++, off until you turn them on.
+- Opening a file whose built-in server is off offers **Turn On** when its program is installed.
+- If a built-in server's program is missing, Mayoi says how to install it.
+- Each built-in server has a `path` setting on the **Plugins** page for a program that isn't on your PATH.
+- A plugin you install under the name of a built-in one now takes its place.
+- C++, JSX and TSX files now reach language servers as `cpp`, `javascriptreact` and `typescriptreact`.
 - Files dropped from the Finder on a project's square switch to that project and open there as tabs.
 - Files dropped on the empty part of the project rail open in the project shown.
 - Pictures dropped from the Finder on a square open as files; use **Choose Icon…** to set an icon.
-- The **Go** menu finds type definitions, source definitions, implementations and references.
-- Language server plugins can start a bundled runtime on this machine.
 - Splitting a Live Preview note with tables, diagrams or formulas into two columns no longer crashes Mayoi.
 - Fold blocks of code: click the chevron beside a line number, shown as the pointer comes over the gutter.
 - JSON objects and arrays fold, as do Go, JavaScript and TypeScript blocks, Python by indent and Markdown sections.

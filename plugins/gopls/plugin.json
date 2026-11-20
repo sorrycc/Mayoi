@@ -1,0 +1,16 @@
+{
+  "name": "gopls",
+  "displayName": "Go",
+  "version": "1.0.0",
+  "description": "Go to Definition, hovers, completions and problems in Go files, with gopls",
+  "enabled": false,
+  "contributes": {
+    "settings": {
+      "path": { "type": "string", "default": "gopls", "description": "The gopls program, by name or path" }
+    },
+    "languageServers": [
+      { "id": "gopls.server", "languages": ["go"], "command": "${settings.path}",
+        "install": "go install golang.org/x/tools/gopls@latest" }
+    ]
+  }
+}

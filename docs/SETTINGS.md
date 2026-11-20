@@ -118,6 +118,7 @@ takes its default.
 | `plugins`               | none          | Each plugin's own settings, and `"enabled": false` to turn it off | The **Plugins** page of the settings window |
 | `formatOnSave`          | none          | `true` for each language to format as it saves, or `"*"` for all | Only this file                          |
 | `formatters`            | none          | The formatter of each language, where plugins offer several | Only this file                                 |
+| `languageServers`       | none          | Each language server's `initializationOptions`, by its id   | Only this file                                 |
 
 ### Language
 
@@ -328,6 +329,43 @@ differ in width lines them up only roughly.
   "formatters": { "typescript": "biome" }
 }
 ```
+
+### Language servers
+
+**`languageServers`** gives a language server `initializationOptions` of your own, by the server's id, without changing
+its plugin. The ids of the bundled servers are `rust-analyzer.server`, `gopls.server`, `clangd.server`,
+`basedpyright.server` and `typescript-language-server.server`. **Plugins → Show Language Servers** and a plugin's
+details in the settings window show the id of every server.
+
+```json
+{
+  "languageServers": {
+    "rust-analyzer.server": {
+      "initializationOptions": { "check": { "command": "clippy" }, "cargo": { "features": "all" } }
+    },
+    "gopls.server": { "initializationOptions": { "staticcheck": true, "gofumpt": true } },
+    "clangd.server": { "initializationOptions": { "fallbackFlags": ["-std=c++20"] } },
+    "typescript-language-server.server": {
+      "initializationOptions": { "preferences": { "includeInlayParameterNameHints": "all" } }
+    }
+  }
+}
+```
+
+- Your options go over the server's own, those its `plugin.json` gives, with its settings filled in, or its resolver
+  returns. An object adds to the object there key by key, at any depth, and keeps the keys you leave out.
+- Any other value takes the place of what was there: an array, a string, a number, `true` or `false`.
+- `null` takes a key away, as `{"tsserver": {"path": null}}` does `typescript-language-server`'s `tsserver.path`.
+  `"initializationOptions": null` sends none at all.
+- Values go as you write them: numbers keep every digit, and `${settings.path}` is only text.
+- Options that are not an object or `null` are left out, and the plugin's log says so. The log never shows the options.
+- An id no server has is ignored, until a plugin brings that server.
+- A server reads `initializationOptions` once, as it starts. Saving a change restarts the servers whose options
+  changed, in every folder, and no other. A server starts with its plugin's own again once you take yours away.
+- Options apply to folders on SSH hosts too, as they are sent with the server's start. A folder's
+  `.mayoi/settings.json` can't set them, as they can name programs a server runs.
+- Some servers, as basedpyright, read their settings from `workspace/configuration` rather than
+  `initializationOptions`; Mayoi doesn't set those yet. Which program a server runs is its plugin's `path` setting.
 
 ### Example
 

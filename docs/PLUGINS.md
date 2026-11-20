@@ -412,7 +412,9 @@ the old one is gone; the documents open are told of again.
 
 `command` and `args` take `${settings.key}`, the plugin's setting or its default; an argument that is all of a setting
 of `type` `array` is its strings, as many arguments. A string of `initializationOptions` that is all of
-`${settings.key}` is the setting's value, left out with its key when the setting is empty. A server that answers
+`${settings.key}` is the setting's value, left out with its key when the setting is empty. A person can lay their own
+`initializationOptions` over these by the server's `id`, with `languageServers` in settings.json: see
+[SETTINGS.md](SETTINGS.md#language-servers). Keep a server's `id` as it is between versions. A server that answers
 `initialize` with an error says it. `programArgs` are the arguments of a program by name, as
 `{"tsc": ["--lsp", "--stdio"]}`, in place of `args` when the command starts that program and no setting that `args` takes
 is set. `install` is the command that installs the program, said when it is missing:

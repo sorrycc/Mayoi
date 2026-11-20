@@ -17612,6 +17612,16 @@ func (msgs Messages) PluginsFormatters() string {
 	return Catalog.Format(msgs.locale, "pluginsFormatters", nil)
 }
 
+// PluginsInitOptions says "Sent to {id} as it starts. Set them in settings.json under languageServers, by this id."
+// in the language the app shows.
+func PluginsInitOptions(id string) string { return In(i18n.Locale()).PluginsInitOptions(id) }
+
+// PluginsInitOptions says "Sent to {id} as it starts. Set them in settings.json under languageServers, by this id."
+// in the language of msgs.
+func (msgs Messages) PluginsInitOptions(id string) string {
+	return Catalog.Format(msgs.locale, "pluginsInitOptions", map[string]any{"id": id})
+}
+
 // PluginsLanguageServers says "Language servers"
 // in the language the app shows.
 func PluginsLanguageServers() string { return In(i18n.Locale()).PluginsLanguageServers() }
@@ -17710,6 +17720,26 @@ func PrefDescPlugins() string { return In(i18n.Locale()).PrefDescPlugins() }
 // in the language of msgs.
 func (msgs Messages) PrefDescPlugins() string {
 	return Catalog.Format(msgs.locale, "prefDescPlugins", nil)
+}
+
+// PrefTitleLanguageServers says "Language Servers"
+// in the language the app shows.
+func PrefTitleLanguageServers() string { return In(i18n.Locale()).PrefTitleLanguageServers() }
+
+// PrefTitleLanguageServers says "Language Servers"
+// in the language of msgs.
+func (msgs Messages) PrefTitleLanguageServers() string {
+	return Catalog.Format(msgs.locale, "prefTitleLanguageServers", nil)
+}
+
+// PrefDescLanguageServers says "Each language server's initializationOptions, by its id, as \"gopls.server\", laid over its plugin's as it starts."
+// in the language the app shows.
+func PrefDescLanguageServers() string { return In(i18n.Locale()).PrefDescLanguageServers() }
+
+// PrefDescLanguageServers says "Each language server's initializationOptions, by its id, as \"gopls.server\", laid over its plugin's as it starts."
+// in the language of msgs.
+func (msgs Messages) PrefDescLanguageServers() string {
+	return Catalog.Format(msgs.locale, "prefDescLanguageServers", nil)
 }
 
 // PrefTitleFormatOnSave says "Format on Save"

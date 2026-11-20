@@ -35,6 +35,9 @@ func init() {
 		case "exit":
 			fmt.Fprint(os.Stderr, "resolver setup failed")
 			os.Exit(3)
+		case "options":
+			fmt.Fprint(os.Stdout, `{"command":"server","initializationOptions":{"resolved":{"a":1},"token":"t","keep":true}}`)
+			os.Exit(0)
 		case "no-command":
 			fmt.Fprint(os.Stdout, `{"args":["server"]}`)
 			os.Exit(0)

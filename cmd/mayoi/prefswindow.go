@@ -110,7 +110,7 @@ func (m *mayoi) showPrefs(section, key string, from *desktop) {
 		})
 		// A field closed with the window, which no frame draws without,
 		// keeps what was typed in it.
-		w.win.OnClose(func(*mygo.CloseEvent) { w.commitDrafts() })
+		w.win.OnClose(func(*mygo.CloseEvent) { w.closing() })
 		w.win.OnClosed(func() {
 			if m.prefs == w {
 				m.prefs = nil
@@ -919,6 +919,24 @@ func (w *prefsWindow) commitDrafts() {
 		w.editing[key] = false
 		apply()
 	}
+}
+
+// closing applies what was typed in the fields the window closes with,
+// and has the window in front show what failed, as this one no longer
+// draws.
+func (w *prefsWindow) closing() {
+	w.commitDrafts()
+	if len(w.errors) == 0 || len(w.m.wins) == 0 {
+		return
+	}
+	errs := slices.Clone(w.errors)
+	w.errors = w.errors[:0]
+	h := w.m.wins[0]
+	h.do(func() {
+		for _, msg := range errs {
+			h.a.fail("%s", msg)
+		}
+	})
 }
 
 // listSuggestions are what a list of a preference offers.

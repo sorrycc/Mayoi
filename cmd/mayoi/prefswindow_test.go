@@ -795,12 +795,27 @@ func TestPrefsTextDraftOnClose(t *testing.T) {
 		t.Fatal("the field kept no draft to apply as the window closes")
 	}
 	// The window closes with the keyboard still in the field.
-	w.commitDrafts()
+	w.closing()
 	if ph.m.s.AIModel != "qwen" {
 		t.Errorf("closed with %q", ph.m.s.AIModel)
 	}
 	if len(w.drafts) != 0 || w.editing["aiModel"] {
 		t.Errorf("left %d drafts, editing %v", len(w.drafts), w.editing["aiModel"])
+	}
+	// It applies once: a later change is not undone by the draft again.
+	ph.m.s.AIModel = "other"
+	w.closing()
+	ph.frames()
+	if ph.m.s.AIModel != "other" {
+		t.Errorf("applied the draft again: %q", ph.m.s.AIModel)
+	}
+	ph.m.s.AIModel = "qwen"
+	// What failed as it closed shows in the window in front.
+	w.errors = append(w.errors, "disk full")
+	w.closing()
+	ph.a.drain()
+	if len(w.errors) != 0 || !slices.Contains(ph.a.errors, "disk full") {
+		t.Errorf("errors %q, in front %q", w.errors, ph.a.errors)
 	}
 	// What it was set to is written, as the settings save a moment later.
 	ph.m.s.Flush()

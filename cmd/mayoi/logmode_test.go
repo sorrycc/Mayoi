@@ -565,3 +565,30 @@ func logFirstLineOf(s string) string {
 	s, _, _ = strings.Cut(s, "\n")
 	return s
 }
+
+// A file under the threshold whose line is too long for the usual read
+// opens whole as well, instead of failing: its long line shows.
+func TestLogModeLongLineUnderThreshold(t *testing.T) {
+	hs := newHarness(t, true)
+	hs.a.settings.LargeFileModeMB = 1
+	var b strings.Builder
+	b.WriteString("one\n")
+	b.WriteString(strings.Repeat("l", 100000)) // a 100 KB line
+	b.WriteString("\nthree\n")
+	path := filepath.Join(hs.root, "longline.log")
+	if err := os.WriteFile(path, []byte(b.String()), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	hs.a.openFile(path, true)
+	hs.settle()
+	d := hs.a.activeEditor()
+	if d == nil || d.unread() {
+		t.Fatal("the file did not open")
+	}
+	if !d.logWhole {
+		t.Fatal("the file was not read whole")
+	}
+	if got := d.buf.String(); got != b.String() {
+		t.Fatalf("the buffer holds %d bytes, want %d", len(got), b.Len())
+	}
+}

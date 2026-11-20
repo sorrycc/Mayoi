@@ -64,7 +64,14 @@ func (a *app) rememberClosed(t *colTab) {
 	}
 	if ed := t.ed; ed != nil {
 		c.preview = ed.preview != nil
-		c.sel, c.caret = ed.sel, ed.caret
+		sel, caret := ed.sel, ed.caret
+		if ed.log != nil {
+			// A log document's place in its text, not its window.
+			off, n := ed.log.win.start, int64(ed.buf.Len())
+			sel = [2]int{int(off + min(max(int64(ed.sel[0]), 0), n)), int(off + min(max(int64(ed.sel[1]), 0), n))}
+			caret = sel[1]
+		}
+		c.sel, c.caret = sel, caret
 		c.x, c.y = ed.hscroll.X, ed.vscroll.Y
 		c.wrap, c.wrapGen = ed.wrap, ed.wrapGen
 	}
@@ -128,6 +135,17 @@ func (a *app) reopenClosed() {
 		}
 		if ed := col.tab().ed; ed != nil {
 			restore := func(ed *editor) {
+				if ed.log != nil {
+					n := ed.log.runeLen()
+					ed.logSelect(min(max(int64(c.sel[0]), 0), n), min(max(int64(c.sel[1]), 0), n))
+					ed.hscroll.X = c.x
+					if ed.hidden {
+						ed.hiddenPlaced = false
+					}
+					ed.wrap, ed.wrapGen = c.wrap, c.wrapGen
+					a.setPreview(ed, c.preview)
+					return
+				}
 				ed.sel, ed.caret = c.sel, c.caret
 				ed.vscroll.Y, ed.hscroll.X = c.y, c.x
 				if ed.hidden {

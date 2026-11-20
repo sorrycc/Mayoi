@@ -712,6 +712,11 @@ func replaceInFile(path string, re *regexp.Regexp, tmpl string, only *searchMatc
 // replaceInDoc makes the replacements of re in an open document, as one
 // step of its undo, and returns how many it made.
 func replaceInDoc(doc *document, re *regexp.Regexp, tmpl string, only *searchMatch) int {
+	if doc.log != nil {
+		// A log document's buffer holds a window of its text: replacing
+		// there would miss the matches outside it.
+		return 0
+	}
 	ed := doc.main()
 	if ed == nil {
 		return 0

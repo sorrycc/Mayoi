@@ -43,7 +43,8 @@ func trimEdits(text string, markdown bool, keep func(line int) bool) []textEdit 
 // its text, and returns how many lines it trimmed. keepCaret leaves the
 // line of the caret, as one typed there may go on.
 func trimTrailing(d *editor, keepCaret bool) int {
-	if d.locked() {
+	if d.locked() || d.log != nil {
+		// A log document trims as its window is edited, not as a whole.
 		return 0
 	}
 	doc := d.document

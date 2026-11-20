@@ -6934,6 +6934,40 @@ func (msgs Messages) LockedColumn() string {
 	return Catalog.Format(msgs.locale, "lockedColumn", nil)
 }
 
+// LogFileChanged says "the file changed since it was opened here"
+// in the language the app shows.
+func LogFileChanged() string { return In(i18n.Locale()).LogFileChanged() }
+
+// LogFileChanged says "the file changed since it was opened here"
+// in the language of msgs.
+func (msgs Messages) LogFileChanged() string {
+	return Catalog.Format(msgs.locale, "logFileChanged", nil)
+}
+
+// LogLineCut says "line {line, number, ::group-off} cut at {shown, number, ::group-off} KB of {whole, number, ::group-off} KB"
+// in the language the app shows.
+func LogLineCut(line int, shown int, whole int) string {
+	return In(i18n.Locale()).LogLineCut(line, shown, whole)
+}
+
+// LogLineCut says "line {line, number, ::group-off} cut at {shown, number, ::group-off} KB of {whole, number, ::group-off} KB"
+// in the language of msgs.
+func (msgs Messages) LogLineCut(line int, shown int, whole int) string {
+	return Catalog.Format(msgs.locale, "logLineCut", map[string]any{"line": line, "shown": shown, "whole": whole})
+}
+
+// LogLineCutAbove says "line {line, number, ::group-off} above is cut, {whole, number, ::group-off} KB whole"
+// in the language the app shows.
+func LogLineCutAbove(line int, whole int) string {
+	return In(i18n.Locale()).LogLineCutAbove(line, whole)
+}
+
+// LogLineCutAbove says "line {line, number, ::group-off} above is cut, {whole, number, ::group-off} KB whole"
+// in the language of msgs.
+func (msgs Messages) LogLineCutAbove(line int, whole int) string {
+	return Catalog.Format(msgs.locale, "logLineCutAbove", map[string]any{"line": line, "whole": whole})
+}
+
 // Menu says "Menu"
 // in the language the app shows.
 func Menu() string { return In(i18n.Locale()).Menu() }
@@ -15150,6 +15184,26 @@ func PrefDescTabSize() string { return In(i18n.Locale()).PrefDescTabSize() }
 // in the language of msgs.
 func (msgs Messages) PrefDescTabSize() string {
 	return Catalog.Format(msgs.locale, "prefDescTabSize", nil)
+}
+
+// PrefTitleLargeFileModeMB says "Log Files Over"
+// in the language the app shows.
+func PrefTitleLargeFileModeMB() string { return In(i18n.Locale()).PrefTitleLargeFileModeMB() }
+
+// PrefTitleLargeFileModeMB says "Log Files Over"
+// in the language of msgs.
+func (msgs Messages) PrefTitleLargeFileModeMB() string {
+	return Catalog.Format(msgs.locale, "prefTitleLargeFileModeMB", nil)
+}
+
+// PrefDescLargeFileModeMB says "Local files larger than this many MB open in log mode, read in windows; 0 turns it off."
+// in the language the app shows.
+func PrefDescLargeFileModeMB() string { return In(i18n.Locale()).PrefDescLargeFileModeMB() }
+
+// PrefDescLargeFileModeMB says "Local files larger than this many MB open in log mode, read in windows; 0 turns it off."
+// in the language of msgs.
+func (msgs Messages) PrefDescLargeFileModeMB() string {
+	return Catalog.Format(msgs.locale, "prefDescLargeFileModeMB", nil)
 }
 
 // PrefTitleEditorAgentContext says "Collect Agent Context"

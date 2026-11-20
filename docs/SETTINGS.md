@@ -89,6 +89,7 @@ takes its default.
 | `trimTrailingWhitespace` | `false`      | `true`, `false`                                             |                                                |
 | `tabSize`               | `4`           | `1` to `8`                                                  |                                                |
 | `jsonlMode`             | `""`          | `""` (table), `"source"`                                    | **View → Open JSON Lines As**                  |
+| `largeFileModeMB`       | `32`          | `0` to `1024`; `0` turns log mode off                       |                                                |
 | `editorAgentContext`    | `false`       | `true`, `false`                                             | Only this file                                 |
 | `previewMermaid`        | `true`        | `true`, `false`                                             | Only this file                                 |
 | `previewMath`           | `true`        | `true`, `false`                                             | Only this file                                 |
@@ -252,6 +253,9 @@ differ in width lines them up only roughly.
 - **`jsonlMode`** is how JSON Lines files, .jsonl and .ndjson, open: as a table, a row per line and a column per
   key, with the chosen row whole below it, or as their source. The buttons at the right of a tab's path and **⇧⌘V**
   switch a tab between them. The table reads the text as it is, edits made in the source included.
+- **`largeFileModeMB`** is the size in MB over which a local file opens in log mode, read in windows around the
+  view rather than whole, so that even a huge one opens and scrolls at once. Edits, saving and **Undo** work as
+  usual; Find searches the lines in view. `0` turns it off, and a file over 2 GB still does not open.
 - **`editorAgentContext`** shows a **+** beside the line under the pointer in ordinary files. Click it
   to comment on that line or the selected lines in an inline review card; an empty comment collects the
   code alone. Collect snippets across files and send them together from the editor toolbar. It is off
@@ -396,7 +400,7 @@ window. **File → Open Folder Settings (JSON)** opens the file, and creates it 
 window, choose the folder in the menu at the top right: it lists only the preferences a folder can set, and the arrow
 beside one returns it to your setting.
 
-A folder can set these: `autoSave`, `wordWrap`, `trimTrailingWhitespace`, `jsonlMode`, `markdownMode`, `previewMermaid`, `previewMath`,
+A folder can set these: `autoSave`, `wordWrap`, `trimTrailingWhitespace`, `jsonlMode`, `largeFileModeMB`, `markdownMode`, `previewMermaid`, `previewMath`,
 `terminalCopyOnSelect`, `diffHighlight`, `diffWhitespace`, `diffContext`, `diffCrossFiles`, `mergeAutoApply`,
 `blame`, `aiModel`, `vim`, `vimCtrlKeys`, `formatOnSave` and `formatters`.
 

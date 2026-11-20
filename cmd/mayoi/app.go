@@ -270,6 +270,8 @@ type app struct {
 	localRead   localReader
 	localStuck  time.Duration // 0 is localReadStuck
 	loadsClosed bool
+	logQueue    []*document // the files to read in log mode
+	logReading  bool        // a log file is being read
 	cols        []*column
 	col         int
 	// findCol is the column the find widget shows in, the one with the
@@ -840,6 +842,10 @@ func (a *app) mayHoldWorkTree(path string) bool {
 func (a *app) reloadDoc(d *document) {
 	if remote.Is(d.path) {
 		a.reloadRemote(d)
+		return
+	}
+	if d.log != nil {
+		a.reloadLog(d)
 		return
 	}
 	data, err := os.ReadFile(d.path)

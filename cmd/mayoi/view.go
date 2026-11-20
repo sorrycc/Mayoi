@@ -1186,8 +1186,7 @@ func (a *app) statusFit(c *ui.Context, width float32) statusVisibility {
 			add(&v.terminal, measure(shortenHome(dir), true)+measure(size, false))
 		}
 	default:
-		snap := d.buf.Snapshot()
-		n := snap.LineCount()
+		n := d.viewLines()
 		used += measure(locales.StatusPos(n, 999), false)
 		if a.prefs().Vim {
 			// The mode's badge, and the keys typed after it.
@@ -1494,8 +1493,9 @@ func (a *app) statusBar(c *ui.Context) {
 		if a.prefs().Vim && d.vim.mode.visual() {
 			caret = vimCursor(d, snap)
 		}
-		line := snap.LineAt(caret)
-		s, _ := snap.LineRange(line)
+		winLine := snap.LineAt(caret)
+		line := winLine + d.logFirstLine()
+		s, _ := snap.LineRange(winLine)
 		pos := locales.StatusPos(line+1, columns(snap.Slice(s, caret))+1)
 		if n := abs(d.sel[1] - d.sel[0]); n > 0 {
 			pos += locales.StatusSelected(n)
@@ -1505,7 +1505,17 @@ func (a *app) statusBar(c *ui.Context) {
 		}
 		item("pos", pos, a.withKey(locales.GoToLineLabel(), "go.line"), nil, func() { a.openQuick(":") })
 		if visible.lines {
-			item("lines", locales.LinesCount(snap.LineCount()), "", nil, nil)
+			item("lines", locales.LinesCount(d.viewLines()), "", nil, nil)
+		}
+		if d.log != nil && d.log.win.cutLine > 0 {
+			// A line longer than the editor lays out one shows in part:
+			// it says so, and how much of it there is.
+			item("cut", locales.LogLineCut(d.log.win.cutLine, maxLineBytes/1024, int(d.log.win.cutBytes/1024)), "", nil, nil)
+		} else if d.log != nil && d.log.win.cutAbove > 0 {
+			// The window starts past a line so long the editor shows it
+			// in part only: scrolling cannot reach above it, and it says
+			// so, with how much of it there is.
+			item("cut", locales.LogLineCutAbove(d.log.win.cutAbove, int(d.log.win.cutAboveBytes/1024)), "", nil, nil)
 		}
 		menuItem(visible.indent, "indent", d.indent.String(), locales.Indentation(), func(m *ui.Menu) {
 			if m.Item(locales.CmdSelIndentTabs()).Checked(d.indent.tabs).Chosen() {

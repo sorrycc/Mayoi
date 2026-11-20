@@ -244,7 +244,7 @@ func (a *app) quickBody(c *ui.Context, files []string, isLine bool, line, col in
 				hint = locales.QuickGoToLineCol(line, col)
 			}
 		} else {
-			hint = locales.QuickLineRange(d.buf.LineCount())
+			hint = locales.QuickLineRange(d.viewLines())
 		}
 		ui.Text(c, hint).FontSize(13).TextColor(p.muted).Padding(12, 16)
 		return
@@ -390,6 +390,24 @@ func (d *editor) whenRead(fn func(*editor)) {
 }
 
 func (d *editor) selectLine(line, col int) {
+	if d.log != nil {
+		// A line of the whole text, of which the window holds a run: the
+		// column is kept when the line is in the window already.
+		l := d.log
+		n := l.lineCount()
+		at := l.lineStart(max(0, min(line-1, n-1)))
+		if w := l.win; w.set() {
+			if snap := d.buf.Snapshot(); line-1 >= w.first && line-1 < w.first+snap.LineCount() {
+				s, e := snap.LineRange(line - 1 - w.first)
+				d.selectRange(s, min(s+max(col-1, 0), e), true)
+				d.lightLanding()
+				return
+			}
+		}
+		d.logSelect(at, at)
+		d.lightLanding()
+		return
+	}
 	snap := d.buf.Snapshot()
 	l := max(0, min(line-1, snap.LineCount()-1))
 	s, e := snap.LineRange(l)

@@ -748,6 +748,9 @@ func (a *app) dropTab(t *colTab) {
 		t.ed.release()
 		if len(doc.views) == 0 {
 			doc.hl.Close()
+			if doc.log != nil {
+				doc.log.close()
+			}
 			a.docs = slices.DeleteFunc(a.docs, func(d *document) bool { return d == doc })
 			a.docClosed(doc)
 			if a.tree != nil && doc.path != "" {
@@ -1077,7 +1080,14 @@ func (a *app) rememberTabs() {
 					ts.Preview, ts.Live, ts.Sel, ts.Folds = saved.Preview, saved.Live, saved.Sel, saved.Folds
 					ts.ScrollX, ts.ScrollY, ts.Wrap = saved.ScrollX, saved.ScrollY, saved.Wrap
 				} else {
-					ts.Sel, ts.ScrollX, ts.ScrollY, ts.Folds = ed.sel, ed.hscroll.X, ed.vscroll.Y, ed.foldLines()
+					sel := ed.sel
+					if ed.log != nil {
+						// A log document's place in its text, not its window.
+						off := ed.log.win.start
+						n := int64(ed.buf.Len())
+						sel = [2]int{int(off + min(max(int64(ed.sel[0]), 0), n)), int(off + min(max(int64(ed.sel[1]), 0), n))}
+					}
+					ts.Sel, ts.ScrollX, ts.ScrollY, ts.Folds = sel, ed.hscroll.X, ed.vscroll.Y, ed.foldLines()
 					if ed.hidden {
 						ts.ScrollY = ed.hiddenY
 					}
@@ -1188,7 +1198,20 @@ func (a *app) restoreTab(t *colTab, ts settings.Tab) {
 // restoreEditor puts back where an editor of a tab restored was scrolled,
 // its caret and its own choice to wrap.
 func (a *app) restoreEditor(ed *editor, ts settings.Tab) {
-	// The file may be shorter than it was.
+	// The file may be shorter than it was. A log document's places are of
+	// the whole text, which the window is moved to; the scroll waits for
+	// where it lands.
+	if ed.log != nil {
+		n := ed.log.runeLen()
+		ed.logSelect(min(max(int64(ts.Sel[0]), 0), n), min(max(int64(ts.Sel[1]), 0), n))
+		ed.caret = 0
+		ed.hscroll.X = ts.ScrollX
+		if ts.Wrap != nil {
+			w := *ts.Wrap
+			ed.wrap, ed.wrapGen = &w, a.settings.WrapGen
+		}
+		return
+	}
 	n := ed.buf.Len()
 	ed.sel = [2]int{min(max(ts.Sel[0], 0), n), min(max(ts.Sel[1], 0), n)}
 	ed.caret = ed.sel[1]

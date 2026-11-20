@@ -159,6 +159,12 @@ func (a *app) navOpen(p *navPlace) bool {
 	// A file opened again is a new document, whose edits move it now.
 	a.navTrack(p, true)
 	d.whenRead(func(ed *editor) {
+		if ed.log != nil {
+			n := ed.log.runeLen()
+			ed.logSelect(min(max(int64(p.at), 0), n), min(max(int64(p.at), 0), n))
+			ed.lightLanding()
+			return
+		}
 		at := min(p.at, ed.buf.Snapshot().Len())
 		ed.selectRange(at, at, true)
 		ed.lightLanding()

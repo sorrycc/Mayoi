@@ -5,6 +5,13 @@ needs a `## <version>` section here, or its build fails.
 
 ## Unreleased
 
+- Local files over the new **Log Files Over** setting (32 MB by default) open in log mode.
+- Log mode reads a huge file in windows, keeping opening, scrolling and memory small.
+- Log files can be edited, saved and undone; **Go to Line** works and `Find` searches the view.
+- Files over 64 MB that used to be refused as too large now open in log mode too.
+- A line too long to lay out shows in part, with the cut and its size in the status bar.
+- A window stuck below a line cut says so in the status bar; **Go to Line** still reaches above it.
+- Saving a log file that changed on disk since it was opened says so instead of writing over it.
 - Files dropped from the Finder on a project's square switch to that project and open there as tabs.
 - Files dropped on the empty part of the project rail open in the project shown.
 - Pictures dropped from the Finder on a square open as files; use **Choose Icon…** to set an icon.

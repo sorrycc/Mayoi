@@ -234,11 +234,14 @@ func (a *app) editorView(c *ui.Context, d *editor) {
 		// line at the top where it shows.
 		keepLine, keepY = a.topLine(d)
 	}
+	if d.log != nil {
+		a.logEnsure(d)
+	}
 	snap := d.buf.Snapshot()
 	edited := snap.Version() != d.version
 	d.version = snap.Version()
 	lines := snap.LineCount()
-	gutterW := a.editorGutterWidth(lines)
+	gutterW := a.editorGutterWidth(d.viewLines())
 	// Live Preview has no line numbers: its text stands in the middle,
 	// as the Reading view's does.
 	live := a.livePreview(d)
@@ -877,8 +880,9 @@ func (a *app) editorView(c *ui.Context, d *editor) {
 			a.paintFoldPills(pt, d, snap, g, from, to, r, place)
 			stuck := float32(len(sticky)) * lineH
 			_, numH := pt.MeasureText(0, ui.Span{Text: "0", Font: family, Size: size})
+			firstLine := d.logFirstLine()
 			number := func(i int, y float32, col ui.Color) {
-				label := strconv.Itoa(i + 1)
+				label := strconv.Itoa(i + firstLine + 1)
 				pt.RichText(x+gutterW-14-foldColW-float32(len(label))*charW, y+(lineH-numH)/2, 0,
 					ui.Span{Text: label, Font: family, Size: size, Color: col})
 			}
@@ -921,7 +925,7 @@ func (a *app) editorView(c *ui.Context, d *editor) {
 				for _, n := range noted {
 					pt.Fill(ui.Rect{X: right + 4, Y: r.Y + float32(n.from)/float32(lines)*r.H - 1, W: 5, H: 3}, p.accent, 1)
 				}
-				caretAt := float32(caretLine) / float32(lines)
+				caretAt := float32(caretLine+d.logFirstLine()) / float32(max(1, d.viewLines()))
 				pt.Fill(ui.Rect{X: right, Y: r.Y + caretAt*r.H - 1, W: 9, H: 2}, p.text.Alpha(0.6), 1)
 			}
 			if stuck > 0 {

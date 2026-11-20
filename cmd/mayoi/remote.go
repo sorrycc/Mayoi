@@ -809,6 +809,13 @@ func (a *app) loadingView(c *ui.Context, d *editor) {
 func (a *app) shutdown() {
 	a.loadsClosed = true
 	a.docClosed(nil)
+	a.logQueue = nil
+	for _, d := range a.docs {
+		if d.log != nil {
+			d.log.close()
+			d.log = nil
+		}
+	}
 	if a.tree != nil {
 		a.tree.Close()
 	}

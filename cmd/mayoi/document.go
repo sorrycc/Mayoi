@@ -74,12 +74,17 @@ type document struct {
 	// maxLineBytes, 0 for none. Only a file of JSON Lines has one: its
 	// table shows it, and in place of its source the editor says why not.
 	longLine int
-	diskCRLF bool     // the file on disk has CRLF line endings
-	trimmed  trimSeen // the text last found without trailing whitespace
-	hl       *highlight.Highlighter
-	indent   indentStyle
-	hist     history
-	git      gitmarks.Marks
+	// log is the file read in log mode, too large to hold whole: the
+	// buffer holds a window of it, which the app moves. logSkipped says
+	// log mode was tried and the file is read whole instead.
+	log        *logDoc
+	logSkipped bool
+	diskCRLF   bool     // the file on disk has CRLF line endings
+	trimmed    trimSeen // the text last found without trailing whitespace
+	hl         *highlight.Highlighter
+	indent     indentStyle
+	hist       history
+	git        gitmarks.Marks
 	// marks are vim mode's marks in the text, which move with its edits:
 	// those of m, and ' for where the cursor jumped from. changed is where
 	// the last change was, the mark . of vim. tracked are offsets that a
@@ -176,9 +181,13 @@ type editor struct {
 	// out.
 	rows wrapRows
 
-	caret         int           // the caret's rune offset in the last frame
-	textX         float32       // where the text starts in the view, in the last frame
-	sel           [2]int        // the selection in the last frame
+	caret int     // the caret's rune offset in the last frame
+	textX float32 // where the text starts in the view, in the last frame
+	sel   [2]int  // the selection in the last frame
+	// logSel is a selection of a log document's text asked for, in runes
+	// of the whole text rather than the window: the window moves to it
+	// and the frame's own selection takes its place.
+	logSel        *[2]int64
 	selecting     bool          // the pointer is dragging a text selection
 	reviewSource  *editorReview // source layout while writing an inline review
 	releaseReview func()        // keep a draft before any editor release path
@@ -355,7 +364,12 @@ func (d *document) name() string {
 	return filepath.Base(d.path)
 }
 
-func (d *document) dirty() bool { return d.buf.Version() != d.saved || d.crlf != d.diskCRLF }
+func (d *document) dirty() bool {
+	if d.log != nil {
+		return d.log.hasEdits() || d.crlf != d.diskCRLF
+	}
+	return d.buf.Version() != d.saved || d.crlf != d.diskCRLF
+}
 
 // unread reports whether the text of a document is not read yet,
 // or could not be.

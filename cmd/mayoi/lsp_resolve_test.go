@@ -323,7 +323,7 @@ func TestServerProgramArgs(t *testing.T) {
 // Python's server is basedpyright, and ty when path names it, while args
 // are left as they are.
 func TestPythonServerProgramArgs(t *testing.T) {
-	data, err := os.ReadFile(filepath.Join("..", "..", "plugins", "python-language-server", "plugin.json"))
+	data, err := os.ReadFile(filepath.Join("..", "..", "plugins", "basedpyright", "plugin.json"))
 	if err != nil {
 		t.Fatal(err)
 	}

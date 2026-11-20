@@ -41,7 +41,7 @@ On Windows, `~` is `%USERPROFILE%`. With `MAYOI_DATA_DIR` set, these folders are
 
 Mayoi comes with plugins of its own: **Word Count** (the words and reading time of a Markdown or text file, in the
 status bar), **TODOs** (the folder's TODO, FIXME and HACK comments, in the sidebar), and the language servers of
-**Go** (`gopls`), **TypeScript** (`typescript-language-server`, for JavaScript too), **Python** (`python-language-server`),
+**Go** (`gopls`), **TypeScript** (`typescript-language-server`, for JavaScript too), **Python** (`basedpyright`),
 **Rust** (`rust-analyzer`) and **C/C++** (`clangd`). They start off; turn them on on the **Plugins** page of the
 settings window, or with `"enabled": true` in their settings. A file of a language whose server is off offers
 **Turn On**, once, when its program is installed, and says how to install it when it is not. Each server's `path`

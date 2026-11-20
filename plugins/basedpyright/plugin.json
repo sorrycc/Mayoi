@@ -1,5 +1,5 @@
 {
-  "name": "python-language-server",
+  "name": "basedpyright",
   "displayName": "Python",
   "version": "1.0.0",
   "description": "Go to Definition, hovers, completions and problems in Python files, with ty or basedpyright",
@@ -10,7 +10,7 @@
       "args": { "type": "array", "default": ["--stdio"], "description": "Its arguments; ty gets server when they are left as they are" }
     },
     "languageServers": [
-      { "id": "python-language-server.server", "languages": ["python"],
+      { "id": "basedpyright.server", "languages": ["python"],
         "command": "${settings.path}", "args": ["${settings.args}"],
         "programArgs": { "ty": ["server"] },
         "install": "pip install basedpyright" }

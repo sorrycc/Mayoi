@@ -6,7 +6,7 @@ needs a `## <version>` section here, or its build fails.
 ## Unreleased
 
 - Set the TypeScript plugin's `path` to `tsrs` to use tsrs.
-- Python's language server is the `python-language-server` plugin; set its `path` to `ty` to use ty.
+- Set the Python plugin's `path` to `ty` to use ty.
 - Archive sessions from a row's menu, its archive button or `⌫`, and **Undo** from the toast.
 - Choose several sessions to archive them together.
 - The archive button in the Sessions title, or **View → Archived Sessions**, lists archived sessions to restore.

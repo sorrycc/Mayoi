@@ -31,6 +31,14 @@ type serverLaunch struct {
 	Configuration    map[string]any        `json:"configuration,omitempty"`
 	WorkspaceFolders []lsp.WorkspaceFolder `json:"workspaceFolders,omitempty"`
 	PathMappings     []lsp.PathMapping     `json:"pathMappings,omitempty"`
+	// SourceDefinition is the request Go to Source Definition sends, when
+	// the server sets its experimental capability.
+	SourceDefinition *sourceDefinitionRequest `json:"sourceDefinition,omitempty"`
+}
+
+type sourceDefinitionRequest struct {
+	Method     string `json:"method"`
+	Capability string `json:"capability"`
 }
 
 // expandServerArg substitutes whole setting references without a shell.
@@ -328,14 +336,33 @@ func mergePatch(target any, patch map[string]any) map[string]any {
 // resolveLaunch is how the server starts, as its plugin says.
 func (s *lspServer) resolveLaunch(ctx context.Context) (serverLaunch, error) {
 	settings, explicit := serverSettings(s.plugin)
-	if s.contrib.Resolve == nil {
+	resolver := s.contrib.Resolve
+	// A local folder runs the resolver shipped in the plugin, given its
+	// script's path; an SSH folder keeps the command or resolve.
+	var script string
+	if local := s.contrib.LocalResolve; local != nil && !remote.Is(s.root) {
+		if s.plugin.Dir == "" {
+			return serverLaunch{}, fmt.Errorf("local resolver needs a plugin directory")
+		}
+		var err error
+		script, err = filepath.Abs(filepath.Join(s.plugin.Dir, filepath.FromSlash(local.Script)))
+		if err != nil {
+			return serverLaunch{}, fmt.Errorf("local resolver script: %w", err)
+		}
+		resolver = &plugin.ServerResolver{Command: local.Command}
+	}
+	if resolver == nil {
 		command, args, err := serverCommand(&s.contrib, settings, explicit)
 		return serverLaunch{Command: command, Args: args, Options: expandServerOptions(s.contrib.Options, settings)}, err
 	}
 	launch := serverLaunch{Command: s.contrib.Command, Args: s.contrib.Args, Options: expandServerOptions(s.contrib.Options, settings)}
-	command, args, err := expandServerCommand(s.contrib.Resolve.Command, s.contrib.Resolve.Args, settings)
+	command, args, err := expandServerCommand(resolver.Command, resolver.Args, settings)
 	if err != nil {
 		return launch, err
+	}
+	// The plugin's path is a literal, including any braces in its name.
+	if script != "" {
+		args = append(args, script)
 	}
 	root := s.root
 	if _, path, ok := remote.Split(root); ok {
@@ -383,6 +410,10 @@ func (s *lspServer) resolveLaunch(ctx context.Context) (serverLaunch, error) {
 func (l serverLaunch) validate() error {
 	if strings.TrimSpace(l.Command) == "" {
 		return fmt.Errorf("resolved language server has no command")
+	}
+	if source := l.SourceDefinition; source != nil &&
+		(strings.TrimSpace(source.Method) == "" || strings.TrimSpace(source.Capability) == "") {
+		return fmt.Errorf("source definition needs a method and experimental capability")
 	}
 	for key := range l.Env {
 		if !validEnvKey(key) {

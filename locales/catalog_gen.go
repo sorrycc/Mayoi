@@ -17934,6 +17934,46 @@ func (msgs Messages) CmdGoDefinition() string {
 	return Catalog.Format(msgs.locale, "cmdGoDefinition", nil)
 }
 
+// CmdGoTypeDefinition says "Go to Type Definition"
+// in the language the app shows.
+func CmdGoTypeDefinition() string { return In(i18n.Locale()).CmdGoTypeDefinition() }
+
+// CmdGoTypeDefinition says "Go to Type Definition"
+// in the language of msgs.
+func (msgs Messages) CmdGoTypeDefinition() string {
+	return Catalog.Format(msgs.locale, "cmdGoTypeDefinition", nil)
+}
+
+// CmdGoSourceDefinition says "Go to Source Definition"
+// in the language the app shows.
+func CmdGoSourceDefinition() string { return In(i18n.Locale()).CmdGoSourceDefinition() }
+
+// CmdGoSourceDefinition says "Go to Source Definition"
+// in the language of msgs.
+func (msgs Messages) CmdGoSourceDefinition() string {
+	return Catalog.Format(msgs.locale, "cmdGoSourceDefinition", nil)
+}
+
+// CmdGoImplementation says "Go to Implementation"
+// in the language the app shows.
+func CmdGoImplementation() string { return In(i18n.Locale()).CmdGoImplementation() }
+
+// CmdGoImplementation says "Go to Implementation"
+// in the language of msgs.
+func (msgs Messages) CmdGoImplementation() string {
+	return Catalog.Format(msgs.locale, "cmdGoImplementation", nil)
+}
+
+// CmdGoReferences says "Find References"
+// in the language the app shows.
+func CmdGoReferences() string { return In(i18n.Locale()).CmdGoReferences() }
+
+// CmdGoReferences says "Find References"
+// in the language of msgs.
+func (msgs Messages) CmdGoReferences() string {
+	return Catalog.Format(msgs.locale, "cmdGoReferences", nil)
+}
+
 // CmdGoHover says "Show Hover"
 // in the language the app shows.
 func CmdGoHover() string { return In(i18n.Locale()).CmdGoHover() }
@@ -18062,6 +18102,56 @@ func DefinitionPick() string { return In(i18n.Locale()).DefinitionPick() }
 // in the language of msgs.
 func (msgs Messages) DefinitionPick() string {
 	return Catalog.Format(msgs.locale, "definitionPick", nil)
+}
+
+// LspNavigationUnsupported says "The language server doesn't support this navigation"
+// in the language the app shows.
+func LspNavigationUnsupported() string { return In(i18n.Locale()).LspNavigationUnsupported() }
+
+// LspNavigationUnsupported says "The language server doesn't support this navigation"
+// in the language of msgs.
+func (msgs Messages) LspNavigationUnsupported() string {
+	return Catalog.Format(msgs.locale, "lspNavigationUnsupported", nil)
+}
+
+// LspNavigationFailed says "The language server request failed"
+// in the language the app shows.
+func LspNavigationFailed() string { return In(i18n.Locale()).LspNavigationFailed() }
+
+// LspNavigationFailed says "The language server request failed"
+// in the language of msgs.
+func (msgs Messages) LspNavigationFailed() string {
+	return Catalog.Format(msgs.locale, "lspNavigationFailed", nil)
+}
+
+// LspNavigationNone says "No locations found"
+// in the language the app shows.
+func LspNavigationNone() string { return In(i18n.Locale()).LspNavigationNone() }
+
+// LspNavigationNone says "No locations found"
+// in the language of msgs.
+func (msgs Messages) LspNavigationNone() string {
+	return Catalog.Format(msgs.locale, "lspNavigationNone", nil)
+}
+
+// LspLocationElsewhere says "Mayoi can't open {uri}"
+// in the language the app shows.
+func LspLocationElsewhere(uri string) string { return In(i18n.Locale()).LspLocationElsewhere(uri) }
+
+// LspLocationElsewhere says "Mayoi can't open {uri}"
+// in the language of msgs.
+func (msgs Messages) LspLocationElsewhere(uri string) string {
+	return Catalog.Format(msgs.locale, "lspLocationElsewhere", map[string]any{"uri": uri})
+}
+
+// LspChooseLocation says "Choose a location"
+// in the language the app shows.
+func LspChooseLocation() string { return In(i18n.Locale()).LspChooseLocation() }
+
+// LspChooseLocation says "Choose a location"
+// in the language of msgs.
+func (msgs Messages) LspChooseLocation() string {
+	return Catalog.Format(msgs.locale, "lspChooseLocation", nil)
 }
 
 // LspOffer says "{detect} is installed. Install the {name} plugin for Go to Definition and more?"

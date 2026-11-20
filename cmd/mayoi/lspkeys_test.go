@@ -163,6 +163,29 @@ func TestDefinitionKeys(t *testing.T) {
 	at("forward to the definition", "a.fake", 2, 4)
 }
 
+// Find References lists even a single place, and choosing it goes there,
+// though the list it opened is a picker; Go Back returns.
+func TestFindReferencesPicker(t *testing.T) {
+	hs := withFakeServer(t)
+	a := hs.a
+	path := hs.path("a.fake")
+	os.WriteFile(path, []byte("use one\ndef one\n"), 0o644)
+	a.openFile(path, true)
+	d := a.activeEditor()
+	serverUp(hs)
+
+	hs.place(d, 5, 5)
+	a.run("go.references")
+	hs.until("the references offered", func() bool { return a.pluginPick.open })
+	if items := a.pluginPick.items; len(items) != 1 || items[0].Label != "a.fake:2:5" {
+		t.Fatalf("references = %+v", items)
+	}
+	a.closePluginPicker(0)
+	hs.until("the reference chosen", func() bool { n, l, c := caretAt(a); return n == "a.fake" && l == 1 && c == 4 })
+	a.run("go.back")
+	hs.until("back where it asked", func() bool { n, l, c := caretAt(a); return n == "a.fake" && l == 0 && c == 5 })
+}
+
 // A definition or a hover answered after a picker opened, as Quick Open,
 // leaves it be: no definitions take its place, and no caret moves.
 func TestLspAnswerAfterPicker(t *testing.T) {

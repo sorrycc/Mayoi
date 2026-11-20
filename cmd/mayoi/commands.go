@@ -11,6 +11,7 @@ import (
 	"github.com/egoist/mygo/ui"
 
 	"mayoi/internal/keymap"
+	"mayoi/internal/lsp"
 	"mayoi/internal/remote"
 	"mayoi/internal/settings"
 	"mayoi/locales"
@@ -141,6 +142,10 @@ func (a *app) commandsIn(t locales.Messages) []command {
 		{"edit.unfoldAll", t.CmdEditUnfoldAll(), "", a.editActive(a.unfoldAllCmd)},
 		{"go.bracket", t.CmdGoBracket(), "Shift+CmdOrCtrl+\\", a.editActive(goToBracket)},
 		{"go.definition", t.CmdGoDefinition(), "F12", a.goToDefinition},
+		{"go.typeDefinition", t.CmdGoTypeDefinition(), "", a.jumpCommand(lsp.TypeDefinition)},
+		{"go.sourceDefinition", t.CmdGoSourceDefinition(), "", a.jumpCommand(sourceDefinition)},
+		{"go.implementation", t.CmdGoImplementation(), "CmdOrCtrl+F12", a.jumpCommand(lsp.Implementation)},
+		{"go.references", t.CmdGoReferences(), "Shift+F12", a.jumpCommand(lsp.References)},
 		{"go.hover", t.CmdGoHover(), "", a.showHover},
 		// ⌃- and ⌃⇧- on macOS, as VS Code has them, where ⌥⌘← goes to the
 		// column on the left and ⌥← by words.
@@ -758,7 +763,8 @@ func (a *app) menu(cli bool, run func(id string, win *mygo.Window)) *mygo.Menu {
 		}},
 		{Label: locales.MenuGo(), Submenu: []*mygo.MenuItem{
 			item("go.quickOpen"), item("go.commands"), item("go.symbol"), item("go.line"), item("go.bracket"), mygo.Separator(),
-			item("go.definition"), item("go.hover"), mygo.Separator(),
+			item("go.definition"), item("go.typeDefinition"), item("go.sourceDefinition"),
+			item("go.implementation"), item("go.references"), item("go.hover"), mygo.Separator(),
 			item("go.back"), item("go.forward"), mygo.Separator(),
 			item("go.nextTab"), item("go.prevTab"), mygo.Separator(),
 			item("go.nextProject"), item("go.prevProject"),

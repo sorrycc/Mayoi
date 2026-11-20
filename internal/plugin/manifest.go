@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -216,6 +217,8 @@ type ServerContrib struct {
 	Command   string          `json:"command"`
 	Args      []string        `json:"args,omitempty"`
 	Options   json.RawMessage `json:"initializationOptions,omitempty"`
+	// SourceDefinitionCommand takes a document URI and position and returns locations.
+	SourceDefinitionCommand string `json:"sourceDefinitionCommand,omitempty"`
 	// Resolve prepares a launch description, using workspace/settings JSON on
 	// stdin and returning command, args and LSP options as JSON on stdout.
 	Resolve *ServerResolver `json:"resolve,omitempty"`
@@ -226,11 +229,19 @@ type ServerContrib struct {
 	// serves with ["--lsp", "--stdio"], in place of Args when the command
 	// starts it and no setting of Args is set.
 	ProgramArgs map[string][]string `json:"programArgs,omitempty"`
+	// LocalResolve prepares a launch using a script shipped with the plugin.
+	// Remote workspaces keep using Command or Resolve.
+	LocalResolve *LocalServerResolver `json:"localResolve,omitempty"`
 }
 
 type ServerResolver struct {
 	Command string   `json:"command"`
 	Args    []string `json:"args,omitempty"`
+}
+
+type LocalServerResolver struct {
+	Command string `json:"command"`
+	Script  string `json:"script"`
 }
 
 // AgentContrib is a coding agent whose sessions the Sessions view lists:
@@ -411,6 +422,13 @@ func (m *Manifest) check() error {
 		}
 		if s.Resolve != nil && s.Command != "" {
 			return fmt.Errorf("language server %q must use command or resolve, not both", s.ID)
+		}
+		if r := s.LocalResolve; r != nil {
+			script := r.Script
+			if strings.TrimSpace(r.Command) == "" || script == "." || !fs.ValidPath(script) ||
+				strings.ContainsAny(script, "\\:") || !filepath.IsLocal(filepath.FromSlash(script)) {
+				return fmt.Errorf("language server %q needs a local resolver command and a script inside the plugin", s.ID)
+			}
 		}
 	}
 	for _, ag := range c.Agents {

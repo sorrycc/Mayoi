@@ -15,6 +15,7 @@ import (
 
 	"mayoi/internal/lsp"
 	"mayoi/internal/plugin"
+	"mayoi/internal/remote"
 )
 
 func init() {
@@ -52,7 +53,7 @@ func init() {
 		}
 		json.NewEncoder(os.Stdout).Encode(serverLaunch{
 			Command: os.Args[0], Args: []string{"-test.run=^$"},
-			Configuration:    map[string]any{"root": request.Root, "token": json.Number("9007199254740993")},
+			Configuration:    map[string]any{"root": request.Root, "token": json.Number("9007199254740993"), "argv": os.Args[1:]},
 			WorkspaceFolders: []lsp.WorkspaceFolder{{URI: lsp.URI(request.Root), Name: "test"}},
 			Env:              map[string]string{"RESOLVED": "yes", "MAYOI_FAKE_LSP": "1"},
 			UnsetEnv:         []string{"MAYOI_TEST_RESOLVER"},
@@ -97,6 +98,30 @@ func TestResolveLanguageServer(t *testing.T) {
 	}
 	if got := serverProgram(s.plugin, &s.contrib); got != "/opt/gopls" {
 		t.Fatalf("serverProgram = %q", got)
+	}
+}
+
+func TestLocalResolverUsesInstalledScript(t *testing.T) {
+	t.Setenv("MAYOI_TEST_RESOLVER", "1")
+	dir := filepath.Join(t.TempDir(), "installed plugin ${settings.literal}")
+	s := &lspServer{root: t.TempDir(), plugin: &plugin.Plugin{Dir: dir}, contrib: plugin.ServerContrib{
+		Command: "external-server",
+		Args:    []string{"--stdio"},
+		LocalResolve: &plugin.LocalServerResolver{
+			Command: os.Args[0], Script: "runtime/resolve.mjs",
+		},
+	}}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	got, err := s.resolve(ctx)
+	args, ok := got.Configuration["argv"].([]any)
+	if err != nil || !ok || len(args) != 1 || args[0] != filepath.Join(dir, "runtime", "resolve.mjs") {
+		t.Fatalf("local resolver passed %+v, %v", got, err)
+	}
+	s.root = remote.Path("unreachable.invalid", "/project")
+	got, err = s.resolve(ctx)
+	if err != nil || got.Command != "external-server" || len(got.Args) != 1 || got.Args[0] != "--stdio" {
+		t.Fatalf("remote launch %+v, %v", got, err)
 	}
 }
 

@@ -847,6 +847,8 @@
   "failPasteItem": "Could not paste {name}: {err}",
   "failPasteNotConnected": "Could not paste: {host} is not connected",
   "failRename": "Could not rename {name}: {err}",
+  "failMove": "Could not move {name}: {err}",
+  "errMoveIntoItself": "a folder cannot move into a folder inside it",
   "failReplaceIn": "Could not replace in {what}",
   "failAttachHC": "Could not attach to {addr} in herdr-core. Its shell still runs there.",
   "failHCAdd": "Could not add {host} to hc: {err}. If it asks for a password, run hc machine login {machine}.",

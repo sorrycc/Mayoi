@@ -741,12 +741,14 @@ func (a *app) hideEditor(d *editor) {
 
 // dragItem is what is dragged to a column: one of its tabs, or of
 // another's, a terminal of the panel, a file of the sidebar, or issues and
-// pull requests of the GitHub view.
+// pull requests of the GitHub view. tree is set for a file of the
+// explorer, which moves to the folder of a row it is dropped on.
 type dragItem struct {
 	tab  *colTab
 	term *session
 	file *fileDrag
 	link *linkDrag
+	tree *treeDrag
 }
 
 // owns reports whether what was dragged is this window's to take: a tab or

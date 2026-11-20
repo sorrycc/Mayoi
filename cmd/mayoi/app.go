@@ -341,6 +341,11 @@ type app struct {
 	builds int
 	// dragging is set while a tab is dragged, as the frame before found.
 	dragging, dragNow bool
+	// rootMoveOver is set while a file or a folder of the explorer that
+	// would move into the workspace is over the space below its rows;
+	// moving holds those moving to a host, until it answers.
+	rootMoveOver bool
+	moving       map[string]bool
 	// carried is a tab of another project dragged in over the rail, until
 	// the drag ends: the frame clears it once nothing here sees the drag,
 	// dragSeen, any more. copyDrop says Alt is held, which copies a tab

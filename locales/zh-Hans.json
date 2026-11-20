@@ -584,6 +584,8 @@
   "failPasteItem": "无法粘贴 {name}：{err}",
   "failPasteNotConnected": "无法粘贴：{host} 未连接",
   "failRename": "无法重命名 {name}：{err}",
+  "failMove": "无法移动 {name}：{err}",
+  "errMoveIntoItself": "不能把文件夹移动到它自己里面的文件夹",
   "failReplaceIn": "无法在 {what} 中替换",
   "failAttachHC": "无法连接到 herdr-core 中的 {addr}，它的 shell 仍在那里运行。",
   "failHCAdd": "无法把 {host} 加入 hc：{err}。如果它需要密码，请运行 hc machine login {machine}。",

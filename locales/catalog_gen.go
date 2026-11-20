@@ -6268,6 +6268,26 @@ func (msgs Messages) FailRename(name string, err string) string {
 	return Catalog.Format(msgs.locale, "failRename", map[string]any{"name": name, "err": err})
 }
 
+// FailMove says "Could not move {name}: {err}"
+// in the language the app shows.
+func FailMove(name string, err string) string { return In(i18n.Locale()).FailMove(name, err) }
+
+// FailMove says "Could not move {name}: {err}"
+// in the language of msgs.
+func (msgs Messages) FailMove(name string, err string) string {
+	return Catalog.Format(msgs.locale, "failMove", map[string]any{"name": name, "err": err})
+}
+
+// ErrMoveIntoItself says "a folder cannot move into a folder inside it"
+// in the language the app shows.
+func ErrMoveIntoItself() string { return In(i18n.Locale()).ErrMoveIntoItself() }
+
+// ErrMoveIntoItself says "a folder cannot move into a folder inside it"
+// in the language of msgs.
+func (msgs Messages) ErrMoveIntoItself() string {
+	return Catalog.Format(msgs.locale, "errMoveIntoItself", nil)
+}
+
 // FailReplaceIn says "Could not replace in {what}"
 // in the language the app shows.
 func FailReplaceIn(what string) string { return In(i18n.Locale()).FailReplaceIn(what) }

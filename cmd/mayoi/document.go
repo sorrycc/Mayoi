@@ -187,7 +187,27 @@ type editor struct {
 	// logSel is a selection of a log document's text asked for, in runes
 	// of the whole text rather than the window: the window moves to it
 	// and the frame's own selection takes its place.
-	logSel        *[2]int64
+	logSel *[2]int64
+	// cursors are the selections besides sel, which edit with it, sorted
+	// and apart, nil while there is one (multicursor.go). goal is the
+	// column moves up and down keep for sel while it is goalSel; column
+	// is the rectangle a column selection grows, added the carets Add
+	// Cursor Above or Below added in a row, and mdrag a press that adds
+	// a caret or selects a column. matchWhole is the text Add Next
+	// Occurrence matches as a whole word, as it started from a caret.
+	cursors    []cursor
+	goal       int
+	goalSel    [2]int
+	column     *columnSel
+	added      *addRun
+	mdrag      *multiDrag
+	matchWhole string
+	// composing is whether an input method composed in the text area in
+	// the last frame; held is set while what was typed at sel waits for
+	// it, from heldSel, to be typed at the others.
+	composing     bool
+	held          bool
+	heldSel       [2]int
 	selecting     bool          // the pointer is dragging a text selection
 	reviewSource  *editorReview // source layout while writing an inline review
 	releaseReview func()        // keep a draft before any editor release path

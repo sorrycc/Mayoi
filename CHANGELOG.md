@@ -12,6 +12,38 @@ needs a `## <version>` section here, or its build fails.
 - A line too long to lay out shows in part, with the cut and its size in the status bar.
 - A window stuck below a line cut says so in the status bar; **Go to Line** still reaches above it.
 - Saving a log file that changed on disk since it was opened says so instead of writing over it.
+
+## 0.23.0
+- Type at several places at once: **Selection → Add Cursor Above** and **Below** add a caret on the next line.
+- Alt-click (`⌥`-click on macOS) adds a caret or takes one away; `⌘`-click still goes to a definition.
+- `⌘D` selects the next match of the word or selection, and `⇧⌘L` selects every match at once.
+- Drag with `Shift+Alt` or the middle button to select a column; `⇧⌥⌘` with the arrows does it from the keyboard.
+- Typing, delete, Enter, Tab, copy, cut, paste and the arrows act at every caret, and one undo takes an edit back.
+- The status bar counts the selections, and Escape or a plain click goes back to one caret.
+- **Go → Show Hover** now opens a small card by the word at the caret instead of a dialog in mid-window.
+- The hover card stays inside its editor and split, above the line or below it near the top.
+- A hover's signature shows first in the code font and colors, with its documentation below.
+- Plaintext hovers from language servers show as written, without turning `*` or `_` into formatting.
+- The hover closes on `Esc`, a click elsewhere, typing, or moving the caret; long hovers scroll.
+- **Go → Show Hover** has a shortcut: `⌘K ⌘I` on macOS, `Ctrl+K Ctrl+I` on Windows and Linux.
+- Pressing Show Hover again while the card shows lets the arrows and `Page Up`/`Page Down` scroll it.
+- Rest the pointer on a name in code to see its hover card; move into the card to read or scroll it.
+- Turn off the pointer's hover cards with the `editorHover` setting.
+- In Vim mode, `gd` goes to the definition and `K` shows the hover.
+- A late definition or hover no longer replaces Quick Open or a list you opened while waiting.
+- Lists in hovers and plugin views now show their bullets and numbers.
+- A language server that refuses to start now shows its own reason instead of "the server stopped".
+- The TypeScript server says when a folder has no TypeScript, and how to add it or point to one.
+- With TypeScript 7, set the TypeScript plugin's `path` to `tsc` to use its own server.
+- The TypeScript plugin's `tsserverPath` setting names a `tsserver.js` when the folder has none.
+- Mayoi no longer crashes when a language server exits without an error as it starts; it says so.
+- Mayoi comes with language servers for Go, TypeScript, Python, Rust and C/C++, off until you turn them on.
+- Opening a file whose built-in server is off offers **Turn On** when its program is installed.
+- If a built-in server's program is missing, Mayoi says how to install it.
+- Each built-in server has a `path` setting on the **Plugins** page for a program that isn't on your PATH.
+- A plugin you install under the name of a built-in one now takes its place.
+- C++, JSX and TSX files now reach language servers as `cpp`, `javascriptreact` and `typescriptreact`.
+
 - Files dropped from the Finder on a project's square switch to that project and open there as tabs.
 - Files dropped on the empty part of the project rail open in the project shown.
 - Pictures dropped from the Finder on a square open as files; use **Choose Icon…** to set an icon.

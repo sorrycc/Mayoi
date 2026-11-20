@@ -51,6 +51,11 @@ const (
 // read sooner, as most are, shows no spinner that flickers.
 const readingShows = 300 * time.Millisecond
 
+// hoverDwell is how long the pointer rests on a name in the editor before
+// its hover card is asked for: the pointer passing over the text asks for
+// none, and one that stops there does not wait long.
+const hoverDwell = 500 * time.Millisecond
+
 // keyedWithin is how soon after a key ran a binding a dialog that opens
 // counts as opened by it.
 const keyedWithin = 100 * time.Millisecond

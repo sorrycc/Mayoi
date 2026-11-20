@@ -3,7 +3,10 @@ package main
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"os/exec"
+	"path"
+	"path/filepath"
 	"slices"
 	"strings"
 	"sync"
@@ -211,6 +214,39 @@ func (a *app) offerServer(d *document) {
 		}
 		serverChecks.Unlock()
 	}
+	if p, sc := offServer(lang); p != nil {
+		program := serverProgram(p, sc)
+		if program == "" {
+			return
+		}
+		go func() {
+			ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+			defer cancel()
+			found, known := serverInstalled(ctx, root, program)
+			switch {
+			case !known:
+				again(0)
+				return
+			case !found:
+				again(serverRecheck)
+			}
+			a.post(func() {
+				// Turned on since.
+				if slices.Contains(plugins.enabled(), p) {
+					return
+				}
+				name := strings.TrimSuffix(path.Base(filepath.ToSlash(program)), ".exe")
+				switch {
+				case found && !a.offered(lang):
+					a.tell(note{message: locales.LspOfferTurnOn(name, p.Title()), label: locales.RunningTurnOn(),
+						action: func() { plugins.setEnabled(p.Name, true) }})
+				case !found && sc.Install != "" && !a.offered("missing:"+lang):
+					a.tell(note{message: locales.LspMissing(p.Title(), name, sc.Install)})
+				}
+			})
+		}()
+		return
+	}
 	go func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 		defer cancel()
@@ -245,6 +281,30 @@ func (a *app) offerServer(d *document) {
 			}
 		})
 	}()
+}
+
+// offServer is the server for lang of a bundled plugin that is off, as it
+// comes, and that starts its command itself; nil for none. One the
+// settings turned off is not offered.
+func offServer(lang string) (*plugin.Plugin, *plugin.ServerContrib) {
+	on := plugins.enabled()
+	for _, p := range plugins.reg.Plugins() {
+		if !p.Bundled || slices.Contains(on, p) {
+			continue
+		}
+		var s struct {
+			Enabled *bool `json:"enabled"`
+		}
+		if json.Unmarshal(plugins.Settings(p.Name), &s); s.Enabled != nil {
+			continue
+		}
+		for i, sc := range p.Contributes.LanguageServers {
+			if sc.Resolve == nil && slices.Contains(sc.Languages, lang) {
+				return p, &p.Contributes.LanguageServers[i]
+			}
+		}
+	}
+	return nil, nil
 }
 
 // serverName is the name of a plugin of the index, as the offers say it.

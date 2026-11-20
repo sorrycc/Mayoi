@@ -91,6 +91,7 @@ takes its default.
 | `jsonlMode`             | `""`          | `""` (table), `"source"`                                    | **View → Open JSON Lines As**                  |
 | `largeFileModeMB`       | `32`          | `0` to `1024`; `0` turns log mode off                       |                                                |
 | `editorAgentContext`    | `false`       | `true`, `false`                                             | Only this file                                 |
+| `editorHover`           | `true`        | `true`, `false`                                             | Only this file                                 |
 | `previewMermaid`        | `true`        | `true`, `false`                                             | Only this file                                 |
 | `previewMath`           | `true`        | `true`, `false`                                             | Only this file                                 |
 | `markdownMode`          | `""`          | `""` (source), `"live"`, `"reading"`                        | **View → Open Markdown As**                    |
@@ -262,6 +263,9 @@ differ in width lines them up only roughly.
   by default; changes apply immediately and do not discard pending items. Closing the draft’s tab,
   starting another comment, or jumping to code keeps its text in the Review queue. **Send** saves the
   current draft before sending the batch.
+- **`editorHover`** shows a name's hover card, from its language server or a plugin, once the pointer rests on it
+  in the editor for half a second, as **Go → Show Hover** does at the caret. Move into the card to read or scroll
+  it; it closes as the pointer leaves, on **Esc**, a click or a key. Turn it off to see hover cards only when asked.
 - **`previewMermaid`** draws the `mermaid` code blocks of Markdown as diagrams, in Live Preview and the Reading
   view. Turn it off to show them as code. A `.mmd` or `.mermaid` file's own preview draws its diagram either way.
 - **`previewMath`** draws the LaTeX math of Markdown, between `$` and `$`, `$$` and `$$`, or in a `math` code
@@ -523,7 +527,7 @@ parse is left alone until it does, and a key or a condition Mayoi can't read is 
   Mayoi doesn't have says so.
 - **`when`** is when it applies: `editorTextFocus`, `editorFocus`, `inputFocus`, `textInputFocus`,
   `filesExplorerFocus`, `terminalFocus`, `terminalHasBeenCreated`, `terminalIsOpen`, `sideBarVisible`,
-  `editorHasSelection`, `isMac`, `isLinux` and `isWindows`, with `!`, `&&`, `||` and parentheses. Other names don't hold.
+  `editorHasSelection`, `editorHasMultipleSelections`, `isMac`, `isLinux` and `isWindows`, with `!`, `&&`, `||` and parentheses. Other names don't hold.
 
 The keys of the file take the place of Mayoi's own: the menus drop a key the file binds, ⌘1 to ⌘9 and ⌃R let the file
 have theirs, and the command palette shows the file's keys. The shortcuts apply in the editor, the terminal, the
@@ -562,17 +566,21 @@ Mayoi's own, as VS Code writes them:
 
 The shortcuts are macOS's with Ctrl for ⌘, and the hints show them so, but for those VS Code has others for:
 
-| Command                                  | macOS    | Windows and Linux |
-| ---------------------------------------- | -------- | ----------------- |
-| Find Next, Find Previous                 | ⌘G, ⇧⌘G  | F3, Shift+F3      |
-| Replace                                  | ⌥⌘F      | Ctrl+H            |
-| Show the tab 1 to 8, the last            | ⌘1 to ⌘9 | Alt+1 to Alt+9    |
-| Save All, Open Folder in New Window      | ⌥⌘S, ⌥⌘O | none              |
-| Focus Next Column, Focus Previous Column | ⌥⌘→, ⌥⌘← | none              |
+| Command                                  | macOS      | Windows and Linux                                    |
+| ---------------------------------------- | ---------- | ---------------------------------------------------- |
+| Find Next, Find Previous                 | ⌘G, ⇧⌘G    | F3, Shift+F3                                         |
+| Replace                                  | ⌥⌘F        | Ctrl+H                                               |
+| Show the tab 1 to 8, the last            | ⌘1 to ⌘9   | Alt+1 to Alt+9                                       |
+| Save All, Open Folder in New Window      | ⌥⌘S, ⌥⌘O   | none                                                 |
+| Focus Next Column, Focus Previous Column | ⌥⌘→, ⌥⌘←   | none                                                 |
+| Add Cursor Above, Add Cursor Below       | ⌥⌘↑, ⌥⌘↓   | Ctrl+Alt+Up, Ctrl+Alt+Down on Windows; none on Linux |
+| Column Select Up, Down, Left, Right      | ⇧⌥⌘ arrows | Ctrl+Shift+Alt arrows on Windows; none on Linux      |
 
 Ctrl with Alt is AltGr there, which types text, so no shortcut takes it: bind those commands in `keybindings.json`,
 as `{ "key": "ctrl+k s", "command": "workbench.action.files.saveAll" }`. A file can tell the systems apart with
-`isWindows`, `isLinux` and `isMac`.
+`isWindows`, `isLinux` and `isMac`. With the arrows, which AltGr types nothing with, Windows takes VS Code's Ctrl+Alt
+keys to add cursors and select a column. Linux has none for them, as Xfce and older GNOME switch workspaces with Ctrl+Alt
+and the arrows: bind your own, as `{ "key": "ctrl+shift+alt+down", "command": "cursorColumnSelectDown" }`.
 ### `diffWhitespace`
 
 Controls which whitespace participates in diff comparison: `""` for exact,
@@ -580,3 +588,4 @@ Controls which whitespace participates in diff comparison: `""` for exact,
 or `"blank"` to also treat whitespace-only lines as blank. The filter changes
 the diff display and navigation while file text and block actions keep using
 the original lines.
+

@@ -87,7 +87,8 @@ func onOS(t *testing.T, goos string) {
 }
 
 // No two commands share a key on any system, and none takes Control and
-// Alt off macOS, which are AltGr there and type text.
+// Alt off macOS, which are AltGr there and type text, but with an arrow,
+// which types none.
 func TestShortcutsDoNotCollide(t *testing.T) {
 	for _, goos := range []string{"darwin", "windows", "linux"} {
 		t.Run(goos, func(t *testing.T) {
@@ -118,12 +119,34 @@ func TestShortcutsDoNotCollide(t *testing.T) {
 					t.Errorf("%s and %s both take %s", cmd.id, other, accel)
 				}
 				taken[st] = cmd.id
-				if goos != "darwin" && st.Mods&(ui.Ctrl|ui.Alt) == ui.Ctrl|ui.Alt {
+				if goos != "darwin" && st.Mods&(ui.Ctrl|ui.Alt) == ui.Ctrl|ui.Alt && !arrowKey(st.Key) {
 					t.Errorf("%s takes %s, which is AltGr", cmd.id, accel)
 				}
 			}
+			// Mayoi's chords start with no command's key, and are each
+			// their own.
+			chords := map[string]string{}
+			for id := range builtinChords {
+				keys := chordKeys(id)
+				if len(keys) < 2 {
+					t.Errorf("%s: its chord %q does not parse", id, builtinChords[id])
+					continue
+				}
+				if other, ok := taken[keys[0]]; ok {
+					t.Errorf("the chord of %s starts with the key of %s", id, other)
+				}
+				s := fmt.Sprint(keys)
+				if other, ok := chords[s]; ok {
+					t.Errorf("%s and %s both take %s", id, other, builtinChords[id])
+				}
+				chords[s] = id
+			}
 		})
 	}
+}
+
+func arrowKey(k ui.Key) bool {
+	return k == ui.KeyUp || k == ui.KeyDown || k == ui.KeyLeft || k == ui.KeyRight
 }
 
 // Off macOS the commands take VS Code's keys of the system, which their

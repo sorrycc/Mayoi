@@ -1,6 +1,9 @@
 package main
 
 import (
+	"slices"
+	"sort"
+
 	"github.com/egoist/mygo/ui"
 )
 
@@ -14,6 +17,7 @@ const selRadius = 3
 type selectionShape struct {
 	version     uint64
 	sel         [2]int
+	cursors     []cursor
 	first, last int
 	font        codeFont
 	found       bool
@@ -25,20 +29,42 @@ type selectionShape struct {
 	boxes  []rowBox
 }
 
-// selection finds the shape of the selection on lines first up to last.
+// selection finds the shape of the selections on lines first up to last.
 func (a *app) selection(d *editor, snap ui.TextSnapshot, first, last int) *selectionShape {
 	sh := &d.selShape
-	if sh.found && sh.version == snap.Version() && sh.sel == d.sel && sh.first == first && sh.last == last && sh.font == a.font {
+	if sh.found && sh.version == snap.Version() && sh.sel == d.sel && slices.Equal(sh.cursors, d.cursors) &&
+		sh.first == first && sh.last == last && sh.font == a.font {
 		return sh
 	}
 	sh.version, sh.sel, sh.first, sh.last, sh.font, sh.found = snap.Version(), d.sel, first, last, a.font, true
+	sh.cursors = append(sh.cursors[:0], d.cursors...)
 	sh.rects, sh.native = sh.rects[:0], false
-	n := snap.Len()
-	sa, sb := min(d.sel[0], d.sel[1], n), min(max(d.sel[0], d.sel[1]), n)
-	if sa == sb {
+	if len(d.cursors) == 0 {
+		n := snap.Len()
+		sh.add(snap, min(d.sel[0], d.sel[1], n), min(max(d.sel[0], d.sel[1]), n), first, last)
 		return sh
 	}
-	f := a.font
+	// The selections that reach into the lines, by their order.
+	lo, _ := snap.LineRange(first)
+	_, hi := snap.LineRange(last)
+	all, _ := d.spans()
+	k := sort.Search(len(all), func(i int) bool { return all[i].end() >= lo })
+	for ; k < len(all) && all[k].start() <= hi; k++ {
+		if !sh.add(snap, all[k].start(), all[k].end(), first, last) {
+			break
+		}
+	}
+	return sh
+}
+
+// add adds the boxes of the selection of runes sa up to sb on lines first
+// up to last, reporting false when a line runs from right to left, which
+// only the text area knows the places of: it paints the selection then.
+func (sh *selectionShape) add(snap ui.TextSnapshot, sa, sb, first, last int) bool {
+	if sa == sb {
+		return true
+	}
+	f := sh.font
 	for i := max(first, snap.LineAt(sa)); i <= min(last, snap.LineAt(sb)); i++ {
 		s, e := snap.LineRange(i)
 		from, to := max(sa, s), min(sb, e)
@@ -50,7 +76,7 @@ func (a *app) selection(d *editor, snap ui.TextSnapshot, first, last int) *selec
 			text := snap.Slice(s, to)
 			if hasRTL(text) {
 				sh.rects, sh.native = sh.rects[:0], true
-				return sh
+				return false
 			}
 			x1 = f.width(text)
 			if from > s {
@@ -64,7 +90,7 @@ func (a *app) selection(d *editor, snap ui.TextSnapshot, first, last int) *selec
 			sh.rects = append(sh.rects, runeRect{line: i, x0: x0, x1: x1})
 		}
 	}
-	return sh
+	return true
 }
 
 // highlightRunes is the longest line the editor measures to place what it

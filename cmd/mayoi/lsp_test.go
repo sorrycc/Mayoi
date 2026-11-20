@@ -13,8 +13,8 @@ import (
 )
 
 // The test binary is a fake language server when asked, for the plugins'
-// language servers: one that answers, one that quits as it starts, or one
-// that never answers.
+// language servers: one that answers, one that quits as it starts, with
+// an error or without, or one that never answers.
 func init() {
 	switch os.Getenv("MAYOI_FAKE_LSP") {
 	case "1":
@@ -22,6 +22,8 @@ func init() {
 		os.Exit(0)
 	case "crash":
 		os.Exit(3)
+	case "quit":
+		os.Exit(0)
 	case "hang":
 		io.Copy(io.Discard, os.Stdin)
 		os.Exit(0)

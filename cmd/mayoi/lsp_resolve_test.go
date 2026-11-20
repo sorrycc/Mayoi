@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"maps"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -81,6 +82,18 @@ func TestResolveLanguageServer(t *testing.T) {
 	launch, err = s.resolve(ctx)
 	if err != nil || launch.Command != "static" {
 		t.Fatalf("static: %+v %v", launch, err)
+	}
+	// A static command takes the plugin's settings, as a resolver does.
+	s.plugin = &plugin.Plugin{Manifest: plugin.Manifest{Contributes: plugin.Contributes{Settings: map[string]plugin.SettingContrib{
+		"path": {Type: "string", Default: json.RawMessage(`"/opt/gopls"`)},
+	}}}}
+	s.contrib = plugin.ServerContrib{Command: "${settings.path}", Args: []string{"-remote=${settings.path}"}}
+	launch, err = s.resolve(ctx)
+	if err != nil || launch.Command != "/opt/gopls" || launch.Args[0] != "-remote=/opt/gopls" {
+		t.Fatalf("static with settings: %+v %v", launch, err)
+	}
+	if got := serverProgram(s.plugin, &s.contrib); got != "/opt/gopls" {
+		t.Fatalf("serverProgram = %q", got)
 	}
 }
 
@@ -217,6 +230,87 @@ func TestResolverManifest(t *testing.T) {
 		data := fmt.Sprintf(`{"name":"test","contributes":{"languageServers":[{"id":"test.server",%s}]}}`, body)
 		if _, err := plugin.ParseManifest([]byte(data)); err == nil {
 			t.Fatal("accepted", body)
+		}
+	}
+}
+
+// An argument that is all of a setting that is a list is its words, as
+// many arguments; a string of initializationOptions that is all of a
+// setting is its value, and goes with its key when the setting is empty.
+func TestServerSettingLists(t *testing.T) {
+	settings := map[string]json.RawMessage{
+		"path": json.RawMessage(`"tsc"`), "args": json.RawMessage(`["--lsp", "--stdio"]`),
+		"none": json.RawMessage(`[]`), "tsserverPath": json.RawMessage(`""`), "log": json.RawMessage(`"verbose"`),
+	}
+	command, args, err := expandServerCommand("${settings.path}", []string{"${settings.args}", "-x=${settings.log}", "${settings.none}"}, settings)
+	if err != nil || command != "tsc" || strings.Join(args, " ") != "--lsp --stdio -x=verbose" {
+		t.Fatalf("%q %q %v", command, args, err)
+	}
+	got := expandServerOptions(json.RawMessage(`{"tsserver": {"path": "${settings.tsserverPath}", "logVerbosity": "${settings.log}"}, "keep": "${not a setting}"}`), settings)
+	var v map[string]any
+	json.Unmarshal(got, &v)
+	if ts := v["tsserver"].(map[string]any); len(ts) != 1 || ts["logVerbosity"] != "verbose" || v["keep"] != "${not a setting}" {
+		t.Fatalf("options %s", got)
+	}
+
+	// The bundled TypeScript plugin, with its defaults, runs as before.
+	data, err := os.ReadFile(filepath.Join("..", "..", "plugins", "typescript-language-server", "plugin.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var m plugin.Manifest
+	if err := json.Unmarshal(data, &m); err != nil {
+		t.Fatal(err)
+	}
+	defaults := map[string]json.RawMessage{}
+	for key, s := range m.Contributes.Settings {
+		defaults[key] = s.Default
+	}
+	sc := m.Contributes.LanguageServers[0]
+	command, args, err = expandServerCommand(sc.Command, sc.Args, defaults)
+	if err != nil || command != "typescript-language-server" || strings.Join(args, " ") != "--stdio" {
+		t.Fatalf("defaults: %q %q %v", command, args, err)
+	}
+	if got := string(expandServerOptions(sc.Options, defaults)); got != `{"tsserver":{}}` {
+		t.Fatalf("default options %s", got)
+	}
+}
+
+// The program a server's path names may have arguments of its own, as tsc
+// serves with --lsp --stdio, while its args are left as they are.
+func TestServerProgramArgs(t *testing.T) {
+	data, err := os.ReadFile(filepath.Join("..", "..", "plugins", "typescript-language-server", "plugin.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var m plugin.Manifest
+	if err := json.Unmarshal(data, &m); err != nil {
+		t.Fatal(err)
+	}
+	sc := &m.Contributes.LanguageServers[0]
+	run := func(explicit map[string]json.RawMessage) string {
+		settings := map[string]json.RawMessage{}
+		for key, s := range m.Contributes.Settings {
+			settings[key] = s.Default
+		}
+		maps.Copy(settings, explicit)
+		command, args, err := serverCommand(sc, settings, explicit)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return strings.Join(append([]string{command}, args...), " ")
+	}
+	for _, c := range []struct {
+		explicit map[string]json.RawMessage
+		want     string
+	}{
+		{nil, "typescript-language-server --stdio"},
+		{map[string]json.RawMessage{"path": json.RawMessage(`"tsc"`)}, "tsc --lsp --stdio"},
+		{map[string]json.RawMessage{"path": json.RawMessage(`"/opt/ts/bin/tsc.exe"`)}, "/opt/ts/bin/tsc.exe --lsp --stdio"},
+		{map[string]json.RawMessage{"path": json.RawMessage(`"tsc"`), "args": json.RawMessage(`["--lsp", "--stdio", "--pprofDir", "/tmp"]`)}, "tsc --lsp --stdio --pprofDir /tmp"},
+	} {
+		if got := run(c.explicit); got != c.want {
+			t.Errorf("%s: %q, want %q", c.explicit, got, c.want)
 		}
 	}
 }

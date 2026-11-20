@@ -7,11 +7,15 @@ import (
 	"fmt"
 	"io"
 	"net/url"
+	"path"
+	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 	"time"
 
 	"mayoi/internal/lsp"
+	"mayoi/internal/plugin"
 	"mayoi/internal/remote"
 	"mayoi/internal/vfs"
 )
@@ -66,33 +70,167 @@ func (b *limitedBuffer) Write(p []byte) (int, error) {
 
 func (b *limitedBuffer) String() string { return b.buffer.String() }
 
-func (s *lspServer) resolve(ctx context.Context) (serverLaunch, error) {
-	launch := serverLaunch{Command: s.contrib.Command, Args: s.contrib.Args, Options: s.contrib.Options}
-	if s.contrib.Resolve == nil {
-		return launch, nil
+// serverSettings are the settings of a plugin: those stored, explicit, and
+// with the manifest's defaults for the others, all.
+func serverSettings(p *plugin.Plugin) (all, explicit map[string]json.RawMessage) {
+	all = map[string]json.RawMessage{}
+	for key, value := range p.Contributes.Settings {
+		all[key] = value.Default
 	}
-	settings := map[string]json.RawMessage{}
-	for key, value := range s.plugin.Contributes.Settings {
-		settings[key] = value.Default
-	}
-	explicit := map[string]json.RawMessage{}
+	explicit = map[string]json.RawMessage{}
 	if plugins != nil {
-		json.Unmarshal(plugins.Settings(s.plugin.Name), &explicit)
+		json.Unmarshal(plugins.Settings(p.Name), &explicit)
 	}
 	delete(explicit, "enabled")
 	for key, value := range explicit {
-		settings[key] = value
+		all[key] = value
 	}
-	command, err := expandServerArg(s.contrib.Resolve.Command, settings)
+	return all, explicit
+}
+
+// settingRef is the key of a setting an argument is all of, as
+// "${settings.args}" is, "" for one that is not.
+func settingRef(arg string) string {
+	if key, ok := strings.CutPrefix(arg, "${settings."); ok && strings.HasSuffix(key, "}") && !strings.ContainsAny(key[:len(key)-1], "{}") {
+		return key[:len(key)-1]
+	}
+	return ""
+}
+
+// expandServerCommand substitutes the settings in a command and its
+// arguments: an argument that is all of a setting that is a list of
+// strings is its strings, as many arguments.
+func expandServerCommand(command string, args []string, settings map[string]json.RawMessage) (string, []string, error) {
+	command, err := expandServerArg(command, settings)
+	if err != nil {
+		return "", nil, err
+	}
+	out := make([]string, 0, len(args))
+	for _, arg := range args {
+		var list []string
+		if key := settingRef(arg); key != "" && json.Unmarshal(settings[key], &list) == nil && list != nil {
+			out = append(out, list...)
+			continue
+		}
+		s, err := expandServerArg(arg, settings)
+		if err != nil {
+			return "", nil, err
+		}
+		out = append(out, s)
+	}
+	return command, out, nil
+}
+
+// serverCommand is the command and arguments of a plain server, with its
+// plugin's settings: the arguments of its program's own, as tsc's, when
+// none of the settings of its arguments is set.
+func serverCommand(sc *plugin.ServerContrib, settings, explicit map[string]json.RawMessage) (string, []string, error) {
+	command, args, err := expandServerCommand(sc.Command, sc.Args, settings)
+	if pa, ok := sc.ProgramArgs[programName(command)]; ok && err == nil && !argsSet(sc.Args, explicit) {
+		args = slices.Clone(pa)
+	}
+	return command, args, err
+}
+
+// programName is a command's program without its folder or .exe.
+func programName(command string) string {
+	return strings.TrimSuffix(path.Base(filepath.ToSlash(command)), ".exe")
+}
+
+// argsSet reports whether a setting that args take is set, not left to
+// its default.
+func argsSet(args []string, explicit map[string]json.RawMessage) bool {
+	for _, arg := range args {
+		for rest := arg; ; {
+			_, after, found := strings.Cut(rest, "${settings.")
+			if !found {
+				break
+			}
+			key, tail, _ := strings.Cut(after, "}")
+			if _, ok := explicit[key]; ok {
+				return true
+			}
+			rest = tail
+		}
+	}
+	return false
+}
+
+// expandServerOptions substitutes the settings in initializationOptions:
+// a string that is all of a setting is its value, and goes, with its key,
+// when the setting is empty.
+func expandServerOptions(options json.RawMessage, settings map[string]json.RawMessage) json.RawMessage {
+	if len(options) == 0 || !strings.Contains(string(options), "${settings.") {
+		return options
+	}
+	var v any
+	if json.Unmarshal(options, &v) != nil {
+		return options
+	}
+	var expand func(v any) (any, bool)
+	expand = func(v any) (any, bool) {
+		switch x := v.(type) {
+		case string:
+			key := settingRef(x)
+			if key == "" {
+				return x, true
+			}
+			var value any
+			if json.Unmarshal(settings[key], &value) != nil || value == nil || value == "" {
+				return nil, false
+			}
+			return value, true
+		case map[string]any:
+			for k, item := range x {
+				if item, ok := expand(item); ok {
+					x[k] = item
+				} else {
+					delete(x, k)
+				}
+			}
+		case []any:
+			out := x[:0]
+			for _, item := range x {
+				if item, ok := expand(item); ok {
+					out = append(out, item)
+				}
+			}
+			return out, true
+		}
+		return v, true
+	}
+	v, _ = expand(v)
+	data, err := json.Marshal(v)
+	if err != nil {
+		return options
+	}
+	return data
+}
+
+// serverProgram is the program a plain server's command starts, with its
+// plugin's settings, "" for one that resolves or a setting left empty.
+func serverProgram(p *plugin.Plugin, s *plugin.ServerContrib) string {
+	if s.Resolve != nil {
+		return ""
+	}
+	settings, _ := serverSettings(p)
+	command, err := expandServerArg(s.Command, settings)
+	if err != nil {
+		return ""
+	}
+	return command
+}
+
+func (s *lspServer) resolve(ctx context.Context) (serverLaunch, error) {
+	settings, explicit := serverSettings(s.plugin)
+	if s.contrib.Resolve == nil {
+		command, args, err := serverCommand(&s.contrib, settings, explicit)
+		return serverLaunch{Command: command, Args: args, Options: expandServerOptions(s.contrib.Options, settings)}, err
+	}
+	launch := serverLaunch{Command: s.contrib.Command, Args: s.contrib.Args, Options: expandServerOptions(s.contrib.Options, settings)}
+	command, args, err := expandServerCommand(s.contrib.Resolve.Command, s.contrib.Resolve.Args, settings)
 	if err != nil {
 		return launch, err
-	}
-	args := make([]string, len(s.contrib.Resolve.Args))
-	for i, arg := range s.contrib.Resolve.Args {
-		args[i], err = expandServerArg(arg, settings)
-		if err != nil {
-			return launch, err
-		}
 	}
 	root := s.root
 	if _, path, ok := remote.Split(root); ok {

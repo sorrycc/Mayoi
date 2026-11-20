@@ -192,8 +192,11 @@ func (a *app) view(c *ui.Context) {
 	a.confirmView(c)
 	a.signinView(c)
 	a.windowKeys(c)
-	if inEditor := a.keyFocus == placeEditor; inEditor != a.cutInEditor {
-		a.cutInEditor = inEditor
+	inEditor := a.keyFocus == placeEditor
+	d := a.activeEditor()
+	copyAll := inEditor && d != nil && len(d.cursors) > 0
+	if inEditor != a.cutInEditor || copyAll != a.copyAll {
+		a.cutInEditor, a.copyAll = inEditor, copyAll
 		a.host.menuChanged()
 	}
 	for _, msg := range a.errors {
@@ -1497,7 +1500,9 @@ func (a *app) statusBar(c *ui.Context) {
 		line := winLine + d.logFirstLine()
 		s, _ := snap.LineRange(winLine)
 		pos := locales.StatusPos(line+1, columns(snap.Slice(s, caret))+1)
-		if n := abs(d.sel[1] - d.sel[0]); n > 0 {
+		if len(d.cursors) > 0 {
+			pos += locales.StatusSelections(len(d.cursors) + 1)
+		} else if n := abs(d.sel[1] - d.sel[0]); n > 0 {
 			pos += locales.StatusSelected(n)
 		}
 		if a.prefs().Vim {

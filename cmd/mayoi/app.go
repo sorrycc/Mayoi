@@ -378,10 +378,12 @@ type app struct {
 	// viewStates are the folders open and the row chosen in each plugin
 	// view the sidebar showed, by view id: this window's own.
 	viewStates map[string]*pluginView
-	hover      *hoverCard // the card Show Hover shows
-	nav        navHistory // where Go Back and Go Forward go
-	defAsked   int        // the Go to Definition last asked, whose answer alone goes
-	hoverAsked int        // the Show Hover last asked, as defAsked
+	hover      *hoverCard   // the card Show Hover shows
+	rest       pointerHover // the name the pointer rests on in an editor, for its card
+	nav        navHistory   // where Go Back and Go Forward go
+	defAsked   int          // the Go to Definition last asked, whose answer alone goes
+	hoverAsked int          // the Show Hover last asked, as defAsked
+	restAsked  int          // the hover the pointer last asked for, apart: it never drops Show Hover's
 	find       findState
 	inFiles    searchState // search in the files, of the sidebar
 	sessions   sessionsState
@@ -394,6 +396,9 @@ type app struct {
 	// completeAsked is the Complete Word last asked, as defAsked: each
 	// its own, so one does not drop another's answer.
 	completeAsked int
+	// picksOpened counts the pickers opened, Quick Open's and the plugins':
+	// an answer asked for before one opened does not take its place.
+	picksOpened int
 	// syncOpen shows the account's panel above its part of the status
 	// bar, and tickAt is when a countdown shown repaints next.
 	syncOpen bool
@@ -415,7 +420,10 @@ type app struct {
 	chord       []keymap.Stroke
 	keyFocus    keyPlace
 	cutInEditor bool
-	keyTerm     *session
+	// copyAll is whether the editor with the keyboard has several
+	// selections, which the Edit menu's Copy copies.
+	copyAll bool
+	keyTerm *session
 	// held is the key the keymap took last, until it is let go of.
 	held *ui.Key
 	// chain are the commands of runCommands still to run, which stop at

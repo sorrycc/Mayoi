@@ -621,7 +621,7 @@ func (a *app) editorKey(d *editor, ev ui.InputEvent) bool {
 	// A Cmd-click on a name of code goes to where it is defined, as F12
 	// does, as it is let go where the click put the caret: not a drag,
 	// which selects.
-	if ev.Kind == ui.InputPointerDown && ev.Button == 0 && ev.Clicks == 1 && ev.Mods == ui.Cmd && !isMarkdown(d.document) {
+	if ev.Kind == ui.InputPointerDown && ev.Button == 0 && ev.Clicks == 1 && defGesture(d, ev.Mods) {
 		d.defClick = true
 	} else if ev.Kind == ui.InputPointerDown {
 		d.defClick = false
@@ -823,4 +823,10 @@ func goToBracket(d *editor) {
 		to = pair + 1
 	}
 	d.selectRange(to, to, false)
+}
+
+// defGesture reports whether a click with mods held in d goes to the
+// definition of the name clicked: Cmd, Control off macOS, in code.
+func defGesture(d *editor, mods ui.Modifiers) bool {
+	return mods == ui.Cmd && !isMarkdown(d.document)
 }

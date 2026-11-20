@@ -411,3 +411,75 @@ func TestNavigationBackIntoFold(t *testing.T) {
 		t.Fatal("the place gone back to stays folded")
 	}
 }
+
+// Cmd held over a name a click goes to the definition of shows a hand,
+// as it is pressed and let go with the pointer still; not over a space,
+// past a line's end, at the gutter, nor where no server goes to one.
+func TestCmdPointerOverName(t *testing.T) {
+	hs := withFakeServer(t)
+	a := hs.a
+	path := hs.path("a.fake")
+	os.WriteFile(path, []byte("use one\ndef one\n"), 0o644)
+	a.openFile(path, true)
+	serverUp(hs)
+	d := a.activeEditor()
+	hs.place(d, 1, 1)
+	hs.settle()
+	hand := func(want bool, what string) {
+		t.Helper()
+		if got := hs.tt.Cursor() == ui.CursorPointer; got != want {
+			t.Errorf("%s: the pointer is %v", what, hs.tt.Cursor())
+		}
+	}
+	// The tester's moves hold no modifiers: Cmd is held again after them,
+	// as it stays held over a move in the app.
+	held := ui.Modifiers(0)
+	hold := func(m ui.Modifiers) {
+		held = m
+		hs.tt.HoldModifiers(m)
+		hs.settle()
+	}
+	move := func(x, y float32) {
+		hs.tt.Move(x, y)
+		step(hs.tt)
+		hs.tt.HoldModifiers(held)
+		hs.settle()
+	}
+	x, y := restAt(t, hs, d, 4) // "one"
+	move(x, y)
+	hand(false, "over a name without Cmd")
+	hold(ui.Cmd)
+	hand(true, "over a name as Cmd is pressed")
+	hold(0)
+	hand(false, "over a name as Cmd is let go")
+	hold(ui.Cmd)
+
+	sx, sy := restAt(t, hs, d, 3) // the space
+	move(sx, sy)
+	hand(false, "over a space")
+	move(pastEnd(t, hs, d, 7))
+	hand(false, "past a line's end")
+	gx, gy := restAt(t, hs, d, 0)
+	move(gx-d.textX/2, gy)
+	hand(false, "at the gutter")
+	move(x, y)
+	hand(true, "back over the name")
+
+	// The click still goes to the definition.
+	hs.tt.ClickAtWith(ui.Cmd, x, y)
+	hs.until("the definition", func() bool { _, l, c := caretAt(a); return l == 1 && c == 4 })
+	hold(0)
+
+	for _, name := range []string{"notes.txt", "notes.md"} {
+		other := hs.path(name)
+		os.WriteFile(other, []byte("plain words\n"), 0o644)
+		a.openFile(other, true)
+		hs.settle()
+		d := a.activeEditor()
+		x, y := restAt(t, hs, d, 1)
+		move(x, y)
+		hold(ui.Cmd)
+		hand(false, "over a word of "+name)
+		hold(0)
+	}
+}

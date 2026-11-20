@@ -13,6 +13,7 @@ needs a `## <version>` section here, or its build fails.
 - Options go over the plugin's own, deeply, and `null` takes one away, as in `{"tsserver": {"path": null}}`.
 - Saving changed options restarts only the servers they're for, in every folder.
 - A language server plugin's details show where to set its `initializationOptions`.
+- Holding `Cmd` (`Ctrl` on Windows and Linux) over a name shows a hand, as a click goes to its definition.
 
 ## 0.23.0
 

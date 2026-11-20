@@ -549,6 +549,11 @@ func (a *app) editorView(c *ui.Context, d *editor) {
 			d.folding.reduce = c.Preferences().ReduceMotion
 		}
 		a.restHover(c, d, area, g, snap, live)
+		// A hand over a name as Cmd is held, as a click goes to where it is
+		// defined: the frame draws again as Cmd is pressed or let go.
+		if !live && a.defPointed(c, d, area, g, snap) {
+			area.Cursor(ui.CursorPointer)
+		}
 		d.reviewHover = -1
 		if a.settings.EditorAgentContext {
 			_, py, over := area.PointerPosition()

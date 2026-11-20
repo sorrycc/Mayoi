@@ -139,6 +139,10 @@ type editor struct {
 	// defClick is set while a Cmd-click, which goes to a definition as it
 	// is let go, is held.
 	defClick bool
+	// defProbe is where the pointer was when defFound was found: that a
+	// name is there, which a Cmd-click goes to the definition of.
+	defProbe restProbe
+	defFound bool
 	scopes   scopeCache
 	// folding is the runs of lines the editor folded.
 	folding foldView

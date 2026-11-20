@@ -9,7 +9,6 @@ import (
 	"strings"
 	"time"
 
-	mtransfer "github.com/egoist/mygo/transfer"
 	"github.com/egoist/mygo/ui"
 
 	"mayoi/internal/remote"
@@ -136,11 +135,21 @@ func (a *app) sidebar(c *ui.Context) {
 			// The folder's row, with the explorer's actions while the pointer
 			// is over the sidebar or the tree has the keyboard: on the title's
 			// row, they would leave the title no room.
-			ui.Row(c).Height(24).Padding(0, 6, 0, 16).Gap(2).AlignItems(ui.Center).ContextMenu(func(m *ui.Menu) {
+			head := ui.Row(c).Height(24).Padding(0, 6, 0, 16).Gap(2).AlignItems(ui.Center).ContextMenu(func(m *ui.Menu) {
 				if m.Item(locales.CmdViewCompactFolders()).Checked(a.settings.ExplorerCompactFolders).Chosen() {
 					a.toggleCompactFolders()
 				}
-			}).Children(func() {
+			})
+			// A file or a folder of the explorer dropped on it, or below the
+			// rows, moves into the workspace's folder.
+			var moveHere func()
+			if a.treeRootDrop(head, &moveHere) || a.rootMoveOver {
+				head.Background(p.accent.Alpha(0.16)).Radius(4)
+			}
+			if moveHere != nil {
+				a.post(moveHere)
+			}
+			head.Children(func() {
 				// The folder's own name in sentence case, not recased.
 				name, size, spacing := strings.ToUpper(filepath.Base(a.root)), float32(11), float32(0.4)
 				if p.sentence {
@@ -359,23 +368,35 @@ func (a *app) fileTree(c *ui.Context) {
 		if row.DoubleClicked() && !isDir {
 			kept = path
 		}
+		// A file drags to the columns and to rows of the explorer, a folder
+		// to rows alone; both drag out to other apps as a copy.
+		src := &treeDrag{path: path, from: a}
+		var value any = src
 		if !isDir {
-			a.dragFile(row, &fileDrag{path: path})
-		} else if a.host.nativeDrags() {
-			// A folder drags out to other apps as the folder; within
-			// Mayoi it drags nowhere.
-			row.DragDataFrom(func() mtransfer.Data { return fileDragData(path) })
+			value = dragItem{file: &fileDrag{path: path}, tree: src}
+		}
+		a.dragValue(row, value, func() []string { return []string{path} })
+		into := path
+		if !isDir {
+			into = remote.Dir(path)
 		}
 		// Files of the Finder dropped on a row copy into its folder, up to
 		// a host for a remote folder.
 		if paths := row.DroppedFiles(); paths != nil {
-			srcs, into := slices.Clone(paths), path
-			if !isDir {
-				into = remote.Dir(path)
-			}
+			srcs := slices.Clone(paths)
 			action = func() { a.copyPathsInto(srcs, into) }
 		}
-		if row.FileDragOver() {
+		// A file or a folder of the explorer moves into it.
+		if v, ok := ui.Drop[treeTake](row); ok {
+			if s := treeSource(v); s != nil {
+				action = func() { a.dropInTree(s, into) }
+			}
+		}
+		moveOver := false
+		if v, ok := ui.DragOver[treeTake](row); ok {
+			moveOver = a.canMove(treeSource(v), into)
+		}
+		if row.FileDragOver() || moveOver {
 			row.Background(p.accent.Alpha(0.16)).Radius(4)
 		}
 		row.ContextMenu(func(m *ui.Menu) {
@@ -535,6 +556,12 @@ func (a *app) fileTree(c *ui.Context) {
 	if paths := out.DroppedFiles(); paths != nil {
 		srcs := slices.Clone(paths)
 		action = func() { a.copyPathsInto(srcs, a.root) }
+	}
+	if over := a.treeRootDrop(out, &action); over != a.rootMoveOver {
+		// The folder's row, built before the rows, shows it in the next
+		// frame.
+		a.rootMoveOver = over
+		a.invalidate()
 	}
 	// The space below the files, while the last shows: a click there
 	// chooses none, so that new files go in the workspace, and its menu is

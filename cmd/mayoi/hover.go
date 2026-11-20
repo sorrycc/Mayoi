@@ -215,6 +215,30 @@ func (a *app) restHover(c *ui.Context, d *editor, area ui.Element, g geometry, s
 	c.After(hoverDwell)
 }
 
+// defPointed reports whether the pointer is on a name in the text of d
+// that a click goes to the definition of, as Cmd is held: the hand it
+// shows then says so. It asks the server nothing, only whether one that
+// goes to definitions runs, and finds the name again only as the pointer,
+// the offsets or the text move.
+func (a *app) defPointed(c *ui.Context, d *editor, area ui.Element, g geometry, snap ui.TextSnapshot) bool {
+	if !defGesture(d, c.Modifiers()) || !area.Hovered() || d.pressing || d.selecting {
+		return false
+	}
+	px, py, over := area.PointerPosition()
+	if !over || px-d.hscroll.X < d.textX || py < float32(len(d.sticky))*a.font.lineH {
+		return false
+	}
+	if cl := a.lspRunningFor(d.document).live(); cl == nil || !cl.Definition() {
+		return false
+	}
+	probe := restProbe{d, px, py, d.hscroll.X, d.vscroll.Y, d.lastView.W, g.height(), snap.Version()}
+	if d.defProbe != probe {
+		d.defProbe = probe
+		_, _, d.defFound = a.pointedWord(g, snap, px-d.textX, py+d.vscroll.Y-editorPadY)
+	}
+	return d.defFound
+}
+
 // holds reports whether the window's point (x, y) is on the card or in
 // the gap between it and its anchor at, which the pointer crosses to it.
 func (h *hoverCard) holds(x, y float32, at ui.Rect) bool {

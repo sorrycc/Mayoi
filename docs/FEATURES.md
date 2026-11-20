@@ -11,6 +11,12 @@ A click on the space below the files, or Escape, unselects the file or folder ch
 folder. A right click there opens the workspace's menu: New File…, New Folder…, Reveal in Finder, Open in Terminal and
 Paste.
 
+Drag a file or a folder onto a folder's row to move it there, onto a file's row to move it beside that file, or onto
+the folder's row at the top or below the rows to move it into the workspace's folder. The row it would go to is
+highlighted. Open tabs follow the file, unsaved changes included. A move never replaces a file or folder of the same
+name, never puts a folder inside itself, and stays within the folder's own project and host. On a remote folder it runs
+on the host.
+
 **View → Compact Folders** shows a chain of folders that each hold only one folder on one row, as
 `src/main/java/com/example`. The row's actions use its last folder.
 

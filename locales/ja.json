@@ -584,6 +584,8 @@
   "failPasteItem": "{name} を貼り付けられませんでした: {err}",
   "failPasteNotConnected": "貼り付けられませんでした: {host} に接続されていません",
   "failRename": "{name} の名前を変更できませんでした: {err}",
+  "failMove": "{name} を移動できませんでした: {err}",
+  "errMoveIntoItself": "フォルダーをその中のフォルダーには移動できません",
   "failReplaceIn": "{what} で置換できませんでした",
   "failAttachHC": "herdr-core の {addr} に接続できませんでした。シェルはそこで動き続けています。",
   "failHCAdd": "{host} を hc に追加できませんでした: {err}。パスワードを求められる場合は hc machine login {machine} を実行してください。",

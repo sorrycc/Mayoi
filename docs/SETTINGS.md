@@ -334,7 +334,7 @@ differ in width lines them up only roughly.
 
 **`languageServers`** gives a language server `initializationOptions` of your own, by the server's id, without changing
 its plugin. The ids of the bundled servers are `rust-analyzer.server`, `gopls.server`, `clangd.server`,
-`basedpyright.server` and `typescript-language-server.server`. **Plugins → Show Language Servers** and a plugin's
+`python-language-server.server` and `typescript-language-server.server`. **Plugins → Show Language Servers** and a plugin's
 details in the settings window show the id of every server.
 
 ```json

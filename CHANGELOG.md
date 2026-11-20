@@ -5,6 +5,8 @@ needs a `## <version>` section here, or its build fails.
 
 ## Unreleased
 
+- Set the TypeScript plugin's `path` to `tsrs` to use tsrs.
+- Python's language server is the `python-language-server` plugin; set its `path` to `ty` to use ty.
 - Give a language server your own startup options with `languageServers` in settings.json, by the server's id.
 - Options go over the plugin's own, deeply, and `null` takes one away, as in `{"tsserver": {"path": null}}`.
 - Saving changed options restarts only the servers they're for, in every folder.

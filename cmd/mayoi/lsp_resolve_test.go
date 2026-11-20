@@ -311,6 +311,47 @@ func TestServerProgramArgs(t *testing.T) {
 		{map[string]json.RawMessage{"path": json.RawMessage(`"tsc"`)}, "tsc --lsp --stdio"},
 		{map[string]json.RawMessage{"path": json.RawMessage(`"/opt/ts/bin/tsc.exe"`)}, "/opt/ts/bin/tsc.exe --lsp --stdio"},
 		{map[string]json.RawMessage{"path": json.RawMessage(`"tsc"`), "args": json.RawMessage(`["--lsp", "--stdio", "--pprofDir", "/tmp"]`)}, "tsc --lsp --stdio --pprofDir /tmp"},
+		{map[string]json.RawMessage{"path": json.RawMessage(`"tsrs"`)}, "tsrs --lsp --stdio"},
+		{map[string]json.RawMessage{"path": json.RawMessage(`"/opt/ts/bin/tsrs"`)}, "/opt/ts/bin/tsrs --lsp --stdio"},
+	} {
+		if got := run(c.explicit); got != c.want {
+			t.Errorf("%s: %q, want %q", c.explicit, got, c.want)
+		}
+	}
+}
+
+// Python's server is basedpyright, and ty when path names it, while args
+// are left as they are.
+func TestPythonServerProgramArgs(t *testing.T) {
+	data, err := os.ReadFile(filepath.Join("..", "..", "plugins", "basedpyright", "plugin.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var m plugin.Manifest
+	if err := json.Unmarshal(data, &m); err != nil {
+		t.Fatal(err)
+	}
+	sc := &m.Contributes.LanguageServers[0]
+	run := func(explicit map[string]json.RawMessage) string {
+		settings := map[string]json.RawMessage{}
+		for key, s := range m.Contributes.Settings {
+			settings[key] = s.Default
+		}
+		maps.Copy(settings, explicit)
+		command, args, err := serverCommand(sc, settings, explicit)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return strings.Join(append([]string{command}, args...), " ")
+	}
+	for _, c := range []struct {
+		explicit map[string]json.RawMessage
+		want     string
+	}{
+		{nil, "basedpyright-langserver --stdio"},
+		{map[string]json.RawMessage{"path": json.RawMessage(`"ty"`)}, "ty server"},
+		{map[string]json.RawMessage{"path": json.RawMessage(`"/opt/ty/bin/ty"`)}, "/opt/ty/bin/ty server"},
+		{map[string]json.RawMessage{"path": json.RawMessage(`"ty"`), "args": json.RawMessage(`["server", "--help"]`)}, "ty server --help"},
 	} {
 		if got := run(c.explicit); got != c.want {
 			t.Errorf("%s: %q, want %q", c.explicit, got, c.want)

@@ -48,8 +48,9 @@ settings window, or with `"enabled": true` in their settings. A file of a langua
 setting names its program, by name or path, when it is not on the path.
 
 TypeScript's server needs a TypeScript 5 or 6 in the folder's `node_modules`, or its `tsserverPath` setting naming a
-`tsserver.js`. TypeScript 7 has no `tsserver.js` but a server of its own: set `path` to `tsc`, which then runs with
+`tsserver.js`. TypeScript 7 has no `tsserver.js` but a server of its own: set `path` to `tsc` or `tsrs`, which then run with
 `--lsp --stdio` while `args` is left as it is. Mayoi says which applies when the server finds no TypeScript.
+Python's server is basedpyright. Set `path` to `ty` to run `ty server` while `args` is left as it is.
 
 A plugin you install under the name of one Mayoi comes with takes its place; removing it brings Mayoi's back.
 `mayoi --disable-plugins` runs Mayoi's own.

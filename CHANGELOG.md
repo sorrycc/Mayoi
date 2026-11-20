@@ -7,6 +7,7 @@ needs a `## <version>` section here, or its build fails.
 
 - Set the TypeScript plugin's `path` to `tsrs` to use tsrs.
 - Set the Python plugin's `path` to `ty` to use ty.
+- Closing the settings window keeps what was typed in a text field, rather than losing it.
 - Archive sessions from a row's menu, its archive button or `⌫`, and **Undo** from the toast.
 - Choose several sessions to archive them together.
 - The archive button in the Sessions title, or **View → Archived Sessions**, lists archived sessions to restore.

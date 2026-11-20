@@ -83,9 +83,11 @@ type multiDrag struct {
 }
 
 // multiOK reports whether the editor takes several selections: not in
-// vim mode, Live Preview or a preview, which have one caret of their own.
+// vim mode, Live Preview or a preview, which have one caret of their
+// own, and not in a log document, whose edits run through the whole
+// text rather than the window it shows.
 func (a *app) multiOK(d *editor) bool {
-	return d != nil && !a.prefs().Vim && !a.livePreview(d) && d.preview == nil
+	return d != nil && d.log == nil && !a.prefs().Vim && !a.livePreview(d) && d.preview == nil
 }
 
 // spans returns the selections sorted by their starts, the primary
@@ -523,6 +525,13 @@ func (d *editor) editSpans(all []cursor, p int, step stepping, fn func(s cursor)
 	if d.locked() {
 		return
 	}
+	// A log document's edits go through editLog, of the text as a whole;
+	// this path writes only the window's buffer, which a save would not
+	// write.
+	if d.log != nil {
+		d.collapse()
+		return
+	}
 	h := &d.hist
 	now := time.Now()
 	switch step {
@@ -938,6 +947,12 @@ func (a *app) pasteSpans(d *editor, text string) {
 // those that move and delete act at all of them; Escape goes back to the
 // primary, as does any other key that edits but text typed.
 func (a *app) multiKey(d *editor, ev ui.InputEvent) bool {
+	// A log document edits through the whole text, not the window: its
+	// selections come down to one, and the key takes the usual path.
+	if d.log != nil {
+		d.collapse()
+		return false
+	}
 	m, k := ev.Mods, ev.Key
 	word := ui.Ctrl
 	if macKeys() {

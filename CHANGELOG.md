@@ -12,6 +12,7 @@ needs a `## <version>` section here, or its build fails.
 - A line too long to lay out shows in part, with the cut and its size in the status bar.
 - A window stuck below a line cut says so in the status bar; **Go to Line** still reaches above it.
 - Saving a log file that changed on disk since it was opened says so instead of writing over it.
+- A log document keeps one caret: the keys of several selections do not edit it.
 
 ## 0.23.0
 - Type at several places at once: **Selection → Add Cursor Above** and **Below** add a caret on the next line.

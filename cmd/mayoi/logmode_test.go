@@ -559,3 +559,39 @@ func logFirstLineOf(s string) string {
 	s, _, _ = strings.Cut(s, "\n")
 	return s
 }
+
+// A log document takes no edits of several selections: they would write
+// only the window's buffer, which a save would not write, so the
+// selections come down to one and the keys take the usual path.
+func TestLogModeOneSelectionOnly(t *testing.T) {
+	hs := newHarness(t, true)
+	hs.a.settings.LargeFileModeMB = 1
+	path, _ := writeBigLog(t, hs.root, 20000, 100) // 2 MB
+	hs.a.openFile(path, true)
+	hs.settle()
+	d := hs.a.activeEditor()
+	if d.log == nil {
+		t.Fatal("the file did not open in log mode")
+	}
+	before := d.buf.String()
+	// Adding a caret does nothing: a log document keeps one selection.
+	hs.place(d, 0, 0)
+	hs.key(multiKey|ui.Alt, ui.KeyDown)
+	hs.settle()
+	if len(d.cursors) != 0 {
+		t.Fatalf("log document took %d other selections", len(d.cursors))
+	}
+	// The edits of several selections, made all the same, write nothing:
+	// not to the buffer, whose text a save would not write.
+	hs.setSpans(d, [2]int{0, 1}, [2]int{3, 4})
+	all, p := d.spans()
+	hs.a.deleteSpans(d, moveChar, -1)
+	d.typeSpans(all, p, 0, 0, "x", stepTyping)
+	hs.settle()
+	if after := d.buf.String(); after != before {
+		t.Fatal("an edit of several selections changed a log document's window")
+	}
+	if dirty := d.dirty(); dirty {
+		t.Fatal("an edit of several selections marked a log document dirty")
+	}
+}

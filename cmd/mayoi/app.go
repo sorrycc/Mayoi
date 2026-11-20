@@ -856,16 +856,21 @@ func (a *app) reloadDoc(d *document) {
 		a.reloadLog(d)
 		return
 	}
-	// A clean document of a file read whole, or too big for the usual
-	// read, is read again the way it was, whole, with its progress.
-	if !d.dirty() {
-		info, err := os.Stat(d.path)
-		if err == nil {
-			thr := a.logThreshold()
-			if d.logWhole || thr > 0 && info.Size() > thr || info.Size() > maxOpenBytes {
-				a.loadLog(d)
-				return
-			}
+	// A document being saved, or whose file is as it was last read or
+	// written, is not read again: a save of its own must not reload it.
+	if d.sync == syncSaving {
+		return
+	}
+	if info, err := os.Stat(d.path); err == nil {
+		if d.stamp != nil && *stampOf(info) == *d.stamp {
+			return
+		}
+		// A clean document of a file read whole, or too big for the
+		// usual read, is read again the way it was, whole, with its
+		// progress.
+		if !d.dirty() && (d.logWhole || a.logThreshold() > 0 && info.Size() > a.logThreshold() || info.Size() > maxOpenBytes) {
+			a.loadLog(d)
+			return
 		}
 	}
 	data, err := os.ReadFile(d.path)

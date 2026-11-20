@@ -489,9 +489,11 @@ func (d *document) save() error {
 	if err != nil {
 		return err
 	}
-	if _, err := vfs.WriteFile(d.path, data, 0o644); err != nil {
+	info, err := vfs.WriteFile(d.path, data, 0o644)
+	if err != nil {
 		return err
 	}
+	d.stamp = stampOf(info) // the file is as this wrote it: no reload of it
 	d.wrote(snap, d.crlf)
 	return nil
 }

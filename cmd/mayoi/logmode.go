@@ -538,7 +538,9 @@ func (a *app) writeWhole(d *document) {
 			info, err = vfs.WriteFile(path, data, 0o644)
 		}
 		a.post(func() {
-			if err == nil && slices.Contains(a.docs, d) && d.path == path {
+			if err == nil && slices.Contains(a.docs, d) && d.path == path && d.buf.Version() == snap.Version() {
+				// The text is the file's: nothing typed, and nothing
+				// read in its place, while it was written.
 				d.wrote(snap, crlf)
 				if info != nil {
 					d.stamp = stampOf(info)

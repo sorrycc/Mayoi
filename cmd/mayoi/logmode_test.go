@@ -509,6 +509,57 @@ func TestLogModeOneSelectionOnly(t *testing.T) {
 	}
 }
 
+// Saving a whole-file document does not read the file again: what the
+// save wrote is what the document has, and the undo of the edit saved
+// stays. The file on disk keeps every byte of it.
+func TestLogModeSaveNoReload(t *testing.T) {
+	hs := newHarness(t, true)
+	hs.a.settings.AutoSave = false
+	hs.a.settings.LargeFileModeMB = 1
+	// Over bigSaveBytes, so that the save runs in the background.
+	path, lines := writeBigLog(t, hs.root, 100000, 100) // 10 MB
+	hs.a.openFile(path, true)
+	hs.settle()
+	d := hs.a.activeEditor()
+	if !d.logWhole {
+		t.Fatal("the file did not open by the whole-file read")
+	}
+	d.edit(d.sel, textEdit{0, 0, "KEEP "})
+	step(hs.tt)
+	hs.settle()
+	before := len(d.buf.String())
+	steps := len(d.hist.undo)
+	hs.a.saveDoc(d.document, nil)
+	hs.settle()
+	if d.sync != syncIdle {
+		t.Fatalf("the save did not settle, sync %d", d.sync)
+	}
+	if d.logProgress != 0 {
+		t.Fatal("a save read the file again")
+	}
+	if len(d.hist.undo) != steps {
+		t.Fatalf("the save has %d undo steps, want %d: it read the file again", len(d.hist.undo), steps)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := len(lines)*100 + len("KEEP "); len(data) != want {
+		t.Fatalf("the file holds %d bytes, want %d", len(data), want)
+	}
+	if !strings.HasPrefix(string(data), "KEEP "+logFirstLineOf(lines[0])) {
+		t.Fatal("the save did not write the edit")
+	}
+	if len(d.buf.String()) != before {
+		t.Fatalf("the buffer holds %d bytes after the save, want %d", len(d.buf.String()), before)
+	}
+	// A save of its own is not a change on disk: the document stays.
+	hs.settle()
+	if d.sync != syncIdle || d.logProgress != 0 {
+		t.Fatal("the save's own write reloaded the document")
+	}
+}
+
 // logFirstLineOf returns the first line of a text, without its line end.
 func logFirstLineOf(s string) string {
 	s, _, _ = strings.Cut(s, "\n")

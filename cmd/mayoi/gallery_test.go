@@ -251,6 +251,22 @@ var galleryStates = []struct {
 		// The pointer over the second row, which shows its buttons.
 		hs.tt.Move(120, 222)
 	}},
+	{"sessions-archived", func(hs *harness) {
+		agentHome(hs.t, hs.root)
+		hs.a.sessions.all = 1
+		hs.a.showSessions()
+		hs.settle()
+		// One archived, which Archived lists alone.
+		rows := hs.a.sessionRows()
+		hs.a.archiveSessions(rows[len(rows)-1:], false)
+		hs.a.notes = nil
+		hs.a.toggleArchivedSessions()
+	}},
+	{"sessions-archived-empty", func(hs *harness) {
+		agentHome(hs.t, hs.root)
+		hs.a.sessions.all = 1
+		hs.a.toggleArchivedSessions()
+	}},
 	{"sessions-find", func(hs *harness) {
 		agentHome(hs.t, hs.root)
 		hs.a.sessions.all = 1

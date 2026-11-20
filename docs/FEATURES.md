@@ -603,6 +603,13 @@ resume it and copy the command, as they do on the chosen row while the list has 
 command. Sessions of a folder that
 is gone say so instead. The view reads only the start and end of each transcript, again as files change, while it shows.
 
+A row's menu, its archive button or ⌫ in the list archives a session, or every session chosen: it leaves the list, as
+it stays after the sessions are read again and after a restart, and a toast offers **Undo**. The archive button in
+the view's title, or **View → Archived Sessions**, lists the archived ones instead, with the same search and **This
+Project** and **All Projects**; there the menu, the button or ⌫ restores them, and resuming one brings it back to the
+list too. Archiving only hides a session: Mayoi keeps which are archived in its own `state.json`, by agent, Claude
+Code folder and id, and leaves the agent's files and any terminal the session runs in alone.
+
 With `terminalBackend` set to `"hc"`, a session that runs in a terminal of herdr-core, in this window, another or the
 Herdr app, has a dot in the color of what it says it does (OSC 7501), and says it: working, waiting for you, done or
 failed. Resuming it shows that terminal, attaching it here when no terminal of the window does. hc names the session that

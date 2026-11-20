@@ -775,6 +775,56 @@ func TestPrefsTextDraft(t *testing.T) {
 	}
 }
 
+// What is typed in a text field and not left there applies as the window
+// closes, as it would were the field left: closing draws no frame after
+// the one that typed, which applies the drafts of pages that go.
+func TestPrefsTextDraftOnClose(t *testing.T) {
+	ph := newPrefsHarness(t)
+	w := ph.w
+	w.section = settings.CatGit
+	w.query = "aiModel"
+	ph.frames()
+	w.firstH.Focus()
+	ph.frames()
+	ph.pt.Type("qwen")
+	ph.frames()
+	if ph.m.s.AIModel != "" {
+		t.Fatalf("applied %q at a key", ph.m.s.AIModel)
+	}
+	if len(w.drafts) == 0 {
+		t.Fatal("the field kept no draft to apply as the window closes")
+	}
+	// The window closes with the keyboard still in the field.
+	w.closing()
+	if ph.m.s.AIModel != "qwen" {
+		t.Errorf("closed with %q", ph.m.s.AIModel)
+	}
+	if len(w.drafts) != 0 || w.editing["aiModel"] {
+		t.Errorf("left %d drafts, editing %v", len(w.drafts), w.editing["aiModel"])
+	}
+	// It applies once: a later change is not undone by the draft again.
+	ph.m.s.AIModel = "other"
+	w.closing()
+	ph.frames()
+	if ph.m.s.AIModel != "other" {
+		t.Errorf("applied the draft again: %q", ph.m.s.AIModel)
+	}
+	ph.m.s.AIModel = "qwen"
+	// What failed as it closed shows in the window in front.
+	w.errors = append(w.errors, "disk full")
+	w.closing()
+	ph.a.drain()
+	if len(w.errors) != 0 || !slices.Contains(ph.a.errors, "disk full") {
+		t.Errorf("errors %q, in front %q", w.errors, ph.a.errors)
+	}
+	// What it was set to is written, as the settings save a moment later.
+	ph.m.s.Flush()
+	data, _ := os.ReadFile(ph.m.s.Path())
+	if !strings.Contains(string(data), `"aiModel": "qwen"`) {
+		t.Errorf("wrote %s", data)
+	}
+}
+
 // Once its motion settles, the window asks for no more frames, in every
 // section, with less motion too.
 func TestPrefsIdle(t *testing.T) {

@@ -99,6 +99,10 @@ func (a *app) nextSave(d *document) {
 		a.nextSave(d)
 		return
 	}
+	if d.buf.ByteLen() >= bigSaveBytes {
+		a.writeWhole(d)
+		return
+	}
 	a.answerSaves(d, d.save())
 	a.nextSave(d)
 }

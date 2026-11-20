@@ -775,6 +775,11 @@ func (a *app) loadingView(c *ui.Context, d *editor) {
 				ui.Icon(c, iconOpenFile).Size(16, 16)
 			}
 			ui.Text(c, locales.RemoteReading(d.name())).FontSize(13).TextColor(p.muted)
+			if d.document.logProgress > 0 {
+				// A file read whole, too big to read in a moment: how
+				// much of it is read.
+				ui.Progress(c.Key("log-progress"), float64(d.document.logProgress)).Height(4).Radius(0).Width(220)
+			}
 			if d.loadErr != nil {
 				ui.Text(c, d.loadErr.Error()).FontSize(12).TextColor(p.muted).MaxWidth(420)
 			}

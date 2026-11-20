@@ -41,8 +41,8 @@ func itoa(n int) string {
 	return string(out)
 }
 
-// A local file over the threshold opens in log mode: read in a window,
-// with the whole file's lines.
+// A local file over the threshold opens whole, with all of its text in
+// the buffer: nothing is left out of the view.
 func TestLogModeOpen(t *testing.T) {
 	hs := newHarness(t, true)
 	hs.a.settings.LargeFileModeMB = 1                  // 1 MB
@@ -53,19 +53,17 @@ func TestLogModeOpen(t *testing.T) {
 	if d == nil || d.unread() {
 		t.Fatal("the file did not open")
 	}
-	if d.log == nil {
-		t.Fatal("the file did not open in log mode")
+	if !d.logWhole {
+		t.Fatal("the file did not open by the whole-file read")
+	}
+	if got, want := d.buf.String(), strings.Join(lines, ""); got != want {
+		t.Fatalf("the buffer holds the whole text: %d bytes, want %d", len(got), len(want))
 	}
 	if n := d.viewLines(); n != len(lines)+1 { // a file ending in LF counts its empty last line
 		t.Fatalf("lines %d, want %d", n, len(lines)+1)
 	}
-	// The buffer holds a window, not the file.
-	if n := d.buf.ByteLen(); n > logWindowBytes+4096 {
-		t.Fatalf("the buffer holds %d bytes of a %d byte file", n, len(lines)*100)
-	}
-	// The window starts at the first line and shows it.
-	if got := logFirstLineOf(d.buf.String()); got != lines[0][:len(lines[0])-1] {
-		t.Fatalf("the window starts %q", got)
+	if d.longLine != 0 {
+		t.Fatalf("a line is said to be cut: %d", d.longLine)
 	}
 }
 
@@ -77,15 +75,15 @@ func TestLogModeUnderThreshold(t *testing.T) {
 	hs.a.openFile(path, true)
 	hs.settle()
 	d := hs.a.activeEditor()
-	if d.log != nil {
-		t.Fatal("a small file opened in log mode")
+	if d.logWhole {
+		t.Fatal("a small file opened by the whole-file read")
 	}
 	if n := d.buf.LineCount(); n != 1001 {
 		t.Fatalf("lines %d, want 1001", n)
 	}
 }
 
-// The setting turns log mode off.
+// The setting turns the whole-file read off.
 func TestLogModeOff(t *testing.T) {
 	hs := newHarness(t, true)
 	hs.a.settings.LargeFileModeMB = 0
@@ -93,16 +91,16 @@ func TestLogModeOff(t *testing.T) {
 	hs.a.openFile(path, true)
 	hs.settle()
 	d := hs.a.activeEditor()
-	if d.log != nil {
-		t.Fatal("log mode is off")
+	if d.logWhole {
+		t.Fatal("the whole-file read is off")
 	}
 	if d.buf.LineCount() != len(lines)+1 {
 		t.Fatalf("lines %d, want %d", d.buf.LineCount(), len(lines)+1)
 	}
 }
 
-// Going to a line far past the window moves the window there and shows
-// the line's number.
+// Going to a line far into the file lands the caret on it: the whole
+// text is there to go to.
 func TestLogModeGoToLine(t *testing.T) {
 	hs := newHarness(t, true)
 	hs.a.settings.LargeFileModeMB = 1
@@ -112,24 +110,19 @@ func TestLogModeGoToLine(t *testing.T) {
 	hs.a.goToLine(15000, 1)
 	hs.settle()
 	d := hs.a.activeEditor()
-	if d == nil || d.log == nil {
-		t.Fatal("log mode lost")
+	if d == nil || !d.logWhole {
+		t.Fatal("the whole-file read is lost")
 	}
 	if !strings.Contains(d.buf.String(), lines[15000-1][:len(lines[15000-1])-1]) {
-		t.Fatalf("line 15000 is not in the window")
+		t.Fatal("line 15000 is not in the buffer")
 	}
-	if d.log.win.first > 15000-1 || 15000-1 >= d.log.win.first+d.buf.LineCount() {
-		t.Fatalf("window at %d of %d lines", d.log.win.first, d.buf.LineCount())
-	}
-	// The caret is on the line, of the whole text.
-	if at := d.log.lineAt(d.log.win.start + int64(d.sel[1])); at != 14999 {
+	if at := d.buf.Snapshot().LineAt(d.sel[1]); at != 14999 {
 		t.Fatalf("caret on line %d, want 14999", at)
 	}
 }
 
-// A line longer than the editor lays out one does not wedge the view on
-// a window a line big: the line shows in part, the window holds still,
-// and the lines past it are had by a jump.
+// A line longer than the editor lays out one is read as it is: nothing
+// of the text is left out, and the lines around it are had by a jump.
 func TestLogModeLongLine(t *testing.T) {
 	hs := newHarness(t, true)
 	hs.a.settings.LargeFileModeMB = 1
@@ -149,65 +142,31 @@ func TestLogModeLongLine(t *testing.T) {
 	hs.a.openFile(path, true)
 	hs.settle()
 	d := hs.a.activeEditor()
-	if d == nil || d.log == nil {
-		t.Fatal("the file did not open in log mode")
+	if d == nil || !d.logWhole {
+		t.Fatal("the file did not open by the whole-file read")
 	}
 	if d.sync != syncIdle {
 		t.Fatalf("the read did not settle, sync %d", d.sync)
 	}
-	// The line shows in part, at maxLineBytes, and the window is bounded.
-	if d.log.win.cutLine != 2 {
-		t.Fatalf("the long line is not cut, cutLine %d", d.log.win.cutLine)
+	// The whole file is in the buffer, long line and all.
+	if got, want := d.buf.String(), b.String(); got != want {
+		t.Fatalf("the buffer holds %d bytes, want %d", len(got), len(want))
 	}
-	if got := logFirstLineOf(d.buf.String()); got != "before the long line" {
-		t.Fatalf("the window starts %q", got)
-	}
-	if n := d.buf.ByteLen(); n > maxLineBytes+4096 {
-		t.Fatalf("the window holds %d bytes", n)
-	}
-	// The whole file's line count is had all the same.
 	if n := d.viewLines(); n != 304 {
 		t.Fatalf("lines %d, want 304", n)
 	}
-	// The window does not move again on its own, frame after frame.
-	settled := d.log.win
-	hs.settle()
-	if d.log.win != settled || d.log.moving {
-		t.Fatal("the window of the cut line is built again")
-	}
-	// A jump past the long line lands on its line, without the z's.
-	hs.a.goToLine(301, 1)
-	hs.settle()
-	if !strings.Contains(d.buf.String(), "tail line 299") {
-		t.Fatal("line 301 is not in the window")
-	}
-	if strings.Contains(d.buf.String(), "zzz") {
-		t.Fatal("the window past the long line holds its cut text")
-	}
-	if at := d.log.lineAt(d.log.win.start + int64(d.sel[1])); at != 300 {
-		t.Fatalf("caret on line %d, want 300", at)
-	}
-	// The window starts past the long line: it says what stands above it.
-	if d.log.win.cutLine != 0 || d.log.win.cutAbove != 2 || d.log.win.cutAboveBytes != 3<<20 {
-		t.Fatalf("past the long line: cutLine %d, cutAbove %d of %d bytes",
-			d.log.win.cutLine, d.log.win.cutAbove, d.log.win.cutAboveBytes)
-	}
-	// A jump back to the long line cuts it again, and holds still.
-	hs.a.goToLine(2, 1)
-	hs.settle()
-	if d.log.win.cutLine != 2 {
-		t.Fatalf("the long line is not cut, cutLine %d", d.log.win.cutLine)
-	}
-	settled = d.log.win
-	hs.settle()
-	if d.log.win != settled || d.log.moving {
-		t.Fatal("the window of the cut line is built again")
+	// Jumps land on their lines, before, into and past the long line.
+	for _, ln := range []int{301, 2, 3, 1} {
+		hs.a.goToLine(ln, 1)
+		hs.settle()
+		if at := d.buf.Snapshot().LineAt(d.sel[1]); at != ln-1 {
+			t.Fatalf("goToLine(%d) left the caret on line %d", ln, at+1)
+		}
 	}
 }
 
-// A file whose first line is itself longer than the editor lays out one
-// shows the line in part as well: the window is bounded and says so, and
-// the lines after the first are had by a jump.
+// A file whose first line is longer than the editor lays out one is read
+// as it is as well, and the lines after it are had by a jump.
 func TestLogModeFirstLineLong(t *testing.T) {
 	hs := newHarness(t, true)
 	hs.a.settings.LargeFileModeMB = 1
@@ -221,54 +180,26 @@ func TestLogModeFirstLineLong(t *testing.T) {
 	hs.a.openFile(path, true)
 	hs.settle()
 	d := hs.a.activeEditor()
-	if d == nil || d.log == nil {
-		t.Fatal("the file did not open in log mode")
+	if d == nil || !d.logWhole {
+		t.Fatal("the file did not open by the whole-file read")
 	}
-	// The first line shows in part, at maxLineBytes, and the window is
-	// bounded by it.
-	if d.log.win.cutLine != 1 {
-		t.Fatalf("the first line is not cut, cutLine %d", d.log.win.cutLine)
-	}
-	if n := d.buf.ByteLen(); n > maxLineBytes+4096 {
-		t.Fatalf("the window holds %d bytes", n)
-	}
-	if d.buf.LineCount() != 1 {
-		t.Fatalf("the window holds %d lines, want 1", d.buf.LineCount())
+	if got, want := d.buf.String(), b.String(); got != want {
+		t.Fatalf("the buffer holds %d bytes, want %d", len(got), len(want))
 	}
 	if n := d.viewLines(); n != 4 {
 		t.Fatalf("lines %d, want 4", n)
 	}
-	// The window does not move again on its own.
-	settled := d.log.win
-	hs.settle()
-	if d.log.win != settled || d.log.moving {
-		t.Fatal("the window of the cut first line is built again")
-	}
-	// The lines after it are had by a jump, and the cut line again after.
 	for _, ln := range []int{2, 3, 1} {
 		hs.a.goToLine(ln, 1)
 		hs.settle()
-		if at := d.log.lineAt(d.log.win.start + int64(d.sel[1])); at != ln-1 {
+		if at := d.buf.Snapshot().LineAt(d.sel[1]); at != ln-1 {
 			t.Fatalf("goToLine(%d) left the caret on line %d", ln, at+1)
 		}
-	}
-	if d.log.win.cutLine != 1 {
-		t.Fatalf("the jump back left cutLine %d", d.log.win.cutLine)
-	}
-	if strings.Contains(d.buf.String(), "second line") {
-		t.Fatal("the window of the cut first line holds the second line")
-	}
-	// A window past the cut first line says what stands above it.
-	hs.a.goToLine(2, 1)
-	hs.settle()
-	if d.log.win.cutAbove != 1 || d.log.win.cutAboveBytes != 3<<20 {
-		t.Fatalf("cutAbove %d of %d bytes, want 1 of %d", d.log.win.cutAbove, d.log.win.cutAboveBytes, 3<<20)
 	}
 }
 
 // Going to a line, then to another, lands on the line asked for each
-// time: the window a jump leaves does not carry the caret of the jump
-// after it past the window the next jump brings.
+// time.
 func TestLogModeGoToLineTwice(t *testing.T) {
 	hs := newHarness(t, true)
 	hs.a.settings.LargeFileModeMB = 1
@@ -276,40 +207,32 @@ func TestLogModeGoToLineTwice(t *testing.T) {
 	hs.a.openFile(path, true)
 	hs.settle()
 	d := hs.a.activeEditor()
-	if d == nil || d.log == nil {
-		t.Fatal("log mode lost")
+	if d == nil || !d.logWhole {
+		t.Fatal("the whole-file read is lost")
 	}
 	for _, ln := range []int{1400, 700, 1200, 5, 700, 59900} {
 		hs.a.goToLine(ln, 1)
 		hs.settle()
-		at := d.log.lineAt(d.log.win.start + int64(d.sel[1]))
-		if at != ln-1 {
+		if at := d.buf.Snapshot().LineAt(d.sel[1]); at != ln-1 {
 			t.Fatalf("goToLine(%d) left the caret on line %d", ln, at+1)
-		}
-		if first := d.log.win.first; ln-1 < first || ln-1 >= first+d.buf.LineCount() {
-			t.Fatalf("goToLine(%d) left the window at line %d of %d lines", ln, first, d.buf.LineCount())
 		}
 	}
 }
 
-// Typing in a log document edits the text as a whole, saves it, and the
+// Typing in a whole-file document edits the text, saves it, and the
 // file on disk has the edit and nothing else changed.
 func TestLogModeEditAndSave(t *testing.T) {
 	hs := newHarness(t, true)
 	hs.a.settings.AutoSave = false
 	hs.a.settings.LargeFileModeMB = 1
 	path, lines := writeBigLog(t, hs.root, 20000, 100)
-	before, err := os.ReadFile(path)
-	if err != nil {
-		t.Fatal(err)
-	}
 	hs.a.openFile(path, true)
 	hs.settle()
 	// Edit a line far into the file, through the app's own edits.
 	hs.a.goToLine(15000, 1)
 	hs.settle()
 	d := hs.a.activeEditor()
-	line, _ := d.buf.Snapshot().LineRange(15000 - 1 - d.log.win.first)
+	line, _ := d.buf.Snapshot().LineRange(15000 - 1)
 	d.edit([2]int{line + 4, line + 4}, textEdit{line + 4, line + 4, "EDITED "})
 	step(hs.tt)
 	if !d.dirty() {
@@ -337,7 +260,6 @@ func TestLogModeEditAndSave(t *testing.T) {
 	if d.dirty() {
 		t.Fatal("the save left the document changed")
 	}
-	_ = before
 }
 
 // Undo takes an edit back, redo makes it again.
@@ -371,8 +293,8 @@ func TestLogModeUndoRedo(t *testing.T) {
 	}
 }
 
-// A file changed on disk under a clean log document is read again; a
-// changed one keeps its own text.
+// A file changed on disk under a clean whole-file document is read
+// again; a changed one keeps its own text.
 func TestLogModeReload(t *testing.T) {
 	hs := newHarness(t, true)
 	hs.a.settings.AutoSave = false
@@ -388,10 +310,13 @@ func TestLogModeReload(t *testing.T) {
 	}
 	hs.a.reloadDoc(d.document)
 	hs.settle()
-	if first := logFirstLineOf(d.buf.String()); !strings.HasPrefix(changed, first) {
-		t.Fatalf("a clean document kept %q", first)
+	if d.sync != syncIdle {
+		t.Fatalf("the reload did not settle, sync %d", d.sync)
 	}
-	if n := d.viewLines(); n != 1 {
+	if first := logFirstLineOf(d.buf.String()); first != changed {
+		t.Fatalf("a clean document kept %d bytes of its own", len(d.buf.String()))
+	}
+	if n := d.buf.LineCount(); n != 1 {
 		t.Fatalf("lines %d, want 1", n)
 	}
 	// Changed here: the file on disk changes under it, and the text of
@@ -415,12 +340,11 @@ func TestLogModeReload(t *testing.T) {
 	}
 }
 
-// A session keeps a log document's place, of the whole text rather than
-// the window.
+// A session keeps a whole-file document's place.
 func TestLogModeSession(t *testing.T) {
 	hs := newHarness(t, true)
 	hs.a.settings.LargeFileModeMB = 1
-	path, lines := writeBigLog(t, hs.root, 20000, 100)
+	path, _ := writeBigLog(t, hs.root, 20000, 100)
 	hs.a.openFile(path, true)
 	hs.settle()
 	hs.a.goToLine(12345, 1)
@@ -439,12 +363,10 @@ func TestLogModeSession(t *testing.T) {
 	if tab.Sel[1] == 0 {
 		t.Fatal("the place kept is the start")
 	}
-	// The place is in the whole text: opening the file again lands there.
 	d := hs.a.activeEditor()
-	if at := d.log.lineAt(d.log.win.start + int64(d.sel[1])); at != 12344 {
+	if at := d.buf.Snapshot().LineAt(d.sel[1]); at != 12344 {
 		t.Fatalf("the caret is on line %d, want 12344", at)
 	}
-	_ = lines
 }
 
 // Typing in the text area — the keyboard's own edits, which observe sees
@@ -490,9 +412,7 @@ func TestLogModeTypingSaves(t *testing.T) {
 	if string(data) != want {
 		t.Fatalf("saved %q…, want %q…", logFirstLineOf(string(data))[:40], logFirstLineOf(want)[:40])
 	}
-	// Typed again, then undone — one step or as many as pauses made them —
-	// a save writes the text without what undo took back. The save before
-	// cleared the history, which is another matter, that of saving at all.
+	// Typed again, then undone, a save writes the text without it.
 	hs.place(d, 0, 0)
 	hs.insert("MORE ")
 	hs.settle()
@@ -512,7 +432,7 @@ func TestLogModeTypingSaves(t *testing.T) {
 		t.Fatal("undo left the typing in")
 	}
 	if strings.Contains(d.buf.String(), "MORE") {
-		t.Fatal("undo left the typed text in the window")
+		t.Fatal("undo left the typed text in the buffer")
 	}
 	hs.a.saveDoc(d.document, nil)
 	hs.settle()
@@ -526,8 +446,7 @@ func TestLogModeTypingSaves(t *testing.T) {
 }
 
 // A change made to the buffer far from the caret — further than a change
-// is looked for around it — is written as the window's whole run, and a
-// save has it.
+// is looked for around it — is written on a save all the same.
 func TestLogModeFarChangeSaves(t *testing.T) {
 	hs := newHarness(t, true)
 	hs.a.settings.AutoSave = false
@@ -554,15 +473,9 @@ func TestLogModeFarChangeSaves(t *testing.T) {
 	}
 }
 
-// logFirstLineOf returns the first line of a text, without its line end.
-func logFirstLineOf(s string) string {
-	s, _, _ = strings.Cut(s, "\n")
-	return s
-}
-
-// A log document takes no edits of several selections: they would write
-// only the window's buffer, which a save would not write, so the
-// selections come down to one and the keys take the usual path.
+// A whole-file document takes no edits of several selections: they
+// would write only part of the text a save writes, so the selections
+// come down to one and the keys take the usual path.
 func TestLogModeOneSelectionOnly(t *testing.T) {
 	hs := newHarness(t, true)
 	hs.a.settings.LargeFileModeMB = 1
@@ -570,28 +483,34 @@ func TestLogModeOneSelectionOnly(t *testing.T) {
 	hs.a.openFile(path, true)
 	hs.settle()
 	d := hs.a.activeEditor()
-	if d.log == nil {
-		t.Fatal("the file did not open in log mode")
+	if !d.logWhole {
+		t.Fatal("the file did not open by the whole-file read")
 	}
 	before := d.buf.String()
-	// Adding a caret does nothing: a log document keeps one selection.
+	// Adding a caret does nothing: the document keeps one selection.
 	hs.place(d, 0, 0)
 	hs.key(multiKey|ui.Alt, ui.KeyDown)
 	hs.settle()
 	if len(d.cursors) != 0 {
-		t.Fatalf("log document took %d other selections", len(d.cursors))
+		t.Fatalf("the document took %d other selections", len(d.cursors))
 	}
-	// The edits of several selections, made all the same, write nothing:
-	// not to the buffer, whose text a save would not write.
+	// The edits of several selections, made all the same, write
+	// nothing.
 	hs.setSpans(d, [2]int{0, 1}, [2]int{3, 4})
 	all, p := d.spans()
 	hs.a.deleteSpans(d, moveChar, -1)
 	d.typeSpans(all, p, 0, 0, "x", stepTyping)
 	hs.settle()
 	if after := d.buf.String(); after != before {
-		t.Fatal("an edit of several selections changed a log document's window")
+		t.Fatal("an edit of several selections changed the document")
 	}
-	if dirty := d.dirty(); dirty {
-		t.Fatal("an edit of several selections marked a log document dirty")
+	if d.dirty() {
+		t.Fatal("an edit of several selections marked the document dirty")
 	}
+}
+
+// logFirstLineOf returns the first line of a text, without its line end.
+func logFirstLineOf(s string) string {
+	s, _, _ = strings.Cut(s, "\n")
+	return s
 }

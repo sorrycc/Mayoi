@@ -5,14 +5,11 @@ needs a `## <version>` section here, or its build fails.
 
 ## Unreleased
 
-- Local files over the new **Log Files Over** setting (32 MB by default) open in log mode.
-- Log mode reads a huge file in windows, keeping opening, scrolling and memory small.
-- Log files can be edited, saved and undone; **Go to Line** works and `Find` searches the view.
-- Files over 64 MB that used to be refused as too large now open in log mode too.
-- A line too long to lay out shows in part, with the cut and its size in the status bar.
-- A window stuck below a line cut says so in the status bar; **Go to Line** still reaches above it.
-- Saving a log file that changed on disk since it was opened says so instead of writing over it.
-- A log document keeps one caret: the keys of several selections do not edit it.
+- Local files over the new **Log Files Over** setting (32 MB by default) open with a progress bar as they are read.
+- The whole text of a big file is in the editor: nothing is left out, and files over 64 MB open too, up to 2 GB.
+- A big file can be edited, saved and undone as any other; **Go to Line** and `Find` reach all of it.
+- Saving a big file that changed on disk since it was opened says so instead of writing over it.
+- A big file's document keeps one caret: the keys of several selections do not edit it.
 
 ## 0.23.0
 - Type at several places at once: **Selection → Add Cursor Above** and **Below** add a caret on the next line.

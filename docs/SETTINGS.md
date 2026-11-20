@@ -254,9 +254,9 @@ differ in width lines them up only roughly.
 - **`jsonlMode`** is how JSON Lines files, .jsonl and .ndjson, open: as a table, a row per line and a column per
   key, with the chosen row whole below it, or as their source. The buttons at the right of a tab's path and **⇧⌘V**
   switch a tab between them. The table reads the text as it is, edits made in the source included.
-- **`largeFileModeMB`** is the size in MB over which a local file opens in log mode, read in windows around the
-  view rather than whole, so that even a huge one opens and scrolls at once. Edits, saving and **Undo** work as
-  usual; Find searches the lines in view. `0` turns it off, and a file over 2 GB still does not open.
+- **`largeFileModeMB`** is the size in MB over which a local file opens by a whole-file read: it is read
+  whole in the background, with a progress bar, so that even a huge one shows all of its text. Edits,
+  saving and **Undo** work as usual. `0` turns it off, and a file over 2 GB still does not open.
 - **`editorAgentContext`** shows a **+** beside the line under the pointer in ordinary files. Click it
   to comment on that line or the selected lines in an inline review card; an empty comment collects the
   code alone. Collect snippets across files and send them together from the editor toolbar. It is off

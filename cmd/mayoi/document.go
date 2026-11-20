@@ -79,6 +79,14 @@ type document struct {
 	// log mode was tried and the file is read whole instead.
 	log        *logDoc
 	logSkipped bool
+	// logProgress is how much of a file too big for the usual read has
+	// been read, 0 to 1, 0 when none is being read. The loading view
+	// shows it as a bar.
+	logProgress float32
+	// logWhole says the document was read by the whole-file path, for a
+	// file over the log threshold: its text is the whole file, which
+	// the keys of several selections do not edit.
+	logWhole bool
 	diskCRLF   bool     // the file on disk has CRLF line endings
 	trimmed    trimSeen // the text last found without trailing whitespace
 	hl         *highlight.Highlighter

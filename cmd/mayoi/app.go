@@ -856,6 +856,18 @@ func (a *app) reloadDoc(d *document) {
 		a.reloadLog(d)
 		return
 	}
+	// A clean document of a file read whole, or too big for the usual
+	// read, is read again the way it was, whole, with its progress.
+	if !d.dirty() {
+		info, err := os.Stat(d.path)
+		if err == nil {
+			thr := a.logThreshold()
+			if d.logWhole || thr > 0 && info.Size() > thr || info.Size() > maxOpenBytes {
+				a.loadLog(d)
+				return
+			}
+		}
+	}
 	data, err := os.ReadFile(d.path)
 	if err != nil {
 		return

@@ -87,7 +87,7 @@ type multiDrag struct {
 // own, and not in a log document, whose edits run through the whole
 // text rather than the window it shows.
 func (a *app) multiOK(d *editor) bool {
-	return d != nil && d.log == nil && !a.prefs().Vim && !a.livePreview(d) && d.preview == nil
+	return d != nil && d.log == nil && !d.logWhole && !a.prefs().Vim && !a.livePreview(d) && d.preview == nil
 }
 
 // spans returns the selections sorted by their starts, the primary
@@ -525,10 +525,10 @@ func (d *editor) editSpans(all []cursor, p int, step stepping, fn func(s cursor)
 	if d.locked() {
 		return
 	}
-	// A log document's edits go through editLog, of the text as a whole;
-	// this path writes only the window's buffer, which a save would not
-	// write.
-	if d.log != nil {
+	// A document of a file read whole, or in a window, edits through its
+	// own path; this one writes only the buffer, which a save of the
+	// text as a whole would not write.
+	if d.log != nil || d.logWhole {
 		d.collapse()
 		return
 	}
@@ -947,9 +947,9 @@ func (a *app) pasteSpans(d *editor, text string) {
 // those that move and delete act at all of them; Escape goes back to the
 // primary, as does any other key that edits but text typed.
 func (a *app) multiKey(d *editor, ev ui.InputEvent) bool {
-	// A log document edits through the whole text, not the window: its
-	// selections come down to one, and the key takes the usual path.
-	if d.log != nil {
+	// A document read whole, of a file too big for the usual read, edits
+	// one caret at a time: its keys take the usual path.
+	if d.log != nil || d.logWhole {
 		d.collapse()
 		return false
 	}

@@ -1,13 +1,19 @@
 package main
 
 import (
+	"bytes"
 	"errors"
+	"io"
+	"io/fs"
+	"os"
 	"slices"
 	"time"
 
 	"github.com/egoist/mygo/ui"
 
 	"mayoi/internal/bg"
+	"mayoi/internal/vfs"
+	"mayoi/locales"
 )
 
 // The app's side of log mode: when a local file opens in it, how its
@@ -25,10 +31,10 @@ func (a *app) logThreshold() int64 {
 	return 0
 }
 
-// loadLog reads a document's file in log mode: an index of its lines in
-// the background, then the window of it to show. One file is read at a
-// time; the rest wait their turn, as documents queued whole-file reads
-// do.
+// loadLog reads a document's file whole, in the background, with its
+// progress in the loading view: a file over the threshold shows all of
+// its text, however big. One file is read at a time; the rest wait
+// their turn, as documents queued whole-file reads do.
 func (a *app) loadLog(d *document) {
 	d.sync, d.loadErr, d.readingAt = syncLoading, nil, time.Time{}
 	if !slices.Contains(a.logQueue, d) {
@@ -36,6 +42,9 @@ func (a *app) loadLog(d *document) {
 	}
 	a.pumpLog()
 }
+
+// logWholeMax is the largest file that opens whole, over the threshold.
+const logWholeMax = 2 << 30
 
 // pumpLog starts the reads the queue holds, one at a time.
 func (a *app) pumpLog() {
@@ -47,47 +56,128 @@ func (a *app) pumpLog() {
 	path := d.path
 	root := a.root
 	bg.Go(func() {
-		l, err := openLogDoc(path)
+		got := readWholeFile(path, func(read, total int64) {
+			a.post(func() {
+				if d.sync == syncLoading && total > 0 {
+					d.logProgress = float32(read) / float32(total)
+				}
+			})
+		})
+		var buf *ui.TextBuffer
+		var widest int
+		var indent indentStyle
+		if got.err == nil {
+			// Built in the background: a buffer of the whole text, and
+			// what a frame would otherwise walk it for.
+			buf = ui.NewTextBuffer(got.text)
+			snap := buf.Snapshot()
+			w := &widthCounter{}
+			snap.WriteTo(w)
+			widest = max(w.widest, w.col)
+			indent = detectIndent(snap, path)
+		}
 		a.post(func() {
 			a.logReading = false
 			a.pumpLog()
-			if !a.loadsClosed && a.root == root && slices.Contains(a.docs, d) && d.path == path && d.sync == syncLoading && !d.dirty() {
-				a.logScanned(d, path, l, err)
+			d.logProgress = 0
+			if !a.loadsClosed && a.root == root && slices.Contains(a.docs, d) && d.path == path && d.sync == syncLoading && !d.dirty() && got.err == nil {
+				d.logWhole = true
+				d.buf.Restore(buf.Snapshot())
+				d.hist = history{}
+				d.markSaved()
+				d.crlf, d.diskCRLF = got.crlf, got.crlf
+				d.encoding = got.enc
+				d.indent = indent
+				d.widest, d.widestVersion = widest, d.buf.Version()
+				d.stamp = got.stamp
+				d.longLine = 0
+				d.sync, d.loadErr = syncIdle, nil
+				for _, ed := range d.views {
+					if ts := ed.restoreTab; ts != nil {
+						ed.restoreTab = nil
+						a.restoreEditor(ed, *ts)
+					}
+					if target := ed.loadedTarget; target != nil {
+						ed.loadedTarget = nil
+						target(ed)
+					}
+				}
+				d.readDone()
+				a.find.stale = true
+				a.invalidate()
 				return
 			}
-			if l != nil {
-				l.close()
+			if slices.Contains(a.docs, d) && d.path == path && d.sync == syncLoading {
+				if got.err != nil {
+					d.sync, d.loadErr = syncLoadFailed, got.err
+				} else {
+					d.sync = syncIdle // a reload of a document typed in: its text stays
+				}
+				d.readDone()
+				a.invalidate()
+				return
 			}
 			d.readDone()
 		})
 	})
 }
 
-// logScanned takes a file's index as the read of it ends: its first
-// window is built where a tab of the last session was, or at the start.
-func (a *app) logScanned(d *document, path string, l *logDoc, err error) {
+// wholeFile is a file read whole: its text, in UTF-8 with LF line
+// endings, how its line endings and encoding were, and the file's
+// stamp, or why it could not be read.
+type wholeFile struct {
+	text  string
+	crlf  bool
+	enc   *textEncoding
+	stamp *fileStamp
+	err   error
+}
+
+// readWholeFile reads a local file whole, telling progress of the bytes
+// read. A line of any length is read as it is: the text shows in full.
+func readWholeFile(path string, progress func(read, total int64)) wholeFile {
+	f, err := os.Open(path)
 	if err != nil {
-		if errors.Is(err, errNotLogText) {
-			// Text another path reads: the whole file, as it always did.
-			d.logSkipped = true
-			d.sync = syncIdle
-			a.loadFile(d)
-			d.readDone()
-			return
-		}
-		d.sync, d.loadErr = syncLoadFailed, err
-		d.readDone()
-		return
+		return wholeFile{err: err}
 	}
-	d.log = l
-	anchor := 0
-	for _, ed := range d.views {
-		if ts := ed.restoreTab; ts != nil && ts.Sel[1] > 0 {
-			anchor = l.lineAt(int64(ts.Sel[1]))
+	defer f.Close()
+	info, err := f.Stat()
+	if err != nil {
+		return wholeFile{err: err}
+	}
+	if info.IsDir() {
+		return wholeFile{err: &fs.PathError{Op: "read", Path: path, Err: errors.New("is a directory")}}
+	}
+	if info.Size() > logWholeMax {
+		return wholeFile{err: errors.New(locales.ErrTooLarge())}
+	}
+	total := info.Size()
+	var out bytes.Buffer
+	out.Grow(int(min(total, 1<<30)))
+	chunk := make([]byte, 4<<20)
+	for {
+		n, err := f.Read(chunk)
+		out.Write(chunk[:n])
+		if progress != nil && total > 0 {
+			progress(int64(out.Len()), total)
+		}
+		if err == io.EOF {
 			break
 		}
+		if err != nil {
+			return wholeFile{err: err}
+		}
 	}
-	a.logMove(d, anchor)
+	data := out.Bytes()
+	text, enc, ok := decodeText(data, systemText())
+	if !ok {
+		return wholeFile{err: errBinary}
+	}
+	crlf := bytes.Contains(text, []byte("\r\n"))
+	if crlf {
+		text = bytes.ReplaceAll(text, []byte("\r\n"), []byte("\n"))
+	}
+	return wholeFile{text: string(text), crlf: crlf, enc: enc, stamp: stampOf(info)}
 }
 
 // logViewport is how many lines the views of a document show, a guess
@@ -414,4 +504,50 @@ func (d *document) logFirstLine() int {
 		return d.log.win.first
 	}
 	return 0
+}
+
+// bigSaveBytes is the size over which a local document saves in the
+// background, so that writing it does not hold the frames.
+const bigSaveBytes = 8 << 20
+
+// writeWhole saves a big local document in the background, for the
+// saves waiting, which it answers. It refuses to write a file that
+// changed on disk since the document read it.
+func (a *app) writeWhole(d *document) {
+	d.sync = syncSaving
+	snap := d.buf.Snapshot()
+	crlf, enc, path, stamp := d.crlf, d.encoding, d.path, d.stamp
+	bg.Go(func() {
+		var b bytes.Buffer
+		b.Grow(snap.ByteLen())
+		snap.WriteTo(&b)
+		data := b.Bytes()
+		if crlf {
+			data = bytes.ReplaceAll(data, []byte("\n"), []byte("\r\n"))
+		}
+		var info fs.FileInfo
+		var err error
+		if data, err = encodeText(data, enc); err == nil {
+			if info, err = os.Stat(path); err == nil {
+				if now := stampOf(info); stamp == nil || *now != *stamp {
+					err = errLogChanged
+				}
+			}
+		}
+		if err == nil {
+			info, err = vfs.WriteFile(path, data, 0o644)
+		}
+		a.post(func() {
+			if err == nil && slices.Contains(a.docs, d) && d.path == path {
+				d.wrote(snap, crlf)
+				if info != nil {
+					d.stamp = stampOf(info)
+				}
+				d.diskCRLF = crlf
+			}
+			d.sync = syncIdle
+			a.answerSaves(d, err)
+			a.nextSave(d)
+		})
+	})
 }

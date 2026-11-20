@@ -295,6 +295,10 @@ type Prefs struct {
 	// object of the settings its plugin.json declares, and "enabled":
 	// false to turn the plugin off.
 	Plugins map[string]json.RawMessage `json:"plugins,omitempty"`
+	// LanguageServers are the settings of each language server, by its
+	// id, as "gopls.server": its "initializationOptions", laid over those
+	// of its plugin as it starts.
+	LanguageServers map[string]json.RawMessage `json:"languageServers,omitempty"`
 	// FormatOnSave formats a document with a plugin's formatter as it
 	// saves, by language, as "go", or "*" for every language.
 	FormatOnSave map[string]bool `json:"formatOnSave,omitempty"`

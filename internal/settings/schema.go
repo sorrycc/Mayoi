@@ -122,6 +122,7 @@ var Schema = []Field{
 	{Key: "vimCtrlKeys", Category: CatVim, Kind: KindBool, Folder: true},
 
 	{Key: "plugins", Category: CatPlugins, Kind: KindJSON},
+	{Key: "languageServers", Category: CatPlugins, Kind: KindJSON},
 	{Key: "formatOnSave", Category: CatPlugins, Kind: KindJSON, Folder: true},
 	{Key: "formatters", Category: CatPlugins, Kind: KindJSON, Folder: true},
 	{Key: "pluginSources", Category: CatPlugins, Kind: KindJSON, Memory: true},

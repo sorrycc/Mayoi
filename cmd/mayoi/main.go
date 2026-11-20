@@ -808,6 +808,7 @@ func (m *mayoi) reload(p settings.Prefs) {
 	if plugins != nil {
 		plugins.syncPrefs()
 		plugins.toggled(old.Plugins, p.Plugins)
+		m.restartServersOf(changedInitOptions(old.LanguageServers, p.LanguageServers))
 		if !maps.Equal(p.PluginSources, old.PluginSources) {
 			plugins.syncPlugins()
 		}

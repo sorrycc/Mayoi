@@ -3,6 +3,13 @@
 The update window shows the section of the version it offers. Every release
 needs a `## <version>` section here, or its build fails.
 
+## Unreleased
+
+- Give a language server your own startup options with `languageServers` in settings.json, by the server's id.
+- Options go over the plugin's own, deeply, and `null` takes one away, as in `{"tsserver": {"path": null}}`.
+- Saving changed options restarts only the servers they're for, in every folder.
+- A language server plugin's details show where to set its `initializationOptions`.
+
 ## 0.23.0
 
 - Type at several places at once: **Selection → Add Cursor Above** and **Below** add a caret on the next line.

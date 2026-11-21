@@ -5,6 +5,7 @@ needs a `## <version>` section here, or its build fails.
 
 ## Unreleased
 
+- On macOS, VoiceOver no longer crashes Mayoi when a notice it reads has text that isn't valid UTF-8.
 - Opening a file to the side from Quick Open with `Cmd+Return` uses an existing column instead of adding one.
 - **Layout → One File at a Time** no longer applies to a commit's changes, which list every file.
 - `Cmd+Q` and **Mayoi → Quit Mayoi** ask before quitting, with **Don't ask again** to skip it.

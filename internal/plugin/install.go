@@ -14,6 +14,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"mayoi/internal/vfs"
 )
 
 // RecordsFile is the file in the plugins folder where Mayoi notes where
@@ -125,11 +127,19 @@ func SplitSpec(spec string) (url, ref string, byName bool) {
 	return spec, ref, true
 }
 
-// git runs git in dir, returning what it printed or why it failed.
-func git(ctx context.Context, dir string, args ...string) (string, error) {
+// gitCommand returns the command that runs git in dir, with no prompt and
+// no console window of its own.
+func gitCommand(ctx context.Context, dir string, args ...string) *exec.Cmd {
 	cmd := exec.CommandContext(ctx, "git", args...)
 	cmd.Dir = dir
 	cmd.Env = append(os.Environ(), "GIT_TERMINAL_PROMPT=0", "GIT_SSH_COMMAND=ssh -o BatchMode=yes")
+	vfs.HideWindow(cmd)
+	return cmd
+}
+
+// git runs git in dir, returning what it printed or why it failed.
+func git(ctx context.Context, dir string, args ...string) (string, error) {
+	cmd := gitCommand(ctx, dir, args...)
 	var out, errb bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &out, &errb
 	if err := cmd.Run(); err != nil {

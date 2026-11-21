@@ -9,7 +9,7 @@ import (
 // name.
 const createNoWindow = 0x08000000
 
-// hideWindow keeps Windows from giving cmd a console window of its own.
+// HideWindow keeps Windows from giving cmd a console window of its own.
 // Mayoi is a window that has no console, and Windows answers every
 // console program a console program starts, git above all, with a new
 // console window on the desktop, so that a window opens and closes
@@ -18,7 +18,7 @@ const createNoWindow = 0x08000000
 // otherwise give it. What the program writes is untouched: its standard
 // handles are the ones the caller set, as they are on the systems that
 // have no console window to hide.
-func hideWindow(cmd *exec.Cmd) {
+func HideWindow(cmd *exec.Cmd) {
 	if cmd.SysProcAttr == nil {
 		cmd.SysProcAttr = &syscall.SysProcAttr{}
 	}

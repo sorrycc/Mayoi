@@ -1172,6 +1172,7 @@
   "previewEmpty": "Nothing to preview",
   "previewNone": "{name} has no preview: previews show Markdown, SVG and Mermaid files.",
   "previewLiveNone": "{name} has no Live Preview, which shows Markdown files.",
+  "liveCellLabel": "Table cell, row {row}, column {column}",
   "previewLabel": "Preview {name}",
   "previewMinutes": "{count, plural, one {# min read} other {# min read}}",
   "previewWord": "Preview",

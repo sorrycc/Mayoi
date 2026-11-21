@@ -320,6 +320,25 @@ var galleryStates = []struct {
 		at := strings.Index(src, "bold")
 		hs.place(d, at, at)
 	}},
+	{"live-table-cell", func(hs *harness) {
+		// A cell of a table edited in place in Live Preview: its source in
+		// the input, ringed, the table drawn around it.
+		src := "# Fruit\n\n| Name | Note | Price |\n| :--- | :---: | ---: |\n| apple | **crisp** | 1.20 |\n| 梨 | a \\| b | 3.00 |\n\nend\n"
+		os.WriteFile(hs.path("fruit.md"), []byte(src), 0o644)
+		hs.a.settings.MarkdownMode = "live"
+		hs.a.openFile(hs.path("fruit.md"), true)
+		d := hs.a.activeEditor()
+		hs.until("the table drawn", func() bool {
+			for _, lv := range d.livePane.views {
+				if lv.measured && lv.frame == hs.a.frame {
+					return true
+				}
+			}
+			return false
+		})
+		hs.tt.Click("crisp")
+		hs.settle()
+	}},
 	{"wiki-suggest", func(hs *harness) {
 		// [[ typed in a note of a vault: the notes it may link to, under it.
 		os.MkdirAll(hs.path(".obsidian"), 0o755)

@@ -223,6 +223,23 @@ func TestBudgets(t *testing.T) {
 			hs.place(d, 40000, 40000)
 			return func() { hs.tt.Type("a"); step(hs.tt) }
 		}},
+		// Typing in a cell of a table edited in place: the input alone
+		// changes, what was typed written to the text as typing pauses.
+		{"Live Preview table cell type frame", 5 * time.Millisecond, false, func(t *testing.T, hs *harness) func() {
+			d := bigNote(hs)
+			for _, lv := range d.livePane.views {
+				if lv.frame == hs.a.frame && lv.measured && lv.at.Y > 0 {
+					// The first cell of its body.
+					hs.tt.ClickAt(lv.at.X+10, lv.at.Y+lv.at.H*0.75)
+					break
+				}
+			}
+			hs.settle()
+			if !d.liveCell.on {
+				t.Fatal("the click does not edit a cell")
+			}
+			return func() { hs.tt.Type("a"); step(hs.tt) }
+		}},
 		// The caret moving from line to line shows the marks of the line it
 		// goes to and hides those of the line it leaves.
 		{"Live Preview caret frame", 4 * time.Millisecond, true, func(t *testing.T, hs *harness) func() {

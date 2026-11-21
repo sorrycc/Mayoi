@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"slices"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -89,6 +90,8 @@ type livePane struct {
 	// rooms are how high the lines of callouts that fold showed below
 	// their titles, by their keys, the room that glides as one folds.
 	rooms map[string]float32
+	// ids numbers the views.
+	ids int
 }
 
 // liveIn is the block the caret went into, by its first line and its last,
@@ -133,7 +136,10 @@ func (in *liveIn) height(now time.Time, want float32, glide bool) float32 {
 // showed, at, and how high, and the frame it showed in last. It shows
 // once measured, fading in from shownAt.
 type liveView struct {
-	v      *viewer
+	v *viewer
+	// id names its boxes, which keep it as its key changes under a cell
+	// edited in place.
+	id     int
 	box    ui.Handle
 	at     ui.Rect
 	height float32
@@ -182,6 +188,7 @@ func (a *app) setLive(d *editor, on bool) {
 		return
 	}
 	d.live = on
+	a.closeLiveCell(d)
 	a.invalidate()
 	a.rememberTabs()
 }
@@ -615,6 +622,13 @@ func (a *app) liveArea(c *ui.Context, d *editor, area ui.Element, f liveFrame) {
 		lineH := size * a.settings.LineHeight
 		in := &pane.in
 		caretIn := false
+		// The table whose cell is edited in place shows drawn, wherever
+		// the editor's caret is.
+		cell := &d.liveCell
+		cellAt, cellSeen := -1, false
+		if cell.on {
+			cellAt = cell.first
+		}
 		// sourceH is how high a block's lines show as source, as they did
 		// last, and room how high it shows drawn: its drawing with its
 		// margin, or its source if that is higher, so that the caret
@@ -628,7 +642,8 @@ func (a *app) liveArea(c *ui.Context, d *editor, area ui.Element, f liveFrame) {
 		room := func(lv *liveView, first, last int) float32 {
 			return max(lv.height+size, sourceH(lv, first, last))
 		}
-		doc.eachBlock(from, to, func(b *liveBlock) {
+		keep := func(start int) bool { return cellAt >= 0 && snap.LineAt(min(start, n)) == cellAt }
+		doc.eachBlock(from, to, keep, func(b *liveBlock) {
 			if len(b.blocks) == 0 {
 				return
 			}
@@ -637,7 +652,22 @@ func (a *app) liveArea(c *ui.Context, d *editor, area ui.Element, f liveFrame) {
 				return
 			}
 			lv := pane.views[b.key]
-			if onLines(b.start, b.end) {
+			if first == cellAt {
+				if !liveTable(b) {
+					return
+				}
+				cellSeen = true
+				// Its source edited from the cell: the view it had, as
+				// high as it was, its columns as wide.
+				if old := pane.views[cell.key]; lv == nil && old != nil && cell.key != b.key {
+					lv = old
+					delete(pane.views, cell.key)
+					pane.views[b.key] = lv
+				}
+				cell.key = b.key
+				a.followLiveCell(d, snap, last)
+			}
+			if onLines(b.start, b.end) && first != cellAt {
 				if caretIn {
 					return
 				}
@@ -695,7 +725,8 @@ func (a *app) liveArea(c *ui.Context, d *editor, area ui.Element, f liveFrame) {
 			}
 			if lv == nil {
 				m := &markdownPreview{blocks: b.blocks, lines: strings.Count(b.source, "\n") + 1}
-				lv = &liveView{v: &viewer{doc: d.document, markdown: m, loaded: true}}
+				pane.ids++
+				lv = &liveView{v: &viewer{doc: d.document, markdown: m, loaded: true}, id: pane.ids}
 				lv.height = float32(last-first+1) * lineH * 1.4
 				if in.first == first && in.drawn > size {
 					// Its source edited: as high as it drew before, until
@@ -707,6 +738,9 @@ func (a *app) liveArea(c *ui.Context, d *editor, area ui.Element, f liveFrame) {
 				// Drawn again, as in another theme's colors: the view shows
 				// the new drawing, at the height it had.
 				m := &markdownPreview{blocks: b.blocks, lines: lv.v.markdown.lines}
+				if first == cellAt {
+					m.tables, m.tableFont = lv.v.markdown.tables, lv.v.markdown.tableFont
+				}
 				lv.v = &viewer{doc: d.document, markdown: m, loaded: true}
 			}
 			lv.frame = a.frame
@@ -741,6 +775,11 @@ func (a *app) liveArea(c *ui.Context, d *editor, area ui.Element, f liveFrame) {
 			area.TextBlocks(ui.TextBlock{First: first, Last: last, Height: height})
 			blocks = append(blocks, sh)
 		})
+		if cell.on && !cellSeen {
+			// Its table gone, or out of view: the cell is no longer edited.
+			a.closeLiveCell(d)
+		}
+		a.keepLiveCell(c, d)
 		if in.in && !caretIn && (lineFrom < in.first || lineFrom > in.last) {
 			// Gone from it with the block out of view: nothing glides.
 			*in = liveIn{first: -1}
@@ -1047,7 +1086,7 @@ func (a *app) liveArea(c *ui.Context, d *editor, area ui.Element, f liveFrame) {
 			y := editorPadY + f.g.top(s.first) - d.vscroll.Y + size/2 + s.pad/2
 			// Clipped to the room it has while that grows, its drawing
 			// measured whole.
-			room := ui.Box(c.Key("live-room:" + s.b.key)).Absolute().Top(y).Left(f.left + s.inset).Width(max(1, f.width-s.inset))
+			room := ui.Box(c.Key("live-room:" + strconv.Itoa(lv.id))).Absolute().Top(y).Left(f.left + s.inset).Width(max(1, f.width-s.inset))
 			if s.clip > 0 {
 				room.Height(s.clip).Clip()
 			}
@@ -1055,7 +1094,7 @@ func (a *app) liveArea(c *ui.Context, d *editor, area ui.Element, f liveFrame) {
 				room.Opacity(s.fade)
 			}
 			room.Children(func() {
-				box := ui.Column(c.Key("live-block:" + s.b.key)).Width(max(1, f.width-s.inset)).Bind(&lv.box)
+				box := ui.Column(c.Key("live-block:" + strconv.Itoa(lv.id))).Width(max(1, f.width-s.inset)).Bind(&lv.box)
 				input := func(ev ui.InputEvent) bool {
 					switch ev.Kind {
 					case ui.InputScroll:
@@ -1077,6 +1116,9 @@ func (a *app) liveArea(c *ui.Context, d *editor, area ui.Element, f liveFrame) {
 				}
 				box.HandleInput(input)
 				lv.v.markdown.passInput = input
+				if liveTable(s.b) {
+					a.liveCellHooks(d, lv.v.markdown, s.first, snap.LineAt(s.b.end))
+				}
 				box.Children(func() {
 					font := ui.Font{Family: c.Theme().Font, Size: size}
 					for i := range lv.v.markdown.blocks {

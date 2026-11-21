@@ -40,19 +40,25 @@ func (a *app) takeKeys(el ui.Element, where keyPlace, fn func(ev ui.InputEvent) 
 		a.keyFocus = where
 	}
 	return el.HandleInput(func(ev ui.InputEvent) bool {
-		if ev.Kind == ui.InputKeyUp && a.held != nil && *a.held == ev.Key {
-			a.held = nil
-			a.invalidate()
-		}
-		if a.keyInput(ev, where) {
-			if where != placeTerminal {
-				k := ev.Key
-				a.held = &k
-			}
-			return true
-		}
-		return fn != nil && fn(ev)
+		return a.keyEvent(ev, where) || fn != nil && fn(ev)
 	})
+}
+
+// keyEvent takes an input event where, when the shortcuts have its key,
+// noting the key held until it is let go.
+func (a *app) keyEvent(ev ui.InputEvent, where keyPlace) bool {
+	if ev.Kind == ui.InputKeyUp && a.held != nil && *a.held == ev.Key {
+		a.held = nil
+		a.invalidate()
+	}
+	if a.keyInput(ev, where) {
+		if where != placeTerminal {
+			k := ev.Key
+			a.held = &k
+		}
+		return true
+	}
+	return false
 }
 
 // textKeys has a text field take the keys of the shortcuts first.

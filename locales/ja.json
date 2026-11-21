@@ -911,6 +911,7 @@
   "previewEmpty": "プレビューする内容がありません",
   "previewNone": "{name} はプレビューできません。プレビューできるのは Markdown、SVG、Mermaid のファイルです。",
   "previewLiveNone": "{name} はライブプレビューできません。ライブプレビューは Markdown ファイル用です。",
+  "liveCellLabel": "表のセル、{row} 行目、{column} 列目",
   "previewLabel": "{name} のプレビュー",
   "previewMinutes": "約 {count} 分で読めます",
   "previewWords": "{count} 語",

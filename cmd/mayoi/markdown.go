@@ -72,6 +72,16 @@ type markdownPreview struct {
 	// passInput, when set, takes the input a diagram has no use for, as
 	// Live Preview scrolls its text and edits a block's source by it.
 	passInput func(ui.InputEvent) bool
+	// cellEditing, when set, edits the cells of a table in place, as Live
+	// Preview does: it reports whether the cell of row r, 0 its header,
+	// and column k is the one being edited, whose input cellInput draws.
+	// cellPress takes a press on a cell, reporting whether it did.
+	cellEditing func(r, k int) bool
+	cellInput   func(c *ui.Context, align ui.Align, size float32)
+	cellPress   func(r, k int, ev ui.InputEvent) bool
+	// cellWidth is how wide the column of the cell being edited is at
+	// least, k, -1 for none, for its source to show, in font.
+	cellWidth func(font ui.Font) (k int, w float32)
 	// math is whether the last parse drew math, and places where the
 	// formulas within the texts it drew stand, by their texts' runs.
 	math       bool
@@ -2567,6 +2577,12 @@ func (a *app) markdownTableRow(c *ui.Context, m *markdownPreview, path string, i
 	b := m.blocks[i]
 	p := a.pal
 	cols := a.markdownTableColumns(m, b.table, font)
+	if m.cellWidth != nil {
+		if k, w := m.cellWidth(font); k >= 0 && k < len(cols) && w > cols[k] {
+			cols = slices.Clone(cols)
+			cols[k] = w
+		}
+	}
 	total := float32(0)
 	for _, w := range cols {
 		total += w
@@ -2616,16 +2632,35 @@ func (a *app) markdownTableRow(c *ui.Context, m *markdownPreview, path string, i
 			if tl+tr+br+bl > 0 {
 				cellBox.Radius(tl, tr, br, bl)
 			}
-			cellBox.Children(func() {
-				align := ui.Start
-				if k < len(b.aligns) {
-					switch b.aligns[k] {
-					case east.AlignCenter:
-						align = ui.Center
-					case east.AlignRight:
-						align = ui.End
-					}
+			row := b.row
+			if b.kind == markdownTableHeader {
+				row = 0
+			}
+			if m.cellPress != nil {
+				// A cell edits in place: the pointer over it is a text
+				// cursor.
+				cellBox.Cursor(ui.CursorText).HandleInput(func(ev ui.InputEvent) bool { return m.cellPress(row, k, ev) })
+			}
+			align := ui.Start
+			if k < len(b.aligns) {
+				switch b.aligns[k] {
+				case east.AlignCenter:
+					align = ui.Center
+				case east.AlignRight:
+					align = ui.End
 				}
+			}
+			if m.cellEditing != nil && m.cellEditing(row, k) {
+				// The cell being edited: ringed, inside its borders, so
+				// that nothing moves.
+				ring := max(2, max(tl, tr, br, bl)-1)
+				cellBox.DrawOver(func(pt *ui.Painter, at ui.Rect) {
+					pt.Stroke(ui.Rect{X: at.X + 1, Y: at.Y + 1, W: at.W - 2, H: at.H - 2}, p.accent, ring, 1.5)
+				})
+				cellBox.Children(func() { m.cellInput(c, align, size) })
+				continue
+			}
+			cellBox.Children(func() {
 				ui.Column(c).TextAlign(align).AlignItems(align).WidthPercent(100).Children(func() {
 					base := 0
 					for len(cell) > 0 {

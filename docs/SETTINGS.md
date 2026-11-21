@@ -270,7 +270,8 @@ differ in width lines them up only roughly.
   block, as formulas: in the Reading view, and in Live Preview but for `math` code blocks, which show as code. Turn
   it off to show the source.
 - **`markdownMode`** is how Markdown files, .mdx included, open: as their source, as Live Preview, which you edit
-  as it reads, its marks showing only where the caret is, or rendered in the Reading view. The buttons at the right
+  as it reads, its marks showing only where the caret is, a click on a table's cell editing it in place, or rendered
+  in the Reading view. The buttons at the right
   of a tab's path, **⌥⌘V** and **⇧⌘V** switch a tab between them, and the choice of a tab is remembered for the
   session. `markdownPreview: true`, which older versions wrote, reads as `"reading"`.
 - **`diffHighlight`** chooses whether changed lines show word-level, character-level or line-level tinting. The

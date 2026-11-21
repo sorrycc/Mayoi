@@ -5,6 +5,11 @@ needs a `## <version>` section here, or its build fails.
 
 ## Unreleased
 
+- In Live Preview, clicking a table cell edits its Markdown in place inside the rendered table.
+- In a table cell, `Tab` and `Shift+Tab` move between cells, and `Return` and the arrow keys move between rows.
+- `Escape` in a table cell, or moving past the table, returns to the text beside the table.
+- Typing `|` in a table cell escapes it as `\|`, and `Cmd+Z` undoes a cell's edits as it does typing.
+
 - `Cmd+D` splits right and `Cmd+Shift+D` splits down, as in iTerm2, from an editor or a terminal tab.
 - **View → Split Down** stacks a new column under the current one, and you drag the line between them to resize.
 - Splitting a terminal opens a new one in the same folder, and the original keeps running.

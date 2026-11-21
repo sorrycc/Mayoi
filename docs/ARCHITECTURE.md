@@ -155,7 +155,12 @@ formula behind a pointer. A block keeps the room of its drawing, or of its sourc
 formula's is. As the caret goes into a block or leaves it, its room glides between the two (`liveIn`), from wherever it
 is when the caret turns back: the blank line after it takes the difference, or, with text right below, its last line
 grows by its last rune drawn as an object, so the text below moves over rather than jumps. A block shows once measured,
-fading in. A bullet and a task's box keep the width of their source, which shows in their room as the caret comes to
+fading in. A click on a table's cell edits it in place (`markdownlivecell.go`): one text input, in that cell only,
+holds its source, and the editor's caret waits outside the table, which stays drawn. What is typed is written to the
+text as typing pauses, or as the cell is left or a shortcut runs, as one edit of the cell's source (`tableCellEdit`,
+its pipes escaped), which undoes as typing does: an edit made to the text from outside the text area has the area lay
+out all of the text again, too much for each key. The table's view keeps its height and its columns as its source
+changes under the cell. A bullet and a task's box keep the width of their source, which shows in their room as the caret comes to
 them, so the line holds still. A picture of the web on its way is a card (`livePicture`), whose room glides to the
 picture's as it arrives and fades in over it. The link under the pointer is found from where the area says the pointer
 is (`liveHovered`), and its underline fills in. Blocks of code are cards painted behind their lines, their code alone

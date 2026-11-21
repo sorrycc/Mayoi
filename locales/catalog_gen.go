@@ -9554,6 +9554,18 @@ func (msgs Messages) PreviewLiveNone(name string) string {
 	return Catalog.Format(msgs.locale, "previewLiveNone", map[string]any{"name": name})
 }
 
+// LiveCellLabel says "Table cell, row {row}, column {column}"
+// in the language the app shows.
+func LiveCellLabel(row string, column string) string {
+	return In(i18n.Locale()).LiveCellLabel(row, column)
+}
+
+// LiveCellLabel says "Table cell, row {row}, column {column}"
+// in the language of msgs.
+func (msgs Messages) LiveCellLabel(row string, column string) string {
+	return Catalog.Format(msgs.locale, "liveCellLabel", map[string]any{"row": row, "column": column})
+}
+
 // PreviewLabel says "Preview {name}"
 // in the language the app shows.
 func PreviewLabel(name string) string { return In(i18n.Locale()).PreviewLabel(name) }

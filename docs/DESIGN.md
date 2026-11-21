@@ -49,7 +49,12 @@ The order: it works, then it is easy, then it looks good. Polish never covers a 
   link whose source is hidden the pointer is a hand, and a click opens it as it is let go, as in Obsidian, the caret
   and the text staying still (`TestLiveLinkClick`); one whose source shows takes the caret, and is a hand with ⌘
   held. Over a task's box the pointer is a hand too, and its edge darkens. A footnote's label drawn as its number
-  keeps the room of its source.
+  keeps the room of its source. A click on a table's cell edits it in place: its source in an input ringed in the
+  accent, inside the cell's borders, the table drawn around it and its column as wide as the source needs, held so
+  while it is typed in; nothing else moves, and the caret, the cell and the table stay put as the note is parsed
+  again (`TestLiveTableCellEdit`). Tab and Shift-Tab move across cells, Return and the arrows between rows, and
+  Escape, or a move past the table, gives the editor the keyboard, its caret before or after the table
+  (`TestLiveTableCellLeaves`).
 - What loads keeps a place: a picture of the web on its way in Live Preview is a card where it goes, which the
   picture fades in over as its room glides to its own (`TestLivePictureArrives`); a rendered block shows once it is
   measured, fading in over `motionShow`.

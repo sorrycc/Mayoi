@@ -96,6 +96,10 @@ type mayoi struct {
 	// (sidebarSeen).
 	sidebar     sidebarShare
 	sidebarSeen bool
+	// quitAsking is the window whose question whether to quit shows,
+	// quitConfirm, nil while none does.
+	quitAsking  *desktop
+	quitConfirm *confirm
 }
 
 func (h *desktop) openFolder(done func(string)) {
@@ -265,6 +269,8 @@ func (h *desktop) newWindow(dir string) {
 }
 
 func (h *desktop) newBlankWindow() { h.m.openBlankWindow() }
+
+func (h *desktop) quitApp() { h.m.quitApp(h) }
 
 func (h *desktop) openFolders(dirs []string) {
 	for _, dir := range dirs {
@@ -957,6 +963,9 @@ func menuKey(items []*mygo.MenuItem) string {
 // one focused last.
 func (m *mayoi) run(id string, win *mygo.Window) {
 	if len(m.wins) == 0 {
+		if id == "file.quit" {
+			appQuit()
+		}
 		return
 	}
 	// The menu toggled the item chosen, which the command may leave as
@@ -988,6 +997,12 @@ func (m *mayoi) run(id string, win *mygo.Window) {
 			h = f.active
 		}
 	}
+	if id == "file.quit" {
+		// At once, rather than at the next frame of a window that may be
+		// minimized or hidden, and draw none.
+		m.quitApp(h)
+		return
+	}
 	a := h.a
 	h.do(func() { a.run(id) })
 }
@@ -1017,6 +1032,42 @@ func (m *mayoi) beforeQuit() bool {
 		mygo.App.Quit()
 	}, func() { m.life = lifeOpen })
 	return false
+}
+
+// appQuit quits the app, which a test replaces.
+var appQuit = func() { mygo.App.Quit() }
+
+// quitApp quits as Cmd+Q and Quit Mayoi do. With confirmBeforeQuit on,
+// it asks first in h, the window in front, and Quit goes on as quitting
+// does (beforeQuit), asking about the changes. Asked again meanwhile, it
+// brings the question shown to the front. Quitting otherwise, as to
+// update, from the Dock or to log out, does not ask.
+func (m *mayoi) quitApp(h *desktop) {
+	if w := m.quitAsking; w != nil {
+		if slices.Contains(m.wins, w) && (w.a.confirm == m.quitConfirm || slices.Contains(w.a.asks, m.quitConfirm)) {
+			w.show()
+			return
+		}
+		// Its window closed meanwhile.
+		m.quitAsking, m.quitConfirm = nil, nil
+	}
+	if h == nil || !m.s.ConfirmBeforeQuit || m.life != lifeOpen || m.settling() {
+		appQuit()
+		return
+	}
+	cf := &confirm{title: locales.QuitTitle(), ok: locales.QuitButton(), check: locales.QuitDontAsk()}
+	cf.run = func() {
+		m.quitAsking, m.quitConfirm = nil, nil
+		if cf.checked {
+			m.s.ConfirmBeforeQuit = false
+			m.s.Changed()
+		}
+		appQuit()
+	}
+	cf.cancel = func() { m.quitAsking, m.quitConfirm = nil, nil }
+	m.quitAsking, m.quitConfirm = h, cf
+	h.show()
+	h.a.present(cf)
 }
 
 // settling reports whether the app, or a window, is asking about

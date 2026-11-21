@@ -312,6 +312,9 @@ type Prefs struct {
 	// UsageStats sends anonymous counts of Mayoi's use: one a day while
 	// it is open, and one as it updates, with its version and system.
 	UsageStats bool `json:"usageStats"`
+	// ConfirmBeforeQuit asks before Cmd+Q and the menu's Quit quit Mayoi.
+	// Quitting otherwise, as to update or to log out, never asks.
+	ConfirmBeforeQuit bool `json:"confirmBeforeQuit"`
 	// SyncIgnored is what settings sync leaves on this machine: keys of
 	// the preferences, "settings.json" for all of them, and
 	// "keybindings.json" for the keyboard shortcuts.
@@ -578,7 +581,7 @@ func Default() *Settings {
 			FontSize: 13, FontFamily: "monospace", FontWeight: 400, LineHeight: 1.55, TabSize: 4,
 			AutoSave: true, Blame: true, EditorHover: true, TerminalCopyOnSelect: true, TerminalBackendHcShowInHerdr: true, PreviewMermaid: true, PreviewMath: true,
 			DiffAlignedRows: true, DiffContext: 3, DiffSyncScroll: true, MergeAutoApply: true,
-			UsageStats: true,
+			UsageStats: true, ConfirmBeforeQuit: true,
 		},
 	}
 }

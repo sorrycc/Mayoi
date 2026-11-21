@@ -79,6 +79,8 @@ type fakeHost struct {
 	// settingsShown are the sections and keys the settings window opened
 	// at, as "section:key".
 	settingsShown []string
+	// quits counts the times Cmd+Q was pressed.
+	quits int
 }
 
 func (h *fakeHost) openFolder(done func(string)) { done(h.folder) }
@@ -137,6 +139,7 @@ func (h *fakeHost) showSettings(section, key string) {
 	h.settingsShown = append(h.settingsShown, section+":"+key)
 }
 func (h *fakeHost) redrawWindows()     {}
+func (h *fakeHost) quitApp()           { h.quits++ }
 func (h *fakeHost) installCLI()        {}
 func (h *fakeHost) uninstallCLI()      {}
 func (h *fakeHost) addContextMenu()    {}

@@ -289,6 +289,8 @@ func (a *app) commandsIn(t locales.Messages) []command {
 	for _, tag := range mygo.App.Languages() {
 		cmds = append(cmds, command{localeCommand + tag, i18n.Autonym(tag), "", func() { a.setLocale(tag) }})
 	}
+	// Quitting as Cmd+Q does, which asks first (quitApp).
+	cmds = append(cmds, command{"file.quit", t.CmdFileQuit(), "CmdOrCtrl+Q", func() { a.host.quitApp() }})
 	cmds = append(cmds, command{"plugins.problems", t.CmdPluginsProblems(), "", a.showProblems})
 	cmds = append(cmds, a.pluginCommands(t, cmds)...)
 	for i := range cmds {
@@ -309,6 +311,11 @@ func (a *app) commandsIn(t locales.Messages) []command {
 	}
 	if hcPath() == "" {
 		cmds = slices.DeleteFunc(cmds, func(c command) bool { return c.id == "view.attachHC" })
+	}
+	// Only macOS's app menu has Quit; elsewhere, closing the last window
+	// quits.
+	if runtime.GOOS != "darwin" {
+		cmds = slices.DeleteFunc(cmds, func(c command) bool { return c.id == "file.quit" })
 	}
 	return cmds
 }
@@ -665,7 +672,10 @@ func (a *app) menu(cli bool, run func(id string, win *mygo.Window)) *mygo.Menu {
 			mygo.Separator(),
 			{Role: mygo.RoleServices}, mygo.Separator(),
 			{Role: mygo.RoleHide}, {Role: mygo.RoleHideOthers}, {Role: mygo.RoleUnhide}, mygo.Separator(),
-			{Role: mygo.RoleQuit},
+			// Mayoi's own, rather than the Quit role's, so that it asks
+			// first while quitting otherwise, as to update or log out,
+			// does not.
+			item("file.quit"),
 		})}
 	}
 	// The items of the review comments, off while there are none.

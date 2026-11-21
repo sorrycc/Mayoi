@@ -113,6 +113,10 @@ type confirm struct {
 	// red.
 	choices []confirmChoice
 	choice  int
+	// check labels a checkbox under the message, as "Don't ask again",
+	// none for "", and checked is whether it is ticked, which run reads.
+	check   string
+	checked bool
 }
 
 // confirmChoice is a way to go on that a confirm offers.
@@ -208,6 +212,16 @@ func (a *app) confirmView(c *ui.Context) {
 						col = p.dangerFg
 					}
 					ui.Text(c, ch.message).FontSize(12.5).TextColor(col).ClipX()
+				}
+				if cf.check != "" {
+					// Return chooses the button named ok with the checkbox
+					// focused too, as Space ticks it.
+					ui.Checkbox(c.Key("confirm-check"), &cf.checked, cf.check).OnShortcut(0, ui.KeyEnter, func() {
+						if a.confirm == cf {
+							a.confirm = nil
+							cf.run()
+						}
+					})
 				}
 				buttons := ui.Row(c).Gap(8).Justify(ui.End)
 				buttons.Children(func() {

@@ -2388,6 +2388,16 @@ func (msgs Messages) CmdFileSettings() string {
 	return Catalog.Format(msgs.locale, "cmdFileSettings", nil)
 }
 
+// CmdFileQuit says "Quit Mayoi"
+// in the language the app shows.
+func CmdFileQuit() string { return In(i18n.Locale()).CmdFileQuit() }
+
+// CmdFileQuit says "Quit Mayoi"
+// in the language of msgs.
+func (msgs Messages) CmdFileQuit() string {
+	return Catalog.Format(msgs.locale, "cmdFileQuit", nil)
+}
+
 // CmdFileUninstallCLI says "Uninstall 'mayoi' Command"
 // in the language the app shows.
 func CmdFileUninstallCLI() string { return In(i18n.Locale()).CmdFileUninstallCLI() }
@@ -4702,6 +4712,36 @@ func CrashRecoveredQuestion() string { return In(i18n.Locale()).CrashRecoveredQu
 // in the language of msgs.
 func (msgs Messages) CrashRecoveredQuestion() string {
 	return Catalog.Format(msgs.locale, "crashRecoveredQuestion", nil)
+}
+
+// QuitTitle says "Quit Mayoi?"
+// in the language the app shows.
+func QuitTitle() string { return In(i18n.Locale()).QuitTitle() }
+
+// QuitTitle says "Quit Mayoi?"
+// in the language of msgs.
+func (msgs Messages) QuitTitle() string {
+	return Catalog.Format(msgs.locale, "quitTitle", nil)
+}
+
+// QuitButton says "Quit"
+// in the language the app shows.
+func QuitButton() string { return In(i18n.Locale()).QuitButton() }
+
+// QuitButton says "Quit"
+// in the language of msgs.
+func (msgs Messages) QuitButton() string {
+	return Catalog.Format(msgs.locale, "quitButton", nil)
+}
+
+// QuitDontAsk says "Don't ask again"
+// in the language the app shows.
+func QuitDontAsk() string { return In(i18n.Locale()).QuitDontAsk() }
+
+// QuitDontAsk says "Don't ask again"
+// in the language of msgs.
+func (msgs Messages) QuitDontAsk() string {
+	return Catalog.Format(msgs.locale, "quitDontAsk", nil)
 }
 
 // CreateBranchEllipsis says "Create Branch…"
@@ -15976,6 +16016,26 @@ func PrefDescUsageStats() string { return In(i18n.Locale()).PrefDescUsageStats()
 // in the language of msgs.
 func (msgs Messages) PrefDescUsageStats() string {
 	return Catalog.Format(msgs.locale, "prefDescUsageStats", nil)
+}
+
+// PrefTitleConfirmBeforeQuit says "Confirm Before Quit"
+// in the language the app shows.
+func PrefTitleConfirmBeforeQuit() string { return In(i18n.Locale()).PrefTitleConfirmBeforeQuit() }
+
+// PrefTitleConfirmBeforeQuit says "Confirm Before Quit"
+// in the language of msgs.
+func (msgs Messages) PrefTitleConfirmBeforeQuit() string {
+	return Catalog.Format(msgs.locale, "prefTitleConfirmBeforeQuit", nil)
+}
+
+// PrefDescConfirmBeforeQuit says "Asks before Cmd+Q quits Mayoi."
+// in the language the app shows.
+func PrefDescConfirmBeforeQuit() string { return In(i18n.Locale()).PrefDescConfirmBeforeQuit() }
+
+// PrefDescConfirmBeforeQuit says "Asks before Cmd+Q quits Mayoi."
+// in the language of msgs.
+func (msgs Messages) PrefDescConfirmBeforeQuit() string {
+	return Catalog.Format(msgs.locale, "prefDescConfirmBeforeQuit", nil)
 }
 
 // PrefTitleSyncIgnored says "Keep on This Machine"

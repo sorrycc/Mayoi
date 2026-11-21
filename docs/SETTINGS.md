@@ -115,6 +115,7 @@ takes its default.
 | `aiSecretFiles`         | none          | Patterns of files AI commit messages send by name only      | Only this file                                 |
 | `crashReports`          | `""`          | `""` (ask), `"always"`, `"never"`                           | **Don't ask again** when Mayoi asks           |
 | `usageStats`            | `true`        | `true`, `false`                                             | Only this file                                 |
+| `confirmBeforeQuit`     | `true`        | `true`, `false`                                             | **Don't ask again** when Mayoi asks to quit   |
 | `plugins`               | none          | Each plugin's own settings, and `"enabled": false` to turn it off | The **Plugins** page of the settings window |
 | `formatOnSave`          | none          | `true` for each language to format as it saves, or `"*"` for all | Only this file                          |
 | `formatters`            | none          | The formatter of each language, where plugins offer several | Only this file                                 |
@@ -305,6 +306,9 @@ differ in width lines them up only roughly.
   version (and the one before, for `update`), the system and its architecture, and the language of the menus; never a
   path, a file, a name or your account. Turn it off to send nothing. `DO_NOT_TRACK=1` in Mayoi's environment turns
   it off too. Only releases send, and builds started with `MAYOI_UMAMI_URL`. See [PRIVACY.md](PRIVACY.md).
+- **`confirmBeforeQuit`** asks before `Cmd+Q` and **Mayoi → Quit Mayoi** quit, on macOS. Quitting from the Dock, to
+  update, to log out or shut down, and closing the last window never ask. **Don't ask again** turns it off once you
+  choose **Quit**; **Settings → General → Confirm Before Quit** turns it back on.
 - **`aiSecretFiles`** adds patterns of files whose lines **Write Commit Message with AI** never sends, after
   Mayoi's own list of `.env` files, keys and credentials. A name matches in any folder, a path such as
   `config/prod.yml` matches the end of a file's path, and `/config/prod.yml` its start. `**` is any run of folders,

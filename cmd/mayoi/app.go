@@ -91,6 +91,9 @@ type host interface {
 	showSettings(section, key string)
 	// redrawWindows draws every window with the current font and zoom.
 	redrawWindows()
+	// quitApp quits Mayoi as Cmd+Q does, asking first in this window
+	// while confirmBeforeQuit is on.
+	quitApp()
 	// installCLI and uninstallCLI put the mayoi command on the shell's
 	// path, and take it away, saying how it went.
 	installCLI()

@@ -13572,6 +13572,16 @@ func (msgs Messages) NoteTermExitedEarly(shell string, code string) string {
 	return Catalog.Format(msgs.locale, "noteTermExitedEarly", map[string]any{"shell": shell, "code": code})
 }
 
+// NoteDialogFailed says "The file dialog could not open: {err}"
+// in the language the app shows.
+func NoteDialogFailed(err string) string { return In(i18n.Locale()).NoteDialogFailed(err) }
+
+// NoteDialogFailed says "The file dialog could not open: {err}"
+// in the language of msgs.
+func (msgs Messages) NoteDialogFailed(err string) string {
+	return Catalog.Format(msgs.locale, "noteDialogFailed", map[string]any{"err": err})
+}
+
 // NoteIntelBuild says "This is the Intel build, which runs slower on this Mac and can crash. The next update installs the Apple silicon build."
 // in the language the app shows.
 func NoteIntelBuild() string { return In(i18n.Locale()).NoteIntelBuild() }

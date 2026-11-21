@@ -107,7 +107,9 @@ func (h *desktop) openFolder(done func(string)) {
 		paths, err := mygo.Dialog.Open(mygo.OpenDialogOptions{
 			Parent: h.f.win, Title: locales.DialogOpenFolder(), ButtonLabel: locales.DialogOpen(), Directory: true, CreateDirectories: true,
 		})
-		if err == nil && len(paths) > 0 {
+		if err != nil {
+			h.dialogFailed(err)
+		} else if len(paths) > 0 {
 			h.a.post(func() { done(paths[0]) })
 		}
 	}()
@@ -119,7 +121,9 @@ func (h *desktop) choosePaths(title, button, dir string, folders bool, done func
 			Parent: h.f.win, Title: title, ButtonLabel: button, DefaultPath: dir,
 			Directory: folders, Multiple: !folders, CreateDirectories: folders,
 		})
-		if err == nil && len(paths) > 0 {
+		if err != nil {
+			h.dialogFailed(err)
+		} else if len(paths) > 0 {
 			h.a.post(func() { done(paths) })
 		}
 	}()
@@ -140,7 +144,9 @@ func (h *desktop) chooseIcon(dir string, done func(string)) {
 			Parent: h.f.win, Title: locales.DialogChooseIcon(), ButtonLabel: locales.DialogChoose(), DefaultPath: dir,
 			Filters: []mygo.FileFilter{{Name: locales.DialogImages(), Extensions: exts}},
 		})
-		if err == nil && len(paths) > 0 {
+		if err != nil {
+			h.dialogFailed(err)
+		} else if len(paths) > 0 {
 			h.a.post(func() { done(paths[0]) })
 		}
 	}()
@@ -154,9 +160,16 @@ func (h *desktop) saveAs(name string, done func(string)) {
 		})
 		if err != nil {
 			path = ""
+			h.dialogFailed(err)
 		}
 		h.a.post(func() { done(path) })
 	}()
+}
+
+// dialogFailed tells, from any goroutine, that a file dialog could not
+// show, rather than let the click do nothing.
+func (h *desktop) dialogFailed(err error) {
+	h.a.post(func() { h.a.dialogFailed(err) })
 }
 
 func (h *desktop) exportAs(path, ext string, done func(string)) {

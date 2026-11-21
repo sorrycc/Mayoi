@@ -256,12 +256,20 @@ func TestBudgets(t *testing.T) {
 		// taking their room, so that a frame costs as much as for a short
 		// one, idle, scrolled through and typed in at its last row. A row
 		// added to it costs far more, in the text measuring its lines
-		// again (TestLiveTableLong adds one).
+		// again (TestLiveTableLong adds one). The rows built, the same
+		// for any length, TestLiveTableLong counts.
+		//
+		// Scrolled over the table, a frame costs as over any table drawn
+		// (one of 60 rows, 2.48 ms here, against 2.53 ms): the block's
+		// handler sets the offset, which builds the frame again, and the
+		// cells in view paint. CI's macOS runners took the best of three
+		// attempts at 5.5 to 8.1 ms over three runs, the worst at 12 ms,
+		// slower than this before and after alike: hence above 5 ms.
 		{"Live Preview 1,000-row table idle frame", 2 * time.Millisecond, false, func(t *testing.T, hs *harness) func() {
 			bigTable(t, hs)
 			return func() { step(hs.tt) }
 		}},
-		{"Live Preview 1,000-row table scroll frame", 5 * time.Millisecond, false, func(t *testing.T, hs *harness) func() {
+		{"Live Preview 1,000-row table scroll frame", 10 * time.Millisecond, false, func(t *testing.T, hs *harness) func() {
 			bigTable(t, hs)
 			i := 0
 			return func() {

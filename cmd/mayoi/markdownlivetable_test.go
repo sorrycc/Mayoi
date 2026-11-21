@@ -60,26 +60,34 @@ func wheelTo(hs *harness, d *editor, x, y float32, down bool, each func()) {
 	}
 }
 
-// wheelToShow scrolls the wheel at x, in the middle of view, up from past
-// the text s shows as, back down a little where it went past it, until it
-// shows whole within view: by where it shows, as fonts and windows differ
-// from one system to another.
-func wheelToShow(t *testing.T, hs *harness, x float32, view ui.Rect, s string) {
+// wheelToShow scrolls the wheel at x, in the middle of view, until the
+// text s shows whole within view: toward table, where it is not shown,
+// and a little either way where it shows cut at an edge. By where things
+// show, as fonts and windows differ from one system to another.
+func wheelToShow(t *testing.T, hs *harness, x float32, view ui.Rect, table *liveView, s string) {
 	t.Helper()
-	for range 200 {
-		r, ok := hs.tt.Find(s)
+	var r ui.Rect
+	for range 300 {
+		var ok bool
+		r, ok = hs.tt.Find(s)
 		ok = ok && r.H > 0 && r.W > 0 // clipped away at an edge: no size
-		dy := float32(-120)
+		var dy float32
 		switch {
 		case ok && r.Y >= view.Y && r.Y+r.H <= view.Y+view.H:
 			return
 		case ok && r.Y < view.Y:
+			dy = -40 // cut at the top: the text down a little
+		case ok:
 			dy = 40
+		case table.at.Y+table.at.H > view.Y+view.H:
+			dy = 120 // the table's end is below
+		default:
+			dy = -120
 		}
 		hs.tt.Scroll(x, view.Y+view.H/2, 0, dy)
 		hs.settle()
 	}
-	t.Fatalf("the wheel does not bring %q into view %v", s, view)
+	t.Fatalf("the wheel does not bring %q into view %v: last at %v, the table at %v", s, view, r, table.at)
 }
 
 // A long table builds the rows in view only, and stays as high, its
@@ -124,6 +132,16 @@ func TestLiveTableLong(t *testing.T) {
 		}
 		// Not even by a fraction of a pixel: a height taken anew asks for
 		// a frame more, and lays the table's lines out again.
+		// As many rows built as the view and half a view on either side
+		// hold, the shortest of them, wherever it is scrolled: the work of
+		// a frame does not grow with the table.
+		short := lv.rows[1].h
+		for _, r := range lv.rows[1:] {
+			short = min(short, r.h)
+		}
+		if most := int(view.H*(1+2*liveRowsShown)/short) + 3; len(lv.built) > most {
+			t.Fatalf("scrolled to %v, the table built %d rows, more than the %d the view holds", d.vscroll.Y, len(lv.built), most)
+		}
 		if lv.height != tall {
 			t.Fatalf("scrolled to %v, the table's height went from %v to %v", d.vscroll.Y, tall, lv.height)
 		}
@@ -219,7 +237,7 @@ func TestLiveTableLong(t *testing.T) {
 	y = view.Y + view.H/2
 	wheelTo(hs, d, d.liveAt.X+60, y, false, nil)
 	wheelTo(hs, right, right.liveAt.X+60, y, true, nil)
-	wheelToShow(t, hs, right.liveAt.X+60, view, "item 399")
+	wheelToShow(t, hs, right.liveAt.X+60, view, tableView(right), "item 399")
 	if err := hs.tt.Click("item 399"); err != nil {
 		t.Fatal(err)
 	}

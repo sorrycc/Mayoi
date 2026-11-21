@@ -5,6 +5,8 @@ needs a `## <version>` section here, or its build fails.
 
 ## Unreleased
 
+- Plugins can open reusable text output beside its source document.
+
 - Plugins can show clickable actions above source lines, with stale actions removed on edits or reload.
 - Plugin text output can target its source window and display JSON with syntax highlighting.
 

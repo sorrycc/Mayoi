@@ -14,17 +14,14 @@ import (
 	"unicode/utf16"
 	"unicode/utf8"
 
-	"github.com/alecthomas/chroma/v2/lexers"
 	"github.com/egoist/mygo/ui"
 
 	"mayoi/internal/cli"
-	"mayoi/internal/highlight"
 	"mayoi/internal/mon"
 	"mayoi/internal/plugin"
 	"mayoi/internal/remote"
 	"mayoi/internal/vfs"
 	"mayoi/internal/workspace"
-	"mayoi/locales"
 )
 
 // The calls plugins make to the app: plugin.Host's Call. Each runs on a
@@ -542,26 +539,7 @@ func (h *pluginHost) Call(p *plugin.Plugin, generation uint64, method string, ra
 		h.redraw()
 		return nil, nil
 	case "window.openText":
-		return main(func(a *app) (any, error) {
-			language := strings.ToLower(args.Language)
-			lexer := lexers.Get(language)
-			if language != "" && language != "plaintext" && lexer == nil {
-				return nil, fmt.Errorf("unknown language %q", args.Language)
-			}
-			a.openGenerated(args.Title, args.Text)
-			d := a.activeEditor().document
-			if language != "" {
-				d.language = language
-				d.hl.Close()
-				d.hl = highlight.New(lexer, a.invalidate)
-			}
-			if args.Title == "" {
-				if t := a.activeTab(); t != nil && t.ed != nil {
-					t.ed.title = locales.UntitledName(t.ed.number)
-				}
-			}
-			return nil, nil
-		})
+		return h.openPluginText(p, generation, raw)
 	case "languages.setCodeLenses", "languages.clearCodeLenses":
 		return h.setCodeLenses(p, generation, method, raw)
 	case "process.run":

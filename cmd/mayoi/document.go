@@ -34,6 +34,8 @@ var (
 // document is a file open in the editor: its text, and what follows from
 // the text alone. Each tab that shows it has an editor of its own.
 type document struct {
+	outputOwner, outputKey string
+
 	language string // explicit language of generated, untitled output
 	lenses   []codeLensBatch
 	id       int

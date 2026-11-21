@@ -162,7 +162,7 @@
           .then(fn)
           .finally(() => call("window.progress", { title, done: true }));
       },
-      openText: (text, opts) => call("window.openText", { text, title: opts?.title, language: opts?.language, windowId: opts?.windowId }),
+      openText: (text, opts) => call("window.openText", { text, title: opts?.title, language: opts?.language, windowId: opts?.windowId, beside: opts?.beside, key: opts?.key }),
     },
     settings: {
       get: (key) => callSync("settings.get", { key }),

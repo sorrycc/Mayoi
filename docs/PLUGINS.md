@@ -617,3 +617,14 @@ Language accepts Chroma names/aliases or `"plaintext"`; unknown names reject.
 Saving the output chooses the language from its new file name. Omitting language
 keeps the existing plain-text behavior, and omitting windowId uses the front window.
 
+
+`window.openText` also accepts `beside: source.ref`, which opens output in the
+next unlocked column to that source in its own window, creating a column when
+needed. `windowId`, when provided too, must match the source. Closing the source
+rejects the output instead of placing it elsewhere.
+
+An optional `key` reuses that plugin's untitled output with the same key in the
+window, including after plugin reload. Other plugins cannot replace it. A saved
+output becomes an ordinary file; a later response opens a new untitled output.
+Unsaved edits in an output reject replacement, so the plugin cannot silently
+lose user changes. Omitting `beside` and `key` keeps the existing new-tab behavior.

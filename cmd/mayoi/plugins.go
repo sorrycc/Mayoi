@@ -759,19 +759,6 @@ func truncate(s string, n int) string {
 	return s
 }
 
-// openGenerated opens text in an untitled tab, as a report.
-func (a *app) openGenerated(title, text string) {
-	a.untitled++
-	col := a.fileColumn()
-	a.addUntitled(col, a.untitled, text)
-	t := col.tabs[len(col.tabs)-1]
-	if t.ed != nil {
-		t.ed.title = title
-		t.ed.saved = t.ed.buf.Version()
-	}
-	a.activate(col, len(col.tabs)-1, true)
-}
-
 // languageOf is the language plugins know a document by: the lexer's
 // name in lower case, as "go" or "typescript", or a language a plugin
 // declares for its file.

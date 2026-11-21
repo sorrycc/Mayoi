@@ -71,6 +71,7 @@ func (a *app) toggleMergeWrap(v *mergeView) {
 // below its padding: one row each, lineH apart, or where the area laid
 // them out, as it wraps them or as it folds them.
 type geometry struct {
+	gaps  map[int]float32
 	lines *ui.TextLines // nil while the editor does not wrap
 	lineH float32
 	n     int // the lines
@@ -91,6 +92,13 @@ func (a *app) geometry(d *editor, n int) geometry {
 			g.folds = &d.lines
 		}
 	}
+	if len(d.currentLenses()) > 0 && !a.livePreview(d) {
+		g.gaps = map[int]float32{}
+		if g.laid() == nil {
+			g.folds = &d.lines
+		}
+		a.codeLensGaps(d, g)
+	}
 	return g
 }
 
@@ -106,7 +114,7 @@ func (g geometry) laid() *ui.TextLines {
 // top returns the top of line i.
 func (g geometry) top(i int) float32 {
 	if l := g.laid(); l != nil {
-		return l.Top(i)
+		return l.Top(i) + g.gaps[i]
 	}
 	return float32(i) * g.lineH
 }

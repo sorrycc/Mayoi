@@ -593,3 +593,27 @@ the failure, and its server starts for the files open once it is installed.
 { "name": "gopls", "displayName": "Go", "description": "Go with gopls", "repository": "https://github.com/me/mayoi-gopls",
   "languages": ["go"], "detect": "gopls", "install": "go install golang.org/x/tools/gopls@latest" }
 ```
+
+### Source-line actions and response text
+
+Use `languages.setCodeLenses(doc.ref, items, { version: snapshot.version })`
+to replace your plugin's actions above source lines. Each item has a stable
+`id`, zero-based `line`, `title`, your own registered `command`, and optional
+string `arg`. The promise returns `false` if the version, document, or publishing
+runtime has expired. Invalid items reject without replacing the previous batch.
+`languages.clearCodeLenses(ref)` removes this plugin's actions in that document.
+Actions are shared between views of a document, hidden inside code folds, and
+removed on text changes or plugin stop, disable, reload, removal, or crash.
+They appear in the source editor; Markdown Live Preview does not display them.
+Clicking delivers the original argument and a second `CommandContext` with
+`source: "codeLens"`, source document, version and line. Commands can await network
+work while another command cancels it. Recheck the snapshot version before sending
+a request derived from an action. Actions do not edit or save source text.
+
+`window.openText(text, { title, language: "json", windowId: doc.ref.windowId })`
+opens an untitled output tab in the source window, even after focus moves.
+A closed target window rejects; it does not redirect to another window.
+Language accepts Chroma names/aliases or `"plaintext"`; unknown names reject.
+Saving the output chooses the language from its new file name. Omitting language
+keeps the existing plain-text behavior, and omitting windowId uses the front window.
+

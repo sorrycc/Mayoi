@@ -365,6 +365,9 @@ func (h *pluginHost) Changed() {
 	h.mu.Unlock()
 	h.onMain(func() {
 		for _, a := range h.apps() {
+			for _, d := range a.docs {
+				d.currentLenses()
+			}
 			a.palette, a.hints = nil, nil
 			a.invalidate()
 		}
@@ -773,6 +776,9 @@ func (a *app) openGenerated(title, text string) {
 // name in lower case, as "go" or "typescript", or a language a plugin
 // declares for its file.
 func languageOf(d *document) string {
+	if d.path == "" && d.language != "" {
+		return d.language
+	}
 	if id := pluginLanguage(d.path); id != "" {
 		return id
 	}

@@ -39,7 +39,7 @@ declare module "mayoi" {
   }
 
   export interface CommandContext {
-    source: "command" | "tab/context" | "explorer/context" | "api" | "cli";
+    source: "command" | "tab/context" | "explorer/context" | "api" | "cli" | "codeLens";
     windowId: number;
     document?: DocumentRef;
     version?: number;
@@ -140,7 +140,7 @@ declare module "mayoi" {
     /** Shows a spinner in the status bar while fn runs. */
     progress<T>(title: string, fn: () => Promise<T> | T): Promise<T>;
     /** Opens text in a new untitled tab. */
-    openText(text: string, opts?: { title?: string; language?: string }): Promise<void>;
+    openText(text: string, opts?: { title?: string; language?: string; windowId?: number }): Promise<void>;
   };
 
   export const settings: {
@@ -198,7 +198,19 @@ declare module "mayoi" {
     code?: string;
   }
 
+  export interface CodeLens {
+    id: string;
+    /** Zero-based source line; the action appears above it. */
+    line: number;
+    title: string;
+    command: string;
+    arg?: string;
+  }
+
   export const languages: {
+    /** Replaces this runtime's actions. Returns false for an expired version or document. */
+    setCodeLenses(ref: DocumentRef, items: CodeLens[], opts: { version: number }): Promise<boolean>;
+    clearCodeLenses(ref: DocumentRef): Promise<boolean>;
     /** Replaces the plugin's diagnostics of a file. */
     setDiagnostics(path: string, items: Diagnostic[], opts?: { source?: string }): Promise<void>;
     /** Clears the plugin's diagnostics of a file, or of every file. */

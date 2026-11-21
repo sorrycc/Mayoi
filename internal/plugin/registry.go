@@ -27,8 +27,8 @@ import (
 type Host interface {
 	// Call runs a call of a plugin to the app, on a goroutine of its own,
 	// which may wait for the app's main thread. The result is marshalled
-	// to JSON for the plugin.
-	Call(p *Plugin, method string, args json.RawMessage) (any, error)
+	// to JSON for the plugin. Generation is captured by the originating runtime.
+	Call(p *Plugin, generation uint64, method string, args json.RawMessage) (any, error)
 	// Settings are the plugin's object of plugins.<name> in settings.json,
 	// nil for none.
 	Settings(name string) json.RawMessage
@@ -81,6 +81,7 @@ type Plugin struct {
 	reg     *Registry
 	sig     string // the files as they were read, to tell a change
 
+	generation  atomic.Uint64
 	mu          sync.Mutex
 	in          *instance
 	starting    chan struct{}
@@ -534,6 +535,7 @@ func (r *Registry) Close() {
 func (p *Plugin) shutdown() {
 	p.mu.Lock()
 	in := p.in
+	p.generation.Add(1)
 	p.in = nil
 	p.subs, p.hovers, p.dynamic = nil, nil, nil
 	p.mu.Unlock()
@@ -650,12 +652,18 @@ func (p *Plugin) ensure() (*instance, error) {
 	}
 	ch := make(chan struct{})
 	p.starting = ch
+	generation := p.generation.Add(1)
 	p.mu.Unlock()
 	began := time.Now()
-	in, err := start(p, p.reg.host, p.reg.HTTP)
+	in, err := start(p, generation, p.reg.host, p.reg.HTTP)
 	p.mu.Lock()
 	p.starting = nil
+	if generation != p.generation.Load() && err == nil {
+		in.stop()
+		err = errors.New("plugin stopped during activation")
+	}
 	if err != nil {
+		p.generation.CompareAndSwap(generation, generation+1)
 		p.crashes++
 		p.lastErr = err.Error()
 	} else {
@@ -685,6 +693,7 @@ func (p *Plugin) follow(in *instance) {
 	p.mu.Lock()
 	ours := p.in == in
 	if ours {
+		p.generation.Add(1)
 		p.in = nil
 		p.subs, p.hovers, p.dynamic = nil, nil, nil
 		p.crashes++
@@ -715,7 +724,7 @@ func (r *Registry) RunOnce(source, ext string) (json.RawMessage, error) {
 	p := &Plugin{fsys: fsys, reg: r, Script: true}
 	p.Name, p.Main = "selection", file
 	defer p.shutdown()
-	in, err := start(p, r.host, r.HTTP)
+	in, err := start(p, p.generation.Add(1), r.host, r.HTTP)
 	if err != nil {
 		return nil, err
 	}
@@ -838,11 +847,11 @@ func (r *Registry) Emit(event string, data any) {
 
 // call routes a call of a plugin to the app: the registry answers some
 // itself, the host the others.
-func (r *Registry) call(p *Plugin, method string, args json.RawMessage) ([]byte, error) {
+func (r *Registry) call(p *Plugin, generation uint64, method string, args json.RawMessage) ([]byte, error) {
 	if r.host == nil {
 		return nil, errors.New("no host")
 	}
-	res, err := r.host.Call(p, method, args)
+	res, err := r.host.Call(p, generation, method, args)
 	if err != nil {
 		return nil, err
 	}

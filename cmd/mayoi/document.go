@@ -34,9 +34,11 @@ var (
 // document is a file open in the editor: its text, and what follows from
 // the text alone. Each tab that shows it has an editor of its own.
 type document struct {
-	id    int
-	path  string // absolute; "" for an untitled document
-	title string // an untitled document's name
+	language string // explicit language of generated, untitled output
+	lenses   []codeLensBatch
+	id       int
+	path     string // absolute; "" for an untitled document
+	title    string // an untitled document's name
 	// number is the number of an untitled document's name, and kept the
 	// file that keeps its text as the app quits, of version keptVersion.
 	number int

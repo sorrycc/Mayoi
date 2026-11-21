@@ -162,7 +162,7 @@
           .then(fn)
           .finally(() => call("window.progress", { title, done: true }));
       },
-      openText: (text, opts) => call("window.openText", { text, title: opts?.title, language: opts?.language }),
+      openText: (text, opts) => call("window.openText", { text, title: opts?.title, language: opts?.language, windowId: opts?.windowId }),
     },
     settings: {
       get: (key) => callSync("settings.get", { key }),
@@ -191,6 +191,8 @@
         call("process.run", { command, args: args ?? [], cwd: opts?.cwd, input: opts?.input, timeout: opts?.timeout }),
     },
     languages: {
+      setCodeLenses: (ref, items, opts) => call("languages.setCodeLenses", { ref, items, version: opts?.version }),
+      clearCodeLenses: (ref) => call("languages.clearCodeLenses", { ref }),
       setDiagnostics: (path, items, opts) => call("languages.diagnostics", { path, items, source: opts?.source }),
       clearDiagnostics: (path) => call("languages.diagnostics", { path, items: [], clear: path === undefined }),
       registerFormatter(id, fn) {

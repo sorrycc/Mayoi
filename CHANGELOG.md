@@ -5,6 +5,9 @@ needs a `## <version>` section here, or its build fails.
 
 ## Unreleased
 
+- Plugins can show clickable actions above source lines, with stale actions removed on edits or reload.
+- Plugin text output can target its source window and display JSON with syntax highlighting.
+
 - Plugins keep targeting their source documents when you switch windows.
 - Plugins can read a document's text and version together and track untitled documents closing.
 - Plugin tab actions receive the tab you chose, including unsaved buffers.

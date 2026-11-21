@@ -14,9 +14,11 @@ import (
 	"unicode/utf16"
 	"unicode/utf8"
 
+	"github.com/alecthomas/chroma/v2/lexers"
 	"github.com/egoist/mygo/ui"
 
 	"mayoi/internal/cli"
+	"mayoi/internal/highlight"
 	"mayoi/internal/mon"
 	"mayoi/internal/plugin"
 	"mayoi/internal/remote"
@@ -163,7 +165,7 @@ func pluginPath(a *app, p string) (string, error) {
 }
 
 // Call implements plugin.Host.
-func (h *pluginHost) Call(p *plugin.Plugin, method string, raw json.RawMessage) (any, error) {
+func (h *pluginHost) Call(p *plugin.Plugin, generation uint64, method string, raw json.RawMessage) (any, error) {
 	var args struct {
 		ID       string              `json:"id"`
 		Arg      string              `json:"arg"`
@@ -541,7 +543,18 @@ func (h *pluginHost) Call(p *plugin.Plugin, method string, raw json.RawMessage) 
 		return nil, nil
 	case "window.openText":
 		return main(func(a *app) (any, error) {
+			language := strings.ToLower(args.Language)
+			lexer := lexers.Get(language)
+			if language != "" && language != "plaintext" && lexer == nil {
+				return nil, fmt.Errorf("unknown language %q", args.Language)
+			}
 			a.openGenerated(args.Title, args.Text)
+			d := a.activeEditor().document
+			if language != "" {
+				d.language = language
+				d.hl.Close()
+				d.hl = highlight.New(lexer, a.invalidate)
+			}
 			if args.Title == "" {
 				if t := a.activeTab(); t != nil && t.ed != nil {
 					t.ed.title = locales.UntitledName(t.ed.number)
@@ -549,6 +562,8 @@ func (h *pluginHost) Call(p *plugin.Plugin, method string, raw json.RawMessage) 
 			}
 			return nil, nil
 		})
+	case "languages.setCodeLenses", "languages.clearCodeLenses":
+		return h.setCodeLenses(p, generation, method, raw)
 	case "process.run":
 		v, err := main(func(a *app) (any, error) {
 			if args.Cwd == "" {

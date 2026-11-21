@@ -274,7 +274,7 @@ func TestPluginOpenAnswersOnceRead(t *testing.T) {
 	h := newPluginHost(func() []*app { return []*app{a} }, a.post, func() *settings.Settings { return a.settings }, func() {})
 	answered := make(chan error, 1)
 	go func() {
-		_, err := h.Call(nil, "workspace.open", json.RawMessage(`{"path":"main.go"}`))
+		_, err := h.Call(nil, 0, "workspace.open", json.RawMessage(`{"path":"main.go"}`))
 		answered <- err
 	}()
 	for range 20 {

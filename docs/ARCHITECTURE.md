@@ -169,7 +169,9 @@ rows in view and a view above and below it, and the row of the cell, the others 
 (`markdownlivetable.go`): all of them are built once as it shows and at each new width, to know their heights. Its
 lines each keep the room of their row in the text area (`liveTableRooms`), so the lines in view, a caret waiting in
 view and the area keeping its place as a row takes its height all find the row where it shows; the caret waits on the
-cell's row as the cell writes, as the area takes the lines after an edit for guesses until it measures them again. A bullet and a task's box keep the width of their source, which shows in their room as the caret comes to
+cell's row as the cell writes, as the area takes the lines after an edit for guesses until it measures them again. What
+an element's handler leaves goes to no handler around it, so a cell and the cell's input hand a scroll up or down to
+the block (`passScroll`), which scrolls the text under it. A bullet and a task's box keep the width of their source, which shows in their room as the caret comes to
 them, so the line holds still. A picture of the web on its way is a card (`livePicture`), whose room glides to the
 picture's as it arrives and fades in over it. The link under the pointer is found from where the area says the pointer
 is (`liveHovered`), and its underline fills in. Blocks of code are cards painted behind their lines, their code alone

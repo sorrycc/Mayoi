@@ -1908,6 +1908,18 @@ func (a *app) markdownSpan(r markdownInline, color ui.Color, size float32, block
 	return span
 }
 
+// passScroll hands a vertical scroll over an element of a block Live
+// Preview draws that takes its own input, as a table's cell, to the block,
+// which scrolls the text under it: what an element's handler leaves goes
+// to no handler around it. One mostly sideways stays the element's, as
+// an input scrolls its text by it.
+func (m *markdownPreview) passScroll(ev ui.InputEvent) bool {
+	if ev.Kind != ui.InputScroll || m.passInput == nil || ev.DY == 0 || max(ev.DX, -ev.DX) > max(ev.DY, -ev.DY) {
+		return false
+	}
+	return m.passInput(ev)
+}
+
 // markdownTableColumns measures the columns of the table whose first row
 // is first, once for each parse and font.
 func (a *app) markdownTableColumns(m *markdownPreview, first int, font ui.Font) []float32 {
@@ -2642,7 +2654,7 @@ func (a *app) markdownTableRow(c *ui.Context, m *markdownPreview, path string, i
 			if m.cellPress != nil {
 				// A cell edits in place: the pointer over it is a text
 				// cursor.
-				cellBox.Cursor(ui.CursorText).HandleInput(func(ev ui.InputEvent) bool { return m.cellPress(row, k, ev) })
+				cellBox.Cursor(ui.CursorText).HandleInput(func(ev ui.InputEvent) bool { return m.cellPress(row, k, ev) || m.passScroll(ev) })
 			}
 			if m.cellMenu != nil {
 				cellBox.ContextMenu(func(menu *ui.Menu) { m.cellMenu(row, k, menu) })

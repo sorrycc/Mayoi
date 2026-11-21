@@ -16,6 +16,7 @@ needs a `## <version>` section here, or its build fails.
 - Long tables in Live Preview stay smooth to scroll and edit, even with thousands of rows.
 - Moving to a table cell with `Tab`, `Return` or the arrow keys scrolls it into view if it was off screen.
 - Editing a cell or adding a row in a long Live Preview table no longer closes the cell or jumps the view.
+- Scrolling with the wheel or trackpad over a Live Preview table, or the cell you're editing, now scrolls the note.
 
 - `Cmd+D` splits right and `Cmd+Shift+D` splits down, as in iTerm2, from an editor or a terminal tab.
 - **View → Split Down** stacks a new column under the current one, and you drag the line between them to resize.

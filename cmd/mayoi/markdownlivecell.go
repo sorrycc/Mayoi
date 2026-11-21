@@ -432,7 +432,7 @@ func (a *app) liveCellHooks(d *editor, m *markdownPreview, first, last int) {
 			menu.EditItems()
 		})
 		in.HandleInput(func(ev ui.InputEvent) bool {
-			if a.liveCellKey(d, ev) {
+			if a.liveCellKey(d, ev) || m.passScroll(ev) {
 				return true
 			}
 			if ev.Kind == ui.InputKeyDown && ev.Mods&(ui.Cmd|ui.Ctrl) != 0 {

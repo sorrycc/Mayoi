@@ -174,12 +174,13 @@ func TestLiveTableLong(t *testing.T) {
 		lv := tableView(right)
 		return lv != nil && lv.measured && lv.frame == a.frame && len(lv.built) < rows
 	})
-	// Escape left the left column's caret after the table, in view.
-	d.vscroll.Y = 0
-	hs.settle()
-	// The right column scrolled to the table's last rows.
+	// Escape left the left column's caret after the table, in view: back
+	// to the top by the wheel over the table's cells, and the right column
+	// to the table's last rows.
+	wheelTo(hs, d, d.liveAt.X+60, y, false, nil)
+	wheelTo(hs, right, right.liveAt.X+60, y, true, nil)
 	rlv := tableView(right)
-	right.vscroll.Y += rlv.at.Y + rlv.at.H - (view.Y + view.H) + 100
+	hs.tt.Scroll(right.liveAt.X+60, y, 0, rlv.at.Y+rlv.at.H-(view.Y+view.H)+100)
 	hs.settle()
 	if err := hs.tt.Click("item 399"); err != nil {
 		t.Fatal(err)
@@ -190,5 +191,69 @@ func TestLiveTableLong(t *testing.T) {
 	}
 	if left := tableView(d); left.frame != a.frame || slices.Contains(left.built, rows) || d.vscroll.Y != 0 {
 		t.Fatalf("the left column at %v built %d rows, the last among them", d.vscroll.Y, len(left.built))
+	}
+}
+
+// The wheel over a table drawn scrolls its editor as over the text, once
+// for each event: over a cell's text, its padding and a link in it, and
+// over the input of the cell edited, which keeps the keyboard; sideways
+// over the input it scrolls the input, not the text.
+func TestLiveTableWheel(t *testing.T) {
+	hs := newHarness(t, true)
+	hs.tt.SetSize(1200, 800)
+	var src strings.Builder
+	src.WriteString(strings.Repeat("A paragraph of text above the table.\n\n", 12))
+	src.WriteString("| Name | Site |\n| --- | --- |\n")
+	for i := range 60 {
+		fmt.Fprintf(&src, "| row %d | [site %d](https://example.com/%d) |\n", i, i, i)
+	}
+	src.WriteString(strings.Repeat("\nA paragraph of text below the table.\n", 12))
+	d := openLive(t, hs, "wheel.md", src.String(), 1)
+	d.vscroll.Y = 300
+	hs.settle()
+	wheel := func(what string, r ui.Rect, x, dx, dy float32, want float32) {
+		t.Helper()
+		was := d.vscroll.Y
+		hs.tt.Scroll(x, r.Y+r.H/2, dx, dy)
+		hs.settle()
+		if got := d.vscroll.Y - was; math.Abs(float64(got-want)) > 0.5 {
+			t.Fatalf("the wheel over %s at %v scrolled the text by %v, not %v", what, r, got, want)
+		}
+	}
+	find := func(s string) ui.Rect {
+		t.Helper()
+		r, ok := hs.tt.Find(s)
+		view, _ := hs.tt.Find("Editor wheel.md")
+		if !ok || r.Y < view.Y || r.Y+r.H > view.Y+view.H {
+			t.Fatalf("%q does not show in the view %v: %v", s, view, r)
+		}
+		return r
+	}
+	r := find("row 8")
+	wheel("a cell's text", r, r.X+r.W/2, 0, 40, 40)
+	r = find("row 9")
+	wheel("a cell's padding", r, r.X-6, 0, 40, 40)
+	r = find("Open link https://example.com/10")
+	wheel("a link in a cell", r, r.X+r.W/2, 0, -40, -40)
+
+	r = find("row 11")
+	hs.tt.ClickAt(r.X+r.W/2, r.Y+r.H/2)
+	hs.settle()
+	cell := &d.liveCell
+	if !cell.on || cell.row != 12 || !cellFocused(hs, d) {
+		t.Fatalf("the click edits %+v", *cell)
+	}
+	in := find(locales.LiveCellLabel(strconv.Itoa(cell.row+1), strconv.Itoa(cell.col+1)))
+	wheel("the cell's input", in, in.X+in.W/2, 0, 40, 40)
+	in = find(locales.LiveCellLabel(strconv.Itoa(cell.row+1), strconv.Itoa(cell.col+1)))
+	wheel("the cell's input sideways", in, in.X+in.W/2, 40, 0, 0)
+	r = find("row 14")
+	wheel("another cell", r, r.X+r.W/2, 0, 40, 40)
+	if !cell.on || cell.row != 12 || !cellFocused(hs, d) {
+		t.Fatalf("the wheel left the cell %+v", *cell)
+	}
+	hs.key(0, ui.KeyDown)
+	if !cell.on || cell.row != 13 || !cellFocused(hs, d) {
+		t.Fatalf("Down after the wheel went to %+v", *cell)
 	}
 }

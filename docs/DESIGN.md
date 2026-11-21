@@ -61,7 +61,9 @@ The order: it works, then it is easy, then it looks good. Polish never covers a 
   last column stays, their items off (`TestLiveTableMenu`). A change chosen for a table that changed since is not
   made, and the cell follows its table as lines come above it (`TestLiveTableStale`). A long table is as high as all
   of its rows and its columns as wide wherever it is scrolled, the cell a key moves to or a row added scrolls into view
-  as little as shows it, and what the cell writes to the note leaves the view where it is (`TestLiveTableLong`).
+  as little as shows it, and what the cell writes to the note leaves the view where it is (`TestLiveTableLong`). The
+  wheel over a table, its cells, their links and the cell edited, scrolls the editor as over its text, once for each
+  event, sideways over the cell edited its input (`TestLiveTableWheel`).
 - What loads keeps a place: a picture of the web on its way in Live Preview is a card where it goes, which the
   picture fades in over as its room glides to its own (`TestLivePictureArrives`); a rendered block shows once it is
   measured, fading in over `motionShow`.

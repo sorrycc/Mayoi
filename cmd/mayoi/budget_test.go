@@ -236,8 +236,10 @@ func TestBudgets(t *testing.T) {
 		// arrives, the new cell scrolled into view, and the text measuring
 		// its lines again, some 4 ms a frame. Each of those frames counts
 		// alone: the tester draws all of them at once, which a window
-		// spreads over its own.
-		{"Live Preview table row add frame", 5 * time.Millisecond, true, func(t *testing.T, hs *harness) func() {
+		// spreads over its own. 1.4 ms here; CI's macOS runners took 2.4
+		// ms in one run and the best of three attempts at 4.9 ms in a
+		// slower one, which took the other budgets twice as long too.
+		{"Live Preview table row add frame", 7 * time.Millisecond, true, func(t *testing.T, hs *harness) func() {
 			part := "Some **bold** text with a [link](https://example.com).\n\n| a | b |\n|---|---|\n| 1 | 2 |\n\n"
 			os.WriteFile(hs.path("rows.md"), []byte(strings.Repeat(part, 60)), 0o644)
 			hs.a.settings.MarkdownMode = "live"
@@ -262,14 +264,15 @@ func TestBudgets(t *testing.T) {
 		// Scrolled over the table, a frame costs as over any table drawn
 		// (one of 60 rows, 2.48 ms here, against 2.53 ms): the block's
 		// handler sets the offset, which builds the frame again, and the
-		// cells in view paint. CI's macOS runners took the best of three
-		// attempts at 5.5 to 8.1 ms over three runs, the worst at 12 ms,
-		// slower than this before and after alike: hence above 5 ms.
+		// cells in view paint. 2.6 ms here; CI's macOS runners took 4.6 ms
+		// in one run, and the best of two attempts at 9.9 ms in a slower
+		// one, which took the other budgets twice as long too. How much
+		// work it does, TestLiveTableLong holds, not this.
 		{"Live Preview 1,000-row table idle frame", 2 * time.Millisecond, false, func(t *testing.T, hs *harness) func() {
 			bigTable(t, hs)
 			return func() { step(hs.tt) }
 		}},
-		{"Live Preview 1,000-row table scroll frame", 10 * time.Millisecond, false, func(t *testing.T, hs *harness) func() {
+		{"Live Preview 1,000-row table scroll frame", 13 * time.Millisecond, false, func(t *testing.T, hs *harness) func() {
 			bigTable(t, hs)
 			i := 0
 			return func() {

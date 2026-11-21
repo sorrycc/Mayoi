@@ -291,15 +291,25 @@ func (a *app) editorColumn(d *editor) *column {
 	return nil
 }
 
-// openFileToSide shows a file in a tab of the column beside the file
-// column, splitting one off on its right when there is none.
+// openFileToSide shows a file in a tab of another column than the one
+// that has the keyboard: the unlocked one nearest it, else, as asked
+// for, a locked one beside it, which stays locked. Only a lone column
+// splits one off on its right.
 func (a *app) openFileToSide(path string) {
-	col := a.fileColumn()
-	if side := a.sideColumn(col); side != nil {
+	col := a.column()
+	side := a.sideColumn(col)
+	if side == nil && len(a.cols) > 1 {
+		i := slices.Index(a.cols, col)
+		side = a.cols[max(i-1, 0)]
+		if i+1 < len(a.cols) {
+			side = a.cols[i+1]
+		}
+	}
+	if side != nil {
 		a.openFileIn(side, side.active+1, path, true)
 		return
 	}
-	side := a.splitColumn(col, true)
+	side = a.splitColumn(col, true)
 	a.openFileIn(side, 0, path, true)
 	if len(side.tabs) == 0 {
 		// It could not be read.

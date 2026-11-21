@@ -776,6 +776,89 @@ func TestQuickOpenToSide(t *testing.T) {
 	}
 }
 
+// Beside a locked column, Quick Open's side key opens in a column there is,
+// beside the one with the keyboard, and adds none.
+func TestQuickOpenToSideLocked(t *testing.T) {
+	quick := func(hs *harness, query string, side bool) {
+		t.Helper()
+		a := hs.a
+		a.run("go.quickOpen")
+		hs.settle()
+		deadline := time.Now().Add(settleTimeout)
+		for a.index == nil && time.Now().Before(deadline) {
+			hs.settle()
+		}
+		hs.tt.Type(query)
+		hs.settle()
+		if side {
+			hs.key(ui.Cmd, ui.KeyEnter)
+		} else {
+			hs.key(0, ui.KeyEnter)
+		}
+		hs.settle()
+		if a.quick.open {
+			t.Fatal("quick open stayed open")
+		}
+	}
+	shows := func(t *testing.T, a *app, want *column, name string, cols int) {
+		t.Helper()
+		if len(a.cols) != cols {
+			t.Fatalf("%d columns, want %d", len(a.cols), cols)
+		}
+		if a.column() != want {
+			t.Fatalf("column %d has the keyboard, want %d", a.col, slices.Index(a.cols, want))
+		}
+		if d := a.activeEditor(); d == nil || filepath.Base(d.path) != name {
+			t.Fatalf("column %d does not show %s", a.col, name)
+		}
+	}
+
+	t.Run("from unlocked to locked neighbor", func(t *testing.T) {
+		hs, left, right := lockedHarness(t)
+		a := hs.a
+		a.col = slices.Index(a.cols, left)
+		quick(hs, "bts", true)
+		shows(t, a, right, "b.ts", 2)
+		if !right.locked || len(left.tabs) != 1 {
+			t.Errorf("locked %v, %d tabs left, want locked and 1", right.locked, len(left.tabs))
+		}
+		// Return from the locked column still opens in the file column.
+		quick(hs, "gomod", false)
+		shows(t, a, left, "go.mod", 2)
+		if len(right.tabs) != 1 {
+			t.Errorf("%d tabs in the locked column, want 1", len(right.tabs))
+		}
+	})
+
+	t.Run("from active locked column", func(t *testing.T) {
+		hs, left, right := lockedHarness(t)
+		a := hs.a
+		a.openFileIn(right, 0, hs.path("README.md"), true)
+		hs.settle()
+		quick(hs, "bts", true)
+		shows(t, a, left, "b.ts", 2)
+		if len(right.tabs) != 1 {
+			t.Errorf("%d tabs in the locked column, want 1", len(right.tabs))
+		}
+	})
+
+	t.Run("relative to the active column", func(t *testing.T) {
+		hs, left, middle := lockedHarness(t)
+		a := hs.a
+		right := a.splitColumn(middle, true)
+		// The right column has the keyboard last of the unlocked ones.
+		a.openFileIn(right, 0, hs.path("go.mod"), true)
+		hs.settle()
+		a.openFileIn(middle, 0, hs.path("README.md"), true)
+		hs.settle()
+		quick(hs, "bts", true)
+		shows(t, a, right, "b.ts", 3)
+		if len(left.tabs) != 1 || len(middle.tabs) != 1 {
+			t.Errorf("%d tabs left, %d in the locked column, want 1 each", len(left.tabs), len(middle.tabs))
+		}
+	})
+}
+
 func TestFindAndReplace(t *testing.T) {
 	hs := newHarness(t, true)
 	a, tt := hs.a, hs.tt

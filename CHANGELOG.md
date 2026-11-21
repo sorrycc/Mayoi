@@ -3,7 +3,7 @@
 The update window shows the section of the version it offers. Every release
 needs a `## <version>` section here, or its build fails.
 
-## Unreleased
+## 0.23.1
 
 - Set the TypeScript plugin's `path` to `tsrs` to use tsrs.
 - Set the Python plugin's `path` to `ty` to use ty.

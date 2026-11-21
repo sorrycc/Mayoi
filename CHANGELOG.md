@@ -17,6 +17,7 @@ needs a `## <version>` section here, or its build fails.
 - Moving to a table cell with `Tab`, `Return` or the arrow keys scrolls it into view if it was off screen.
 - Editing a cell or adding a row in a long Live Preview table no longer closes the cell or jumps the view.
 - Scrolling with the wheel or trackpad over a Live Preview table, or the cell you're editing, now scrolls the note.
+- The buttons over a Mermaid diagram in Live Preview now open, copy, export or show its source as they say.
 
 - On macOS, `Cmd+D` and `Cmd+Shift+D` open an empty column to the right or below, as in iTerm2.
 - **View → Split Down** stacks a new column under the current one, and you drag the line between them to resize.

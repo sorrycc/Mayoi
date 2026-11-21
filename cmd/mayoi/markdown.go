@@ -1908,6 +1908,13 @@ func (a *app) markdownSpan(r markdownInline, color ui.Color, size float32, block
 	return span
 }
 
+// toolbarInput is the input of the buttons over a card, a diagram's or a
+// block of code's: their own, pressed and released, so that a click on
+// one does what it says rather than edit the source of the block Live
+// Preview draws the card in, which a press on the card does; a scroll
+// over them scrolls the text, as over the card.
+func (m *markdownPreview) toolbarInput(ev ui.InputEvent) bool { return m.passScroll(ev) }
+
 // passScroll hands a vertical scroll over an element of a block Live
 // Preview draws that takes its own input, as a table's cell, to the block,
 // which scrolls the text under it: what an element's handler leaves goes
@@ -2519,7 +2526,7 @@ func (a *app) markdownCodeCard(c *ui.Context, m *markdownPreview, path string, b
 		if b.kind != markdownCodeBlock || !over && b.language == "" {
 			return
 		}
-		ui.Row(c).Absolute().Top(size * 0.4).Right(size * 0.4).Background(p.chrome).Radius(4).Children(func() {
+		ui.Row(c).Absolute().Top(size * 0.4).Right(size * 0.4).Background(p.chrome).Radius(4).HandleInput(m.toolbarInput).Children(func() {
 			if !over {
 				ui.Text(c, b.language).FontSize(size*0.8).TextColor(p.faint).SingleLine().Padding(2, 6)
 				return
@@ -2567,7 +2574,7 @@ func (a *app) markdownDiagram(c *ui.Context, v *viewer, b markdownBlock, size, w
 		if !over {
 			return
 		}
-		ui.Row(c).Absolute().Top(size * 0.4).Right(size * 0.4).Gap(2).Background(p.editor).Radius(4).Children(func() {
+		ui.Row(c).Absolute().Top(size * 0.4).Right(size * 0.4).Gap(2).Background(p.editor).Radius(4).HandleInput(m.toolbarInput).Children(func() {
 			if a.smallButton(c, iconMaximize, locales.OpenDiagram()) {
 				a.openDiagram(v, b)
 			}

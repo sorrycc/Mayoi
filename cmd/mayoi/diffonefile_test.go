@@ -3,11 +3,10 @@ package main
 import (
 	"os"
 	"os/exec"
-	"path/filepath"
+	"slices"
+	"strconv"
 	"strings"
 	"testing"
-
-	"mayoi/internal/git"
 )
 
 // settleShown waits for the file a diff showing one file at a time shows
@@ -206,35 +205,68 @@ func TestDiffOneFileToggle(t *testing.T) {
 	}
 }
 
-// TestDiffOneFileCommit: a commit's tab with one file at a time shows its
-// first file alone, named with the commit, and a file revealed from the
-// panel of its files instead.
+// TestDiffOneFileCommit: one file at a time leaves a commit's changes be:
+// its tab, kept or previewed, lists every file of it, folded and named
+// after the commit, a file revealed scrolls to it, and turning one file at
+// a time on from the tab of the changes leaves an open commit's tab as it
+// was.
 func TestDiffOneFileCommit(t *testing.T) {
 	hs := newHarness(t, true)
-	hs.gitRepo()
+	git := hs.gitRepo()
 	a := hs.a
-	a.settings.DiffFiles = "one"
-	c := a.git.history[0]
-	a.showCommit(c, true)
+	var paths []string
+	for _, name := range []string{"x.txt", "y.txt", "z.txt"} {
+		var b strings.Builder
+		for i := range 60 {
+			b.WriteString(name + " line " + strconv.Itoa(i) + "\n")
+		}
+		os.WriteFile(hs.path(name), []byte(b.String()), 0o644)
+		paths = append(paths, hs.path(name))
+	}
+	git("add", ".")
+	git("commit", "-qm", "three long files")
+	os.WriteFile(hs.path("x.txt"), []byte("changed\n"), 0o644)
 	hs.settleGit()
-	v := a.activeTab().diff
-	first := hs.settleShown(v)
-	if len(v.files) < 2 || first != v.files[0] {
-		t.Fatalf("files %d, shown %v", len(v.files), first)
+	c := a.git.history[0]
+	check := func(v *diffView, what string) {
+		t.Helper()
+		if got := rowFiles(v); !slices.Equal(got, paths) {
+			t.Fatalf("%s: rows of %v", what, got)
+		}
+		if v.full || v.built.one || v.shownFile() != nil || v.name() != c.Subject {
+			t.Fatalf("%s: full %v, one %v, name %q", what, v.full, v.built.one, v.name())
+		}
+		if oneFileFits(v) {
+			t.Fatalf("%s: the Layout menu offers one file at a time", what)
+		}
 	}
-	if got := rowFiles(v); len(got) != 1 || got[0] != first.path {
-		t.Fatalf("rows of %v", got)
+	a.settings.DiffFiles = "one"
+	pv := a.previewCommit(c)
+	hs.settleDiff(pv)
+	check(pv, "preview")
+	a.settings.DiffFiles = ""
+
+	v := a.showCommit(c, true)
+	hs.settleDiff(v)
+	check(v, "every file")
+	changes := a.openChangesTab(true)
+	hs.settleDiff(changes)
+	a.setDiffFiles(changes, true)
+	hs.settleShown(changes)
+	if !changes.full || !changes.built.one {
+		t.Fatalf("changes: full %v, one %v", changes.full, changes.built.one)
 	}
-	if want := filepath.Base(first.path) + " · " + git.ShortHash(c.Hash); v.name() != want {
-		t.Fatalf("name %q, want %q", v.name(), want)
-	}
+	a.showCommit(c, true)
+	hs.settleDiff(v)
+	check(v, "turned on from the changes")
+
 	last := v.files[len(v.files)-1]
 	v.revealFile(last)
-	if f := hs.settleShown(v); f != last {
-		t.Fatalf("revealed %s, shows %s", last.path, f.path)
-	}
-	if got := rowFiles(v); len(got) != 1 || got[0] != last.path {
-		t.Fatalf("revealed: rows of %v", got)
+	hs.settle()
+	hs.settle()
+	check(v, "revealed")
+	if r := v.rows[v.focusRowAt(v.topRow(a.font.lineH))]; v.files[r.file] != last {
+		t.Fatalf("revealed %s, top shows %s", last.path, v.files[r.file].path)
 	}
 }
 

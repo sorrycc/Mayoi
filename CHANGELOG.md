@@ -6,6 +6,7 @@ needs a `## <version>` section here, or its build fails.
 ## Unreleased
 
 - Opening a file to the side from Quick Open with `Cmd+Return` uses an existing column instead of adding one.
+- **Layout → One File at a Time** no longer applies to a commit's changes, which list every file.
 
 ## 0.23.1
 

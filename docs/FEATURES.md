@@ -324,7 +324,7 @@ so, and one more press that way goes to the next file with changes, or the last 
 the settings has it cross at once, or never leave the file. At the first or last file it says so, and stops.
 
 **Layout → One File at a Time** (`diffFiles`) has a diff show one file alone, as VS Code does, and read only that
-file. Clicking a file in Source Control or in a commit's files shows it; the next and previous file show the next or
+file. A single commit's changes always list every file. Clicking a file in Source Control shows it; the next and previous file show the next or
 previous one, and the change navigation goes on into it as **diffCrossFiles** says, never scrolling into another
 file. The file shows whole, every unchanged line too; **Show Full Files** folds it. The tab is named after the file
 shown. When the file shown is staged, discarded or committed, the next file of its group shows. With the diff focused, keys work as in a pager:

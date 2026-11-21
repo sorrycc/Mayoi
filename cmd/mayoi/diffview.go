@@ -96,10 +96,29 @@ func parseDiffCross(s string) diffCross {
 // chosen, rather than every file changed one after another.
 func (a *app) oneFile() bool { return a.settings != nil && a.settings.DiffFiles == "one" }
 
+// oneFileIn reports whether v shows one file at a time: the diffs do, and
+// v is neither a comparison of two local files nor a single commit's
+// changes, which always list every file.
+func (a *app) oneFileIn(v *diffView) bool {
+	return a.oneFile() && oneFileFits(v)
+}
+
+// oneFileFits reports whether one file at a time can apply to v.
+func oneFileFits(v *diffView) bool {
+	return !v.local && !v.commitDetail()
+}
+
+// commitDetail reports whether v shows a single commit's changes, rather
+// than the work tree's, a comparison's or a pull request's.
+func (v *diffView) commitDetail() bool {
+	cm := v.commit
+	return cm != nil && cm.pr == nil && cm.from == ""
+}
+
 // openedDiff returns v, a diff opened anew, showing every line of its
-// file when the diffs show one file at a time.
+// file when it shows one file at a time.
 func (a *app) openedDiff(v *diffView) *diffView {
-	v.full = a.oneFile()
+	v.full = a.oneFileIn(v)
 	return v
 }
 
@@ -1087,7 +1106,7 @@ func (a *app) refreshDiff(v *diffView) {
 			}
 		}
 	}
-	one := a.oneFile() && !v.local
+	one := a.oneFileIn(v)
 	switch {
 	case one:
 		// One file at a time reads the file shown alone.
@@ -1330,7 +1349,7 @@ func (a *app) splits(v *diffView, viewW float32) bool {
 // scrolling to the file to reveal once it is listed.
 func (a *app) layoutRows(v *diffView, l diffGeometry) {
 	b := diffBuild{gen: v.gen, split: v.split, wrap: a.wrapsDiff(v), full: v.full, aligned: a.settings.DiffAlignedRows, context: a.diffContextOf(), whitespace: a.diffWhitespaceOf(), font: a.font}
-	b.one = a.oneFile() && !v.local
+	b.one = a.oneFileIn(v)
 	if v.shown != nil {
 		b.shown = *v.shown
 	}
@@ -2705,7 +2724,7 @@ func (a *app) diffButtons(c *ui.Context, t *colTab) {
 		if m.Item(locales.DiffAlignRowsMenu()).Checked(a.settings.DiffAlignedRows).Chosen() {
 			a.post(func() { a.setDiffAligned(!a.settings.DiffAlignedRows) })
 		}
-		if v.local {
+		if !oneFileFits(v) {
 			return
 		}
 		m.Separator()
@@ -2770,10 +2789,11 @@ func (a *app) setDiffFiles(v *diffView, one bool) {
 		a.settings.DiffFiles = ""
 		if one {
 			a.settings.DiffFiles = "one"
-			// The file shown alone shows every line of it.
+			// The file shown alone shows every line of it; a commit's
+			// changes still list every file, as they were.
 			for _, col := range a.cols {
 				for _, t := range col.tabs {
-					if t.diff != nil && !t.diff.local {
+					if t.diff != nil && oneFileFits(t.diff) {
 						t.diff.full = true
 						t.diff.changed()
 					}

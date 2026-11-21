@@ -17,7 +17,7 @@ https://github.com/user-attachments/assets/673e7907-2b2c-4ed6-9093-1ba9633cd61c
 - **Smart editing:** auto-indent, auto-closing brackets and quotes, line commands, and per-tab undo
 - **Vim mode:** normal, insert and visual modes, with motions, operators, text objects, counts and `.`, registers,
   macros, marks, search, and `:` commands as `:s`, `:g` and `:normal`
-- **Columns:** split the editor side by side and drag tabs between columns
+- **Columns:** split the editor side by side or stacked, and drag tabs between columns
 - **Explorer:** a live file tree that follows the disk and dims Git-ignored files
 - **Quick open:** fuzzy file search, go to line (`:42`), go to symbol (`@`) and a command palette (`>`, ⇧⌘P)
 - **Find and replace:** case, whole-word and regex matching, searched in the background in large files

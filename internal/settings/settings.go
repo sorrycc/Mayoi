@@ -418,11 +418,15 @@ type Window struct {
 // the panel, the folders open in the explorer, and its layout.
 type Session struct {
 	Layout
-	Columns      []Column `json:"columns,omitempty"`
-	Column       int      `json:"column,omitempty"`
-	FileColumn   int      `json:"fileColumn,omitempty"`
-	PanelOpen    bool     `json:"panelOpen,omitempty"`
-	TerminalOpen bool     `json:"terminalOpen,omitempty"`
+	Columns []Column `json:"columns,omitempty"`
+	// Panes is how the columns are laid out when they are not one row,
+	// some above others: nil for side by side, which an older version
+	// reads as it is.
+	Panes        *Pane `json:"panes,omitempty"`
+	Column       int   `json:"column,omitempty"`
+	FileColumn   int   `json:"fileColumn,omitempty"`
+	PanelOpen    bool  `json:"panelOpen,omitempty"`
+	TerminalOpen bool  `json:"terminalOpen,omitempty"`
 	// PanelTerms are the addresses in herdr-core of the panel's terminals
 	// whose shells run there, which the next start attaches to again, and
 	// PanelTerm the one of them the panel showed.
@@ -508,6 +512,16 @@ type Column struct {
 	Active int     `json:"active"`
 	Weight float32 `json:"weight"`
 	Locked bool    `json:"locked,omitempty"`
+}
+
+// Pane is a place of the editor area's layout: a column, by its place in
+// Columns, or a group of panes, with Kids, side by side, or one above
+// the other when Down. Weight is a group's share of its parent's room.
+type Pane struct {
+	Column int     `json:"column"`
+	Down   bool    `json:"down,omitempty"`
+	Weight float32 `json:"weight,omitempty"`
+	Kids   []Pane  `json:"kids,omitempty"`
 }
 
 // Tab is a tab: the file it shows, or a terminal, which the next

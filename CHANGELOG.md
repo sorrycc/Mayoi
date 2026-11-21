@@ -5,6 +5,13 @@ needs a `## <version>` section here, or its build fails.
 
 ## Unreleased
 
+- `Cmd+D` splits right and `Cmd+Shift+D` splits down, as in iTerm2, from an editor or a terminal tab.
+- **View → Split Down** stacks a new column under the current one, and you drag the line between them to resize.
+- Splitting a terminal opens a new one in the same folder, and the original keeps running.
+- Stacked columns come back when you reopen the project.
+- On macOS, **Add Next Occurrence** moves to `Ctrl+Cmd+G`; `Cmd+\` still splits right.
+- Vim's `:split` now splits down, and `:vsplit` splits right.
+
 - On Linux, opening or saving a file no longer crashes Mayoi when the system's MIME data can't be found.
 - On macOS, VoiceOver no longer crashes Mayoi when a notice it reads has text that isn't valid UTF-8.
 - Opening a file to the side from Quick Open with `Cmd+Return` uses an existing column instead of adding one.

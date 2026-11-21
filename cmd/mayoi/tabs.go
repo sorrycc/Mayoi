@@ -322,6 +322,9 @@ func (a *app) tabMenu(m *ui.Menu, col *column, t *colTab, closing **colTab) {
 	if m.Item(locales.CmdViewSplitRight()).Chosen() {
 		show(a.splitRight)
 	}
+	if m.Item(locales.CmdViewSplitDown()).Chosen() {
+		show(a.splitDown)
+	}
 	at := slices.Index(a.cols, col)
 	alone := len(col.tabs) < 2
 	if m.Item(locales.MoveToNextColumn()).Disabled(alone && at == len(a.cols)-1).Chosen() {

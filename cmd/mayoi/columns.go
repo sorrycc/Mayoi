@@ -39,6 +39,8 @@ type column struct {
 	// filesOver is set while files dragged from another app are over the
 	// column, as the frame before found.
 	filesOver bool
+	// node is the column's place in the layout.
+	node *tile
 }
 
 // colTab is a tab of a column: an editor of a document, a viewer of an
@@ -313,8 +315,7 @@ func (a *app) openFileToSide(path string) {
 	a.openFileIn(side, 0, path, true)
 	if len(side.tabs) == 0 {
 		// It could not be read.
-		col.weight *= 2
-		a.removeColumn(side)
+		a.unsplit(col, side)
 	}
 }
 
@@ -771,12 +772,14 @@ func (a *app) dropTab(t *colTab) {
 }
 
 // removeColumn takes a column away, keeping locked columns and the last
-// file column. Unlocked columns share its room so locked widths stay put.
+// file column. An unlocked neighbour takes its room so locked widths stay
+// put.
 func (a *app) removeColumn(col *column) {
 	i := slices.Index(a.cols, col)
 	if i < 0 || len(a.cols) < 2 || col.locked {
 		return
 	}
+	var to *tile
 	if slices.ContainsFunc(a.cols, func(c *column) bool { return c.locked }) {
 		var other *column
 		for _, c := range a.cols {
@@ -787,49 +790,69 @@ func (a *app) removeColumn(col *column) {
 		if other == nil {
 			return
 		}
-		other.weight += col.weight
+		to = heir(col, other)
 	}
-	a.cols = slices.Delete(a.cols, i, i+1)
+	a.unplace(col, to)
 	if a.fileCol == col {
 		a.fileCol = nil
 	}
-	if a.col > i || a.col == len(a.cols) {
-		a.col--
+}
+
+// heir is the pane that takes the room of col, among its neighbours: other
+// when it is one, else one that is no locked column. Nil for none.
+func heir(col, other *column) *tile {
+	parent := col.node.parent
+	if other.node != nil && other.node.parent == parent {
+		return other.node
 	}
+	for _, k := range parent.kids {
+		if k != col.node && (k.col == nil || !k.col.locked) {
+			return k
+		}
+	}
+	return nil
+}
+
+// unsplit takes away nc, split off col and still empty, col taking its
+// room back.
+func (a *app) unsplit(col, nc *column) {
+	var to *tile
+	if col.node != nil && nc.node != nil && col.node.parent == nc.node.parent {
+		to = col.node
+	}
+	a.unplace(nc, to)
 }
 
 // splitColumn opens a column beside col, before it or after, with half
 // of its room.
 func (a *app) splitColumn(col *column, after bool) *column {
-	nc := a.newColumn()
-	col.weight /= 2
-	nc.weight = col.weight
-	at := max(slices.Index(a.cols, col), 0)
-	if after {
-		at++
-	}
-	a.cols = slices.Insert(a.cols, at, nc)
-	if a.col >= at {
-		a.col++
-	}
-	return nc
+	return a.splitTile(col.node, after, false)
 }
 
 // splitRight opens a column to the right of the one that has the
 // keyboard, showing its document again where it is scrolled, or a new
 // terminal beside a terminal.
-func (a *app) splitRight() {
+func (a *app) splitRight() { a.split(false) }
+
+// splitDown opens a column below the one that has the keyboard, as
+// splitRight does beside it.
+func (a *app) splitDown() { a.split(true) }
+
+// split opens a column after the one that has the keyboard, beside it or
+// below it with down, there alone in a layout of both, showing its tab
+// again: another view of its document, its own caret and scroll, or a
+// new terminal in the folder of a terminal.
+func (a *app) split(down bool) {
 	col := a.column()
 	t := col.tab()
 	if t == nil {
 		return
 	}
-	nc := a.splitColumn(col, true)
+	nc := a.splitTile(col.node, true, down)
 	switch {
 	case t.term != nil:
 		if !a.newTerminalTab(nc, t.term.dir, true) {
-			col.weight *= 2
-			a.removeColumn(nc)
+			a.unsplit(col, nc)
 		}
 		return
 	case t.view != nil:
@@ -1103,6 +1126,7 @@ func (a *app) rememberTabs() {
 		cols = append(cols, cs)
 	}
 	a.window.Columns, a.window.Column = cols, a.col
+	a.window.Panes = a.keptPanes()
 	a.window.FileColumn = 0
 	if i := slices.Index(a.cols, a.fileCol); i >= 0 {
 		a.window.FileColumn = i
@@ -1241,17 +1265,23 @@ func (a *app) restoreTabs() {
 	if len(addrs) > 0 {
 		live = a.hcTerms(addrs)
 	}
+	before := slices.Clone(a.cols)
 	for i, cs := range saved {
 		col := a.cols[len(a.cols)-1]
 		if i > 0 || len(col.tabs) > 0 {
 			col = a.newColumn()
-			a.cols = append(a.cols, col)
+		} else {
+			before = before[:len(before)-1]
 		}
 		col.locked = cs.Locked
 		if cs.Weight > 0 {
 			col.weight = cs.Weight
 		}
 		restored[i] = col
+	}
+	if len(saved) > 0 {
+		// Side by side, or as they were split, after those open already.
+		a.restorePanes(before, restored, a.window.Panes)
 	}
 	for i, cs := range saved {
 		col := restored[i]

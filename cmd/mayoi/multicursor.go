@@ -1537,7 +1537,7 @@ func (a *app) toggleCaret(d *editor, at int) {
 var multiCommands = []struct{ id, accel string }{
 	{"sel.addCursorAbove", "Alt+CmdOrCtrl+Up"},
 	{"sel.addCursorBelow", "Alt+CmdOrCtrl+Down"},
-	{"sel.addNextOccurrence", "CmdOrCtrl+D"},
+	{"sel.addNextOccurrence", "Ctrl+CmdOrCtrl+G"},
 	{"sel.selectAllOccurrences", "Shift+CmdOrCtrl+L"},
 	{"sel.columnUp", "Shift+Alt+CmdOrCtrl+Up"},
 	{"sel.columnDown", "Shift+Alt+CmdOrCtrl+Down"},

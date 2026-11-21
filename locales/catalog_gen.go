@@ -3508,6 +3508,16 @@ func (msgs Messages) CmdViewSidebarRight() string {
 	return Catalog.Format(msgs.locale, "cmdViewSidebarRight", nil)
 }
 
+// CmdViewSplitDown says "Split Down"
+// in the language the app shows.
+func CmdViewSplitDown() string { return In(i18n.Locale()).CmdViewSplitDown() }
+
+// CmdViewSplitDown says "Split Down"
+// in the language of msgs.
+func (msgs Messages) CmdViewSplitDown() string {
+	return Catalog.Format(msgs.locale, "cmdViewSplitDown", nil)
+}
+
 // CmdViewSplitRight says "Split Right"
 // in the language the app shows.
 func CmdViewSplitRight() string { return In(i18n.Locale()).CmdViewSplitRight() }

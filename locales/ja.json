@@ -308,6 +308,7 @@
   "cmdViewSelectTheme": "カラーテーマ…",
   "cmdViewSidebar": "サイドバーの切り替え",
   "cmdViewSidebarRight": "サイドバーを右に表示",
+  "cmdViewSplitDown": "下に分割",
   "cmdViewSplitRight": "右に分割",
   "cmdViewTerminal": "ターミナルの切り替え",
   "cmdViewTerminalLocation": "新しいターミナルをエディター領域で開く",

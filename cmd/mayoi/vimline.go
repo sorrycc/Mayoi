@@ -845,7 +845,9 @@ func (a *app) vimEx(d *editor, text string) {
 		vimSort(d, l1, l2, arg, bang)
 	case is("e", "edit") && arg != "":
 		a.openFile(a.resolvePath(arg), true)
-	case is("sp", "split", "vs", "vsp", "vsplit"):
+	case is("sp", "split"):
+		a.splitDown()
+	case is("vs", "vsp", "vsplit"):
 		a.splitRight()
 	case is("bn", "bnext", "tabn", "tabnext"):
 		a.cycleTab(1)

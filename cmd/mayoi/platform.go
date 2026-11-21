@@ -24,6 +24,8 @@ func macKeys() bool { return hostOS == "darwin" }
 // Control and Alt together are AltGr there, which types text.
 var otherAccels = map[string]string{
 	"edit.findNext":          "F3",
+	"sel.addNextOccurrence":  "Ctrl+D",
+	"view.splitRight":        "Ctrl+\\",
 	"edit.findPrev":          "Shift+F3",
 	"edit.replace":           "Ctrl+H",
 	"view.toggleLivePreview": "Shift+Alt+V",

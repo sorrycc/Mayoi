@@ -539,41 +539,78 @@ const minColumnW = 160
 // minPanelW is the least width the panel is dragged to at a side.
 const minPanelW = 160
 
-// columns is the editor area: its columns side by side, which share its
-// width by their weights, with a handle between two that moves the width
-// from one to the other.
+// minColumnH is the least height of a column split below another: its tab
+// strip and a few lines.
+const minColumnH = 120
+
+// columns is the editor area: its columns side by side, and some split
+// one above another.
 func (a *app) columns(c *ui.Context) {
-	p := a.pal
-	width := a.colsView.Bounds(c).W
-	var total float32
-	for _, col := range a.cols {
-		total += col.weight
-	}
-	// The columns as the frame began: one an action of the frame takes
-	// away, from its tab strip as it draws, is let be till the next.
-	cols := slices.Clone(a.cols)
 	a.findCol = a.column()
-	ui.Row(c.Key("columns")).Bind(&a.colsView).Grow(1).MinHeight(0).AlignItems(ui.Stretch).Children(func() {
-		for i, col := range cols {
-			if !slices.Contains(a.cols, col) {
+	a.tileView(c, a.layout, c.Key("columns"))
+}
+
+// tileView is a group of the layout, its panes side by side or one above
+// the other, which share its room by their weights, with a handle between
+// two that moves the room from one to the other.
+func (a *app) tileView(c *ui.Context, g *tile, key *ui.Context) {
+	p := a.pal
+	bounds := g.view.Bounds(c)
+	size, least := bounds.W, float32(minColumnW)
+	box := ui.Row(key)
+	if g.down {
+		size, least = bounds.H, minColumnH
+		box = ui.Column(key)
+	}
+	box.Grow(1).MinHeight(0).MinWidth(0)
+	// The panes as the frame began: a column an action of the frame takes
+	// away, from its tab strip as it draws, is let be till the next.
+	kids := slices.Clone(g.kids)
+	box.Bind(&g.view).AlignItems(ui.Stretch).Children(func() {
+		var total float32
+		for _, k := range kids {
+			total += k.share()
+		}
+		shown := 0
+		for i, k := range kids {
+			if k.col != nil && !slices.Contains(a.cols, k.col) {
 				continue
 			}
-			box := ui.Column(c.Key(col.id)).Basis(0).Grow(col.weight).MinWidth(0)
-			if i > 0 {
-				box.BorderWidth(0, 0, 0, 1).BorderColor(p.border)
+			key := c.Key(k.id)
+			if k.col != nil {
+				// A column keeps its key wherever it moves in the layout.
+				key = c.Key(k.col.id)
 			}
-			box.Children(func() {
-				a.columnView(c, col)
-				if i == 0 || width <= 0 {
+			kb := ui.Column(key).Basis(0).Grow(k.share()).MinWidth(0).MinHeight(0)
+			if shown > 0 {
+				if g.down {
+					kb.BorderWidth(1, 0, 0, 0).BorderColor(p.border)
+				} else {
+					kb.BorderWidth(0, 0, 0, 1).BorderColor(p.border)
+				}
+			}
+			shown++
+			kb.Children(func() {
+				if k.col != nil {
+					a.columnView(c, k.col)
+				} else {
+					a.tileView(c, k, c.Key("tile"))
+				}
+				if i == 0 || size <= 0 {
 					return
 				}
-				prev := cols[i-1]
-				a.splitter(c, edgeLeft, func(d float32) {
-					least := minColumnW / width * total
-					by := d / width * total
-					if lo, hi := least-prev.weight, col.weight-least; lo <= hi {
+				prev := kids[i-1]
+				at := edgeLeft
+				if g.down {
+					at = edgeTop
+				}
+				a.splitter(c, at, func(d float32) {
+					least := least / size * total
+					by := d / size * total
+					if lo, hi := least-prev.share(), k.share()-least; lo <= hi {
 						by = clamp(by, lo, hi)
-						prev.weight, col.weight = prev.weight+by, col.weight-by
+						prev.setShare(prev.share() + by)
+						k.setShare(k.share() - by)
 						a.rememberTabs()
 					}
 				})

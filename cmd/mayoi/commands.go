@@ -100,7 +100,8 @@ func (a *app) commandsIn(t locales.Messages) []command {
 		// Several selections (multicursor.go): their keys, as VS Code's.
 		{"sel.addCursorAbove", t.CmdSelAddCursorAbove(), "Alt+CmdOrCtrl+Up", a.multiCmd(func(d *editor) { a.addCursor(d, -1) })},
 		{"sel.addCursorBelow", t.CmdSelAddCursorBelow(), "Alt+CmdOrCtrl+Down", a.multiCmd(func(d *editor) { a.addCursor(d, 1) })},
-		{"sel.addNextOccurrence", t.CmdSelAddNextOccurrence(), "CmdOrCtrl+D", a.multiCmd(a.addNextOccurrence)},
+		// ⌃⌘G on macOS, where ⌘D splits as in iTerm2; Ctrl+D elsewhere.
+		{"sel.addNextOccurrence", t.CmdSelAddNextOccurrence(), "Ctrl+CmdOrCtrl+G", a.multiCmd(a.addNextOccurrence)},
 		{"sel.selectAllOccurrences", t.CmdSelSelectAllOccurrences(), "Shift+CmdOrCtrl+L", a.multiCmd(a.selectAllOccurrences)},
 		{"sel.columnUp", t.CmdSelColumnUp(), "Shift+Alt+CmdOrCtrl+Up", a.multiCmd(func(d *editor) { a.columnSelect(d, -1, 0) })},
 		{"sel.columnDown", t.CmdSelColumnDown(), "Shift+Alt+CmdOrCtrl+Down", a.multiCmd(func(d *editor) { a.columnSelect(d, 1, 0) })},
@@ -237,7 +238,9 @@ func (a *app) commandsIn(t locales.Messages) []command {
 		{"view.panelPosition.left", t.CmdViewPanelLeft(), "", func() { a.setPanelPosition("left") }},
 		{"view.panelPosition.right", t.CmdViewPanelRight(), "", func() { a.setPanelPosition("right") }},
 		{"view.lockColumn", t.CmdViewLockColumn(), "", func() { a.toggleColumnLock(a.column()) }},
-		{"view.splitRight", t.CmdViewSplitRight(), "CmdOrCtrl+\\", a.splitRight},
+		// ⌘D and ⇧⌘D, as iTerm2's; ⌘\ too on macOS, which shortcuts takes.
+		{"view.splitRight", t.CmdViewSplitRight(), "CmdOrCtrl+D", a.splitRight},
+		{"view.splitDown", t.CmdViewSplitDown(), "Shift+CmdOrCtrl+D", a.splitDown},
 		{"view.nextColumn", t.CmdViewNextColumn(), "Alt+CmdOrCtrl+Right", func() { a.focusColumnBy(1) }},
 		{"view.prevColumn", t.CmdViewPrevColumn(), "Alt+CmdOrCtrl+Left", func() { a.focusColumnBy(-1) }},
 		{"view.moveTabNext", t.CmdViewMoveTabNext(), "", func() { a.moveTabBy(1) }},
@@ -749,7 +752,7 @@ func (a *app) menu(cli bool, run func(id string, win *mygo.Window)) *mygo.Menu {
 				radio("view.jsonlOpen.source", a.prefs().JSONLMode == "source"),
 			}}, mygo.Separator(),
 			checkbox("view.vim", a.prefs().Vim), checkbox("view.projectTabs", a.settings.ProjectTabs), mygo.Separator(),
-			item("view.splitRight"), item("view.nextColumn"), item("view.prevColumn"),
+			item("view.splitRight"), item("view.splitDown"), item("view.nextColumn"), item("view.prevColumn"),
 			item("view.moveTabNext"), item("view.moveTabPrev"), mygo.Separator(),
 			item("view.terminal"), item("view.newTerminal"), item("view.terminalTab"), item("view.terminalMove"), attachHC, installHC,
 			checkbox("view.terminalLocation", a.settings.TerminalLocation == "editor"),
@@ -851,6 +854,12 @@ func (a *app) shortcuts(c *ui.Context) {
 				a.host.showProject(int(k - ui.Key1))
 			}
 		}
+	}
+	// ⌘\, Split Right's key on macOS before ⌘D, as VS Code's, which a
+	// terminal leaves to the window.
+	if macKeys() && !a.keyBound(ui.Super, ui.KeyBackslash) && !a.keys.Removes(commandNames("view.splitRight")...) &&
+		c.Shortcut(ui.Super, ui.KeyBackslash) {
+		a.splitRight()
 	}
 	a.menuKeys(c)
 }

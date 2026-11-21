@@ -611,6 +611,8 @@ The shortcuts are macOS's with Ctrl for ⌘, and the hints show them so, but for
 | Show the tab 1 to 8, the last            | ⌘1 to ⌘9   | Alt+1 to Alt+9                                       |
 | Save All, Open Folder in New Window      | ⌥⌘S, ⌥⌘O   | none                                                 |
 | Focus Next Column, Focus Previous Column | ⌥⌘→, ⌥⌘←   | none                                                 |
+| Split Right                              | ⌘D, ⌘\     | Ctrl+\                                               |
+| Add Next Occurrence                      | ⌃⌘G        | Ctrl+D                                               |
 | Add Cursor Above, Add Cursor Below       | ⌥⌘↑, ⌥⌘↓   | Ctrl+Alt+Up, Ctrl+Alt+Down on Windows; none on Linux |
 | Column Select Up, Down, Left, Right      | ⇧⌥⌘ arrows | Ctrl+Shift+Alt arrows on Windows; none on Linux      |
 

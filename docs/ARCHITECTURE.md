@@ -62,6 +62,13 @@ show during a drag.
 document as one tab shows it, with its own selection, scroll position and paint caches. A column holds tabs, each of
 which is an editor or a terminal.
 
+**`tiles.go`.** The columns are laid out in a tree of tiles: the root a row, a group of tiles side by side or one above
+the other, and a column at each leaf. A group never holds one tile nor one of its own direction, so a split along a
+group adds to it and one across a column makes a group of its own, and `a.cols` is the leaves as they read, which
+focus, moves and locks go through. A column moved in the tree gets a new text area, so its editors come back as a
+tab shown again does. The settings keep `columns` as a row, which an older version reads, and `panes`, the tree, only
+when columns are stacked; a tree that does not name each column once restores as a row.
+
 **`columnlock.go`.** A locked column stays when empty and does not take implicit
 file opens or new terminal tabs. `fileColumn` selects the current unlocked column
 or the last one used, creating a workspace on the left if all columns are locked.

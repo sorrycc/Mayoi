@@ -574,6 +574,7 @@
   "cmdViewSearch": "Search",
   "cmdViewSidebar": "Toggle Sidebar",
   "cmdViewSidebarRight": "Sidebar on Right",
+  "cmdViewSplitDown": "Split Down",
   "cmdViewSplitRight": "Split Right",
   "cmdViewTerminal": "Toggle Terminal",
   "cmdViewTerminalLocation": "New Terminals in Editor Area",

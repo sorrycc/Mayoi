@@ -78,7 +78,7 @@ Type, delete, paste and undo at several places at once, as in VS Code.
 - ⌥-click (Alt-click) adds a caret, or takes one away; ⌥-drag selects from it. ⌘-click still goes to a definition.
   Linux desktops that move windows with Alt-drag take the click first: use the middle button, or the commands, which
   have no keys on Linux, as its desktops switch workspaces with Ctrl+Alt and the arrows; bind your own.
-- **Add Next Occurrence** (⌘D) selects the word at the caret, then the next match each time: whole words when it
+- **Add Next Occurrence** (⌃⌘G on macOS, Ctrl+D on Windows and Linux) selects the word at the caret, then the next match each time: whole words when it
   started from a caret. **Select All Occurrences** (⇧⌘L) selects every match at once.
 - Column selection selects the same columns on each line: drag with ⇧⌥ (Shift+Alt) or the middle button, or use
   **Column Select Up**, **Down**, **Left** and **Right** (⇧⌥⌘ with the arrows on macOS, Ctrl+Shift+Alt on Windows). Tabs and wide characters count
@@ -537,6 +537,13 @@ The editor splits into columns side by side, each with its own tabs, and you res
 two columns. A file can show in several columns at once. Those columns share its text and undo history, and each keeps
 its own caret and scroll position. Drag a tab along its strip, into another column, or to the edge of a column to give it
 a new column.
+
+As in iTerm2, **View → Split Right** (⌘D, or ⌘\) puts a column beside the one with the keyboard, and **View → Split
+Down** (⇧⌘D) puts one below it; on Windows and Linux they are Ctrl+\ and Ctrl+Shift+D. Only that column splits, in a
+layout of both, and the new one shows its tab again: another view of the file, or a new terminal in the terminal's
+folder, which goes on as it was. The handle between two columns stacked moves the height. When the panel's terminal
+has the keyboard, the column that had it last splits. Vim's `:split` splits down, and `:vsplit` right. The layout comes
+back with the session.
 
 Choose **Lock Column** in a tab's menu to keep a column for terminals, or **Move to Locked Right Column** in a
 terminal tab's or panel terminal's menu to move the running terminal there in one step. The lock in the tab strip unlocks

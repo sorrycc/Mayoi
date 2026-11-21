@@ -279,7 +279,11 @@ type app struct {
 	localStuck  time.Duration // 0 is localReadStuck
 	loadsClosed bool
 	cols        []*column
-	col         int
+	// layout is how the columns are laid out, side by side and one above
+	// another; cols are its columns as they read.
+	layout   *tile
+	nextTile int
+	col      int
 	// findCol is the column the find widget shows in, the one with the
 	// keyboard as the frame's columns began: a click on another's tab as
 	// they draw moves col, and the widget's input binds one control.
@@ -337,8 +341,7 @@ type app struct {
 	toldAt      time.Time   // when a toast last told what a command did
 	spin        spinState   // Claude's spinner, while Git works
 	// blurred is set while the window has not the keyboard.
-	blurred  bool
-	colsView ui.Handle // the columns, whose width their weights share
+	blurred bool
 	// frame counts the frames, and frameAt is when the last started: a
 	// frame may build the view several times.
 	frame   int
@@ -481,6 +484,7 @@ func newApp(h host, s *settings.Settings, w *settings.Window) *app {
 	a.scm.row, a.inFiles.row = -1, -1
 	a.files.List.Selected = &a.fileRow
 	a.cols = []*column{a.newColumn()}
+	a.layout = a.rowOf(a.cols)
 	return a
 }
 

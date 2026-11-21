@@ -308,6 +308,7 @@
   "cmdViewSelectTheme": "颜色主题…",
   "cmdViewSidebar": "切换侧边栏",
   "cmdViewSidebarRight": "侧边栏位于右侧",
+  "cmdViewSplitDown": "向下拆分",
   "cmdViewSplitRight": "向右拆分",
   "cmdViewTerminal": "切换终端",
   "cmdViewTerminalLocation": "新建终端在编辑器区域打开",

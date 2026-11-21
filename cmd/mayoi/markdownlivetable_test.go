@@ -220,8 +220,9 @@ func TestLiveTableLong(t *testing.T) {
 	hs.key(0, ui.KeyEscape)
 
 	// Split: the right column at the end of the table, the left at its
-	// top, each builds its own rows and edits its own cell.
-	hs.tt.SetSize(1400, 800)
+	// top, each builds its own rows and edits its own cell. Narrow, the
+	// rows wrap, higher than a row is taken to be before it is built.
+	hs.tt.SetSize(1000, 800)
 	hs.settle()
 	a.splitRight()
 	right := a.activeEditor()
@@ -232,6 +233,19 @@ func TestLiveTableLong(t *testing.T) {
 	// Escape left the left column's caret after the table, in view: back
 	// to the top by the wheel over the table's cells, and the right column
 	// to the table's last rows.
+	// Each column's text keeps the table's room as its rows are, all of
+	// them, not only those it laid out as they showed.
+	for _, ed := range []*editor{d, right} {
+		lv := tableView(ed)
+		var rooms float32
+		for _, r := range lv.rooms[1:] {
+			rooms += r.Height
+		}
+		first := lv.rooms[1].First
+		if got := ed.lines.Top(first+len(lv.rooms)-1) - ed.lines.Top(first); math.Abs(float64(got-rooms)) > 1 {
+			t.Fatalf("the text keeps %v for the table's rows, their rooms %v", got, rooms)
+		}
+	}
 	// The columns' view as the window is now, both as high.
 	view, _ = hs.tt.Find("Editor long.md")
 	y = view.Y + view.H/2

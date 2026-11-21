@@ -163,6 +163,7 @@ type liveView struct {
 	rowsW    float32
 	rowsFont ui.Font
 	rooms    []ui.TextBlock
+	given    []float32
 }
 
 // liveHit is a task's box the last frame drew, where it showed, and the
@@ -806,6 +807,7 @@ func (a *app) liveArea(c *ui.Context, d *editor, area ui.Element, f liveFrame) {
 			// A table's rows each keep their own room.
 			if rooms := a.liveTableRooms(lv, first, last, height, size/2+sh.pad/2); liveTable(b) && rooms != nil {
 				area.TextBlocks(rooms...)
+				liveRoomsMeasured(d, lv, rooms)
 			} else {
 				area.TextBlocks(ui.TextBlock{First: first, Last: last, Height: height})
 			}

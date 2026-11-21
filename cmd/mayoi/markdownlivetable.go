@@ -173,3 +173,24 @@ func liveCellPark(d *editor, snap ui.TextSnapshot) (int, bool) {
 	at, _ := snap.LineRange(line)
 	return at, true
 }
+
+// liveRoomsMeasured has the text area lay out again the lines whose room
+// changed since the frame before, rooms given now: it takes the height of
+// a line's room as it lays the line out, and keeps it after, so that a
+// line laid out with the room of a row not built yet, or of a row as wide
+// as it was, would keep that height where it does not show, the text as
+// much shorter or longer, short of the table's end. As rows are measured,
+// at first and at a new width, that is most of them, once.
+func liveRoomsMeasured(d *editor, lv *liveView, rooms []ui.TextBlock) {
+	if len(lv.given) == len(rooms) {
+		for i, r := range rooms {
+			if r.Height != lv.given[i] {
+				d.lines.Rows(r.First)
+			}
+		}
+	}
+	lv.given = lv.given[:0]
+	for _, r := range rooms {
+		lv.given = append(lv.given, r.Height)
+	}
+}

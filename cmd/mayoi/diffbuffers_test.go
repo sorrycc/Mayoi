@@ -35,7 +35,7 @@ func TestPluginBufferDiff(t *testing.T) {
 		t.Fatalf("wrong buffer contents: %#v / %#v", f.old, f.new)
 	}
 	if len(hunkArrows(f)) != 0 {
-		t.Fatal("buffer comparison must be read-only")
+		t.Fatal("buffer comparison must not offer disk hunk actions")
 	}
 	left.ed.buf.Set("one\nright\n")
 	hs.settleDiff(v)

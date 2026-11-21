@@ -126,6 +126,7 @@ type document struct {
 // text and its undo history, so that a file shows in several columns.
 type editor struct {
 	*document
+	bufferDiff bool // synthetic compare editors do not keep a closed source alive
 	// cmds are edits asked for by keys and menus, which the next frame
 	// makes, once the editor has its selection.
 	cmds []func(d *editor)
@@ -368,6 +369,16 @@ func (d *editor) release() {
 			doc.typist = doc.views[0]
 		}
 	}
+}
+
+func (d *document) sourceViews() int {
+	count := 0
+	for _, ed := range d.views {
+		if !ed.bufferDiff {
+			count++
+		}
+	}
+	return count
 }
 
 // main returns the editor that edits of the document as a whole are

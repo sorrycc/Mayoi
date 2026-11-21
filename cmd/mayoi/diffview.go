@@ -1283,6 +1283,10 @@ func (a *app) refreshDiffFile(v *diffView, f *diffFile) bool {
 		}
 		binary := isBinary([]byte(old.text)) || isBinary([]byte(new.text))
 		oldLines, newLines := splitLines(old.text, old.ok), splitLines(new.text, new.ok)
+		if base == diffBuffers {
+			// An editable buffer also needs its empty line, including after the final newline.
+			oldLines, newLines = strings.Split(old.text, "\n"), strings.Split(new.text, "\n")
+		}
 		compareOld, compareNew := compareDiffLines(oldLines, whitespace), compareDiffLines(newLines, whitespace)
 		var hunks []linediff.Hunk
 		if !binary {
@@ -1557,7 +1561,7 @@ func (a *app) layoutRows(v *diffView, l diffGeometry) {
 			note = locales.DiffBinary()
 		case !f.old.ok && !f.new.ok:
 			note = locales.DiffNeitherVersion()
-		case len(f.hunks) == 0:
+		case len(f.hunks) == 0 && f.buffers == nil:
 			note = locales.DiffNoTextChanges()
 		}
 		if note != "" {
@@ -2627,7 +2631,7 @@ func (a *app) openFileAt(path string, line int, focus bool) {
 // writable side is edited, it says so.
 func (v *diffView) diffStatus() string {
 	if e := v.editing; e != nil {
-		return locales.DiffEditingStatus(filepath.Base(e.f.path))
+		return locales.DiffEditingStatus(e.doc.name())
 	}
 	if v.boundary != nil {
 		return v.boundary.msg

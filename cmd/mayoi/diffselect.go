@@ -244,6 +244,20 @@ func (a *app) diffTextInput(v *diffView, ev ui.InputEvent) bool {
 		if !ok || a.overDiffControl(v, ev.X, ev.Y) {
 			return false
 		}
+		row := a.rowUnder(v, ev.X+v.scroll.X, ev.Y+v.scroll.Y, l)
+		if row >= 0 && row < len(v.rows) && v.rows[row].kind == rowLine && v.files[v.rows[row].file].buffers != nil {
+			editSide := side
+			if editSide < 0 {
+				editSide = 1
+				if v.rows[row].new < 0 {
+					editSide = 0
+				}
+			}
+			if v.rows[row].sideLine(editSide) >= 0 && v.files[v.rows[row].file].writableSide(editSide) && a.beginDiffEditSide(v, row, editSide) {
+				return a.diffEditPointerDown(v, v.editing, ev)
+			}
+			a.endDiffEdit(v)
+		}
 		s := v.textSel
 		extend := ev.Mods&ui.Shift != 0 && s != nil && ev.Clicks < 2
 		if extend {

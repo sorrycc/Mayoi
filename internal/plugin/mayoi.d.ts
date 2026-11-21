@@ -132,7 +132,7 @@ declare module "mayoi" {
   }
 
   export const window: {
-    /** Opens a read-only native diff of two open documents in one window. */
+    /** Opens a native diff with editable live buffer sources in one window. */
     showDiff(left: DocumentRef, right: DocumentRef, opts?: { layout?: "auto" | "split" | "inline" }): Promise<void>;
     /** A toast; with an action, it resolves true once the action is chosen. */
     notify(message: string, opts?: { action?: string }): Promise<boolean>;

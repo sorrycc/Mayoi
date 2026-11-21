@@ -596,12 +596,14 @@ the failure, and its server starts for the files open once it is installed.
 
 ## Comparing open buffers
 
-`await window.showDiff(left.ref, right.ref, { layout: "auto" })` opens a native,
-read-only comparison of two different open documents in the same window. Layout
+`await window.showDiff(left.ref, right.ref, { layout: "auto" })` opens a native
+comparison of two different open documents in the same window. Live sources can
+be edited directly on either side, sharing text, undo history and saving with
+the ordinary source tabs. Buffer comparisons initially show full text. Layout
 can also be `"split"` or `"inline"`; omitting it uses the user's Diff setting.
 The comparison follows in-memory edits, including unsaved text, without writing
 temporary files or requiring a folder or Git repository. Closing the last view
-of a source keeps its final snapshot and marks that source closed. A new document
+of a source keeps its final snapshot, marks that side closed and makes it read-only. A new document
 at the same path does not replace it. Buffer comparisons are not restored next
 session. Closed references and cross-window sources reject the promise.
 

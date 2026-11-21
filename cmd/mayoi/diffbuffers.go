@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"slices"
 
 	"github.com/alecthomas/chroma/v2"
 	"github.com/egoist/mygo/ui"
@@ -32,7 +33,7 @@ func (b *bufferComparison) label(side int) string {
 
 func newBufferCompareView(layout diffLayout, sources bufferComparison) *diffView {
 	v := newDiffView(layout)
-	v.local = true
+	v.local, v.full = true, true
 	v.files = []*diffFile{{base: diffBuffers, buffers: &sources, gitStale: true}}
 	v.near = [2]int{0, 1}
 	return v
@@ -90,7 +91,19 @@ func (a *app) freezeBufferComparisons(d *document) {
 			if len(tab.diff.files) == 0 || tab.diff.files[0].buffers == nil {
 				continue
 			}
-			f := tab.diff.files[0]
+			v := tab.diff
+			v.edits = slices.DeleteFunc(v.edits, func(e *diffEdit) bool {
+				if e.doc != d {
+					return false
+				}
+				e.endCompose()
+				e.ed.release()
+				if v.editing == e {
+					v.editing = nil
+				}
+				return true
+			})
+			f := v.files[0]
 			for side, id := range f.buffers.ids {
 				if id != d.id {
 					continue

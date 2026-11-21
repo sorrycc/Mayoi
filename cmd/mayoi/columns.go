@@ -681,7 +681,7 @@ func (a *app) closeTab(t *colTab, then, cancelled func()) {
 			}
 			done()
 		}
-		if doc := t.merge.doc; doc != nil && doc.dirty() && len(doc.views) <= 1 {
+		if doc := t.merge.doc; doc != nil && doc.dirty() && doc.sourceViews() <= 1 {
 			if a.autoSaves(doc) {
 				a.saveDocElse(doc, remove, stop)
 				return
@@ -715,7 +715,7 @@ func (a *app) closeTab(t *colTab, then, cancelled func()) {
 		return
 	}
 	doc := t.ed.document
-	if !doc.dirty() || len(doc.views) > 1 {
+	if !doc.dirty() || doc.sourceViews() > 1 {
 		remove()
 		return
 	}
@@ -782,6 +782,9 @@ func (a *app) dropTab(t *colTab) {
 	}
 	if t.merge != nil {
 		v := t.merge
+		if v.doc != nil && v.doc.sourceViews() == 1 {
+			a.freezeBufferComparisons(v.doc)
+		}
 		v.stop()
 		if v.doc != nil && len(v.doc.views) == 0 && a.docIndex(v.path) >= 0 {
 			a.docs = slices.DeleteFunc(a.docs, func(d *document) bool { return d == v.doc })
@@ -796,8 +799,10 @@ func (a *app) dropTab(t *colTab) {
 			t.ed.preview.stop()
 		}
 		t.ed.release()
-		if len(doc.views) == 0 {
+		if doc.sourceViews() == 0 {
 			a.freezeBufferComparisons(doc)
+		}
+		if len(doc.views) == 0 {
 			doc.hl.Close()
 			a.docs = slices.DeleteFunc(a.docs, func(d *document) bool { return d == doc })
 			a.docClosed(doc)

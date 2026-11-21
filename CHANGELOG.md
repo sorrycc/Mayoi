@@ -5,6 +5,8 @@ needs a `## <version>` section here, or its build fails.
 
 ## Unreleased
 
+- Edit either live source directly in a buffer comparison, including unsaved tabs.
+
 - Plugins can compare two open buffers, including unsaved tabs, in the native Diff view.
 - Buffer comparisons follow edits and keep the last text when a source tab closes.
 

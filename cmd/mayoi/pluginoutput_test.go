@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"strings"
 	"testing"
 )
@@ -68,5 +69,48 @@ func TestPluginOutputBesideWindowAndClose(t *testing.T) {
 	}
 	if len(b.docs) != 1 {
 		t.Fatal("late output redirected")
+	}
+}
+
+func TestPluginOutputBesideStackedSource(t *testing.T) {
+	for _, below := range []bool{false, true} {
+		t.Run(fmt.Sprint("below=", below), func(t *testing.T) {
+			hs := newHarness(t, false)
+			a := hs.a
+			a.newFile()
+			top := a.column()
+			a.newEmptyColumn(true)
+			a.newFile()
+			bottom := a.column()
+			sourceCol, otherCol := top, bottom
+			if below {
+				sourceCol, otherCol = bottom, top
+			}
+			a.activate(sourceCol, 0, true)
+			source, other := sourceCol.tab().ed.document, otherCol.tab().ed.document
+			h := withPlugins(hs, map[string]map[string]string{"output": outputProbe("output")})
+			var output *document
+			for _, text := range []string{"first", "second"} {
+				raw, _ := json.Marshal(map[string]any{"ref": a.documentRef(source), "text": text})
+				if got := pluginRun(t, hs, h, "output.write", string(raw), nil); string(got) != "true" {
+					t.Fatalf("output failed: %s", got)
+				}
+				if len(a.cols) != 3 || len(a.docs) != 3 || otherCol.tab().ed.document != other {
+					t.Fatal("output reused the pane stacked below its source")
+				}
+				parent := sourceCol.node.parent
+				at := parent.at(sourceCol.node)
+				if parent.down || at+1 >= len(parent.kids) || parent.kids[at+1].col == nil {
+					t.Fatal("output is not immediately right of its source")
+				}
+				d := parent.kids[at+1].col.tab().ed.document
+				if d.buf.String() != text || output != nil && output != d {
+					t.Fatal("output was not reused in the same right-hand pane")
+				}
+				output = d
+			}
+			hs.settle()
+			hs.shot("plugin-output-stacked-" + fmt.Sprint(below))
+		})
 	}
 }

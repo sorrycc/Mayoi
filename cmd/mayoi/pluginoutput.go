@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"slices"
 	"strings"
 
 	"github.com/alecthomas/chroma/v2/lexers"
@@ -67,9 +66,13 @@ func (a *app) pluginOutputColumn(ref *plugin.DocumentRef) (*column, error) {
 	if source == nil {
 		return nil, errors.New("source document has no open tab")
 	}
-	at := slices.Index(a.cols, source)
-	if at+1 < len(a.cols) && !a.cols[at+1].locked {
-		return a.cols[at+1], nil
+	// The flat column order also includes panes stacked below the source.
+	parent := source.node.parent
+	at := parent.at(source.node)
+	if !parent.down && at+1 < len(parent.kids) {
+		if right := parent.kids[at+1].col; right != nil && !right.locked {
+			return right, nil
+		}
 	}
 	return a.splitColumn(source, true), nil
 }

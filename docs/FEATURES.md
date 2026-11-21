@@ -538,10 +538,12 @@ two columns. A file can show in several columns at once. Those columns share its
 its own caret and scroll position. Drag a tab along its strip, into another column, or to the edge of a column to give it
 a new column.
 
-As in iTerm2, **View → Split Right** (⌘D, or ⌘\) puts a column beside the one with the keyboard, and **View → Split
-Down** (⇧⌘D) puts one below it; on Windows and Linux they are Ctrl+\ and Ctrl+Shift+D. Only that column splits, in a
-layout of both, and the new one shows its tab again: another view of the file, or a new terminal in the terminal's
-folder, which goes on as it was. The handle between two columns stacked moves the height. When the panel's terminal
+As in iTerm2, **View → New Column Right** (⌘D) puts an empty column beside the one with the keyboard, and **View → New
+Column Below** (⇧⌘D) puts one below it. The new column has the keyboard and no tab, and the next file, new file or
+terminal opened goes there; ⌘W closes it while it's empty. **View → Split Right** (⌘\, Ctrl+\ on Windows and Linux)
+and **Split Down** (Ctrl+Shift+D on Windows and Linux, no key on macOS) show the tab again in the new column instead:
+another view of the file, or a new terminal in the terminal's folder, which goes on as it was. Only the column with the
+keyboard splits, in a layout of both. The handle between two columns stacked moves the height. When the panel's terminal
 has the keyboard, the column that had it last splits. Vim's `:split` splits down, and `:vsplit` right. The layout comes
 back with the session.
 

@@ -78,9 +78,10 @@ func editorBox(t *testing.T, tt *ui.Tester, name string) ui.Rect {
 	return r
 }
 
-// On macOS ⌘D and ⇧⌘D are the menu's keys of Split Right and Split Down,
-// which the menu bar runs before the focused editor or terminal sees them;
-// Add Next Occurrence takes ⌃⌘G, and ⌘\ still splits right.
+// On macOS ⌘D and ⇧⌘D are the menu's keys of New Column Right and New
+// Column Below, which the menu bar runs before the focused editor or
+// terminal sees them. Split Right keeps ⌘\\ and Split Down has no key there,
+// and both still show the tab again. Add Next Occurrence takes ⌃⌘G.
 func TestSplitKeysOnMacOS(t *testing.T) {
 	onOS(t, "darwin")
 	hs := newHarness(t, true)
@@ -89,7 +90,8 @@ func TestSplitKeysOnMacOS(t *testing.T) {
 	hs.settle()
 	ran := ""
 	m := a.menu(false, func(id string, _ *mygo.Window) { ran = id; a.run(id) })
-	for label, want := range map[string]string{"Split Right": "CmdOrCtrl+D", "Split Down": "Shift+CmdOrCtrl+D"} {
+	for label, want := range map[string]string{"Split Right": "CmdOrCtrl+\\", "Split Down": "",
+		"New Column Right": "CmdOrCtrl+D", "New Column Below": "Shift+CmdOrCtrl+D"} {
 		if got := barItem(t, m, "View", label).Accelerator; got != want {
 			t.Errorf("%s: %q, want %q", label, got, want)
 		}
@@ -97,55 +99,60 @@ func TestSplitKeysOnMacOS(t *testing.T) {
 	if got := barItem(t, m, "Selection", "Add Next Occurrence").Accelerator; got != "Ctrl+CmdOrCtrl+G" {
 		t.Errorf("Add Next Occurrence: %q", got)
 	}
-	for id, want := range map[string]string{"view.splitRight": "⌘D", "view.splitDown": "⇧⌘D", "sel.addNextOccurrence": "⌃⌘G"} {
+	for id, want := range map[string]string{"view.splitRight": "⌘\\", "view.splitDown": "", "view.newColumnRight": "⌘D",
+		"view.newColumnDown": "⇧⌘D", "sel.addNextOccurrence": "⌃⌘G"} {
 		if got := a.keyHint(id); got != want {
 			t.Errorf("%s reads %q, want %q", id, got, want)
 		}
 	}
-	// ⌘D in the text is no longer Add Next Occurrence there.
+	// ⌘D in the text is neither Add Next Occurrence nor a split: the menu
+	// alone takes it.
 	d := a.activeEditor()
 	hs.place(d, 1, 1)
 	hs.key(ui.Super, ui.KeyD)
+	hs.key(ui.Super|ui.Shift, ui.KeyD)
 	expectSpans(t, d, [2]int{1, 1})
+	if shape(a) != "[A]" {
+		t.Fatalf("⌘D in the text: %s", shape(a))
+	}
 	click := func(label string) {
 		it := barItem(t, m, "View", label)
 		it.Click(it, nil)
 	}
 	click("Split Right")
 	hs.settle()
-	if ran != "view.splitRight" || shape(a) != "[AB]" || a.col != 1 {
+	if ran != "view.splitRight" || shape(a) != "[AB]" || a.col != 1 || a.column().tab() == nil {
 		t.Fatalf("Split Right ran %q: %s, keyboard in %d", ran, shape(a), a.col)
 	}
 	click("Split Down")
 	hs.settle()
-	if shape(a) != "[A{BC}]" || a.col != 2 {
+	if shape(a) != "[A{BC}]" || a.col != 2 || a.column().tab().ed.document != d.document {
 		t.Fatalf("Split Down: %s, keyboard in %d", shape(a), a.col)
 	}
-	// ⌘\, which the window takes.
-	hs.key(ui.Super, ui.KeyBackslash)
-	if shape(a) != "[A{B[CD]}]" || a.col != 3 {
-		t.Fatalf("⌘\\: %s, keyboard in %d", shape(a), a.col)
-	}
-	// A binding of keybindings.json for ⌘D takes it from the menu.
-	km, err := keymap.Parse([]byte(`[{"key": "cmd+d", "command": "editor.action.addSelectionToNextFindMatch"}]`))
+	// A binding of keybindings.json for ⌘D takes it from the menu, and
+	// one of ⌘D for Split Right gives it that key.
+	km, err := keymap.Parse([]byte(`[{"key": "cmd+d", "command": "workbench.action.splitEditor"}]`))
 	if err != nil {
 		t.Fatal(err)
 	}
 	a.keys, a.hints = km, nil
 	m = a.menu(false, func(string, *mygo.Window) {})
-	if got := barItem(t, m, "View", "Split Right").Accelerator; got != "" {
-		t.Errorf("bound elsewhere, Split Right keeps %q", got)
+	if got := barItem(t, m, "View", "New Column Right").Accelerator; got != "" {
+		t.Errorf("bound elsewhere, New Column Right keeps %q", got)
+	}
+	if got := a.keyHint("view.splitRight"); got != "⌘D" {
+		t.Errorf("Split Right bound to ⌘D reads %q", got)
 	}
 }
 
-// A binding of keybindings.json takes the menu's key of Split Right when
-// it is that key on the system Mayoi's shortcuts are of, whatever MyGo's
-// ui.Cmd is on the machine the test runs on: ⌘D on macOS, which a binding
-// of ⌃D leaves, and Ctrl+\\ elsewhere.
+// A binding of keybindings.json takes a menu's key when it is that key on
+// the system Mayoi's shortcuts are of, whatever MyGo's ui.Cmd is on the
+// machine the test runs on: ⌘D and ⌘\\ on macOS, which a binding of ⌃D
+// leaves, and Ctrl+\\ elsewhere.
 func TestBindingTakesSplitRightKey(t *testing.T) {
 	was := ui.Cmd
 	t.Cleanup(func() { ui.Cmd = was })
-	accel := func(goos, binding string) string {
+	accel := func(goos, binding, id string) string {
 		t.Helper()
 		onOS(t, goos)
 		a := newApp(&fakeHost{}, settings.Default(), settings.Default().NewWindow())
@@ -157,30 +164,156 @@ func TestBindingTakesSplitRightKey(t *testing.T) {
 		}
 		a.keys = km
 		for _, cmd := range a.commands() {
-			if cmd.id == "view.splitRight" {
+			if cmd.id == id {
 				return a.menuAccel(cmd)
 			}
 		}
-		t.Fatal("no Split Right")
+		t.Fatalf("no %s", id)
 		return ""
 	}
 	for _, machine := range []ui.Modifiers{ui.Super, ui.Ctrl} {
 		ui.Cmd = machine
-		if got := accel("darwin", "cmd+d"); got != "" {
-			t.Errorf("ui.Cmd %v: cmd+d bound, Split Right keeps %q on macOS", machine, got)
-		}
-		if got := accel("darwin", "ctrl+d"); got != "CmdOrCtrl+D" {
-			t.Errorf("ui.Cmd %v: ctrl+d bound, Split Right has %q on macOS", machine, got)
-		}
-		for _, goos := range []string{"linux", "windows"} {
-			if got := accel(goos, "ctrl+\\"); got != "" {
-				t.Errorf("ui.Cmd %v: ctrl+\\ bound, Split Right keeps %q on %s", machine, got, goos)
-			}
-			if got := accel(goos, "ctrl+d"); got != "Ctrl+\\" {
-				t.Errorf("ui.Cmd %v: ctrl+d bound, Split Right has %q on %s", machine, got, goos)
+		for _, tc := range []struct{ goos, binding, id, want string }{
+			{"darwin", "cmd+d", "view.newColumnRight", ""},
+			{"darwin", "ctrl+d", "view.newColumnRight", "CmdOrCtrl+D"},
+			{"darwin", "cmd+\\", "view.splitRight", ""},
+			{"darwin", "ctrl+\\", "view.splitRight", "CmdOrCtrl+\\"},
+			{"linux", "ctrl+\\", "view.splitRight", ""},
+			{"linux", "ctrl+d", "view.splitRight", "Ctrl+\\"},
+			{"windows", "ctrl+\\", "view.splitRight", ""},
+			{"windows", "ctrl+d", "view.splitRight", "Ctrl+\\"},
+		} {
+			if got := accel(tc.goos, tc.binding, tc.id); got != tc.want {
+				t.Errorf("ui.Cmd %v on %s: %s bound, %s has %q, want %q", machine, tc.goos, tc.binding, tc.id, got, tc.want)
 			}
 		}
 	}
+}
+
+// newColumnBy runs New Column Right or Below as the menu bar does for ⌘D
+// or ⇧⌘D on macOS.
+func newColumnBy(t *testing.T, hs *harness, label string) {
+	t.Helper()
+	a := hs.a
+	m := a.menu(false, func(id string, _ *mygo.Window) { a.run(id) })
+	it := barItem(t, m, "View", label)
+	it.Click(it, nil)
+	hs.settle()
+}
+
+// expectEmptyColumn checks that the column with the keyboard has no tab
+// and has the keyboard itself, the frames after too.
+func expectEmptyColumn(t *testing.T, hs *harness, want string, at int) {
+	t.Helper()
+	a := hs.a
+	hs.settle()
+	if shape(a) != want || a.col != at || len(a.cols[at].tabs) != 0 || a.focus != paneEditor || !hs.tt.Focused("Empty Column") {
+		t.Fatalf("%s, keyboard in %d, %d tabs there, focus %v, empty column focused %v",
+			shape(a), a.col, len(a.cols[at].tabs), a.focus, hs.tt.Focused("Empty Column"))
+	}
+}
+
+// ⌘D opens an empty column beside a document and ⇧⌘D one below an empty
+// column or a picture, each with the keyboard and no tab of the one split,
+// and what opens next goes there.
+func TestNewEmptyColumn(t *testing.T) {
+	onOS(t, "darwin")
+	hs := newHarness(t, true)
+	a := hs.a
+	a.openFile(hs.path("main.go"), true)
+	hs.settle()
+	src := a.activeEditor()
+	hs.place(src, 3, 7)
+	newColumnBy(t, hs, "New Column Right")
+	expectEmptyColumn(t, hs, "[AB]", 1)
+	if len(a.cols[0].tabs) != 1 || a.cols[0].tab().ed != src || src.sel != [2]int{3, 7} || len(a.docs) != 1 {
+		t.Fatalf("the column split: %d tabs, selection %v, %d documents", len(a.cols[0].tabs), src.sel, len(a.docs))
+	}
+	// From the empty one: one more, below it.
+	newColumnBy(t, hs, "New Column Below")
+	expectEmptyColumn(t, hs, "[A{BC}]", 2)
+	// What opens next goes to it, and a new file after.
+	a.openFile(hs.path("README.md"), true)
+	hs.settle()
+	if a.col != 2 || a.cols[2].tab() == nil || a.cols[2].tab().path() != hs.path("README.md") || len(a.cols[1].tabs) != 0 {
+		t.Fatalf("opened in column %d: %s", a.col, shape(a))
+	}
+	// From a picture.
+	img := hs.path("dot.png")
+	var png bytes.Buffer
+	if err := pngenc.Encode(&png, image.NewRGBA(image.Rect(0, 0, 4, 4))); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(img, png.Bytes(), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	a.openFile(img, true)
+	hs.settle()
+	newColumnBy(t, hs, "New Column Below")
+	expectEmptyColumn(t, hs, "[A{BCD}]", 3)
+	if v := a.cols[2].tab().view; v == nil || v.path != img || len(a.cols[2].tabs) != 2 {
+		t.Fatalf("the picture's column: %d tabs", len(a.cols[2].tabs))
+	}
+	a.newFile()
+	hs.settle()
+	if a.col != 3 || len(a.cols[3].tabs) != 1 || a.cols[3].tab().ed == nil {
+		t.Fatalf("new file in column %d: %s", a.col, shape(a))
+	}
+	// ⌘W closes an empty column, the keyboard going to its neighbour.
+	newColumnBy(t, hs, "New Column Right")
+	expectEmptyColumn(t, hs, "[A{BC[DE]}]", 4)
+	a.run("file.close")
+	hs.settle()
+	if shape(a) != "[A{BCD}]" || a.col != 3 {
+		t.Fatalf("closed the empty column: %s, keyboard in %d", shape(a), a.col)
+	}
+}
+
+// From a terminal tab ⌘D opens an empty column and no terminal; the
+// terminal goes on as it was, and a new terminal in the editor area goes
+// to the new column. With the panel's terminal focused, the column that
+// had the keyboard splits.
+func TestNewEmptyColumnFromTerminal(t *testing.T) {
+	if testing.Short() {
+		t.Skip("starts a shell")
+	}
+	onOS(t, "darwin")
+	hs := newHarness(t, true)
+	a := hs.a
+	a.run("view.terminalTab")
+	hs.settle()
+	s := a.column().tab().term
+	if s == nil || len(a.terms) != 1 {
+		t.Fatal("no terminal tab")
+	}
+	hs.key(ui.Super, ui.KeyD)
+	if shape(a) != "[A]" || len(a.terms) != 1 {
+		t.Fatalf("⌘D in the terminal: %s, %d terminals", shape(a), len(a.terms))
+	}
+	newColumnBy(t, hs, "New Column Right")
+	expectEmptyColumn(t, hs, "[AB]", 1)
+	if len(a.terms) != 1 || a.cols[0].tab().term != s || s.tab == nil || len(a.cols[0].tabs) != 1 {
+		t.Fatalf("%d terminals, the first in a tab %v", len(a.terms), s.tab != nil)
+	}
+	a.run("view.terminalTab")
+	hs.settle()
+	if len(a.terms) != 2 || a.col != 1 || a.cols[1].tab().term == nil {
+		t.Fatalf("new terminal in column %d, %d terminals", a.col, len(a.terms))
+	}
+	// The panel's terminal has the keyboard: the column that had it last
+	// splits, and the panel's terminal stays.
+	a.run("view.terminal")
+	hs.settle()
+	if a.focus != paneTerminal || a.panelTerm == nil {
+		t.Fatalf("the panel: focus %v", a.focus)
+	}
+	panel, n := a.panelTerm, len(a.terms)
+	newColumnBy(t, hs, "New Column Below")
+	expectEmptyColumn(t, hs, "[A{BC}]", 2)
+	if a.panelTerm != panel || len(a.terms) != n {
+		t.Fatalf("the panel's terminal changed: %d terminals", len(a.terms))
+	}
+	a.closeTerminals()
 }
 
 // Off macOS Split Right keeps Ctrl+\, Split Down takes Ctrl+Shift+D, from
@@ -245,7 +378,8 @@ func TestSplitKeysOffMacOS(t *testing.T) {
 	if id, ok := a.shellSkip(keymap.Stroke{Mods: ui.Ctrl | ui.Shift, Key: ui.KeyD}); !ok || id != "view.splitDown" {
 		t.Errorf("a terminal keeps Ctrl+Shift+D: %q %v", id, ok)
 	}
-	for id, want := range map[string]string{"view.splitRight": "Ctrl+\\", "view.splitDown": "Ctrl+Shift+D", "sel.addNextOccurrence": "Ctrl+D"} {
+	for id, want := range map[string]string{"view.splitRight": "Ctrl+\\", "view.splitDown": "Ctrl+Shift+D", "sel.addNextOccurrence": "Ctrl+D",
+		"view.newColumnRight": "", "view.newColumnDown": ""} {
 		if got := a.keyHint(id); got != want {
 			t.Errorf("%s reads %q, want %q", id, got, want)
 		}

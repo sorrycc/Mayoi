@@ -83,6 +83,9 @@ func (a *app) view(c *ui.Context) {
 	for i, col := range a.cols {
 		switch t := col.tab(); {
 		case t == nil:
+			if col.body.FocusWithin(c) {
+				a.focus, a.col = paneEditor, i
+			}
 		case t.ed != nil && t.ed.vscroll.FocusWithin(c):
 			a.focus, a.col = paneEditor, i
 			t.ed.typist = t.ed
@@ -626,7 +629,9 @@ func (a *app) columnView(c *ui.Context, col *column) {
 		if col.locked {
 			a.tabStrip(c, col)
 		}
-		body := ui.Column(c).Bind(&col.body).Grow(1).MinHeight(0)
+		// It takes the keyboard, as a new empty column does, for what
+		// opens next to go there.
+		body := ui.Column(c).Bind(&col.body).Grow(1).MinHeight(0).Focusable().FocusRing(false).Label(locales.EmptyColumn())
 		over := a.takeFiles(body, col)
 		body.Children(func() {
 			if col.locked {
@@ -639,7 +644,7 @@ func (a *app) columnView(c *ui.Context, col *column) {
 					})
 				})
 			} else {
-				a.welcome(c)
+				a.welcome(c, &col.welcome)
 			}
 			a.dropZones(c, col, over)
 		})
@@ -1627,11 +1632,12 @@ var logo = sync.OnceValue(func() *ui.Bitmap {
 
 // welcome shows while no file is open: what to start with, and the
 // folders opened last.
-func (a *app) welcome(c *ui.Context) {
+// scroll is where it scrolls, the empty column's own.
+func (a *app) welcome(c *ui.Context, scroll *ui.Handle) {
 	p := a.pal
 	// Centered in the view, and scrolled when the window is too short.
-	view := a.welcomeView.Bounds(c)
-	page := ui.Scroll(c.Key("welcome")).Bind(&a.welcomeView).Fill().Background(p.editor)
+	view := scroll.Bounds(c)
+	page := ui.Scroll(c.Key("welcome")).Bind(scroll).Fill().Background(p.editor)
 	if a.settings.Theme == themeMatrix {
 		still := a.blurred || c.Preferences().ReduceMotion
 		page.Draw(func(pt *ui.Painter, r ui.Rect) { a.drawRain(pt, r, still) })

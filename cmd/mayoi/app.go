@@ -334,12 +334,11 @@ type app struct {
 	// transfers are the copies to and from hosts running.
 	transfers []*transfer
 
-	panelMax    bool // the panel takes the editor's room
-	welcomeView ui.Handle
-	rain        rainState   // The Matrix's, behind the welcome page
-	mascot      mascotState // the theme's character, Claude's or Qoder's
-	toldAt      time.Time   // when a toast last told what a command did
-	spin        spinState   // Claude's spinner, while Git works
+	panelMax bool        // the panel takes the editor's room
+	rain     rainState   // The Matrix's, behind the welcome page
+	mascot   mascotState // the theme's character, Claude's or Qoder's
+	toldAt   time.Time   // when a toast last told what a command did
+	spin     spinState   // Claude's spinner, while Git works
 	// blurred is set while the window has not the keyboard.
 	blurred bool
 	// frame counts the frames, and frameAt is when the last started: a

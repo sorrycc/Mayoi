@@ -41,6 +41,9 @@ type column struct {
 	filesOver bool
 	// node is the column's place in the layout.
 	node *tile
+	// welcome scrolls the welcome page the column shows while empty: each
+	// empty column its own, as a handle binds one control.
+	welcome ui.Handle
 }
 
 // colTab is a tab of a column: an editor of a document, a viewer of an
@@ -581,11 +584,27 @@ func (a *app) focusTab(t *colTab) {
 }
 
 // focusColumn gives the keyboard to the tab shown in the column that had
-// it last.
+// it last, or to the column itself when it has none.
 func (a *app) focusColumn() {
 	if t := a.activeTab(); t != nil {
 		a.focusTab(t)
+		return
 	}
+	a.column().body.Focus()
+	a.focus = paneEditor
+}
+
+// newEmptyColumn opens an empty column after the one that has the
+// keyboard, beside it or below it with down, there alone in a layout of
+// both, and gives it the keyboard: what opens next goes there. The tabs
+// of the column split stay as they are.
+func (a *app) newEmptyColumn(down bool) {
+	nc := a.splitTile(a.column().node, true, down)
+	a.col = slices.Index(a.cols, nc)
+	a.fileCol = nc
+	a.find.stale = true
+	a.focusColumn()
+	a.rememberTabs()
 }
 
 func (a *app) cycleTab(step int) {

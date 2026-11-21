@@ -3398,6 +3398,26 @@ func (msgs Messages) CmdViewNewTerminal() string {
 	return Catalog.Format(msgs.locale, "cmdViewNewTerminal", nil)
 }
 
+// CmdViewNewColumnDown says "New Column Below"
+// in the language the app shows.
+func CmdViewNewColumnDown() string { return In(i18n.Locale()).CmdViewNewColumnDown() }
+
+// CmdViewNewColumnDown says "New Column Below"
+// in the language of msgs.
+func (msgs Messages) CmdViewNewColumnDown() string {
+	return Catalog.Format(msgs.locale, "cmdViewNewColumnDown", nil)
+}
+
+// CmdViewNewColumnRight says "New Column Right"
+// in the language the app shows.
+func CmdViewNewColumnRight() string { return In(i18n.Locale()).CmdViewNewColumnRight() }
+
+// CmdViewNewColumnRight says "New Column Right"
+// in the language of msgs.
+func (msgs Messages) CmdViewNewColumnRight() string {
+	return Catalog.Format(msgs.locale, "cmdViewNewColumnRight", nil)
+}
+
 // CmdViewNextColumn says "Focus Next Column"
 // in the language the app shows.
 func CmdViewNextColumn() string { return In(i18n.Locale()).CmdViewNextColumn() }
@@ -7102,6 +7122,16 @@ func LockedColumn() string { return In(i18n.Locale()).LockedColumn() }
 // in the language of msgs.
 func (msgs Messages) LockedColumn() string {
 	return Catalog.Format(msgs.locale, "lockedColumn", nil)
+}
+
+// EmptyColumn says "Empty Column"
+// in the language the app shows.
+func EmptyColumn() string { return In(i18n.Locale()).EmptyColumn() }
+
+// EmptyColumn says "Empty Column"
+// in the language of msgs.
+func (msgs Messages) EmptyColumn() string {
+	return Catalog.Format(msgs.locale, "emptyColumn", nil)
 }
 
 // Menu says "Menu"

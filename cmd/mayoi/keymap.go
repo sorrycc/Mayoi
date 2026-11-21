@@ -290,6 +290,8 @@ var vscodeCommands = map[string]string{
 	"workbench.action.unpinEditor":               "view.togglePinTab",
 	"workbench.action.splitEditorRight":          "view.splitRight",
 	"workbench.action.splitEditorDown":           "view.splitDown",
+	"workbench.action.newGroupRight":             "view.newColumnRight",
+	"workbench.action.newGroupBelow":             "view.newColumnDown",
 	"markdown.showPreview":                       "view.togglePreview",
 	"markdown.showPreviewToSide":                 "view.previewToSide",
 	"workbench.action.focusNextGroup":            "view.nextColumn",

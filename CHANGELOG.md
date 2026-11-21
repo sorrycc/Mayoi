@@ -18,7 +18,7 @@ needs a `## <version>` section here, or its build fails.
 - Editing a cell or adding a row in a long Live Preview table no longer closes the cell or jumps the view.
 - Scrolling with the wheel or trackpad over a Live Preview table, or the cell you're editing, now scrolls the note.
 
-- `Cmd+D` splits right and `Cmd+Shift+D` splits down, as in iTerm2, from an editor or a terminal tab.
+- On macOS, `Cmd+D` and `Cmd+Shift+D` open an empty column to the right or below, as in iTerm2.
 - **View → Split Down** stacks a new column under the current one, and you drag the line between them to resize.
 - Splitting a terminal opens a new one in the same folder, and the original keeps running.
 - Stacked columns come back when you reopen the project.

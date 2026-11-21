@@ -138,6 +138,51 @@ func TestSplitKeysOnMacOS(t *testing.T) {
 	}
 }
 
+// A binding of keybindings.json takes the menu's key of Split Right when
+// it is that key on the system Mayoi's shortcuts are of, whatever MyGo's
+// ui.Cmd is on the machine the test runs on: ⌘D on macOS, which a binding
+// of ⌃D leaves, and Ctrl+\\ elsewhere.
+func TestBindingTakesSplitRightKey(t *testing.T) {
+	was := ui.Cmd
+	t.Cleanup(func() { ui.Cmd = was })
+	accel := func(goos, binding string) string {
+		t.Helper()
+		onOS(t, goos)
+		a := newApp(&fakeHost{}, settings.Default(), settings.Default().NewWindow())
+		t.Cleanup(a.shutdown)
+		key, _ := json.Marshal(binding)
+		km, err := keymap.Parse([]byte(`[{"key": ` + string(key) + `, "command": "editor.action.addSelectionToNextFindMatch"}]`))
+		if err != nil {
+			t.Fatal(err)
+		}
+		a.keys = km
+		for _, cmd := range a.commands() {
+			if cmd.id == "view.splitRight" {
+				return a.menuAccel(cmd)
+			}
+		}
+		t.Fatal("no Split Right")
+		return ""
+	}
+	for _, machine := range []ui.Modifiers{ui.Super, ui.Ctrl} {
+		ui.Cmd = machine
+		if got := accel("darwin", "cmd+d"); got != "" {
+			t.Errorf("ui.Cmd %v: cmd+d bound, Split Right keeps %q on macOS", machine, got)
+		}
+		if got := accel("darwin", "ctrl+d"); got != "CmdOrCtrl+D" {
+			t.Errorf("ui.Cmd %v: ctrl+d bound, Split Right has %q on macOS", machine, got)
+		}
+		for _, goos := range []string{"linux", "windows"} {
+			if got := accel(goos, "ctrl+\\"); got != "" {
+				t.Errorf("ui.Cmd %v: ctrl+\\ bound, Split Right keeps %q on %s", machine, got, goos)
+			}
+			if got := accel(goos, "ctrl+d"); got != "Ctrl+\\" {
+				t.Errorf("ui.Cmd %v: ctrl+d bound, Split Right has %q on %s", machine, got, goos)
+			}
+		}
+	}
+}
+
 // Off macOS Split Right keeps Ctrl+\, Split Down takes Ctrl+Shift+D, from
 // a terminal too, and Ctrl+D is still Add Next Occurrence, which a
 // terminal keeps for its shell's end of input.

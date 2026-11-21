@@ -812,9 +812,10 @@ func (a *app) menu(cli bool, run func(id string, win *mygo.Window)) *mygo.Menu {
 
 // menuAccel is the accelerator of a command's menu item: none when
 // keybindings.json binds its keys, which the menu would take first, or
-// takes them away from it.
+// takes them away from it. CmdOrCtrl is Command on macOS's keys, as
+// Mayoi's systems have them, not as MyGo's machine does.
 func (a *app) menuAccel(cmd command) string {
-	st, ok := keymap.ParseAccel(cmd.accel)
+	st, ok := parseAccel(cmd.accel)
 	if ok && (a.keys.Binds(st) || a.keys.Removes(commandNames(cmd.id)...)) {
 		return ""
 	}

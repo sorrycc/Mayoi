@@ -59,7 +59,9 @@ The order: it works, then it is easy, then it looks good. Polish never covers a 
   (`TestLiveTableAppendRows`, `TestLiveTableHeaderOnly`). The menu of a cell inserts and deletes rows and columns, each
   one step of undo, the new cell or the one beside the one taken away edited after it; the header stays first and the
   last column stays, their items off (`TestLiveTableMenu`). A change chosen for a table that changed since is not
-  made, and the cell follows its table as lines come above it (`TestLiveTableStale`).
+  made, and the cell follows its table as lines come above it (`TestLiveTableStale`). A long table is as high as all
+  of its rows and its columns as wide wherever it is scrolled, the cell a key moves to or a row added scrolls into view
+  as little as shows it, and what the cell writes to the note leaves the view where it is (`TestLiveTableLong`).
 - What loads keeps a place: a picture of the web on its way in Live Preview is a card where it goes, which the
   picture fades in over as its room glides to its own (`TestLivePictureArrives`); a rendered block shows once it is
   measured, fading in over `motionShow`.
@@ -76,7 +78,8 @@ The order: it works, then it is easy, then it looks good. Polish never covers a 
 - `TestBudgets` (`cmd/mayoi/budget_test.go`) holds the cost of a frame to a budget: idle, scrolling, typing, typing
   with find open, Quick Open, the palette, 2,000 sessions scrolled, hovered and filtered, the GitHub view's 500 issues
   and pull requests scrolled, hovered and filtered, the Table view of 100,000 lines of JSON Lines scrolled, moved
-  through and filtered, an editor scrolled under a hover, and a terminal printing as fast as it can. CI runs it on macOS.
+  through and filtered, a Live Preview table of 1,000 rows idle, scrolled and typed in, an editor scrolled under a
+  hover, and a terminal printing as fast as it can. CI runs it on macOS.
   A change that needs more raises a budget in the same commit and says why.
 - The figures on the website and in `docs/ARCHITECTURE.md` come from these tests.
 

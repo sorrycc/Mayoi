@@ -164,7 +164,12 @@ changes under the cell. Tab after the last cell, Return in the last row and the 
 rows and columns (`tableStructure`, which keeps the header first, its line of alignments as wide and one column at
 least) as one step of undo; the cell follows its table by a rune of its header, which the edits of every view move,
 and a change chosen from a menu of a table whose rows or columns changed since is not made. Until the parse that
-follows, the table is drawn from its own source parsed alone, so the new cell shows at once. A bullet and a task's box keep the width of their source, which shows in their room as the caret comes to
+follows, the table is drawn from its own source parsed alone, so the new cell shows at once. A table builds only its
+rows in view and a view above and below it, and the row of the cell, the others taking the room they were built at
+(`markdownlivetable.go`): all of them are built once as it shows and at each new width, to know their heights. Its
+lines each keep the room of their row in the text area (`liveTableRooms`), so the lines in view, a caret waiting in
+view and the area keeping its place as a row takes its height all find the row where it shows; the caret waits on the
+cell's row as the cell writes, as the area takes the lines after an edit for guesses until it measures them again. A bullet and a task's box keep the width of their source, which shows in their room as the caret comes to
 them, so the line holds still. A picture of the web on its way is a card (`livePicture`), whose room glides to the
 picture's as it arrives and fades in over it. The link under the pointer is found from where the area says the pointer
 is (`liveHovered`), and its underline fills in. Blocks of code are cards painted behind their lines, their code alone

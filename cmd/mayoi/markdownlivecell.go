@@ -39,6 +39,12 @@ type liveCell struct {
 	// it, and caret is where its caret goes, -1 for nowhere new.
 	focus, focused bool
 	caret          int
+	// reveal is how many frames more the view scrolls the cell into view,
+	// as it moved: the next, and those after while the table grows to
+	// show a row added at the end of the text. shown is set while the last
+	// frame showed its row whole.
+	reveal int
+	shown  bool
 	// typed is the input's caret as last built, seen its text then, and
 	// wait the timer that writes what was typed once typing pauses.
 	typed int
@@ -53,6 +59,9 @@ type liveCell struct {
 	// it opens, 0 until then, and kept as it is typed in.
 	width float32
 }
+
+// liveReveal is how many frames a cell that moved is scrolled into view.
+const liveReveal = 3
 
 // rowLine is the line of row r of the table, after its line of
 // alignments.
@@ -119,7 +128,7 @@ func (a *app) openLiveCell(d *editor, first, last, r, k int) {
 	if d.liveCell.on && d.liveCell.first == first {
 		key = d.liveCell.key
 	}
-	d.liveCell = liveCell{on: true, first: first, last: last, row: r, col: k, key: key, focus: true, caret: -1}
+	d.liveCell = liveCell{on: true, first: first, last: last, row: r, col: k, key: key, focus: true, caret: -1, reveal: liveReveal}
 	cell := &d.liveCell
 	snap := d.buf.Snapshot()
 	line, _, ok := liveCellLine(snap, cell)
@@ -307,6 +316,7 @@ func (a *app) followLiveCell(d *editor, snap ui.TextSnapshot, last int) {
 		// one, whose input keeps the keyboard.
 		cell.row, cell.col, cell.width = r, k, 0
 		cell.focus = cell.focus || cell.focused
+		cell.reveal = liveReveal
 	}
 	line, _, ok := liveCellLine(snap, cell)
 	if !ok {

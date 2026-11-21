@@ -250,6 +250,35 @@ func TestBudgets(t *testing.T) {
 				step(hs.tt)
 			}
 		}},
+		// A table of 1,000 rows in Live Preview, of three columns, among
+		// prose: it builds the rows in view and near it only, the others
+		// taking their room, so that a frame costs as much as for a short
+		// one, idle, scrolled through and typed in at its last row. A row
+		// added to it costs far more, in the text measuring its lines
+		// again (TestLiveTableLong adds one).
+		{"Live Preview 1,000-row table idle frame", 2 * time.Millisecond, false, func(t *testing.T, hs *harness) func() {
+			bigTable(t, hs)
+			return func() { step(hs.tt) }
+		}},
+		{"Live Preview 1,000-row table scroll frame", 5 * time.Millisecond, false, func(t *testing.T, hs *harness) func() {
+			bigTable(t, hs)
+			i := 0
+			return func() {
+				dy := float32(60)
+				if i/30%2 == 1 {
+					dy = -60
+				}
+				i++
+				hs.tt.Scroll(700, 400, 0, dy)
+				step(hs.tt)
+			}
+		}},
+		{"Live Preview 1,000-row table last cell type frame", 5 * time.Millisecond, false, func(t *testing.T, hs *harness) func() {
+			d := bigTable(t, hs)
+			hs.a.openLiveCell(d, bigTableFirst, bigTableFirst+1+bigTableRows, bigTableRows, 0)
+			hs.settle()
+			return func() { hs.tt.Type("a"); step(hs.tt) }
+		}},
 		// The caret moving from line to line shows the marks of the line it
 		// goes to and hides those of the line it leaves.
 		{"Live Preview caret frame", 4 * time.Millisecond, true, func(t *testing.T, hs *harness) func() {
@@ -511,6 +540,26 @@ func editTableCell(t *testing.T, hs *harness, d *editor) {
 	if !d.liveCell.on {
 		t.Fatal("the click does not edit a cell")
 	}
+}
+
+// bigTableRows is how many rows bigTable's table has below its header,
+// whose line is bigTableFirst.
+const (
+	bigTableRows  = 1000
+	bigTableFirst = 40
+)
+
+// bigTable opens a note of prose around a table of bigTableRows rows as
+// Live Preview, once the table is measured, scrolled into the table, and
+// returns its editor.
+func bigTable(t *testing.T, hs *harness) *editor {
+	t.Helper()
+	d := openLive(t, hs, "table.md", liveLongTable(bigTableRows), 1)
+	lv := tableView(d)
+	hs.until("the table measured", func() bool { return lv.measured && lv.frame == hs.a.frame })
+	d.vscroll.Y = 2000
+	hs.settle()
+	return d
 }
 
 // bigJSONL opens a file of 100,000 lines of JSON Lines as its table,

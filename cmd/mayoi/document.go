@@ -288,6 +288,9 @@ type editor struct {
 	liveBox int
 	// liveCell is the cell of a table Live Preview edits in place.
 	liveCell liveCell
+	// liveScroll is how far the next frame scrolls, as Live Preview's
+	// last asked.
+	liveScroll float32
 	// liveMenu is the table and its cell the menu of a cell opened on.
 	liveMenu liveTableTarget
 	// liveRanges and liveObjects are the ranges and the objects of Live

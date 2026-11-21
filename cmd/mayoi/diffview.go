@@ -2796,7 +2796,11 @@ func (a *app) diffButtons(c *ui.Context, t *colTab) {
 			label = locales.DiffEditButtonActive()
 		}
 		b = button(iconPencil, label, editing)
-		b.Tooltip(locales.DiffEditTip())
+		if f.buffers != nil {
+			b.Tooltip(label)
+		} else {
+			b.Tooltip(locales.DiffEditTip())
+		}
 		if b.Clicked() {
 			a.post(func() {
 				a.diffAction(v, func() {

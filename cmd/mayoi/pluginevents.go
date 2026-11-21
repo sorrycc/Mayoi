@@ -13,6 +13,7 @@ import (
 type pluginSeen struct {
 	docs    map[*document]docSeen
 	focused *document
+	front   bool
 	root    string
 	indexed bool
 	// changed are the documents edited since the plugins were last told,
@@ -22,15 +23,18 @@ type pluginSeen struct {
 	waking    bool
 }
 
-type docSeen struct{ version, saved uint64 }
+type docSeen struct {
+	version, saved       uint64
+	path, name, language string
+}
 
 // pluginChangeDelay is how long edits rest before the plugins hear of
 // them: editor.change is not of every keystroke.
 const pluginChangeDelay = 300 * time.Millisecond
 
 // docEvent is what an event of a document tells a plugin.
-func docEvent(d *document) map[string]any {
-	return map[string]any{"path": d.path, "language": languageOf(d), "version": d.buf.Version(), "document": docJSON(d)}
+func (a *app) docEvent(d *document) map[string]any {
+	return map[string]any{"path": d.path, "language": languageOf(d), "version": d.buf.Version(), "document": a.docJSON(d)}
 }
 
 // pluginTick tells the plugins what changed in the window since the last
@@ -78,29 +82,32 @@ func (a *app) pluginTick() {
 		switch {
 		case !ok:
 			h.reg.Activate("onLanguage:" + languageOf(d))
-			h.reg.Emit("editor.open", docEvent(d))
+			h.reg.Emit("editor.open", a.docEvent(d))
 			a.lspDoc("open", d)
 		case seen.version != ver:
 			s.changed[d], s.changedAt = true, now
 		}
 		if ok && seen.saved != saved && !d.dirty() {
-			h.reg.Emit("editor.didSave", docEvent(d))
+			h.reg.Emit("editor.didSave", a.docEvent(d))
 			a.lspDoc("save", d)
 		}
-		s.docs[d] = docSeen{ver, saved}
+		if ok && (seen.path != d.path || seen.name != d.name() || seen.language != languageOf(d)) {
+			h.reg.Emit("editor.metadata", a.docEvent(d))
+		}
+		s.docs[d] = docSeen{ver, saved, d.path, d.name(), languageOf(d)}
 	}
 	for d := range s.docs {
 		if !containsDoc(a.docs, d) {
 			delete(s.docs, d)
 			delete(s.changed, d)
-			h.reg.Emit("editor.close", map[string]any{"path": d.path})
+			h.reg.Emit("editor.close", map[string]any{"path": d.path, "ref": a.documentRef(d)})
 			a.lspDoc("close", d)
 		}
 	}
 	if len(s.changed) > 0 {
 		if now.Sub(s.changedAt) >= pluginChangeDelay {
 			for d := range s.changed {
-				h.reg.Emit("editor.change", docEvent(d))
+				h.reg.Emit("editor.change", a.docEvent(d))
 				a.lspDoc("change", d)
 			}
 			clear(s.changed)
@@ -115,13 +122,15 @@ func (a *app) pluginTick() {
 	if d := a.activeEditor(); d != nil {
 		front = d.document
 	}
-	if front != s.focused {
+	inFront := a == h.front()
+	if front != s.focused || inFront && !s.front {
 		s.focused = front
 		if front != nil {
 			h.reg.Activate("onLanguage:" + languageOf(front))
-			h.reg.Emit("editor.focus", docEvent(front))
+			h.reg.Emit("editor.focus", a.docEvent(front))
 		}
 	}
+	s.front = inFront
 }
 
 // wantsWorkspace reports whether a plugin starts on the files of the

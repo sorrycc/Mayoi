@@ -259,6 +259,37 @@ meanwhile, `edit` returns `false` and changes nothing. An edit that applies is o
 
 A document event has the document's `path`, `language`, `version`, and the `document` itself.
 
+### Document identity and command context
+
+Every document has a `ref`, `{windowId, documentId}`, valid while that document remains open.
+Paths and names are display information: several untitled documents have the empty path.
+Document and editor methods keep targeting their source window even after you switch windows.
+`document.snapshot()` reads its current `text`, `version`, `ref`, `path`, `name` and `language`
+together. `workspace.document(ref)` returns its current document, or `null` once closed.
+Reopening the same path does not make an old reference valid again.
+
+`editor.active`, `editor.visible`, `workspace.documents` and `window.pick` accept an optional
+`{windowId}` to keep an operation in its source window. Without it they use the front window.
+Closed explicit windows fail rather than redirecting calls to another window.
+`editor.close` includes `ref`; `editor.metadata` reports changes to a document's path, name or language.
+
+Commands may receive a second argument, their invocation context:
+
+```ts
+commands.register("example.inspect", async (arg, context) => {
+  if (!context?.document) return;
+  const doc = await workspace.document(context.document);
+  if (!doc) return;
+  const snapshot = await doc.snapshot();
+  console.log(snapshot.name, snapshot.version);
+});
+```
+
+The context includes `source`, `windowId` and, when known, `document`, `version` and `position`.
+Sources are `command`, `tab/context`, `explorer/context`, `api` and `cli`.
+A tab action gets the tab right-clicked, which need not be the active tab. Existing string arguments,
+including paths from context menus and values from `mayoi run`, remain the first argument.
+
 ### Files and programs on SSH hosts
 
 Plugins run on this machine. `workspace` and `process` reach the folder's machine, so `readFile("go.mod")` reads it on

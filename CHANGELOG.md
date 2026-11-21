@@ -3,6 +3,12 @@
 The update window shows the section of the version it offers. Every release
 needs a `## <version>` section here, or its build fails.
 
+## Unreleased
+
+- Plugins keep targeting their source documents when you switch windows.
+- Plugins can read a document's text and version together and track untitled documents closing.
+- Plugin tab actions receive the tab you chose, including unsaved buffers.
+
 ## 0.23.2
 
 - In Live Preview, clicking a table cell edits its Markdown in place inside the rendered table.

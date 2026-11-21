@@ -523,7 +523,7 @@ func (a *app) askHover(d *editor, at int, rest *pointerHover) {
 	} else {
 		s = a.lspRunningFor(d.document)
 	}
-	doc := docJSON(d.document)
+	doc := a.docJSON(d.document)
 	lang := languageOf(d.document)
 	uri := serverURI(d.path)
 	var providers []*plugin.Plugin

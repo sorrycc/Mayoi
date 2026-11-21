@@ -40,11 +40,19 @@ type liveCell struct {
 	focus, focused bool
 	caret          int
 	// reveal is how many frames more the view scrolls the cell into view,
-	// as it moved: the next, and those after while the table grows to
-	// show a row added at the end of the text. shown is set while the last
-	// frame showed its row whole.
+	// as it moved, until its row shows whole: the table may grow or
+	// shrink meanwhile, as a row is added at the end of the text or its
+	// column widens for the source. shown is set while the last frame
+	// showed its row whole.
 	reveal int
 	shown  bool
+	// settling is how many frames more, after an edit made from the cell,
+	// the text area may measure its lines again: what it takes for their
+	// heights until then makes the text shorter, which scrolls the view,
+	// until it is as high as it was, maxY as far as it scrolled last. The
+	// cell is shown again as long as that changes.
+	settling int
+	maxY     float32
 	// typed is the input's caret as last built, seen its text then, and
 	// wait the timer that writes what was typed once typing pauses.
 	typed int
@@ -60,8 +68,9 @@ type liveCell struct {
 	width float32
 }
 
-// liveReveal is how many frames a cell that moved is scrolled into view.
-const liveReveal = 3
+// liveReveal is how many frames at most a cell that moved is scrolled
+// into view, while its row does not show whole yet.
+const liveReveal = 10
 
 // rowLine is the line of row r of the table, after its line of
 // alignments.
@@ -293,10 +302,12 @@ func (a *app) liveCellKey(d *editor, ev ui.InputEvent) bool {
 		a.flushLiveCell(d)
 		d.undo()
 		d.quiet = true
+		cell.settle()
 	case ev.Key == ui.KeyZ && m == ui.Cmd|ui.Shift:
 		a.flushLiveCell(d)
 		d.redo()
 		d.quiet = true
+		cell.settle()
 	default:
 		return false
 	}
@@ -352,6 +363,7 @@ func (a *app) flushLiveCell(d *editor) {
 	bs, be, with := tableCellEdit(line, cell.col, src)
 	start, end := ls+utf8.RuneCountInString(line[:bs]), ls+utf8.RuneCountInString(line[:be])
 	d.typeEdit(textEdit{start: start, end: end, text: with})
+	cell.settle()
 	cell.source = src
 	if src != cell.text {
 		// A pipe typed is escaped: the caret goes after its backslash.
@@ -571,8 +583,18 @@ func (a *app) liveTableEdit(d *editor, first, last int, op tableOp, r, k int) bo
 		lv.v.markdown.tables = nil
 	}
 	a.openLiveCell(d, first, last+dr, nr, nk)
+	d.liveCell.settle()
 	return true
 }
+
+// settle keeps the cell in view while the text area measures its lines
+// again after an edit made from it.
+func (cell *liveCell) settle() { cell.settling, cell.maxY = liveSettle, -1 }
+
+// liveSettle is how many frames an edit made from a cell is followed by,
+// at least, for the text area to measure its lines again: as many again
+// after each frame it scrolls further or less far.
+const liveSettle = 4
 
 // liveTableTarget is the table and the cell a menu of a table's cell
 // opened on: by its header's line, its row and its column, and how many

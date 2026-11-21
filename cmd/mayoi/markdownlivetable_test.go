@@ -36,7 +36,7 @@ func cellShown(hs *harness, d *editor, name string) bool {
 	c := d.liveCell
 	in, ok := hs.tt.Find(locales.LiveCellLabel(strconv.Itoa(c.row+1), strconv.Itoa(c.col+1)))
 	view, ok2 := hs.tt.Find("Editor " + name)
-	return ok && ok2 && in.Y >= view.Y && in.Y+in.H <= view.Y+view.H
+	return ok && ok2 && in.H > 0 && in.Y >= view.Y && in.Y+in.H <= view.Y+view.H
 }
 
 // wheelTo scrolls the editor's text by the wheel over x, y, as far as it
@@ -58,6 +58,28 @@ func wheelTo(hs *harness, d *editor, x, y float32, down bool, each func()) {
 			return
 		}
 	}
+}
+
+// wheelToShow scrolls the wheel at x, in the middle of view, up from past
+// the text s shows as, back down a little where it went past it, until it
+// shows whole within view: by where it shows, as fonts and windows differ
+// from one system to another.
+func wheelToShow(t *testing.T, hs *harness, x float32, view ui.Rect, s string) {
+	t.Helper()
+	for range 200 {
+		r, ok := hs.tt.Find(s)
+		ok = ok && r.H > 0 && r.W > 0 // clipped away at an edge: no size
+		dy := float32(-120)
+		switch {
+		case ok && r.Y >= view.Y && r.Y+r.H <= view.Y+view.H:
+			return
+		case ok && r.Y < view.Y:
+			dy = 40
+		}
+		hs.tt.Scroll(x, view.Y+view.H/2, 0, dy)
+		hs.settle()
+	}
+	t.Fatalf("the wheel does not bring %q into view %v", s, view)
 }
 
 // A long table builds the rows in view only, and stays as high, its
@@ -84,16 +106,31 @@ func TestLiveTableLong(t *testing.T) {
 		t.Fatalf("the table is %v high, its rows %v", height, sum)
 	}
 	cols := slices.Clone(lv.v.markdown.tables[0])
+	heights := make([]float32, len(lv.rows))
+	for i, r := range lv.rows {
+		heights[i] = r.h
+	}
 
 	// To its end and past, as high, where it was, as wide.
 	view, _ := hs.tt.Find("Editor long.md")
 	x, y := view.X+view.W/2, view.Y+view.H/2
+	tall := lv.height
 	wheelTo(hs, d, x, y, true, func() {
 		if math.Abs(float64(lv.at.H-height)) > 0.5 || math.Abs(float64(lv.at.Y+d.vscroll.Y-top)) > 0.5 {
 			t.Fatalf("scrolled to %v, the table is %v high at %v, not %v at %v", d.vscroll.Y, lv.at.H, lv.at.Y+d.vscroll.Y, height, top)
 		}
 		if got := lv.v.markdown.tables[0]; !slices.Equal(got, cols) {
 			t.Fatalf("scrolled to %v, the columns are %v, not %v", d.vscroll.Y, got, cols)
+		}
+		// Not even by a fraction of a pixel: a height taken anew asks for
+		// a frame more, and lays the table's lines out again.
+		if lv.height != tall {
+			t.Fatalf("scrolled to %v, the table's height went from %v to %v", d.vscroll.Y, tall, lv.height)
+		}
+		for i, r := range lv.rows {
+			if r.h != heights[i] {
+				t.Fatalf("scrolled to %v, row %d is %v high, not %v", d.vscroll.Y, i, r.h, heights[i])
+			}
 		}
 	})
 	if lv.at.Y+lv.at.H > view.Y+view.H {
@@ -177,11 +214,12 @@ func TestLiveTableLong(t *testing.T) {
 	// Escape left the left column's caret after the table, in view: back
 	// to the top by the wheel over the table's cells, and the right column
 	// to the table's last rows.
+	// The columns' view as the window is now, both as high.
+	view, _ = hs.tt.Find("Editor long.md")
+	y = view.Y + view.H/2
 	wheelTo(hs, d, d.liveAt.X+60, y, false, nil)
 	wheelTo(hs, right, right.liveAt.X+60, y, true, nil)
-	rlv := tableView(right)
-	hs.tt.Scroll(right.liveAt.X+60, y, 0, rlv.at.Y+rlv.at.H-(view.Y+view.H)+100)
-	hs.settle()
+	wheelToShow(t, hs, right.liveAt.X+60, view, "item 399")
 	if err := hs.tt.Click("item 399"); err != nil {
 		t.Fatal(err)
 	}

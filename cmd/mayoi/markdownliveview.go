@@ -2,6 +2,7 @@ package main
 
 import (
 	"maps"
+	"math"
 	"net/url"
 	"regexp"
 	"slices"
@@ -1175,8 +1176,20 @@ func (a *app) liveArea(c *ui.Context, d *editor, area ui.Element, f liveFrame) {
 							a.liveTableRows(c, lv, y, f.viewH, w, font, -1, false)
 							return
 						}
+						if lc.settling > 0 {
+							// Frames of their own, so that the cell's follow
+							// ends before the next scroll asked for.
+							lc.settling--
+							c.AnimationFrame()
+							if maxY := d.vscroll.MaxY; maxY != lc.maxY {
+								lc.maxY, lc.reveal, lc.settling = maxY, max(lc.reveal, 2), liveSettle
+							}
+						}
 						more, shown := a.liveTableRows(c, lv, y, f.viewH, w, font, lc.row, lc.reveal > 0)
-						lc.reveal, lc.shown = max(0, lc.reveal-1), shown
+						lc.shown = shown
+						if lc.reveal = max(0, lc.reveal-1); shown {
+							lc.reveal = 0
+						}
 						shift += more
 						return
 					}
@@ -1189,11 +1202,20 @@ func (a *app) liveArea(c *ui.Context, d *editor, area ui.Element, f liveFrame) {
 			// Not the room the Reading view keeps below its last row: the
 			// blank line after it is that room here.
 			bottom, outside := a.markdownBelow(lv.v.markdown, len(lv.v.markdown.blocks)-1)
-			if h := lv.at.H - bottom - outside; lv.at.H > 0 && (h != lv.height || !lv.measured) {
+			// Not for less than a pixel: the rows of a table not built
+			// take their room summed one way, and another as others come
+			// into view, a little more or less, which would ask for a
+			// frame more and its rooms anew at each.
+			if h := lv.at.H - bottom - outside; lv.at.H > 0 && (math.Abs(float64(h-lv.height)) >= 0.5 || !lv.measured) {
 				if !lv.measured {
 					lv.measured, lv.shownAt = true, c.Now()
 				}
 				lv.height = h
+				if lc := &d.liveCell; lc.on && lc.first == s.first {
+					// Its rows flowed anew, as its column widened or
+					// narrowed for the cell: the cell shown again.
+					lc.reveal = max(lc.reveal, 2)
+				}
 				a.invalidate()
 			}
 		}

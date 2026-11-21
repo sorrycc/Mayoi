@@ -233,10 +233,11 @@ func TestBudgets(t *testing.T) {
 		// A row added to a table from a cell, as Return in its last row
 		// does, in a note of some 400 lines: one edit of the text, the
 		// table drawn as it was until the parse it asks for at once
-		// arrives. Most of it is the text measuring the lines after a new
-		// one again, as for any line added, which Return in this note's
-		// text costs far more than (some 120 ms): hence above 5 ms.
-		{"Live Preview table row add frame", 15 * time.Millisecond, false, func(t *testing.T, hs *harness) func() {
+		// arrives, the new cell scrolled into view, and the text measuring
+		// its lines again, some 4 ms a frame. Each of those frames counts
+		// alone: the tester draws all of them at once, which a window
+		// spreads over its own.
+		{"Live Preview table row add frame", 5 * time.Millisecond, true, func(t *testing.T, hs *harness) func() {
 			part := "Some **bold** text with a [link](https://example.com).\n\n| a | b |\n|---|---|\n| 1 | 2 |\n\n"
 			os.WriteFile(hs.path("rows.md"), []byte(strings.Repeat(part, 60)), 0o644)
 			hs.a.settings.MarkdownMode = "live"

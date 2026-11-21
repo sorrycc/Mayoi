@@ -14,8 +14,9 @@ type liveRow struct {
 }
 
 // liveRowsShown is how far beyond the view, in views, the rows of a table
-// are built: those the next frames scroll to are there already.
-const liveRowsShown = 1
+// are built: they are built for where the frame scrolls, so that this is
+// only for what a scroll moves on in it, as it glides.
+const liveRowsShown = 0.5
 
 // liveTableRows builds the rows of the table lv draws at y, from the top
 // of the view viewH high, that are in view or near it, and the row of the
@@ -33,7 +34,10 @@ func (a *app) liveTableRows(c *ui.Context, lv *liveView, y, viewH, width float32
 	// (liveTableRooms).
 	for _, i := range lv.built {
 		if i < len(lv.rows) {
-			if got := lv.rows[i].box.Bounds(c).H; got > 0 {
+			// Not for less than a pixel, as a row laid out again at
+			// another place comes out a little more or less: its room in
+			// the text area would change, which lays its line out again.
+			if got := lv.rows[i].box.Bounds(c).H; got > 0 && max(got-lv.rows[i].h, lv.rows[i].h-got) >= 0.5 {
 				lv.rows[i].h = got
 			}
 		}
@@ -155,14 +159,15 @@ func (a *app) liveTableRooms(lv *liveView, first, last int, height, top float32)
 
 // liveCellPark is where the text area's caret waits while a cell of a
 // table is edited in place: at the start of the cell's row, as long as
-// the last frame showed it. An edit, as one written from the cell, has
+// the last frame showed it or it is still to be scrolled into view, as a
+// row just added. An edit, as one written from the cell, has
 // the area take the heights of its lines for guesses until it measures
 // them again, so that the line in the middle of the view could be taken
 // for one far below, and the view scroll to it.
 func liveCellPark(d *editor, snap ui.TextSnapshot) (int, bool) {
 	cell := &d.liveCell
 	line := cell.rowLine(cell.row)
-	if !cell.on || !cell.shown || line >= snap.LineCount() {
+	if !cell.on || !cell.shown && cell.reveal == 0 || line >= snap.LineCount() {
 		return 0, false
 	}
 	at, _ := snap.LineRange(line)

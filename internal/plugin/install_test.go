@@ -65,6 +65,45 @@ func TestInstallUpdateRemove(t *testing.T) {
 	}
 }
 
+// An update while Mayoi watches the plugin keeps its folder, which
+// Windows will not move while a handle is open below it.
+func TestUpdateKeepsFolderWhileWatched(t *testing.T) {
+	r, _, dirs := newRegistry(t)
+	ctx := context.Background()
+	repo := gitRepo(t, map[string]string{"plugin.json": `{"name": "java", "version": "1.0.0"}`, "launcher/run.sh": "echo 1\n", "old.txt": "x"})
+	if _, err := Install(ctx, dirs.Plugins, repo, ""); err != nil {
+		t.Fatal(err)
+	}
+	r.Load()
+	stop, err := r.Watch()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer stop()
+	dest := filepath.Join(dirs.Plugins, "java")
+	before, _ := os.Stat(dest)
+	writePlugin(t, repo, "", map[string]string{"plugin.json": `{"name": "java", "version": "1.1.0"}`})
+	git(ctx, repo, "rm", "-q", "old.txt")
+	git(ctx, repo, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qam", "two")
+	if changed, err := Update(ctx, dirs.Plugins, "java"); err != nil || !changed {
+		t.Fatalf("update while watched: %v %v", changed, err)
+	}
+	after, _ := os.Stat(dest)
+	if !os.SameFile(before, after) {
+		t.Fatal("update moved the plugin's folder")
+	}
+	if m, _ := ReadManifest(dest); m.Version != "1.1.0" {
+		t.Fatalf("version after update = %s", m.Version)
+	}
+	if _, err := os.Stat(filepath.Join(dest, "old.txt")); err == nil {
+		t.Fatal("a file the update deleted is still there")
+	}
+	head, _ := git(ctx, dest, "rev-parse", "HEAD")
+	if ReadRecords(dirs.Plugins)["java"].Commit != head {
+		t.Fatal("record does not hold the checked-out commit")
+	}
+}
+
 // syncFromFolders lets settings sync install from the folders the tests
 // make.
 func syncFromFolders(t *testing.T) {

@@ -13,6 +13,7 @@ needs a `## <version>` section here, or its build fails.
 - `Cmd+C` and **Copy** in the Explorer copy every selected file; **Copy Path** copies their paths, one per line.
 - **Rename…** and **Move to Trash** stay off while several Explorer rows are selected.
 - Headings in the breadcrumbs and their outline show plain text, so `[label](url)` reads as its label.
+- Updating a plugin installed from Git no longer fails on Windows with Access is denied while Mayoi is open.
 
 ## 0.23.1
 

@@ -185,18 +185,29 @@ func Install(ctx context.Context, dir, url, ref string) (*Manifest, error) {
 	if fi, err := os.Lstat(dest); err == nil && fi.Mode()&os.ModeSymlink != 0 {
 		return nil, fmt.Errorf("%s is linked for development by mayoi plugin dev: mayoi plugin remove %s first", m.Name, m.Name)
 	}
-	old := dest + ".old"
-	os.RemoveAll(old)
-	if _, err := os.Stat(dest); err == nil {
-		if err := os.Rename(dest, old); err != nil {
+	// A clone already there takes the new commit in place: Windows will
+	// not move a folder that the running app watches.
+	if _, err := os.Stat(filepath.Join(dest, ".git")); err == nil {
+		if _, err := git(ctx, dest, "fetch", "--quiet", "--depth", "1", "--", tmp, "HEAD"); err != nil {
 			return nil, err
 		}
+		if _, err := git(ctx, dest, "checkout", "--quiet", "--force", "--detach", "FETCH_HEAD"); err != nil {
+			return nil, err
+		}
+	} else {
+		old := dest + ".old"
+		os.RemoveAll(old)
+		if _, err := os.Stat(dest); err == nil {
+			if err := os.Rename(dest, old); err != nil {
+				return nil, err
+			}
+		}
+		if err := os.Rename(tmp, dest); err != nil {
+			os.Rename(old, dest)
+			return nil, err
+		}
+		os.RemoveAll(old)
 	}
-	if err := os.Rename(tmp, dest); err != nil {
-		os.Rename(old, dest)
-		return nil, err
-	}
-	os.RemoveAll(old)
 	recs := ReadRecords(dir)
 	recs[m.Name] = Source{URL: url, Ref: ref, Commit: commit}
 	return m, WriteRecords(dir, recs)

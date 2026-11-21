@@ -229,6 +229,16 @@ func TestNewEmptyColumn(t *testing.T) {
 	if len(a.cols[0].tabs) != 1 || a.cols[0].tab().ed != src || src.sel != [2]int{3, 7} || len(a.docs) != 1 {
 		t.Fatalf("the column split: %d tabs, selection %v, %d documents", len(a.cols[0].tabs), src.sel, len(a.docs))
 	}
+	// Tab goes on from it to the welcome page, and it is no stop of Tab
+	// once the keyboard left it.
+	hs.key(0, ui.KeyTab)
+	if hs.tt.Focused("Empty Column") || a.cols[1].holds != holdNone {
+		t.Fatalf("after Tab: empty column focused %v, holds %v", hs.tt.Focused("Empty Column"), a.cols[1].holds)
+	}
+	a.col = 1
+	a.cols[1].holds = holdAsked
+	a.focusColumn()
+	expectEmptyColumn(t, hs, "[AB]", 1)
 	// From the empty one: one more, below it.
 	newColumnBy(t, hs, "New Column Below")
 	expectEmptyColumn(t, hs, "[A{BC}]", 2)
@@ -598,6 +608,17 @@ func TestRestoresStackedColumns(t *testing.T) {
 		a, tt := restore(t, stack)
 		if shape(a) != "[A{BC}]" || a.col != 2 {
 			t.Fatalf("restored %s, keyboard in %d", shape(a), a.col)
+		}
+		// The files are read in the background, a slow runner's after the
+		// frames restore took.
+		for deadline := time.Now().Add(settleTimeout); time.Now().Before(deadline); {
+			_, up := tt.Find("Editor README.md")
+			_, down := tt.Find("Editor go.mod")
+			if up && down {
+				break
+			}
+			time.Sleep(5 * time.Millisecond)
+			step(tt)
 		}
 		u, b := editorBox(t, tt, "README.md"), editorBox(t, tt, "go.mod")
 		if u.H < b.H*1.6 || u.Y > b.Y {

@@ -81,10 +81,21 @@ func (a *app) view(c *ui.Context) {
 	// Which pane has the keyboard focus, as the frame before left it, and
 	// which column: its editor is the one typing is of.
 	for i, col := range a.cols {
+		if len(col.tabs) > 0 {
+			col.holds = holdNone // a tab came: the column holds the keys no more
+		}
 		switch t := col.tab(); {
 		case t == nil:
+			// A button of its welcome page focused makes it the column too.
 			if col.body.FocusWithin(c) {
 				a.focus, a.col = paneEditor, i
+			}
+			switch held := col.body.Focused(c); {
+			case held && col.holds == holdAsked:
+				col.holds = holdHeld
+			case !held && col.holds == holdHeld:
+				// Let go: no longer a stop of Tab.
+				col.holds = holdNone
 			}
 		case t.ed != nil && t.ed.vscroll.FocusWithin(c):
 			a.focus, a.col = paneEditor, i
@@ -631,7 +642,10 @@ func (a *app) columnView(c *ui.Context, col *column) {
 		}
 		// It takes the keyboard, as a new empty column does, for what
 		// opens next to go there.
-		body := ui.Column(c).Bind(&col.body).Grow(1).MinHeight(0).Focusable().FocusRing(false).Label(locales.EmptyColumn())
+		body := ui.Column(c).Bind(&col.body).Grow(1).MinHeight(0).Label(locales.EmptyColumn())
+		if col.holds != holdNone {
+			body.Focusable().FocusRing(false)
+		}
 		over := a.takeFiles(body, col)
 		body.Children(func() {
 			if col.locked {

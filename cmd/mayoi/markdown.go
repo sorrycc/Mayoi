@@ -2402,6 +2402,38 @@ func markdownNodeText(n ast.Node, source []byte) string {
 	return b.String()
 }
 
+// markdownPlainText is the text a node of Markdown shows, as a reader
+// sees it: markdownNodeText's, with escaped punctuation and entities
+// read as the characters they stand for, and code spans as written.
+func markdownPlainText(n ast.Node, source []byte) string {
+	var b strings.Builder
+	_ = ast.Walk(n, func(n ast.Node, entering bool) (ast.WalkStatus, error) {
+		if !entering {
+			return ast.WalkContinue, nil
+		}
+		switch x := n.(type) {
+		case *ast.CodeSpan:
+			for c := x.FirstChild(); c != nil; c = c.NextSibling() {
+				if t, ok := c.(*ast.Text); ok {
+					b.Write(t.Segment.Value(source))
+				}
+			}
+			return ast.WalkSkipChildren, nil
+		case *ast.Text:
+			v := x.Segment.Value(source)
+			b.Write(util.ResolveEntityNames(util.ResolveNumericReferences(util.UnescapePunctuations(v))))
+		case *ast.String:
+			b.Write(x.Value)
+		case *ast.AutoLink:
+			b.Write(x.Label(source))
+		case *wikiLinkNode:
+			b.WriteString(x.text())
+		}
+		return ast.WalkContinue, nil
+	})
+	return b.String()
+}
+
 func (a *app) markdownImage(c *ui.Context, m *markdownPreview, path string, r markdownInline, width float32) {
 	// A <picture>'s for the theme, once it came.
 	alt := r.light

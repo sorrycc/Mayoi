@@ -227,6 +227,11 @@ type app struct {
 	// crumbs is the box a folder of the breadcrumbs opens.
 	crumbs  crumbsPicker
 	fileRow int
+	// explorerSel are the files and folders Shift and Cmd choose with the
+	// row chosen, by their paths, none while it is chosen alone;
+	// explorerAnchor is the one Shift chooses from.
+	explorerSel    ui.Selection[string]
+	explorerAnchor string
 	// filesView is the explorer's list, which focusFiles has take the
 	// keyboard as it next shows.
 	filesView  ui.Handle
@@ -598,6 +603,7 @@ func (a *app) openFolder(dir string) {
 	a.files = ui.OutlineState[string]{Indent: treeStep}
 	a.explorer = explorerTree{}
 	a.fileRow = -1
+	a.clearExplorerSelection()
 	a.files.List.Selected = &a.fileRow
 	a.index, a.ignored = nil, nil
 	a.indexRead.Invalidate()

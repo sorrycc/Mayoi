@@ -11,6 +11,12 @@ A click on the space below the files, or Escape, unselects the file or folder ch
 folder. A right click there opens the workspace's menu: New File…, New Folder…, Reveal in Finder, Open in Terminal and
 Paste.
 
+Shift-click a row to select every row from the last one chosen to it, in the order the tree shows them, and Cmd-click
+(Ctrl-click on Windows and Linux) to add a row or take it out; Shift with the arrow keys, Home and End extends the
+selection too. Neither opens a file or a folder. A plain click, the arrow keys or Escape select one row again, and rows
+that close or go stop being selected. ⌘C, **Copy**, **Copy Path** and **Copy Relative Path** act on every row
+selected; **Rename…** and **Move to Trash** are off while several are, and a drag moves the row dragged alone.
+
 Drag a file or a folder onto a folder's row to move it there, onto a file's row to move it beside that file, or onto
 the folder's row at the top or below the rows to move it into the workspace's folder. The row it would go to is
 highlighted. Open tabs follow the file, unsaved changes included. A move never replaces a file or folder of the same

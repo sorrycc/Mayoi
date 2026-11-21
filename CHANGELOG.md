@@ -9,6 +9,9 @@ needs a `## <version>` section here, or its build fails.
 - **Layout → One File at a Time** no longer applies to a commit's changes, which list every file.
 - `Cmd+Q` and **Mayoi → Quit Mayoi** ask before quitting, with **Don't ask again** to skip it.
 - **Settings → General → Confirm Before Quit** turns the quit question back on.
+- `Shift`-click in the Explorer selects a range of files and folders, and `Cmd`-click (`Ctrl`) adds or removes one.
+- `Cmd+C` and **Copy** in the Explorer copy every selected file; **Copy Path** copies their paths, one per line.
+- **Rename…** and **Move to Trash** stay off while several Explorer rows are selected.
 
 ## 0.23.1
 

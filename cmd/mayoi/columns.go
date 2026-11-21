@@ -44,7 +44,20 @@ type column struct {
 	// welcome scrolls the welcome page the column shows while empty: each
 	// empty column its own, as a handle binds one control.
 	welcome ui.Handle
+	// holds is how an empty column New Column made holds the keyboard
+	// itself, so that what opens next goes there: asked for, then held,
+	// until the keyboard goes elsewhere or a tab comes. Another empty
+	// column, as the welcome page at start, takes no keys and no Tab.
+	holds keyHold
 }
+
+type keyHold int
+
+const (
+	holdNone keyHold = iota
+	holdAsked
+	holdHeld
+)
 
 // colTab is a tab of a column: an editor of a document, a viewer of an
 // image, the changes of a file, the three-way merge of a conflicted one,
@@ -584,14 +597,20 @@ func (a *app) focusTab(t *colTab) {
 }
 
 // focusColumn gives the keyboard to the tab shown in the column that had
-// it last, or to the column itself when it has none.
+// it last, or to an empty column New Column made, which holds it itself.
 func (a *app) focusColumn() {
 	if t := a.activeTab(); t != nil {
 		a.focusTab(t)
 		return
 	}
-	a.column().body.Focus()
-	a.focus = paneEditor
+	// Not while a tab of another project is carried in: the frame the
+	// focus asks for would come before the pointer is over this project,
+	// and let the tab go.
+	if col := a.column(); col.holds != holdNone && a.carried == nil {
+		col.holds = holdAsked
+		col.body.Focus()
+		a.focus = paneEditor
+	}
 }
 
 // newEmptyColumn opens an empty column after the one that has the
@@ -603,6 +622,7 @@ func (a *app) newEmptyColumn(down bool) {
 	a.col = slices.Index(a.cols, nc)
 	a.fileCol = nc
 	a.find.stale = true
+	nc.holds = holdAsked
 	a.focusColumn()
 	a.rememberTabs()
 }

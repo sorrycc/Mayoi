@@ -887,8 +887,11 @@ func (a *app) paintFileHeader(pt *ui.Painter, f *diffFile, r ui.Rect, hovered bo
 	pt.Icon(icon, ui.Rect{X: x, Y: mid - 7, W: 14, H: 14}, iconCol)
 	x += 20
 	rel := a.relOrPath(f.path)
+	if f.buffers != nil {
+		rel = f.buffers.label(0) + " ↔ " + f.buffers.label(1)
+	}
 	dir := ""
-	if k := strings.LastIndexAny(rel, `/\`); k >= 0 {
+	if k := strings.LastIndexAny(rel, `/\`); k >= 0 && f.buffers == nil {
 		dir, rel = rel[:k+1], rel[k+1:]
 	}
 	if (f.base == diffStaged || f.base == diffCommit) && f.entry.Orig != "" {
@@ -1826,7 +1829,18 @@ func (a *app) fileButtons(c *ui.Context, v *diffView, f *diffFile, right, y floa
 		fn    func()
 	}
 	var bs []button
-	if f.base == diffLocal {
+	if f.buffers != nil {
+		for side, id := range f.buffers.ids {
+			if f.buffers.closed[side] {
+				continue
+			}
+			label := locales.DiffOpenLeft()
+			if side == 1 {
+				label = locales.DiffOpenRight()
+			}
+			bs = append(bs, button{iconOpenFile, label, func() { a.openBufferSource(id, 0) }})
+		}
+	} else if f.base == diffLocal {
 		bs = append(bs,
 			button{iconOpenFile, locales.DiffOpenLeft(), func() { a.openFileAt(f.path, 0, true) }},
 			button{iconOpenFile, locales.DiffOpenRight(), func() { a.openFileAt(f.peerPath, 0, true) }},
@@ -1835,7 +1849,7 @@ func (a *app) fileButtons(c *ui.Context, v *diffView, f *diffFile, right, y floa
 		bs = append(bs, button{iconOpenFile, openLabel(e), func() { a.openFileAt(f.path, 0, true) }})
 	}
 	switch {
-	case f.base == diffLocal:
+	case f.base == diffLocal || f.base == diffBuffers:
 	case f.base == diffCommit:
 	case f.base == diffStaged:
 		bs = append(bs, button{iconMinus, locales.UnstageChanges(), func() { ctx.unstage(entryPaths(e, true)...) }})

@@ -797,6 +797,7 @@ func (a *app) dropTab(t *colTab) {
 		}
 		t.ed.release()
 		if len(doc.views) == 0 {
+			a.freezeBufferComparisons(doc)
 			doc.hl.Close()
 			a.docs = slices.DeleteFunc(a.docs, func(d *document) bool { return d == doc })
 			a.docClosed(doc)
@@ -903,6 +904,9 @@ func (a *app) split(down bool) {
 		return
 	case t.diff != nil:
 		v := newDiffView(t.diff.layout)
+		if len(t.diff.files) > 0 && t.diff.files[0].buffers != nil {
+			v = newBufferCompareView(t.diff.layout, *t.diff.files[0].buffers)
+		}
 		if cm := t.diff.commit; cm.pending() {
 			// Read once, for each tab of it.
 			v = newPendingPR(t.diff.layout, cm.pr.number, cm.pr.title)
@@ -1109,6 +1113,8 @@ func (a *app) rememberTabs() {
 					// Its shell runs on, and the agent in it.
 					ts.Agent, ts.Session = string(t.term.agent), t.term.resumed
 				}
+			case t.diff != nil && len(t.diff.files) > 0 && t.diff.files[0].buffers != nil:
+				continue
 			case t.diff != nil && t.diff.commit.pending():
 				continue // a pull request still read opens again from GitHub
 			case t.diff != nil && t.diff.commit != nil:

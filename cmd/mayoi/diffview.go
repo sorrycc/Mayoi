@@ -28,11 +28,12 @@ import (
 type diffBase int
 
 const (
-	diffHead   diffBase = iota // HEAD with the work tree
-	diffIndex                  // the index with the work tree: the changes not staged
-	diffStaged                 // HEAD with the index: the changes staged
-	diffCommit                 // a commit with its first parent
-	diffLocal                  // two local files, both writable
+	diffHead    diffBase = iota // HEAD with the work tree
+	diffIndex                   // the index with the work tree: the changes not staged
+	diffStaged                  // HEAD with the index: the changes staged
+	diffCommit                  // a commit with its first parent
+	diffLocal                   // two local files, both writable
+	diffBuffers                 // two open documents, read-only here
 )
 
 // sides names the two versions a diff compares.
@@ -42,7 +43,7 @@ func (b diffBase) sides() (old, new string) {
 		return locales.SideIndex(), locales.SideWorkingTree()
 	case diffStaged:
 		return "HEAD", locales.SideIndex()
-	case diffLocal:
+	case diffLocal, diffBuffers:
 		return locales.DiffSideLeft(), locales.DiffSideRight()
 	}
 	return "HEAD", locales.SideWorkingTree()
@@ -266,6 +267,7 @@ type diffSide struct {
 // as the source control view lists it in group, and the changes between
 // them, read and compared in the background.
 type diffFile struct {
+	buffers  *bufferComparison
 	repoRoot string
 	path     string
 	peerPath string // right-hand path for a local two-file comparison
@@ -342,6 +344,7 @@ func (f *diffFile) counts() (add, del int) {
 // lines removed and added interleaved, or side by side, and those
 // unchanged away from them folded.
 type diffView struct {
+	stopped  bool
 	repoRoot string // work tree that owns this view, fixed when opened
 	layout   diffLayout
 	split    bool // as the layout and the width chose last
@@ -584,6 +587,10 @@ func (cm *commitDiff) key() string {
 }
 
 func (v *diffView) name() string {
+	if len(v.files) > 0 && v.files[0].buffers != nil {
+		b := v.files[0].buffers
+		return b.label(0) + " ↔ " + b.label(1)
+	}
 	if v.local && len(v.files) > 0 {
 		return filepath.Base(v.files[0].path) + " ↔ " + filepath.Base(v.files[0].peerPath)
 	}
@@ -678,6 +685,12 @@ func (v *diffView) pickShown(hint *diffFile) int {
 // same reports whether two diffs show the same changes: both those of
 // the work tree, or of one commit.
 func (v *diffView) same(o *diffView) bool {
+	if len(v.files) > 0 && v.files[0].buffers != nil {
+		return len(o.files) > 0 && o.files[0].buffers != nil && v.files[0].buffers.ids == o.files[0].buffers.ids
+	}
+	if len(o.files) > 0 && o.files[0].buffers != nil {
+		return false
+	}
 	if v.repoRoot != o.repoRoot {
 		return false
 	}
@@ -689,6 +702,7 @@ func (v *diffView) same(o *diffView) bool {
 
 // stop lets go of the highlighters and the editors of the sides edited.
 func (v *diffView) stop() {
+	v.stopped = true
 	for _, f := range v.files {
 		f.stop()
 	}
@@ -850,6 +864,14 @@ func (a *app) openDiffFile(v *diffView) {
 	row := v.focusRow()
 	if v.cursor < 0 && v.current >= 0 && v.current < len(v.starts) {
 		row = v.starts[v.current]
+	}
+	if len(v.files) > 0 && v.files[0].buffers != nil {
+		line := 0
+		if row >= 0 && row < len(v.rows) {
+			line = v.rows[row].new
+		}
+		a.openBufferSource(v.files[0].buffers.ids[1], line)
+		return
 	}
 	if path, line := v.lineAt(row); path != "" {
 		a.openFileAt(path, line, true)
@@ -1139,8 +1161,11 @@ func (a *app) refreshDiff(v *diffView) {
 // refreshDiffFile compares the sides of a file of a diff again in the
 // background when one may have changed, and reports whether it started.
 func (a *app) refreshDiffFile(v *diffView, f *diffFile) bool {
+	if f.buffers != nil {
+		a.captureBuffers(f)
+	}
 	r := a.diffContext(v).git.repo
-	if f.running || f.waiting || (r == nil && f.base != diffLocal) {
+	if f.running || f.waiting || (r == nil && f.base != diffLocal && f.base != diffBuffers) {
 		return false
 	}
 	doc := a.diffDoc(f)
@@ -1174,6 +1199,12 @@ func (a *app) refreshDiffFile(v *diffView, f *diffFile) bool {
 		f.peerDocVersion = peerSnap.Version()
 	}
 	old, new := f.old, f.new
+	var bufferSnaps [2]ui.TextSnapshot
+	var bufferVersions [2]uint64
+	if f.buffers != nil {
+		bufferSnaps = f.buffers.snapshots
+		bufferVersions = [2]uint64{bufferSnaps[0].Version(), bufferSnaps[1].Version()}
+	}
 	path, orig, base, peerPath := f.path, f.entry.Orig, f.base, f.peerPath
 	sub, dirty := f.entry.Submodule(), f.entry.Dirty()
 	whitespace := a.diffWhitespaceOf()
@@ -1197,7 +1228,10 @@ func (a *app) refreshDiffFile(v *diffView, f *diffFile) bool {
 			}
 			return text, ok
 		}
-		if base == diffLocal {
+		if base == diffBuffers {
+			old.text, old.ok = bufferSnaps[0].String(), true
+			new.text, new.ok = bufferSnaps[1].String(), true
+		} else if base == diffLocal {
 			if doc != nil {
 				old.text, old.ok = snap.String(), true
 			} else {
@@ -1228,7 +1262,7 @@ func (a *app) refreshDiffFile(v *diffView, f *diffFile) bool {
 			}
 		}
 		switch {
-		case base == diffLocal:
+		case base == diffLocal || base == diffBuffers:
 			// Both sides were read above; open documents are incorporated by
 			// the local comparison helpers when they are edited.
 		case doc != nil:
@@ -1268,6 +1302,14 @@ func (a *app) refreshDiffFile(v *diffView, f *diffFile) bool {
 		}
 		a.post(func() {
 			f.running = false
+			if v.stopped {
+				return
+			}
+			if f.buffers != nil && !a.bufferVersionsCurrent(f.buffers, bufferVersions) {
+				f.gitStale = true
+				a.invalidate()
+				return
+			}
 			if err != nil {
 				f.err = errorLine(err)
 			} else {
@@ -1301,7 +1343,7 @@ func setDiffSide(s *diffSide, read diffSide, lines []string) {
 // made as its lines first show.
 func (a *app) highlighter(f *diffFile, s *diffSide) *highlight.Highlighter {
 	if s.hl == nil {
-		s.hl = highlight.New(highlight.Lexer(f.path), a.invalidate)
+		s.hl = highlight.New(bufferLexer(f, s), a.invalidate)
 	}
 	return s.hl
 }
@@ -2279,6 +2321,10 @@ func (a *app) activateRow(v *diffView, i int, open bool) {
 		v.changed()
 	case rowLine, rowHunk:
 		if open {
+			if f.buffers != nil {
+				a.openBufferSource(f.buffers.ids[1], r.new)
+				return
+			}
 			path, line := v.lineAt(i)
 			a.openFileAt(path, line, true)
 		}

@@ -227,18 +227,28 @@ func TestBudgets(t *testing.T) {
 		// changes, what was typed written to the text as typing pauses.
 		{"Live Preview table cell type frame", 5 * time.Millisecond, false, func(t *testing.T, hs *harness) func() {
 			d := bigNote(hs)
-			for _, lv := range d.livePane.views {
-				if lv.frame == hs.a.frame && lv.measured && lv.at.Y > 0 {
-					// The first cell of its body.
-					hs.tt.ClickAt(lv.at.X+10, lv.at.Y+lv.at.H*0.75)
-					break
-				}
-			}
-			hs.settle()
-			if !d.liveCell.on {
-				t.Fatal("the click does not edit a cell")
-			}
+			editTableCell(t, hs, d)
 			return func() { hs.tt.Type("a"); step(hs.tt) }
+		}},
+		// A row added to a table from a cell, as Return in its last row
+		// does, in a note of some 400 lines: one edit of the text, the
+		// table drawn as it was until the parse it asks for at once
+		// arrives. Most of it is the text measuring the lines after a new
+		// one again, as for any line added, which Return in this note's
+		// text costs far more than (some 120 ms): hence above 5 ms.
+		{"Live Preview table row add frame", 15 * time.Millisecond, false, func(t *testing.T, hs *harness) func() {
+			part := "Some **bold** text with a [link](https://example.com).\n\n| a | b |\n|---|---|\n| 1 | 2 |\n\n"
+			os.WriteFile(hs.path("rows.md"), []byte(strings.Repeat(part, 60)), 0o644)
+			hs.a.settings.MarkdownMode = "live"
+			hs.a.openFile(hs.path("rows.md"), true)
+			d := hs.a.activeEditor()
+			hs.until("the note parsed", func() bool { l := d.document.live; return l != nil && l.doc != nil && !l.quick })
+			editTableCell(t, hs, d)
+			return func() {
+				c := &d.liveCell
+				hs.a.liveTableEdit(d, c.first, c.last, tableRowBelow, c.row, c.col)
+				step(hs.tt)
+			}
 		}},
 		// The caret moving from line to line shows the marks of the line it
 		// goes to and hides those of the line it leaves.
@@ -478,6 +488,29 @@ func bigDoc(hs *harness) *editor {
 	d.vscroll.Y = 4000
 	hs.settle()
 	return d
+}
+
+// editTableCell clicks the first cell of the body of a table Live Preview
+// shows in an editor, to edit it in place.
+func editTableCell(t *testing.T, hs *harness, d *editor) {
+	t.Helper()
+	var table *liveView
+	hs.until("a table shown", func() bool {
+		// The highest in view.
+		table = nil
+		for _, lv := range d.livePane.views {
+			if m := lv.v.markdown; lv.frame == hs.a.frame && lv.measured && lv.at.Y > 0 && len(m.blocks) > 0 &&
+				m.blocks[0].kind == markdownTableHeader && (table == nil || lv.at.Y < table.at.Y) {
+				table = lv
+			}
+		}
+		return table != nil
+	})
+	hs.tt.ClickAt(table.at.X+10, table.at.Y+table.at.H*0.75)
+	hs.settle()
+	if !d.liveCell.on {
+		t.Fatal("the click does not edit a cell")
+	}
 }
 
 // bigJSONL opens a file of 100,000 lines of JSON Lines as its table,

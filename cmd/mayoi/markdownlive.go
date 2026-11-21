@@ -839,6 +839,11 @@ func parseLive(source string, path, root string, full bool, cache *markdownCache
 				walk(x)
 			case *east.Table:
 				s, e := linesOf(x)
+				if s >= 0 && x.ChildCount() == 1 && e < len(src) {
+					// A header alone: its line of alignments too, which is
+					// no row of its own.
+					e = lineEnd(bytes.IndexByte(src[e:], '\n') + e + 1)
+				}
 				if s >= 0 && full {
 					doc.blocks = append(doc.blocks, liveBlock{start: s, end: e, source: string(src[s:e])})
 				}

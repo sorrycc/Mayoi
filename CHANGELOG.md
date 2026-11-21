@@ -9,6 +9,10 @@ needs a `## <version>` section here, or its build fails.
 - In a table cell, `Tab` and `Shift+Tab` move between cells, and `Return` and the arrow keys move between rows.
 - `Escape` in a table cell, or moving past the table, returns to the text beside the table.
 - Typing `|` in a table cell escapes it as `\|`, and `Cmd+Z` undoes a cell's edits as it does typing.
+- In a table cell, `Tab` after the last cell or `Return` on the last row adds a new row below.
+- `Return` on an empty last row of a table removes that row and returns to the text below the table.
+- Right-click a table cell in Live Preview to insert or delete rows and columns; `Cmd+Z` undoes each change.
+- In Live Preview, a table with only a header row renders and edits in place; `Tab` or `Return` adds its first row.
 
 - `Cmd+D` splits right and `Cmd+Shift+D` splits down, as in iTerm2, from an editor or a terminal tab.
 - **View → Split Down** stacks a new column under the current one, and you drag the line between them to resize.

@@ -339,6 +339,34 @@ var galleryStates = []struct {
 		hs.tt.Click("crisp")
 		hs.settle()
 	}},
+	{"live-table-rows", func(hs *harness) {
+		// A table that grew from its cells: a column added from a cell's
+		// menu, and a row from Tab after its last cell, being typed in.
+		src := "# Fruit\n\n| Name | Note | Price |\n| :--- | :---: | ---: |\n| apple | **crisp** | 1.20 |\n| 梨 | a \\| b | 3.00 |\n\nend\n"
+		os.WriteFile(hs.path("rows.md"), []byte(src), 0o644)
+		hs.a.settings.MarkdownMode = "live"
+		hs.a.openFile(hs.path("rows.md"), true)
+		d := hs.a.activeEditor()
+		hs.until("the table drawn", func() bool {
+			for _, lv := range d.livePane.views {
+				if lv.measured && lv.frame == hs.a.frame {
+					return true
+				}
+			}
+			return false
+		})
+		hs.tt.Click("crisp")
+		hs.settle()
+		c := &d.liveCell
+		hs.a.liveTableEdit(d, c.first, c.last, tableColRight, c.row, c.col)
+		hs.settle()
+		hs.tt.Type("Stock")
+		hs.settle()
+		hs.a.openLiveCell(d, c.first, c.last, c.rows()-1, 3)
+		hs.key(0, ui.KeyTab)
+		hs.tt.Type("kiwi")
+		hs.settle()
+	}},
 	{"wiki-suggest", func(hs *harness) {
 		// [[ typed in a note of a vault: the notes it may link to, under it.
 		os.MkdirAll(hs.path(".obsidian"), 0o755)

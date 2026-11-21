@@ -9566,6 +9566,66 @@ func (msgs Messages) LiveCellLabel(row string, column string) string {
 	return Catalog.Format(msgs.locale, "liveCellLabel", map[string]any{"row": row, "column": column})
 }
 
+// LiveTableRowAbove says "Insert Row Above"
+// in the language the app shows.
+func LiveTableRowAbove() string { return In(i18n.Locale()).LiveTableRowAbove() }
+
+// LiveTableRowAbove says "Insert Row Above"
+// in the language of msgs.
+func (msgs Messages) LiveTableRowAbove() string {
+	return Catalog.Format(msgs.locale, "liveTableRowAbove", nil)
+}
+
+// LiveTableRowBelow says "Insert Row Below"
+// in the language the app shows.
+func LiveTableRowBelow() string { return In(i18n.Locale()).LiveTableRowBelow() }
+
+// LiveTableRowBelow says "Insert Row Below"
+// in the language of msgs.
+func (msgs Messages) LiveTableRowBelow() string {
+	return Catalog.Format(msgs.locale, "liveTableRowBelow", nil)
+}
+
+// LiveTableRowDelete says "Delete Row"
+// in the language the app shows.
+func LiveTableRowDelete() string { return In(i18n.Locale()).LiveTableRowDelete() }
+
+// LiveTableRowDelete says "Delete Row"
+// in the language of msgs.
+func (msgs Messages) LiveTableRowDelete() string {
+	return Catalog.Format(msgs.locale, "liveTableRowDelete", nil)
+}
+
+// LiveTableColLeft says "Insert Column Left"
+// in the language the app shows.
+func LiveTableColLeft() string { return In(i18n.Locale()).LiveTableColLeft() }
+
+// LiveTableColLeft says "Insert Column Left"
+// in the language of msgs.
+func (msgs Messages) LiveTableColLeft() string {
+	return Catalog.Format(msgs.locale, "liveTableColLeft", nil)
+}
+
+// LiveTableColRight says "Insert Column Right"
+// in the language the app shows.
+func LiveTableColRight() string { return In(i18n.Locale()).LiveTableColRight() }
+
+// LiveTableColRight says "Insert Column Right"
+// in the language of msgs.
+func (msgs Messages) LiveTableColRight() string {
+	return Catalog.Format(msgs.locale, "liveTableColRight", nil)
+}
+
+// LiveTableColDelete says "Delete Column"
+// in the language the app shows.
+func LiveTableColDelete() string { return In(i18n.Locale()).LiveTableColDelete() }
+
+// LiveTableColDelete says "Delete Column"
+// in the language of msgs.
+func (msgs Messages) LiveTableColDelete() string {
+	return Catalog.Format(msgs.locale, "liveTableColDelete", nil)
+}
+
 // PreviewLabel says "Preview {name}"
 // in the language the app shows.
 func PreviewLabel(name string) string { return In(i18n.Locale()).PreviewLabel(name) }

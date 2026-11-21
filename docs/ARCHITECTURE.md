@@ -160,7 +160,11 @@ holds its source, and the editor's caret waits outside the table, which stays dr
 text as typing pauses, or as the cell is left or a shortcut runs, as one edit of the cell's source (`tableCellEdit`,
 its pipes escaped), which undoes as typing does: an edit made to the text from outside the text area has the area lay
 out all of the text again, too much for each key. The table's view keeps its height and its columns as its source
-changes under the cell. A bullet and a task's box keep the width of their source, which shows in their room as the caret comes to
+changes under the cell. Tab after the last cell, Return in the last row and the menu of a cell add and take away
+rows and columns (`tableStructure`, which keeps the header first, its line of alignments as wide and one column at
+least) as one step of undo; the cell follows its table by a rune of its header, which the edits of every view move,
+and a change chosen from a menu of a table whose rows or columns changed since is not made. Until the parse that
+follows, the table is drawn from its own source parsed alone, so the new cell shows at once. A bullet and a task's box keep the width of their source, which shows in their room as the caret comes to
 them, so the line holds still. A picture of the web on its way is a card (`livePicture`), whose room glides to the
 picture's as it arrives and fades in over it. The link under the pointer is found from where the area says the pointer
 is (`liveHovered`), and its underline fills in. Blocks of code are cards painted behind their lines, their code alone

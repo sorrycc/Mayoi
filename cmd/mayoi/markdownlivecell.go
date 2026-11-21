@@ -3,6 +3,7 @@ package main
 import (
 	"slices"
 	"strconv"
+	"strings"
 	"time"
 	"unicode/utf8"
 
@@ -22,6 +23,10 @@ type liveCell struct {
 	on          bool
 	first, last int
 	row, col    int
+	// at is a rune of the table's header, past its start, which the
+	// edits above the table move, from any view of the note: first is
+	// its line.
+	at int
 	// text is what the input shows, and source the cell's source as last
 	// written or read, by which an edit made elsewhere, as undo or one in
 	// another column, shows in the input.
@@ -39,6 +44,10 @@ type liveCell struct {
 	typed int
 	seen  string
 	wait  *time.Timer
+	// parsed is the drawing of the table parsed from its source, src,
+	// while the last parse has other rows or columns.
+	parsed []markdownBlock
+	src    string
 	// width is how wide its column is at least while it is edited, for
 	// its source to show, which is wider than its text drawn: measured as
 	// it opens, 0 until then, and kept as it is typed in.
@@ -56,6 +65,33 @@ func (cell *liveCell) rowLine(r int) int {
 
 // rows is how many rows the table has, its header one.
 func (cell *liveCell) rows() int { return max(1, cell.last-cell.first) }
+
+// cols is how many columns the table's header has.
+func (cell *liveCell) cols(snap ui.TextSnapshot) int {
+	if cell.first >= snap.LineCount() {
+		return 1
+	}
+	cells, _ := tableRowCells(snap.Line(cell.first))
+	return max(1, len(cells))
+}
+
+// liveTableEnd is the last line of the table whose header is line first,
+// last at least: the rows added after it since the note was parsed too,
+// each a line with a pipe, quoted as the header.
+func liveTableEnd(snap ui.TextSnapshot, first, last int) int {
+	if first >= snap.LineCount() {
+		return last
+	}
+	quote := liveQuoteMarks.FindString(snap.Line(first))
+	for last+1 < snap.LineCount() {
+		l := snap.Line(last + 1)
+		if liveQuoteMarks.FindString(l) != quote || !strings.Contains(l, "|") {
+			break
+		}
+		last++
+	}
+	return last
+}
 
 // liveCellLine is the line of the row the cell is of and where it starts.
 func liveCellLine(snap ui.TextSnapshot, cell *liveCell) (line string, start int, ok bool) {
@@ -93,6 +129,8 @@ func (a *app) openLiveCell(d *editor, first, last, r, k int) {
 	}
 	cell.text = tableCellText(line, k)
 	cell.source, cell.seen, cell.caret = cell.text, cell.text, utf8.RuneCountInString(cell.text)
+	hs, he := snap.LineRange(first)
+	cell.at = min(hs+1, he)
 	if !d.selOutside(snap, first, last) {
 		at := liveAfter(snap, last)
 		d.selectRange(at, at, false)
@@ -158,13 +196,7 @@ func (a *app) leaveLiveCell(d *editor, before bool) {
 // the editor takes the keyboard.
 func (a *app) moveLiveCell(d *editor, across, down int) {
 	cell := &d.liveCell
-	snap := d.buf.Snapshot()
-	cols := 1
-	if cell.first < snap.LineCount() {
-		s, e := snap.LineRange(cell.first)
-		cells, _ := tableRowCells(snap.Slice(s, e))
-		cols = max(1, len(cells))
-	}
+	cols := cell.cols(d.buf.Snapshot())
 	r, k := cell.row+down, cell.col+across
 	switch {
 	case k >= cols:
@@ -179,19 +211,69 @@ func (a *app) moveLiveCell(d *editor, across, down int) {
 	a.openLiveCell(d, cell.first, cell.last, r, k)
 }
 
+// liveCellBlocks is the drawing of the table of the cell edited, parsed
+// from its source as it is now, while its rows or its columns are not the
+// ones the last parse drew, as a row or a column added from a cell, so
+// that the cell shows at once and what is typed reaches it: nil once the
+// parse drew it so, as it does in a moment.
+func (a *app) liveCellBlocks(d *editor, snap ui.TextSnapshot, drawn []markdownBlock) []markdownBlock {
+	cell := &d.liveCell
+	rows := 0
+	for _, b := range drawn {
+		if b.kind == markdownTable || b.kind == markdownTableHeader {
+			rows++
+		}
+	}
+	if len(drawn) > 0 && rows == cell.rows() && len(drawn[0].cells) == cell.cols(snap) {
+		cell.parsed, cell.src = nil, ""
+		return nil
+	}
+	s, _ := snap.LineRange(cell.first)
+	_, e := snap.LineRange(cell.last)
+	if src := snap.Slice(s, e); cell.parsed == nil || src != cell.src {
+		cell.parsed = parseMarkdown([]byte(src), d.path, markdownRoot(d.path, a.folder()), nil)
+		cell.src = src
+	}
+	if len(cell.parsed) == 0 || cell.parsed[0].kind != markdownTableHeader {
+		return nil
+	}
+	return cell.parsed
+}
+
 // liveCellKey takes a key pressed in the input of a cell: Tab and Shift-Tab
 // move across cells, Return and the arrows up and down move between rows,
-// Escape leaves, and undo and redo are the text's.
+// Escape leaves, and undo and redo are the text's. Tab after the last cell
+// adds a row, and so does Return in the last row, but for an empty one,
+// which it takes away to leave the table.
 func (a *app) liveCellKey(d *editor, ev ui.InputEvent) bool {
 	if ev.Kind != ui.InputKeyDown {
 		return false
 	}
 	m := ev.Mods
+	cell := &d.liveCell
+	lastRow := cell.row == cell.rows()-1
 	switch {
 	case ev.Key == ui.KeyTab && m == 0:
+		if lastRow && cell.col >= cell.cols(d.buf.Snapshot())-1 {
+			if a.liveTableEdit(d, cell.first, cell.last, tableRowBelow, cell.row, cell.col) {
+				a.openLiveCell(d, cell.first, cell.last, cell.row, 0)
+				break
+			}
+		}
 		a.moveLiveCell(d, 1, 0)
 	case ev.Key == ui.KeyTab && m == ui.Shift:
 		a.moveLiveCell(d, -1, 0)
+	case ev.Key == ui.KeyEnter && m == 0 && lastRow:
+		a.flushLiveCell(d)
+		if cell.row > 0 && a.liveRowEmpty(d) {
+			if a.liveTableEdit(d, cell.first, cell.last, tableRowDelete, cell.row, cell.col) {
+				a.leaveLiveCell(d, false)
+				break
+			}
+		}
+		if !a.liveTableEdit(d, cell.first, cell.last, tableRowBelow, cell.row, cell.col) {
+			a.moveLiveCell(d, 0, 1)
+		}
 	case (ev.Key == ui.KeyEnter || ev.Key == ui.KeyDown) && m == 0:
 		a.moveLiveCell(d, 0, 1)
 	case ev.Key == ui.KeyUp && m == 0:
@@ -219,7 +301,13 @@ func (a *app) liveCellKey(d *editor, ev ui.InputEvent) bool {
 // edited.
 func (a *app) followLiveCell(d *editor, snap ui.TextSnapshot, last int) {
 	cell := &d.liveCell
-	cell.last = last
+	cell.last = liveTableEnd(snap, cell.first, last)
+	if r, k := min(cell.row, cell.rows()-1), min(cell.col, cell.cols(snap)-1); r != cell.row || k != cell.col {
+		// Its row or its column gone, as undo took it back: the nearest
+		// one, whose input keeps the keyboard.
+		cell.row, cell.col, cell.width = r, k, 0
+		cell.focus = cell.focus || cell.focused
+	}
 	line, _, ok := liveCellLine(snap, cell)
 	if !ok {
 		a.closeLiveCell(d)
@@ -295,6 +383,7 @@ func (a *app) liveCellHooks(d *editor, m *markdownPreview, first, last int) {
 		a.invalidate()
 		return true
 	}
+	m.cellMenu = func(r, k int, menu *ui.Menu) { a.liveTableMenu(menu, d, first, last, r, k) }
 	m.cellEditing = func(r, k int) bool {
 		cell := &d.liveCell
 		return cell.on && cell.first == first && cell.row == r && cell.col == k
@@ -326,6 +415,12 @@ func (a *app) liveCellHooks(d *editor, m *markdownPreview, first, last int) {
 		if in.Focused() {
 			a.keyFocus = placeInput
 		}
+		r, k := cell.row, cell.col
+		in.ContextMenu(func(menu *ui.Menu) {
+			a.liveTableMenu(menu, d, first, last, r, k)
+			menu.Separator()
+			menu.EditItems()
+		})
 		in.HandleInput(func(ev ui.InputEvent) bool {
 			if a.liveCellKey(d, ev) {
 				return true
@@ -368,4 +463,167 @@ func (a *app) keepLiveCell(c *ui.Context, d *editor) {
 	case cell.focused:
 		a.closeLiveCell(d)
 	}
+}
+
+// liveRowEmpty reports whether the row of the cell edited has nothing in
+// any of its cells.
+func (a *app) liveRowEmpty(d *editor) bool {
+	line, _, ok := liveCellLine(d.buf.Snapshot(), &d.liveCell)
+	if !ok {
+		return false
+	}
+	cells, _ := tableRowCells(line)
+	for _, c := range cells {
+		if strings.TrimSpace(line[c[0]:c[1]]) != "" {
+			return false
+		}
+	}
+	return true
+}
+
+// liveTableEdit changes the rows or the columns of the table of lines
+// first up to last by op, at its cell of row r, 0 its header, and column
+// k: what was typed in a cell written first, then the change as one step
+// of undo. The cell that stands for it is edited then, the one added or
+// the one beside the one taken away, and a cell another view edits keeps
+// to its own. It reports whether it changed the table: not one that is
+// gone, or locked, or for a change that would leave it no table.
+func (a *app) liveTableEdit(d *editor, first, last int, op tableOp, r, k int) bool {
+	for _, o := range d.views {
+		if o.liveCell.on && o.liveCell.first == first {
+			a.flushLiveCell(o) // written to its row before rows move
+		}
+	}
+	snap := d.buf.Snapshot()
+	if d.locked() || first < 0 || first+1 >= snap.LineCount() {
+		return false
+	}
+	last = liveTableEnd(snap, first, max(last, first+1))
+	s, _ := snap.LineRange(first)
+	_, e := snap.LineRange(last)
+	src := snap.Slice(s, e)
+	rows, cols := tableShape(strings.Split(src, "\n"))
+	edits, ok := tableStructure(src, op, r, k)
+	if !ok {
+		return false
+	}
+	te := make([]textEdit, len(edits))
+	for i, x := range edits {
+		start := s + utf8.RuneCountInString(src[:x.start])
+		te[i] = textEdit{start, start + utf8.RuneCountInString(src[x.start:x.end]), x.text}
+	}
+	sortEdits(te)
+	moved := movedByEdits(te)
+	d.hist.typing = false
+	d.edit([2]int{moved(d.sel[0]), moved(d.sel[1])}, te...)
+	d.quiet = true
+
+	// The rows and the columns after the change, and where the cell goes.
+	nr, nk, dr, dk, from := r, k, 0, 0, 0
+	switch op {
+	case tableRowAbove:
+		dr, from = 1, r
+	case tableRowBelow:
+		nr, dr, from = r+1, 1, r+1
+	case tableRowDelete:
+		dr, from = -1, r
+		if r == rows-1 {
+			nr = r - 1
+		}
+	case tableColLeft:
+		dk, from = 1, k
+	case tableColRight:
+		nk, dk, from = k+1, 1, k+1
+	case tableColDelete:
+		dk, from, nk = -1, k, min(k, cols-2)
+	}
+	for _, o := range d.views {
+		c := &o.liveCell
+		if o == d || !c.on || c.first != first {
+			continue
+		}
+		at := &c.row
+		if dk != 0 {
+			at = &c.col
+		}
+		switch {
+		case dr+dk < 0 && *at == from:
+			a.closeLiveCell(o) // its row or column taken away
+		case *at >= from:
+			*at += dr + dk
+		}
+		c.last += dr
+	}
+	if l := d.document.live; l != nil {
+		l.soon = true // the table drawn as it is now, not in a moment
+	}
+	if lv := d.livePane.views[d.liveCell.key]; lv != nil && d.liveCell.first == first {
+		lv.v.markdown.tables = nil
+	}
+	a.openLiveCell(d, first, last+dr, nr, nk)
+	return true
+}
+
+// liveTableTarget is the table and the cell a menu of a table's cell
+// opened on: by its header's line, its row and its column, and how many
+// rows and columns it had then.
+type liveTableTarget struct {
+	first, r, k, rows, cols int
+}
+
+// liveTableShape is the table whose header is line first, as its last
+// line, its rows and its columns: 0 rows for one that is not a table.
+func liveTableShape(snap ui.TextSnapshot, first, last int) (end, rows, cols int) {
+	if first < 0 || first+1 >= snap.LineCount() {
+		return last, 0, 0
+	}
+	end = liveTableEnd(snap, first, max(last, first+1))
+	s, _ := snap.LineRange(first)
+	_, e := snap.LineRange(end)
+	rows, cols = tableShape(strings.Split(snap.Slice(s, e), "\n"))
+	return end, rows, cols
+}
+
+// liveTableMenu fills the menu of the cell of row r and column k of the
+// table of lines first up to last, which adds and takes away its rows
+// and its columns. The change chosen is made to the table the menu opened
+// on, or not at all: one whose rows or columns came or went since, as
+// from another view, is another table now.
+func (a *app) liveTableMenu(m *ui.Menu, d *editor, first, last, r, k int) {
+	end, rows, cols := liveTableShape(d.buf.Snapshot(), first, last)
+	chosen := tableOp(-1)
+	for i, it := range []struct {
+		op    tableOp
+		label string
+	}{
+		{tableRowAbove, locales.LiveTableRowAbove()},
+		{tableRowBelow, locales.LiveTableRowBelow()},
+		{tableRowDelete, locales.LiveTableRowDelete()},
+		{tableColLeft, locales.LiveTableColLeft()},
+		{tableColRight, locales.LiveTableColRight()},
+		{tableColDelete, locales.LiveTableColDelete()},
+	} {
+		if i == 3 {
+			m.Separator()
+		}
+		if m.Item(it.label).Disabled(!tableCanDo(it.op, rows, cols, r, k)).Chosen() {
+			chosen = it.op
+		}
+	}
+	now := liveTableTarget{first, r, k, rows, cols}
+	if chosen < 0 {
+		d.liveMenu = now // the menu opening
+		return
+	}
+	if d.liveMenu != now {
+		return
+	}
+	d.liveMenu = liveTableTarget{}
+	d.cmds = append(d.cmds, func(d *editor) {
+		if _, nr, nc := liveTableShape(d.buf.Snapshot(), first, end); nr != rows || nc != cols {
+			return
+		}
+		a.liveTableEdit(d, first, end, chosen, r, k)
+	})
+	a.invalidate()
 }

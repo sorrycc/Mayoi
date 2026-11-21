@@ -79,6 +79,9 @@ type markdownPreview struct {
 	cellEditing func(r, k int) bool
 	cellInput   func(c *ui.Context, align ui.Align, size float32)
 	cellPress   func(r, k int, ev ui.InputEvent) bool
+	// cellMenu fills the menu of a cell, its context menu, as Live
+	// Preview's that adds and takes away rows and columns.
+	cellMenu func(r, k int, m *ui.Menu)
 	// cellWidth is how wide the column of the cell being edited is at
 	// least, k, -1 for none, for its source to show, in font.
 	cellWidth func(font ui.Font) (k int, w float32)
@@ -2640,6 +2643,9 @@ func (a *app) markdownTableRow(c *ui.Context, m *markdownPreview, path string, i
 				// A cell edits in place: the pointer over it is a text
 				// cursor.
 				cellBox.Cursor(ui.CursorText).HandleInput(func(ev ui.InputEvent) bool { return m.cellPress(row, k, ev) })
+			}
+			if m.cellMenu != nil {
+				cellBox.ContextMenu(func(menu *ui.Menu) { m.cellMenu(row, k, menu) })
 			}
 			align := ui.Start
 			if k < len(b.aligns) {

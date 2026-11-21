@@ -288,6 +288,8 @@ type editor struct {
 	liveBox int
 	// liveCell is the cell of a table Live Preview edits in place.
 	liveCell liveCell
+	// liveMenu is the table and its cell the menu of a cell opened on.
+	liveMenu liveTableTarget
 	// liveRanges and liveObjects are the ranges and the objects of Live
 	// Preview's last frame, kept for the next to fill again.
 	liveRanges  []ui.TextRange

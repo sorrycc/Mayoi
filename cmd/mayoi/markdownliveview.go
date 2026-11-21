@@ -41,6 +41,9 @@ type liveState struct {
 	mermaid *mermaidStyle
 	math    bool
 	stale   bool
+	// soon parses the text again at once rather than after a pause, as a
+	// table's rows changed from a cell, whose drawing shows it.
+	soon bool
 	// measure is how wide the text is at most, in font: the Reading
 	// view's column, so that switching keeps its lines.
 	measure  float32
@@ -263,7 +266,7 @@ func (a *app) followLive(doc *document) *liveDoc {
 	}
 	same := (want == nil) == (l.mermaid == nil) && (want == nil || *want == *l.mermaid) && l.math == math
 	fresh := l.doc != nil && !l.quick && !l.stale && same && l.doc.snap.Version() == snap.Version()
-	if !fresh && !l.pending && !l.running {
+	if !fresh && (!l.pending || l.soon) && !l.running {
 		a.parseLive(doc, l, want, math)
 	}
 	if l.doc == nil {
@@ -324,7 +327,11 @@ func (a *app) parseLive(doc *document, l *liveState, want *mermaidStyle, math bo
 			})
 		})
 	}
-	if l.doc == nil || l.quick {
+	if l.doc == nil || l.quick || l.soon {
+		if l.wait != nil {
+			l.wait.Stop()
+		}
+		l.soon = false
 		start()
 		return
 	}
@@ -627,6 +634,8 @@ func (a *app) liveArea(c *ui.Context, d *editor, area ui.Element, f liveFrame) {
 		cell := &d.liveCell
 		cellAt, cellSeen := -1, false
 		if cell.on {
+			// By where its header is, which follows the edits above it.
+			cell.first = snap.LineAt(min(cell.at, n))
 			cellAt = cell.first
 		}
 		// sourceH is how high a block's lines show as source, as they did
@@ -666,6 +675,14 @@ func (a *app) liveArea(c *ui.Context, d *editor, area ui.Element, f liveFrame) {
 				}
 				cell.key = b.key
 				a.followLiveCell(d, snap, last)
+				if cell.on {
+					// With the rows added since the parse, drawn at once.
+					last = cell.last
+					_, b.end = snap.LineRange(last)
+					if blocks := a.liveCellBlocks(d, snap, b.blocks); blocks != nil {
+						b.blocks = blocks
+					}
+				}
 			}
 			if onLines(b.start, b.end) && first != cellAt {
 				if caretIn {
@@ -738,8 +755,9 @@ func (a *app) liveArea(c *ui.Context, d *editor, area ui.Element, f liveFrame) {
 				// Drawn again, as in another theme's colors: the view shows
 				// the new drawing, at the height it had.
 				m := &markdownPreview{blocks: b.blocks, lines: lv.v.markdown.lines}
-				if first == cellAt {
-					m.tables, m.tableFont = lv.v.markdown.tables, lv.v.markdown.tableFont
+				if t := lv.v.markdown.tables; first == cellAt && len(t[0]) == len(b.blocks[0].cells) {
+					// As wide as they were, unless a column came or went.
+					m.tables, m.tableFont = t, lv.v.markdown.tableFont
 				}
 				lv.v = &viewer{doc: d.document, markdown: m, loaded: true}
 			}

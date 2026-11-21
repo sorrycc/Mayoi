@@ -54,7 +54,12 @@ The order: it works, then it is easy, then it looks good. Polish never covers a 
   while it is typed in; nothing else moves, and the caret, the cell and the table stay put as the note is parsed
   again (`TestLiveTableCellEdit`). Tab and Shift-Tab move across cells, Return and the arrows between rows, and
   Escape, or a move past the table, gives the editor the keyboard, its caret before or after the table
-  (`TestLiveTableCellLeaves`).
+  (`TestLiveTableCellLeaves`). Tab after the last cell adds a row and edits its first cell, Return in the last row adds
+  one in the same column, and Return in an empty last row takes it away and leaves the table, as in a list
+  (`TestLiveTableAppendRows`, `TestLiveTableHeaderOnly`). The menu of a cell inserts and deletes rows and columns, each
+  one step of undo, the new cell or the one beside the one taken away edited after it; the header stays first and the
+  last column stays, their items off (`TestLiveTableMenu`). A change chosen for a table that changed since is not
+  made, and the cell follows its table as lines come above it (`TestLiveTableStale`).
 - What loads keeps a place: a picture of the web on its way in Live Preview is a card where it goes, which the
   picture fades in over as its room glides to its own (`TestLivePictureArrives`); a rendered block shows once it is
   measured, fading in over `motionShow`.

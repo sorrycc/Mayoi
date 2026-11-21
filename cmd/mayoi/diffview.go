@@ -33,7 +33,7 @@ const (
 	diffStaged                  // HEAD with the index: the changes staged
 	diffCommit                  // a commit with its first parent
 	diffLocal                   // two local files, both writable
-	diffBuffers                 // two open documents, read-only here
+	diffBuffers                 // two live document buffers
 )
 
 // sides names the two versions a diff compares.

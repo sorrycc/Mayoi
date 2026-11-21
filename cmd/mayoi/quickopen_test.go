@@ -227,3 +227,27 @@ func TestQuickOpenExternalPaths(t *testing.T) {
 		})
 	}
 }
+
+// Closing the folder after opening a file leaves no tree to list recent
+// files against: quick open still opens, and still opens a path.
+func TestQuickOpenAfterCloseFolder(t *testing.T) {
+	hs := newHarness(t, true)
+	a, tt := hs.a, hs.tt
+	outside := filepath.Join(t.TempDir(), "outside.txt")
+	writeFile(t, outside, []byte("outside the project\n"))
+	a.openFile(hs.path("main.go"), true)
+	hs.settle()
+	a.closeFolder()
+	hs.settle()
+	a.openQuick("")
+	hs.settle()
+	if !a.quick.open {
+		t.Fatal("quick open did not open without a folder")
+	}
+	tt.Type(outside)
+	hs.settle()
+	hs.key(0, ui.KeyEnter)
+	if d := a.activeEditor(); a.quick.open || d == nil || d.path != outside {
+		t.Fatalf("quick open = %v, editor = %v; want %q", a.quick.open, d, outside)
+	}
+}

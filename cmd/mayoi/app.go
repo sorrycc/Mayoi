@@ -661,7 +661,7 @@ func (a *app) closeFolder() {
 		a.resetRepositories()
 		a.root, a.tree, a.index, a.git = "", nil, nil, gitState{}
 		a.resetSearch()
-		a.closed = nil
+		a.closed, a.recent = nil, nil
 		a.window.Folder = ""
 		a.settings.Changed()
 	}, nil)

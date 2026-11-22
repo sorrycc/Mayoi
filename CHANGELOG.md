@@ -3,7 +3,7 @@
 The update window shows the section of the version it offers. Every release
 needs a `## <version>` section here, or its build fails.
 
-## Unreleased
+## 0.23.2
 
 - In Live Preview, clicking a table cell edits its Markdown in place inside the rendered table.
 - In a table cell, `Tab` and `Shift+Tab` move between cells, and `Return` and the arrow keys move between rows.

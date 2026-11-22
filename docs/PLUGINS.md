@@ -618,7 +618,7 @@ the failure, and its server starts for the files open once it is installed.
   "languages": ["go"], "detect": "gopls", "install": "go install golang.org/x/tools/gopls@latest" }
 ```
 
-### Source-line actions and response text
+## Source-line actions and text output
 
 Use `languages.setCodeLenses(doc.ref, items, { version: snapshot.version })`
 to replace your plugin's actions above source lines. Each item has a stable
@@ -630,9 +630,9 @@ Actions are shared between views of a document, hidden inside code folds, and
 removed on text changes or plugin stop, disable, reload, removal, or crash.
 They appear in the source editor; Markdown Live Preview does not display them.
 Clicking delivers the original argument and a second `CommandContext` with
-`source: "codeLens"`, source document, version and line. Commands can await network
-work while another command cancels it. Recheck the snapshot version before sending
-a request derived from an action. Actions do not edit or save source text.
+`source: "codeLens"`, source document, version and line. Commands can await asynchronous
+work while another command cancels it. Recheck the snapshot version before acting
+on text captured by a source-line action. Actions do not edit or save source text.
 
 `window.openText(text, { title, language: "json", windowId: doc.ref.windowId })`
 opens an untitled output tab in the source window, even after focus moves.
@@ -650,6 +650,6 @@ rejects the output instead of placing it elsewhere.
 
 An optional `key` reuses that plugin's untitled output with the same key in the
 window, including after plugin reload. Other plugins cannot replace it. A saved
-output becomes an ordinary file; a later response opens a new untitled output.
+output becomes an ordinary file; a later call opens a new untitled output.
 Unsaved edits in an output reject replacement, so the plugin cannot silently
 lose user changes. Omitting `beside` and `key` keeps the existing new-tab behavior.

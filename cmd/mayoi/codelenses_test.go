@@ -17,12 +17,12 @@ const lensProbe = `import {commands, editor, languages, workspace, window} from 
 let seen;
 commands.register("lens.publish", async (arg) => {
  const ed = await editor.active(), snap = await ed.document.snapshot();
- return languages.setCodeLenses(ed.document.ref, [{id:"send", line:Number(arg ?? 1), title:"Send Request", command:"lens.click", arg:"original"}], {version:snap.version});
+ return languages.setCodeLenses(ed.document.ref, [{id:"analyze", line:Number(arg ?? 1), title:"Run Analysis", command:"lens.click", arg:"original"}], {version:snap.version});
 });
 commands.register("lens.click", (arg, context) => { seen = {arg,context}; });
 commands.register("lens.seen", () => seen);
 commands.register("lens.crash", () => { while(true) {} });
-commands.register("lens.output", async arg => { const ref=JSON.parse(arg); await window.openText('{"ok":true}', {title:"Response", language:"json", windowId:ref.windowId}); });
+commands.register("lens.output", async arg => { const ref=JSON.parse(arg); await window.openText('{"ok":true}', {title:"Analysis Result", language:"json", windowId:ref.windowId}); });
 `
 
 func lensFiles() map[string]map[string]string {
@@ -37,7 +37,7 @@ func TestPluginCodeLensesVersionAndRuntime(t *testing.T) {
 	a := hs.a
 	a.newFile()
 	d := a.activeEditor().document
-	d.buf.Set("### Request\nGET http://localhost/\n")
+	d.buf.Set("Document\nanalyze input\n")
 	h := withPlugins(hs, lensFiles())
 	if string(pluginRun(t, hs, h, "lens.publish", nil, nil)) != "true" {
 		t.Fatal("publish failed")
@@ -133,7 +133,7 @@ func TestPluginCodeLensGeometryAndClick(t *testing.T) {
 			a.settings.WordWrap = wrap
 			a.newFile()
 			d := a.activeEditor()
-			d.buf.Set("### Request\nGET http://localhost/\nlast\n")
+			d.buf.Set("Document\nanalyze input\nlast\n")
 			h := withPlugins(hs, lensFiles())
 			pluginRun(t, hs, h, "lens.publish", nil, nil)
 			hs.settle()
@@ -141,15 +141,15 @@ func TestPluginCodeLensGeometryAndClick(t *testing.T) {
 			if math.Abs(float64(g.top(1)-g.top(0)-2*a.font.lineH)) > 0.1 {
 				t.Fatalf("wrong gap geometry: %v %v", g.top(0), g.top(1))
 			}
-			r, ok := hs.tt.Find("Send Request")
+			r, ok := hs.tt.Find("Run Analysis")
 			if !ok || r.H <= 0 || r.W <= 0 {
 				t.Fatalf("missing button: %+v", r)
 			}
-			if err := hs.tt.Click("Send Request"); err != nil {
+			if err := hs.tt.Click("Run Analysis"); err != nil {
 				t.Fatal(err)
 			}
 			hs.until("clicked action", func() bool { return string(pluginRun(t, hs, h, "lens.seen", nil, nil)) != "null" })
-			if d.buf.String() != "### Request\nGET http://localhost/\nlast\n" {
+			if d.buf.String() != "Document\nanalyze input\nlast\n" {
 				t.Fatal("button edited source")
 			}
 			hs.shot("code-lenses-" + fmt.Sprint(wrap))
@@ -167,7 +167,7 @@ func TestPluginCodeLensGeometryChanges(t *testing.T) {
 		at, _ := d.buf.Snapshot().LineRange(5)
 		hs.place(d, at, at)
 		hs.settle()
-		r, ok := hs.tt.Find("Send Request")
+		r, ok := hs.tt.Find("Run Analysis")
 		anchor, visible := a.hoverAnchor(&hoverCard{ed: d, at: at})
 		if !ok || !visible || math.Abs(float64(r.Y+r.H-anchor.Y)) > 1 {
 			t.Fatalf("%s: button %+v, text %+v, visible %v", what, r, anchor, visible)
@@ -202,7 +202,7 @@ func TestPluginCodeLensStopPaths(t *testing.T) {
 			a := hs.a
 			a.newFile()
 			d := a.activeEditor().document
-			d.buf.Set("request\nGET /\n")
+			d.buf.Set("Document\nanalyze input\n")
 			h := withPlugins(hs, lensFiles())
 			pluginRun(t, hs, h, "lens.publish", nil, nil)
 			old := d.lenses[0]
@@ -246,7 +246,7 @@ func TestPluginCodeLensDuringActivation(t *testing.T) {
 	a := hs.a
 	a.newFile()
 	d := a.activeEditor().document
-	d.buf.Set("request\nGET /\n")
+	d.buf.Set("Document\nanalyze input\n")
 	files := lensFiles()
 	files["lens"]["main.ts"] += `export async function activate() {
 const doc=(await editor.active()).document, snap=await doc.snapshot();
@@ -281,17 +281,17 @@ func TestPluginCodeLensPointerExpiresOnEdit(t *testing.T) {
 	a := hs.a
 	a.newFile()
 	d := a.activeEditor().document
-	d.buf.Set("old request\nGET /old\n")
+	d.buf.Set("old document\nanalyze old\n")
 	h := withPlugins(hs, lensFiles())
 	pluginRun(t, hs, h, "lens.publish", nil, nil)
 	hs.settle()
-	r, ok := hs.tt.Find("Send Request")
+	r, ok := hs.tt.Find("Run Analysis")
 	if !ok {
 		t.Fatal("no button")
 	}
 	x, y := r.X+r.W/2, r.Y+r.H/2
 	hs.tt.Press(x, y)
-	d.buf.Set("new request\nGET /new\n")
+	d.buf.Set("new document\nanalyze new\n")
 	d.lenses[0].version = d.buf.Version()
 	hs.settle()
 	hs.tt.Release(x, y)

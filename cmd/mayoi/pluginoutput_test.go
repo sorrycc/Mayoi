@@ -9,7 +9,7 @@ import (
 
 func outputProbe(name string) map[string]string {
 	manifest := `{"name":"NAME","main":"main.ts","contributes":{"commands":[{"id":"NAME.write","title":"Write"}]}}`
-	main := `import {commands,window} from "mayoi";commands.register("NAME.write",async arg=>{try{const a=JSON.parse(arg);await window.openText(a.text,{title:"Response",language:"plaintext",beside:a.ref,key:"response",windowId:a.windowId});return true;}catch(error){return {error:String(error)}}});`
+	main := `import {commands,window} from "mayoi";commands.register("NAME.write",async arg=>{try{const a=JSON.parse(arg);await window.openText(a.text,{title:"Result",language:"plaintext",beside:a.ref,key:"result",windowId:a.windowId});return true;}catch(error){return {error:String(error)}}});`
 	return map[string]string{"plugin.json": strings.ReplaceAll(manifest, "NAME", name), "main.ts": strings.ReplaceAll(main, "NAME", name)}
 }
 

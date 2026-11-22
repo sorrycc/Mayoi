@@ -21,6 +21,7 @@ import (
 	"unicode"
 
 	"github.com/MoeForge/moejs"
+	"github.com/alecthomas/chroma/v2"
 )
 
 // Host is the app, as plugins see it.
@@ -80,6 +81,7 @@ type Plugin struct {
 	fsys    fs.FS
 	reg     *Registry
 	sig     string // the files as they were read, to tell a change
+	lexers  map[string]chroma.Lexer
 
 	generation  atomic.Uint64
 	mu          sync.Mutex
@@ -391,6 +393,9 @@ func (r *Registry) read(fsys fs.FS, dir string, bundled bool) *Plugin {
 		if m != nil {
 			p.Manifest = *m
 		}
+	}
+	if err == nil {
+		err = p.loadLexers()
 	}
 	if p.Name == "" {
 		p.Name = filepath.Base(dir)

@@ -268,6 +268,14 @@ Document and editor methods keep targeting their source window even after you sw
 together. `workspace.document(ref)` returns its current document, or `null` once closed.
 Reopening the same path does not make an old reference valid again.
 
+`await document.setLanguage("json", {version: snapshot.version})` changes the document's
+language and highlighting without editing its text, undo history or saved state. It resolves
+`false` for a closed document, a stale text version, or an expired plugin runtime. The version
+defaults to that of the `Document` object. A closed explicit window rejects. The language can
+be one declared by the calling plugin or a Chroma name/alias; unknown names use plain text.
+An `editor.metadata` event reports the new language. Saving under a new path selects its
+language from the new filename.
+
 `editor.active`, `editor.visible`, `workspace.documents` and `window.pick` accept an optional
 `{windowId}` to keep an operation in its source window. Without it they use the front window.
 Closed explicit windows fail rather than redirecting calls to another window.
@@ -417,7 +425,23 @@ palette.
 "snippets": [{ "language": "d2", "path": "snippets.json" }]
 ```
 
-`lexer` is a [Chroma](https://github.com/alecthomas/chroma) lexer's name. Snippets are VS Code's format, with tab stops,
+`lexer` is a [Chroma](https://github.com/alecthomas/chroma) lexer's name.
+A language may instead provide `lexerFile`, a Chroma XML grammar inside the plugin:
+
+```json
+{"id":"example","extensions":[".example"],"lexerFile":"syntax/example.xml"}
+```
+
+Mayoi compiles and caches the grammar when loading the plugin. XML and regex errors appear
+on the Plugins page and keep that plugin from loading. Grammar changes use the normal plugin
+reload mechanism; open source and output tabs update their highlighting. Disabling the plugin
+removes its grammar from those tabs. The XML's `using` emitters can reuse built-in lexers,
+such as JSON; its names and aliases do not replace globally registered lexers.
+`window.openText(text, {language:"example"})` and `document.setLanguage("example")` resolve
+the calling plugin's language declaration before looking up built-in languages. Old manifests
+that only specify `lexer` retain their behavior.
+
+Snippets are VS Code's format, with tab stops,
 placeholders, choices and variables as `TM_FILENAME` and `CURRENT_YEAR`; **Selection → Insert Snippet…** inserts one.
 
 ### Language servers

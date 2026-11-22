@@ -82,17 +82,14 @@ var vue = sync.OnceValue(func() chroma.Lexer {
 	return chroma.Coalesce(chroma.MustNewXMLLexer(vueXML, "vue.xml"))
 })
 
-// LexerName, when set, names the lexer of a file before Mayoi's own
-// choice, "" to leave it to that: the languages plugins declare.
-var LexerName func(path string) string
+// LexerOverride supplies a plugin lexer, or nil for Mayoi's own choice.
+var LexerOverride func(path string) chroma.Lexer
 
 // Lexer returns the lexer of a file by its name, nil for plain text.
 func Lexer(path string) chroma.Lexer {
-	if LexerName != nil {
-		if name := LexerName(path); name != "" {
-			if l := lexers.Get(name); l != nil {
-				return chroma.Coalesce(l)
-			}
+	if LexerOverride != nil {
+		if l := LexerOverride(path); l != nil {
+			return chroma.Coalesce(l)
 		}
 	}
 	name := filepath.Base(path)
@@ -175,8 +172,18 @@ func Lex(l chroma.Lexer, text string) []Line {
 // Chroma lexes as it is asked for tokens, so stopping early saves the rest
 // of the work, while the lines up to there come out as from lexing all of
 // it: a token that goes on past them is lexed as such.
-func lex(l chroma.Lexer, text string, done func(row int, lines []Line) bool) ([]Line, int) {
-	lines := make([]Line, 0, strings.Count(text, "\n")+1)
+func lex(l chroma.Lexer, text string, done func(row int, lines []Line) bool) (lines []Line, stop int) {
+	// Plugin grammars can fail inside an iterator, after Tokenise succeeded.
+	defer func() {
+		if recover() != nil {
+			for i := range lines {
+				lines[i].Tokens = nil
+				lines[i].open = false
+			}
+			stop = -1
+		}
+	}()
+	lines = make([]Line, 0, strings.Count(text, "\n")+1)
 	for s := range strings.SplitSeq(text, "\n") {
 		lines = append(lines, Line{Text: s})
 	}

@@ -172,12 +172,13 @@ type ThemeContrib struct {
 }
 
 // LanguageContrib tells Mayoi of a language: its files, how its comments
-// start, and which Chroma lexer highlights it.
+// start, and which built-in Chroma lexer or local XML grammar highlights it.
 type LanguageContrib struct {
 	ID         string   `json:"id"`
 	Extensions []string `json:"extensions,omitempty"`
 	Filenames  []string `json:"filenames,omitempty"`
 	Lexer      string   `json:"lexer,omitempty"`
+	LexerFile  string   `json:"lexerFile,omitempty"`
 	Comment    string   `json:"lineComment,omitempty"`
 	Indent     int      `json:"indent,omitempty"`
 }
@@ -452,6 +453,11 @@ func (m *Manifest) check() error {
 			}
 		} else if !m.HasCode() {
 			return fmt.Errorf("agent %q has neither sessions nor a main to list them", ag.ID)
+		}
+	}
+	for _, l := range c.Languages {
+		if l.LexerFile != "" && (l.ID == "" || l.LexerFile == "." || !fs.ValidPath(l.LexerFile) || strings.ContainsAny(l.LexerFile, "\\:")) {
+			return fmt.Errorf("language %q needs a lexerFile inside the plugin", l.ID)
 		}
 	}
 	for _, l := range c.TerminalLinks {

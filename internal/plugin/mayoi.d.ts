@@ -61,6 +61,8 @@ declare module "mayoi" {
     readonly lineCount: number;
     text(range?: Range): Promise<string>;
     snapshot(): Promise<DocumentSnapshot>;
+    /** Changes highlighting without editing text; refuses a stale version (this document's by default). */
+    setLanguage(language: string, opts?: { version?: number }): Promise<boolean>;
     lineAt(line: number): Promise<string>;
     save(): Promise<void>;
   }

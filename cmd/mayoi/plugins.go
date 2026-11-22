@@ -182,7 +182,7 @@ func (m *mayoi) startPlugins(safe bool) {
 	h.reg.Locale = i18n.Locale
 	h.reg.SetSafe(safe)
 	plugins = h
-	highlight.LexerName = pluginLexer
+	highlight.LexerOverride = pluginLexer
 	h.syncPrefs()
 	h.reg.Load()
 	if stop, err := h.reg.Watch(); err == nil {
@@ -247,6 +247,11 @@ func (h *pluginHost) toggled(old, now map[string]json.RawMessage) {
 		started = started || is
 	}
 	if len(names) > 0 {
+		for _, a := range h.apps() {
+			for _, d := range a.docs {
+				a.refreshDocumentLexer(d)
+			}
+		}
 		forgetFailedServers(names...)
 		h.syncAgents()
 	}
@@ -367,6 +372,7 @@ func (h *pluginHost) Changed() {
 		for _, a := range h.apps() {
 			for _, d := range a.docs {
 				d.currentLenses()
+				a.refreshDocumentLexer(d)
 			}
 			a.palette, a.hints = nil, nil
 			a.invalidate()
@@ -763,7 +769,7 @@ func truncate(s string, n int) string {
 // name in lower case, as "go" or "typescript", or a language a plugin
 // declares for its file.
 func languageOf(d *document) string {
-	if d.path == "" && d.language != "" {
+	if d.language != "" {
 		return d.language
 	}
 	if id := pluginLanguage(d.path); id != "" {

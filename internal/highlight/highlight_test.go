@@ -456,3 +456,18 @@ func TestHighlighterLexesAhead(t *testing.T) {
 		t.Errorf("lexed up to line %d, not %d past the view's %d", got, Ahead, last)
 	}
 }
+
+func TestLexContainsInvalidGrammarTransitions(t *testing.T) {
+	lexer := chroma.MustNewLexer(&chroma.Config{Name: "broken"}, func() chroma.Rules {
+		return chroma.Rules{"root": {{Pattern: ".", Type: chroma.Keyword, Mutator: chroma.Pop(2)}}}
+	})
+	lines := Lex(lexer, "bad\ntext")
+	if len(lines) != 2 || lines[0].Text != "bad" || lines[1].Text != "text" {
+		t.Fatalf("lost text: %+v", lines)
+	}
+	for _, line := range lines {
+		if len(line.Tokens) != 0 {
+			t.Fatalf("kept partial tokens: %+v", lines)
+		}
+	}
+}

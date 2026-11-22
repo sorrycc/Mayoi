@@ -278,6 +278,8 @@ func (h *pluginHost) Call(p *plugin.Plugin, generation uint64, method string, ra
 			s, e := posRune(snap, args.Range.Start), posRune(snap, args.Range.End)
 			return snap.Slice(min(s, e), max(s, e)), nil
 		})
+	case "document.setLanguage":
+		return h.setDocumentLanguage(p, generation, raw)
 	case "document.snapshot":
 		return main(func(a *app) (any, error) {
 			d, err := docByID(a, args.Doc)

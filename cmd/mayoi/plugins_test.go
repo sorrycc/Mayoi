@@ -31,13 +31,13 @@ func withPlugins(hs *harness, files map[string]map[string]string) *pluginHost {
 	h := newPluginHost(func() []*app { return []*app{a} }, a.post, func() *settings.Settings { return a.settings }, func() {})
 	h.reg = plugin.New(plugin.Dirs{Plugins: dir, Storage: filepath.Join(filepath.Dir(dir), "storage")}, h)
 	h.reg.Version = "dev"
-	old, oldLexer := plugins, highlight.LexerName
-	plugins, highlight.LexerName = h, pluginLexer
+	old, oldLexer := plugins, highlight.LexerOverride
+	plugins, highlight.LexerOverride = h, pluginLexer
 	h.syncPrefs()
 	h.reg.Load()
 	t.Cleanup(func() {
 		h.reg.Close()
-		plugins, highlight.LexerName = old, oldLexer
+		plugins, highlight.LexerOverride = old, oldLexer
 		agents.Use(nil)
 	})
 	hs.settle()

@@ -84,6 +84,7 @@
       lineCount: d.lineCount,
       text: (range) => call("document.text", { doc: d.id, ref: d.ref, range }),
       snapshot: () => call("document.snapshot", { doc: d.id, ref: d.ref }),
+      setLanguage: (language, opts) => call("document.setLanguage", { ref: d.ref, language, version: opts?.version ?? d.version }),
       lineAt: (line) => call("document.line", { doc: d.id, ref: d.ref, line }),
       save: () => call("document.save", { doc: d.id, ref: d.ref }),
     };

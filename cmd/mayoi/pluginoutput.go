@@ -3,11 +3,6 @@ package main
 import (
 	"encoding/json"
 	"errors"
-	"strings"
-
-	"github.com/alecthomas/chroma/v2/lexers"
-
-	"mayoi/internal/highlight"
 	"mayoi/internal/plugin"
 	"mayoi/locales"
 )
@@ -77,11 +72,6 @@ func (a *app) pluginOutputColumn(ref *plugin.DocumentRef) (*column, error) {
 }
 
 func (a *app) openPluginText(owner *plugin.Plugin, opts pluginTextOptions) error {
-	language := strings.ToLower(opts.Language)
-	lexer := lexers.Get(language)
-	if language != "" && lexer == nil {
-		language = "plaintext"
-	}
 	var doc *document
 	if opts.Key != "" {
 		for _, d := range a.docs {
@@ -113,10 +103,8 @@ func (a *app) openPluginText(owner *plugin.Plugin, opts pluginTextOptions) error
 		doc.title = locales.UntitledName(doc.number)
 	}
 	doc.saved, doc.savedSnap = doc.buf.Version(), doc.buf.Snapshot()
-	if language != "" {
-		doc.language = language
-		doc.hl.Close()
-		doc.hl = highlight.New(lexer, a.invalidate)
+	if opts.Language != "" {
+		a.setDocumentLanguage(doc, owner, opts.Language)
 	}
 	for _, c := range a.cols {
 		if i := c.showing(doc); i >= 0 {

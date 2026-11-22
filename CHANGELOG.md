@@ -5,6 +5,9 @@ needs a `## <version>` section here, or its build fails.
 
 ## Unreleased
 
+- Plugins can supply syntax rules for their languages.
+- Plugins can change a document's language without editing its text.
+
 - Plugins can open reusable text output beside its source document.
 - Plugin output stays to the right of its source when columns are stacked.
 - Plugin text output uses plain text when its language is not recognized.

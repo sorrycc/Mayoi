@@ -613,7 +613,8 @@ a request derived from an action. Actions do not edit or save source text.
 `window.openText(text, { title, language: "json", windowId: doc.ref.windowId })`
 opens an untitled output tab in the source window, even after focus moves.
 A closed target window rejects; it does not redirect to another window.
-Language accepts Chroma names/aliases or `"plaintext"`; unknown names reject.
+Language accepts Chroma names/aliases or `"plaintext"`. Unknown names fall back to
+plain text.
 Saving the output chooses the language from its new file name. Omitting language
 keeps the existing plain-text behavior, and omitting windowId uses the front window.
 

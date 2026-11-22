@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"strings"
 
 	"github.com/alecthomas/chroma/v2/lexers"
@@ -80,8 +79,8 @@ func (a *app) pluginOutputColumn(ref *plugin.DocumentRef) (*column, error) {
 func (a *app) openPluginText(owner *plugin.Plugin, opts pluginTextOptions) error {
 	language := strings.ToLower(opts.Language)
 	lexer := lexers.Get(language)
-	if language != "" && language != "plaintext" && lexer == nil {
-		return fmt.Errorf("unknown language %q", opts.Language)
+	if language != "" && lexer == nil {
+		language = "plaintext"
 	}
 	var doc *document
 	if opts.Key != "" {

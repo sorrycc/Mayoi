@@ -139,7 +139,10 @@ declare module "mayoi" {
     prompt(opts?: { title?: string; value?: string; placeholder?: string }): Promise<string | undefined>;
     /** Shows a spinner in the status bar while fn runs. */
     progress<T>(title: string, fn: () => Promise<T> | T): Promise<T>;
-    /** Opens text; beside anchors it to a source document, and key reuses this plugin's clean output. */
+    /**
+     * Opens text, using plain text for unknown languages.
+     * beside anchors it to a source document; key reuses this plugin's clean output.
+     */
     openText(text: string, opts?: {
       title?: string; language?: string; windowId?: number;
       beside?: DocumentRef;

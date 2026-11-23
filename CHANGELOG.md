@@ -6,6 +6,7 @@ needs a `## <version>` section here, or its build fails.
 ## Unreleased
 
 - **Download** and **Upload** of remote files and folders now work on Windows and in WSL.
+- Dragging a file in the explorer no longer stops when you scroll with the wheel.
 
 ## 0.23.2
 

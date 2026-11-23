@@ -3,6 +3,10 @@
 The update window shows the section of the version it offers. Every release
 needs a `## <version>` section here, or its build fails.
 
+## Unreleased
+
+- **Download** and **Upload** of remote files and folders now work on Windows and in WSL.
+
 ## 0.23.2
 
 - In Live Preview, clicking a table cell edits its Markdown in place inside the rendered table.

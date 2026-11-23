@@ -10,6 +10,7 @@ import (
 
 	"mayoi/internal/bg"
 	"mayoi/internal/remote"
+	"mayoi/internal/symbols"
 	"mayoi/internal/vfs"
 	"mayoi/internal/workspace"
 	"mayoi/locales"
@@ -104,6 +105,15 @@ type crumbsPicker struct {
 	// version of the outline it was found in.
 	query  string
 	filter headingFilter
+
+	// self makes the box the symbols of the file itself, as the file's
+	// name of the breadcrumbs opened it: every declaration of the
+	// document, or its headings, which go to symbol lists too, sorted as
+	// a folder's files are.
+	self   bool
+	syms   []symbols.Symbol
+	symDoc int
+	symVer uint64
 }
 
 // openCrumbs opens the box of the folder dir of the breadcrumbs of tab t
@@ -199,14 +209,21 @@ func (a *app) crumbsBox(c *ui.Context, anchor ui.Element) {
 	ui.PopoverBase(c, anchor, &k.open, func(panel ui.Element) {
 		p := a.pal
 		label := locales.CrumbsFolderTip(filepath.Base(k.dir))
-		if k.heads {
+		switch {
+		case k.heads:
 			label = locales.CrumbsHeadings()
+		case k.self:
+			label = locales.CrumbsCurrentFileTip(filepath.Base(k.file))
 		}
 		dropIn(a.floating(c, panel.Width(300).Radius(8).Padding(4).Gap(0), false), 4).
 			Role(ui.RoleDialog).Label(label)
 		panel.Children(func() {
-			if k.heads {
+			switch {
+			case k.heads:
 				a.headingsTree(c, k.tab.ed)
+				return
+			case k.self:
+				a.fileSymbols(c, k.tab.ed)
 				return
 			}
 			kids, read := k.kids[k.dir]

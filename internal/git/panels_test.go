@@ -327,6 +327,29 @@ fi
 	}
 }
 
+func TestPanelBranchWorktreePaths(t *testing.T) {
+	r, git := repo(t)
+	wt := filepath.Join(t.TempDir(), "linked")
+	git("worktree", "add", "-q", "-b", "linked", wt)
+	linked, err := Open(wt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Each side marks the other's branch, never its own.
+	for _, c := range []struct {
+		r            *Repo
+		own, other   string
+		otherWantDir string
+	}{{r, "main", "linked", "linked"}, {linked, "linked", "main", filepath.Base(r.Root)}} {
+		if got := branchNamed(t, c.r, c.own); got.WorktreePath != "" {
+			t.Fatalf("%s from its own worktree: %q, want none", c.own, got.WorktreePath)
+		}
+		if got := branchNamed(t, c.r, c.other); filepath.Base(got.WorktreePath) != c.otherWantDir {
+			t.Fatalf("%s from %s: %q, want its worktree", c.other, c.own, got.WorktreePath)
+		}
+	}
+}
+
 func TestPanelPullBranchGuards(t *testing.T) {
 	remote, upstream := repo(t)
 	r, local := repo(t)

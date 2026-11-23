@@ -357,8 +357,8 @@ func (r *Repo) PanelBranches() ([]Branch, error) {
 		return nil, err
 	}
 	worktreePaths := make(map[string]string, len(worktrees))
-	for i, w := range worktrees {
-		if w.Branch != "" && !w.Prunable && (i > 0 || !w.Current) {
+	for _, w := range worktrees {
+		if w.Branch != "" && !w.Prunable && !w.Current {
 			worktreePaths[w.Branch] = w.Path
 		}
 	}

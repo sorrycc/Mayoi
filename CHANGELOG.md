@@ -10,6 +10,13 @@ needs a `## <version>` section here, or its build fails.
 - Plugins keep targeting their source documents when you switch windows.
 - Plugins can read a document's text and version together and track untitled documents closing.
 - Plugin tab actions receive the tab you chose, including unsaved buffers.
+- Right-click a local branch in Source Control and choose **Pull Branch** to update it in place.
+- Pulling an inactive branch uses its upstream even if another fetch runs at the same time.
+- Local branches checked out in another worktree show a worktree icon and a folder tooltip.
+- Hover over a worktree branch to open its checkout in a new window.
+- Branches behind their upstream are highlighted and show a pull shortcut on hover.
+- Branches ahead of their upstream are highlighted and show a push shortcut on hover.
+- Branches ahead or behind their upstream show both commit counts, including zero.
 
 ## 0.23.2
 

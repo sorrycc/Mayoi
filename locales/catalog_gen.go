@@ -8598,6 +8598,16 @@ func (msgs Messages) PanelBottom() string {
 	return Catalog.Format(msgs.locale, "panelBottom", nil)
 }
 
+// PanelBranchWorktree says "Checked out in worktree {path}"
+// in the language the app shows.
+func PanelBranchWorktree(path string) string { return In(i18n.Locale()).PanelBranchWorktree(path) }
+
+// PanelBranchWorktree says "Checked out in worktree {path}"
+// in the language of msgs.
+func (msgs Messages) PanelBranchWorktree(path string) string {
+	return Catalog.Format(msgs.locale, "panelBranchWorktree", map[string]any{"path": path})
+}
+
 // PanelBranches says "Branches"
 // in the language the app shows.
 func PanelBranches() string { return In(i18n.Locale()).PanelBranches() }
@@ -8880,6 +8890,16 @@ func PanelNoRemotes() string { return In(i18n.Locale()).PanelNoRemotes() }
 // in the language of msgs.
 func (msgs Messages) PanelNoRemotes() string {
 	return Catalog.Format(msgs.locale, "panelNoRemotes", nil)
+}
+
+// PanelOpenWorktreeNew says "Open Worktree in New Window"
+// in the language the app shows.
+func PanelOpenWorktreeNew() string { return In(i18n.Locale()).PanelOpenWorktreeNew() }
+
+// PanelOpenWorktreeNew says "Open Worktree in New Window"
+// in the language of msgs.
+func (msgs Messages) PanelOpenWorktreeNew() string {
+	return Catalog.Format(msgs.locale, "panelOpenWorktreeNew", nil)
 }
 
 // PanelOutgoing says "Outgoing"

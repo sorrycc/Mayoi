@@ -268,6 +268,14 @@ Document and editor methods keep targeting their source window even after you sw
 together. `workspace.document(ref)` returns its current document, or `null` once it or its window closed.
 Reopening the same path, or moving its tab to another project, gives a new reference.
 
+`await document.setLanguage("json", {version: snapshot.version})` changes the document's
+language and highlighting without editing its text, undo history or saved state. It resolves
+`false` for a closed document, a stale text version, or an expired plugin runtime. The version
+defaults to that of the `Document` object. A closed explicit window rejects. The language can
+be one declared by the calling plugin or a Chroma name/alias; unknown names use plain text.
+An `editor.metadata` event reports the new language. Saving under a new path selects its
+language from the new filename.
+
 `editor.active`, `editor.visible`, `workspace.documents` and `window.pick` accept an optional
 `{windowId}` to keep an operation in its source window. Without it they use the front window.
 Closed explicit windows fail rather than redirecting calls to another window.
@@ -417,7 +425,23 @@ palette.
 "snippets": [{ "language": "d2", "path": "snippets.json" }]
 ```
 
-`lexer` is a [Chroma](https://github.com/alecthomas/chroma) lexer's name. Snippets are VS Code's format, with tab stops,
+`lexer` is a [Chroma](https://github.com/alecthomas/chroma) lexer's name.
+A language may instead provide `lexerFile`, a Chroma XML grammar inside the plugin:
+
+```json
+{"id":"example","extensions":[".example"],"lexerFile":"syntax/example.xml"}
+```
+
+Mayoi compiles and caches the grammar when loading the plugin. XML and regex errors appear
+on the Plugins page and keep that plugin from loading. Grammar changes use the normal plugin
+reload mechanism; open source and output tabs update their highlighting. Disabling the plugin
+removes its grammar from those tabs. The XML's `using` emitters can reuse built-in lexers,
+such as JSON; its names and aliases do not replace globally registered lexers.
+`window.openText(text, {language:"example"})` and `document.setLanguage("example")` resolve
+the calling plugin's language declaration before looking up built-in languages. Old manifests
+that only specify `lexer` retain their behavior.
+
+Snippets are VS Code's format, with tab stops,
 placeholders, choices and variables as `TM_FILENAME` and `CURRENT_YEAR`; **Selection → Insert Snippet…** inserts one.
 
 ### Language servers
@@ -607,3 +631,38 @@ of a source keeps its final snapshot, marks that side closed and makes it
 read-only. A new document at the same path does not replace it. Buffer
 comparisons are not restored next session. Closed references and cross-window
 sources reject the promise.
+
+## Source-line actions and text output
+
+Use `languages.setCodeLenses(doc.ref, items, { version: snapshot.version })`
+to replace your plugin's actions above source lines. Each item has a stable
+`id`, zero-based `line`, `title`, your own registered `command`, and optional
+string `arg`. The promise returns `false` if the version, document, or publishing
+runtime has expired. Invalid items reject without replacing the previous batch.
+`languages.clearCodeLenses(ref)` removes this plugin's actions in that document.
+Actions are shared between views of a document, hidden inside code folds, and
+removed on text changes or plugin stop, disable, reload, removal, or crash.
+They appear in the source editor; Markdown Live Preview does not display them.
+Clicking delivers the original argument and a second `CommandContext` with
+`source: "codeLens"`, source document, version and line. Commands can await asynchronous
+work while another command cancels it. Recheck the snapshot version before acting
+on text captured by a source-line action. Actions do not edit or save source text.
+
+`window.openText(text, { title, language: "json", windowId: doc.ref.windowId })`
+opens an untitled output tab in the source window, even after focus moves.
+A closed target window rejects; it does not redirect to another window.
+Language accepts Chroma names/aliases or `"plaintext"`. Unknown names fall back to
+plain text.
+Saving the output chooses the language from its new file name. Omitting language
+keeps the existing plain-text behavior, and omitting windowId uses the front window.
+
+`window.openText` also accepts `beside: source.ref`, which opens output in the
+next unlocked column to that source in its own window, creating a column when
+needed. `windowId`, when provided too, must match the source. Closing the source
+rejects the output instead of placing it elsewhere.
+
+An optional `key` reuses that plugin's untitled output with the same key in the
+window, including after plugin reload. Other plugins cannot replace it. A saved
+output becomes an ordinary file; a later call opens a new untitled output.
+Unsaved edits in an output reject replacement, so the plugin cannot silently
+lose user changes. Omitting `beside` and `key` keeps the existing new-tab behavior.

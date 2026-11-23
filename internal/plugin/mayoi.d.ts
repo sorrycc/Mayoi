@@ -39,7 +39,7 @@ declare module "mayoi" {
   }
 
   export interface CommandContext {
-    source: "command" | "tab/context" | "explorer/context" | "api" | "cli";
+    source: "command" | "tab/context" | "explorer/context" | "api" | "cli" | "codeLens";
     windowId: number;
     document?: DocumentRef;
     version?: number;
@@ -61,6 +61,8 @@ declare module "mayoi" {
     readonly lineCount: number;
     text(range?: Range): Promise<string>;
     snapshot(): Promise<DocumentSnapshot>;
+    /** Changes highlighting without editing text; refuses a stale version (this document's by default). */
+    setLanguage(language: string, opts?: { version?: number }): Promise<boolean>;
     lineAt(line: number): Promise<string>;
     save(): Promise<void>;
   }
@@ -141,8 +143,16 @@ declare module "mayoi" {
     prompt(opts?: { title?: string; value?: string; placeholder?: string }): Promise<string | undefined>;
     /** Shows a spinner in the status bar while fn runs. */
     progress<T>(title: string, fn: () => Promise<T> | T): Promise<T>;
-    /** Opens text in a new untitled tab. */
-    openText(text: string, opts?: { title?: string; language?: string }): Promise<void>;
+    /**
+     * Opens text, using plain text for unknown languages.
+     * beside anchors it to a source document; key reuses this plugin's clean output.
+     */
+    openText(text: string, opts?: {
+      title?: string; language?: string; windowId?: number;
+      beside?: DocumentRef;
+      /** Reuses a clean, untitled output in this window; refuses to overwrite unsaved edits. */
+      key?: string;
+    }): Promise<void>;
   };
 
   export const settings: {
@@ -200,7 +210,19 @@ declare module "mayoi" {
     code?: string;
   }
 
+  export interface CodeLens {
+    id: string;
+    /** Zero-based source line; the action appears above it. */
+    line: number;
+    title: string;
+    command: string;
+    arg?: string;
+  }
+
   export const languages: {
+    /** Replaces this runtime's actions. Returns false for an expired version or document. */
+    setCodeLenses(ref: DocumentRef, items: CodeLens[], opts: { version: number }): Promise<boolean>;
+    clearCodeLenses(ref: DocumentRef): Promise<boolean>;
     /** Replaces the plugin's diagnostics of a file. */
     setDiagnostics(path: string, items: Diagnostic[], opts?: { source?: string }): Promise<void>;
     /** Clears the plugin's diagnostics of a file, or of every file. */

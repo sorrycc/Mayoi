@@ -10,6 +10,13 @@ needs a `## <version>` section here, or its build fails.
 - Plugins can compare two open buffers, including unsaved tabs, in the native Diff view.
 - Buffer comparisons follow edits and keep the last text when a source tab closes.
 - Edit either live source directly in a buffer comparison, including unsaved tabs.
+- Plugins can supply syntax rules for their languages.
+- Plugins can change a document's language without editing its text.
+- Plugins can open reusable text output beside its source document.
+- Plugin output stays to the right of its source when columns are stacked.
+- Plugin text output uses plain text when its language is not recognized.
+- Plugins can show clickable actions above source lines, with stale actions removed on edits or reload.
+- Plugin text output can target its source window and display JSON with syntax highlighting.
 - Plugins keep targeting their source documents when you switch windows.
 - Plugins can read a document's text and version together and track untitled documents closing.
 - Plugin tab actions receive the tab you chose, including unsaved buffers.

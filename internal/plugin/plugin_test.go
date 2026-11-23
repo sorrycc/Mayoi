@@ -18,7 +18,7 @@ type fakeHost struct {
 	logs     []LogLine
 }
 
-func (h *fakeHost) Call(p *Plugin, method string, args json.RawMessage) (any, error) {
+func (h *fakeHost) Call(p *Plugin, generation uint64, method string, args json.RawMessage) (any, error) {
 	h.mu.Lock()
 	h.calls = append(h.calls, method+" "+string(args))
 	h.mu.Unlock()

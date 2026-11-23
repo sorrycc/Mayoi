@@ -84,6 +84,7 @@
       lineCount: d.lineCount,
       text: (range) => call("document.text", { doc: d.id, ref: d.ref, range }),
       snapshot: () => call("document.snapshot", { doc: d.id, ref: d.ref }),
+      setLanguage: (language, opts) => call("document.setLanguage", { ref: d.ref, language, version: opts?.version ?? d.version }),
       lineAt: (line) => call("document.line", { doc: d.id, ref: d.ref, line }),
       save: () => call("document.save", { doc: d.id, ref: d.ref }),
     };
@@ -163,7 +164,7 @@
           .then(fn)
           .finally(() => call("window.progress", { title, done: true }));
       },
-      openText: (text, opts) => call("window.openText", { text, title: opts?.title, language: opts?.language }),
+      openText: (text, opts) => call("window.openText", { text, title: opts?.title, language: opts?.language, windowId: opts?.windowId, beside: opts?.beside, key: opts?.key }),
     },
     settings: {
       get: (key) => callSync("settings.get", { key }),
@@ -192,6 +193,8 @@
         call("process.run", { command, args: args ?? [], cwd: opts?.cwd, input: opts?.input, timeout: opts?.timeout }),
     },
     languages: {
+      setCodeLenses: (ref, items, opts) => call("languages.setCodeLenses", { ref, items, version: opts?.version }),
+      clearCodeLenses: (ref) => call("languages.clearCodeLenses", { ref }),
       setDiagnostics: (path, items, opts) => call("languages.diagnostics", { path, items, source: opts?.source }),
       clearDiagnostics: (path) => call("languages.diagnostics", { path, items: [], clear: path === undefined }),
       registerFormatter(id, fn) {

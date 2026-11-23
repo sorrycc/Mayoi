@@ -333,6 +333,18 @@ func (a *app) editorView(c *ui.Context, d *editor) {
 			Padding(editorPadY, padR, editorPadY, textX).
 			Label(locales.EditorLabel(d.name())).
 			ReadOnly(vimKeys || a.chording() || d.locked())
+		if !live {
+			if len(g.gaps) > 0 {
+				area.TrackLines(&d.lines)
+			}
+			var gaps []ui.TextGap
+			for line, height := range g.gaps {
+				gaps = append(gaps, ui.TextGap{Para: line, Height: height})
+			}
+			// In order, so the area appends each rather than inserting it.
+			slices.SortFunc(gaps, func(x, y ui.TextGap) int { return x.Para - y.Para })
+			area.TextGaps(gaps...)
+		}
 		// What an input method composes stays at the primary until it
 		// commits, which then types at the other selections too.
 		if composing := area.Composing(); composing != d.composing {
@@ -617,6 +629,7 @@ func (a *app) editorView(c *ui.Context, d *editor) {
 				width: max(1, contentW-textX-padR), viewH: view.H, anchor: anchor, caret: caret, vimKeys: vimKeys, focused: focused})
 			return
 		}
+		a.drawCodeLenses(c, d, g, textX, view.H)
 		// The ==highlighted== and ~~struck~~ runs of Markdown in view.
 		var highlights, strikes []lineRun
 		if d.hl != nil && d.hl.Lexer() != nil {

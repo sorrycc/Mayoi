@@ -78,6 +78,9 @@ func (a *app) pluginTick() {
 	now := time.Now()
 	for _, d := range a.docs {
 		seen, ok := s.docs[d]
+		if !ok || seen.path != d.path {
+			a.refreshDocumentLexer(d)
+		}
 		ver, saved := d.buf.Version(), d.saved
 		switch {
 		case !ok:

@@ -692,6 +692,7 @@ func (a *app) saveDocElse(d *document, then, cancelled func()) {
 			}
 			a.dropKept(d)
 			d.path, d.markdown = path, false
+			d.language, d.languageOwner, d.lexerOwner = "", "", nil
 			d.hl.Close()
 			d.hl = highlight.New(highlight.Lexer(path), a.invalidate)
 			a.saveDocElse(d, then, cancelled)
@@ -774,6 +775,7 @@ func (a *app) saveDocAs(d *document, path string) {
 		return
 	}
 	d.path, d.markdown = path, false
+	d.language, d.languageOwner, d.lexerOwner = "", "", nil
 	d.hl.Close()
 	d.hl = highlight.New(highlight.Lexer(path), a.invalidate)
 	a.saveDoc(d, nil)

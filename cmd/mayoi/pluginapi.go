@@ -22,7 +22,6 @@ import (
 	"mayoi/internal/remote"
 	"mayoi/internal/vfs"
 	"mayoi/internal/workspace"
-	"mayoi/locales"
 )
 
 // The calls plugins make to the app: plugin.Host's Call. Each runs on a
@@ -163,7 +162,7 @@ func pluginPath(a *app, p string) (string, error) {
 }
 
 // Call implements plugin.Host.
-func (h *pluginHost) Call(p *plugin.Plugin, method string, raw json.RawMessage) (any, error) {
+func (h *pluginHost) Call(p *plugin.Plugin, generation uint64, method string, raw json.RawMessage) (any, error) {
 	var args struct {
 		ID       string              `json:"id"`
 		Arg      string              `json:"arg"`
@@ -281,6 +280,8 @@ func (h *pluginHost) Call(p *plugin.Plugin, method string, raw json.RawMessage) 
 			s, e := posRune(snap, args.Range.Start), posRune(snap, args.Range.End)
 			return snap.Slice(min(s, e), max(s, e)), nil
 		})
+	case "document.setLanguage":
+		return h.setDocumentLanguage(p, generation, raw)
 	case "document.snapshot":
 		return main(func(a *app) (any, error) {
 			d, err := docByID(a, args.Doc)
@@ -547,15 +548,9 @@ func (h *pluginHost) Call(p *plugin.Plugin, method string, raw json.RawMessage) 
 		h.redraw()
 		return nil, nil
 	case "window.openText":
-		return main(func(a *app) (any, error) {
-			a.openGenerated(args.Title, args.Text)
-			if args.Title == "" {
-				if t := a.activeTab(); t != nil && t.ed != nil {
-					t.ed.title = locales.UntitledName(t.ed.number)
-				}
-			}
-			return nil, nil
-		})
+		return h.openPluginText(p, generation, raw)
+	case "languages.setCodeLenses", "languages.clearCodeLenses":
+		return h.setCodeLenses(p, generation, method, raw)
 	case "process.run":
 		v, err := main(func(a *app) (any, error) {
 			if args.Cwd == "" {

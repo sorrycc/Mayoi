@@ -21,7 +21,7 @@ func pluginCall(t *testing.T, hs *harness, h *pluginHost, method string, args an
 	}
 	done := make(chan pluginReply, 1)
 	go func() {
-		value, err := h.Call(nil, method, raw)
+		value, err := h.Call(nil, 0, method, raw)
 		done <- pluginReply{value, err}
 	}()
 	var reply pluginReply
@@ -170,7 +170,7 @@ func TestPluginPickerWindowCloses(t *testing.T) {
 	done := make(chan pluginReply, 1)
 	go func() {
 		raw, _ := json.Marshal(map[string]any{"windowId": window, "items": []string{}})
-		v, err := h.Call(nil, "window.pick", raw)
+		v, err := h.Call(nil, 0, "window.pick", raw)
 		done <- pluginReply{v, err}
 	}()
 	hs.until("picker", func() bool { return hs.a.pluginPick.open })

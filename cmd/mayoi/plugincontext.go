@@ -80,6 +80,13 @@ func (a *app) pluginContext(source string, d *document) *plugin.CommandContext {
 	if d != nil {
 		ref, version := a.documentRef(d), d.buf.Version()
 		c.Document, c.Version = &ref, &version
+		if ed := a.activeEditor(); ed != nil && ed.document == d {
+			pos := positionOf(d.buf.Snapshot(), ed.sel[1])
+			c.Position = &struct {
+				Line      int `json:"line"`
+				Character int `json:"character"`
+			}{pos.Line, pos.Character}
+		}
 	}
 	return c
 }

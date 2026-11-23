@@ -619,6 +619,14 @@ func TestThemeMenu(t *testing.T) {
 	if a.themeMascot() != nil {
 		t.Error("Cursor has a character")
 	}
+	a.run("view.theme." + themeOneDarkProFlat)
+	hs.settle()
+	if flat, light := find("One Dark Pro Flat"), find("Light"); flat == nil || !flat.Checked || !light.Checked || !light.Disabled {
+		t.Fatal("One Dark Pro Flat is not checked with Light kept and disabled")
+	}
+	if a.pal != oneDarkProFlatPal || themeSource(themeOneDarkProFlat, "light") != mygo.ThemeDark {
+		t.Fatal("One Dark Pro Flat does not keep the window dark under Light")
+	}
 }
 
 // A button's label reads on its face, the accent's and danger's, at the
@@ -628,7 +636,8 @@ func TestButtonContrast(t *testing.T) {
 	pals := map[string]*palette{"light": lightPal, "dark": darkPal, "matrix": matrixPal, "claude light": claudeLightPal, "claude dark": claudeDarkPal,
 		"qoder light": qoderLightPal, "qoder dark": qoderDarkPal, "grok bot light": grokBotLightPal, "grok bot dark": grokBotDarkPal,
 		"cursor light": cursorLightPal, "cursor dark": cursorDarkPal, "purple gold": purpleGoldPal,
-		"jack-o'-lantern": pumpkinPal, "witch's brew": witchsBrewPal, "blood moon": bloodMoonPal, "gta vi": gtaVIPal}
+		"jack-o'-lantern": pumpkinPal, "witch's brew": witchsBrewPal, "blood moon": bloodMoonPal, "gta vi": gtaVIPal,
+		"one dark pro flat": oneDarkProFlatPal}
 	for name, p := range pals {
 		for _, pair := range []struct {
 			what     string
@@ -655,7 +664,8 @@ func TestStatusTextContrast(t *testing.T) {
 	pals := map[string]*palette{"light": lightPal, "dark": darkPal, "matrix": matrixPal, "claude light": claudeLightPal, "claude dark": claudeDarkPal,
 		"qoder light": qoderLightPal, "qoder dark": qoderDarkPal, "grok bot light": grokBotLightPal, "grok bot dark": grokBotDarkPal,
 		"cursor light": cursorLightPal, "cursor dark": cursorDarkPal, "purple gold": purpleGoldPal,
-		"jack-o'-lantern": pumpkinPal, "witch's brew": witchsBrewPal, "blood moon": bloodMoonPal, "gta vi": gtaVIPal}
+		"jack-o'-lantern": pumpkinPal, "witch's brew": witchsBrewPal, "blood moon": bloodMoonPal, "gta vi": gtaVIPal,
+		"one dark pro flat": oneDarkProFlatPal}
 	for name, p := range pals {
 		for what, fg := range map[string]ui.Color{"modified": p.modifiedFg, "added": p.addedFg, "removed": p.removedFg, "danger": p.dangerFg} {
 			for _, back := range []ui.Color{p.chrome, p.editor, p.panel} {

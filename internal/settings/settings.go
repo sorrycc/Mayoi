@@ -239,12 +239,7 @@ type Prefs struct {
 	VimCtrlKeys bool `json:"vimCtrlKeys,omitempty"`
 	// Appearance is "light", "dark", or "" to follow the system.
 	Appearance string `json:"appearance,omitempty"`
-	// Theme is "matrix" for The Matrix, "purplegold" for Purple Gold,
-	// "pumpkin" for Jack-o'-Lantern, "witchsbrew" for Witch's Brew,
-	// "bloodmoon" for Blood Moon or "gtavi" for GTA VI, which are always
-	// dark, "claude" for Claude, "qoder" for Qoder,
-	// "grokbot" for Grok Bot or "cursor" for Cursor, light or dark as
-	// Appearance is, or "" for Mayoi's own.
+	// Theme is a built-in or plugin theme ID, or "" for Mayoi's own.
 	Theme string `json:"theme,omitempty"`
 	// SidebarRight puts the sidebar right of the editors, rather than left.
 	SidebarRight bool `json:"sidebarRight,omitempty"`

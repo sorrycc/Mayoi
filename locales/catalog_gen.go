@@ -924,6 +924,16 @@ func (msgs Messages) ThemeAboutGTAVI() string {
 	return Catalog.Format(msgs.locale, "themeAboutGTAVI", nil)
 }
 
+// ThemeAboutOneDarkProFlat says "Slate grey throughout, with One Dark Pro syntax colors"
+// in the language the app shows.
+func ThemeAboutOneDarkProFlat() string { return In(i18n.Locale()).ThemeAboutOneDarkProFlat() }
+
+// ThemeAboutOneDarkProFlat says "Slate grey throughout, with One Dark Pro syntax colors"
+// in the language of msgs.
+func (msgs Messages) ThemeAboutOneDarkProFlat() string {
+	return Catalog.Format(msgs.locale, "themeAboutOneDarkProFlat", nil)
+}
+
 // ThemeAboutQoder says "Qoder's Forest greens"
 // in the language the app shows.
 func ThemeAboutQoder() string { return In(i18n.Locale()).ThemeAboutQoder() }
@@ -15126,11 +15136,11 @@ func (msgs Messages) PrefTitleTheme() string {
 	return Catalog.Format(msgs.locale, "prefTitleTheme", nil)
 }
 
-// PrefDescTheme says "The colors of every window. The Matrix, Purple Gold and the Halloween themes are always dark."
+// PrefDescTheme says "The colors of every window. Some themes are always dark."
 // in the language the app shows.
 func PrefDescTheme() string { return In(i18n.Locale()).PrefDescTheme() }
 
-// PrefDescTheme says "The colors of every window. The Matrix, Purple Gold and the Halloween themes are always dark."
+// PrefDescTheme says "The colors of every window. Some themes are always dark."
 // in the language of msgs.
 func (msgs Messages) PrefDescTheme() string {
 	return Catalog.Format(msgs.locale, "prefDescTheme", nil)
@@ -16408,6 +16418,16 @@ func PrefOptThemeGtavi() string { return In(i18n.Locale()).PrefOptThemeGtavi() }
 // in the language of msgs.
 func (msgs Messages) PrefOptThemeGtavi() string {
 	return Catalog.Format(msgs.locale, "prefOptThemeGtavi", nil)
+}
+
+// PrefOptThemeOnedarkproflat says "One Dark Pro Flat"
+// in the language the app shows.
+func PrefOptThemeOnedarkproflat() string { return In(i18n.Locale()).PrefOptThemeOnedarkproflat() }
+
+// PrefOptThemeOnedarkproflat says "One Dark Pro Flat"
+// in the language of msgs.
+func (msgs Messages) PrefOptThemeOnedarkproflat() string {
+	return Catalog.Format(msgs.locale, "prefOptThemeOnedarkproflat", nil)
 }
 
 // PrefOptAppearanceLight says "Light"

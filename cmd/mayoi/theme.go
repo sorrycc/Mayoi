@@ -1369,6 +1369,88 @@ func gtaVIPalette() *palette {
 	return p
 }
 
+// oneDarkProFlatPalette adapts the One Dark Pro Flat workbench and syntax
+// colors to Mayoi. https://github.com/Binaryify/OneDark-Pro/blob/master/themes/OneDark-Pro-flat.json
+func oneDarkProFlatPalette() *palette {
+	background := ui.Hex("#282c34")
+	foreground := ui.Hex("#abb2bf")
+	blue := ui.Hex("#61afef")
+	green := ui.Hex("#98c379")
+	orange := ui.Hex("#d19a66")
+	red := ui.Hex("#e57881")
+	selection := ui.Hex("#677696")
+	p := &palette{
+		dark:           true,
+		editor:         background,
+		chrome:         background,
+		panel:          background,
+		border:         ui.Hex("#343a45"),
+		rule:           background,
+		hover:          selection.Alpha(0.075),
+		active:         selection.Alpha(0.16),
+		text:           foreground,
+		muted:          ui.Hex("#9da1ab"),
+		faint:          ui.Hex("#9096a2"),
+		accent:         blue,
+		accentDim:      blue.Alpha(0.72),
+		line:           ui.Hex("#2c313c"),
+		selection:      selection.Alpha(0.28),
+		gutter:         ui.Hex("#7f848e"),
+		gutterNow:      foreground,
+		status:         background,
+		statusFg:       ui.Hex("#969aa4"),
+		modified:       orange,
+		danger:         red,
+		match:          orange.Alpha(0.22),
+		matchNow:       orange.Alpha(0.30),
+		matchRing:      orange,
+		guide:          ui.Hex("#343a45"),
+		guideNow:       ui.Hex("#495169"),
+		bracket:        ui.Hex("#515a6b"),
+		word:           foreground.Alpha(0.12),
+		shadow:         ui.RGBA(0, 0, 0, 0.35),
+		added:          ui.Hex("#109868"),
+		changed:        ui.Hex("#948b60"),
+		removed:        ui.Hex("#9a353d"),
+		fill:           ui.Hex("#404754"),
+		fillText:       ui.Hex("#f0f0f0"),
+		dangerFill:     ui.Hex("#9a353d"),
+		dangerText:     ui.Hex("#f0f0f0"),
+		surface:        ui.Hex("#21252b"),
+		surfaceHover:   ui.Hex("#2c313a"),
+		surfacePressed: ui.Hex("#323842"),
+		scrollbar:      ui.Hex("#4e5666").Alpha(0.38),
+		inverse:        ui.Hex("#323842"),
+		inverseText:    ui.Hex("#d7dae0"),
+		ansi: [16]ui.Color{
+			ui.Hex("#3f4451"), ui.Hex("#e05561"), ui.Hex("#8cc265"), ui.Hex("#d18f52"),
+			ui.Hex("#4aa5f0"), ui.Hex("#c162de"), ui.Hex("#42b3c2"), ui.Hex("#d7dae0"),
+			ui.Hex("#4f5666"), ui.Hex("#ff616e"), ui.Hex("#a5e075"), ui.Hex("#f0a45d"),
+			ui.Hex("#4dc4ff"), ui.Hex("#de73ff"), ui.Hex("#4cd1e0"), ui.Hex("#e6e6e6"),
+		},
+	}
+	p.fillHover, p.fillPressed = p.fill.Mix(white, 0.10), p.fill.Mix(black, 0.15)
+	s := &p.syntax
+	s[highlight.Plain] = foreground
+	s[highlight.Keyword] = ui.Hex("#c678dd")
+	s[highlight.Type] = ui.Hex("#e5c07b")
+	s[highlight.Function] = blue
+	s[highlight.String] = green
+	s[highlight.Number] = orange
+	s[highlight.Comment] = p.statusFg
+	s[highlight.Operator] = ui.Hex("#56b6c2")
+	s[highlight.Punctuation] = foreground
+	s[highlight.Constant] = orange
+	s[highlight.Builtin] = ui.Hex("#56b6c2")
+	s[highlight.Tag] = red
+	s[highlight.Attribute] = orange
+	s[highlight.Variable] = foreground
+	s[highlight.Heading] = red
+	s[highlight.Deleted] = red
+	s[highlight.Inserted] = green
+	return p
+}
+
 var (
 	black, white = ui.Hex("#000000"), ui.Hex("#ffffff")
 
@@ -1395,23 +1477,23 @@ var (
 	bloodMoonPal  = bloodMoonPalette().derive()
 
 	gtaVIPal = gtaVIPalette().derive()
+
+	oneDarkProFlatPal = oneDarkProFlatPalette().derive()
 )
 
-// The Themes of the settings beside Mayoi's own, "": The Matrix, Purple
-// Gold, the Halloween themes Jack-o'-Lantern, Witch's Brew and Blood
-// Moon, and GTA VI, which are always dark, and Claude, Qoder, Grok Bot and Cursor,
-// light or dark as the Appearance is.
+// The built-in themes of the settings. Mayoi's own is "".
 const (
-	themeMatrix     = "matrix"
-	themeClaude     = "claude"
-	themeQoder      = "qoder"
-	themeGrokBot    = "grokbot"
-	themeCursor     = "cursor"
-	themePurpleGold = "purplegold"
-	themePumpkin    = "pumpkin"
-	themeWitchsBrew = "witchsbrew"
-	themeBloodMoon  = "bloodmoon"
-	themeGTAVI      = "gtavi"
+	themeMatrix         = "matrix"
+	themeClaude         = "claude"
+	themeQoder          = "qoder"
+	themeGrokBot        = "grokbot"
+	themeCursor         = "cursor"
+	themePurpleGold     = "purplegold"
+	themePumpkin        = "pumpkin"
+	themeWitchsBrew     = "witchsbrew"
+	themeBloodMoon      = "bloodmoon"
+	themeGTAVI          = "gtavi"
+	themeOneDarkProFlat = "one-dark-pro-flat"
 )
 
 // alwaysDark is whether a theme is dark whatever the Appearance is.
@@ -1420,7 +1502,7 @@ func alwaysDark(theme string) bool {
 		return true
 	}
 	switch theme {
-	case themeMatrix, themePurpleGold, themePumpkin, themeWitchsBrew, themeBloodMoon, themeGTAVI:
+	case themeMatrix, themePurpleGold, themePumpkin, themeWitchsBrew, themeBloodMoon, themeGTAVI, themeOneDarkProFlat:
 		return true
 	}
 	return false
@@ -1461,6 +1543,8 @@ func paletteFor(theme string, dark bool) *palette {
 		return bloodMoonPal
 	case theme == themeGTAVI:
 		return gtaVIPal
+	case theme == themeOneDarkProFlat:
+		return oneDarkProFlatPal
 	case dark:
 		return darkPal
 	}

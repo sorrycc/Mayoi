@@ -54,6 +54,20 @@ func TestThemePickerPreviewsAndKeeps(t *testing.T) {
 	if a.themes.open || a.settings.Theme != themeClaude || a.pal != claudeDarkPal {
 		t.Errorf("Return does not keep Claude: %q", a.settings.Theme)
 	}
+
+	a.run("view.selectTheme")
+	hs.settle()
+	hs.tt.Type("One Dark Pro Flat")
+	hs.settle()
+	if a.settings.Theme != themeOneDarkProFlat || a.pal != oneDarkProFlatPal {
+		t.Fatalf("search does not preview One Dark Pro Flat: %q", a.settings.Theme)
+	}
+	hs.shot("theme-picker-one-dark-pro-flat")
+	hs.key(0, ui.KeyEnter)
+	hs.settle()
+	if a.themes.open || a.settings.Theme != themeOneDarkProFlat || a.termTheme != themeOneDarkProFlat {
+		t.Errorf("Return does not apply One Dark Pro Flat to the window and terminal: %q, %q", a.settings.Theme, a.termTheme)
+	}
 }
 
 // The window fades from one palette to the next, each color on its way,

@@ -289,6 +289,7 @@ func (a *app) commandsIn(t locales.Messages) []command {
 		{"view.theme.witchsbrew", t.CmdViewThemeWitchsBrew(), "", func() { a.setTheme(themeWitchsBrew) }},
 		{"view.theme.bloodmoon", t.CmdViewThemeBloodMoon(), "", func() { a.setTheme(themeBloodMoon) }},
 		{"view.theme.gtavi", "GTA VI", "", func() { a.setTheme(themeGTAVI) }},
+		{"view.theme." + themeOneDarkProFlat, t.PrefOptThemeOnedarkproflat(), "", func() { a.setTheme(themeOneDarkProFlat) }},
 		{localeCommand + "system", t.CmdViewLocaleSystem(), "", func() { a.setLocale("") }},
 	}
 	// The languages, each named in itself.
@@ -773,7 +774,7 @@ func (a *app) menu(cli bool, run func(id string, win *mygo.Window)) *mygo.Menu {
 				theme("view.theme.qoder", themeQoder), theme("view.theme.grokbot", themeGrokBot), theme("view.theme.cursor", themeCursor),
 				theme("view.theme.purplegold", themePurpleGold), theme("view.theme.pumpkin", themePumpkin),
 				theme("view.theme.witchsbrew", themeWitchsBrew), theme("view.theme.bloodmoon", themeBloodMoon),
-				theme("view.theme.gtavi", themeGTAVI),
+				theme("view.theme.gtavi", themeGTAVI), theme("view.theme."+themeOneDarkProFlat, themeOneDarkProFlat),
 			}},
 			{Label: locales.MenuLanguage(), Submenu: languages}, mygo.Separator(),
 			{Role: mygo.RoleToggleFullScreen}, {Role: mygo.RoleToggleDevTools},

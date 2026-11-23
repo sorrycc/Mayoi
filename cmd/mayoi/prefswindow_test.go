@@ -520,6 +520,13 @@ func TestPrefsThemeTilesAndSwitch(t *testing.T) {
 	if ph.m.s.Appearance != "dark" {
 		t.Errorf("appearance %q under The Matrix", ph.m.s.Appearance)
 	}
+	if err := ph.pt.Click("One Dark Pro Flat"); err != nil {
+		t.Fatal(err)
+	}
+	ph.frames()
+	if ph.m.s.Theme != themeOneDarkProFlat || ph.w.pal != oneDarkProFlatPal {
+		t.Errorf("the tile does not apply One Dark Pro Flat: %q", ph.m.s.Theme)
+	}
 }
 
 func TestPrefNumber(t *testing.T) {

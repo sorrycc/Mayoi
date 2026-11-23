@@ -60,7 +60,7 @@ type Field struct {
 // Schema is every preference, in the order the settings window shows
 // them.
 var Schema = []Field{
-	{Key: "theme", Category: CatAppearance, Kind: KindEnum, Options: []string{"", "matrix", "claude", "qoder", "grokbot", "cursor", "purplegold", "pumpkin", "witchsbrew", "bloodmoon", "gtavi"}},
+	{Key: "theme", Category: CatAppearance, Kind: KindEnum, Options: []string{"", "matrix", "claude", "qoder", "grokbot", "cursor", "purplegold", "pumpkin", "witchsbrew", "bloodmoon", "gtavi", "one-dark-pro-flat"}},
 	{Key: "appearance", Category: CatAppearance, Kind: KindEnum, Options: []string{"", "light", "dark"}},
 	{Key: "zoomLevel", Category: CatAppearance, Kind: KindNumber, Min: MinZoomLevel, Max: MaxZoomLevel, Step: 0.5},
 	{Key: "sidebarRight", Category: CatAppearance, Kind: KindBool},

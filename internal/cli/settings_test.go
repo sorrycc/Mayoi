@@ -99,6 +99,7 @@ func TestSettingsSet(t *testing.T) {
 	path := filepath.Join(dir, "settings.json")
 	putFile(t, path, `{"theme": "claude", "mine": 1}`)
 	s := Settings{Verb: "set", Changes: []Change{
+		{Op: OpSet, Key: "theme", Value: prefValue("one-dark-pro-flat")},
 		{Op: OpSet, Key: "fontSize", Value: json.RawMessage("16")},
 		{Op: OpSet, Key: "vim", Value: json.RawMessage("true")},
 		{Op: OpSet, Key: "fontFamily", Value: json.RawMessage(`"Fira Code"`)},
@@ -119,7 +120,7 @@ func TestSettingsSet(t *testing.T) {
 		t.Fatal(err)
 	}
 	want := map[string]any{
-		"theme": "claude", "mine": float64(1), "fontSize": float64(16), "vim": true,
+		"theme": "one-dark-pro-flat", "mine": float64(1), "fontSize": float64(16), "vim": true,
 		"fontFamily": "Fira Code", "fontFeatures": []any{"calt=0"}, "appearance": "",
 		"aiModel": "123",
 	}
@@ -147,7 +148,7 @@ func TestSettingsSetWrong(t *testing.T) {
 		{"fontSize", `"big"`, "a number from 9 to 28"},
 		{"fontSize", "100", "a number from 9 to 28"},
 		{"vim", "1", "true or false"},
-		{"theme", "nope", `"", "matrix", "claude", "qoder", "grokbot", "cursor", "purplegold", "pumpkin", "witchsbrew", "bloodmoon" or "gtavi"`},
+		{"theme", "nope", `"", "matrix", "claude", "qoder", "grokbot", "cursor", "purplegold", "pumpkin", "witchsbrew", "bloodmoon", "gtavi" or "one-dark-pro-flat"`},
 		{"fontFeatures", "calt=0", `a list of text`},
 		{"projectTabStyle", "[]", "the looks of the projects on the rail"},
 		{"vim", "null", "mayoi settings unset vim"},

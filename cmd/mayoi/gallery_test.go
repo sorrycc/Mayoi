@@ -24,7 +24,7 @@ import (
 
 // galleryThemes are the themes of the gallery, "" for Mayoi's own.
 var galleryThemes = []string{"", themeMatrix, themeClaude, themeQoder, themeGrokBot, themeCursor,
-	themePurpleGold, themePumpkin, themeWitchsBrew, themeBloodMoon, themeGTAVI}
+	themePurpleGold, themePumpkin, themeWitchsBrew, themeBloodMoon, themeGTAVI, themeOneDarkProFlat}
 
 // galleryLocales are the languages Mayoi has a catalog of.
 var galleryLocales = []string{"en", "ja", "zh-Hans"}

@@ -31,6 +31,7 @@ var builtinThemes = []themeChoice{
 	{themeWitchsBrew, locales.CmdViewThemeWitchsBrew, locales.ThemeAboutWitchsBrew},
 	{themeBloodMoon, locales.CmdViewThemeBloodMoon, locales.ThemeAboutBloodMoon},
 	{themeGTAVI, func() string { return "GTA VI" }, locales.ThemeAboutGTAVI},
+	{themeOneDarkProFlat, locales.PrefOptThemeOnedarkproflat, locales.ThemeAboutOneDarkProFlat},
 }
 
 // themeAppearances are the appearances the box chooses between, as the

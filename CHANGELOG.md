@@ -5,6 +5,8 @@ needs a `## <version>` section here, or its build fails.
 
 ## Unreleased
 
+- A block of math whose line is just `=` or `-` renders again, as a matrix product's does.
+- Math formulas with `\text{...}` outside the math font now render in the window's fonts.
 - **Remote SSH** connects to Windows hosts running OpenSSH Server, through the PowerShell Windows comes with.
 - A Windows host's files, Git, search and language servers work as on Linux, and its terminals open PowerShell.
 - On a Windows host, `/` lists its drives and the folder box takes `C:\Users\me` as you type it.

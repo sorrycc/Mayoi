@@ -560,7 +560,6 @@
   "errImageEmpty": "画像が空です",
   "errImageNotRegular": "画像は通常のファイルではありません",
   "errImageTooLarge": "画像が大きすぎて表示できません",
-  "errMathText": "数式フォントにない文字が含まれています",
   "errMathTimeout": "数式の描画に時間がかかりすぎました",
   "errMermaidTimeout": "図の描画に時間がかかりすぎました",
   "errNameExists": "同じ名前のファイルまたはフォルダーがあります",

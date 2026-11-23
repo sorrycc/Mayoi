@@ -577,6 +577,86 @@ func markdownFrontMatter(lines []string) bool {
 // larger, with Obsidian's wiki links, and with its math when math is set.
 // Emphasis, strikethrough and ==highlight== use the CJK-friendly flanking
 // rule.
+
+// mathTableTransformer is Goldmark's table paragraph transformer, except
+// that it hides the lines of a display formula from it: a line of - alone
+// inside $$ ... $$ is a delimiter row to Goldmark, which would turn the
+// formula into its first line and a table of the rest. Lines after the
+// closing $$ are still handed to the table transformer so a table right
+// below the formula parses as usual.
+type mathTableTransformer struct {
+	parser.ParagraphTransformer
+}
+
+func (t mathTableTransformer) Transform(node *ast.Paragraph, reader text.Reader, pc parser.Context) {
+	lines := node.Lines()
+	source := reader.Source()
+	if lines.Len() == 0 || !isMathFenceLine(lines.At(0), source) {
+		t.ParagraphTransformer.Transform(node, reader, pc)
+		return
+	}
+	close := -1
+	for i := 1; i < lines.Len(); i++ {
+		if isMathFenceLine(lines.At(i), source) {
+			close = i
+			break
+		}
+	}
+	if close < 0 || close+1 >= lines.Len() {
+		return
+	}
+	tail := ast.NewParagraph()
+	tail.Lines().AppendAll(lines.Sliced(close+1, lines.Len()))
+	parent := node.Parent()
+	parent.InsertAfter(parent, node, tail)
+	t.ParagraphTransformer.Transform(tail, reader, pc)
+	if tail.Parent() == nil {
+		// Every line after the closing $$ became a table.
+		lines.SetSliced(0, close+1)
+		last := lines.At(close)
+		if last.Stop > last.Start && source[last.Stop-1] == '\n' {
+			last.Stop--
+			lines.Set(close, last)
+		}
+		return
+	}
+	lines.SetSliced(0, close+1)
+	lines.AppendAll(tail.Lines().Sliced(0, tail.Lines().Len()))
+	parent.RemoveChild(parent, tail)
+}
+
+// mathBlockParsers are Goldmark's block parsers, but for the setext heading
+// and the thematic break, which know of a display formula that stays whole:
+// a line of = alone is a heading's underline, and a line of --- a rule, and
+// either would end the formula it is inside of.
+//
+// Only those two are wrapped. A list item's marker opens with a - too, and
+// wrapping the list parser would fold a list marker under an unclosed $$
+// into the paragraph.
+func mathBlockParsers() []util.PrioritizedValue {
+	out := parser.DefaultBlockParsers()
+	for i, v := range out {
+		p, ok := v.Value.(parser.BlockParser)
+		if !ok || !mathBlockEndsAFormula(p) {
+			continue
+		}
+		out[i] = util.Prioritized(mathGuardParser{p}, v.Priority)
+	}
+	return out
+}
+
+// mathBlockEndsAFormula reports whether p opens on a line of = or -, which
+// a display formula may hold alone on a line: Goldmark's setext heading, a
+// - or = under its text, and its thematic break, three or more of - in a
+// paragraph's stead.
+//
+// The two are told by what they open on: only the setext heading opens on
+// a =, and the thematic break is the parser NewThematicBreakParser returns,
+// which the default parsers hold too.
+func mathBlockEndsAFormula(p parser.BlockParser) bool {
+	return slices.Contains(p.Trigger(), '=') || p == parser.NewThematicBreakParser()
+}
+
 func markdownParser(math bool) parser.Parser {
 	var inlines []util.PrioritizedValue
 	for _, v := range parser.DefaultInlineParsers() {
@@ -592,15 +672,23 @@ func markdownParser(math bool) parser.Parser {
 		util.Prioritized(extension.NewLinkifyParser(), 999),
 		util.Prioritized(extension.NewFootnoteParser(), 101),
 		util.Prioritized(wikiLinkParser{}, 199))
+	// A formula is only a formula with math on: with it off, the $$ of its
+	// first line is text, and the parsers that end a paragraph there as
+	// they always did. The table's transformer is there either way; only
+	// the one that reads a display formula's lines is not.
+	blocks := parser.DefaultBlockParsers()
+	table := parser.ParagraphTransformer(extension.NewTableParagraphTransformer())
 	if math {
 		inlines = append(inlines, util.Prioritized(mathParser{}, 150))
+		blocks = mathBlockParsers()
+		table = mathTableTransformer{table}
 	}
 	return parser.NewParser(
-		parser.WithBlockParsers(append(parser.DefaultBlockParsers(),
-			util.Prioritized(extension.NewFootnoteBlockParser(), 999))...),
+		parser.WithBlockParsers(append(
+			blocks, util.Prioritized(extension.NewFootnoteBlockParser(), 999))...),
 		parser.WithInlineParsers(inlines...),
 		parser.WithParagraphTransformers(append(parser.DefaultParagraphTransformers(),
-			util.Prioritized(extension.NewTableParagraphTransformer(), 200))...),
+			util.Prioritized(table, 200))...),
 		parser.WithASTTransformers(util.Prioritized(extension.NewTableASTTransformer(), 0),
 			util.Prioritized(urlLinkifier{}, 100), util.Prioritized(extension.NewFootnoteASTTransformer(), 999)),
 	)

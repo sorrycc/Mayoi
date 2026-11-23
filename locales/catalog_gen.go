@@ -744,16 +744,6 @@ func (msgs Messages) StashPop() string {
 	return Catalog.Format(msgs.locale, "stashPop", nil)
 }
 
-// ErrMathText says "it uses characters the math font lacks"
-// in the language the app shows.
-func ErrMathText() string { return In(i18n.Locale()).ErrMathText() }
-
-// ErrMathText says "it uses characters the math font lacks"
-// in the language of msgs.
-func (msgs Messages) ErrMathText() string {
-	return Catalog.Format(msgs.locale, "errMathText", nil)
-}
-
 // ErrMathTimeout says "the formula took too long to draw"
 // in the language the app shows.
 func ErrMathTimeout() string { return In(i18n.Locale()).ErrMathTimeout() }

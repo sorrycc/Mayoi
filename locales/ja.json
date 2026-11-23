@@ -1790,6 +1790,7 @@
   "cmdSelInsertSnippet": "スニペットを挿入…",
   "snippetsNone": "{language} のスニペットを持つプラグインはありません",
   "snippetsPlaceholder": "スニペットを挿入",
+  "cmdEditorChangeLanguage": "言語を変更…",
   "pluginsSyncInstalled": "設定の同期で {names} をインストールしました",
   "pluginsSyncRemoved": "設定の同期で {names} を削除しました",
   "pluginsSyncFailed": "プラグインを同期できませんでした: {err}",

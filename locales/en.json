@@ -2018,6 +2018,7 @@
   "cmdSelInsertSnippet": "Insert Snippet…",
   "snippetsNone": "No plugin has snippets for {language}",
   "snippetsPlaceholder": "Insert a snippet",
+  "cmdEditorChangeLanguage": "Change Language…",
   "pluginsSyncInstalled": "Settings sync installed {names}",
   "pluginsSyncRemoved": "Settings sync removed {names}",
   "pluginsSyncFailed": "Could not sync the plugins: {err}",

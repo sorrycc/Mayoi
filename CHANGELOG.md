@@ -5,6 +5,9 @@ needs a `## <version>` section here, or its build fails.
 
 ## Unreleased
 
+- Pasting into an empty untitled or unrecognized file detects its language, keeping manual choices.
+- Click the status bar language or run `Change Language…` to choose a language, including unsaved tabs.
+- Changing a document's language updates its language server and clears old diagnostics.
 - Switching between Live Preview and Reading View keeps the same passage in view, without a jump.
 - Language servers that watch files pick up local workspace changes without reopening the folder.
 - Rename a file or folder right in its explorer row, as in VS Code, instead of in a dialog.

@@ -446,6 +446,9 @@ func (a *app) lspDoc(event string, d *document) {
 		for _, s := range servers {
 			if c := s.live(); c != nil {
 				c.Closed(serverURI(d.path))
+				if plugins != nil {
+					plugins.setDiagnosticList(s.owner(), d.path, "", false, nil)
+				}
 			}
 		}
 		return
@@ -551,7 +554,7 @@ func (a *app) askHover(d *editor, at int, rest *pointerHover) {
 		rest.ctx, rest.cancel = ctx, cancel
 		current = func() bool {
 			r := &a.rest
-			return a.restAsked == n && r.ed == d && r.word == word && d.buf.Version() == version &&
+			return a.restAsked == n && r.ed == d && r.word == word && d.buf.Version() == version && languageOf(d.document) == lang &&
 				a.picksOpened == picks && (s == nil || s.current())
 		}
 	}
@@ -611,9 +614,10 @@ func (a *app) askHover(d *editor, at int, rest *pointerHover) {
 func (a *app) lspAsked(s *lspServer, d *editor, asked *int) func() bool {
 	*asked++
 	n, root, version, sel, picks := *asked, a.root, d.buf.Version(), d.sel, a.picksOpened
+	language := languageOf(d.document)
 	return func() bool {
 		return *asked == n && a.root == root && a.activeEditor() == d && d.buf.Version() == version && d.sel == sel &&
-			a.picksOpened == picks && (s == nil || s.current())
+			a.picksOpened == picks && languageOf(d.document) == language && (s == nil || s.current())
 	}
 }
 

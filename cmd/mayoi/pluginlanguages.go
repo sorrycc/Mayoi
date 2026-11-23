@@ -14,8 +14,12 @@ import (
 
 func resolvePluginLanguage(owner *plugin.Plugin, name string) (string, chroma.Lexer, *plugin.Plugin) {
 	name = strings.ToLower(name)
-	if lexer := owner.Lexer(name); lexer != nil {
-		return name, lexer, owner
+	if owner != nil {
+		for _, lang := range owner.Contributes.Languages {
+			if strings.EqualFold(lang.ID, name) {
+				return name, owner.Lexer(name), owner
+			}
+		}
 	}
 	if lexer := lexers.Get(name); lexer != nil {
 		return name, lexer, nil

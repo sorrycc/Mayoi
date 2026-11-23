@@ -1790,6 +1790,7 @@
   "cmdSelInsertSnippet": "插入代码片段…",
   "snippetsNone": "没有插件提供 {language} 的代码片段",
   "snippetsPlaceholder": "插入代码片段",
+  "cmdEditorChangeLanguage": "更改语言…",
   "pluginsSyncInstalled": "设置同步安装了 {names}",
   "pluginsSyncRemoved": "设置同步移除了 {names}",
   "pluginsSyncFailed": "无法同步插件：{err}",

@@ -37,6 +37,20 @@ var galleryStates = []struct {
 }{
 	{"empty", func(hs *harness) {}},
 	{"editor", func(hs *harness) { hs.a.openFile(hs.path("main.go"), true) }},
+	{"language-picker", func(hs *harness) {
+		hs.a.newFile()
+		hs.a.openLanguagePicker()
+	}},
+	{"language-picker-filtered", func(hs *harness) {
+		hs.a.newFile()
+		hs.a.openLanguagePicker()
+		hs.a.pluginPick.query = "json"
+	}},
+	{"language-picker-empty", func(hs *harness) {
+		hs.a.newFile()
+		hs.a.openLanguagePicker()
+		hs.a.pluginPick.query = "no-such-language-xyz"
+	}},
 	{"hover", func(hs *harness) {
 		hs.a.openFile(hs.path("main.go"), true)
 		hs.settle()

@@ -18094,6 +18094,16 @@ func (msgs Messages) SnippetsPlaceholder() string {
 	return Catalog.Format(msgs.locale, "snippetsPlaceholder", nil)
 }
 
+// CmdEditorChangeLanguage says "Change Language…"
+// in the language the app shows.
+func CmdEditorChangeLanguage() string { return In(i18n.Locale()).CmdEditorChangeLanguage() }
+
+// CmdEditorChangeLanguage says "Change Language…"
+// in the language of msgs.
+func (msgs Messages) CmdEditorChangeLanguage() string {
+	return Catalog.Format(msgs.locale, "cmdEditorChangeLanguage", nil)
+}
+
 // PluginsSyncInstalled says "Settings sync installed {names}"
 // in the language the app shows.
 func PluginsSyncInstalled(names string) string { return In(i18n.Locale()).PluginsSyncInstalled(names) }

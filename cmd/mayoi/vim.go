@@ -1992,6 +1992,7 @@ func (a *app) vimPaste(d *editor, cur int, before, past bool, cnt int) {
 	if text == "" {
 		return
 	}
+	a.detectPastedLanguage(d.document, text)
 	snap := d.buf.Snapshot()
 	line := snap.LineAt(cur)
 	ls, le := snap.LineRange(line)

@@ -631,6 +631,7 @@ of a source keeps its final snapshot, marks that side closed and makes it
 read-only. A new document at the same path does not replace it. Buffer
 comparisons are not restored next session. Closed references and cross-window
 sources reject the promise.
+
 ## Source-line actions and text output
 
 Use `languages.setCodeLenses(doc.ref, items, { version: snapshot.version })`
@@ -654,7 +655,6 @@ Language accepts Chroma names/aliases or `"plaintext"`. Unknown names fall back 
 plain text.
 Saving the output chooses the language from its new file name. Omitting language
 keeps the existing plain-text behavior, and omitting windowId uses the front window.
-
 
 `window.openText` also accepts `beside: source.ref`, which opens output in the
 next unlocked column to that source in its own window, creating a column when

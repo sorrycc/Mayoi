@@ -341,6 +341,8 @@ func (a *app) editorView(c *ui.Context, d *editor) {
 			for line, height := range g.gaps {
 				gaps = append(gaps, ui.TextGap{Para: line, Height: height})
 			}
+			// In order, so the area appends each rather than inserting it.
+			slices.SortFunc(gaps, func(x, y ui.TextGap) int { return x.Para - y.Para })
 			area.TextGaps(gaps...)
 		}
 		// What an input method composes stays at the primary until it

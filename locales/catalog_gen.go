@@ -15524,6 +15524,26 @@ func (msgs Messages) PrefDescEditorHover() string {
 	return Catalog.Format(msgs.locale, "prefDescEditorHover", nil)
 }
 
+// PrefTitleSearchFollowSymlinks says "Follow Directory Symlinks"
+// in the language the app shows.
+func PrefTitleSearchFollowSymlinks() string { return In(i18n.Locale()).PrefTitleSearchFollowSymlinks() }
+
+// PrefTitleSearchFollowSymlinks says "Follow Directory Symlinks"
+// in the language of msgs.
+func (msgs Messages) PrefTitleSearchFollowSymlinks() string {
+	return Catalog.Format(msgs.locale, "prefTitleSearchFollowSymlinks", nil)
+}
+
+// PrefDescSearchFollowSymlinks says "Search linked directories, including targets outside the local workspace."
+// in the language the app shows.
+func PrefDescSearchFollowSymlinks() string { return In(i18n.Locale()).PrefDescSearchFollowSymlinks() }
+
+// PrefDescSearchFollowSymlinks says "Search linked directories, including targets outside the local workspace."
+// in the language of msgs.
+func (msgs Messages) PrefDescSearchFollowSymlinks() string {
+	return Catalog.Format(msgs.locale, "prefDescSearchFollowSymlinks", nil)
+}
+
 // PrefTitleMarkdownMode says "Open Markdown As"
 // in the language the app shows.
 func PrefTitleMarkdownMode() string { return In(i18n.Locale()).PrefTitleMarkdownMode() }

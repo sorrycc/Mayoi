@@ -91,6 +91,7 @@ takes its default.
 | `jsonlMode`             | `""`          | `""` (table), `"source"`                                    | **View → Open JSON Lines As**                  |
 | `editorAgentContext`    | `false`       | `true`, `false`                                             | Only this file                                 |
 | `editorHover`           | `true`        | `true`, `false`                                             | Only this file                                 |
+| `searchFollowSymlinks`  | `true`        | `true`, `false` for local Find in Files                       | **Settings → Editor**                          |
 | `previewMermaid`        | `true`        | `true`, `false`                                             | Only this file                                 |
 | `previewMath`           | `true`        | `true`, `false`                                             | Only this file                                 |
 | `markdownMode`          | `""`          | `""` (source), `"live"`, `"reading"`                        | **View → Open Markdown As**                    |
@@ -443,7 +444,7 @@ window. **File → Open Folder Settings (JSON)** opens the file, and creates it 
 window, choose the folder in the menu at the top right: it lists only the preferences a folder can set, and the arrow
 beside one returns it to your setting.
 
-A folder can set these: `autoSave`, `wordWrap`, `trimTrailingWhitespace`, `jsonlMode`, `markdownMode`, `previewMermaid`, `previewMath`,
+A folder can set these: `autoSave`, `wordWrap`, `trimTrailingWhitespace`, `jsonlMode`, `searchFollowSymlinks`, `markdownMode`, `previewMermaid`, `previewMath`,
 `terminalCopyOnSelect`, `diffHighlight`, `diffWhitespace`, `diffContext`, `diffCrossFiles`, `mergeAutoApply`,
 `blame`, `aiModel`, `vim`, `vimCtrlKeys`, `formatOnSave` and `formatters`.
 

@@ -96,6 +96,7 @@ type searchState struct {
 	// includes and excludes are the globs of the files to include and to
 	// exclude the results are of.
 	includes, excludes workspace.Globs
+	linkedSearchFiles  map[string]bool // candidates of a search that followed directory links
 	// seen is the version of each open document's text the results are
 	// of, which a document edited searches again.
 	seen map[string]uint64
@@ -113,10 +114,14 @@ type searchState struct {
 	version, rowsOf int
 }
 
-// searchKey is what a search's results depend on: the query and its
-// options, and the files it looks in.
-func (s *searchState) searchKey() string {
-	return fmt.Sprintf("%v|%v|%v|%s|%s|%s", s.matchCase, s.word, s.regex, s.include, s.exclude, s.query)
+func (a *app) searchFollowsSymlinks() bool {
+	return !remote.Is(a.root) && a.prefs().SearchFollowSymlinks
+}
+
+// searchKey is what a search's results depend on: the query, options and
+// files it looks in.
+func (s *searchState) searchKey(followSymlinks bool) string {
+	return fmt.Sprintf("%v|%v|%v|%v|%s|%s|%s", s.matchCase, s.word, s.regex, followSymlinks, s.include, s.exclude, s.query)
 }
 
 // changed says the results changed, so their rows are made again.
@@ -162,6 +167,7 @@ func (a *app) resetSearch() {
 	s.gen++
 	s.key, s.re, s.files, s.count, s.running, s.stopped, s.err = "", nil, nil, 0, false, false, ""
 	s.seen, s.watched = nil, nil
+	s.linkedSearchFiles = nil
 	s.changed()
 }
 
@@ -169,12 +175,14 @@ func (a *app) resetSearch() {
 // background, dropping the results of the last search.
 func (a *app) startSearch() {
 	s := &a.inFiles
-	s.key, s.waiting = s.searchKey(), false
+	followSymlinks := a.searchFollowsSymlinks()
+	s.key, s.waiting = s.searchKey(followSymlinks), false
 	if s.cancel != nil {
 		s.cancel.Store(true)
 	}
 	s.gen++
 	s.re, s.files, s.count, s.running, s.stopped, s.err = nil, nil, 0, false, false, ""
+	s.linkedSearchFiles = nil
 	s.changed()
 	if s.query == "" || a.root == "" {
 		return
@@ -195,12 +203,6 @@ func (a *app) startSearch() {
 	}
 	s.re, s.fold = re, foldQueryOf(s.query, s.matchCase, s.word, s.regex)
 	s.includes, s.excludes = workspace.ParseGlobs(s.include), workspace.ParseGlobs(s.exclude)
-	var rels []string
-	for _, rel := range a.index {
-		if s.wants(rel) {
-			rels = append(rels, rel)
-		}
-	}
 	// Open documents are searched as they are, edits and all.
 	s.seen = map[string]uint64{}
 	texts := map[string]string{}
@@ -215,6 +217,35 @@ func (a *app) startSearch() {
 	}
 	cancel := &atomic.Bool{}
 	s.cancel, s.running = cancel, true
+	if followSymlinks {
+		root, indexed := a.root, a.index
+		gen, fold, includes, excludes := s.gen, s.fold, s.includes, s.excludes
+		bg.Go(func() {
+			defer recoverCrash()
+			rels := workspace.SearchFollowingDirectoryLinks(root, indexed, includes, excludes, cancel.Load)
+			if cancel.Load() {
+				return
+			}
+			files := make(map[string]bool, len(rels))
+			for _, rel := range rels {
+				files[rel] = true
+			}
+			a.post(func() {
+				if a.inFiles.gen != gen || cancel.Load() {
+					return
+				}
+				a.inFiles.linkedSearchFiles = files
+				a.runSearch(gen, re, fold, rels, texts, cancel, false)
+			})
+		})
+		return
+	}
+	var rels []string
+	for _, rel := range a.index {
+		if s.wants(rel) {
+			rels = append(rels, rel)
+		}
+	}
 	a.runSearch(s.gen, re, s.fold, rels, texts, cancel, false)
 }
 
@@ -542,7 +573,8 @@ func (a *app) searchAgain(paths []string) {
 			continue
 		}
 		_, shown := slices.BinarySearchFunc(s.files, rel, func(e *searchFile, rel string) int { return strings.Compare(e.rel, rel) })
-		if !shown && !slices.Contains(a.index, rel) {
+		indexed := s.linkedSearchFiles[rel] || s.linkedSearchFiles == nil && slices.Contains(a.index, rel)
+		if !shown && !indexed {
 			continue // a file search does not look in
 		}
 		if i := a.docIndex(p); i >= 0 && !a.docs[i].unread() {
@@ -835,7 +867,7 @@ func (a *app) replaceAllInFiles() {
 func (a *app) searchView(c *ui.Context) {
 	p := a.pal
 	s := &a.inFiles
-	if k := s.searchKey(); k != s.key {
+	if k := s.searchKey(a.searchFollowsSymlinks()); k != s.key {
 		s.key, s.typedAt, s.waiting = k, time.Now(), true
 		bg.AfterFunc(searchPause, a.invalidate)
 	}
@@ -1041,7 +1073,7 @@ func (a *app) searchResults(c *ui.Context) {
 func (a *app) searchStepBack() {
 	s := &a.inFiles
 	rows := a.searchRows()
-	if s.waiting || s.key != s.searchKey() || s.re == nil && !s.running {
+	if s.waiting || s.key != s.searchKey(a.searchFollowsSymlinks()) || s.re == nil && !s.running {
 		a.startSearch()
 		return
 	}

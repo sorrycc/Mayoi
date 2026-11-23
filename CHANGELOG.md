@@ -5,6 +5,7 @@ needs a `## <version>` section here, or its build fails.
 
 ## Unreleased
 
+- Find in Files follows directory symlinks in local projects.
 - Opening a folder with `mayoi <folder>` brings its project window to the front.
 - Clicking a file's “Could not read” page or **Try Again** now makes that tab the active one.
 - In Live Preview, `Up` from a heading now moves to the line above instead of staying on the heading.

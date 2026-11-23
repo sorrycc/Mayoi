@@ -172,6 +172,8 @@ type Prefs struct {
 	// EditorHover shows a name's hover card in the editor as the pointer
 	// rests on it, as Show Hover does from the keyboard.
 	EditorHover bool `json:"editorHover"`
+	// SearchFollowSymlinks includes linked directories in local Find in Files.
+	SearchFollowSymlinks bool `json:"searchFollowSymlinks"`
 	// PreviewMermaid draws the blocks of Mermaid of a Markdown preview as
 	// the diagrams they make, rather than their source.
 	PreviewMermaid bool `json:"previewMermaid"`
@@ -593,7 +595,7 @@ func Default() *Settings {
 	return &Settings{
 		Prefs: Prefs{
 			FontSize: 13, FontFamily: "monospace", FontWeight: 400, LineHeight: 1.55, TabSize: 4,
-			AutoSave: true, Blame: true, EditorHover: true, TerminalCopyOnSelect: true, TerminalBackendHcShowInHerdr: true, PreviewMermaid: true, PreviewMath: true,
+			AutoSave: true, Blame: true, EditorHover: true, SearchFollowSymlinks: true, TerminalCopyOnSelect: true, TerminalBackendHcShowInHerdr: true, PreviewMermaid: true, PreviewMath: true,
 			DiffAlignedRows: true, DiffContext: 3, DiffSyncScroll: true, MergeAutoApply: true,
 			UsageStats: true, ConfirmBeforeQuit: true,
 		},

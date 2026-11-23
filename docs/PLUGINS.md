@@ -265,8 +265,8 @@ Every document has a `ref`, `{windowId, documentId}`, valid while that document 
 Paths and names are display information: several untitled documents have the empty path.
 Document and editor methods keep targeting their source window even after you switch windows.
 `document.snapshot()` reads its current `text`, `version`, `ref`, `path`, `name` and `language`
-together. `workspace.document(ref)` returns its current document, or `null` once closed.
-Reopening the same path does not make an old reference valid again.
+together. `workspace.document(ref)` returns its current document, or `null` once it or its window closed.
+Reopening the same path, or moving its tab to another project, gives a new reference.
 
 `editor.active`, `editor.visible`, `workspace.documents` and `window.pick` accept an optional
 `{windowId}` to keep an operation in its source window. Without it they use the front window.

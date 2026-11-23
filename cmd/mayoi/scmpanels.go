@@ -273,14 +273,6 @@ func (a *gitContext) scmPanelRows(rows []scmRow) []scmRow {
 		detail := b.Upstream
 		if b.Gone {
 			detail += locales.PanelGone()
-		} else if b.Upstream != "" {
-			// As the status bar counts them, leaving out a direction at 0.
-			if b.Behind > 0 {
-				detail += fmt.Sprintf(" ↓%d", b.Behind)
-			}
-			if b.Ahead > 0 {
-				detail += fmt.Sprintf(" ↑%d", b.Ahead)
-			}
 		}
 		if !b.Time.IsZero() {
 			detail += " · " + shortAgo(b.Time, time.Now())
@@ -521,10 +513,24 @@ func (a *gitContext) scmPanelRowView(c *ui.Context, r scmRow, action *func()) {
 	if q.branch != nil && q.branch.Current {
 		tip += locales.PanelCurrentBranch()
 	}
+	ahead, behind := 0, 0
+	if b := q.branch; b != nil && !b.Remote && !b.Gone {
+		ahead, behind = b.Ahead, b.Behind
+		if behind > 0 {
+			tip += "\n" + locales.ScmPullCommits(behind)
+		}
+		if ahead > 0 && b.UpstreamRemote != "" && b.UpstreamRemote != "." {
+			tip += "\n" + locales.ScmPushCommits(ahead)
+		}
+	}
+	showCounts := ahead > 0 || behind > 0
 	if q.detail != "" {
 		tip += "\n" + q.detail
 	}
 	if q.branch != nil {
+		if q.branch.WorktreePath != "" {
+			tip += "\n" + locales.PanelBranchWorktree(q.branch.WorktreePath)
+		}
 		tip += "\n" + q.branch.Subject
 		if !q.branch.Time.IsZero() {
 			tip += "\n" + i18n.FormatDate(i18n.Locale(), q.branch.Time.Local(), i18n.DateOptions{Skeleton: "yMMMdHmsz"})
@@ -534,8 +540,30 @@ func (a *gitContext) scmPanelRowView(c *ui.Context, r scmRow, action *func()) {
 	hovered := row.Hovered()
 	clicked := row.Clicked()
 	buttonHovered := false
-	if hovered && !r.header {
-		row.Background(p.hover)
+	nameColor, detailColor := p.text, p.muted
+	if showCounts {
+		tint, foreground := p.added, p.addedFg
+		if behind > 0 {
+			tint, foreground = p.modified, p.modifiedFg
+		}
+		bg, hoverBg := tint.Alpha(0.14), tint.Alpha(0.22)
+		normal, over := bg.Over(p.chrome), hoverBg.Over(p.chrome)
+		if hovered {
+			bg = hoverBg
+		}
+		row.Background(bg)
+		detailColor = legible(foreground, p.dark, normal, over)
+		nameColor = detailColor
+		if q.branch.Current {
+			nameColor = legible(p.accent, p.dark, normal, over)
+		}
+	} else {
+		if hovered && !r.header {
+			row.Background(p.hover)
+		}
+		if q.branch != nil && q.branch.Current {
+			nameColor = p.accent
+		}
 	}
 	if r.header {
 		row.Background(p.chrome)
@@ -545,17 +573,17 @@ func (a *gitContext) scmPanelRowView(c *ui.Context, r scmRow, action *func()) {
 	row.Children(func() {
 		switch q.kind {
 		case "branch", "remote", "range":
-			chevron(c, !a.scm.panels.closed[r.key]).FontSize(12).TextColor(p.muted)
+			chevron(c, !a.scm.panels.closed[r.key]).FontSize(12).TextColor(detailColor)
 		}
 		switch q.kind {
 		case "branch":
-			ui.Icon(c, iconBranch).FontSize(13).TextColor(p.muted)
+			icon := iconBranch
+			if q.branch.WorktreePath != "" {
+				icon = iconFolderGit
+			}
+			ui.Icon(c, icon).FontSize(13).TextColor(detailColor)
 		case "remote":
 			ui.Icon(c, iconCloud).FontSize(13).TextColor(p.muted)
-		}
-		col := p.text
-		if q.branch != nil && q.branch.Current {
-			col = p.accent
 		}
 		if q.kind == "url" {
 			// Which way the URL goes leads, so a long URL cannot cut it off.
@@ -565,27 +593,34 @@ func (a *gitContext) scmPanelRowView(c *ui.Context, r scmRow, action *func()) {
 		if r.header {
 			label = p.title(label)
 		}
-		text := ui.Text(c, label).FontSize(12.5).TextColor(col).SingleLine().Shrink(1)
+		text := ui.Text(c, label).FontSize(12.5).TextColor(nameColor).SingleLine().Shrink(1)
 		if r.header {
 			size, spacing := p.titleLook(10, 0.2)
 			text.FontSize(size).FontWeight(500).LetterSpacing(spacing).TextColor(p.muted)
 			ui.Text(c, fmt.Sprint(r.count)).FontSize(10).TextColor(p.faint)
 		}
-		if q.detail != "" && q.kind != "url" {
-			ui.Text(c, q.detail).FontSize(11).TextColor(p.muted).SingleLine().Shrink(2)
+		if showCounts {
+			ui.Text(c, fmt.Sprintf("↓%d", behind)).FontSize(11).FontFeatures("tnum").TextColor(detailColor).SingleLine().Shrink(0)
+			ui.Text(c, fmt.Sprintf("↑%d", ahead)).FontSize(11).FontFeatures("tnum").TextColor(detailColor).SingleLine().Shrink(0)
 		}
-		ui.Spacer(c)
+		if q.branch != nil && q.detail != "" {
+			ui.Text(c, q.detail).FontSize(11).TextColor(detailColor).SingleLine().Width(0).Grow(1)
+		} else {
+			if q.detail != "" && q.kind != "url" {
+				ui.Text(c, q.detail).FontSize(11).TextColor(p.muted).SingleLine().Shrink(2)
+			}
+			ui.Spacer(c)
+		}
 		if q.branch != nil {
 			b := *q.branch
 			visible := hovered || row.FocusWithin()
 			moving := !a.git.canMutate()
-			button := func(icon *ui.SVG, label string, disabled bool, run func()) {
+			button := func(icon *ui.SVG, label string, col ui.Color, disabled bool, run func()) {
 				btn := ui.ButtonBase(c.Key(label)).Size(20, 20).Radius(4).Justify(ui.Center).AlignItems(ui.Center).
 					Label(label + " " + b.Name).Tooltip(label).Disabled(disabled)
 				if !visible {
 					btn.Opacity(0)
 				}
-				col := p.muted
 				if disabled {
 					col = p.faint
 				}
@@ -600,16 +635,30 @@ func (a *gitContext) scmPanelRowView(c *ui.Context, r scmRow, action *func()) {
 					*action = run
 				}
 			}
-			button(iconCheckout, locales.PanelCheckOutBranch(), moving || b.Current, func() { a.checkoutPanelBranch(b) })
+			button(iconCheckout, locales.PanelCheckOutBranch(), p.muted, moving || b.Current, func() { a.checkoutPanelBranch(b) })
 			if b.Remote {
-				button(iconFetch, locales.PanelFetchRemote(), !a.git.canMutate() || q.remote == nil, func() {
+				button(iconFetch, locales.PanelFetchRemote(), p.muted, moving || q.remote == nil, func() {
 					if q.remote != nil {
 						name := q.remote.Name
 						a.gitDo(locales.BusyFetchingRemote(name), func(repo *git.Repo) error { return repo.FetchRemote(name, false) }, nil)
 					}
 				})
 			} else {
-				button(iconPull, locales.PanelPullBranch(), moving || b.UpstreamRef == "" || b.Gone, func() { a.pullPanelBranch(b) })
+				pullColor := p.muted
+				if behind > 0 {
+					pullColor = detailColor
+				}
+				button(iconPull, locales.PanelPullBranch(), pullColor, moving || !canPullPanelBranch(b), func() { a.pullPanelBranch(b) })
+				if ahead > 0 && b.UpstreamRemote != "" && b.UpstreamRemote != "." {
+					button(iconPush, locales.ScmPushCommits(b.Ahead), detailColor, moving || behind > 0, func() {
+						a.gitDo(locales.BusyPushing(), func(repo *git.Repo) error { return repo.PushBranch(b.Name) }, nil)
+					})
+				}
+				if b.WorktreePath != "" && !b.Current {
+					button(iconExternal, locales.PanelOpenWorktreeNew(), p.muted, a.git.commanding(), func() {
+						a.openExistingWorktree(b.WorktreePath, true)
+					})
+				}
 			}
 		}
 		if r.header {
@@ -650,6 +699,11 @@ func (a *gitContext) scmPanelMenu(m *ui.Menu, r scmRow, action *func()) {
 		b := *q.branch
 		if m.Item(locales.PanelCheckOutBranch()).Disabled(moving || b.Current).Chosen() {
 			*action = func() { a.checkoutPanelBranch(b) }
+		}
+		if !b.Remote {
+			if m.Item(locales.PanelPullBranch()).Disabled(moving || !canPullPanelBranch(b)).Chosen() {
+				*action = func() { a.pullPanelBranch(b) }
+			}
 		}
 		if m.Item(locales.ScmCreateBranchHere()).Disabled(moving).Chosen() {
 			*action = func() { a.askRefAt(git.Commit{Hash: b.Hash, Subject: b.Subject}, false) }
@@ -879,8 +933,12 @@ func (a *gitContext) checkoutPanelBranch(b git.Branch) {
 	a.gitDo(locales.BusyCheckingOutPlain(), func(repo *git.Repo) error { return repo.CheckoutTracking(b.Name, name) }, nil)
 }
 
+func canPullPanelBranch(b git.Branch) bool {
+	return !b.Remote && b.UpstreamRef != "" && !b.Gone && (b.Current || b.WorktreePath == "")
+}
+
 func (a *gitContext) pullPanelBranch(b git.Branch) {
-	if !a.git.canMutate() || b.Remote || b.UpstreamRef == "" || b.Gone {
+	if !a.git.canMutate() || !canPullPanelBranch(b) {
 		return
 	}
 	if b.Current && !a.docsSaved(locales.BeforePullingBranch()) {

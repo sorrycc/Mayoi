@@ -10,6 +10,7 @@ import (
 
 	"github.com/egoist/mygo/ui"
 	"mayoi/internal/git"
+	"mayoi/locales"
 )
 
 func settleScmPanels(t *testing.T, hs *harness) {
@@ -144,6 +145,60 @@ func TestScmBranchRemotePanels(t *testing.T) {
 	}
 	if a.scm.panels.logs[key] != log {
 		t.Fatal("switching tabs discarded branch history")
+	}
+}
+
+func TestScmPanelWorktreeBranches(t *testing.T) {
+	hs := newHarness(t, true)
+	run := hs.gitRepo()
+	run("branch", "topic")
+	run("branch", "plain")
+	path := filepath.Join(t.TempDir(), "linked tree")
+	run("worktree", "add", path, "topic")
+	run("update-ref", "refs/remotes/origin/topic", "HEAD")
+
+	hs.a.settings.ScmRepositoryOpen = true
+	hs.a.run("view.scm")
+	hs.settleGit()
+	settleScmPanels(t, hs)
+	topic := "panel:branch:refs/heads/topic"
+	if got := findPanelRow(t, hs, topic).panel.branch.WorktreePath; filepath.Base(got) != filepath.Base(path) {
+		t.Fatalf("linked worktree path: %q, want %q", got, path)
+	}
+	for _, ref := range []string{"refs/heads/main", "refs/heads/plain"} {
+		if got := findPanelRow(t, hs, "panel:branch:"+ref).panel.branch.WorktreePath; got != "" {
+			t.Fatalf("%s unexpectedly marked with worktree %q", ref, got)
+		}
+	}
+	worktreePath := findPanelRow(t, hs, topic).panel.branch.WorktreePath
+	if rect, ok := hs.tt.Find("topic"); ok {
+		hs.tt.Move(rect.X+rect.W/2, rect.Y+rect.H/2)
+		hs.settle()
+	} else {
+		t.Fatal("worktree branch is not visible")
+	}
+	if err := hs.tt.Click(locales.PanelOpenWorktreeNew() + " topic"); err != nil {
+		t.Fatal(err)
+	}
+	hs.settleGit()
+	if !slices.Equal(hs.h.windows, []string{worktreePath}) || hs.a.root != hs.root {
+		t.Fatalf("opened windows %q, current folder %q", hs.h.windows, hs.a.root)
+	}
+
+	hs.a.switchScmPanelTab(scmRemotesTab)
+	settleScmPanels(t, hs)
+	for _, branch := range hs.a.scm.panels.branches {
+		if branch.Remote && branch.WorktreePath != "" {
+			t.Fatalf("remote branch marked with worktree: %+v", branch)
+		}
+	}
+
+	run("worktree", "remove", path)
+	hs.a.switchScmPanelTab(scmBranchesTab)
+	hs.a.invalidateScmPanels()
+	settleScmPanels(t, hs)
+	if got := findPanelRow(t, hs, topic).panel.branch.WorktreePath; got != "" {
+		t.Fatalf("removed worktree still shown: %q", got)
 	}
 }
 
@@ -635,4 +690,140 @@ func TestScmRemotesStayAcrossBranchReads(t *testing.T) {
 	}
 	a.switchScmPanelTab(scmRemotesTab)
 	findPanelRow(t, hs, "panel:remote:origin")
+}
+
+func TestScmPullInactiveBranch(t *testing.T) {
+	t.Setenv("GIT_CONFIG_GLOBAL", os.DevNull)
+	t.Setenv("GIT_CONFIG_NOSYSTEM", "1")
+	upstreamDir := t.TempDir()
+	// Create a bare remote by cloning the harness repo.
+	hs := newHarness(t, true)
+	run := hs.gitRepo()
+	gitIn(t, hs.root, "clone", "--bare", hs.root, upstreamDir)
+	run("remote", "add", "origin", upstreamDir)
+	run("fetch", "-q", "origin")
+	run("branch", "--set-upstream-to=origin/main", "main")
+	run("switch", "-c", "dev")
+	devHead := strings.TrimSpace(run("rev-parse", "HEAD"))
+
+	// Advance origin/main in a temporary worktree.
+	workDir := t.TempDir()
+	gitIn(t, hs.root, "clone", upstreamDir, workDir)
+	gitIn(t, workDir, "commit", "--allow-empty", "-qm", "remote 1")
+	gitIn(t, workDir, "push", "-q", "origin", "main")
+
+	// Fetch in local repo so origin/main is ahead of local main.
+	run("fetch", "-q", "origin")
+
+	a := hs.a
+	a.settings.ScmRepositoryOpen = true
+	a.run("view.scm")
+	hs.settleGit()
+	settleScmPanels(t, hs)
+
+	mainRow := findPanelRow(t, hs, "panel:branch:refs/heads/main")
+	if mainRow.panel.branch.Current || mainRow.panel.branch.Behind != 1 || !hs.tt.HasText("↓1") {
+		t.Fatalf("expected inactive main behind by 1, got %+v detail=%q", mainRow.panel.branch, mainRow.panel.detail)
+	}
+	behindCount, _ := hs.tt.Find("↓1")
+	if aheadCount, ok := hs.tt.Find("↑0"); !ok || behindCount.X >= aheadCount.X {
+		t.Fatal("a branch behind its upstream should show ↓1 to the left of ↑0")
+	}
+
+	// Advance origin/main once more before pulling so PullBranch must also update origin/main.
+	gitIn(t, workDir, "commit", "--allow-empty", "-qm", "remote 2")
+	want := strings.TrimSpace(gitIn(t, workDir, "rev-parse", "HEAD"))
+	gitIn(t, workDir, "push", "-q", "origin", "main")
+
+	if err := hs.tt.RightClick("main"); err != nil {
+		t.Fatal(err)
+	}
+	if !slices.Contains(hs.tt.Menu(), locales.PanelPullBranch()) {
+		t.Fatalf("missing pull in branch menu: %q", hs.tt.Menu())
+	}
+	hs.tt.Key(0, ui.KeyEscape)
+	if rect, ok := hs.tt.Find("main"); ok {
+		hs.tt.Move(rect.X+rect.W/2, rect.Y+rect.H/2)
+		hs.settle()
+	} else {
+		t.Fatal("main branch is not visible")
+	}
+	if err := hs.tt.Click(locales.PanelPullBranch() + " main"); err != nil {
+		t.Fatal(err)
+	}
+	hs.settleGit()
+	settleScmPanels(t, hs)
+
+	if got := strings.TrimSpace(run("rev-parse", "--abbrev-ref", "HEAD")); got != "dev" {
+		t.Fatalf("HEAD switched to %q, want dev", got)
+	}
+	if got := strings.TrimSpace(run("rev-parse", "HEAD")); got != devHead {
+		t.Fatalf("dev HEAD moved: %s != %s", got, devHead)
+	}
+	mainRow = findPanelRow(t, hs, "panel:branch:refs/heads/main")
+	if mainRow.panel.branch.Hash != want || mainRow.panel.branch.Ahead != 0 || mainRow.panel.branch.Behind != 0 {
+		t.Fatalf("main after pull: %+v (want hash %s, ahead=0, behind=0)", mainRow.panel.branch, want)
+	}
+	if hs.tt.HasText("↑0") || hs.tt.HasText("↓0") {
+		t.Fatal("an up-to-date branch should hide both counts")
+	}
+}
+
+func TestScmPushInactiveBranch(t *testing.T) {
+	t.Setenv("GIT_CONFIG_GLOBAL", os.DevNull)
+	t.Setenv("GIT_CONFIG_NOSYSTEM", "1")
+	hs := newHarness(t, false)
+	run := hs.gitRepo()
+	upstreamDir := t.TempDir()
+	initialHead := strings.TrimSpace(run("rev-parse", "HEAD"))
+	run("branch", "release")
+	gitIn(t, hs.root, "clone", "--bare", hs.root, upstreamDir)
+	run("remote", "add", "origin", upstreamDir)
+	run("fetch", "-q", "origin")
+	run("switch", "-c", "topic", "--track", "origin/release")
+	run("commit", "--allow-empty", "-qm", "topic change")
+	want := strings.TrimSpace(run("rev-parse", "HEAD"))
+	run("tag", "-a", "topic-tag", "-m", "topic tag")
+	run("switch", "main")
+	run("config", "push.default", "nothing")
+	run("config", "push.followTags", "true")
+
+	hs.a.settings.ScmRepositoryOpen = true
+	hs.a.run("view.scm")
+	hs.settleGit()
+	settleScmPanels(t, hs)
+	key := "panel:branch:refs/heads/topic"
+	if b := findPanelRow(t, hs, key).panel.branch; b.Ahead != 1 || b.Current || !hs.tt.HasText("↑1") {
+		t.Fatalf("want inactive topic ahead by one: %+v", b)
+	}
+	if _, ok := hs.tt.Find("↓0"); !ok {
+		t.Fatal("a branch ahead of its upstream should also show zero behind")
+	}
+	rect, ok := hs.tt.Find("topic")
+	if !ok {
+		t.Fatal("topic branch is not visible")
+	}
+	hs.tt.Move(rect.X+rect.W/2, rect.Y+rect.H/2)
+	hs.settle()
+	if err := hs.tt.Click(locales.ScmPushCommits(1) + " topic"); err != nil {
+		t.Fatal(err)
+	}
+	hs.settleGit()
+	settleScmPanels(t, hs)
+
+	if got := strings.TrimSpace(gitIn(t, upstreamDir, "rev-parse", "refs/heads/release")); got != want {
+		t.Fatalf("origin/release = %q, want %q", got, want)
+	}
+	if got := strings.TrimSpace(gitIn(t, upstreamDir, "rev-parse", "refs/heads/main")); got != initialHead {
+		t.Fatalf("origin/main changed to %q", got)
+	}
+	if got := strings.TrimSpace(gitIn(t, upstreamDir, "for-each-ref", "refs/heads/topic", "refs/tags/topic-tag")); got != "" {
+		t.Fatalf("push sent extra refs: %s", got)
+	}
+	if got := strings.TrimSpace(run("symbolic-ref", "--short", "HEAD")); got != "main" {
+		t.Fatalf("push switched to %q", got)
+	}
+	if b := findPanelRow(t, hs, key).panel.branch; b.Ahead != 0 || b.Behind != 0 {
+		t.Fatalf("tracking counts after push: %+v", b)
+	}
 }

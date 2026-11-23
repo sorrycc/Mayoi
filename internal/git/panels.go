@@ -1,6 +1,7 @@
 package git
 
 import (
+	"crypto/rand"
 	"errors"
 	"fmt"
 	"sort"
@@ -18,44 +19,87 @@ type Remote struct {
 	URL string
 }
 
-// PullBranch fast-forwards the selected local branch from its configured
-// upstream. Fetch's non-forced destination protects inactive branches from
-// divergence and from updates while checked out in another worktree.
-func (r *Repo) PullBranch(name string) error {
+type branchUpstream struct {
+	current     bool
+	remote, ref string
+}
+
+func (r *Repo) panelUpstream(name string) (branchUpstream, error) {
 	if err := r.panelBranch(name); err != nil {
-		return err
+		return branchUpstream{}, err
 	}
 	out, err := r.run(nil, "for-each-ref", "--format=%(HEAD)%1f%(upstream:remotename)%1f%(upstream:remoteref)%1f%(refname)", "refs/heads/"+name)
 	if err != nil {
-		return err
+		return branchUpstream{}, err
 	}
 	f := strings.Split(strings.TrimSuffix(string(out), "\n"), "\x1f")
 	if len(f) != 4 || f[3] != "refs/heads/"+name || f[1] == "" || f[2] == "" {
-		return fmt.Errorf("branch %q has no upstream", name)
+		return branchUpstream{}, fmt.Errorf("branch %q has no upstream", name)
 	}
 	if err := panelArgument("upstream remote", f[1]); err != nil {
-		return err
+		return branchUpstream{}, err
 	}
 	if err := panelArgument("upstream ref", f[2]); err != nil {
-		return err
+		return branchUpstream{}, err
 	}
 	if _, err := r.run(nil, "check-ref-format", f[2]); err != nil {
+		return branchUpstream{}, err
+	}
+	return branchUpstream{current: f[0] == "*", remote: f[1], ref: f[2]}, nil
+}
+
+// PushBranch pushes only the selected local branch to its configured remote upstream.
+func (r *Repo) PushBranch(name string) error {
+	upstream, err := r.panelUpstream(name)
+	if err != nil {
 		return err
 	}
-	if f[0] == "*" {
+	if upstream.remote == "." {
+		return fmt.Errorf("branch %q has a local upstream", name)
+	}
+	_, err = r.run(nil, "push", "--no-follow-tags", "--", upstream.remote, "refs/heads/"+name+":"+upstream.ref)
+	return err
+}
+
+// PullBranch fast-forwards the selected local branch from its configured
+// upstream. Fetch's non-forced destination protects inactive branches from
+// divergence and from updates while checked out in another worktree.
+func (r *Repo) PullBranch(name string) (err error) {
+	upstream, err := r.panelUpstream(name)
+	if err != nil {
+		return err
+	}
+	if upstream.current {
 		return r.Pull()
 	}
-	if _, err := r.run(nil, "fetch", "--", f[1], f[2]); err != nil {
+	// A concurrent fetch can overwrite FETCH_HEAD or the tracking ref.
+	// Keep this operation's result in its own ref until the branch is updated.
+	incomingRef := "refs/mayoi/pull-branch/" + rand.Text()
+	defer func() {
+		if _, cleanupErr := r.run(nil, "update-ref", "--no-deref", "-d", incomingRef); cleanupErr != nil {
+			err = errors.Join(err, fmt.Errorf("remove temporary pull ref: %w", cleanupErr))
+		}
+	}()
+	if err := r.fetchPanelBranchRef(upstream.remote, upstream.ref+":"+incomingRef); err != nil {
 		return err
 	}
-	incoming, err := r.panelCommit("FETCH_HEAD")
+	incoming, err := r.panelCommit(incomingRef)
 	if err != nil {
 		return err
 	}
 	if _, err := r.run(nil, "merge-base", "--is-ancestor", incoming, "refs/heads/"+name); err == nil {
 		return nil // A locally ahead branch is already up to date.
 	}
-	_, err = r.run(nil, "fetch", "--", ".", incoming+":refs/heads/"+name)
+	return r.fetchPanelBranchRef(".", incoming+":refs/heads/"+name)
+}
+
+func (r *Repo) fetchPanelBranchRef(remote, refspec string) error {
+	_, err := r.run(nil, "fetch", "--no-write-fetch-head", "--", remote, refspec)
+	var gitErr *Error
+	if errors.As(err, &gitErr) && strings.HasPrefix(gitErr.Stderr, "error: unknown option `no-write-fetch-head'") {
+		// Older Git still writes FETCH_HEAD, but the operation reads its own ref.
+		_, err = r.run(nil, "fetch", "--", remote, refspec)
+	}
 	return err
 }
 
@@ -301,23 +345,34 @@ func (r *Repo) CheckoutTracking(remoteBranch, localName string) error {
 	)
 }
 
-// PanelBranches includes tracking counts for the expanded repository panel.
+// PanelBranches includes tracking counts and worktree paths for the expanded repository panel.
 func (r *Repo) PanelBranches() ([]Branch, error) {
 	out, err := r.run(nil, "for-each-ref", "--sort=-committerdate",
-		"--format=%(refname)%1f%(committerdate:unix)%1f%(objectname)%1f%(upstream:short)%1f%(upstream:track)%1f%(HEAD)%1f%(symref)%1f%(upstream)%1f%(subject)", "refs/heads", "refs/remotes")
+		"--format=%(refname)%1f%(committerdate:unix)%1f%(objectname)%1f%(upstream:short)%1f%(upstream:track)%1f%(HEAD)%1f%(symref)%1f%(upstream)%1f%(upstream:remotename)%1f%(subject)", "refs/heads", "refs/remotes")
 	if err != nil {
 		return nil, err
 	}
+	worktrees, err := r.Worktrees()
+	if err != nil {
+		return nil, err
+	}
+	worktreePaths := make(map[string]string, len(worktrees))
+	for i, w := range worktrees {
+		if w.Branch != "" && !w.Prunable && (i > 0 || !w.Current) {
+			worktreePaths[w.Branch] = w.Path
+		}
+	}
 	var bs []Branch
 	for _, line := range strings.Split(string(out), "\n") {
-		f := strings.SplitN(line, "\x1f", 9)
-		if len(f) != 9 || f[6] != "" {
+		f := strings.SplitN(line, "\x1f", 10)
+		if len(f) != 10 || f[6] != "" {
 			continue
 		}
-		b := Branch{Hash: f[2], Upstream: f[3], UpstreamRef: f[7], Current: f[5] == "*", Subject: f[8]}
+		b := Branch{Hash: f[2], Upstream: f[3], UpstreamRef: f[7], UpstreamRemote: f[8], Current: f[5] == "*", Subject: f[9]}
 		switch {
 		case strings.HasPrefix(f[0], "refs/heads/"):
 			b.Name = strings.TrimPrefix(f[0], "refs/heads/")
+			b.WorktreePath = worktreePaths[b.Name]
 		case strings.HasPrefix(f[0], "refs/remotes/"):
 			b.Name, b.Remote = strings.TrimPrefix(f[0], "refs/remotes/"), true
 		default:

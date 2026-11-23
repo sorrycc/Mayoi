@@ -2,7 +2,10 @@ package git
 
 import (
 	"fmt"
+	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -233,7 +236,7 @@ func TestPanelPullSelectedBranch(t *testing.T) {
 			if err := r.PullBranch("selected"); err != nil {
 				t.Fatal(err)
 			}
-			if got := branchNamed(t, r, "selected"); got.Hash != want || got.Behind != 0 {
+			if got := branchNamed(t, r, "selected"); got.Hash != want || got.Ahead != 0 || got.Behind != 0 {
 				t.Fatalf("branch after pull: %+v", got)
 			}
 			if !current && r.Head() != head {
@@ -267,6 +270,60 @@ func TestPanelPullSelectedBranch(t *testing.T) {
 				t.Fatal("failed pull changed active checkout")
 			}
 		})
+	}
+}
+
+func TestPanelPullBranchWithConcurrentFetch(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("the Git wrapper needs a POSIX shell")
+	}
+	t.Setenv("GIT_CONFIG_GLOBAL", os.DevNull)
+	t.Setenv("GIT_CONFIG_NOSYSTEM", "1")
+	remote, upstream := repo(t)
+	r, local := repo(t)
+	local("remote", "add", "source", remote.Root)
+	local("fetch", "source")
+	local("branch", "--track", "selected", "source/main")
+	upstream("commit", "--allow-empty", "-qm", "upstream update")
+	want := remote.Head()
+	upstream("switch", "-qc", "other")
+	upstream("commit", "--allow-empty", "-qm", "concurrent update")
+	other := remote.Head()
+
+	realGit, err := exec.LookPath("git")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("MAYOI_TEST_REAL_GIT", realGit)
+	bin := t.TempDir()
+	// Run another fetch after the remote fetch succeeds, before PullBranch can read its result.
+	script := `#!/bin/sh
+"$MAYOI_TEST_REAL_GIT" "$@" || exit $?
+if [ "$1" = fetch ]; then
+    for arg do
+        if [ "$arg" = source ]; then
+            exec "$MAYOI_TEST_REAL_GIT" fetch source refs/heads/other
+        fi
+    done
+fi
+`
+	if err := os.WriteFile(filepath.Join(bin, "git"), []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
+
+	if err := r.PullBranch("selected"); err != nil {
+		t.Fatal(err)
+	}
+	if got := branchNamed(t, r, "selected"); got.Hash != want || got.Ahead != 0 || got.Behind != 0 {
+		t.Fatalf("selected branch after concurrent fetch: %+v, want %s with no divergence", got, want)
+	}
+	if got, err := r.panelCommit("FETCH_HEAD"); err != nil || got != other {
+		t.Fatalf("concurrent fetch result: %q, %v, want %s", got, err, other)
+	}
+	refs, err := r.run(nil, "for-each-ref", "refs/mayoi/pull-branch")
+	if err != nil || len(refs) != 0 {
+		t.Fatalf("temporary refs after pull: %q, %v", refs, err)
 	}
 }
 

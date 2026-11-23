@@ -298,11 +298,14 @@ type app struct {
 	// fileCol caches the last unlocked column used for files. Removal clears
 	// it; column and activate refresh it. Use fileColumn to resolve a live,
 	// unlocked target before opening files, including during restoration.
-	fileCol  *column
-	nextID   int
-	nextTab  int
-	nextCol  int
-	untitled int
+	fileCol        *column
+	nextID         int
+	pluginWindowID uint64
+	nextPluginCall uint64
+	pluginCalls    map[uint64]func()
+	nextTab        int
+	nextCol        int
+	untitled       int
 	// closed are the tabs closed, the last last, which ⇧⌘T opens again.
 	closed []closedTab
 	// shownDoc is the document the column with the keyboard showed last

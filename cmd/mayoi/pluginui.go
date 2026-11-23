@@ -528,7 +528,7 @@ func (a *app) format(d *editor, limit time.Duration, quiet bool, then func()) {
 	}
 	snap := d.buf.Snapshot()
 	version := snap.Version()
-	doc := docJSON(d.document)
+	doc := a.docJSON(d.document)
 	opts := map[string]any{"tabSize": max(d.indent.size, 1), "insertSpaces": !d.indent.tabs}
 	if d.indent.tabs {
 		opts["tabSize"] = tabWidth()

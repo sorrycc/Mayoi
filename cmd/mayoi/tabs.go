@@ -317,7 +317,11 @@ func (a *app) tabMenu(m *ui.Menu, col *column, t *colTab, closing **colTab) {
 		a.post(func() { a.pinTab(t, !t.pinned) })
 	}
 	m.Separator()
-	a.pluginMenuItems(m, "tab/context", t.path())
+	var pluginDoc *document
+	if t.ed != nil {
+		pluginDoc = t.ed.document
+	}
+	a.pluginMenuItems(m, "tab/context", t.path(), a.pluginContext("tab/context", pluginDoc))
 	a.columnLockMenu(m, col)
 	if m.Item(locales.CmdViewSplitRight()).Chosen() {
 		show(a.splitRight)

@@ -551,12 +551,20 @@ func (a *app) skippedKeys() []plugin.KeyContrib {
 
 // runCommand runs a command of a plugin, telling of what goes wrong.
 func (h *pluginHost) runCommand(a *app, id, arg string) {
+	var doc *document
+	if ed := a.activeEditor(); ed != nil {
+		doc = ed.document
+	}
+	h.runCommandContext(a, id, arg, a.pluginContext("command", doc))
+}
+
+func (h *pluginHost) runCommandContext(a *app, id, arg string, origin *plugin.CommandContext) {
 	go func() {
 		var argv any
 		if arg != "" {
 			argv = arg
 		}
-		if _, err := h.reg.Run(id, argv); err != nil && !errors.Is(err, plugin.ErrNoCommand) {
+		if _, err := h.reg.RunWithContext(id, argv, origin); err != nil && !errors.Is(err, plugin.ErrNoCommand) {
 			a.post(func() { a.fail("%s", locales.PluginCommandFailed(id, firstLine(err.Error()))) })
 		}
 	}()
@@ -609,7 +617,7 @@ func (a *app) pluginMenu(item func(id string) *mygo.MenuItem) *mygo.MenuItem {
 // pluginMenuItems puts the commands plugins add to a context menu, as
 // "explorer/context", in m, then a separator: each runs with arg, the
 // path the menu is of.
-func (a *app) pluginMenuItems(m *ui.Menu, where, arg string) {
+func (a *app) pluginMenuItems(m *ui.Menu, where, arg string, origins ...*plugin.CommandContext) {
 	if plugins == nil {
 		return
 	}
@@ -623,7 +631,11 @@ func (a *app) pluginMenuItems(m *ui.Menu, where, arg string) {
 			if label, ok := labels[mc.Command]; ok {
 				if m.Item(label).Chosen() {
 					id := mc.Command
-					a.post(func() { plugins.runCommand(a, id, arg) })
+					origin := a.pluginContext(where, nil)
+					if len(origins) > 0 {
+						origin = origins[0]
+					}
+					a.post(func() { plugins.runCommandContext(a, id, arg, origin) })
 				}
 				added = true
 			}

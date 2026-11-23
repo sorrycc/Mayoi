@@ -582,6 +582,11 @@ var ErrNoCommand = errors.New("no such command")
 // Run runs a command of a plugin, starting it first, and waits for what
 // it returns.
 func (r *Registry) Run(id string, arg any) (json.RawMessage, error) {
+	return r.RunWithContext(id, arg, nil)
+}
+
+// RunWithContext preserves the invocation's source while a plugin starts.
+func (r *Registry) RunWithContext(id string, arg any, origin *CommandContext) (json.RawMessage, error) {
 	p := r.CommandPlugin(id)
 	if p == nil {
 		return nil, ErrNoCommand
@@ -590,9 +595,9 @@ func (r *Registry) Run(id string, arg any) (json.RawMessage, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
 	defer cancel()
 	if p.Script {
-		return p.Request(ctx, "call", map[string]any{"name": strings.TrimPrefix(id, p.Name+"."), "arg": arg})
+		return p.Request(ctx, "call", map[string]any{"name": strings.TrimPrefix(id, p.Name+"."), "arg": arg, "context": origin})
 	}
-	return p.Request(ctx, "command", map[string]any{"id": id, "arg": arg})
+	return p.Request(ctx, "command", map[string]any{"id": id, "arg": arg, "context": origin})
 }
 
 // Request calls the plugin, starting it first.

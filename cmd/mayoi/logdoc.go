@@ -135,6 +135,12 @@ func (w logWin) set() bool { return w.lines > 0 }
 
 // openLogDoc opens the file at path and makes the index of its lines.
 func openLogDoc(path string) (*logDoc, error) {
+	return openLogDocRead(path, nil, nil)
+}
+
+// openLogDocRead is openLogDoc that tells progress of the bytes read and
+// stops when stop closes, as a document loading it does.
+func openLogDocRead(path string, stop <-chan struct{}, progress func(read, total int64)) (*logDoc, error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return nil, err
@@ -152,7 +158,7 @@ func openLogDoc(path string) (*logDoc, error) {
 		f.Close()
 		return nil, errors.New(locales.ErrTooLarge())
 	}
-	file, err := scanLog(f, info.Size(), stampOf(info))
+	file, err := scanLog(f, info.Size(), stampOf(info), stop, progress)
 	f.Close()
 	if err != nil {
 		return nil, err
@@ -178,8 +184,10 @@ func (l *logDoc) fileOf() *logFile {
 }
 
 // scanLog reads a whole file once, making the index of its lines. The
-// file is read from f, of size bytes; stamp is what the file was.
-func scanLog(f *os.File, size int64, stamp *fileStamp) (*logFile, error) {
+// scanLog reads a whole file once, making the index of its lines. The
+// file is read from f, of size bytes; stamp is what the file was. The
+// read tells progress and stops when stop closes.
+func scanLog(f *os.File, size int64, stamp *fileStamp, stop <-chan struct{}, progress func(read, total int64)) (*logFile, error) {
 	file := &logFile{size: size, stamp: stamp}
 	r := bufio.NewReaderSize(f, logReadBytes)
 	off := int64(0)
@@ -223,6 +231,14 @@ func scanLog(f *os.File, size int64, stamp *fileStamp) (*logFile, error) {
 		}
 		runes += int64(utf8.RuneCount(p[:keep]))
 		off += int64(len(chunk))
+		if progress != nil && size > 0 {
+			progress(off, size)
+		}
+		select {
+		case <-stop:
+			return nil, errReadCanceled
+		default:
+		}
 		if err == bufio.ErrBufferFull {
 			carry = append(carry, p[keep:]...)
 			continue
@@ -1127,7 +1143,7 @@ func (l *logDoc) saveTo(path string, crlf bool, saved []logEdit) (fs.FileInfo, *
 		tf.Close()
 		return fail(err)
 	}
-	nf, err := scanLog(tf, ti.Size(), nil)
+	nf, err := scanLog(tf, ti.Size(), nil, nil, nil)
 	tf.Close()
 	if err != nil {
 		return fail(err)

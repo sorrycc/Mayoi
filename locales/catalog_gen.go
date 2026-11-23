@@ -7134,6 +7134,16 @@ func (msgs Messages) LogFileChanged() string {
 	return Catalog.Format(msgs.locale, "logFileChanged", nil)
 }
 
+// LogChangedOn says "{name} changed on disk"
+// in the language the app shows.
+func LogChangedOn(name string) string { return In(i18n.Locale()).LogChangedOn(name) }
+
+// LogChangedOn says "{name} changed on disk"
+// in the language of msgs.
+func (msgs Messages) LogChangedOn(name string) string {
+	return Catalog.Format(msgs.locale, "logChangedOn", map[string]any{"name": name})
+}
+
 // LogLineCut says "line {line, number, ::group-off} cut at {shown, number, ::group-off} KB of {whole, number, ::group-off} KB"
 // in the language the app shows.
 func LogLineCut(line int, shown int, whole int) string {
@@ -15478,21 +15488,21 @@ func (msgs Messages) PrefDescTabSize() string {
 	return Catalog.Format(msgs.locale, "prefDescTabSize", nil)
 }
 
-// PrefTitleLargeFileModeMB says "Log Files Over"
+// PrefTitleLargeFileModeMB says "Big Files Over"
 // in the language the app shows.
 func PrefTitleLargeFileModeMB() string { return In(i18n.Locale()).PrefTitleLargeFileModeMB() }
 
-// PrefTitleLargeFileModeMB says "Log Files Over"
+// PrefTitleLargeFileModeMB says "Big Files Over"
 // in the language of msgs.
 func (msgs Messages) PrefTitleLargeFileModeMB() string {
 	return Catalog.Format(msgs.locale, "prefTitleLargeFileModeMB", nil)
 }
 
-// PrefDescLargeFileModeMB says "Local files larger than this many MB open in log mode, read in windows; 0 turns it off."
+// PrefDescLargeFileModeMB says "Local files larger than this many MB open by a whole-file read in the background; larger ones open in windows. 0 turn…"
 // in the language the app shows.
 func PrefDescLargeFileModeMB() string { return In(i18n.Locale()).PrefDescLargeFileModeMB() }
 
-// PrefDescLargeFileModeMB says "Local files larger than this many MB open in log mode, read in windows; 0 turns it off."
+// PrefDescLargeFileModeMB says "Local files larger than this many MB open by a whole-file read in the background; larger ones open in windows. 0 turn…"
 // in the language of msgs.
 func (msgs Messages) PrefDescLargeFileModeMB() string {
 	return Catalog.Format(msgs.locale, "prefDescLargeFileModeMB", nil)

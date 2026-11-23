@@ -473,10 +473,10 @@ func TestLogModeFarChangeSaves(t *testing.T) {
 	}
 }
 
-// A whole-file document takes no edits of several selections: they
-// would write only part of the text a save writes, so the selections
-// come down to one and the keys take the usual path.
-func TestLogModeOneSelectionOnly(t *testing.T) {
+// A whole-file document takes the edits of several selections as an
+// ordinary one does: its buffer holds the whole text, which a save
+// writes whole.
+func TestLogModeMultiSelectionEdits(t *testing.T) {
 	hs := newHarness(t, true)
 	hs.a.settings.LargeFileModeMB = 1
 	path, _ := writeBigLog(t, hs.root, 20000, 100) // 2 MB
@@ -487,25 +487,23 @@ func TestLogModeOneSelectionOnly(t *testing.T) {
 		t.Fatal("the file did not open by the whole-file read")
 	}
 	before := d.buf.String()
-	// Adding a caret does nothing: the document keeps one selection.
+	// Adding a caret does: the document takes several selections.
 	hs.place(d, 0, 0)
 	hs.key(multiKey|ui.Alt, ui.KeyDown)
 	hs.settle()
-	if len(d.cursors) != 0 {
-		t.Fatalf("the document took %d other selections", len(d.cursors))
+	if len(d.cursors) == 0 {
+		t.Fatal("the document kept one selection")
 	}
-	// The edits of several selections, made all the same, write
-	// nothing.
 	hs.setSpans(d, [2]int{0, 1}, [2]int{3, 4})
 	all, p := d.spans()
 	hs.a.deleteSpans(d, moveChar, -1)
 	d.typeSpans(all, p, 0, 0, "x", stepTyping)
 	hs.settle()
-	if after := d.buf.String(); after != before {
-		t.Fatal("an edit of several selections changed the document")
+	if after := d.buf.String(); after == before {
+		t.Fatal("an edit of several selections changed nothing")
 	}
-	if d.dirty() {
-		t.Fatal("an edit of several selections marked the document dirty")
+	if !d.dirty() {
+		t.Fatal("an edit of several selections left the document clean")
 	}
 }
 
@@ -590,5 +588,61 @@ func TestLogModeLongLineUnderThreshold(t *testing.T) {
 	}
 	if got := d.buf.String(); got != b.String() {
 		t.Fatalf("the buffer holds %d bytes, want %d", len(got), b.Len())
+	}
+}
+
+// A big document saves to a path it was not read from, and its file,
+// removed from the disk, is written again. A file that changed under
+// it asks before it is written over, and a save typed on while another
+// saves does not fail the next.
+func TestLogModeSavePaths(t *testing.T) {
+	hs := newHarness(t, true)
+	hs.a.settings.AutoSave = false
+	hs.a.settings.LargeFileModeMB = 1
+	path, _ := writeBigLog(t, hs.root, 100000, 100) // 10 MB
+	hs.a.openFile(path, true)
+	hs.settle()
+	d := hs.a.activeEditor()
+	if !d.logWhole {
+		t.Fatal("the file did not open by the whole-file read")
+	}
+	// Save As to a path that does not exist.
+	d.edit(d.sel, textEdit{0, 0, "NEW "})
+	step(hs.tt)
+	other := filepath.Join(hs.root, "other.log")
+	hs.a.saveDocAs(d.document, other)
+	hs.settle()
+	data, err := os.ReadFile(other)
+	if err != nil {
+		t.Fatalf("the save as did not write the new path: %v", err)
+	}
+	if !strings.HasPrefix(string(data), "NEW ") {
+		t.Fatal("the save as did not write the edit")
+	}
+	// The file gone from the disk: the save writes it again.
+	if err := os.Remove(other); err != nil {
+		t.Fatal(err)
+	}
+	d.edit(d.sel, textEdit{0, 0, "AGAIN "})
+	step(hs.tt)
+	hs.a.saveDoc(d.document, nil)
+	hs.settle()
+	if d.sync != syncIdle {
+		t.Fatalf("the save of a removed file did not settle, sync %d", d.sync)
+	}
+	if data, err = os.ReadFile(other); err != nil || !strings.HasPrefix(string(data), "AGAIN NEW ") {
+		t.Fatal("the save did not write the file again")
+	}
+	// The file changed under a document with changes of its own: the
+	// save asks about it.
+	d.edit(d.sel, textEdit{0, 0, "MINE "})
+	step(hs.tt)
+	if err := os.WriteFile(other, []byte("changed on disk\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	hs.a.saveDoc(d.document, nil)
+	hs.settle()
+	if d.sync != syncConflict {
+		t.Fatalf("the save of a changed file did not ask, sync %d", d.sync)
 	}
 }

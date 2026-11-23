@@ -182,10 +182,10 @@ type Prefs struct {
 	// its source, "live" as Live Preview, its source styled as it reads,
 	// or "reading" rendered.
 	MarkdownMode string `json:"markdownMode,omitempty"`
-	// LargeFileModeMB is the size in MB over which a local file opens in
-	// log mode, read in windows rather than whole: 0 has it off, the
-	// largest 1024. It is written even as 0, which is a setting rather
-	// than the absence of one.
+	// LargeFileModeMB is the size in MB over which a local file opens by
+	// a whole-file read in the background, or in windows when it is too
+	// big for that: 0 has it off, the largest 1024. It is written even
+	// as 0, which is a setting rather than the absence of one.
 	LargeFileModeMB int `json:"largeFileModeMB"`
 	// JSONLMode is how a file of JSON Lines, .jsonl or .ndjson, opens: ""
 	// as a table of its rows, or "source".

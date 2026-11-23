@@ -690,7 +690,8 @@ func (a *app) saveDocElse(d *document, then, cancelled func()) {
 				return
 			}
 			a.dropKept(d)
-			d.path, d.markdown = path, false
+			// A path not read from: nothing on disk is its old file.
+			d.path, d.markdown, d.stamp = path, false, nil
 			d.hl.Close()
 			d.hl = highlight.New(highlight.Lexer(path), a.invalidate)
 			a.saveDocElse(d, then, cancelled)
@@ -772,7 +773,8 @@ func (a *app) saveDocAs(d *document, path string) {
 	if path == "" {
 		return
 	}
-	d.path, d.markdown = path, false
+	// A path not read from: nothing on disk is its old file.
+	d.path, d.markdown, d.stamp = path, false, nil
 	d.hl.Close()
 	d.hl = highlight.New(highlight.Lexer(path), a.invalidate)
 	a.saveDoc(d, nil)
@@ -869,26 +871,28 @@ func (a *app) reloadDoc(d *document) {
 		a.reloadRemote(d)
 		return
 	}
+	// A document being saved is not read again: a save of its own must
+	// not reload it.
+	if d.sync == syncSaving {
+		return
+	}
+	info, err := os.Stat(d.path)
+	if err != nil {
+		return
+	}
+	if d.stamp != nil && *stampOf(info) == *d.stamp {
+		return
+	}
 	if d.log != nil {
 		a.reloadLog(d)
 		return
 	}
-	// A document being saved, or whose file is as it was last read or
-	// written, is not read again: a save of its own must not reload it.
-	if d.sync == syncSaving {
+	// A clean document of a file read whole, or too big for the usual
+	// read, is read again the way it was: whole, or in windows, with
+	// its progress.
+	if !d.dirty() && (d.logWhole || a.logThreshold() > 0 && info.Size() > a.logThreshold() || info.Size() > maxOpenBytes) {
+		a.loadLog(d)
 		return
-	}
-	if info, err := os.Stat(d.path); err == nil {
-		if d.stamp != nil && *stampOf(info) == *d.stamp {
-			return
-		}
-		// A clean document of a file read whole, or too big for the
-		// usual read, is read again the way it was, whole, with its
-		// progress.
-		if !d.dirty() && (d.logWhole || a.logThreshold() > 0 && info.Size() > a.logThreshold() || info.Size() > maxOpenBytes) {
-			a.loadLog(d)
-			return
-		}
 	}
 	data, err := os.ReadFile(d.path)
 	if err != nil {
@@ -900,6 +904,7 @@ func (a *app) reloadDoc(d *document) {
 	}
 	d.longLine = long
 	d.takeText(data, enc)
+	d.stamp = stampOf(info)
 }
 
 // takeText makes a document's text data, read from its file in enc, as a

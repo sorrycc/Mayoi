@@ -31,11 +31,15 @@ func (a *app) logThreshold() int64 {
 	return 0
 }
 
-// loadLog reads a document's file whole, in the background, with its
-// progress in the loading view: a file over the threshold shows all of
-// its text, however big. One file is read at a time; the rest wait
+// loadLog reads a document's file in the background: a file over the
+// threshold and within logWholeMax is read whole, with its progress in
+// the loading view; a larger one opens in windows, of an index of its
+// lines made as it is read. One file is read at a time; the rest wait
 // their turn, as documents queued whole-file reads do.
 func (a *app) loadLog(d *document) {
+	// A reload of a clean whole-file document keeps its text while the
+	// file is read again, rather than trade it for the loading view.
+	d.logSwap = d.logWhole && d.sync == syncIdle && !d.dirty()
 	d.sync, d.loadErr, d.readingAt = syncLoading, nil, time.Time{}
 	if !slices.Contains(a.logQueue, d) {
 		a.logQueue = append(a.logQueue, d)
@@ -43,8 +47,9 @@ func (a *app) loadLog(d *document) {
 	a.pumpLog()
 }
 
-// logWholeMax is the largest file that opens whole, over the threshold.
-const logWholeMax = 2 << 30
+// logWholeMax is the largest file that opens whole, over the threshold;
+// a larger one opens in windows instead, its whole text never held.
+const logWholeMax = 512 << 20
 
 // pumpLog starts the reads the queue holds, one at a time.
 func (a *app) pumpLog() {
@@ -53,20 +58,39 @@ func (a *app) pumpLog() {
 	}
 	d := a.logQueue[0]
 	a.logQueue, a.logReading = a.logQueue[1:], true
+	if !slices.Contains(a.docs, d) || d.sync != syncLoading {
+		// Closed, or read another way, while it waited its turn.
+		a.logReading = false
+		d.readDone()
+		a.pumpLog()
+		return
+	}
+	stop := make(chan struct{})
+	d.logStop = stop
 	path := d.path
 	root := a.root
-	bg.Go(func() {
-		got := readWholeFile(path, func(read, total int64) {
-			a.post(func() {
-				if d.sync == syncLoading && total > 0 {
-					d.logProgress = float32(read) / float32(total)
-				}
-			})
+	progress := func(read, total int64) {
+		a.post(func() {
+			if d.sync == syncLoading && total > 0 {
+				d.logProgress = float32(read) / float32(total)
+			}
 		})
+	}
+	bg.Go(func() {
+		var got wholeFile
+		var l *logDoc
+		if info, err := os.Stat(path); err != nil {
+			got.err = err
+		} else if info.Size() > logWholeMax {
+			// Too much to hold whole: the file opens in windows.
+			l, got.err = openLogDocRead(path, stop, progress)
+		} else {
+			got = readWholeFile(path, stop, progress)
+		}
 		var buf *ui.TextBuffer
 		var widest int
 		var indent indentStyle
-		if got.err == nil {
+		if got.err == nil && l == nil {
 			// Built in the background: a buffer of the whole text, and
 			// what a frame would otherwise walk it for.
 			buf = ui.NewTextBuffer(got.text)
@@ -80,6 +104,16 @@ func (a *app) pumpLog() {
 			a.logReading = false
 			a.pumpLog()
 			d.logProgress = 0
+			d.logStop = nil
+			d.logSwap = false
+			if errors.Is(got.err, errReadCanceled) {
+				d.readDone()
+				return
+			}
+			if l != nil {
+				a.logOpened(d, path, root, l)
+				return
+			}
 			if !a.loadsClosed && a.root == root && slices.Contains(a.docs, d) && d.path == path && d.sync == syncLoading && !d.dirty() && got.err == nil {
 				d.logWhole = true
 				d.buf.Restore(buf.Snapshot())
@@ -93,6 +127,11 @@ func (a *app) pumpLog() {
 				d.longLine = 0
 				d.sync, d.loadErr = syncIdle, nil
 				for _, ed := range d.views {
+					// A reload keeps what the views show of the text
+					// that was, as far as the new text goes.
+					n := int64(d.buf.Len())
+					ed.sel = [2]int{int(min(max(int64(ed.sel[0]), 0), n)), int(min(max(int64(ed.sel[1]), 0), n))}
+					ed.caret = int(min(max(int64(ed.caret), 0), n))
 					if ts := ed.restoreTab; ts != nil {
 						ed.restoreTab = nil
 						a.restoreEditor(ed, *ts)
@@ -122,6 +161,29 @@ func (a *app) pumpLog() {
 	})
 }
 
+// logOpened takes a log document's file, just indexed in the background,
+// to its first window: the read ends as the window is put in place.
+func (a *app) logOpened(d *document, path, root string, l *logDoc) {
+	if !a.loadsClosed && a.root == root && slices.Contains(a.docs, d) && d.path == path && d.sync == syncLoading && !d.dirty() {
+		if d.log != nil {
+			d.log.close()
+		}
+		d.log = l
+		d.logWhole = false
+		a.logMove(d, 0)
+		return
+	}
+	l.close()
+	if slices.Contains(a.docs, d) && d.path == path && d.sync == syncLoading {
+		d.sync = syncIdle // typed in while it was indexed: its text stays
+	}
+	d.readDone()
+}
+
+// errReadCanceled says a whole-file read was stopped: its document
+// closed, or the project it was in switched.
+var errReadCanceled = errors.New("read canceled")
+
 // wholeFile is a file read whole: its text, in UTF-8 with LF line
 // endings, how its line endings and encoding were, and the file's
 // stamp, or why it could not be read.
@@ -135,7 +197,10 @@ type wholeFile struct {
 
 // readWholeFile reads a local file whole, telling progress of the bytes
 // read. A line of any length is read as it is: the text shows in full.
-func readWholeFile(path string, progress func(read, total int64)) wholeFile {
+// The read stops when stop closes. The file is read into the one buffer
+// of its size, so that reading it takes no more than it and the text
+// made of it.
+func readWholeFile(path string, stop <-chan struct{}, progress func(read, total int64)) wholeFile {
 	f, err := os.Open(path)
 	if err != nil {
 		return wholeFile{err: err}
@@ -148,18 +213,19 @@ func readWholeFile(path string, progress func(read, total int64)) wholeFile {
 	if info.IsDir() {
 		return wholeFile{err: &fs.PathError{Op: "read", Path: path, Err: errors.New("is a directory")}}
 	}
-	if info.Size() > logWholeMax {
-		return wholeFile{err: errors.New(locales.ErrTooLarge())}
-	}
 	total := info.Size()
-	var out bytes.Buffer
-	out.Grow(int(min(total, 1<<30)))
+	data := make([]byte, 0, total)
 	chunk := make([]byte, 4<<20)
 	for {
+		select {
+		case <-stop:
+			return wholeFile{err: errReadCanceled}
+		default:
+		}
 		n, err := f.Read(chunk)
-		out.Write(chunk[:n])
+		data = append(data, chunk[:n]...)
 		if progress != nil && total > 0 {
-			progress(int64(out.Len()), total)
+			progress(int64(len(data)), total)
 		}
 		if err == io.EOF {
 			break
@@ -168,7 +234,6 @@ func readWholeFile(path string, progress func(read, total int64)) wholeFile {
 			return wholeFile{err: err}
 		}
 	}
-	data := out.Bytes()
 	text, enc, ok := decodeText(data, systemText())
 	if !ok {
 		return wholeFile{err: errBinary}
@@ -447,7 +512,6 @@ func (a *app) writeLog(d *document) {
 func (a *app) reloadLog(d *document) {
 	switch d.sync {
 	case syncLoadFailed:
-		d.logSkipped = false
 		if d.log != nil {
 			d.log.close()
 			d.log = nil
@@ -511,8 +575,8 @@ func (d *document) logFirstLine() int {
 const bigSaveBytes = 8 << 20
 
 // writeWhole saves a big local document in the background, for the
-// saves waiting, which it answers. It refuses to write a file that
-// changed on disk since the document read it.
+// saves waiting, which it answers. A file that changed on disk since
+// the document read it is asked about, not written over.
 func (a *app) writeWhole(d *document) {
 	d.sync = syncSaving
 	snap := d.buf.Snapshot()
@@ -528,28 +592,89 @@ func (a *app) writeWhole(d *document) {
 		var info fs.FileInfo
 		var err error
 		if data, err = encodeText(data, enc); err == nil {
-			if info, err = os.Stat(path); err == nil {
-				if now := stampOf(info); stamp == nil || *now != *stamp {
-					err = errLogChanged
-				}
+			if info, err = os.Stat(path); errors.Is(err, fs.ErrNotExist) {
+				// The file is gone from the disk: the save writes it
+				// again, as the ordinary save does.
+				err, info = nil, nil
+			} else if err == nil && stamp != nil && *stampOf(info) != *stamp {
+				// Any other file there now is not the one this read.
+				err = errLogChanged
 			}
 		}
 		if err == nil {
 			info, err = vfs.WriteFile(path, data, 0o644)
 		}
 		a.post(func() {
-			if err == nil && slices.Contains(a.docs, d) && d.path == path && d.buf.Version() == snap.Version() {
-				// The text is the file's: nothing typed, and nothing
-				// read in its place, while it was written.
-				d.wrote(snap, crlf)
+			if !slices.Contains(a.docs, d) || d.path != path {
+				d.sync = syncIdle
+				a.answerSaves(d, err)
+				a.nextSave(d)
+				return
+			}
+			if errors.Is(err, errLogChanged) {
+				// The file changed since it was read: the save waits to
+				// be told whether to write over it.
+				d.sync = syncConflict
+				if len(d.queued) > 0 {
+					// A save asked for since, as an overwrite, has the
+					// last word, for these saves too.
+					d.queued = append(d.waiters, d.queued...)
+					d.waiters = nil
+				} else {
+					a.logSaveConflict(d)
+				}
+				return
+			}
+			if err == nil {
+				// The text written is the file's, typed on or not: the
+				// file is as this wrote it, whatever the buffer holds.
 				if info != nil {
 					d.stamp = stampOf(info)
 				}
 				d.diskCRLF = crlf
+				if d.buf.Version() == snap.Version() {
+					d.wrote(snap, crlf)
+				}
 			}
 			d.sync = syncIdle
 			a.answerSaves(d, err)
 			a.nextSave(d)
 		})
+	})
+}
+
+// logSaveConflict asks what to do with a local document whose file
+// changed on the disk since it was read: write it over, or take the
+// file's text again. The saves waiting wait for the answer, as a remote
+// conflict's do.
+func (a *app) logSaveConflict(d *document) {
+	d.sync = syncConflict
+	a.ask(&confirm{
+		title:   locales.LogChangedOn(d.name()),
+		message: locales.LogFileChanged(),
+		ok:      locales.RemoteOverwrite(), danger: true, okShort: locales.RemoteOverwrite(),
+		run: func() {
+			if d.sync != syncConflict {
+				return
+			}
+			d.sync, d.stamp = syncIdle, nil
+			d.queued = append(d.waiters, d.queued...)
+			d.waiters = nil
+			a.nextSave(d)
+		},
+		alternate: locales.RemoteRevertToFile(), alternateShort: locales.RemoteRevert(),
+		runAlternate: func() {
+			if d.sync != syncConflict {
+				return
+			}
+			d.sync = syncIdle
+			a.answerSaves(d, errNotSaved)
+			a.reloadDoc(d)
+		},
+		cancel: func() {
+			if d.sync == syncConflict {
+				a.answerSaves(d, errNotSaved)
+			}
+		},
 	})
 }

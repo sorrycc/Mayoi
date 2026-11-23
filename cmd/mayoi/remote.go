@@ -348,7 +348,6 @@ func (a *app) remoteLoaded(d *document, path string, info fs.FileInfo, data []by
 		if !remote.Is(path) && errors.Is(err, errLongLine) {
 			// A local file with a line too long for the usual read is
 			// read whole instead: its text shows, long lines and all.
-			d.logSkipped = false
 			d.sync = syncIdle
 			a.loadLog(d)
 			return

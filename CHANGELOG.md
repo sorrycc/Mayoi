@@ -5,6 +5,14 @@ needs a `## <version>` section here, or its build fails.
 
 ## Unreleased
 
+- A big file that changed on disk since it was opened asks about its save: overwrite it, or take the file's text again.
+- A big file can be saved to a new path, or again after its file was removed from the disk.
+- Typing while a big file saves in the background no longer makes its next save fail.
+- A file being written to keeps its text in the editor while it is read again, rather than show the loading view.
+- Local files past half a gigabyte open in windows of an index of their lines, so their whole text is never held in memory.
+- Closing a tab or switching project stops a whole-file read under way.
+- A document too large for a language server is no longer sent to it whole on every change.
+
 ## 0.23.2
 
 - In Live Preview, clicking a table cell edits its Markdown in place inside the rendered table.
@@ -61,15 +69,13 @@ needs a `## <version>` section here, or its build fails.
 - The **Go** menu finds type definitions, source definitions, implementations and references.
 - Language server plugins can start a bundled runtime on this machine.
 
+## 0.23.0
 
-- Local files over the new **Log Files Over** setting (32 MB by default) open with a progress bar as they are read.
+- Type at several places at once: **Selection → Add Cursor Above** and **Below** add a caret on the next line.
+- Local files over the new **Big Files Over** setting (32 MB by default) open with a progress bar as they are read.
 - The whole text of a big file is in the editor: nothing is left out, and files over 64 MB open too, up to 2 GB.
 - A big file can be edited, saved and undone as any other; **Go to Line** and `Find` reach all of it.
 - Saving a big file that changed on disk since it was opened says so instead of writing over it.
-- A big file's document keeps one caret: the keys of several selections do not edit it.
-
-## 0.23.0
-- Type at several places at once: **Selection → Add Cursor Above** and **Below** add a caret on the next line.
 - Alt-click (`⌥`-click on macOS) adds a caret or takes one away; `⌘`-click still goes to a definition.
 - `⌘D` selects the next match of the word or selection, and `⇧⌘L` selects every match at once.
 - Drag with `Shift+Alt` or the middle button to select a column; `⇧⌥⌘` with the arrows does it from the keyboard.

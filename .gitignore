@@ -4,8 +4,6 @@ mygo_windows_*.syso
 /mayoi
 /cmd/mayoi/mayoi
 *.test
-/dist/
-/graphify-out/
 /.agents/
 /.claude/worktrees/
 /.qoder/worktrees/

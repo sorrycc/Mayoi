@@ -5,13 +5,48 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strings"
 )
 
-// SearchFollowingDirectoryLinks expands directory links in a local search.
-// Index still decides which entries are eligible in each directory. Results
-// keep their workspace paths, with ordinary paths taking precedence over
-// aliases when both match the search filters.
-func SearchFollowingDirectoryLinks(root string, indexed []string, includes, excludes Globs, canceled func() bool) []string {
+// DirectoryLinkCandidates identifies entries that might point to another
+// directory. It is cached with the local file index.
+func DirectoryLinkCandidates(root string, indexed []string) []string {
+	cache := make(map[string]map[string]bool)
+	var links []string
+	for _, rel := range indexed {
+		if searchLink(filepath.Join(root, filepath.FromSlash(rel)), cache) {
+			links = append(links, rel)
+		}
+	}
+	return links
+}
+
+// LinkedSearchPaths keeps the selected search paths and the directory aliases
+// that can lead an open document to one of them.
+type LinkedSearchPaths struct {
+	Files       []string
+	root        string
+	directories map[string]string // workspace directory alias to its resolved path
+	chosen      map[string]string // resolved path to the relative path used for search
+}
+
+// ResultPath maps a workspace-relative document to the path in the results.
+func (p *LinkedSearchPaths) ResultPath(rel string) (string, bool) {
+	for dir := path.Dir(rel); dir != "." && dir != "/"; dir = path.Dir(dir) {
+		if real, ok := p.directories[dir]; ok {
+			chosen, found := p.chosen[filepath.Join(real, filepath.FromSlash(strings.TrimPrefix(rel, dir+"/")))]
+			return chosen, found
+		}
+	}
+	chosen, ok := p.chosen[filepath.Join(p.root, filepath.FromSlash(rel))]
+	return chosen, ok
+}
+
+// SearchFollowingDirectoryLinks expands the cached link candidates for a local
+// search. Ordinary paths claim files first. Individual file symlinks keep
+// their own paths, as in a search that does not follow directory symlinks.
+// Nil means none of the candidates led to an eligible directory.
+func SearchFollowingDirectoryLinks(root string, indexed, candidates []string, includes, excludes Globs, canceled func() bool) *LinkedSearchPaths {
 	realRoot, err := filepath.EvalSymlinks(root)
 	if err != nil {
 		realRoot = root
@@ -20,15 +55,56 @@ func SearchFollowingDirectoryLinks(root string, indexed []string, includes, excl
 		real, rel string
 		parent    *directory
 	}
-	queue := []*directory{{real: realRoot}}
-	indexes := map[string][]string{realRoot: indexed}
-	links := make(map[string]map[string]bool)
-	seen := make(map[string]bool)
-	var files []string
-	remaining := MaxIndexed
-	for i := 0; i < len(queue) && remaining > 0; i++ {
+	result := &LinkedSearchPaths{root: realRoot, directories: make(map[string]string)}
+	base := &directory{real: realRoot}
+	var queue []*directory
+	enqueue := func(rel, target string, parent *directory) {
+		if Skipped(path.Base(rel)) {
+			return
+		}
+		result.directories[rel] = target
+		for ancestor := parent; ancestor != nil; ancestor = ancestor.parent {
+			if ancestor.real == target {
+				return
+			}
+		}
+		if !excludes.Match(rel) {
+			queue = append(queue, &directory{real: target, rel: rel, parent: parent})
+		}
+	}
+	for _, rel := range candidates {
 		if canceled() {
-			break
+			return nil
+		}
+		if target, ok := searchDirectoryTarget(filepath.Join(realRoot, filepath.FromSlash(rel))); ok {
+			enqueue(rel, target, base)
+		}
+	}
+	if len(result.directories) == 0 {
+		return nil
+	}
+	result.chosen = make(map[string]string)
+	add := func(rel, real string) {
+		if _, seen := result.chosen[real]; !seen && (len(includes) == 0 || includes.Match(rel)) && !excludes.Match(rel) {
+			result.chosen[real] = rel
+			result.Files = append(result.Files, rel)
+		}
+	}
+	for _, rel := range indexed {
+		if canceled() {
+			return nil
+		}
+		if result.directories[rel] == "" {
+			add(rel, filepath.Join(realRoot, filepath.FromSlash(rel)))
+		}
+	}
+
+	indexes := make(map[string][]string)
+	links := make(map[string]map[string]bool)
+	remaining := MaxIndexed
+	for i := 0; i < len(queue) && remaining > 0 && len(result.Files) < MaxIndexed; i++ {
+		if canceled() {
+			return nil
 		}
 		dir := queue[i]
 		entries, ok := indexes[dir.real]
@@ -37,45 +113,34 @@ func SearchFollowingDirectoryLinks(root string, indexed []string, includes, excl
 			indexes[dir.real] = entries
 		}
 		for _, entry := range entries {
-			if canceled() || len(files) == MaxIndexed {
-				return files
+			if canceled() {
+				return nil
 			}
-			if dir.parent != nil {
-				if remaining == 0 {
-					return files
-				}
-				remaining--
+			if remaining == 0 || len(result.Files) == MaxIndexed {
+				return result
 			}
-			rel := entry
-			if dir.rel != "" {
-				rel = dir.rel + "/" + entry
-			}
-			if excludes.Match(rel) {
-				continue
-			}
+			remaining--
+			rel := dir.rel + "/" + entry
 			real := filepath.Join(dir.real, filepath.FromSlash(entry))
 			if searchLink(real, links) {
-				if target, err := filepath.EvalSymlinks(real); err == nil {
-					if info, err := os.Stat(target); err == nil && info.IsDir() {
-						ancestor := dir
-						for ancestor != nil && ancestor.real != target {
-							ancestor = ancestor.parent
-						}
-						if ancestor == nil && !Skipped(path.Base(rel)) {
-							queue = append(queue, &directory{real: target, rel: rel, parent: dir})
-						}
-						continue
-					}
-					real = target
+				if target, ok := searchDirectoryTarget(real); ok {
+					enqueue(rel, target, dir)
+					continue
 				}
 			}
-			if !seen[real] && (len(includes) == 0 || includes.Match(rel)) {
-				seen[real] = true
-				files = append(files, rel)
-			}
+			add(rel, real)
 		}
 	}
-	return files
+	return result
+}
+
+func searchDirectoryTarget(p string) (string, bool) {
+	target, err := filepath.EvalSymlinks(p)
+	if err != nil {
+		return "", false
+	}
+	info, err := os.Stat(target)
+	return target, err == nil && info.IsDir()
 }
 
 // searchLink picks out links with one directory read per parent rather than

@@ -208,10 +208,13 @@ func TestSearchFollowsDirectorySymlinks(t *testing.T) {
 				}
 			}
 			write(ordinary, "local.txt", query)
+			write(ordinary, "edit.txt", "saved text\n")
 			write(shared, "shared.txt", query)
 			write(shared, "excluded.txt", query)
 			write(shared, "draft.txt", "draft\n")
+			write(root, "z.txt", "replace-file-link-marker\n")
 			for _, link := range []struct{ target, path string }{
+				{"z.txt", filepath.Join(root, "a-link.txt")},
 				{shared, filepath.Join(root, "linked")},
 				{shared, filepath.Join(root, "other-link")},
 				{ordinary, filepath.Join(root, "mirror")},
@@ -278,6 +281,65 @@ func TestSearchFollowsDirectorySymlinks(t *testing.T) {
 			}
 			d.edit(d.sel, textEdit{0, 0, query + "\n"})
 			wantFiles("other-link/draft.txt", "other-link/shared.txt")
+
+			// File links keep their own result, even before the real file in
+			// index order. Replace All must still write the real file.
+			s.include = ""
+			hs.searchFor("replace-file-link-marker")
+			wantFiles("a-link.txt", "z.txt")
+			s.with = "replaced"
+			a.replaceAllInFiles()
+			if a.confirm == nil {
+				t.Fatal("missing confirmation for Replace All")
+			}
+			a.confirm.run()
+			a.confirm = nil
+			hs.settleSearch()
+			if got := mustRead(t, filepath.Join(root, "z.txt")); got != "replaced\n" {
+				t.Fatalf("real file after replacing through the results: %q", got)
+			}
+
+			// A dirty directory alias supplies the result at the ordinary
+			// path, for both incremental and full searches.
+			a.settings.AutoSave = false
+			a.openFile(filepath.Join(ordinary, "edit.txt"), true)
+			alias := filepath.Join(root, "mirror", "edit.txt")
+			a.openFile(alias, true)
+			hs.settle()
+			d = a.activeEditor()
+			if d == nil || d.path != alias {
+				t.Fatal("directory alias did not open")
+			}
+			const draft = "unsaved-alias-marker"
+			hs.searchFor(draft)
+			wantFiles()
+			d.edit(d.sel, textEdit{0, 0, draft + "\n"})
+			wantFiles("ordinary/edit.txt")
+			a.startSearch()
+			wantFiles("ordinary/edit.txt")
+
+			f := s.files[0]
+			a.openMatch(f, f.matches[0], true)
+			hs.settle()
+			if ed := a.activeEditor(); ed == nil || ed.path != alias {
+				t.Fatal("result did not open the existing alias")
+			} else if ed.sel != [2]int{0, len(draft)} {
+				t.Fatalf("opened %s with selection %v", ed.path, ed.sel)
+			}
+			s.with = "updated"
+			a.replaceAllInFiles()
+			if a.confirm == nil || a.confirm.danger {
+				t.Fatalf("an open alias should be replaced in the editor: %+v", a.confirm)
+			}
+			a.confirm.run()
+			a.confirm = nil
+			wantFiles()
+			if got := d.buf.String(); got != "updated\nsaved text\n" || !d.dirty() {
+				t.Fatalf("alias buffer after Replace All: %q", got)
+			}
+			if got := mustRead(t, filepath.Join(ordinary, "edit.txt")); got != "saved text\n" {
+				t.Fatalf("real file after replacing in the dirty alias: %q", got)
+			}
 		})
 	}
 }

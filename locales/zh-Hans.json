@@ -1582,6 +1582,8 @@
   "prefTitleBlame": "行内 Blame",
   "prefDescBlame": "显示光标所在行最后由谁、何时修改。",
   "prefTitleScmTree": "以树形显示更改",
+  "prefTitleGitScanDepth": "仓库扫描深度",
+  "prefDescGitScanDepth": "查找独立 Git 仓库的目录层数，包括已有工作树内的目录。0 使用自动发现。",
   "prefDescScmTree": "源代码管理中的更改按文件夹树显示。",
   "prefTitleScmAllBranches": "所有分支",
   "prefDescScmAllBranches": "显示所有分支和标签的提交，而不只是当前分支。",

@@ -217,6 +217,9 @@ type Prefs struct {
 	// conflict holds in its result when the merge view opens. The
 	// conflicts stand, for the hand to decide.
 	MergeAutoApply bool `json:"mergeAutoApply"`
+	// GitScanDepth overrides automatic discovery of independent work trees
+	// beneath the open folder, even when the folder is in a work tree.
+	GitScanDepth int `json:"gitScanDepth,omitempty"`
 	// ScmTree lists the changes in source control in a tree of their
 	// folders, rather than by path.
 	ScmTree bool `json:"scmTree,omitempty"`
@@ -588,6 +591,9 @@ type Tab struct {
 // shows, the rest folded away.
 const MaxDiffContext = 100
 
+// MaxGitScanDepth bounds the folders scanned for independent work trees.
+const MaxGitScanDepth = 8
+
 // Default is the settings of a first launch.
 func Default() *Settings {
 	return &Settings{
@@ -707,6 +713,7 @@ func (p *Prefs) normalize() {
 		p.DiffWhitespace = ""
 	}
 	p.DiffContext = min(max(p.DiffContext, 0), MaxDiffContext)
+	p.GitScanDepth = min(max(p.GitScanDepth, 0), MaxGitScanDepth)
 
 	// "" and "bottom" are the same panel position.
 	if p.PanelPosition != "left" && p.PanelPosition != "right" {

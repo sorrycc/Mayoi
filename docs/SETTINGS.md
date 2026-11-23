@@ -108,6 +108,7 @@ takes its default.
 | `mergeAutoApply`        | `true`        | `true`, `false`                                                | **Apply Automatically** in a merge's menu  |
 | `explorerCompactFolders` | `false`     | `true`, `false`                                                | **View → Compact Folders**                 |
 | `scmTree`               | `false`       | `true`, `false`                                             | **View as Tree** in Source Control's menu      |
+| `gitScanDepth`          | `0`           | `0` (automatic), or `1` to `8` folder levels                | **Settings → Git**                            |
 | `scmAllBranches`        | `false`       | `true`, `false`                                             | **Show All Branches** in Source Control's menu |
 | `prDeleteBranch`        | `false`       | `true`, `false`                                             | **Merge** in a pull request's tab             |
 | `syncIgnored`           | none          | Keys, `"settings.json"`, `"keybindings.json"`               | The [settings sync](#settings-sync) panel      |
@@ -292,6 +293,11 @@ differ in width lines them up only roughly.
   header's context menu also has **Compact Folders**. Dependency and build folders such as `node_modules`,
   `.venv` and `target` stay separate and are read only when expanded.
 - **`scmTree`** lists Source Control's changes in a tree of their folders, rather than by path.
+- **`gitScanDepth`** counts folder levels from the opened folder. Set it to `3` in `.mayoi/settings.json` to
+  discover a repository at `reference-projects/group/project`, even if the opened folder is in a Git worktree.
+  The scan skips hidden folders and `node_modules`, and stops at discovered worktrees. Registered submodules
+  are handled separately. With `0` (automatic), only folders outside Git are scanned for independent repositories,
+  up to two levels down.
 - **`scmAllBranches`** shows the commits of every branch and tag, not only those of the branch checked out.
 - **`prDeleteBranch`** has **Merge** in a pull request's tab delete its branch on GitHub once it merged, when the
   branch is of the same repository. The branch of the work tree stays.
@@ -445,7 +451,7 @@ beside one returns it to your setting.
 
 A folder can set these: `autoSave`, `wordWrap`, `trimTrailingWhitespace`, `jsonlMode`, `markdownMode`, `previewMermaid`, `previewMath`,
 `terminalCopyOnSelect`, `diffHighlight`, `diffWhitespace`, `diffContext`, `diffCrossFiles`, `mergeAutoApply`,
-`blame`, `aiModel`, `vim`, `vimCtrlKeys`, `formatOnSave` and `formatters`.
+`blame`, `gitScanDepth`, `aiModel`, `vim`, `vimCtrlKeys`, `formatOnSave` and `formatters`.
 
 ```json
 {

@@ -257,8 +257,11 @@ loaded page count. Diff tabs stay bound to the repository they were opened for.
 The status bar picker replaces its folder item, so the root is not listed twice.
 Destructive confirmation dialogs name their target repository, including in Auto
 mode. Saved diff repository paths are relative to the workspace.
-Discovery skips repositories without `.gitmodules` and refreshes on Git metadata
-or `.gitmodules` changes, rather than enumerating indexes on a timer.
+By default, a folder in a Git worktree discovers its initialized submodules,
+while a folder outside Git discovers independent repositories up to two levels
+down. Set [`gitScanDepth`](SETTINGS.md#the-rest) to discover independent
+repositories within the chosen depth even inside a worktree. Use **Refresh** in
+Source Control or **Git: Refresh** to look for repositories again.
 Opening a worktree containing submodules uses the same behavior; other worktrees
 are opened separately as before.
 

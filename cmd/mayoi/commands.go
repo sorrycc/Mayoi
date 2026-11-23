@@ -218,7 +218,10 @@ func (a *app) commandsIn(t locales.Messages) []command {
 		{"git.fetch", t.CmdGitFetch(), "", a.fetch},
 		{"git.pull", t.CmdGitPull(), "", a.pull},
 		{"git.push", t.CmdGitPush(), "", a.push},
-		{"git.refresh", t.CmdGitRefresh(), "", a.gitChanged},
+		{"git.refresh", t.CmdGitRefresh(), "", func() {
+			a.repositories.scan.Invalidate()
+			a.gitChanged()
+		}},
 		{"review.comment", t.CmdReviewComment(), "Shift+CmdOrCtrl+M", a.addReviewComment},
 		{"review.next", t.CmdReviewNext(), "", func() { a.stepNote(1) }},
 		{"review.previous", t.CmdReviewPrevious(), "", func() { a.stepNote(-1) }},

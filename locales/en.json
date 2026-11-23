@@ -1810,6 +1810,8 @@
   "prefTitleBlame": "Inline Blame",
   "prefDescBlame": "Shows who last changed the caret's line, and when.",
   "prefTitleScmTree": "Changes as Tree",
+  "prefTitleGitScanDepth": "Repository Scan Depth",
+  "prefDescGitScanDepth": "Levels to scan for independent Git repositories, even inside a worktree. 0 uses automatic discovery.",
   "prefDescScmTree": "Lists Source Control's changes in a tree of their folders.",
   "prefTitleScmAllBranches": "All Branches",
   "prefDescScmAllBranches": "Shows the commits of every branch and tag, not only the branch checked out.",

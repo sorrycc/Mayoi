@@ -5,14 +5,21 @@ needs a `## <version>` section here, or its build fails.
 
 ## Unreleased
 
+- **Download** and **Upload** of remote files and folders now work on Windows and in WSL.
+- Dragging a file in the explorer no longer stops when you scroll with the wheel.
 - Edit either live source directly in a buffer comparison, including unsaved tabs.
-
 - Plugins can compare two open buffers, including unsaved tabs, in the native Diff view.
 - Buffer comparisons follow edits and keep the last text when a source tab closes.
-
 - Plugins keep targeting their source documents when you switch windows.
 - Plugins can read a document's text and version together and track untitled documents closing.
 - Plugin tab actions receive the tab you chose, including unsaved buffers.
+- Right-click a local branch in Source Control and choose **Pull Branch** to update it in place.
+- Pulling an inactive branch uses its upstream even if another fetch runs at the same time.
+- Local branches checked out in another worktree show a worktree icon and a folder tooltip.
+- Hover over a worktree branch to open its checkout in a new window.
+- Branches behind their upstream are highlighted and show a pull shortcut on hover.
+- Branches ahead of their upstream are highlighted and show a push shortcut on hover.
+- Branches ahead or behind their upstream show both commit counts, including zero.
 
 ## 0.23.2
 

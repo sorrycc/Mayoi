@@ -29,6 +29,9 @@ type fakeHost struct {
 	// showApp showed last.
 	projects []*app
 	showed   *app
+	// native is what nativeDrags says: true drags as on macOS, a native
+	// transfer.
+	native bool
 	// notified are the notifications of the system shown, as their
 	// titles and bodies.
 	notified []string
@@ -166,7 +169,7 @@ func (h *fakeHost) stepProject(int)              {}
 func (h *fakeHost) showProject(int)              {}
 func (h *fakeHost) closeProject()                {}
 func (h *fakeHost) projectTabsChanged()          {}
-func (h *fakeHost) nativeDrags() bool            { return false }
+func (h *fakeHost) nativeDrags() bool            { return h.native }
 func (h *fakeHost) otherProjects() []*app        { return nil }
 func (h *fakeHost) projectOf(*colTab) *app       { return nil }
 func (h *fakeHost) carryTab(*colTab, *app, bool) {}

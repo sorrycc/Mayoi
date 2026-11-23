@@ -293,7 +293,12 @@ func (h *pluginHost) Call(p *plugin.Plugin, method string, raw json.RawMessage) 
 			return out, nil
 		})
 	case "workspace.document":
-		return main(func(a *app) (any, error) {
+		// A reference outlives its document and window: either closed, null.
+		return h.main(func(_ *app) (any, error) {
+			a, err := h.window(args.WindowID)
+			if err != nil {
+				return nil, nil
+			}
 			d, err := docByID(a, args.Doc)
 			if err != nil {
 				return nil, nil

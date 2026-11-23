@@ -1867,6 +1867,7 @@ func (a *gitContext) scmMenu(m *ui.Menu) {
 	}
 	if m.Item(locales.Refresh()).Chosen() {
 		a.app.post(func() {
+			a.app.repositories.scan.Invalidate()
 			a.git.refsGen++
 			a.gitChanged()
 		})

@@ -1582,6 +1582,8 @@
   "prefTitleBlame": "インライン Blame",
   "prefDescBlame": "カーソル行を最後に変更した人と日時を表示します。",
   "prefTitleScmTree": "変更をツリー表示",
+  "prefTitleGitScanDepth": "リポジトリの検索階層",
+  "prefDescGitScanDepth": "作業ツリー内も含め、独立した Git リポジトリを探す階層数です。0 は自動検索です。",
   "prefDescScmTree": "ソース管理の変更をフォルダーのツリーで表示します。",
   "prefTitleScmAllBranches": "すべてのブランチ",
   "prefDescScmAllBranches": "チェックアウト中だけでなく、すべてのブランチとタグのコミットを表示します。",

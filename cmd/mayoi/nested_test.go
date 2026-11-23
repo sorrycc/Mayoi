@@ -7,11 +7,11 @@ import (
 	"testing"
 	"time"
 
+	"mayoi/internal/settings"
 	"mayoi/locales"
 )
 
-// settleNested waits for the folder's work trees, which it is not one of,
-// to be found and read.
+// settleNested waits for the work trees under the folder to be found and read.
 func settleNested(t *testing.T, hs *harness, count int) {
 	t.Helper()
 	deadline := time.Now().Add(settleTimeout)
@@ -28,6 +28,69 @@ func settleNested(t *testing.T, hs *harness, count int) {
 		}
 	}
 	t.Fatalf("work trees not found: want %d, got %+v", count, hs.a.repositories.contexts)
+}
+
+func TestNestedRepositoriesInWorktree(t *testing.T) {
+	t.Setenv("GIT_CONFIG_GLOBAL", os.DevNull)
+	t.Setenv("GIT_CONFIG_NOSYSTEM", "1")
+	hs := newHarness(t, true)
+	a := hs.a
+	gitIn(t, hs.root, "init", "-q", "-b", "main")
+	deep := hs.path("reference-projects/group/project-b")
+	shallow := hs.path("reference-projects/project-a")
+	for _, dir := range []string{shallow, deep} {
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		gitIn(t, dir, "init", "-q", "-b", "main")
+	}
+	// The enclosing repository ignores the clones.
+	if err := os.WriteFile(hs.path(".gitignore"), []byte("reference-projects/\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	a.openFolder(hs.root)
+	a.showSourceControl()
+	settleNested(t, hs, 0)
+	if a.git.repo == nil || a.git.repo.Root != hs.root {
+		t.Fatal("the workspace repository is missing")
+	}
+
+	setDepth := func(value string) {
+		t.Helper()
+		if err := settings.WriteFile(settings.FolderPath(hs.root), []byte(value)); err != nil {
+			t.Fatal(err)
+		}
+		a.folderPrefs.f.Reload()
+		a.folderPrefsChanged()
+	}
+	setDepth(`{"gitScanDepth": 2}`)
+	settleNested(t, hs, 1)
+	if !hs.tt.HasText("project-a") || hs.tt.HasText("project-b") {
+		t.Fatal("Source Control should show project-a at depth 2")
+	}
+	setDepth(`{"gitScanDepth": 3}`)
+	settleNested(t, hs, 2)
+	file := filepath.Join(deep, "f.txt")
+	if ctx := a.repositoryForPath(file); ctx.git.repo == nil || ctx.git.repo.Root != deep {
+		t.Fatal("the file should belong to project-b")
+	}
+	if !hs.tt.HasText("project-b") {
+		t.Fatal("Source Control should show project-b at depth 3")
+	}
+	a.diskChanged([]string{hs.path(".gitignore"), file}, nil)
+	if a.repositories.scan.Stale() {
+		t.Fatal("saving ordinary files should not rescan")
+	}
+
+	later := hs.path("reference-projects/group/project-c")
+	if err := os.MkdirAll(later, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	gitIn(t, later, "init", "-q", "-b", "main")
+	a.diskChanged([]string{later}, nil)
+	settleNested(t, hs, 3)
+	setDepth("{}")
+	settleNested(t, hs, 0)
 }
 
 // A folder of projects, each its own work tree, lists them all in Source

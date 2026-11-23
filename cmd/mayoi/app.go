@@ -16,7 +16,6 @@ import (
 	"github.com/egoist/mygo/ui"
 
 	"mayoi/internal/bg"
-	"mayoi/internal/git"
 	"mayoi/internal/highlight"
 	"mayoi/internal/keymap"
 	"mayoi/internal/mon"
@@ -795,10 +794,13 @@ func (a *app) saveAll() {
 // diskChanged follows files changed on disk: an open document without
 // changes of its own shows the file's new text.
 func (a *app) diskChanged(changed, removed []string) {
-	for _, path := range append(slices.Clone(changed), removed...) {
-		if filepath.Base(path) == ".gitmodules" || a.git.repo == nil && a.mayHoldWorkTree(path) {
-			a.repositories.scan.Invalidate()
-		}
+	depth := a.gitNestedDepth()
+	affectsRepos := func(path string, removed bool) bool {
+		return filepath.Base(path) == ".gitmodules" || depth > 0 && a.mayHoldWorkTree(path, depth, removed)
+	}
+	if slices.ContainsFunc(changed, func(path string) bool { return affectsRepos(path, false) }) ||
+		slices.ContainsFunc(removed, func(path string) bool { return affectsRepos(path, true) }) {
+		a.repositories.scan.Invalidate()
 	}
 	a.indexRead.Invalidate()
 	a.ignoredRead.Invalidate()
@@ -853,19 +855,32 @@ func (a *app) diskChanged(changed, removed []string) {
 	a.gitChanged()
 }
 
-// mayHoldWorkTree reports whether a path made or gone under a folder that
-// is not a work tree may add or drop one under it: a .git, or a folder
-// where one may be, cloned or removed, outside the work trees found.
-func (a *app) mayHoldWorkTree(path string) bool {
-	if filepath.Base(path) == ".git" {
-		return true
+// mayHoldWorkTree reports whether a change can add or remove a work tree
+// within the scan depth: a .git entry or a directory that could hold one.
+func (a *app) mayHoldWorkTree(path string, depth int, removed bool) bool {
+	marker := filepath.Base(path) == ".git"
+	if marker {
+		path = filepath.Dir(path)
 	}
 	rel, err := filepath.Rel(a.root, path)
-	if err != nil || rel == "." || strings.HasPrefix(rel, "..") || strings.Count(filepath.ToSlash(rel), "/") >= git.NestedDepth {
+	if err != nil || !filepath.IsLocal(rel) || rel == "." {
+		return false
+	}
+	parts := strings.Split(filepath.ToSlash(rel), "/")
+	if len(parts) > depth || slices.ContainsFunc(parts, func(name string) bool {
+		return strings.HasPrefix(name, ".") || name == "node_modules"
+	}) {
 		return false
 	}
 	ctx := a.repositoryForPath(path)
-	return ctx.git.repo == nil || ctx.git.repo.Root == path
+	if ctx.git != &a.git && ctx.git.repo.Root != path {
+		return false
+	}
+	if marker || removed || remote.Is(path) {
+		return true
+	}
+	info, err := os.Lstat(path)
+	return err == nil && info.IsDir()
 }
 
 // reloadDoc makes a document's text the file's on disk, as a step of

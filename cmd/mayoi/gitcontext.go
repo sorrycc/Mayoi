@@ -29,6 +29,7 @@ type repositoryState struct {
 	// or the folder's own work tree changed; scans counts the looks.
 	scan    bg.Refresher[repoScan]
 	scans   int
+	depth   int
 	picker  repositoryPicker
 	changes ui.ListState
 	row     int
@@ -148,11 +149,28 @@ func (a *app) refreshGit() {
 	a.repository().refreshCommitChecks()
 }
 
-// The index and module roots are read in the background after Git metadata
-// or .gitmodules changes, never on a status timer. Registered gitlinks avoid
-// walking the workspace; initialized modules remain visible even when clean.
+// gitNestedDepth is how far to look for independent work trees. Automatic
+// discovery walks only a folder outside Git. A preference opts into a scan
+// even when an enclosing work tree is already known.
+func (a *app) gitNestedDepth() int {
+	if depth := a.prefs().GitScanDepth; depth > 0 {
+		return depth
+	}
+	if a.git.repo == nil {
+		return git.NestedDepth
+	}
+	return 0
+}
+
+// Independent work trees and registered submodules are found in the
+// background. By default a work tree only looks up its registered gitlinks.
 func (a *app) discoverRepositories() {
 	state := &a.repositories
+	depth := a.gitNestedDepth()
+	if state.depth != depth {
+		state.depth = depth
+		state.scan.Invalidate()
+	}
 	// A scan of the folder or work tree before does not hold this one up:
 	// it is dropped as it ends.
 	key := repoScan{a.folderKey(), a.git.repo}
@@ -171,15 +189,18 @@ func (a *app) discoverRepositories() {
 		seen := map[string]bool{}
 		if root != nil {
 			seen[root.Root] = true
-		} else {
-			nested, err := git.Nested(folder, git.NestedDepth)
+		}
+		if depth > 0 {
+			nested, err := git.Nested(folder, depth)
 			if err != nil {
 				failed()
 				return
 			}
 			for _, r := range nested {
-				seen[r.Root] = true
-				repos = append(repos, r)
+				if !seen[r.Root] {
+					seen[r.Root] = true
+					repos = append(repos, r)
+				}
 			}
 		}
 		for i := 0; i < len(repos); i++ {
@@ -199,7 +220,7 @@ func (a *app) discoverRepositories() {
 			}
 		}
 		a.post(func() {
-			if !state.scan.Done(key) || a.git.repo != root || a.folderKey() != key.folder {
+			if !state.scan.Done(key) || a.git.repo != root || a.folderKey() != key.folder || a.gitNestedDepth() != depth {
 				return
 			}
 			old := state.contexts

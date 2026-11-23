@@ -16010,6 +16010,26 @@ func (msgs Messages) PrefTitleScmTree() string {
 	return Catalog.Format(msgs.locale, "prefTitleScmTree", nil)
 }
 
+// PrefTitleGitScanDepth says "Repository Scan Depth"
+// in the language the app shows.
+func PrefTitleGitScanDepth() string { return In(i18n.Locale()).PrefTitleGitScanDepth() }
+
+// PrefTitleGitScanDepth says "Repository Scan Depth"
+// in the language of msgs.
+func (msgs Messages) PrefTitleGitScanDepth() string {
+	return Catalog.Format(msgs.locale, "prefTitleGitScanDepth", nil)
+}
+
+// PrefDescGitScanDepth says "Levels to scan for independent Git repositories, even inside a worktree. 0 uses automatic discovery."
+// in the language the app shows.
+func PrefDescGitScanDepth() string { return In(i18n.Locale()).PrefDescGitScanDepth() }
+
+// PrefDescGitScanDepth says "Levels to scan for independent Git repositories, even inside a worktree. 0 uses automatic discovery."
+// in the language of msgs.
+func (msgs Messages) PrefDescGitScanDepth() string {
+	return Catalog.Format(msgs.locale, "prefDescGitScanDepth", nil)
+}
+
 // PrefDescScmTree says "Lists Source Control's changes in a tree of their folders."
 // in the language the app shows.
 func PrefDescScmTree() string { return In(i18n.Locale()).PrefDescScmTree() }

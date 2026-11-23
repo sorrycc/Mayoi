@@ -110,6 +110,7 @@ var Schema = []Field{
 	{Key: "mergeAutoApply", Category: CatDiff, Kind: KindBool, Folder: true},
 
 	{Key: "blame", Category: CatGit, Kind: KindBool, Folder: true},
+	{Key: "gitScanDepth", Category: CatGit, Kind: KindNumber, Min: 0, Max: MaxGitScanDepth, Step: 1, Folder: true},
 	{Key: "scmTree", Category: CatGit, Kind: KindBool},
 	{Key: "scmAllBranches", Category: CatGit, Kind: KindBool},
 	{Key: "prDeleteBranch", Category: CatGit, Kind: KindBool},

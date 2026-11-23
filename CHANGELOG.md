@@ -3,6 +3,10 @@
 The update window shows the section of the version it offers. Every release
 needs a `## <version>` section here, or its build fails.
 
+## Unreleased
+
+- Set `gitScanDepth` to find independent Git repositories even inside a Git worktree.
+
 ## 0.23.3
 
 - Opening a folder with `mayoi <folder>` brings its project window to the front.

@@ -209,3 +209,33 @@ func TestSymbolsRowOfALine(t *testing.T) {
 		}
 	}
 }
+
+// A symbol chosen is gone to in the column whose breadcrumbs opened the
+// box, not in the one with the keyboard.
+func TestCrumbsSymbolsInTheirColumn(t *testing.T) {
+	hs, left := symbolsHarness(t, "a.go", symbolsText)
+	a, tt := hs.a, hs.tt
+	a.run("view.splitRight")
+	hs.settle()
+	a.openFile(hs.path("main.go"), true)
+	hs.settle()
+	if len(a.cols) != 2 || a.col != 1 {
+		t.Fatalf("%d columns, the keyboard in %d", len(a.cols), a.col)
+	}
+	right := a.activeEditor()
+	before := right.sel
+	a.openFileSymbols(a.cols[0], a.cols[0].tab())
+	hs.settle()
+	if err := tt.Click("third"); err != nil {
+		t.Fatalf("%v: %v", err, tt.Texts())
+	}
+	for range 4 {
+		hs.settle()
+	}
+	if left.sel != [2]int{66, 71} {
+		t.Errorf("the left editor's selection %v, want third's", left.sel)
+	}
+	if right != left && right.sel != before {
+		t.Errorf("the right editor moved to %v", right.sel)
+	}
+}

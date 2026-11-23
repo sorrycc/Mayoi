@@ -999,8 +999,8 @@ func (a *app) breadcrumbs(c *ui.Context, col *column, t *colTab) {
 		a.closeCrumbs()
 	}
 	// The symbols of a file go as its name does: with the name, in the tab
-	// of another file, or with the text.
-	if k := &a.crumbs; k.open && k.self && (k.tab != t || d == nil) {
+	// of another file, or with the text. Another column's box stays.
+	if k := &a.crumbs; k.open && k.self && k.col == col && (k.tab != t || d == nil) {
 		a.closeCrumbs()
 	}
 	ui.Row(c).Height(crumbsH).Padding(0, 14).Gap(4).AlignItems(ui.Center).Background(p.editor).Clip().Children(func() {

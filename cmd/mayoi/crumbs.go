@@ -108,12 +108,10 @@ type crumbsPicker struct {
 
 	// self makes the box the symbols of the file itself, as the file's
 	// name of the breadcrumbs opened it: every declaration of the
-	// document, or its headings, which go to symbol lists too, sorted as
-	// a folder's files are.
-	self   bool
-	syms   []symbols.Symbol
-	symDoc int
-	symVer uint64
+	// document, or its headings, which go to symbol lists too, in the
+	// order of the document.
+	self bool
+	syms []symbols.Symbol
 }
 
 // openCrumbs opens the box of the folder dir of the breadcrumbs of tab t

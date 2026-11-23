@@ -29,15 +29,13 @@ func (a *app) openFileSymbols(col *column, t *colTab) {
 	}
 }
 
-// crumbsSymbols takes the symbols of a document for the box, read again as
-// the text or the document changed since.
+// crumbsSymbols takes the symbols of a document for the box, from the one
+// cache go to symbol reads, which reads them again as the text, the
+// document or its language changed since.
 func (a *app) crumbsSymbols(d *editor) {
-	k := &a.crumbs
-	if d == nil || k.syms != nil && k.symDoc == d.id && k.symVer == d.buf.Version() {
-		return
+	if d != nil {
+		a.crumbs.syms, _ = a.symbolsOf(d)
 	}
-	k.symDoc, k.symVer = d.id, d.buf.Version()
-	k.syms, _ = a.symbolsOf(d)
 }
 
 // symbolRowOf is the row of the symbol a line is in, -1 for none: the last
@@ -124,9 +122,14 @@ func (a *app) fileSymbols(c *ui.Context, d *editor) {
 // openSymbolAt goes to a symbol of a document: in its text, as go to symbol
 // goes, and in the Reading view of a note, to the heading there.
 func (a *app) openSymbolAt(d *editor, sym symbols.Symbol) {
-	if d.preview != nil && d.preview.markdown != nil {
-		a.goToHeading(d, sym.Line)
-		return
+	if d.preview != nil {
+		if d.preview.markdown != nil {
+			a.goToHeading(d, sym.Line)
+			return
+		}
+		a.setPreview(d, false)
 	}
-	a.editActive(func(d *editor) { a.goToSymbol(d, sym) })()
+	// This editor, not the one with the keyboard: the box's column may
+	// be another.
+	a.goToSymbol(d, sym)
 }

@@ -1121,6 +1121,44 @@ func TestLiveHeadingGaps(t *testing.T) {
 	}
 }
 
+// Up from a heading below the first goes to the line above its room, not
+// back to the heading, and Down comes back; Shift selects the same way.
+func TestLiveHeadingUpDown(t *testing.T) {
+	hs := newHarness(t, true)
+	a := hs.a
+	src := "# Top\n\ntext\n\n## Section\n\nmore\n"
+	path := hs.path("updown.md")
+	os.WriteFile(path, []byte(src), 0o644)
+	a.settings.MarkdownMode = "live"
+	a.openFile(path, true)
+	d := a.activeEditor()
+	hs.until("Live Preview parsed", func() bool {
+		l := d.document.live
+		return a.livePreview(d) && l != nil && l.doc != nil && !l.quick
+	})
+	at := strings.Index(src, "## Section") + 5
+	blank := strings.Index(src, "\n\n## ") + 1
+	hs.place(d, at, at)
+	hs.key(0, ui.KeyUp)
+	expectSel(t, d, blank, blank)
+	hs.key(0, ui.KeyDown)
+	if line := d.buf.Snapshot().LineAt(d.sel[1]); line != 4 {
+		t.Errorf("Down from the line above went to line %d, want the heading's", line)
+	}
+	hs.key(0, ui.KeyUp)
+	hs.key(0, ui.KeyUp)
+	if line := d.buf.Snapshot().LineAt(d.sel[1]); line != 2 {
+		t.Errorf("Up twice from the heading went to line %d, want 2", line)
+	}
+	hs.place(d, at, at)
+	hs.key(ui.Shift, ui.KeyUp)
+	expectSel(t, d, at, blank)
+	hs.key(ui.Shift, ui.KeyDown)
+	if d.sel[0] != at || d.buf.Snapshot().LineAt(d.sel[1]) != 4 {
+		t.Errorf("Shift-Down selected %v, want back on the heading from %d", d.sel, at)
+	}
+}
+
 // A footnote's definition is muted, its label drawn as its number, and
 // the text between two definitions apart keeps its look.
 func TestParseLiveFootnoteDefs(t *testing.T) {

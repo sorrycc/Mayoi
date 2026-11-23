@@ -5,6 +5,7 @@ needs a `## <version>` section here, or its build fails.
 
 ## Unreleased
 
+- In Live Preview, `Up` from a heading now moves to the line above instead of staying on the heading.
 - **Sessions** no longer lists Pi subagent sessions such as `general-purpose#3c8c2fa2`; Pi forks still show.
 - **Download** and **Upload** of remote files and folders now work on Windows and in WSL.
 - Dragging a file in the explorer no longer stops when you scroll with the wheel.

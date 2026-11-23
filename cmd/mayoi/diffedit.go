@@ -16,6 +16,7 @@ import (
 // the document of the file, and the diff's editor of it, whose selection
 // is the caret the diff paints and whose keys the diff takes.
 type diffEdit struct {
+	side       int // 0 for the left buffer, 1 for the right
 	f          *diffFile
 	doc        *document
 	ed         *editor
@@ -25,70 +26,99 @@ type diffEdit struct {
 	composeWas string // the text the mark took the place of, which an escape gives back
 }
 
-// writable reports whether the new side of a file of a diff is the work
-// tree's, which a diff edits: the changes staged or committed compare
-// versions Git keeps, which are not for editing here.
-func (f *diffFile) writable() bool {
-	return f.loaded && f.err == "" && !f.binary && f.new.ok && !f.entry.Submodule() &&
-		(f.base == diffIndex || f.base == diffHead)
+// writable reports whether the right-hand source is live and editable.
+func (f *diffFile) writable() bool { return f.writableSide(1) }
+
+func (f *diffFile) writableSide(side int) bool {
+	if !f.loaded || f.err != "" || f.binary || !f.side(side == 1).ok || f.entry.Submodule() {
+		return false
+	}
+	if f.buffers != nil {
+		return !f.buffers.closed[side]
+	}
+	return side == 1 && (f.base == diffIndex || f.base == diffHead)
 }
 
-// editRow returns the row a diff begins to edit at: the line of the new
-// side the row shows, or the first one after it, -1 for none.
-func (v *diffView) editRow(i int) int {
+func (r *diffRow) sideLine(side int) int {
+	if side == 0 {
+		return r.old
+	}
+	return r.new
+}
+
+func (v *diffView) editRow(i, side int) int {
 	if i < 0 || i >= len(v.rows) {
 		return -1
 	}
 	for k := i; k < len(v.rows); k++ {
-		if r := v.rows[k]; r.kind == rowLine && r.new >= 0 {
+		if r := v.rows[k]; r.kind == rowLine && r.sideLine(side) >= 0 {
 			return k
 		}
 	}
 	return -1
 }
 
-// beginDiffEdit starts editing the working tree side of the file of row i
-// of a diff, with the caret at the start of the line the row shows. A file
-// no editor has is read into a document of its own, which the editor opens
-// as it is. It reports whether editing began.
+func (v *diffView) editSide(i int) int {
+	if i < 0 || i >= len(v.rows) || v.rows[i].file < 0 || v.rows[i].file >= len(v.files) || v.files[v.rows[i].file].buffers == nil {
+		return 1
+	}
+	f := v.files[v.rows[i].file]
+	if e := v.editing; e != nil && e.f == f {
+		return e.side
+	}
+	if s := v.textSel; s != nil && s.side == 0 || v.rows[i].new < 0 || !f.writableSide(1) {
+		return 0
+	}
+	return 1
+}
+
 func (a *app) beginDiffEdit(v *diffView, i int) bool {
-	i = v.editRow(i)
+	return a.beginDiffEditSide(v, i, v.editSide(i))
+}
+
+func (a *app) beginDiffEditSide(v *diffView, i, side int) bool {
+	i = v.editRow(i, side)
 	if i < 0 {
 		return false
 	}
 	f := v.files[v.rows[i].file]
-	if e := v.editing; e != nil && e.f == f {
-		a.diffCaretToLine(e, v.rows[i].new)
+	if e := v.editing; e != nil && e.f == f && e.side == side {
+		a.diffCaretToLine(e, v.rows[i].sideLine(side))
 		return true
 	}
-	if !f.writable() {
-		a.fail("%s", locales.DiffEditOnlyLocal(filepath.Base(f.path)))
+	if !f.writableSide(side) {
+		if f.buffers != nil {
+			a.fail("%s: %s", f.buffers.names[side], locales.PrClosed())
+		} else {
+			a.fail("%s", locales.DiffEditOnlyLocal(filepath.Base(f.path)))
+		}
 		return false
 	}
 	if f.running || f.gitStale {
 		a.fail("%s", locales.DiffCatchingUpFiles())
 		return false
 	}
-	doc, ok := a.diffEditDoc(f)
+	doc, ok := a.diffEditDoc(f, side)
 	if !ok {
 		return false
 	}
-	e := a.diffEditOf(v, f, doc)
-	a.diffCaretToLine(e, v.rows[i].new)
-	v.editing = e
-	v.edited = doc
-	v.boundary = nil
+	if v.editing != nil {
+		v.editing.endCompose()
+		v.editing.drag = false
+	}
+	e := a.diffEditOf(v, f, doc, side)
+	a.diffCaretToLine(e, v.rows[i].sideLine(side))
+	v.editing, v.edited, v.boundary = e, doc, nil
 	v.pane.Focus()
 	a.invalidate()
 	return true
 }
 
-// endDiffEdit leaves the editing of a diff's writable side, which goes
-// back to reading it as a pager.
 func (a *app) endDiffEdit(v *diffView) {
 	if v.editing == nil {
 		return
 	}
+	v.editing.endCompose()
 	v.editing = nil
 	a.invalidate()
 }
@@ -282,12 +312,12 @@ func (a *app) diffCaretByRow(v *diffView, e *diffEdit, down, extend bool) {
 		if i < 0 || i >= len(v.rows) || v.rows[i].file != v.rows[row].file {
 			return // the edge of the file: the caret stays
 		}
-		if r := v.rows[i]; r.kind == rowLine && r.new >= 0 {
+		if r := v.rows[i]; r.kind == rowLine && r.sideLine(e.side) >= 0 {
 			break
 		}
 	}
 	snap := e.doc.buf.Snapshot()
-	line := v.rows[i].new
+	line := v.rows[i].sideLine(e.side)
 	s, en := snap.LineRange(min(line, snap.LineCount()-1))
 	caret := min(e.ed.sel[1], snap.Len())
 	cs, _ := snap.LineRange(snap.LineAt(caret))
@@ -309,7 +339,7 @@ func (v *diffView) caretRow(e *diffEdit) int {
 		hi = v.heads[file+1]
 	}
 	for i := v.heads[file]; i < hi; i++ {
-		if r := v.rows[i]; r.kind == rowLine && r.new == line {
+		if r := v.rows[i]; r.kind == rowLine && r.sideLine(e.side) == line {
 			return i
 		}
 	}
@@ -327,9 +357,9 @@ func (a *app) revealDiffCaret(v *diffView, e *diffEdit) {
 	y := editorPadY + float32(v.tops[row])*lineH
 	h := float32(v.rows[row].h) * lineH
 	if v.split {
-		y, h = a.sideRowY(v, 1, row)
+		y, h = a.sideRowY(v, e.side, row)
 	}
-	if v.split && !a.settings.DiffSyncScroll {
+	if v.split && e.side == 1 && !a.settings.DiffSyncScroll {
 		// The caret is of the right side, which scrolls in its own.
 		y -= a.rightShift(v)
 		end := max(0, 2*editorPadY+float32(v.tops[len(v.tops)-1])*lineH-v.viewH)
@@ -357,21 +387,25 @@ func (a *app) revealDiffCaret(v *diffView, e *diffEdit) {
 	line := snap.LineAt(caret)
 	s, _ := snap.LineRange(line)
 	text := ""
-	if line < len(e.f.new.lines) {
-		text = e.f.new.lines[line]
+	if line < len(e.f.side(e.side == 1).lines) {
+		text = e.f.side(e.side == 1).lines[line]
 	}
 	l := a.diffGeometry(v, v.split, v.viewW)
 	textX := l.textX
-	if v.split {
+	if v.split && e.side == 1 {
 		textX += l.right()
 	}
-	x, _ := diffCaretX(a.font, clipLine(text), caret-s, l.cols[0], false)
+	x, _ := diffCaretX(a.font, clipLine(text), caret-s, l.cols[btoi(v.split && e.side == 1)], false)
 	x += textX
+	right := v.viewW
+	if v.split && e.side == 0 {
+		right = l.half
+	}
 	switch {
 	case x < v.scroll.X+textX:
 		v.scroll.X = max(0, x-textX-4*a.font.charW)
-	case x > v.scroll.X+v.viewW-textPadR:
-		v.scroll.X = x - v.viewW + textPadR + 4*a.font.charW
+	case x > v.scroll.X+right-textPadR:
+		v.scroll.X = x - right + textPadR + 4*a.font.charW
 	}
 }
 
@@ -386,39 +420,52 @@ func (a *app) diffCaretAtPoint(v *diffView, e *diffEdit, x, y float32, extend bo
 		return false
 	}
 	r := v.rows[row]
-	if r.kind != rowLine || r.new < 0 {
+	f := v.files[r.file]
+	side := 1
+	if f.buffers != nil {
+		if v.split {
+			side = btoi(l.onRight(x))
+		} else if r.new < 0 || e.side == 0 && r.old >= 0 {
+			side = 0
+		}
+	} else if v.split && !l.onRight(x) {
 		return false
 	}
-	if v.split && !l.onRight(x) {
-		return false // the point is on the side that is read
+	if r.kind != rowLine || r.sideLine(side) < 0 {
+		return false
 	}
-	f := v.files[r.file]
-	if f != e.f {
-		// Another file's working tree side: it takes the keys.
-		if !f.writable() || !a.beginDiffEdit(v, row) {
+	if extend && e.drag && side != e.side {
+		return false
+	}
+	if f != e.f || side != e.side {
+		if !f.writableSide(side) {
+			return false
+		}
+		if !a.beginDiffEditSide(v, row, side) {
 			return false
 		}
 		e = v.editing
+		extend = false
 	}
 	wrap := v.built.wrap
 	lineH := a.font.lineH
 	// Where the row's text starts, and the row of a wrapped line y is in.
 	textX := l.textX
-	if v.split {
+	if v.split && e.side == 1 {
 		textX += l.right()
 	}
 	top := editorPadY + float32(v.tops[row])*lineH
 	if v.split {
-		top, _ = a.sideRowY(v, 1, row)
+		top, _ = a.sideRowY(v, e.side, row)
 	}
 	yInRow := y + v.scroll.Y - top
 	text := ""
-	if r.new < len(f.new.lines) {
-		text = clipLine(f.new.lines[r.new])
+	if line := r.sideLine(e.side); line < len(f.side(e.side == 1).lines) {
+		text = clipLine(f.side(e.side == 1).lines[line])
 	}
-	col := diffCaretCol(a.font, text, x+v.scroll.X-textX, yInRow, lineH, l.cols[btoi(v.split)], wrap)
+	col := diffCaretCol(a.font, text, x+v.scroll.X-textX, yInRow, lineH, l.cols[btoi(v.split && e.side == 1)], wrap)
 	snap := e.doc.buf.Snapshot()
-	s, _ := snap.LineRange(min(r.new, snap.LineCount()-1))
+	s, _ := snap.LineRange(min(r.sideLine(e.side), snap.LineCount()-1))
 	e.diffCaretTo(s+col, extend)
 	a.invalidate()
 	return true
@@ -435,7 +482,7 @@ func (a *app) diffEditPointerDown(v *diffView, e *diffEdit, ev ui.InputEvent) bo
 		return false
 	}
 	v.clearTextSel()
-	e.drag = true
+	v.editing.drag = true
 	a.invalidate()
 	return true
 }
@@ -523,7 +570,23 @@ func (a *app) openFileForEdit(path string) {
 // diffEditDoc returns the document a file of a diff is edited in, reading
 // the work tree's file into one when no editor has it, and whether its
 // text is what the diff compared.
-func (a *app) diffEditDoc(f *diffFile) (*document, bool) {
+func (a *app) diffEditDoc(f *diffFile, side int) (*document, bool) {
+	if f.buffers != nil {
+		doc, err := docByID(a, f.buffers.ids[side])
+		if err != nil {
+			a.fail("%s: %s", f.buffers.names[side], locales.PrClosed())
+			return nil, false
+		}
+		if doc.locked() {
+			a.fail("%s", locales.DiffStillReading())
+			return nil, false
+		}
+		if doc.buf.Version() != f.buffers.snapshots[side].Version() {
+			a.fail("%s", locales.DiffCatchingUp())
+			return nil, false
+		}
+		return doc, true
+	}
 	if doc := a.diffDoc(f); doc != nil {
 		if doc.locked() {
 			a.fail("%s", locales.DiffStillReading())
@@ -563,19 +626,21 @@ func (a *app) diffEditDoc(f *diffFile) (*document, bool) {
 
 // diffEditOf returns the edit a diff keeps for a file, making it when it
 // has none yet: an editor of the file's document, which the diff types in.
-func (a *app) diffEditOf(v *diffView, f *diffFile, doc *document) *diffEdit {
+func (a *app) diffEditOf(v *diffView, f *diffFile, doc *document, side int) *diffEdit {
 	for _, e := range v.edits {
-		if e.f != f {
+		if e.f != f || e.side != side {
 			continue
 		}
 		if e.doc != doc {
 			// The file's document was closed and made again.
 			e.ed.release()
 			e.doc, e.ed = doc, newEditor(doc)
+			e.ed.bufferDiff = f.buffers != nil
 		}
 		return e
 	}
-	e := &diffEdit{f: f, doc: doc, ed: newEditor(doc)}
+	e := &diffEdit{f: f, doc: doc, ed: newEditor(doc), side: side}
+	e.ed.bufferDiff = f.buffers != nil
 	v.edits = append(v.edits, e)
 	return e
 }
@@ -608,7 +673,11 @@ func (a *app) runDiffEdits(v *diffView, focused bool) {
 	// The file being edited may have gone from the diff, or its document
 	// been closed.
 	if e := v.editing; e != nil {
-		if e.doc != a.diffDoc(e.f) || !slices.Contains(v.files, e.f) {
+		current := a.diffDoc(e.f)
+		if e.f.buffers != nil {
+			current, _ = docByID(a, e.f.buffers.ids[e.side])
+		}
+		if e.doc != current || !slices.Contains(v.files, e.f) {
 			v.editing = nil
 		}
 	}
@@ -756,26 +825,23 @@ func (a *app) paintDiffEdit(pt *ui.Painter, v *diffView, e *diffEdit, l diffGeom
 		return
 	}
 	snap := e.doc.buf.Snapshot()
-	if snap.Len() == 0 {
-		return
-	}
 	lo, hi := min(e.ed.sel[0], e.ed.sel[1]), max(e.ed.sel[0], e.ed.sel[1])
 	lo, hi = min(lo, snap.Len()), min(hi, snap.Len())
 	lineLo, lineHi := snap.LineAt(lo), snap.LineAt(hi)
 	caret := min(e.ed.sel[1], snap.Len())
 	caretLine := snap.LineAt(caret)
 	lineH := fnt.lineH
-	cols := l.cols[btoi(v.split)]
+	cols := l.cols[btoi(v.split && e.side == 1)]
 	selCol := p.selected
 	if !focused {
 		selCol = p.selectedDim
 	}
 	for i := first; i <= last; i++ {
 		row := &v.rows[i]
-		if row.file != file || row.kind != rowLine || row.new < 0 {
+		if row.file != file || row.kind != rowLine || row.sideLine(e.side) < 0 {
 			continue
 		}
-		if row.new < lineLo || row.new > lineHi {
+		if row.sideLine(e.side) < lineLo || row.sideLine(e.side) > lineHi {
 			continue
 		}
 		// Where the row's text starts, and where it shows: the working
@@ -784,28 +850,30 @@ func (a *app) paintDiffEdit(pt *ui.Painter, v *diffView, e *diffEdit, l diffGeom
 		x := r.X + l.textX
 		y := r.Y + editorPadY + float32(v.tops[i])*lineH
 		if v.split {
-			x += l.right()
-			ys, _ := a.sideRowY(v, 1, i)
+			if e.side == 1 {
+				x += l.right()
+			}
+			ys, _ := a.sideRowY(v, e.side, i)
 			y = r.Y + ys
 		}
-		if row.new < snap.LineCount() {
-			s0, s1 := snap.LineRange(row.new)
+		if row.sideLine(e.side) < snap.LineCount() {
+			s0, s1 := snap.LineRange(row.sideLine(e.side))
 			text := clipLine(snap.Slice(s0, s1))
 			from, to := 0, utf8.RuneCountInString(text)
-			if row.new == lineLo {
+			if row.sideLine(e.side) == lineLo {
 				from = lo - s0
 			}
-			if row.new == lineHi {
+			if row.sideLine(e.side) == lineHi {
 				to = hi - s0
 			}
 			for _, rc := range diffSelRects(fnt, text, from, to, x, y, cols, v.built.wrap) {
 				pt.Fill(rc, selCol, 0)
 			}
 		}
-		if row.new == caretLine && focused {
+		if row.sideLine(e.side) == caretLine && focused {
 			text := ""
-			if caretLine < len(e.f.new.lines) {
-				text = clipLine(e.f.new.lines[caretLine])
+			if caretLine < len(e.f.side(e.side == 1).lines) {
+				text = clipLine(e.f.side(e.side == 1).lines[caretLine])
 			}
 			cs, _ := snap.LineRange(caretLine)
 			cx, k := diffCaretX(fnt, text, caret-cs, cols, v.built.wrap)
@@ -858,16 +926,17 @@ func (a *app) diffCaretRect(v *diffView, e *diffEdit, l diffGeometry) (ui.Rect, 
 	line := snap.LineAt(caret)
 	s, _ := snap.LineRange(line)
 	text := ""
-	if line < len(e.f.new.lines) {
-		text = clipLine(e.f.new.lines[line])
+	if line < len(e.f.side(e.side == 1).lines) {
+		text = clipLine(e.f.side(e.side == 1).lines[line])
 	}
-	x, k := diffCaretX(a.font, text, caret-s, l.cols[btoi(v.split)], v.built.wrap)
+	x, k := diffCaretX(a.font, text, caret-s, l.cols[btoi(v.split && e.side == 1)], v.built.wrap)
 	y := editorPadY + float32(v.tops[row])*a.font.lineH
 	x += l.textX
 	if v.split {
-		// The caret's line stands where the right side has it.
-		x += l.right()
-		y, _ = a.sideRowY(v, 1, row)
+		if e.side == 1 {
+			x += l.right()
+		}
+		y, _ = a.sideRowY(v, e.side, row)
 	}
 	y += float32(k) * a.font.lineH
 	return ui.Rect{X: x - 1, Y: y, W: 3, H: a.font.lineH}, true
@@ -898,13 +967,14 @@ func (v *diffView) diffChosenText() string {
 // diffEditTarget returns the file of the row a diff would begin to edit,
 // nil when none of it may be.
 func (a *app) diffEditTarget(v *diffView) *diffFile {
-	i := v.editRow(v.focusRow())
+	side := v.editSide(v.focusRow())
+	i := v.editRow(v.focusRow(), side)
 	if i < 0 {
 		return nil
 	}
 	// The rows may stand for files read again since, as a repository
 	// switch clears them.
-	if k := v.rows[i].file; k < len(v.files) && v.files[k].writable() {
+	if k := v.rows[i].file; k < len(v.files) && v.files[k].writableSide(side) {
 		return v.files[k]
 	}
 	return nil

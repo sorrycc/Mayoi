@@ -7,6 +7,9 @@ needs a `## <version>` section here, or its build fails.
 
 - **Download** and **Upload** of remote files and folders now work on Windows and in WSL.
 - Dragging a file in the explorer no longer stops when you scroll with the wheel.
+- Plugins can compare two open buffers, including unsaved tabs, in the native Diff view.
+- Buffer comparisons follow edits and keep the last text when a source tab closes.
+- Edit either live source directly in a buffer comparison, including unsaved tabs.
 - Plugins keep targeting their source documents when you switch windows.
 - Plugins can read a document's text and version together and track untitled documents closing.
 - Plugin tab actions receive the tab you chose, including unsaved buffers.

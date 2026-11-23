@@ -220,6 +220,8 @@ func (h *pluginHost) Call(p *plugin.Plugin, method string, raw json.RawMessage) 
 	main := func(fn func(*app) (any, error)) (any, error) { return h.inWindow(args.WindowID, fn) }
 	wait := func(fn func(*app, func(any, error))) (any, error) { return h.waitInWindow(args.WindowID, fn) }
 	switch method {
+	case "window.showDiff":
+		return h.showBufferDiff(raw)
 	case "commands.run":
 		if h.reg.CommandPlugin(args.ID) != nil {
 			var arg any

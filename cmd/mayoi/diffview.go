@@ -866,11 +866,11 @@ func (a *app) openDiffFile(v *diffView) {
 		row = v.starts[v.current]
 	}
 	if len(v.files) > 0 && v.files[0].buffers != nil {
-		line := 0
+		r := diffRow{old: -1, new: -1}
 		if row >= 0 && row < len(v.rows) {
-			line = v.rows[row].new
+			r = v.rows[row]
 		}
-		a.openBufferSource(v.files[0].buffers.ids[1], line)
+		a.openBufferRow(v.files[0], r)
 		return
 	}
 	if path, line := v.lineAt(row); path != "" {
@@ -2326,7 +2326,7 @@ func (a *app) activateRow(v *diffView, i int, open bool) {
 	case rowLine, rowHunk:
 		if open {
 			if f.buffers != nil {
-				a.openBufferSource(f.buffers.ids[1], r.new)
+				a.openBufferRow(f, r)
 				return
 			}
 			path, line := v.lineAt(i)

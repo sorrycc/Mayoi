@@ -603,7 +603,7 @@ the ordinary source tabs. Buffer comparisons initially show full text. Layout
 can also be `"split"` or `"inline"`; omitting it uses the user's Diff setting.
 The comparison follows in-memory edits, including unsaved text, without writing
 temporary files or requiring a folder or Git repository. Closing the last view
-of a source keeps its final snapshot, marks that side closed and makes it read-only. A new document
-at the same path does not replace it. Buffer comparisons are not restored next
-session. Closed references and cross-window sources reject the promise.
-
+of a source keeps its final snapshot, marks that side closed and makes it
+read-only. A new document at the same path does not replace it. Buffer
+comparisons are not restored next session. Closed references and cross-window
+sources reject the promise.

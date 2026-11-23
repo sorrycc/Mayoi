@@ -141,6 +141,24 @@ func (a *app) openBufferSource(id, line int) {
 	}
 }
 
+// openBufferRow opens the source a row's line belongs to: the right one
+// when it has the line and is open, else the left, else whichever is open.
+func (a *app) openBufferRow(f *diffFile, r diffRow) {
+	b := f.buffers
+	for _, side := range []int{1, 0} {
+		if line := r.sideLine(side); line >= 0 && !b.closed[side] {
+			a.openBufferSource(b.ids[side], line)
+			return
+		}
+	}
+	for _, side := range []int{1, 0} {
+		if !b.closed[side] {
+			a.openBufferSource(b.ids[side], 0)
+			return
+		}
+	}
+}
+
 func (h *pluginHost) showBufferDiff(raw json.RawMessage) (any, error) {
 	var args struct {
 		Left, Right plugin.DocumentRef

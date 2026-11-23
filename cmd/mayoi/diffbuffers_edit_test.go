@@ -177,3 +177,38 @@ func TestBufferDiffEditSaveAsAndComposition(t *testing.T) {
 		t.Fatal("Save As changed source identity")
 	}
 }
+
+// Opening a row goes to the source that has its line, and past a closed
+// source to the one still open.
+func TestBufferDiffOpensTheSourceOfTheRow(t *testing.T) {
+	hs, v, tabs := bufferEditHarness(t, "same\nleft only\n", "same\n")
+	a := hs.a
+	f := v.files[0]
+	row := -1
+	for i, r := range v.rows {
+		if r.kind == rowLine && r.old == 1 && r.new < 0 {
+			row = i
+		}
+	}
+	if row < 0 {
+		t.Fatal("no row only the left source has")
+	}
+	a.openBufferRow(f, v.rows[row])
+	hs.settle()
+	if a.activeTab() != tabs[0] {
+		t.Fatal("a left-only row opened the right source")
+	}
+	a.dropTab(tabs[1])
+	col := a.fileColumn()
+	for i, tab := range col.tabs {
+		if tab.diff == v {
+			a.activate(col, i, true)
+		}
+	}
+	hs.settleDiff(v)
+	a.openBufferRow(f, v.rows[bufferSideRow(t, v, 1, 0)])
+	hs.settle()
+	if a.activeTab() != tabs[0] {
+		t.Fatal("a closed right source left nothing opened")
+	}
+}

@@ -3,7 +3,7 @@
 The update window shows the section of the version it offers. Every release
 needs a `## <version>` section here, or its build fails.
 
-## Unreleased
+## 0.23.3
 
 - Opening a folder with `mayoi <folder>` brings its project window to the front.
 - Clicking a file's “Could not read” page or **Try Again** now makes that tab the active one.

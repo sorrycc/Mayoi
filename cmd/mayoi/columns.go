@@ -596,6 +596,24 @@ func (a *app) focusTab(t *colTab) {
 	a.focus = paneEditor
 }
 
+// keyboardTo lets go of the keyboard asked for by files still being read
+// out of sight of col, which the keyboard went to meanwhile: read, they
+// would take it back from there.
+func (a *app) keyboardTo(col *column) {
+	shown := col.tab()
+	for _, doc := range a.docs {
+		if !doc.unread() {
+			continue
+		}
+		for _, ed := range doc.views {
+			if shown == nil || shown.ed != ed {
+				ed.focusNext = false
+				ed.vscroll.CancelFocus()
+			}
+		}
+	}
+}
+
 // focusColumn gives the keyboard to the tab shown in the column that had
 // it last, or to an empty column New Column made, which holds it itself.
 func (a *app) focusColumn() {

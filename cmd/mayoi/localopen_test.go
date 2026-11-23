@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"slices"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -12,6 +13,7 @@ import (
 
 	"github.com/egoist/mygo/ui"
 
+	"mayoi/internal/remote"
 	"mayoi/internal/settings"
 	"mayoi/internal/vfs"
 	"mayoi/locales"
@@ -301,4 +303,162 @@ func TestPluginOpenAnswersOnceRead(t *testing.T) {
 			t.Fatal("workspace.open never answered")
 		}
 	}
+}
+
+// failedBeside opens other.txt, then a file that cannot be read in a
+// column beside it, and gives the keyboard back to other.txt with an edit
+// of its own.
+func failedBeside(t *testing.T, name string, data []byte) (*harness, *column, *editor, *editor) {
+	t.Helper()
+	hs := newHarness(t, true)
+	a := hs.a
+	other := hs.path("other.txt")
+	if err := os.WriteFile(other, []byte("other\n"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	a.openFile(other, true)
+	hs.settle()
+	kept := a.activeEditor()
+	a.splitRight()
+	hs.settle()
+	if data != nil {
+		if err := os.WriteFile(hs.path(name), data, 0600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	a.openFile(hs.path(name), true)
+	hs.settle()
+	failed := a.activeEditor()
+	failCol := a.column()
+	if failed == nil || failed.sync != syncLoadFailed {
+		t.Fatal("file did not fail")
+	}
+	a.focusColumnBy(-1)
+	hs.settle()
+	kept.buf.Replace(0, 0, "edited ")
+	hs.settle()
+	if a.activeEditor() != kept {
+		t.Fatal("other column not active")
+	}
+	return hs, failCol, failed, kept
+}
+
+// pressFailure presses on a failure page at a point beside the path it shows.
+func pressFailure(t *testing.T, hs *harness, path string, dy float32) {
+	t.Helper()
+	r, ok := hs.tt.Find(path)
+	if !ok {
+		t.Fatal("failure page lost its path")
+	}
+	hs.tt.ClickAt(r.X+r.W/2, r.Y+r.H/2+dy)
+	hs.settle()
+}
+
+func TestLocalOpenFailurePressActivates(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		dy   float32
+	}{{"text", 0}, {"blank", 80}} {
+		t.Run(tc.name, func(t *testing.T) {
+			hs, failCol, failed, kept := failedBeside(t, "report.md", nil)
+			a := hs.a
+			pressFailure(t, hs, failed.path, tc.dy)
+			if a.column() != failCol || a.activeEditor() != failed || a.focus != paneEditor {
+				t.Fatal("press on failure page did not activate its tab")
+			}
+			if !hs.tt.HasText(failed.path) || failed.loadErr == nil || !failed.locked() {
+				t.Fatal("failure page lost its error or unlocked")
+			}
+			a.closeActive()
+			hs.settle()
+			if slices.Contains(a.docs, failed.document) || !slices.Contains(a.docs, kept.document) || kept.buf.String() != "edited other\n" {
+				t.Fatal("Close Tab did not close the failed tab alone")
+			}
+		})
+	}
+}
+
+func TestLocalOpenFailureRetryActivates(t *testing.T) {
+	hs, failCol, failed, _ := failedBeside(t, "report.md", nil)
+	a := hs.a
+	release, _ := blockLocalReads(t, a)
+	os.WriteFile(failed.path, []byte("recovered\n"), 0600)
+	if err := hs.tt.Click("Try Again"); err != nil {
+		t.Fatal(err)
+	}
+	step(hs.tt)
+	step(hs.tt)
+	if a.column() != failCol || a.activeEditor() != failed {
+		t.Fatal("Try Again did not activate its tab")
+	}
+	if a.localReads != 1 {
+		t.Fatalf("Try Again read %d times", a.localReads)
+	}
+	release()
+	hs.settle()
+	if failed.unread() || failed.buf.String() != "recovered\n" {
+		t.Fatal("retry did not recover")
+	}
+	if !hs.tt.Focused("Editor report.md") || hs.tt.Focused("Editor other.txt") {
+		t.Fatal("recovered editor did not take the keyboard")
+	}
+}
+
+func TestLocalOpenFailureRetryLeftAlone(t *testing.T) {
+	hs, failCol, failed, kept := failedBeside(t, "report.md", nil)
+	a := hs.a
+	release, _ := blockLocalReads(t, a)
+	os.WriteFile(failed.path, []byte("recovered\n"), 0600)
+	if err := hs.tt.Click("Try Again"); err != nil {
+		t.Fatal(err)
+	}
+	step(hs.tt)
+	step(hs.tt)
+	if a.column() != failCol {
+		t.Fatal("Try Again did not activate its tab")
+	}
+	// Back to the other column's text, by the pointer, while it reads.
+	r, ok := hs.tt.Find("Editor other.txt")
+	if !ok {
+		t.Fatal("other text not shown")
+	}
+	hs.tt.ClickAt(r.X+r.W/2, r.Y+r.H/2)
+	step(hs.tt)
+	step(hs.tt)
+	if a.activeEditor() != kept {
+		t.Fatal("press on other text did not activate it")
+	}
+	release()
+	hs.settle()
+	if failed.unread() {
+		t.Fatal("retry did not recover")
+	}
+	if a.activeEditor() != kept || !hs.tt.Focused("Editor other.txt") || hs.tt.Focused("Editor report.md") {
+		t.Fatal("retry that ended took the keyboard from the other column")
+	}
+}
+
+func TestFailurePageWithoutRetryActivates(t *testing.T) {
+	t.Run("binary", func(t *testing.T) {
+		hs, failCol, failed, _ := failedBeside(t, "blob.bin", []byte{0, 1, 2, 0, 3})
+		if failed.loadErr != errBinary || hs.tt.HasText("Try Again") {
+			t.Fatal("binary failure shows Try Again")
+		}
+		pressFailure(t, hs, failed.path, 40)
+		if hs.a.column() != failCol || hs.a.activeEditor() != failed {
+			t.Fatal("press on binary failure did not activate its tab")
+		}
+	})
+	t.Run("remote", func(t *testing.T) {
+		hs, failCol, failed, _ := failedBeside(t, "report.md", nil)
+		failed.path, failed.loadErr = "/ssh:box/srv/report.md", remote.ErrOffline
+		hs.settle()
+		if hs.tt.HasText("Try Again") || !hs.tt.HasText(locales.RemoteShowsOnce(failed.name(), "box")) {
+			t.Fatal("remote failure page not shown")
+		}
+		pressFailure(t, hs, failed.path, 40)
+		if hs.a.column() != failCol || hs.a.activeEditor() != failed {
+			t.Fatal("press on remote failure did not activate its tab")
+		}
+	})
 }

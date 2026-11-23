@@ -155,6 +155,10 @@ reloading from disk can all be undone. Undoing back to the saved text marks the 
   caret. Click either to jump there.
 - A folder in the breadcrumbs, clicked, shows its files in a tree below it, apart from the Explorer's: open its
   folders, and choose a file to show it in that column, with the mouse or the arrows and Enter.
+- The file's own name in the breadcrumbs, clicked, lists the symbols of the file in a box below it, as a folder of
+  the path lists its files: the declarations in the order of the document, or the headings of a Markdown note. The box
+  opens on the symbol the caret is in, and a click, or the arrows and Enter, goes to one as **Go → Go to Symbol…**
+  does. In the Reading view, a heading chosen scrolls the note to it.
 
 ### Git
 

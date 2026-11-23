@@ -31,6 +31,7 @@ needs a `## <version>` section here, or its build fails.
 - Branches behind their upstream are highlighted and show a pull shortcut on hover.
 - Branches ahead of their upstream are highlighted and show a push shortcut on hover.
 - Branches ahead or behind their upstream show both commit counts, including zero.
+- Click the file's name in the breadcrumbs to list the file's symbols, in its own order.
 
 ## 0.23.2
 

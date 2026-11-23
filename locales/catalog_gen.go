@@ -4816,6 +4816,16 @@ func (msgs Messages) CrumbsEmpty() string {
 	return Catalog.Format(msgs.locale, "crumbsEmpty", nil)
 }
 
+// CrumbsCurrentFileTip says "Symbols in {name}"
+// in the language the app shows.
+func CrumbsCurrentFileTip(name string) string { return In(i18n.Locale()).CrumbsCurrentFileTip(name) }
+
+// CrumbsCurrentFileTip says "Symbols in {name}"
+// in the language of msgs.
+func (msgs Messages) CrumbsCurrentFileTip(name string) string {
+	return Catalog.Format(msgs.locale, "crumbsCurrentFileTip", map[string]any{"name": name})
+}
+
 // CrumbsFolderTip says "Files in {name}"
 // in the language the app shows.
 func CrumbsFolderTip(name string) string { return In(i18n.Locale()).CrumbsFolderTip(name) }
@@ -12724,6 +12734,16 @@ func SymbolNoFile() string { return In(i18n.Locale()).SymbolNoFile() }
 // in the language of msgs.
 func (msgs Messages) SymbolNoFile() string {
 	return Catalog.Format(msgs.locale, "symbolNoFile", nil)
+}
+
+// SymbolsNone says "No symbols"
+// in the language the app shows.
+func SymbolsNone() string { return In(i18n.Locale()).SymbolsNone() }
+
+// SymbolsNone says "No symbols"
+// in the language of msgs.
+func (msgs Messages) SymbolsNone() string {
+	return Catalog.Format(msgs.locale, "symbolsNone", nil)
 }
 
 // SymbolNoMatches says "No matching symbols"

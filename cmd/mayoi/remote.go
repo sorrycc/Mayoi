@@ -345,9 +345,10 @@ func (a *app) remoteLoaded(d *document, path string, info fs.FileInfo, data []by
 		data, enc, long, err = decodeDocument(path, data)
 	}
 	if err != nil {
-		if !remote.Is(path) && errors.Is(err, errLongLine) {
-			// A local file with a line too long for the usual read is
-			// read whole instead: its text shows, long lines and all.
+		if !remote.Is(path) && errors.Is(err, errLongLine) && a.longLineWhole(path) {
+			// A file over the threshold with a line too long for the
+			// usual read is read whole instead: its text shows, long
+			// lines and all. A smaller one keeps the editor's guard.
 			d.sync = syncIdle
 			a.loadLog(d)
 			return

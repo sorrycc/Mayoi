@@ -200,9 +200,9 @@ func TestRestoresWhereTabsWere(t *testing.T) {
 	}
 }
 
-// A restored file with a line too long is read whole: its text shows,
-// long line and all, instead of failing to open.
-func TestRestoreReadsLongLineWhole(t *testing.T) {
+// A restored file with a line too long keeps its error tab without
+// laying out the text, which would hang the window.
+func TestRestoreRetainsLongLineFailure(t *testing.T) {
 	root := workspaceFixture(t)
 	long := filepath.Join(root, "index.js.map")
 	os.WriteFile(long, []byte(strings.Repeat("x", maxLineBytes+1)), 0o644)
@@ -221,8 +221,8 @@ func TestRestoreReadsLongLineWhole(t *testing.T) {
 	if names := allTabNames(a); !slices.Equal(names, []string{"index.js.map", "main.go"}) {
 		t.Fatalf("tabs %v", names)
 	}
-	if d := a.cols[0].tabs[0].ed; !d.logWhole || d.buf.Len() != maxLineBytes+1 {
-		t.Fatal("restored long line was not read whole")
+	if d := a.cols[0].tabs[0].ed; d.sync != syncLoadFailed || d.loadErr != errLongLine || d.buf.Len() != 0 || tt.HasText("Try Again") {
+		t.Fatal("restored long line did not retain its failure without loading text")
 	}
 }
 

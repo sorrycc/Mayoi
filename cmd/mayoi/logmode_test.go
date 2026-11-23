@@ -565,8 +565,9 @@ func logFirstLineOf(s string) string {
 }
 
 // A file under the threshold whose line is too long for the usual read
-// opens whole as well, instead of failing: its long line shows.
-func TestLogModeLongLineUnderThreshold(t *testing.T) {
+// keeps the editor's guard and fails to open, as it does without the
+// whole-file read; only a file over the threshold is read whole.
+func TestLogModeLongLineUnderThresholdRefuses(t *testing.T) {
 	hs := newHarness(t, true)
 	hs.a.settings.LargeFileModeMB = 1
 	var b strings.Builder
@@ -580,14 +581,11 @@ func TestLogModeLongLineUnderThreshold(t *testing.T) {
 	hs.a.openFile(path, true)
 	hs.settle()
 	d := hs.a.activeEditor()
-	if d == nil || d.unread() {
-		t.Fatal("the file did not open")
+	if d == nil {
+		t.Fatal("the file did not open a tab")
 	}
-	if !d.logWhole {
-		t.Fatal("the file was not read whole")
-	}
-	if got := d.buf.String(); got != b.String() {
-		t.Fatalf("the buffer holds %d bytes, want %d", len(got), b.Len())
+	if d.sync != syncLoadFailed || d.loadErr != errLongLine || d.buf.Len() != 0 {
+		t.Fatalf("sync %d, err %v, %d bytes", d.sync, d.loadErr, d.buf.Len())
 	}
 }
 

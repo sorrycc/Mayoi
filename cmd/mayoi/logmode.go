@@ -31,6 +31,19 @@ func (a *app) logThreshold() int64 {
 	return 0
 }
 
+// longLineWhole reports whether a file with a line too long for the
+// usual read is over the threshold, so that it is read whole instead of
+// refused: a big file shows all of its text, a small one keeps the
+// editor's guard.
+func (a *app) longLineWhole(path string) bool {
+	threshold := a.logThreshold()
+	if threshold <= 0 {
+		return false
+	}
+	info, err := os.Stat(path)
+	return err == nil && !info.IsDir() && info.Size() > threshold
+}
+
 // loadLog reads a document's file in the background: a file over the
 // threshold and within logWholeMax is read whole, with its progress in
 // the loading view; a larger one opens in windows, of an index of its

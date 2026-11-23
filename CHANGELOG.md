@@ -29,6 +29,7 @@ needs a `## <version>` section here, or its build fails.
 - Branches ahead of their upstream are highlighted and show a push shortcut on hover.
 - Branches ahead or behind their upstream show both commit counts, including zero.
 - Choose One Dark Pro Flat from **View → Theme** for a flat dark palette in the editor and terminal.
+- One Dark Pro Flat hides the sidebar divider at rest, and you can still drag it to resize.
 
 ## 0.23.2
 

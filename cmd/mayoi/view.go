@@ -143,7 +143,11 @@ func (a *app) view(c *ui.Context) {
 				}
 				// Its splitter is along the edge facing the editors.
 				at, dir := edgeRight, float32(1)
-				box := ui.Column(c.Key("sidebar")).Width(w.SidebarWidth).Shrink(0).BorderColor(p.seam())
+				seam := p.seam()
+				if s.Theme == themeOneDarkProFlat {
+					seam = ui.Color{}
+				}
+				box := ui.Column(c.Key("sidebar")).Width(w.SidebarWidth).Shrink(0).BorderColor(seam)
 				a.grained(box)
 				if s.SidebarRight {
 					at, dir = edgeLeft, -1

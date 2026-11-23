@@ -1146,6 +1146,40 @@ func TestSplittersResize(t *testing.T) {
 	}
 }
 
+func TestFlatSidebarSplitter(t *testing.T) {
+	for _, side := range []string{"left", "right"} {
+		t.Run(side, func(t *testing.T) {
+			hs := newHarness(t, true)
+			a, tt := hs.a, hs.tt
+			a.setTheme(themeOneDarkProFlat)
+			if side == "right" {
+				a.run("view.sidebarRight")
+			}
+			hs.settle()
+
+			w := a.window.SidebarWidth
+			edge, x, delta := int(w)-1, w-3, float32(60)
+			if side == "right" {
+				edge, x, delta = 1200-int(w), 1200-w+2, -60
+			}
+			const y = 300
+			got := tt.Image().RGBAAt(edge, y)
+			if b := a.pal.chrome; got.R != b.R || got.G != b.G || got.B != b.B {
+				t.Errorf("idle sidebar edge is %v, want the background %v", got, b)
+			}
+
+			tt.Press(x, y)
+			tt.Move(x+delta/2, y)
+			tt.Move(x+delta, y)
+			tt.Release(x+delta, y)
+			hs.settle()
+			if got := a.window.SidebarWidth; got < w+50 || got > w+70 {
+				t.Errorf("sidebar width is %v after dragging 60 from %v", got, w)
+			}
+		})
+	}
+}
+
 // On the right, the sidebar's splitter is along its left edge, and
 // dragging it left widens it.
 func TestSidebarOnTheRight(t *testing.T) {

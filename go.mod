@@ -32,4 +32,4 @@ require (
 	honnef.co/go/tools v0.8.2 // indirect
 )
 
-replace github.com/egoist/mygo => github.com/sorrycc/mygo v0.4.9-0.20261121092846-9a265f01db2c
+replace github.com/egoist/mygo => github.com/sorrycc/mygo v0.4.9-0.20261123003405-ca12826f8663

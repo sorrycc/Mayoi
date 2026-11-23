@@ -1,7 +1,9 @@
 package main
 
 import (
+	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -186,5 +188,48 @@ func TestExplorerDragMovesRemoteFiles(t *testing.T) {
 	toasted(hs, locales.FailMove("a.txt", locales.ErrNameExists()))
 	if out, err := conn.Run(nil, `cat "$1/src/a.txt"; test -f "$1/a.txt"`, dir); err != nil || string(out) != "needle here\n" {
 		t.Fatalf("src/a.txt holds %q: %v", out, err)
+	}
+}
+
+// A file dragged in the explorer stays dragged while the wheel scrolls its
+// row out of sight and back, as a native transfer too (#242).
+func TestExplorerDragSurvivesWheel(t *testing.T) {
+	for _, native := range []bool{false, true} {
+		t.Run(fmt.Sprintf("native=%v", native), func(t *testing.T) {
+			hs := newHarness(t, true)
+			hs.h.native = native
+			for i := range 80 {
+				if err := os.WriteFile(filepath.Join(hs.root, fmt.Sprintf("zz%02d.txt", i)), nil, 0o644); err != nil {
+					t.Fatal(err)
+				}
+			}
+			hs.until("the new files", func() bool { return hs.tt.HasText("zz00.txt") })
+			tt := hs.tt
+			x, y := moveRowAt(t, hs, "README.md")
+			tt.Press(x, y)
+			step(tt)
+			for i := 1; i <= 4; i++ {
+				tt.Move(x+float32(i)*4, y+float32(i)*4)
+				step(tt)
+			}
+			step(tt)
+			if !hs.a.dragging {
+				t.Fatal("no drag started")
+			}
+			for _, dy := range []float32{2000, -2000} {
+				tt.Wheel(x, y, 0, dy)
+				for range 30 {
+					step(tt)
+				}
+			}
+			tt.Move(x+20, y+20)
+			step(tt)
+			step(tt)
+			if !hs.a.dragging {
+				t.Fatal("the wheel ended the drag")
+			}
+			tt.Release(x+20, y+20)
+			hs.settle()
+		})
 	}
 }

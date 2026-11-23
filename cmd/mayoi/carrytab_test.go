@@ -68,7 +68,13 @@ func (h railHost) projectOf(t *colTab) *app { return h.d.projectOf(t) }
 
 // A tab dragged onto the square of another project rests there until the
 // project shows, then goes on with the pointer to drop in a column there.
-func TestCarryTabOverRail(t *testing.T) {
+func TestCarryTabOverRail(t *testing.T) { carryTabOverRail(t, false) }
+
+// The same into a project whose empty column New Column made, which holds
+// the keyboard: showing the project does not take it then.
+func TestCarryTabIntoNewColumn(t *testing.T) { carryTabOverRail(t, true) }
+
+func carryTabOverRail(t *testing.T, held bool) {
 	src, dst := workspaceFixture(t), filepath.Join(t.TempDir(), "carrydst")
 	if err := os.Mkdir(dst, 0o755); err != nil {
 		t.Fatal(err)
@@ -76,6 +82,9 @@ func TestCarryTabOverRail(t *testing.T) {
 	f, hs, tt := railFixture(t, src, dst)
 	from, a := hs[0].a, hs[1].a
 	a.host = railHost{a.host.(*fakeHost), hs[1]}
+	if held {
+		a.cols[0].holds = holdHeld
+	}
 	path := filepath.Join(src, "README.md")
 	from.openFile(path, true)
 	tab := from.column().tab()

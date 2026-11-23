@@ -2388,6 +2388,16 @@ func (msgs Messages) CmdFileSettings() string {
 	return Catalog.Format(msgs.locale, "cmdFileSettings", nil)
 }
 
+// CmdFileQuit says "Quit Mayoi"
+// in the language the app shows.
+func CmdFileQuit() string { return In(i18n.Locale()).CmdFileQuit() }
+
+// CmdFileQuit says "Quit Mayoi"
+// in the language of msgs.
+func (msgs Messages) CmdFileQuit() string {
+	return Catalog.Format(msgs.locale, "cmdFileQuit", nil)
+}
+
 // CmdFileUninstallCLI says "Uninstall 'mayoi' Command"
 // in the language the app shows.
 func CmdFileUninstallCLI() string { return In(i18n.Locale()).CmdFileUninstallCLI() }
@@ -3388,6 +3398,26 @@ func (msgs Messages) CmdViewNewTerminal() string {
 	return Catalog.Format(msgs.locale, "cmdViewNewTerminal", nil)
 }
 
+// CmdViewNewColumnDown says "New Column Below"
+// in the language the app shows.
+func CmdViewNewColumnDown() string { return In(i18n.Locale()).CmdViewNewColumnDown() }
+
+// CmdViewNewColumnDown says "New Column Below"
+// in the language of msgs.
+func (msgs Messages) CmdViewNewColumnDown() string {
+	return Catalog.Format(msgs.locale, "cmdViewNewColumnDown", nil)
+}
+
+// CmdViewNewColumnRight says "New Column Right"
+// in the language the app shows.
+func CmdViewNewColumnRight() string { return In(i18n.Locale()).CmdViewNewColumnRight() }
+
+// CmdViewNewColumnRight says "New Column Right"
+// in the language of msgs.
+func (msgs Messages) CmdViewNewColumnRight() string {
+	return Catalog.Format(msgs.locale, "cmdViewNewColumnRight", nil)
+}
+
 // CmdViewNextColumn says "Focus Next Column"
 // in the language the app shows.
 func CmdViewNextColumn() string { return In(i18n.Locale()).CmdViewNextColumn() }
@@ -3496,6 +3526,16 @@ func CmdViewSidebarRight() string { return In(i18n.Locale()).CmdViewSidebarRight
 // in the language of msgs.
 func (msgs Messages) CmdViewSidebarRight() string {
 	return Catalog.Format(msgs.locale, "cmdViewSidebarRight", nil)
+}
+
+// CmdViewSplitDown says "Split Down"
+// in the language the app shows.
+func CmdViewSplitDown() string { return In(i18n.Locale()).CmdViewSplitDown() }
+
+// CmdViewSplitDown says "Split Down"
+// in the language of msgs.
+func (msgs Messages) CmdViewSplitDown() string {
+	return Catalog.Format(msgs.locale, "cmdViewSplitDown", nil)
 }
 
 // CmdViewSplitRight says "Split Right"
@@ -4702,6 +4742,36 @@ func CrashRecoveredQuestion() string { return In(i18n.Locale()).CrashRecoveredQu
 // in the language of msgs.
 func (msgs Messages) CrashRecoveredQuestion() string {
 	return Catalog.Format(msgs.locale, "crashRecoveredQuestion", nil)
+}
+
+// QuitTitle says "Quit Mayoi?"
+// in the language the app shows.
+func QuitTitle() string { return In(i18n.Locale()).QuitTitle() }
+
+// QuitTitle says "Quit Mayoi?"
+// in the language of msgs.
+func (msgs Messages) QuitTitle() string {
+	return Catalog.Format(msgs.locale, "quitTitle", nil)
+}
+
+// QuitButton says "Quit"
+// in the language the app shows.
+func QuitButton() string { return In(i18n.Locale()).QuitButton() }
+
+// QuitButton says "Quit"
+// in the language of msgs.
+func (msgs Messages) QuitButton() string {
+	return Catalog.Format(msgs.locale, "quitButton", nil)
+}
+
+// QuitDontAsk says "Don't ask again"
+// in the language the app shows.
+func QuitDontAsk() string { return In(i18n.Locale()).QuitDontAsk() }
+
+// QuitDontAsk says "Don't ask again"
+// in the language of msgs.
+func (msgs Messages) QuitDontAsk() string {
+	return Catalog.Format(msgs.locale, "quitDontAsk", nil)
 }
 
 // CreateBranchEllipsis says "Create Branch…"
@@ -6268,6 +6338,26 @@ func (msgs Messages) FailRename(name string, err string) string {
 	return Catalog.Format(msgs.locale, "failRename", map[string]any{"name": name, "err": err})
 }
 
+// FailMove says "Could not move {name}: {err}"
+// in the language the app shows.
+func FailMove(name string, err string) string { return In(i18n.Locale()).FailMove(name, err) }
+
+// FailMove says "Could not move {name}: {err}"
+// in the language of msgs.
+func (msgs Messages) FailMove(name string, err string) string {
+	return Catalog.Format(msgs.locale, "failMove", map[string]any{"name": name, "err": err})
+}
+
+// ErrMoveIntoItself says "a folder cannot move into a folder inside it"
+// in the language the app shows.
+func ErrMoveIntoItself() string { return In(i18n.Locale()).ErrMoveIntoItself() }
+
+// ErrMoveIntoItself says "a folder cannot move into a folder inside it"
+// in the language of msgs.
+func (msgs Messages) ErrMoveIntoItself() string {
+	return Catalog.Format(msgs.locale, "errMoveIntoItself", nil)
+}
+
 // FailReplaceIn says "Could not replace in {what}"
 // in the language the app shows.
 func FailReplaceIn(what string) string { return In(i18n.Locale()).FailReplaceIn(what) }
@@ -7066,6 +7156,16 @@ func LogLineCutAbove(line int, whole int) string {
 // in the language of msgs.
 func (msgs Messages) LogLineCutAbove(line int, whole int) string {
 	return Catalog.Format(msgs.locale, "logLineCutAbove", map[string]any{"line": line, "whole": whole})
+}
+
+// EmptyColumn says "Empty Column"
+// in the language the app shows.
+func EmptyColumn() string { return In(i18n.Locale()).EmptyColumn() }
+
+// EmptyColumn says "Empty Column"
+// in the language of msgs.
+func (msgs Messages) EmptyColumn() string {
+	return Catalog.Format(msgs.locale, "emptyColumn", nil)
 }
 
 // Menu says "Menu"
@@ -9516,6 +9616,78 @@ func PreviewLiveNone(name string) string { return In(i18n.Locale()).PreviewLiveN
 // in the language of msgs.
 func (msgs Messages) PreviewLiveNone(name string) string {
 	return Catalog.Format(msgs.locale, "previewLiveNone", map[string]any{"name": name})
+}
+
+// LiveCellLabel says "Table cell, row {row}, column {column}"
+// in the language the app shows.
+func LiveCellLabel(row string, column string) string {
+	return In(i18n.Locale()).LiveCellLabel(row, column)
+}
+
+// LiveCellLabel says "Table cell, row {row}, column {column}"
+// in the language of msgs.
+func (msgs Messages) LiveCellLabel(row string, column string) string {
+	return Catalog.Format(msgs.locale, "liveCellLabel", map[string]any{"row": row, "column": column})
+}
+
+// LiveTableRowAbove says "Insert Row Above"
+// in the language the app shows.
+func LiveTableRowAbove() string { return In(i18n.Locale()).LiveTableRowAbove() }
+
+// LiveTableRowAbove says "Insert Row Above"
+// in the language of msgs.
+func (msgs Messages) LiveTableRowAbove() string {
+	return Catalog.Format(msgs.locale, "liveTableRowAbove", nil)
+}
+
+// LiveTableRowBelow says "Insert Row Below"
+// in the language the app shows.
+func LiveTableRowBelow() string { return In(i18n.Locale()).LiveTableRowBelow() }
+
+// LiveTableRowBelow says "Insert Row Below"
+// in the language of msgs.
+func (msgs Messages) LiveTableRowBelow() string {
+	return Catalog.Format(msgs.locale, "liveTableRowBelow", nil)
+}
+
+// LiveTableRowDelete says "Delete Row"
+// in the language the app shows.
+func LiveTableRowDelete() string { return In(i18n.Locale()).LiveTableRowDelete() }
+
+// LiveTableRowDelete says "Delete Row"
+// in the language of msgs.
+func (msgs Messages) LiveTableRowDelete() string {
+	return Catalog.Format(msgs.locale, "liveTableRowDelete", nil)
+}
+
+// LiveTableColLeft says "Insert Column Left"
+// in the language the app shows.
+func LiveTableColLeft() string { return In(i18n.Locale()).LiveTableColLeft() }
+
+// LiveTableColLeft says "Insert Column Left"
+// in the language of msgs.
+func (msgs Messages) LiveTableColLeft() string {
+	return Catalog.Format(msgs.locale, "liveTableColLeft", nil)
+}
+
+// LiveTableColRight says "Insert Column Right"
+// in the language the app shows.
+func LiveTableColRight() string { return In(i18n.Locale()).LiveTableColRight() }
+
+// LiveTableColRight says "Insert Column Right"
+// in the language of msgs.
+func (msgs Messages) LiveTableColRight() string {
+	return Catalog.Format(msgs.locale, "liveTableColRight", nil)
+}
+
+// LiveTableColDelete says "Delete Column"
+// in the language the app shows.
+func LiveTableColDelete() string { return In(i18n.Locale()).LiveTableColDelete() }
+
+// LiveTableColDelete says "Delete Column"
+// in the language of msgs.
+func (msgs Messages) LiveTableColDelete() string {
+	return Catalog.Format(msgs.locale, "liveTableColDelete", nil)
 }
 
 // PreviewLabel says "Preview {name}"
@@ -13546,6 +13718,16 @@ func (msgs Messages) NoteTermExitedEarly(shell string, code string) string {
 	return Catalog.Format(msgs.locale, "noteTermExitedEarly", map[string]any{"shell": shell, "code": code})
 }
 
+// NoteDialogFailed says "The file dialog could not open: {err}"
+// in the language the app shows.
+func NoteDialogFailed(err string) string { return In(i18n.Locale()).NoteDialogFailed(err) }
+
+// NoteDialogFailed says "The file dialog could not open: {err}"
+// in the language of msgs.
+func (msgs Messages) NoteDialogFailed(err string) string {
+	return Catalog.Format(msgs.locale, "noteDialogFailed", map[string]any{"err": err})
+}
+
 // NoteIntelBuild says "This is the Intel build, which runs slower on this Mac and can crash. The next update installs the Apple silicon build."
 // in the language the app shows.
 func NoteIntelBuild() string { return In(i18n.Locale()).NoteIntelBuild() }
@@ -16012,6 +16194,26 @@ func (msgs Messages) PrefDescUsageStats() string {
 	return Catalog.Format(msgs.locale, "prefDescUsageStats", nil)
 }
 
+// PrefTitleConfirmBeforeQuit says "Confirm Before Quit"
+// in the language the app shows.
+func PrefTitleConfirmBeforeQuit() string { return In(i18n.Locale()).PrefTitleConfirmBeforeQuit() }
+
+// PrefTitleConfirmBeforeQuit says "Confirm Before Quit"
+// in the language of msgs.
+func (msgs Messages) PrefTitleConfirmBeforeQuit() string {
+	return Catalog.Format(msgs.locale, "prefTitleConfirmBeforeQuit", nil)
+}
+
+// PrefDescConfirmBeforeQuit says "Asks before Cmd+Q quits Mayoi."
+// in the language the app shows.
+func PrefDescConfirmBeforeQuit() string { return In(i18n.Locale()).PrefDescConfirmBeforeQuit() }
+
+// PrefDescConfirmBeforeQuit says "Asks before Cmd+Q quits Mayoi."
+// in the language of msgs.
+func (msgs Messages) PrefDescConfirmBeforeQuit() string {
+	return Catalog.Format(msgs.locale, "prefDescConfirmBeforeQuit", nil)
+}
+
 // PrefTitleSyncIgnored says "Keep on This Machine"
 // in the language the app shows.
 func PrefTitleSyncIgnored() string { return In(i18n.Locale()).PrefTitleSyncIgnored() }
@@ -17666,6 +17868,16 @@ func (msgs Messages) PluginsFormatters() string {
 	return Catalog.Format(msgs.locale, "pluginsFormatters", nil)
 }
 
+// PluginsInitOptions says "Sent to {id} as it starts. Set them in settings.json under languageServers, by this id."
+// in the language the app shows.
+func PluginsInitOptions(id string) string { return In(i18n.Locale()).PluginsInitOptions(id) }
+
+// PluginsInitOptions says "Sent to {id} as it starts. Set them in settings.json under languageServers, by this id."
+// in the language of msgs.
+func (msgs Messages) PluginsInitOptions(id string) string {
+	return Catalog.Format(msgs.locale, "pluginsInitOptions", map[string]any{"id": id})
+}
+
 // PluginsLanguageServers says "Language servers"
 // in the language the app shows.
 func PluginsLanguageServers() string { return In(i18n.Locale()).PluginsLanguageServers() }
@@ -17764,6 +17976,26 @@ func PrefDescPlugins() string { return In(i18n.Locale()).PrefDescPlugins() }
 // in the language of msgs.
 func (msgs Messages) PrefDescPlugins() string {
 	return Catalog.Format(msgs.locale, "prefDescPlugins", nil)
+}
+
+// PrefTitleLanguageServers says "Language Servers"
+// in the language the app shows.
+func PrefTitleLanguageServers() string { return In(i18n.Locale()).PrefTitleLanguageServers() }
+
+// PrefTitleLanguageServers says "Language Servers"
+// in the language of msgs.
+func (msgs Messages) PrefTitleLanguageServers() string {
+	return Catalog.Format(msgs.locale, "prefTitleLanguageServers", nil)
+}
+
+// PrefDescLanguageServers says "Each language server's initializationOptions, by its id, as \"gopls.server\", laid over its plugin's as it starts."
+// in the language the app shows.
+func PrefDescLanguageServers() string { return In(i18n.Locale()).PrefDescLanguageServers() }
+
+// PrefDescLanguageServers says "Each language server's initializationOptions, by its id, as \"gopls.server\", laid over its plugin's as it starts."
+// in the language of msgs.
+func (msgs Messages) PrefDescLanguageServers() string {
+	return Catalog.Format(msgs.locale, "prefDescLanguageServers", nil)
 }
 
 // PrefTitleFormatOnSave says "Format on Save"
@@ -17938,6 +18170,46 @@ func (msgs Messages) CmdGoDefinition() string {
 	return Catalog.Format(msgs.locale, "cmdGoDefinition", nil)
 }
 
+// CmdGoTypeDefinition says "Go to Type Definition"
+// in the language the app shows.
+func CmdGoTypeDefinition() string { return In(i18n.Locale()).CmdGoTypeDefinition() }
+
+// CmdGoTypeDefinition says "Go to Type Definition"
+// in the language of msgs.
+func (msgs Messages) CmdGoTypeDefinition() string {
+	return Catalog.Format(msgs.locale, "cmdGoTypeDefinition", nil)
+}
+
+// CmdGoSourceDefinition says "Go to Source Definition"
+// in the language the app shows.
+func CmdGoSourceDefinition() string { return In(i18n.Locale()).CmdGoSourceDefinition() }
+
+// CmdGoSourceDefinition says "Go to Source Definition"
+// in the language of msgs.
+func (msgs Messages) CmdGoSourceDefinition() string {
+	return Catalog.Format(msgs.locale, "cmdGoSourceDefinition", nil)
+}
+
+// CmdGoImplementation says "Go to Implementation"
+// in the language the app shows.
+func CmdGoImplementation() string { return In(i18n.Locale()).CmdGoImplementation() }
+
+// CmdGoImplementation says "Go to Implementation"
+// in the language of msgs.
+func (msgs Messages) CmdGoImplementation() string {
+	return Catalog.Format(msgs.locale, "cmdGoImplementation", nil)
+}
+
+// CmdGoReferences says "Find References"
+// in the language the app shows.
+func CmdGoReferences() string { return In(i18n.Locale()).CmdGoReferences() }
+
+// CmdGoReferences says "Find References"
+// in the language of msgs.
+func (msgs Messages) CmdGoReferences() string {
+	return Catalog.Format(msgs.locale, "cmdGoReferences", nil)
+}
+
 // CmdGoHover says "Show Hover"
 // in the language the app shows.
 func CmdGoHover() string { return In(i18n.Locale()).CmdGoHover() }
@@ -18066,6 +18338,56 @@ func DefinitionPick() string { return In(i18n.Locale()).DefinitionPick() }
 // in the language of msgs.
 func (msgs Messages) DefinitionPick() string {
 	return Catalog.Format(msgs.locale, "definitionPick", nil)
+}
+
+// LspNavigationUnsupported says "The language server doesn't support this navigation"
+// in the language the app shows.
+func LspNavigationUnsupported() string { return In(i18n.Locale()).LspNavigationUnsupported() }
+
+// LspNavigationUnsupported says "The language server doesn't support this navigation"
+// in the language of msgs.
+func (msgs Messages) LspNavigationUnsupported() string {
+	return Catalog.Format(msgs.locale, "lspNavigationUnsupported", nil)
+}
+
+// LspNavigationFailed says "The language server request failed"
+// in the language the app shows.
+func LspNavigationFailed() string { return In(i18n.Locale()).LspNavigationFailed() }
+
+// LspNavigationFailed says "The language server request failed"
+// in the language of msgs.
+func (msgs Messages) LspNavigationFailed() string {
+	return Catalog.Format(msgs.locale, "lspNavigationFailed", nil)
+}
+
+// LspNavigationNone says "No locations found"
+// in the language the app shows.
+func LspNavigationNone() string { return In(i18n.Locale()).LspNavigationNone() }
+
+// LspNavigationNone says "No locations found"
+// in the language of msgs.
+func (msgs Messages) LspNavigationNone() string {
+	return Catalog.Format(msgs.locale, "lspNavigationNone", nil)
+}
+
+// LspLocationElsewhere says "Mayoi can't open {uri}"
+// in the language the app shows.
+func LspLocationElsewhere(uri string) string { return In(i18n.Locale()).LspLocationElsewhere(uri) }
+
+// LspLocationElsewhere says "Mayoi can't open {uri}"
+// in the language of msgs.
+func (msgs Messages) LspLocationElsewhere(uri string) string {
+	return Catalog.Format(msgs.locale, "lspLocationElsewhere", map[string]any{"uri": uri})
+}
+
+// LspChooseLocation says "Choose a location"
+// in the language the app shows.
+func LspChooseLocation() string { return In(i18n.Locale()).LspChooseLocation() }
+
+// LspChooseLocation says "Choose a location"
+// in the language of msgs.
+func (msgs Messages) LspChooseLocation() string {
+	return Catalog.Format(msgs.locale, "lspChooseLocation", nil)
 }
 
 // LspOffer says "{detect} is installed. Install the {name} plugin for Go to Definition and more?"
@@ -18664,6 +18986,118 @@ func SessionsDirGone(dir string) string { return In(i18n.Locale()).SessionsDirGo
 // in the language of msgs.
 func (msgs Messages) SessionsDirGone(dir string) string {
 	return Catalog.Format(msgs.locale, "sessionsDirGone", map[string]any{"dir": dir})
+}
+
+// CmdViewArchivedSessions says "Archived Sessions"
+// in the language the app shows.
+func CmdViewArchivedSessions() string { return In(i18n.Locale()).CmdViewArchivedSessions() }
+
+// CmdViewArchivedSessions says "Archived Sessions"
+// in the language of msgs.
+func (msgs Messages) CmdViewArchivedSessions() string {
+	return Catalog.Format(msgs.locale, "cmdViewArchivedSessions", nil)
+}
+
+// SidebarTitleSessionsArchived says "SESSIONS · ARCHIVED"
+// in the language the app shows.
+func SidebarTitleSessionsArchived() string { return In(i18n.Locale()).SidebarTitleSessionsArchived() }
+
+// SidebarTitleSessionsArchived says "SESSIONS · ARCHIVED"
+// in the language of msgs.
+func (msgs Messages) SidebarTitleSessionsArchived() string {
+	return Catalog.Format(msgs.locale, "sidebarTitleSessionsArchived", nil)
+}
+
+// SidebarTitleSessionsArchivedShort says "ARCHIVED"
+// in the language the app shows.
+func SidebarTitleSessionsArchivedShort() string {
+	return In(i18n.Locale()).SidebarTitleSessionsArchivedShort()
+}
+
+// SidebarTitleSessionsArchivedShort says "ARCHIVED"
+// in the language of msgs.
+func (msgs Messages) SidebarTitleSessionsArchivedShort() string {
+	return Catalog.Format(msgs.locale, "sidebarTitleSessionsArchivedShort", nil)
+}
+
+// SessionsArchive says "Archive"
+// in the language the app shows.
+func SessionsArchive() string { return In(i18n.Locale()).SessionsArchive() }
+
+// SessionsArchive says "Archive"
+// in the language of msgs.
+func (msgs Messages) SessionsArchive() string {
+	return Catalog.Format(msgs.locale, "sessionsArchive", nil)
+}
+
+// SessionsArchiveN says "{count, plural, one {Archive # Session} other {Archive # Sessions}}"
+// in the language the app shows.
+func SessionsArchiveN(count int) string { return In(i18n.Locale()).SessionsArchiveN(count) }
+
+// SessionsArchiveN says "{count, plural, one {Archive # Session} other {Archive # Sessions}}"
+// in the language of msgs.
+func (msgs Messages) SessionsArchiveN(count int) string {
+	return Catalog.Format(msgs.locale, "sessionsArchiveN", map[string]any{"count": count})
+}
+
+// SessionsRestore says "Restore"
+// in the language the app shows.
+func SessionsRestore() string { return In(i18n.Locale()).SessionsRestore() }
+
+// SessionsRestore says "Restore"
+// in the language of msgs.
+func (msgs Messages) SessionsRestore() string {
+	return Catalog.Format(msgs.locale, "sessionsRestore", nil)
+}
+
+// SessionsRestoreN says "{count, plural, one {Restore # Session} other {Restore # Sessions}}"
+// in the language the app shows.
+func SessionsRestoreN(count int) string { return In(i18n.Locale()).SessionsRestoreN(count) }
+
+// SessionsRestoreN says "{count, plural, one {Restore # Session} other {Restore # Sessions}}"
+// in the language of msgs.
+func (msgs Messages) SessionsRestoreN(count int) string {
+	return Catalog.Format(msgs.locale, "sessionsRestoreN", map[string]any{"count": count})
+}
+
+// SessionsArchived says "{count, plural, one {Archived # session} other {Archived # sessions}}"
+// in the language the app shows.
+func SessionsArchived(count int) string { return In(i18n.Locale()).SessionsArchived(count) }
+
+// SessionsArchived says "{count, plural, one {Archived # session} other {Archived # sessions}}"
+// in the language of msgs.
+func (msgs Messages) SessionsArchived(count int) string {
+	return Catalog.Format(msgs.locale, "sessionsArchived", map[string]any{"count": count})
+}
+
+// SessionsRestored says "{count, plural, one {Restored # session} other {Restored # sessions}}"
+// in the language the app shows.
+func SessionsRestored(count int) string { return In(i18n.Locale()).SessionsRestored(count) }
+
+// SessionsRestored says "{count, plural, one {Restored # session} other {Restored # sessions}}"
+// in the language of msgs.
+func (msgs Messages) SessionsRestored(count int) string {
+	return Catalog.Format(msgs.locale, "sessionsRestored", map[string]any{"count": count})
+}
+
+// SessionsNoneArchived says "No session is archived."
+// in the language the app shows.
+func SessionsNoneArchived() string { return In(i18n.Locale()).SessionsNoneArchived() }
+
+// SessionsNoneArchived says "No session is archived."
+// in the language of msgs.
+func (msgs Messages) SessionsNoneArchived() string {
+	return Catalog.Format(msgs.locale, "sessionsNoneArchived", nil)
+}
+
+// SessionsArchivedHint says "Archive a session from its menu to keep it out of the list. It waits here, to resume or restore."
+// in the language the app shows.
+func SessionsArchivedHint() string { return In(i18n.Locale()).SessionsArchivedHint() }
+
+// SessionsArchivedHint says "Archive a session from its menu to keep it out of the list. It waits here, to resume or restore."
+// in the language of msgs.
+func (msgs Messages) SessionsArchivedHint() string {
+	return Catalog.Format(msgs.locale, "sessionsArchivedHint", nil)
 }
 
 // PrefTitleAgentSessionsClaudeDirs says "More Claude Code Folders"

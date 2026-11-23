@@ -11,6 +11,18 @@ A click on the space below the files, or Escape, unselects the file or folder ch
 folder. A right click there opens the workspace's menu: New File…, New Folder…, Reveal in Finder, Open in Terminal and
 Paste.
 
+Shift-click a row to select every row from the last one chosen to it, in the order the tree shows them, and Cmd-click
+(Ctrl-click on Windows and Linux) to add a row or take it out; Shift with the arrow keys, Home and End extends the
+selection too. Neither opens a file or a folder. A plain click, the arrow keys or Escape select one row again, and rows
+that close or go stop being selected. ⌘C, **Copy**, **Copy Path** and **Copy Relative Path** act on every row
+selected; **Rename…** and **Move to Trash** are off while several are, and a drag moves the row dragged alone.
+
+Drag a file or a folder onto a folder's row to move it there, onto a file's row to move it beside that file, or onto
+the folder's row at the top or below the rows to move it into the workspace's folder. The row it would go to is
+highlighted. Open tabs follow the file, unsaved changes included. A move never replaces a file or folder of the same
+name, never puts a folder inside itself, and stays within the folder's own project and host. On a remote folder it runs
+on the host.
+
 **View → Compact Folders** shows a chain of folders that each hold only one folder on one row, as
 `src/main/java/com/example`. The row's actions use its last folder.
 
@@ -66,7 +78,7 @@ Type, delete, paste and undo at several places at once, as in VS Code.
 - ⌥-click (Alt-click) adds a caret, or takes one away; ⌥-drag selects from it. ⌘-click still goes to a definition.
   Linux desktops that move windows with Alt-drag take the click first: use the middle button, or the commands, which
   have no keys on Linux, as its desktops switch workspaces with Ctrl+Alt and the arrows; bind your own.
-- **Add Next Occurrence** (⌘D) selects the word at the caret, then the next match each time: whole words when it
+- **Add Next Occurrence** (⌃⌘G on macOS, Ctrl+D on Windows and Linux) selects the word at the caret, then the next match each time: whole words when it
   started from a caret. **Select All Occurrences** (⇧⌘L) selects every match at once.
 - Column selection selects the same columns on each line: drag with ⇧⌥ (Shift+Alt) or the middle button, or use
   **Column Select Up**, **Down**, **Left** and **Right** (⇧⌥⌘ with the arrows on macOS, Ctrl+Shift+Alt on Windows). Tabs and wide characters count
@@ -318,7 +330,7 @@ so, and one more press that way goes to the next file with changes, or the last 
 the settings has it cross at once, or never leave the file. At the first or last file it says so, and stops.
 
 **Layout → One File at a Time** (`diffFiles`) has a diff show one file alone, as VS Code does, and read only that
-file. Clicking a file in Source Control or in a commit's files shows it; the next and previous file show the next or
+file. A single commit's changes always list every file. Clicking a file in Source Control shows it; the next and previous file show the next or
 previous one, and the change navigation goes on into it as **diffCrossFiles** says, never scrolling into another
 file. The file shows whole, every unchanged line too; **Show Full Files** folds it. The tab is named after the file
 shown. When the file shown is staged, discarded or committed, the next file of its group shows. With the diff focused, keys work as in a pager:
@@ -526,6 +538,15 @@ two columns. A file can show in several columns at once. Those columns share its
 its own caret and scroll position. Drag a tab along its strip, into another column, or to the edge of a column to give it
 a new column.
 
+As in iTerm2, **View → New Column Right** (⌘D) puts an empty column beside the one with the keyboard, and **View → New
+Column Below** (⇧⌘D) puts one below it. The new column has the keyboard and no tab, and the next file, new file or
+terminal opened goes there; ⌘W closes it while it's empty. **View → Split Right** (⌘\, Ctrl+\ on Windows and Linux)
+and **Split Down** (Ctrl+Shift+D on Windows and Linux, no key on macOS) show the tab again in the new column instead:
+another view of the file, or a new terminal in the terminal's folder, which goes on as it was. Only the column with the
+keyboard splits, in a layout of both. The handle between two columns stacked moves the height. When the panel's terminal
+has the keyboard, the column that had it last splits. Vim's `:split` splits down, and `:vsplit` right. The layout comes
+back with the session.
+
 Choose **Lock Column** in a tab's menu to keep a column for terminals, or **Move to Locked Right Column** in a
 terminal tab's or panel terminal's menu to move the running terminal there in one step. The lock in the tab strip unlocks
 the column. Files, images and diffs opened from the Explorer, Search, Quick Open or Source Control, and terminals from
@@ -602,6 +623,13 @@ agent's own command, as `claude --resume <id>` with `CLAUDE_CONFIG_DIR` for a fo
 resume it and copy the command, as they do on the chosen row while the list has the keyboard, where ⌘C copies the
 command. Sessions of a folder that
 is gone say so instead. The view reads only the start and end of each transcript, again as files change, while it shows.
+
+A row's menu, its archive button or ⌫ in the list archives a session, or every session chosen: it leaves the list, as
+it stays after the sessions are read again and after a restart, and a toast offers **Undo**. The archive button in
+the view's title, or **View → Archived Sessions**, lists the archived ones instead, with the same search and **This
+Project** and **All Projects**; there the menu, the button or ⌫ restores them, and resuming one brings it back to the
+list too. Archiving only hides a session: Mayoi keeps which are archived in its own `state.json`, by agent, Claude
+Code folder and id, and leaves the agent's files and any terminal the session runs in alone.
 
 With `terminalBackend` set to `"hc"`, a session that runs in a terminal of herdr-core, in this window, another or the
 Herdr app, has a dot in the color of what it says it does (OSC 7501), and says it: working, waiting for you, done or
@@ -963,6 +991,8 @@ language servers, and they work on SSH folders with nothing installed on the hos
 - **Selection → Format Document** (⇧⌥F) formats with a plugin, and `formatOnSave` formats as you save.
 - A language server a plugin declares underlines problems, and answers **Go → Go to Definition** (F12),
   **Go → Show Hover** (⌘K ⌘I, Ctrl+K Ctrl+I on Windows and Linux) and **Selection → Complete Word** (⌃Space).
+- **Go → Go to Type Definition**, **Go to Source Definition**, **Go to Implementation** (⌘F12, Ctrl+F12 on Windows and
+  Linux) and **Find References** (⇧F12) ask the server, when it supports them. References always open in a list.
 - Several definitions are offered in a list: ↑ ↓ choose, Return goes, Esc stays. **Go → Go Back** (⌃-, Alt+Left on
   Windows and Linux) and **Go Forward** (⌃⇧-, Alt+Right) return.
 - **Show Hover** again while its card shows gives the card the keys: ↑ ↓, Page Up, Page Down, Home and End scroll it,

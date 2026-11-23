@@ -11,6 +11,7 @@ import (
 	"github.com/egoist/mygo/ui"
 
 	"mayoi/internal/keymap"
+	"mayoi/internal/lsp"
 	"mayoi/internal/remote"
 	"mayoi/internal/settings"
 	"mayoi/locales"
@@ -99,7 +100,8 @@ func (a *app) commandsIn(t locales.Messages) []command {
 		// Several selections (multicursor.go): their keys, as VS Code's.
 		{"sel.addCursorAbove", t.CmdSelAddCursorAbove(), "Alt+CmdOrCtrl+Up", a.multiCmd(func(d *editor) { a.addCursor(d, -1) })},
 		{"sel.addCursorBelow", t.CmdSelAddCursorBelow(), "Alt+CmdOrCtrl+Down", a.multiCmd(func(d *editor) { a.addCursor(d, 1) })},
-		{"sel.addNextOccurrence", t.CmdSelAddNextOccurrence(), "CmdOrCtrl+D", a.multiCmd(a.addNextOccurrence)},
+		// ⌃⌘G on macOS, where ⌘D splits as in iTerm2; Ctrl+D elsewhere.
+		{"sel.addNextOccurrence", t.CmdSelAddNextOccurrence(), "Ctrl+CmdOrCtrl+G", a.multiCmd(a.addNextOccurrence)},
 		{"sel.selectAllOccurrences", t.CmdSelSelectAllOccurrences(), "Shift+CmdOrCtrl+L", a.multiCmd(a.selectAllOccurrences)},
 		{"sel.columnUp", t.CmdSelColumnUp(), "Shift+Alt+CmdOrCtrl+Up", a.multiCmd(func(d *editor) { a.columnSelect(d, -1, 0) })},
 		{"sel.columnDown", t.CmdSelColumnDown(), "Shift+Alt+CmdOrCtrl+Down", a.multiCmd(func(d *editor) { a.columnSelect(d, 1, 0) })},
@@ -141,6 +143,10 @@ func (a *app) commandsIn(t locales.Messages) []command {
 		{"edit.unfoldAll", t.CmdEditUnfoldAll(), "", a.editActive(a.unfoldAllCmd)},
 		{"go.bracket", t.CmdGoBracket(), "Shift+CmdOrCtrl+\\", a.editActive(goToBracket)},
 		{"go.definition", t.CmdGoDefinition(), "F12", a.goToDefinition},
+		{"go.typeDefinition", t.CmdGoTypeDefinition(), "", a.jumpCommand(lsp.TypeDefinition)},
+		{"go.sourceDefinition", t.CmdGoSourceDefinition(), "", a.jumpCommand(sourceDefinition)},
+		{"go.implementation", t.CmdGoImplementation(), "CmdOrCtrl+F12", a.jumpCommand(lsp.Implementation)},
+		{"go.references", t.CmdGoReferences(), "Shift+F12", a.jumpCommand(lsp.References)},
 		{"go.hover", t.CmdGoHover(), "", a.showHover},
 		// ⌃- and ⌃⇧- on macOS, as VS Code has them, where ⌥⌘← goes to the
 		// column on the left and ⌥← by words.
@@ -161,6 +167,7 @@ func (a *app) commandsIn(t locales.Messages) []command {
 		{"view.search", t.CmdViewSearch(), "", func() { a.showSearch(false) }},
 		{"view.scm", t.CmdViewScm(), "Ctrl+Shift+G", a.showSourceControl},
 		{"view.sessions", t.CmdViewSessions(), "", a.showSessions},
+		{"view.archivedSessions", t.CmdViewArchivedSessions(), "", a.toggleArchivedSessions},
 		{"view.github", t.CmdViewGitHub(), "", a.showGitHub},
 		{"git.commit", t.CmdGitCommit(), "", func() { a.commit(false) }},
 		{"git.commitPush", t.CmdGitCommitPush(), "", func() { a.commit(true) }},
@@ -231,7 +238,12 @@ func (a *app) commandsIn(t locales.Messages) []command {
 		{"view.panelPosition.left", t.CmdViewPanelLeft(), "", func() { a.setPanelPosition("left") }},
 		{"view.panelPosition.right", t.CmdViewPanelRight(), "", func() { a.setPanelPosition("right") }},
 		{"view.lockColumn", t.CmdViewLockColumn(), "", func() { a.toggleColumnLock(a.column()) }},
+		// Split Down has Ctrl+Shift+D off macOS, none there: ⌘D and ⇧⌘D open
+		// an empty column instead, as iTerm2's split an empty pane.
 		{"view.splitRight", t.CmdViewSplitRight(), "CmdOrCtrl+\\", a.splitRight},
+		{"view.splitDown", t.CmdViewSplitDown(), "", a.splitDown},
+		{"view.newColumnRight", t.CmdViewNewColumnRight(), "CmdOrCtrl+D", func() { a.newEmptyColumn(false) }},
+		{"view.newColumnDown", t.CmdViewNewColumnDown(), "Shift+CmdOrCtrl+D", func() { a.newEmptyColumn(true) }},
 		{"view.nextColumn", t.CmdViewNextColumn(), "Alt+CmdOrCtrl+Right", func() { a.focusColumnBy(1) }},
 		{"view.prevColumn", t.CmdViewPrevColumn(), "Alt+CmdOrCtrl+Left", func() { a.focusColumnBy(-1) }},
 		{"view.moveTabNext", t.CmdViewMoveTabNext(), "", func() { a.moveTabBy(1) }},
@@ -283,6 +295,8 @@ func (a *app) commandsIn(t locales.Messages) []command {
 	for _, tag := range mygo.App.Languages() {
 		cmds = append(cmds, command{localeCommand + tag, i18n.Autonym(tag), "", func() { a.setLocale(tag) }})
 	}
+	// Quitting as Cmd+Q does, which asks first (quitApp).
+	cmds = append(cmds, command{"file.quit", t.CmdFileQuit(), "CmdOrCtrl+Q", func() { a.host.quitApp() }})
 	cmds = append(cmds, command{"plugins.problems", t.CmdPluginsProblems(), "", a.showProblems})
 	cmds = append(cmds, a.pluginCommands(t, cmds)...)
 	for i := range cmds {
@@ -303,6 +317,11 @@ func (a *app) commandsIn(t locales.Messages) []command {
 	}
 	if hcPath() == "" {
 		cmds = slices.DeleteFunc(cmds, func(c command) bool { return c.id == "view.attachHC" })
+	}
+	// Only macOS's app menu has Quit; elsewhere, closing the last window
+	// quits.
+	if runtime.GOOS != "darwin" {
+		cmds = slices.DeleteFunc(cmds, func(c command) bool { return c.id == "file.quit" })
 	}
 	return cmds
 }
@@ -614,6 +633,8 @@ func (a *app) menu(cli bool, run func(id string, win *mygo.Window)) *mygo.Menu {
 	// The sessions listed are of this machine, as a folder's own settings.
 	sessions := item("view.sessions")
 	sessions.Disabled = !a.hasSessions()
+	archived := checkbox("view.archivedSessions", a.sessions.archived && a.window.SidebarView == "sessions" && !a.window.SidebarClosed)
+	archived.Disabled = !a.hasSessions()
 	github := item("view.github")
 	github.Disabled = !a.hasGitHub()
 	// A folder's own settings are of a folder on this machine.
@@ -657,7 +678,10 @@ func (a *app) menu(cli bool, run func(id string, win *mygo.Window)) *mygo.Menu {
 			mygo.Separator(),
 			{Role: mygo.RoleServices}, mygo.Separator(),
 			{Role: mygo.RoleHide}, {Role: mygo.RoleHideOthers}, {Role: mygo.RoleUnhide}, mygo.Separator(),
-			{Role: mygo.RoleQuit},
+			// Mayoi's own, rather than the Quit role's, so that it asks
+			// first while quitting otherwise, as to update or log out,
+			// does not.
+			item("file.quit"),
 		})}
 	}
 	// The items of the review comments, off while there are none.
@@ -718,7 +742,7 @@ func (a *app) menu(cli bool, run func(id string, win *mygo.Window)) *mygo.Menu {
 			item("sel.format"), item("sel.insertSnippet"), item("sel.complete"),
 		}},
 		{Label: locales.MenuView(), Submenu: []*mygo.MenuItem{
-			item("view.sidebar"), checkbox("view.sidebarRight", a.settings.SidebarRight), item("view.explorer"), item("view.search"), item("view.scm"), github, sessions, mygo.Separator(),
+			item("view.sidebar"), checkbox("view.sidebarRight", a.settings.SidebarRight), item("view.explorer"), item("view.search"), item("view.scm"), github, sessions, archived, mygo.Separator(),
 			checkbox("view.compactFolders", a.settings.ExplorerCompactFolders), mygo.Separator(),
 			checkbox("view.wordWrap", a.prefs().WordWrap), item("view.wordWrapTab"), item("view.togglePreview"), item("view.toggleLivePreview"), item("view.previewToSide"),
 			{Label: locales.MenuOpenMarkdownAs(), Submenu: []*mygo.MenuItem{
@@ -731,7 +755,8 @@ func (a *app) menu(cli bool, run func(id string, win *mygo.Window)) *mygo.Menu {
 				radio("view.jsonlOpen.source", a.prefs().JSONLMode == "source"),
 			}}, mygo.Separator(),
 			checkbox("view.vim", a.prefs().Vim), checkbox("view.projectTabs", a.settings.ProjectTabs), mygo.Separator(),
-			item("view.splitRight"), item("view.nextColumn"), item("view.prevColumn"),
+			item("view.splitRight"), item("view.splitDown"), item("view.newColumnRight"), item("view.newColumnDown"),
+			item("view.nextColumn"), item("view.prevColumn"),
 			item("view.moveTabNext"), item("view.moveTabPrev"), mygo.Separator(),
 			item("view.terminal"), item("view.newTerminal"), item("view.terminalTab"), item("view.terminalMove"), attachHC, installHC,
 			checkbox("view.terminalLocation", a.settings.TerminalLocation == "editor"),
@@ -755,7 +780,8 @@ func (a *app) menu(cli bool, run func(id string, win *mygo.Window)) *mygo.Menu {
 		}},
 		{Label: locales.MenuGo(), Submenu: []*mygo.MenuItem{
 			item("go.quickOpen"), item("go.commands"), item("go.symbol"), item("go.line"), item("go.bracket"), mygo.Separator(),
-			item("go.definition"), item("go.hover"), mygo.Separator(),
+			item("go.definition"), item("go.typeDefinition"), item("go.sourceDefinition"),
+			item("go.implementation"), item("go.references"), item("go.hover"), mygo.Separator(),
 			item("go.back"), item("go.forward"), mygo.Separator(),
 			item("go.nextTab"), item("go.prevTab"), mygo.Separator(),
 			item("go.nextProject"), item("go.prevProject"),
@@ -790,9 +816,10 @@ func (a *app) menu(cli bool, run func(id string, win *mygo.Window)) *mygo.Menu {
 
 // menuAccel is the accelerator of a command's menu item: none when
 // keybindings.json binds its keys, which the menu would take first, or
-// takes them away from it.
+// takes them away from it. CmdOrCtrl is Command on macOS's keys, as
+// Mayoi's systems have them, not as MyGo's machine does.
 func (a *app) menuAccel(cmd command) string {
-	st, ok := keymap.ParseAccel(cmd.accel)
+	st, ok := parseAccel(cmd.accel)
 	if ok && (a.keys.Binds(st) || a.keys.Removes(commandNames(cmd.id)...)) {
 		return ""
 	}

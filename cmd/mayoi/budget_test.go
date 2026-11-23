@@ -223,6 +223,74 @@ func TestBudgets(t *testing.T) {
 			hs.place(d, 40000, 40000)
 			return func() { hs.tt.Type("a"); step(hs.tt) }
 		}},
+		// Typing in a cell of a table edited in place: the input alone
+		// changes, what was typed written to the text as typing pauses.
+		{"Live Preview table cell type frame", 5 * time.Millisecond, false, func(t *testing.T, hs *harness) func() {
+			d := bigNote(hs)
+			editTableCell(t, hs, d)
+			return func() { hs.tt.Type("a"); step(hs.tt) }
+		}},
+		// A row added to a table from a cell, as Return in its last row
+		// does, in a note of some 400 lines: one edit of the text, the
+		// table drawn as it was until the parse it asks for at once
+		// arrives, the new cell scrolled into view, and the text measuring
+		// its lines again, some 4 ms a frame. Each of those frames counts
+		// alone: the tester draws all of them at once, which a window
+		// spreads over its own. 1.4 ms here; CI's macOS runners took 2.4
+		// ms in one run and the best of three attempts at 4.9 ms in a
+		// slower one, which took the other budgets twice as long too.
+		{"Live Preview table row add frame", 7 * time.Millisecond, true, func(t *testing.T, hs *harness) func() {
+			part := "Some **bold** text with a [link](https://example.com).\n\n| a | b |\n|---|---|\n| 1 | 2 |\n\n"
+			os.WriteFile(hs.path("rows.md"), []byte(strings.Repeat(part, 60)), 0o644)
+			hs.a.settings.MarkdownMode = "live"
+			hs.a.openFile(hs.path("rows.md"), true)
+			d := hs.a.activeEditor()
+			hs.until("the note parsed", func() bool { l := d.document.live; return l != nil && l.doc != nil && !l.quick })
+			editTableCell(t, hs, d)
+			return func() {
+				c := &d.liveCell
+				hs.a.liveTableEdit(d, c.first, c.last, tableRowBelow, c.row, c.col)
+				step(hs.tt)
+			}
+		}},
+		// A table of 1,000 rows in Live Preview, of three columns, among
+		// prose: it builds the rows in view and near it only, the others
+		// taking their room, so that a frame costs as much as for a short
+		// one, idle, scrolled through and typed in at its last row. A row
+		// added to it costs far more, in the text measuring its lines
+		// again (TestLiveTableLong adds one). The rows built, the same
+		// for any length, TestLiveTableLong counts.
+		//
+		// Scrolled over the table, a frame costs as over any table drawn
+		// (one of 60 rows, 2.48 ms here, against 2.53 ms): the block's
+		// handler sets the offset, which builds the frame again, and the
+		// cells in view paint. 2.6 ms here; CI's macOS runners took 4.6 ms
+		// in one run, and the best of two attempts at 9.9 ms in a slower
+		// one, which took the other budgets twice as long too. How much
+		// work it does, TestLiveTableLong holds, not this.
+		{"Live Preview 1,000-row table idle frame", 2 * time.Millisecond, false, func(t *testing.T, hs *harness) func() {
+			bigTable(t, hs)
+			return func() { step(hs.tt) }
+		}},
+		{"Live Preview 1,000-row table scroll frame", 13 * time.Millisecond, false, func(t *testing.T, hs *harness) func() {
+			bigTable(t, hs)
+			i := 0
+			return func() {
+				dy := float32(60)
+				if i/30%2 == 1 {
+					dy = -60
+				}
+				i++
+				hs.tt.Scroll(700, 400, 0, dy)
+				step(hs.tt)
+			}
+		}},
+		{"Live Preview 1,000-row table last cell type frame", 5 * time.Millisecond, false, func(t *testing.T, hs *harness) func() {
+			d := bigTable(t, hs)
+			hs.a.openLiveCell(d, bigTableFirst, bigTableFirst+1+bigTableRows, bigTableRows, 0)
+			hs.settle()
+			return func() { hs.tt.Type("a"); step(hs.tt) }
+		}},
 		// The caret moving from line to line shows the marks of the line it
 		// goes to and hides those of the line it leaves.
 		{"Live Preview caret frame", 4 * time.Millisecond, true, func(t *testing.T, hs *harness) func() {
@@ -459,6 +527,49 @@ func bigDoc(hs *harness) *editor {
 	hs.settle()
 	d := hs.a.activeEditor()
 	d.vscroll.Y = 4000
+	hs.settle()
+	return d
+}
+
+// editTableCell clicks the first cell of the body of a table Live Preview
+// shows in an editor, to edit it in place.
+func editTableCell(t *testing.T, hs *harness, d *editor) {
+	t.Helper()
+	var table *liveView
+	hs.until("a table shown", func() bool {
+		// The highest in view.
+		table = nil
+		for _, lv := range d.livePane.views {
+			if m := lv.v.markdown; lv.frame == hs.a.frame && lv.measured && lv.at.Y > 0 && len(m.blocks) > 0 &&
+				m.blocks[0].kind == markdownTableHeader && (table == nil || lv.at.Y < table.at.Y) {
+				table = lv
+			}
+		}
+		return table != nil
+	})
+	hs.tt.ClickAt(table.at.X+10, table.at.Y+table.at.H*0.75)
+	hs.settle()
+	if !d.liveCell.on {
+		t.Fatal("the click does not edit a cell")
+	}
+}
+
+// bigTableRows is how many rows bigTable's table has below its header,
+// whose line is bigTableFirst.
+const (
+	bigTableRows  = 1000
+	bigTableFirst = 40
+)
+
+// bigTable opens a note of prose around a table of bigTableRows rows as
+// Live Preview, once the table is measured, scrolled into the table, and
+// returns its editor.
+func bigTable(t *testing.T, hs *harness) *editor {
+	t.Helper()
+	d := openLive(t, hs, "table.md", liveLongTable(bigTableRows), 1)
+	lv := tableView(d)
+	hs.until("the table measured", func() bool { return lv.measured && lv.frame == hs.a.frame })
+	d.vscroll.Y = 2000
 	hs.settle()
 	return d
 }

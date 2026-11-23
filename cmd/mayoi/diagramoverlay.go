@@ -59,12 +59,22 @@ func (a *app) diagramBlock(o *diagramOverlay) *markdownBlock {
 	return nil
 }
 
-// viewerShown reports whether a tab of the editor area has the viewer.
+// viewerShown reports whether a tab of the editor area has the viewer:
+// as its own, as an editor's Reading view, or as a block an editor's Live
+// Preview draws, as in its last frame.
 func (a *app) viewerShown(v *viewer) bool {
 	for _, col := range a.cols {
 		for _, t := range col.tabs {
 			if t.view == v || t.ed != nil && t.ed.preview == v {
 				return true
+			}
+			if t.ed == nil {
+				continue
+			}
+			for _, lv := range t.ed.livePane.views {
+				if lv.v == v && a.frame-lv.frame <= 1 {
+					return true
+				}
 			}
 		}
 	}

@@ -5,6 +5,63 @@ needs a `## <version>` section here, or its build fails.
 
 ## Unreleased
 
+## 0.23.2
+
+- In Live Preview, clicking a table cell edits its Markdown in place inside the rendered table.
+- In a table cell, `Tab` and `Shift+Tab` move between cells, and `Return` and the arrow keys move between rows.
+- `Escape` in a table cell, or moving past the table, returns to the text beside the table.
+- Typing `|` in a table cell escapes it as `\|`, and `Cmd+Z` undoes a cell's edits as it does typing.
+- In a table cell, `Tab` after the last cell or `Return` on the last row adds a new row below.
+- `Return` on an empty last row of a table removes that row and returns to the text below the table.
+- Right-click a table cell in Live Preview to insert or delete rows and columns; `Cmd+Z` undoes each change.
+- In Live Preview, a table with only a header row renders and edits in place; `Tab` or `Return` adds its first row.
+- Long tables in Live Preview stay smooth to scroll and edit, even with thousands of rows.
+- Moving to a table cell with `Tab`, `Return` or the arrow keys scrolls it into view if it was off screen.
+- Editing a cell or adding a row in a long Live Preview table no longer closes the cell or jumps the view.
+- Scrolling with the wheel or trackpad over a Live Preview table, or the cell you're editing, now scrolls the note.
+- The buttons over a Mermaid diagram in Live Preview now open, copy, export or show its source as they say.
+
+- On macOS, `Cmd+D` and `Cmd+Shift+D` open an empty column to the right or below, as in iTerm2.
+- **View → Split Down** stacks a new column under the current one, and you drag the line between them to resize.
+- Splitting a terminal opens a new one in the same folder, and the original keeps running.
+- Stacked columns come back when you reopen the project.
+- On macOS, **Add Next Occurrence** moves to `Ctrl+Cmd+G`; `Cmd+\` still splits right.
+- Vim's `:split` now splits down, and `:vsplit` splits right.
+
+- On Linux, opening or saving a file no longer crashes Mayoi when the system's MIME data can't be found.
+- On macOS, VoiceOver no longer crashes Mayoi when a notice it reads has text that isn't valid UTF-8.
+- On Windows, plugin update checks and installs no longer flash a console window.
+- Opening a file to the side from Quick Open with `Cmd+Return` uses an existing column instead of adding one.
+- **Layout → One File at a Time** no longer applies to a commit's changes, which list every file.
+- `Cmd+Q` and **Mayoi → Quit Mayoi** ask before quitting, with **Don't ask again** to skip it.
+- **Settings → General → Confirm Before Quit** turns the quit question back on.
+- `Shift`-click in the Explorer selects a range of files and folders, and `Cmd`-click (`Ctrl`) adds or removes one.
+- `Cmd+C` and **Copy** in the Explorer copy every selected file; **Copy Path** copies their paths, one per line.
+- **Rename…** and **Move to Trash** stay off while several Explorer rows are selected.
+- Headings in the breadcrumbs and their outline show plain text, so `[label](url)` reads as its label.
+- Updating a plugin installed from Git no longer fails on Windows with Access is denied while Mayoi is open.
+- Quick Open no longer crashes when opened after **File → Close Folder**.
+
+## 0.23.1
+
+- Set the TypeScript plugin's `path` to `tsrs` to use tsrs.
+- Set the Python plugin's `path` to `ty` to use ty.
+- Closing the settings window keeps what was typed in a text field, rather than losing it.
+- Archive sessions from a row's menu, its archive button or `⌫`, and **Undo** from the toast.
+- Choose several sessions to archive them together.
+- The archive button in the Sessions title, or **View → Archived Sessions**, lists archived sessions to restore.
+- Resuming an archived session brings it back to the list; its terminal and transcript are left alone.
+- Give a language server your own startup options with `languageServers` in settings.json, by the server's id.
+- Options go over the plugin's own, deeply, and `null` takes one away, as in `{"tsserver": {"path": null}}`.
+- Saving changed options restarts only the servers they're for, in every folder.
+- A language server plugin's details show where to set its `initializationOptions`.
+- Holding `Cmd` (`Ctrl` on Windows and Linux) over a name shows a hand, as a click goes to its definition.
+- Drag a file or folder onto a folder in the Explorer to move it there; open tabs follow it.
+- On Windows a new terminal is titled by its shell, as `pwsh`, rather than the shell's full path.
+- The **Go** menu finds type definitions, source definitions, implementations and references.
+- Language server plugins can start a bundled runtime on this machine.
+
+
 - Local files over the new **Log Files Over** setting (32 MB by default) open with a progress bar as they are read.
 - The whole text of a big file is in the editor: nothing is left out, and files over 64 MB open too, up to 2 GB.
 - A big file can be edited, saved and undone as any other; **Go to Line** and `Find` reach all of it.

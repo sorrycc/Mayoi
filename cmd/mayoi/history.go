@@ -327,6 +327,10 @@ func movedBy(x, start, end, n int) int {
 func (d *editor) follow(moved func(x int) int) {
 	n := d.buf.Len()
 	for _, o := range d.views {
+		if o.liveCell.on {
+			// The table of the cell edited in place, by its header.
+			o.liveCell.at = min(moved(o.liveCell.at), n)
+		}
 		if o.hidden {
 			o.hiddenAt = min(moved(o.hiddenAt), n)
 		}
@@ -343,7 +347,7 @@ func (d *editor) follow(moved func(x int) int) {
 // followChange is follow for an edit that is only known by the text
 // before and after it, as typing is, made near offset hint.
 func (d *editor) followChange(old, now ui.TextSnapshot, hint int) {
-	if len(d.views) < 2 && !d.marked() && !d.hasFolds() {
+	if len(d.views) < 2 && !d.marked() && !d.hasFolds() && !d.liveCell.on {
 		return
 	}
 	start, end, ok := changedRunes(old, now, hint)

@@ -15,7 +15,8 @@ import (
 // at a place of its tab strip, or in a column of their own beside one.
 // Folders open as `mayoi <dir>` opens them. On a terminal, the paths are
 // typed instead. Files dragged from the explorer, source control and the
-// search results go where those from the Finder go.
+// search results go where those from the Finder go. A file or a folder
+// of the explorer dropped on a row of it moves there (treeDrag).
 
 // fileDrag is a file dragged from the sidebar, and the match of it a
 // search result shows, which opens selected; more, when set, gives the
@@ -66,13 +67,47 @@ func (a *app) showDropped(f *fileDrag) {
 // dragFile makes a row of the sidebar drag its file to the columns. The
 // drag also carries the file out to other apps, as a copy.
 func (a *app) dragFile(row ui.Element, f *fileDrag) {
-	row.Drag(dragItem{file: f})
+	a.dragValue(row, dragItem{file: f}, f.paths)
+}
+
+// dragValue makes row drag value within Mayoi, and the files of paths out
+// to other apps, as a copy.
+func (a *app) dragValue(row ui.Element, value any, paths func() []string) {
+	row.Drag(value)
 	if a.host.nativeDrags() {
-		row.DragDataFrom(func() mtransfer.Data { return fileDragData(f.paths()...) })
+		row.DragDataFrom(func() mtransfer.Data { return fileDragData(paths()...) })
 	}
 	if row.Dragging() {
 		a.dragNow = true
 	}
+}
+
+// treeDrag is a file or a folder dragged from the explorer of from, which
+// moves to a folder of that explorer it is dropped on. A file drags as a
+// dragItem, which opens in the columns as well; a folder as itself, which
+// nothing else takes.
+type treeDrag struct {
+	path string
+	from *app
+}
+
+// treeTake is what a row of the explorer takes: a dragItem, of which
+// only one with tree set moves, or the treeDrag of a folder.
+type treeTake interface{ treeTake() }
+
+func (dragItem) treeTake()  {}
+func (*treeDrag) treeTake() {}
+
+// treeSource is the file or folder of the explorer that v drags, nil for
+// what was dragged from elsewhere, as from search or source control.
+func treeSource(v treeTake) *treeDrag {
+	switch v := v.(type) {
+	case dragItem:
+		return v.tree
+	case *treeDrag:
+		return v
+	}
+	return nil
 }
 
 // fileDragData is what a drag out to another app offers: the files as a

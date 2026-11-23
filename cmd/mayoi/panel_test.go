@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"net/url"
@@ -198,6 +199,17 @@ func TestTerminalExitedEarlyStays(t *testing.T) {
 	}
 	if !hs.tt.HasText(locales.NoteTermExitedEarly(shellName(), "3")) || !hs.tt.HasText(locales.ReportProblem()) {
 		t.Fatalf("no toast offers to report it: %q", hs.tt.Texts())
+	}
+}
+
+// A file dialog that cannot open, as on Linux without the MIME database,
+// says why in a toast that offers to report it, rather than do nothing.
+func TestDialogFailedOffersReport(t *testing.T) {
+	hs := newHarness(t, false)
+	hs.a.dialogFailed(errors.New("mygo: GTK cannot load its icons"))
+	hs.settle()
+	if !hs.tt.HasText(locales.NoteDialogFailed("GTK cannot load its icons")) || !hs.tt.HasText(locales.ReportProblem()) {
+		t.Fatalf("no toast says why and offers to report it: %q", hs.tt.Texts())
 	}
 }
 

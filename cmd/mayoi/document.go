@@ -152,6 +152,10 @@ type editor struct {
 	// defClick is set while a Cmd-click, which goes to a definition as it
 	// is let go, is held.
 	defClick bool
+	// defProbe is where the pointer was when defFound was found: that a
+	// name is there, which a Cmd-click goes to the definition of.
+	defProbe restProbe
+	defFound bool
 	scopes   scopeCache
 	// folding is the runs of lines the editor folded.
 	folding foldView
@@ -299,6 +303,13 @@ type editor struct {
 	// liveBox is the task's box the pointer is over, as its rune plus
 	// one, 0 for none.
 	liveBox int
+	// liveCell is the cell of a table Live Preview edits in place.
+	liveCell liveCell
+	// liveScroll is how far the next frame scrolls, as Live Preview's
+	// last asked.
+	liveScroll float32
+	// liveMenu is the table and its cell the menu of a cell opened on.
+	liveMenu liveTableTarget
 	// liveRanges and liveObjects are the ranges and the objects of Live
 	// Preview's last frame, kept for the next to fill again.
 	liveRanges  []ui.TextRange

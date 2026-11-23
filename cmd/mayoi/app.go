@@ -91,6 +91,9 @@ type host interface {
 	showSettings(section, key string)
 	// redrawWindows draws every window with the current font and zoom.
 	redrawWindows()
+	// quitApp quits Mayoi as Cmd+Q does, asking first in this window
+	// while confirmBeforeQuit is on.
+	quitApp()
 	// installCLI and uninstallCLI put the mayoi command on the shell's
 	// path, and take it away, saying how it went.
 	installCLI()
@@ -224,6 +227,11 @@ type app struct {
 	// crumbs is the box a folder of the breadcrumbs opens.
 	crumbs  crumbsPicker
 	fileRow int
+	// explorerSel are the files and folders Shift and Cmd choose with the
+	// row chosen, by their paths, none while it is chosen alone;
+	// explorerAnchor is the one Shift chooses from.
+	explorerSel    ui.Selection[string]
+	explorerAnchor string
 	// filesView is the explorer's list, which focusFiles has take the
 	// keyboard as it next shows.
 	filesView  ui.Handle
@@ -273,7 +281,11 @@ type app struct {
 	logQueue    []*document // the files to read in log mode
 	logReading  bool        // a log file is being read
 	cols        []*column
-	col         int
+	// layout is how the columns are laid out, side by side and one above
+	// another; cols are its columns as they read.
+	layout   *tile
+	nextTile int
+	col      int
 	// findCol is the column the find widget shows in, the one with the
 	// keyboard as the frame's columns began: a click on another's tab as
 	// they draw moves col, and the widget's input binds one control.
@@ -324,15 +336,13 @@ type app struct {
 	// transfers are the copies to and from hosts running.
 	transfers []*transfer
 
-	panelMax    bool // the panel takes the editor's room
-	welcomeView ui.Handle
-	rain        rainState   // The Matrix's, behind the welcome page
-	mascot      mascotState // the theme's character, Claude's or Qoder's
-	toldAt      time.Time   // when a toast last told what a command did
-	spin        spinState   // Claude's spinner, while Git works
+	panelMax bool        // the panel takes the editor's room
+	rain     rainState   // The Matrix's, behind the welcome page
+	mascot   mascotState // the theme's character, Claude's or Qoder's
+	toldAt   time.Time   // when a toast last told what a command did
+	spin     spinState   // Claude's spinner, while Git works
 	// blurred is set while the window has not the keyboard.
-	blurred  bool
-	colsView ui.Handle // the columns, whose width their weights share
+	blurred bool
 	// frame counts the frames, and frameAt is when the last started: a
 	// frame may build the view several times.
 	frame   int
@@ -343,6 +353,11 @@ type app struct {
 	builds int
 	// dragging is set while a tab is dragged, as the frame before found.
 	dragging, dragNow bool
+	// rootMoveOver is set while a file or a folder of the explorer that
+	// would move into the workspace is over the space below its rows;
+	// moving holds those moving to a host, until it answers.
+	rootMoveOver bool
+	moving       map[string]bool
 	// carried is a tab of another project dragged in over the rail, until
 	// the drag ends: the frame clears it once nothing here sees the drag,
 	// dragSeen, any more. copyDrop says Alt is held, which copies a tab
@@ -381,7 +396,7 @@ type app struct {
 	hover      *hoverCard   // the card Show Hover shows
 	rest       pointerHover // the name the pointer rests on in an editor, for its card
 	nav        navHistory   // where Go Back and Go Forward go
-	defAsked   int          // the Go to Definition last asked, whose answer alone goes
+	defAsked   int          // the last language server jump, whose answer alone goes
 	hoverAsked int          // the Show Hover last asked, as defAsked
 	restAsked  int          // the hover the pointer last asked for, apart: it never drops Show Hover's
 	find       findState
@@ -470,6 +485,7 @@ func newApp(h host, s *settings.Settings, w *settings.Window) *app {
 	a.scm.row, a.inFiles.row = -1, -1
 	a.files.List.Selected = &a.fileRow
 	a.cols = []*column{a.newColumn()}
+	a.layout = a.rowOf(a.cols)
 	return a
 }
 
@@ -592,6 +608,7 @@ func (a *app) openFolder(dir string) {
 	a.files = ui.OutlineState[string]{Indent: treeStep}
 	a.explorer = explorerTree{}
 	a.fileRow = -1
+	a.clearExplorerSelection()
 	a.files.List.Selected = &a.fileRow
 	a.index, a.ignored = nil, nil
 	a.indexRead.Invalidate()
@@ -649,7 +666,7 @@ func (a *app) closeFolder() {
 		a.resetRepositories()
 		a.root, a.tree, a.index, a.git = "", nil, nil, gitState{}
 		a.resetSearch()
-		a.closed = nil
+		a.closed, a.recent = nil, nil
 		a.window.Folder = ""
 		a.settings.Changed()
 	}, nil)

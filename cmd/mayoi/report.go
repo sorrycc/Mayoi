@@ -3,6 +3,9 @@ package main
 import (
 	"net/url"
 	"runtime"
+	"strings"
+
+	"mayoi/locales"
 )
 
 // reportProblem opens a new issue of Mayoi's repository in the browser,
@@ -27,3 +30,12 @@ func reportURL(title, details string) string {
 // reportFromMenu is Help → Report a Problem…: an issue with nothing filled
 // in but the version and the system.
 func (a *app) reportFromMenu() { a.reportProblem("", "") }
+
+// dialogFailed tells that a file dialog could not open, with why, and
+// offers to report it.
+func (a *app) dialogFailed(err error) {
+	reason := strings.TrimPrefix(err.Error(), "mygo: ")
+	a.tell(note{message: locales.NoteDialogFailed(reason), label: locales.ReportProblem(), action: func() {
+		a.reportProblem("The file dialog could not open", "Error: "+reason)
+	}})
+}

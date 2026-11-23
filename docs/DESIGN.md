@@ -49,7 +49,21 @@ The order: it works, then it is easy, then it looks good. Polish never covers a 
   link whose source is hidden the pointer is a hand, and a click opens it as it is let go, as in Obsidian, the caret
   and the text staying still (`TestLiveLinkClick`); one whose source shows takes the caret, and is a hand with ⌘
   held. Over a task's box the pointer is a hand too, and its edge darkens. A footnote's label drawn as its number
-  keeps the room of its source.
+  keeps the room of its source. A click on a table's cell edits it in place: its source in an input ringed in the
+  accent, inside the cell's borders, the table drawn around it and its column as wide as the source needs, held so
+  while it is typed in; nothing else moves, and the caret, the cell and the table stay put as the note is parsed
+  again (`TestLiveTableCellEdit`). Tab and Shift-Tab move across cells, Return and the arrows between rows, and
+  Escape, or a move past the table, gives the editor the keyboard, its caret before or after the table
+  (`TestLiveTableCellLeaves`). Tab after the last cell adds a row and edits its first cell, Return in the last row adds
+  one in the same column, and Return in an empty last row takes it away and leaves the table, as in a list
+  (`TestLiveTableAppendRows`, `TestLiveTableHeaderOnly`). The menu of a cell inserts and deletes rows and columns, each
+  one step of undo, the new cell or the one beside the one taken away edited after it; the header stays first and the
+  last column stays, their items off (`TestLiveTableMenu`). A change chosen for a table that changed since is not
+  made, and the cell follows its table as lines come above it (`TestLiveTableStale`). A long table is as high as all
+  of its rows and its columns as wide wherever it is scrolled, the cell a key moves to or a row added scrolls into view
+  as little as shows it, and what the cell writes to the note leaves the view where it is (`TestLiveTableLong`). The
+  wheel over a table, its cells, their links and the cell edited, scrolls the editor as over its text, once for each
+  event, sideways over the cell edited its input (`TestLiveTableWheel`).
 - What loads keeps a place: a picture of the web on its way in Live Preview is a card where it goes, which the
   picture fades in over as its room glides to its own (`TestLivePictureArrives`); a rendered block shows once it is
   measured, fading in over `motionShow`.
@@ -66,7 +80,8 @@ The order: it works, then it is easy, then it looks good. Polish never covers a 
 - `TestBudgets` (`cmd/mayoi/budget_test.go`) holds the cost of a frame to a budget: idle, scrolling, typing, typing
   with find open, Quick Open, the palette, 2,000 sessions scrolled, hovered and filtered, the GitHub view's 500 issues
   and pull requests scrolled, hovered and filtered, the Table view of 100,000 lines of JSON Lines scrolled, moved
-  through and filtered, an editor scrolled under a hover, and a terminal printing as fast as it can. CI runs it on macOS.
+  through and filtered, a Live Preview table of 1,000 rows idle, scrolled and typed in, an editor scrolled under a
+  hover, and a terminal printing as fast as it can. CI runs it on macOS.
   A change that needs more raises a budget in the same commit and says why.
 - The figures on the website and in `docs/ARCHITECTURE.md` come from these tests.
 

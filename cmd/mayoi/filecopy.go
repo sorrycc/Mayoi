@@ -39,7 +39,7 @@ var copiedRemote struct {
 }
 
 // explorerInput takes the Copy and Paste of the Edit menu while the
-// explorer has the keyboard.
+// explorer has the keyboard: Copy copies every row chosen.
 func (a *app) explorerInput(ev ui.InputEvent) bool {
 	if ev.Kind != ui.InputCommand {
 		return false
@@ -49,7 +49,7 @@ func (a *app) explorerInput(ev ui.InputEvent) bool {
 		if a.fileRow < 0 || a.fileRow >= a.files.Rows() {
 			return false
 		}
-		a.copyFiles(a.files.Item(a.fileRow))
+		a.copyFiles(a.explorerPicked(a.files.Item(a.fileRow))...)
 		return true
 	case "paste":
 		a.pasteFiles(a.targetDir())

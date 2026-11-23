@@ -178,10 +178,12 @@ func (a *app) closedColumn(c closedTab) (col *column, made bool) {
 	} else {
 		col = a.newColumn()
 		col.weight = c.weight
-		at := min(c.colAt, len(a.cols))
-		a.cols = slices.Insert(a.cols, at, col)
-		if a.col >= at {
-			a.col++
+		// Where it was among the columns as they read: before the one in
+		// its place now, or after the last.
+		if at := min(c.colAt, len(a.cols)); at < len(a.cols) {
+			a.placeColumn(col, a.cols[at], false)
+		} else {
+			a.placeColumn(col, a.cols[len(a.cols)-1], true)
 		}
 		made = true
 	}

@@ -421,6 +421,10 @@ func (d *editor) selectLine(line, col int) {
 // lists them before anything is typed, the one shown now after the rest of
 // them, as it is the one the user is leaving.
 func (a *app) recentFirst(results []workspace.Match) []workspace.Match {
+	if a.tree == nil {
+		// Without a folder there is no index for recent files to lead.
+		return results
+	}
 	// Find the recent files in the index, without a map of all of it.
 	at := make(map[string]int, len(a.recent))
 	for _, p := range a.recent {

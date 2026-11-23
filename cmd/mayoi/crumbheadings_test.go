@@ -329,3 +329,103 @@ func TestHeadingCrumbsFilter(t *testing.T) {
 		t.Error("Escape left the box open")
 	}
 }
+
+// Headings show their text as a reader sees it: a link's label, not its
+// address, and their marks read, while their places stay those of the
+// source.
+func TestHeadingLabels(t *testing.T) {
+	cases := []struct{ src, want string }{
+		{"### 11.03 — [Finding my thing](https://example.com/find?q=1)", "11.03 — Finding my thing"},
+		{"## Plain — 中文, punctuation: (ok)!", "Plain — 中文, punctuation: (ok)!"},
+		{"## 1. Steps", "1. Steps"},
+		{"## *em* and **[bold *link*](x)** and ~~gone~~ ==lit==", "em and bold link and gone lit"},
+		{"## Run `a *b* [c](d)` now", "Run a *b* [c](d) now"},
+		{"## Code `C:\\path\\*`", "Code C:\\path\\*"},
+		{"## Not \\*em\\* nor \\[link\\](x)", "Not *em* nor [link](x)"},
+		{"## Tom &amp; Jerry &#169;", "Tom & Jerry ©"},
+		{"## A [full][ref], [collapsed][] and [shortcut]", "A full, collapsed and shortcut"},
+		{"## No [such][missing] ref", "No [such][missing] ref"},
+		{"## See <https://example.com> and https://x.org", "See https://example.com and https://x.org"},
+		{"## ![A *logo*](logo.png) Brand", "A logo Brand"},
+		{"## [[Note|Alias]] and [[Other#Part]]", "Alias and Other > Part"},
+		{"## Break <br> here", "Break here"},
+		{"## <br>", "<br>"},
+	}
+	var src strings.Builder
+	for _, c := range cases {
+		src.WriteString(c.src + "\n\ntext\n\n")
+	}
+	src.WriteString("[ref]: https://a.example\n[collapsed]: https://b.example\n[shortcut]: <https://c.example>\n[^note]: a footnote\n")
+	snap := ui.NewTextBuffer(src.String()).Snapshot()
+	o := readOutline(snap)
+	if len(o.heads) != len(cases) {
+		t.Fatalf("%d headings, want %d", len(o.heads), len(cases))
+	}
+	for i, c := range cases {
+		if got := o.label(i); got != c.want {
+			t.Errorf("%q shows %q, want %q", c.src, got, c.want)
+		}
+		// The source, level and line stay as they were.
+		if h := o.heads[i]; h.Line != i*4 || "## "+h.Name != c.src && "### "+h.Name != c.src {
+			t.Errorf("%q became heading %+v", c.src, h)
+		}
+	}
+}
+
+// The box of headings shows, filters by and goes to a heading by the
+// text it shows, not its Markdown.
+func TestHeadingCrumbsLabels(t *testing.T) {
+	doc := "# Title\n\ntext\n" + strings.Repeat("\nfiller\n", 40) +
+		"\n### 11.03 — [Finding my thing](https://example.com/find)\n\ntext\n" + strings.Repeat("\nfiller\n", 40) +
+		"\n## `Other`\n\ntext\n"
+	hs := newHarness(t, false)
+	os.WriteFile(hs.path("notes.md"), []byte(doc), 0o644)
+	hs.a.openFile(hs.path("notes.md"), true)
+	hs.settle()
+	hs.a.run("view.sidebar")
+	hs.settle()
+	a, tt, d := hs.a, hs.tt, hs.a.activeEditor()
+	a.jumpToScope(d, headingLineOf(doc, "`Other`"))
+	hs.settle()
+	if err := tt.Click(locales.CrumbsHeadingTip("Other")); err != nil {
+		t.Fatalf("%v: %v", err, tt.Texts())
+	}
+	hs.settle()
+	if _, ok := tt.Find("11.03 — Finding my thing"); !ok {
+		t.Errorf("no row of the heading's text: %v", tt.Texts())
+	}
+	for _, s := range tt.Texts() {
+		if strings.Contains(s, "https://") || strings.Contains(s, "](") {
+			t.Errorf("a row shows the heading's Markdown: %q", s)
+		}
+	}
+	k := &a.crumbs
+	// A query of the link's address matches nothing; of its label, it.
+	tt.Type("example")
+	hs.settle()
+	if _, ok := tt.Find(locales.CrumbsNoHeadingMatch()); !ok {
+		t.Errorf("the link's address matched: %v", tt.Texts())
+	}
+	for range len("example") {
+		tt.Key(0, ui.KeyBackspace)
+	}
+	tt.Type("finding")
+	hs.settle()
+	rows := []string{}
+	for r := range k.outline.Rows() {
+		rows = append(rows, d.headings.label(k.outline.Item(r)))
+	}
+	if want := []string{"Title", "11.03 — Finding my thing"}; !slices.Equal(rows, want) {
+		t.Errorf("rows %q, want %q", rows, want)
+	}
+	tt.Key(0, ui.KeyEnter)
+	for range 4 {
+		hs.settle()
+	}
+	if got, want := readingLine(d), headingLineOf(doc, "### 11.03"); got != want {
+		t.Errorf("at line %d after going to 11.03, want %d", got, want)
+	}
+	if _, ok := tt.Find(locales.CrumbsHeadingTip("11.03 — Finding my thing")); !ok {
+		t.Errorf("no crumb of the heading's text: %v", tt.Texts())
+	}
+}

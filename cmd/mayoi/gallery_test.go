@@ -251,6 +251,22 @@ var galleryStates = []struct {
 		// The pointer over the second row, which shows its buttons.
 		hs.tt.Move(120, 222)
 	}},
+	{"sessions-archived", func(hs *harness) {
+		agentHome(hs.t, hs.root)
+		hs.a.sessions.all = 1
+		hs.a.showSessions()
+		hs.settle()
+		// One archived, which Archived lists alone.
+		rows := hs.a.sessionRows()
+		hs.a.archiveSessions(rows[len(rows)-1:], false)
+		hs.a.notes = nil
+		hs.a.toggleArchivedSessions()
+	}},
+	{"sessions-archived-empty", func(hs *harness) {
+		agentHome(hs.t, hs.root)
+		hs.a.sessions.all = 1
+		hs.a.toggleArchivedSessions()
+	}},
 	{"sessions-find", func(hs *harness) {
 		agentHome(hs.t, hs.root)
 		hs.a.sessions.all = 1
@@ -303,6 +319,53 @@ var galleryStates = []struct {
 		hs.until("the note parsed", func() bool { l := d.document.live; return l != nil && l.doc != nil && !l.quick })
 		at := strings.Index(src, "bold")
 		hs.place(d, at, at)
+	}},
+	{"live-table-cell", func(hs *harness) {
+		// A cell of a table edited in place in Live Preview: its source in
+		// the input, ringed, the table drawn around it.
+		src := "# Fruit\n\n| Name | Note | Price |\n| :--- | :---: | ---: |\n| apple | **crisp** | 1.20 |\n| 梨 | a \\| b | 3.00 |\n\nend\n"
+		os.WriteFile(hs.path("fruit.md"), []byte(src), 0o644)
+		hs.a.settings.MarkdownMode = "live"
+		hs.a.openFile(hs.path("fruit.md"), true)
+		d := hs.a.activeEditor()
+		hs.until("the table drawn", func() bool {
+			for _, lv := range d.livePane.views {
+				if lv.measured && lv.frame == hs.a.frame {
+					return true
+				}
+			}
+			return false
+		})
+		hs.tt.Click("crisp")
+		hs.settle()
+	}},
+	{"live-table-rows", func(hs *harness) {
+		// A table that grew from its cells: a column added from a cell's
+		// menu, and a row from Tab after its last cell, being typed in.
+		src := "# Fruit\n\n| Name | Note | Price |\n| :--- | :---: | ---: |\n| apple | **crisp** | 1.20 |\n| 梨 | a \\| b | 3.00 |\n\nend\n"
+		os.WriteFile(hs.path("rows.md"), []byte(src), 0o644)
+		hs.a.settings.MarkdownMode = "live"
+		hs.a.openFile(hs.path("rows.md"), true)
+		d := hs.a.activeEditor()
+		hs.until("the table drawn", func() bool {
+			for _, lv := range d.livePane.views {
+				if lv.measured && lv.frame == hs.a.frame {
+					return true
+				}
+			}
+			return false
+		})
+		hs.tt.Click("crisp")
+		hs.settle()
+		c := &d.liveCell
+		hs.a.liveTableEdit(d, c.first, c.last, tableColRight, c.row, c.col)
+		hs.settle()
+		hs.tt.Type("Stock")
+		hs.settle()
+		hs.a.openLiveCell(d, c.first, c.last, c.rows()-1, 3)
+		hs.key(0, ui.KeyTab)
+		hs.tt.Type("kiwi")
+		hs.settle()
 	}},
 	{"wiki-suggest", func(hs *harness) {
 		// [[ typed in a note of a vault: the notes it may link to, under it.

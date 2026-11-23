@@ -839,6 +839,11 @@ func parseLive(source string, path, root string, full bool, cache *markdownCache
 				walk(x)
 			case *east.Table:
 				s, e := linesOf(x)
+				if s >= 0 && x.ChildCount() == 1 && e < len(src) {
+					// A header alone: its line of alignments too, which is
+					// no row of its own.
+					e = lineEnd(bytes.IndexByte(src[e:], '\n') + e + 1)
+				}
 				if s >= 0 && full {
 					doc.blocks = append(doc.blocks, liveBlock{start: s, end: e, source: string(src[s:e])})
 				}
@@ -1290,8 +1295,9 @@ func (doc *liveDoc) eachDeco(from, to int, fn func(d liveDeco)) {
 
 // eachBlock calls fn with each block that reaches runes from up to to,
 // moved to the text as it is, but for those edited since the parse,
-// which show as their text until the next.
-func (doc *liveDoc) eachBlock(from, to int, fn func(b *liveBlock)) {
+// which show as their text until the next: but one keep keeps, by where
+// it starts, drawn as it was, as a table whose cell is edited in place.
+func (doc *liveDoc) eachBlock(from, to int, keep func(start int) bool, fn func(b *liveBlock)) {
 	e := doc.edit
 	oldFrom, oldTo := from, to
 	if e != nil {
@@ -1302,7 +1308,7 @@ func (doc *liveDoc) eachBlock(from, to int, fn func(b *liveBlock)) {
 	for i := k; i < len(doc.blocks) && doc.blocks[i].start <= oldTo; i++ {
 		b := doc.blocks[i]
 		if e != nil {
-			if b.start < e.q && b.end >= e.p {
+			if b.start < e.q && b.end >= e.p && (keep == nil || b.start > e.p || !keep(b.start)) {
 				continue
 			}
 			b.start, b.end = e.start(b.start), e.end(b.end, true)

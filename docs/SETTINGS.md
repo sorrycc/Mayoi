@@ -99,7 +99,7 @@ takes its default.
 | `vimCtrlKeys`           | `false`       | `true`, `false`                                             | Only this file                                 |
 | `blame`                 | `true`        | `true`, `false`                                             | **Git → Inline Blame**                         |
 | `diffLayout`            | `""`          | `""` (side by side when wide enough), `"split"`, `"inline"` | A diff's **Layout** button                     |
-| `diffFiles`             | `""`          | `""` (every file in one scroll), `"one"` (one file at a time)  | A diff's **Layout** menu                   |
+| `diffFiles`             | `""`          | `""` (every file in one scroll), `"one"` (one file at a time, not in a commit's changes) | A diff's **Layout** menu                   |
 | `diffCrossFiles`        | `""`          | `""` (say it, and cross on one more step), `"always"`, `"never"` | Only this file                            |
 | `diffHighlight`         | `""`          | `""` (changed words), `"line"`, `"char"`                       | A diff's **Highlight** menu                |
 | `diffWhitespace`        | `""`          | `""` (exact), `"eol"`, `"all"`, `"blank"`                      | A diff's **Whitespace** menu               |
@@ -116,9 +116,11 @@ takes its default.
 | `aiSecretFiles`         | none          | Patterns of files AI commit messages send by name only      | Only this file                                 |
 | `crashReports`          | `""`          | `""` (ask), `"always"`, `"never"`                           | **Don't ask again** when Mayoi asks           |
 | `usageStats`            | `true`        | `true`, `false`                                             | Only this file                                 |
+| `confirmBeforeQuit`     | `true`        | `true`, `false`                                             | **Don't ask again** when Mayoi asks to quit   |
 | `plugins`               | none          | Each plugin's own settings, and `"enabled": false` to turn it off | The **Plugins** page of the settings window |
 | `formatOnSave`          | none          | `true` for each language to format as it saves, or `"*"` for all | Only this file                          |
 | `formatters`            | none          | The formatter of each language, where plugins offer several | Only this file                                 |
+| `languageServers`       | none          | Each language server's `initializationOptions`, by its id   | Only this file                                 |
 
 ### Language
 
@@ -272,7 +274,8 @@ differ in width lines them up only roughly.
   block, as formulas: in the Reading view, and in Live Preview but for `math` code blocks, which show as code. Turn
   it off to show the source.
 - **`markdownMode`** is how Markdown files, .mdx included, open: as their source, as Live Preview, which you edit
-  as it reads, its marks showing only where the caret is, or rendered in the Reading view. The buttons at the right
+  as it reads, its marks showing only where the caret is, a click on a table's cell editing it in place and its menu adding rows and columns, or rendered
+  in the Reading view. The buttons at the right
   of a tab's path, **⌥⌘V** and **⇧⌘V** switch a tab between them, and the choice of a tab is remembered for the
   session. `markdownPreview: true`, which older versions wrote, reads as `"reading"`.
 - **`diffHighlight`** chooses whether changed lines show word-level, character-level or line-level tinting. The
@@ -308,6 +311,9 @@ differ in width lines them up only roughly.
   version (and the one before, for `update`), the system and its architecture, and the language of the menus; never a
   path, a file, a name or your account. Turn it off to send nothing. `DO_NOT_TRACK=1` in Mayoi's environment turns
   it off too. Only releases send, and builds started with `MAYOI_UMAMI_URL`. See [PRIVACY.md](PRIVACY.md).
+- **`confirmBeforeQuit`** asks before `Cmd+Q` and **Mayoi → Quit Mayoi** quit, on macOS. Quitting from the Dock, to
+  update, to log out or shut down, and closing the last window never ask. **Don't ask again** turns it off once you
+  choose **Quit**; **Settings → General → Confirm Before Quit** turns it back on.
 - **`aiSecretFiles`** adds patterns of files whose lines **Write Commit Message with AI** never sends, after
   Mayoi's own list of `.env` files, keys and credentials. A name matches in any folder, a path such as
   `config/prod.yml` matches the end of a file's path, and `/config/prod.yml` its start. `**` is any run of folders,
@@ -332,6 +338,43 @@ differ in width lines them up only roughly.
   "formatters": { "typescript": "biome" }
 }
 ```
+
+### Language servers
+
+**`languageServers`** gives a language server `initializationOptions` of your own, by the server's id, without changing
+its plugin. The ids of the bundled servers are `rust-analyzer.server`, `gopls.server`, `clangd.server`,
+`basedpyright.server` and `typescript-language-server.server`. **Plugins → Show Language Servers** and a plugin's
+details in the settings window show the id of every server.
+
+```json
+{
+  "languageServers": {
+    "rust-analyzer.server": {
+      "initializationOptions": { "check": { "command": "clippy" }, "cargo": { "features": "all" } }
+    },
+    "gopls.server": { "initializationOptions": { "staticcheck": true, "gofumpt": true } },
+    "clangd.server": { "initializationOptions": { "fallbackFlags": ["-std=c++20"] } },
+    "typescript-language-server.server": {
+      "initializationOptions": { "preferences": { "includeInlayParameterNameHints": "all" } }
+    }
+  }
+}
+```
+
+- Your options go over the server's own, those its `plugin.json` gives, with its settings filled in, or its resolver
+  returns. An object adds to the object there key by key, at any depth, and keeps the keys you leave out.
+- Any other value takes the place of what was there: an array, a string, a number, `true` or `false`.
+- `null` takes a key away, as `{"tsserver": {"path": null}}` does `typescript-language-server`'s `tsserver.path`.
+  `"initializationOptions": null` sends none at all.
+- Values go as you write them: numbers keep every digit, and `${settings.path}` is only text.
+- Options that are not an object or `null` are left out, and the plugin's log says so. The log never shows the options.
+- An id no server has is ignored, until a plugin brings that server.
+- A server reads `initializationOptions` once, as it starts. Saving a change restarts the servers whose options
+  changed, in every folder, and no other. A server starts with its plugin's own again once you take yours away.
+- Options apply to folders on SSH hosts too, as they are sent with the server's start. A folder's
+  `.mayoi/settings.json` can't set them, as they can name programs a server runs.
+- Some servers, as basedpyright, read their settings from `workspace/configuration` rather than
+  `initializationOptions`; Mayoi doesn't set those yet. Which program a server runs is its plugin's `path` setting.
 
 ### Example
 
@@ -573,6 +616,9 @@ The shortcuts are macOS's with Ctrl for ⌘, and the hints show them so, but for
 | Show the tab 1 to 8, the last            | ⌘1 to ⌘9   | Alt+1 to Alt+9                                       |
 | Save All, Open Folder in New Window      | ⌥⌘S, ⌥⌘O   | none                                                 |
 | Focus Next Column, Focus Previous Column | ⌥⌘→, ⌥⌘←   | none                                                 |
+| Split Right, Split Down                  | ⌘\, none   | Ctrl+\, Ctrl+Shift+D                                 |
+| New Column Right, New Column Below       | ⌘D, ⇧⌘D    | none                                                 |
+| Add Next Occurrence                      | ⌃⌘G        | Ctrl+D                                               |
 | Add Cursor Above, Add Cursor Below       | ⌥⌘↑, ⌥⌘↓   | Ctrl+Alt+Up, Ctrl+Alt+Down on Windows; none on Linux |
 | Column Select Up, Down, Left, Right      | ⇧⌥⌘ arrows | Ctrl+Shift+Alt arrows on Windows; none on Linux      |
 

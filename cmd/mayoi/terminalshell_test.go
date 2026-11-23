@@ -102,6 +102,51 @@ func TestLocalShellName(t *testing.T) {
 	}
 }
 
+// On Windows the console titles a new terminal by its shell's path, which
+// the panel and the tabs show as the shell's name; other titles, a
+// program's or a path with arguments, and those of other systems, stay.
+func TestWindowsShellPathTitle(t *testing.T) {
+	const store = `C:\Program Files\WindowsApps\Microsoft.PowerShell_7.7.0.0_arm64__8wekyb3d8bbwe\pwsh.exe`
+	onOS(t, "linux")
+	s := &session{title: "pwsh"}
+	s.retitle(store)
+	if s.label() != store {
+		t.Errorf("off Windows the path became %q", s.label())
+	}
+	onOS(t, "windows")
+	for title, want := range map[string]string{
+		store:                                    "pwsh",
+		`C:\Program Files\PowerShell\7\pwsh.exe`: "pwsh",
+		`C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe`: "powershell",
+		`C:\WINDOWS\system32\cmd.exe`:                               "cmd",
+		`C:\Program Files\Git\bin\bash.exe`:                         "bash",
+		`C:\tools\xonsh.exe`:                                        "xonsh",
+		`C:\Program Files\PowerShell\7\pwsh.exe -NoLogo`:            `C:\Program Files\PowerShell\7\pwsh.exe -NoLogo`,
+		`C:\a\pwsh.exe C:\b\cmd.exe`:                                `C:\a\pwsh.exe C:\b\cmd.exe`,
+		`C:\Program Files\nodejs\node.exe`:                          `C:\Program Files\nodejs\node.exe`,
+		`C:\Windows\System32\OpenSSH\ssh.exe`:                       `C:\Windows\System32\OpenSSH\ssh.exe`,
+		"✳ Fixing the build":                                        "✳ Fixing the build",
+		"pwsh":                                                      "pwsh",
+	} {
+		// xonsh is the program of terminalShell.
+		s := &session{title: "pwsh", shell: `C:\tools\xonsh.exe`}
+		s.retitle(title)
+		if s.label() != want {
+			t.Errorf("titled %q, labelled %q, want %q", title, s.label(), want)
+		}
+	}
+	s = &session{name: "build"}
+	s.retitle(store)
+	if s.label() != "build" {
+		t.Errorf("renamed, labelled %q", s.label())
+	}
+	s = &session{sessionTitle: "Fix the build", program: "claude"}
+	s.retitle(store)
+	if s.label() != "Fix the build" {
+		t.Errorf("resumed, labelled %q", s.label())
+	}
+}
+
 // terminalShell is the program of a local terminal of Mayoi's only: a
 // remote folder's runs its host's shell, and one of herdr-core hc.
 func TestTerminalLaunchKeepsOthers(t *testing.T) {

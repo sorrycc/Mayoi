@@ -81,8 +81,22 @@ func (a *app) view(c *ui.Context) {
 	// Which pane has the keyboard focus, as the frame before left it, and
 	// which column: its editor is the one typing is of.
 	for i, col := range a.cols {
+		if len(col.tabs) > 0 {
+			col.holds = holdNone // a tab came: the column holds the keys no more
+		}
 		switch t := col.tab(); {
 		case t == nil:
+			// A button of its welcome page focused makes it the column too.
+			if col.body.FocusWithin(c) {
+				a.focus, a.col = paneEditor, i
+			}
+			switch held := col.body.Focused(c); {
+			case held && col.holds == holdAsked:
+				col.holds = holdHeld
+			case !held && col.holds == holdHeld:
+				// Let go: no longer a stop of Tab.
+				col.holds = holdNone
+			}
 		case t.ed != nil && t.ed.vscroll.FocusWithin(c):
 			a.focus, a.col = paneEditor, i
 			t.ed.typist = t.ed
@@ -539,41 +553,78 @@ const minColumnW = 160
 // minPanelW is the least width the panel is dragged to at a side.
 const minPanelW = 160
 
-// columns is the editor area: its columns side by side, which share its
-// width by their weights, with a handle between two that moves the width
-// from one to the other.
+// minColumnH is the least height of a column split below another: its tab
+// strip and a few lines.
+const minColumnH = 120
+
+// columns is the editor area: its columns side by side, and some split
+// one above another.
 func (a *app) columns(c *ui.Context) {
-	p := a.pal
-	width := a.colsView.Bounds(c).W
-	var total float32
-	for _, col := range a.cols {
-		total += col.weight
-	}
-	// The columns as the frame began: one an action of the frame takes
-	// away, from its tab strip as it draws, is let be till the next.
-	cols := slices.Clone(a.cols)
 	a.findCol = a.column()
-	ui.Row(c.Key("columns")).Bind(&a.colsView).Grow(1).MinHeight(0).AlignItems(ui.Stretch).Children(func() {
-		for i, col := range cols {
-			if !slices.Contains(a.cols, col) {
+	a.tileView(c, a.layout, c.Key("columns"))
+}
+
+// tileView is a group of the layout, its panes side by side or one above
+// the other, which share its room by their weights, with a handle between
+// two that moves the room from one to the other.
+func (a *app) tileView(c *ui.Context, g *tile, key *ui.Context) {
+	p := a.pal
+	bounds := g.view.Bounds(c)
+	size, least := bounds.W, float32(minColumnW)
+	box := ui.Row(key)
+	if g.down {
+		size, least = bounds.H, minColumnH
+		box = ui.Column(key)
+	}
+	box.Grow(1).MinHeight(0).MinWidth(0)
+	// The panes as the frame began: a column an action of the frame takes
+	// away, from its tab strip as it draws, is let be till the next.
+	kids := slices.Clone(g.kids)
+	box.Bind(&g.view).AlignItems(ui.Stretch).Children(func() {
+		var total float32
+		for _, k := range kids {
+			total += k.share()
+		}
+		shown := 0
+		for i, k := range kids {
+			if k.col != nil && !slices.Contains(a.cols, k.col) {
 				continue
 			}
-			box := ui.Column(c.Key(col.id)).Basis(0).Grow(col.weight).MinWidth(0)
-			if i > 0 {
-				box.BorderWidth(0, 0, 0, 1).BorderColor(p.border)
+			key := c.Key(k.id)
+			if k.col != nil {
+				// A column keeps its key wherever it moves in the layout.
+				key = c.Key(k.col.id)
 			}
-			box.Children(func() {
-				a.columnView(c, col)
-				if i == 0 || width <= 0 {
+			kb := ui.Column(key).Basis(0).Grow(k.share()).MinWidth(0).MinHeight(0)
+			if shown > 0 {
+				if g.down {
+					kb.BorderWidth(1, 0, 0, 0).BorderColor(p.border)
+				} else {
+					kb.BorderWidth(0, 0, 0, 1).BorderColor(p.border)
+				}
+			}
+			shown++
+			kb.Children(func() {
+				if k.col != nil {
+					a.columnView(c, k.col)
+				} else {
+					a.tileView(c, k, c.Key("tile"))
+				}
+				if i == 0 || size <= 0 {
 					return
 				}
-				prev := cols[i-1]
-				a.splitter(c, edgeLeft, func(d float32) {
-					least := minColumnW / width * total
-					by := d / width * total
-					if lo, hi := least-prev.weight, col.weight-least; lo <= hi {
+				prev := kids[i-1]
+				at := edgeLeft
+				if g.down {
+					at = edgeTop
+				}
+				a.splitter(c, at, func(d float32) {
+					least := least / size * total
+					by := d / size * total
+					if lo, hi := least-prev.share(), k.share()-least; lo <= hi {
 						by = clamp(by, lo, hi)
-						prev.weight, col.weight = prev.weight+by, col.weight-by
+						prev.setShare(prev.share() + by)
+						k.setShare(k.share() - by)
 						a.rememberTabs()
 					}
 				})
@@ -589,7 +640,12 @@ func (a *app) columnView(c *ui.Context, col *column) {
 		if col.locked {
 			a.tabStrip(c, col)
 		}
-		body := ui.Column(c).Bind(&col.body).Grow(1).MinHeight(0)
+		// It takes the keyboard, as a new empty column does, for what
+		// opens next to go there.
+		body := ui.Column(c).Bind(&col.body).Grow(1).MinHeight(0).Label(locales.EmptyColumn())
+		if col.holds != holdNone {
+			body.Focusable().FocusRing(false)
+		}
 		over := a.takeFiles(body, col)
 		body.Children(func() {
 			if col.locked {
@@ -602,7 +658,7 @@ func (a *app) columnView(c *ui.Context, col *column) {
 					})
 				})
 			} else {
-				a.welcome(c)
+				a.welcome(c, &col.welcome)
 			}
 			a.dropZones(c, col, over)
 		})
@@ -741,12 +797,14 @@ func (a *app) hideEditor(d *editor) {
 
 // dragItem is what is dragged to a column: one of its tabs, or of
 // another's, a terminal of the panel, a file of the sidebar, or issues and
-// pull requests of the GitHub view.
+// pull requests of the GitHub view. tree is set for a file of the
+// explorer, which moves to the folder of a row it is dropped on.
 type dragItem struct {
 	tab  *colTab
 	term *session
 	file *fileDrag
 	link *linkDrag
+	tree *treeDrag
 }
 
 // owns reports whether what was dragged is this window's to take: a tab or
@@ -1598,11 +1656,12 @@ var logo = sync.OnceValue(func() *ui.Bitmap {
 
 // welcome shows while no file is open: what to start with, and the
 // folders opened last.
-func (a *app) welcome(c *ui.Context) {
+// scroll is where it scrolls, the empty column's own.
+func (a *app) welcome(c *ui.Context, scroll *ui.Handle) {
 	p := a.pal
 	// Centered in the view, and scrolled when the window is too short.
-	view := a.welcomeView.Bounds(c)
-	page := ui.Scroll(c.Key("welcome")).Bind(&a.welcomeView).Fill().Background(p.editor)
+	view := scroll.Bounds(c)
+	page := ui.Scroll(c.Key("welcome")).Bind(scroll).Fill().Background(p.editor)
 	if a.settings.Theme == themeMatrix {
 		still := a.blurred || c.Preferences().ReduceMotion
 		page.Draw(func(pt *ui.Painter, r ui.Rect) { a.drawRain(pt, r, still) })

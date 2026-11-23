@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/egoist/mygo/ui"
+	"mayoi/locales"
 )
 
 // liveParse parses s for Live Preview, without pictures.
@@ -946,6 +947,87 @@ func TestLiveDiagramInput(t *testing.T) {
 	if at := len([]rune(src[:strings.Index(src, "```")])); d.sel != [2]int{at, at} {
 		t.Errorf("the click on the diagram left the selection at %v, not %v", d.sel, at)
 	}
+}
+
+// The buttons over a diagram in Live Preview do what they say, each once,
+// from a press and a release where they show, the diagram drawn still and
+// the caret where it was: not a press on the block, which edits its source.
+// Show Source shows its source in the card, whose Show Diagram brings the
+// drawing back; the wheel over the buttons scrolls the text.
+func TestLiveDiagramToolbar(t *testing.T) {
+	src := "intro\n\n```mermaid\ngraph TD\n  A --> B\n  B --> C\n```\n\nend\n" + strings.Repeat("more\n", 80)
+	code := "graph TD\n  A --> B\n  B --> C"
+	open := func(t *testing.T) (*harness, *editor, *liveView) {
+		hs := newHarness(t, true)
+		d := openLive(t, hs, "toolbar.md", src, 1)
+		lv := tableView(d)
+		hs.tt.Move(lv.at.X+lv.at.W/2, lv.at.Y+lv.at.H/2)
+		hs.settle()
+		return hs, d, lv
+	}
+	click := func(t *testing.T, hs *harness, d *editor, lv *liveView, label string) {
+		t.Helper()
+		r, ok := hs.tt.Find(label)
+		if !ok || r.W <= 0 {
+			t.Fatalf("no %q over the diagram", label)
+		}
+		sel := d.sel
+		hs.tt.Press(r.X+r.W/2, r.Y+r.H/2)
+		if _, ok := hs.tt.Find(label); !ok || d.sel != sel {
+			t.Fatalf("pressed, %q went, the caret at %v", label, d.sel)
+		}
+		hs.tt.Release(r.X+r.W/2, r.Y+r.H/2)
+		hs.settle()
+		if d.sel != sel || lv.frame != hs.a.frame {
+			t.Fatalf("%q moved the caret to %v or showed the block's source", label, d.sel)
+		}
+	}
+	t.Run("open", func(t *testing.T) {
+		hs, d, lv := open(t)
+		click(t, hs, d, lv, locales.OpenDiagram())
+		if hs.a.diagram == nil || !hs.tt.HasText(locales.CloseDiagram()) {
+			t.Fatal("Open Diagram did not open it over the window")
+		}
+	})
+	t.Run("copy", func(t *testing.T) {
+		hs, d, lv := open(t)
+		click(t, hs, d, lv, locales.CopyCode())
+		if got := hs.tt.Clipboard(); got != code {
+			t.Fatalf("Copy Code copied %q", got)
+		}
+		click(t, hs, d, lv, locales.CopyAsImage())
+		if !bytes.HasPrefix(hs.h.image, []byte("\x89PNG")) {
+			t.Fatalf("Copy as Image copied %d bytes, not a PNG", len(hs.h.image))
+		}
+		click(t, hs, d, lv, locales.ExportDiagram())
+		if menu := hs.tt.Menu(); len(menu) != 2 {
+			t.Fatalf("Export shows %q", menu)
+		}
+		hs.tt.CloseMenu()
+	})
+	t.Run("source", func(t *testing.T) {
+		hs, d, lv := open(t)
+		click(t, hs, d, lv, locales.ShowSource())
+		if !hs.tt.HasText("graph TD") || hs.tt.HasText(locales.OpenDiagram()) {
+			t.Fatal("Show Source did not show the source in the card")
+		}
+		hs.h.image = nil
+		click(t, hs, d, lv, locales.CopyCode())
+		if got := hs.tt.Clipboard(); got != code {
+			t.Fatalf("the source's Copy Code copied %q", got)
+		}
+		click(t, hs, d, lv, locales.ShowDiagram())
+		if _, ok := hs.tt.Find(locales.OpenDiagram()); !ok {
+			t.Fatal("Show Diagram did not draw it again")
+		}
+		b, _ := hs.tt.Find(locales.CopyCode())
+		was := d.vscroll.Y
+		hs.tt.Scroll(b.X+b.W/2, b.Y+b.H/2, 0, 40)
+		hs.settle()
+		if d.vscroll.Y != was+40 {
+			t.Fatalf("the wheel over the buttons scrolled the text from %v to %v", was, d.vscroll.Y)
+		}
+	})
 }
 
 // A formula in display style whose source is higher than its drawing keeps

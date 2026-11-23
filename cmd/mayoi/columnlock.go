@@ -24,8 +24,9 @@ func (a *app) fileColumn() *column {
 			return c
 		}
 	}
-	// Even when every column is locked, files have a workspace to the left.
-	a.fileCol = a.splitColumn(a.cols[0], false)
+	// Even when every column is locked, files have a workspace to the left
+	// of them all, whatever is split above another.
+	a.fileCol = a.splitTile(a.layout.kids[0], false, false)
 	return a.fileCol
 }
 
@@ -48,20 +49,24 @@ func (a *app) toggleColumnLock(col *column) {
 }
 
 // terminalToLockedRight reuses a terminal-only rightmost column, or makes
-// one there, and moves the live session without restarting its process.
+// one there, the height of the editor area, and moves the live session
+// without restarting its process.
 func (a *app) terminalToLockedRight(s *session) {
 	if !slices.Contains(a.terms, s) {
 		return
 	}
-	to := a.cols[len(a.cols)-1]
+	last := a.layout.kids[len(a.layout.kids)-1]
+	to := last.col
 	from, _ := a.locate(s.tab)
-	terminalOnly := true
-	for _, t := range to.tabs {
-		terminalOnly = terminalOnly && t.term != nil
+	reusable := to != nil
+	if to != nil {
+		for _, t := range to.tabs {
+			reusable = reusable && t.term != nil
+		}
+		reusable = reusable && (to.locked || from == to)
 	}
-	reusable := terminalOnly && (to.locked || from == to)
 	if !reusable {
-		to = a.splitColumn(to, true)
+		to = a.splitTile(last, true, false)
 	}
 	if !to.locked {
 		a.toggleColumnLock(to)

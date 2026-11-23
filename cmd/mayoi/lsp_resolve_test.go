@@ -15,6 +15,7 @@ import (
 
 	"mayoi/internal/lsp"
 	"mayoi/internal/plugin"
+	"mayoi/internal/remote"
 )
 
 func init() {
@@ -35,6 +36,9 @@ func init() {
 		case "exit":
 			fmt.Fprint(os.Stderr, "resolver setup failed")
 			os.Exit(3)
+		case "options":
+			fmt.Fprint(os.Stdout, `{"command":"server","initializationOptions":{"resolved":{"a":1},"token":"t","keep":true}}`)
+			os.Exit(0)
 		case "no-command":
 			fmt.Fprint(os.Stdout, `{"args":["server"]}`)
 			os.Exit(0)
@@ -49,7 +53,7 @@ func init() {
 		}
 		json.NewEncoder(os.Stdout).Encode(serverLaunch{
 			Command: os.Args[0], Args: []string{"-test.run=^$"},
-			Configuration:    map[string]any{"root": request.Root, "token": json.Number("9007199254740993")},
+			Configuration:    map[string]any{"root": request.Root, "token": json.Number("9007199254740993"), "argv": os.Args[1:]},
 			WorkspaceFolders: []lsp.WorkspaceFolder{{URI: lsp.URI(request.Root), Name: "test"}},
 			Env:              map[string]string{"RESOLVED": "yes", "MAYOI_FAKE_LSP": "1"},
 			UnsetEnv:         []string{"MAYOI_TEST_RESOLVER"},
@@ -94,6 +98,30 @@ func TestResolveLanguageServer(t *testing.T) {
 	}
 	if got := serverProgram(s.plugin, &s.contrib); got != "/opt/gopls" {
 		t.Fatalf("serverProgram = %q", got)
+	}
+}
+
+func TestLocalResolverUsesInstalledScript(t *testing.T) {
+	t.Setenv("MAYOI_TEST_RESOLVER", "1")
+	dir := filepath.Join(t.TempDir(), "installed plugin ${settings.literal}")
+	s := &lspServer{root: t.TempDir(), plugin: &plugin.Plugin{Dir: dir}, contrib: plugin.ServerContrib{
+		Command: "external-server",
+		Args:    []string{"--stdio"},
+		LocalResolve: &plugin.LocalServerResolver{
+			Command: os.Args[0], Script: "runtime/resolve.mjs",
+		},
+	}}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	got, err := s.resolve(ctx)
+	args, ok := got.Configuration["argv"].([]any)
+	if err != nil || !ok || len(args) != 1 || args[0] != filepath.Join(dir, "runtime", "resolve.mjs") {
+		t.Fatalf("local resolver passed %+v, %v", got, err)
+	}
+	s.root = remote.Path("unreachable.invalid", "/project")
+	got, err = s.resolve(ctx)
+	if err != nil || got.Command != "external-server" || len(got.Args) != 1 || got.Args[0] != "--stdio" {
+		t.Fatalf("remote launch %+v, %v", got, err)
 	}
 }
 
@@ -308,6 +336,47 @@ func TestServerProgramArgs(t *testing.T) {
 		{map[string]json.RawMessage{"path": json.RawMessage(`"tsc"`)}, "tsc --lsp --stdio"},
 		{map[string]json.RawMessage{"path": json.RawMessage(`"/opt/ts/bin/tsc.exe"`)}, "/opt/ts/bin/tsc.exe --lsp --stdio"},
 		{map[string]json.RawMessage{"path": json.RawMessage(`"tsc"`), "args": json.RawMessage(`["--lsp", "--stdio", "--pprofDir", "/tmp"]`)}, "tsc --lsp --stdio --pprofDir /tmp"},
+		{map[string]json.RawMessage{"path": json.RawMessage(`"tsrs"`)}, "tsrs --lsp --stdio"},
+		{map[string]json.RawMessage{"path": json.RawMessage(`"/opt/ts/bin/tsrs"`)}, "/opt/ts/bin/tsrs --lsp --stdio"},
+	} {
+		if got := run(c.explicit); got != c.want {
+			t.Errorf("%s: %q, want %q", c.explicit, got, c.want)
+		}
+	}
+}
+
+// Python's server is basedpyright, and ty when path names it, while args
+// are left as they are.
+func TestPythonServerProgramArgs(t *testing.T) {
+	data, err := os.ReadFile(filepath.Join("..", "..", "plugins", "basedpyright", "plugin.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var m plugin.Manifest
+	if err := json.Unmarshal(data, &m); err != nil {
+		t.Fatal(err)
+	}
+	sc := &m.Contributes.LanguageServers[0]
+	run := func(explicit map[string]json.RawMessage) string {
+		settings := map[string]json.RawMessage{}
+		for key, s := range m.Contributes.Settings {
+			settings[key] = s.Default
+		}
+		maps.Copy(settings, explicit)
+		command, args, err := serverCommand(sc, settings, explicit)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return strings.Join(append([]string{command}, args...), " ")
+	}
+	for _, c := range []struct {
+		explicit map[string]json.RawMessage
+		want     string
+	}{
+		{nil, "basedpyright-langserver --stdio"},
+		{map[string]json.RawMessage{"path": json.RawMessage(`"ty"`)}, "ty server"},
+		{map[string]json.RawMessage{"path": json.RawMessage(`"/opt/ty/bin/ty"`)}, "/opt/ty/bin/ty server"},
+		{map[string]json.RawMessage{"path": json.RawMessage(`"ty"`), "args": json.RawMessage(`["server", "--help"]`)}, "ty server --help"},
 	} {
 		if got := run(c.explicit); got != c.want {
 			t.Errorf("%s: %q, want %q", c.explicit, got, c.want)

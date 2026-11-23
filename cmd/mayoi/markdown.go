@@ -72,6 +72,19 @@ type markdownPreview struct {
 	// passInput, when set, takes the input a diagram has no use for, as
 	// Live Preview scrolls its text and edits a block's source by it.
 	passInput func(ui.InputEvent) bool
+	// cellEditing, when set, edits the cells of a table in place, as Live
+	// Preview does: it reports whether the cell of row r, 0 its header,
+	// and column k is the one being edited, whose input cellInput draws.
+	// cellPress takes a press on a cell, reporting whether it did.
+	cellEditing func(r, k int) bool
+	cellInput   func(c *ui.Context, align ui.Align, size float32)
+	cellPress   func(r, k int, ev ui.InputEvent) bool
+	// cellMenu fills the menu of a cell, its context menu, as Live
+	// Preview's that adds and takes away rows and columns.
+	cellMenu func(r, k int, m *ui.Menu)
+	// cellWidth is how wide the column of the cell being edited is at
+	// least, k, -1 for none, for its source to show, in font.
+	cellWidth func(font ui.Font) (k int, w float32)
 	// math is whether the last parse drew math, and places where the
 	// formulas within the texts it drew stand, by their texts' runs.
 	math       bool
@@ -1895,6 +1908,25 @@ func (a *app) markdownSpan(r markdownInline, color ui.Color, size float32, block
 	return span
 }
 
+// toolbarInput is the input of the buttons over a card, a diagram's or a
+// block of code's: their own, pressed and released, so that a click on
+// one does what it says rather than edit the source of the block Live
+// Preview draws the card in, which a press on the card does; a scroll
+// over them scrolls the text, as over the card.
+func (m *markdownPreview) toolbarInput(ev ui.InputEvent) bool { return m.passScroll(ev) }
+
+// passScroll hands a vertical scroll over an element of a block Live
+// Preview draws that takes its own input, as a table's cell, to the block,
+// which scrolls the text under it: what an element's handler leaves goes
+// to no handler around it. One mostly sideways stays the element's, as
+// an input scrolls its text by it.
+func (m *markdownPreview) passScroll(ev ui.InputEvent) bool {
+	if ev.Kind != ui.InputScroll || m.passInput == nil || ev.DY == 0 || max(ev.DX, -ev.DX) > max(ev.DY, -ev.DY) {
+		return false
+	}
+	return m.passInput(ev)
+}
+
 // markdownTableColumns measures the columns of the table whose first row
 // is first, once for each parse and font.
 func (a *app) markdownTableColumns(m *markdownPreview, first int, font ui.Font) []float32 {
@@ -2402,6 +2434,38 @@ func markdownNodeText(n ast.Node, source []byte) string {
 	return b.String()
 }
 
+// markdownPlainText is the text a node of Markdown shows, as a reader
+// sees it: markdownNodeText's, with escaped punctuation and entities
+// read as the characters they stand for, and code spans as written.
+func markdownPlainText(n ast.Node, source []byte) string {
+	var b strings.Builder
+	_ = ast.Walk(n, func(n ast.Node, entering bool) (ast.WalkStatus, error) {
+		if !entering {
+			return ast.WalkContinue, nil
+		}
+		switch x := n.(type) {
+		case *ast.CodeSpan:
+			for c := x.FirstChild(); c != nil; c = c.NextSibling() {
+				if t, ok := c.(*ast.Text); ok {
+					b.Write(t.Segment.Value(source))
+				}
+			}
+			return ast.WalkSkipChildren, nil
+		case *ast.Text:
+			v := x.Segment.Value(source)
+			b.Write(util.ResolveEntityNames(util.ResolveNumericReferences(util.UnescapePunctuations(v))))
+		case *ast.String:
+			b.Write(x.Value)
+		case *ast.AutoLink:
+			b.Write(x.Label(source))
+		case *wikiLinkNode:
+			b.WriteString(x.text())
+		}
+		return ast.WalkContinue, nil
+	})
+	return b.String()
+}
+
 func (a *app) markdownImage(c *ui.Context, m *markdownPreview, path string, r markdownInline, width float32) {
 	// A <picture>'s for the theme, once it came.
 	alt := r.light
@@ -2462,7 +2526,7 @@ func (a *app) markdownCodeCard(c *ui.Context, m *markdownPreview, path string, b
 		if b.kind != markdownCodeBlock || !over && b.language == "" {
 			return
 		}
-		ui.Row(c).Absolute().Top(size * 0.4).Right(size * 0.4).Background(p.chrome).Radius(4).Children(func() {
+		ui.Row(c).Absolute().Top(size * 0.4).Right(size * 0.4).Background(p.chrome).Radius(4).HandleInput(m.toolbarInput).Children(func() {
 			if !over {
 				ui.Text(c, b.language).FontSize(size*0.8).TextColor(p.faint).SingleLine().Padding(2, 6)
 				return
@@ -2510,7 +2574,7 @@ func (a *app) markdownDiagram(c *ui.Context, v *viewer, b markdownBlock, size, w
 		if !over {
 			return
 		}
-		ui.Row(c).Absolute().Top(size * 0.4).Right(size * 0.4).Gap(2).Background(p.editor).Radius(4).Children(func() {
+		ui.Row(c).Absolute().Top(size * 0.4).Right(size * 0.4).Gap(2).Background(p.editor).Radius(4).HandleInput(m.toolbarInput).Children(func() {
 			if a.smallButton(c, iconMaximize, locales.OpenDiagram()) {
 				a.openDiagram(v, b)
 			}
@@ -2535,6 +2599,12 @@ func (a *app) markdownTableRow(c *ui.Context, m *markdownPreview, path string, i
 	b := m.blocks[i]
 	p := a.pal
 	cols := a.markdownTableColumns(m, b.table, font)
+	if m.cellWidth != nil {
+		if k, w := m.cellWidth(font); k >= 0 && k < len(cols) && w > cols[k] {
+			cols = slices.Clone(cols)
+			cols[k] = w
+		}
+	}
 	total := float32(0)
 	for _, w := range cols {
 		total += w
@@ -2584,16 +2654,38 @@ func (a *app) markdownTableRow(c *ui.Context, m *markdownPreview, path string, i
 			if tl+tr+br+bl > 0 {
 				cellBox.Radius(tl, tr, br, bl)
 			}
-			cellBox.Children(func() {
-				align := ui.Start
-				if k < len(b.aligns) {
-					switch b.aligns[k] {
-					case east.AlignCenter:
-						align = ui.Center
-					case east.AlignRight:
-						align = ui.End
-					}
+			row := b.row
+			if b.kind == markdownTableHeader {
+				row = 0
+			}
+			if m.cellPress != nil {
+				// A cell edits in place: the pointer over it is a text
+				// cursor.
+				cellBox.Cursor(ui.CursorText).HandleInput(func(ev ui.InputEvent) bool { return m.cellPress(row, k, ev) || m.passScroll(ev) })
+			}
+			if m.cellMenu != nil {
+				cellBox.ContextMenu(func(menu *ui.Menu) { m.cellMenu(row, k, menu) })
+			}
+			align := ui.Start
+			if k < len(b.aligns) {
+				switch b.aligns[k] {
+				case east.AlignCenter:
+					align = ui.Center
+				case east.AlignRight:
+					align = ui.End
 				}
+			}
+			if m.cellEditing != nil && m.cellEditing(row, k) {
+				// The cell being edited: ringed, inside its borders, so
+				// that nothing moves.
+				ring := max(2, max(tl, tr, br, bl)-1)
+				cellBox.DrawOver(func(pt *ui.Painter, at ui.Rect) {
+					pt.Stroke(ui.Rect{X: at.X + 1, Y: at.Y + 1, W: at.W - 2, H: at.H - 2}, p.accent, ring, 1.5)
+				})
+				cellBox.Children(func() { m.cellInput(c, align, size) })
+				continue
+			}
+			cellBox.Children(func() {
 				ui.Column(c).TextAlign(align).AlignItems(align).WidthPercent(100).Children(func() {
 					base := 0
 					for len(cell) > 0 {

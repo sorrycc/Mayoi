@@ -3,10 +3,14 @@ package main
 import (
 	"fmt"
 	"math"
+	"regexp"
 	"sort"
 	"strings"
 
 	"github.com/egoist/mygo/ui"
+	"github.com/yuin/goldmark/ast"
+	"github.com/yuin/goldmark/parser"
+	"github.com/yuin/goldmark/text"
 
 	"mayoi/internal/bg"
 	"mayoi/internal/symbols"
@@ -22,6 +26,9 @@ type headingOutline struct {
 	// read again in the background, for a later version.
 	read, reading bool
 	heads         []symbols.Symbol
+	// labels are the headings' text as a reader sees it, without its
+	// marks: a link's label, not its address, by the place of each.
+	labels []string
 	// parent is the heading each is under, -1 for one at the top, and
 	// kids the headings right under each, roots those at the top.
 	parent []int
@@ -38,14 +45,14 @@ func (a *app) headingsOf(d *document) *headingOutline {
 	version := d.buf.Version()
 	switch {
 	case !o.read:
-		*o = outlineOf(symbols.Find(d.buf.Snapshot(), true))
+		*o = readOutline(d.buf.Snapshot())
 		o.version, o.read = version, true
 	case o.version != version && !o.reading:
 		o.reading = true
 		snap := d.buf.Snapshot()
 		bg.Go(func() {
 			defer recoverCrash()
-			n := outlineOf(symbols.Find(snap, true))
+			n := readOutline(snap)
 			n.version, n.read = version, true
 			a.post(func() {
 				*o = n
@@ -55,6 +62,89 @@ func (a *app) headingsOf(d *document) *headingOutline {
 	}
 	return o
 }
+
+// readOutline reads the outline of the headings of a Markdown text, with
+// the text each shows.
+func readOutline(snap ui.TextSnapshot) headingOutline {
+	o := outlineOf(symbols.Find(snap, true))
+	o.labels = headingLabels(snap, o.heads)
+	return o
+}
+
+// headingMarks are the characters a heading's Markdown is marked with;
+// a heading without any shows as it is written.
+const headingMarks = "\\`*_[]<>!&~="
+
+// linkDefinition finds the label of a link reference definition, not a
+// footnote's.
+var linkDefinition = regexp.MustCompile(`^ {0,3}\[([^\]^][^\]]*)\]:`)
+
+// headingLabels are the texts headings show: their Markdown read as a
+// reader sees it, with links by reference resolved against the text's
+// definitions. One left with nothing to show shows as it is written.
+func headingLabels(snap ui.TextSnapshot, heads []symbols.Symbol) []string {
+	labels := make([]string, len(heads))
+	var md parser.Parser
+	var refs []parser.Reference
+	read := false
+	for i, h := range heads {
+		labels[i] = h.Name
+		if !strings.ContainsAny(h.Name, headingMarks) {
+			continue
+		}
+		if md == nil {
+			md = markdownParser(false)
+		}
+		// The definitions read once, for the first heading that may link.
+		if !read && strings.Contains(h.Name, "[") {
+			refs, read = linkDefinitions(snap), true
+		}
+		if s := headingLabel(md, refs, h.Name); s != "" {
+			labels[i] = s
+		}
+	}
+	return labels
+}
+
+// linkDefinitions are the link reference definitions of a Markdown text,
+// those with lines short enough to be read.
+func linkDefinitions(snap ui.TextSnapshot) []parser.Reference {
+	var refs []parser.Reference
+	for i := range snap.LineCount() {
+		s, e := snap.LineRange(i)
+		if e-s > 400 {
+			continue
+		}
+		line := snap.Slice(s, e)
+		if !strings.Contains(line, "]:") {
+			continue
+		}
+		if m := linkDefinition.FindStringSubmatch(line); m != nil {
+			refs = append(refs, parser.NewReference([]byte(m[1]), nil, nil))
+		}
+	}
+	return refs
+}
+
+// headingLabel is the text a heading's Markdown shows, read as a heading
+// so that one like "1. Steps" is not read as a list.
+func headingLabel(md parser.Parser, refs []parser.Reference, name string) string {
+	src := []byte("# " + name)
+	pc := parser.NewContext()
+	for _, r := range refs {
+		pc.AddReference(r)
+	}
+	tree := md.Parse(text.NewReader(src), parser.WithContext(pc))
+	h, ok := tree.FirstChild().(*ast.Heading)
+	if !ok {
+		return ""
+	}
+	return strings.TrimSpace(headingSpaces.ReplaceAllString(markdownPlainText(h, src), " "))
+}
+
+// headingSpaces are the runs of spaces markup left out of a heading's
+// text leaves behind.
+var headingSpaces = regexp.MustCompile(`[ \t]{2,}`)
 
 // outlineOf nests headings by their levels: each under the last before it
 // of a lower level.
@@ -75,6 +165,15 @@ func outlineOf(heads []symbols.Symbol) headingOutline {
 		stack = append(stack, i)
 	}
 	return o
+}
+
+// label is the text heading i shows, its source for an outline read
+// without them.
+func (o *headingOutline) label(i int) string {
+	if i < len(o.labels) {
+		return o.labels[i]
+	}
+	return o.heads[i].Name
 }
 
 // chain is the headings that hold a line, from the outermost: the last
@@ -182,8 +281,8 @@ func (k *crumbsPicker) filterHeadings(o *headingOutline) *headingFilter {
 		return f
 	}
 	names := make([]string, len(o.heads))
-	for i, h := range o.heads {
-		names[i] = h.Name
+	for i := range o.heads {
+		names[i] = o.label(i)
 	}
 	f.hits = map[int][]int{}
 	f.kids = map[int][]int{}
@@ -309,8 +408,8 @@ func (a *app) headingsTree(c *ui.Context, d *editor) {
 		if i < 0 || i >= len(o.heads) {
 			return
 		}
-		h := o.heads[i]
-		row := ui.Row(c).Grow(1).Gap(6).AlignItems(ui.Center).Height(explorerRowH).Label(h.Name)
+		h, name := o.heads[i], o.label(i)
+		row := ui.Row(c).Grow(1).Gap(6).AlignItems(ui.Center).Height(explorerRowH).Label(name)
 		if row.Clicked() {
 			clicked = i
 		}
@@ -321,13 +420,13 @@ func (a *app) headingsTree(c *ui.Context, d *editor) {
 			var label ui.Element
 			switch pos, hit := f.hits[i]; {
 			case f.hits == nil:
-				label = ui.Text(c, h.Name).TextColor(p.text)
+				label = ui.Text(c, name).TextColor(p.text)
 			case hit:
 				// What the query matched, in the accent.
-				label = ui.RichText(c, a.matchSpans(h.Name, 0, pos, p.text)...)
+				label = ui.RichText(c, a.matchSpans(name, 0, pos, p.text)...)
 			default:
 				// A heading shown only for those under it that matched.
-				label = ui.Text(c, h.Name).TextColor(p.muted)
+				label = ui.Text(c, name).TextColor(p.muted)
 			}
 			label.FontSize(13).SingleLine().Shrink(1).MinWidth(0)
 			if i != here {
@@ -417,8 +516,8 @@ func (a *app) headingCrumbsView(c *ui.Context, col *column, t *colTab, o *headin
 		key, name, label := "heading-more", "…", locales.CrumbsHeadings()
 		at := len(chain) - 3
 		if n >= 0 {
-			h := o.heads[chain[n]]
-			key, name, label, at = fmt.Sprintf("heading:%d", chain[n]), h.Name, locales.CrumbsHeadingTip(h.Name), n
+			name = o.label(chain[n])
+			key, label, at = fmt.Sprintf("heading:%d", chain[n]), locales.CrumbsHeadingTip(name), n
 		}
 		inner := n == len(chain)-1
 		ui.Row(c.Key(key)).Gap(4).AlignItems(ui.Center).Shrink(1).MinWidth(0).Transition(crumbIn).Children(func() {

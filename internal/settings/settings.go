@@ -51,6 +51,11 @@ type Settings struct {
 	gen          uint64
 	prefsSeen    []byte
 	prefsChanged func()
+	// archiveGen counts the changes of ArchivedSessions, and archived is
+	// them by their refs, as of archivedGen.
+	archiveGen  uint64
+	archived    map[SessionRef]bool
+	archivedGen uint64
 }
 
 // State is what Mayoi keeps itself, not what a person chooses: the
@@ -71,6 +76,26 @@ type State struct {
 	// offered, and, as "missing:" and the language, those whose server it
 	// said was not installed: each is told of once.
 	ServerOffers []string `json:"serverOffers,omitempty"`
+	// ArchivedSessions are the sessions of the coding agents the Sessions
+	// view keeps out of its list, and shows under Archived, the one
+	// archived first first. Mayoi keeps them here, never in the agents'
+	// own files.
+	ArchivedSessions []ArchivedSession `json:"archivedSessions,omitempty"`
+}
+
+// SessionRef tells a session of a coding agent apart from every other:
+// its agent, the config folder of Claude Code it is of, "" for the other
+// agents, and its id.
+type SessionRef struct {
+	Agent string `json:"agent"`
+	Root  string `json:"root,omitempty"`
+	ID    string `json:"id"`
+}
+
+// ArchivedSession is a session archived, and when.
+type ArchivedSession struct {
+	SessionRef
+	At time.Time `json:"at"`
 }
 
 // oldLayout is the layout an older version kept for every window, in the
@@ -292,6 +317,9 @@ type Prefs struct {
 	// UsageStats sends anonymous counts of Mayoi's use: one a day while
 	// it is open, and one as it updates, with its version and system.
 	UsageStats bool `json:"usageStats"`
+	// ConfirmBeforeQuit asks before Cmd+Q and the menu's Quit quit Mayoi.
+	// Quitting otherwise, as to update or to log out, never asks.
+	ConfirmBeforeQuit bool `json:"confirmBeforeQuit"`
 	// SyncIgnored is what settings sync leaves on this machine: keys of
 	// the preferences, "settings.json" for all of them, and
 	// "keybindings.json" for the keyboard shortcuts.
@@ -300,6 +328,10 @@ type Prefs struct {
 	// object of the settings its plugin.json declares, and "enabled":
 	// false to turn the plugin off.
 	Plugins map[string]json.RawMessage `json:"plugins,omitempty"`
+	// LanguageServers are the settings of each language server, by its
+	// id, as "gopls.server": its "initializationOptions", laid over those
+	// of its plugin as it starts.
+	LanguageServers map[string]json.RawMessage `json:"languageServers,omitempty"`
 	// FormatOnSave formats a document with a plugin's formatter as it
 	// saves, by language, as "go", or "*" for every language.
 	FormatOnSave map[string]bool `json:"formatOnSave,omitempty"`
@@ -391,11 +423,15 @@ type Window struct {
 // the panel, the folders open in the explorer, and its layout.
 type Session struct {
 	Layout
-	Columns      []Column `json:"columns,omitempty"`
-	Column       int      `json:"column,omitempty"`
-	FileColumn   int      `json:"fileColumn,omitempty"`
-	PanelOpen    bool     `json:"panelOpen,omitempty"`
-	TerminalOpen bool     `json:"terminalOpen,omitempty"`
+	Columns []Column `json:"columns,omitempty"`
+	// Panes is how the columns are laid out when they are not one row,
+	// some above others: nil for side by side, which an older version
+	// reads as it is.
+	Panes        *Pane `json:"panes,omitempty"`
+	Column       int   `json:"column,omitempty"`
+	FileColumn   int   `json:"fileColumn,omitempty"`
+	PanelOpen    bool  `json:"panelOpen,omitempty"`
+	TerminalOpen bool  `json:"terminalOpen,omitempty"`
 	// PanelTerms are the addresses in herdr-core of the panel's terminals
 	// whose shells run there, which the next start attaches to again, and
 	// PanelTerm the one of them the panel showed.
@@ -483,6 +519,16 @@ type Column struct {
 	Locked bool    `json:"locked,omitempty"`
 }
 
+// Pane is a place of the editor area's layout: a column, by its place in
+// Columns, or a group of panes, with Kids, side by side, or one above
+// the other when Down. Weight is a group's share of its parent's room.
+type Pane struct {
+	Column int     `json:"column"`
+	Down   bool    `json:"down,omitempty"`
+	Weight float32 `json:"weight,omitempty"`
+	Kids   []Pane  `json:"kids,omitempty"`
+}
+
 // Tab is a tab: the file it shows, or a terminal, which the next
 // start opens anew, or attaches to again while its shell runs in
 // herdr-core at HC.
@@ -555,7 +601,7 @@ func Default() *Settings {
 			AutoSave: true, Blame: true, EditorHover: true, TerminalCopyOnSelect: true, TerminalBackendHcShowInHerdr: true, PreviewMermaid: true, PreviewMath: true,
 			DiffAlignedRows: true, DiffContext: 3, DiffSyncScroll: true, MergeAutoApply: true,
 			LargeFileModeMB: 32,
-			UsageStats:      true,
+			UsageStats:      true, ConfirmBeforeQuit: true,
 		},
 	}
 }
@@ -815,6 +861,61 @@ func (s *Settings) TakeSession(dir string) *Session {
 		s.Changed()
 	}
 	return ses
+}
+
+// ArchiveGen counts the changes of the sessions archived, which what is
+// made of them is made again as.
+func (s *Settings) ArchiveGen() uint64 { return s.archiveGen }
+
+// IsArchived reports whether the session of ref is archived.
+func (s *Settings) IsArchived(ref SessionRef) bool {
+	if s.archived == nil || s.archivedGen != s.archiveGen {
+		s.archived = make(map[SessionRef]bool, len(s.ArchivedSessions))
+		for _, as := range s.ArchivedSessions {
+			s.archived[as.SessionRef] = true
+		}
+		s.archivedGen = s.archiveGen
+	}
+	return s.archived[ref]
+}
+
+// Archive archives the sessions of ss not archived yet, and returns
+// them. It saves the change.
+func (s *Settings) Archive(ss []ArchivedSession) []ArchivedSession {
+	var added []ArchivedSession
+	for _, as := range ss {
+		if !s.IsArchived(as.SessionRef) && !slices.ContainsFunc(added, func(o ArchivedSession) bool { return o.SessionRef == as.SessionRef }) {
+			added = append(added, as)
+		}
+	}
+	if len(added) == 0 {
+		return nil
+	}
+	s.ArchivedSessions = append(slices.Clone(s.ArchivedSessions), added...)
+	s.archiveGen++
+	s.Changed()
+	return added
+}
+
+// Unarchive brings back the sessions of refs that are archived, and
+// returns them as they were, to archive again. It saves the change.
+func (s *Settings) Unarchive(refs []SessionRef) []ArchivedSession {
+	var gone []ArchivedSession
+	kept := make([]ArchivedSession, 0, len(s.ArchivedSessions))
+	for _, as := range s.ArchivedSessions {
+		if slices.Contains(refs, as.SessionRef) {
+			gone = append(gone, as)
+		} else {
+			kept = append(kept, as)
+		}
+	}
+	if len(gone) == 0 {
+		return nil
+	}
+	s.ArchivedSessions = kept
+	s.archiveGen++
+	s.Changed()
+	return gone
 }
 
 func clamp(v, lo, hi float32) float32 { return max(lo, min(v, hi)) }

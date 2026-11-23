@@ -458,6 +458,9 @@ func (a *app) editorView(c *ui.Context, d *editor) {
 			d.resync, d.parked = false, -1
 			if !focused && view.H > 0 && !a.inView(d, g, snap, d.sel[1], view.H) {
 				d.parked = a.offsetInView(d, g, snap, view.H)
+				if at, ok := liveCellPark(d, snap); ok {
+					d.parked = at
+				}
 				area.SetTextSelection(d.parked, d.parked)
 			} else {
 				a.setSelection(d, area)
@@ -540,6 +543,11 @@ func (a *app) editorView(c *ui.Context, d *editor) {
 			}
 			d.caret, d.caretSeen = caret, true
 		}
+		if d.liveScroll != 0 {
+			// Live Preview's last frame asked, for a table's cell edited
+			// to show.
+			d.vscroll.Y, d.liveScroll = clamp(d.vscroll.Y+d.liveScroll, 0, d.vscroll.MaxY), 0
+		}
 		// Show the caret's line before the area takes the offset, so that
 		// it finds the caret in view and leaves the offset be.
 		d.sticky = append(d.sticky[:0], a.scrollToCaret(d, g, snap, caret, view.H, a.findCovers(c, d, view), center, jump || caretMoved || edited && follows && !quiet)...)
@@ -552,6 +560,11 @@ func (a *app) editorView(c *ui.Context, d *editor) {
 			d.folding.reduce = c.Preferences().ReduceMotion
 		}
 		a.restHover(c, d, area, g, snap, live)
+		// A hand over a name as Cmd is held, as a click goes to where it is
+		// defined: the frame draws again as Cmd is pressed or let go.
+		if !live && a.defPointed(c, d, area, g, snap) {
+			area.Cursor(ui.CursorPointer)
+		}
 		d.reviewHover = -1
 		if a.settings.EditorAgentContext {
 			_, py, over := area.PointerPosition()
@@ -604,7 +617,7 @@ func (a *app) editorView(c *ui.Context, d *editor) {
 				area.SelectionColor(p.selectedDim)
 			}
 			a.liveArea(c, d, area, liveFrame{snap: snap, g: g, first: first, last: last, left: textX,
-				width: max(1, contentW-textX-padR), anchor: anchor, caret: caret, vimKeys: vimKeys, focused: focused})
+				width: max(1, contentW-textX-padR), viewH: view.H, anchor: anchor, caret: caret, vimKeys: vimKeys, focused: focused})
 			return
 		}
 		// The ==highlighted== and ~~struck~~ runs of Markdown in view.

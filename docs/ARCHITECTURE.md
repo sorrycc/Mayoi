@@ -62,6 +62,13 @@ show during a drag.
 document as one tab shows it, with its own selection, scroll position and paint caches. A column holds tabs, each of
 which is an editor or a terminal.
 
+**`tiles.go`.** The columns are laid out in a tree of tiles: the root a row, a group of tiles side by side or one above
+the other, and a column at each leaf. A group never holds one tile nor one of its own direction, so a split along a
+group adds to it and one across a column makes a group of its own, and `a.cols` is the leaves as they read, which
+focus, moves and locks go through. A column moved in the tree gets a new text area, so its editors come back as a
+tab shown again does. The settings keep `columns` as a row, which an older version reads, and `panes`, the tree, only
+when columns are stacked; a tree that does not name each column once restores as a row.
+
 **`columnlock.go`.** A locked column stays when empty and does not take implicit
 file opens or new terminal tabs. `fileColumn` selects the current unlocked column
 or the last one used, creating a workspace on the left if all columns are locked.
@@ -148,7 +155,23 @@ formula behind a pointer. A block keeps the room of its drawing, or of its sourc
 formula's is. As the caret goes into a block or leaves it, its room glides between the two (`liveIn`), from wherever it
 is when the caret turns back: the blank line after it takes the difference, or, with text right below, its last line
 grows by its last rune drawn as an object, so the text below moves over rather than jumps. A block shows once measured,
-fading in. A bullet and a task's box keep the width of their source, which shows in their room as the caret comes to
+fading in. A click on a table's cell edits it in place (`markdownlivecell.go`): one text input, in that cell only,
+holds its source, and the editor's caret waits outside the table, which stays drawn. What is typed is written to the
+text as typing pauses, or as the cell is left or a shortcut runs, as one edit of the cell's source (`tableCellEdit`,
+its pipes escaped), which undoes as typing does: an edit made to the text from outside the text area has the area lay
+out all of the text again, too much for each key. The table's view keeps its height and its columns as its source
+changes under the cell. Tab after the last cell, Return in the last row and the menu of a cell add and take away
+rows and columns (`tableStructure`, which keeps the header first, its line of alignments as wide and one column at
+least) as one step of undo; the cell follows its table by a rune of its header, which the edits of every view move,
+and a change chosen from a menu of a table whose rows or columns changed since is not made. Until the parse that
+follows, the table is drawn from its own source parsed alone, so the new cell shows at once. A table builds only its
+rows in view and a view above and below it, and the row of the cell, the others taking the room they were built at
+(`markdownlivetable.go`): all of them are built once as it shows and at each new width, to know their heights. Its
+lines each keep the room of their row in the text area (`liveTableRooms`), so the lines in view, a caret waiting in
+view and the area keeping its place as a row takes its height all find the row where it shows; the caret waits on the
+cell's row as the cell writes, as the area takes the lines after an edit for guesses until it measures them again. What
+an element's handler leaves goes to no handler around it, so a cell and the cell's input hand a scroll up or down to
+the block (`passScroll`), which scrolls the text under it. A bullet and a task's box keep the width of their source, which shows in their room as the caret comes to
 them, so the line holds still. A picture of the web on its way is a card (`livePicture`), whose room glides to the
 picture's as it arrives and fades in over it. The link under the pointer is found from where the area says the pointer
 is (`liveHovered`), and its underline fills in. Blocks of code are cards painted behind their lines, their code alone

@@ -31,6 +31,14 @@ type serverLaunch struct {
 	Configuration    map[string]any        `json:"configuration,omitempty"`
 	WorkspaceFolders []lsp.WorkspaceFolder `json:"workspaceFolders,omitempty"`
 	PathMappings     []lsp.PathMapping     `json:"pathMappings,omitempty"`
+	// SourceDefinition is the request Go to Source Definition sends, when
+	// the server sets its experimental capability.
+	SourceDefinition *sourceDefinitionRequest `json:"sourceDefinition,omitempty"`
+}
+
+type sourceDefinitionRequest struct {
+	Method     string `json:"method"`
+	Capability string `json:"capability"`
 }
 
 // expandServerArg substitutes whole setting references without a shell.
@@ -164,7 +172,7 @@ func expandServerOptions(options json.RawMessage, settings map[string]json.RawMe
 		return options
 	}
 	var v any
-	if json.Unmarshal(options, &v) != nil {
+	if decodeJSON(options, &v) != nil {
 		return options
 	}
 	var expand func(v any) (any, bool)
@@ -176,7 +184,7 @@ func expandServerOptions(options json.RawMessage, settings map[string]json.RawMe
 				return x, true
 			}
 			var value any
-			if json.Unmarshal(settings[key], &value) != nil || value == nil || value == "" {
+			if decodeJSON(settings[key], &value) != nil || value == nil || value == "" {
 				return nil, false
 			}
 			return value, true
@@ -200,7 +208,7 @@ func expandServerOptions(options json.RawMessage, settings map[string]json.RawMe
 		return v, true
 	}
 	v, _ = expand(v)
-	data, err := json.Marshal(v)
+	data, err := encodeJSON(v)
 	if err != nil {
 		return options
 	}
@@ -221,16 +229,140 @@ func serverProgram(p *plugin.Plugin, s *plugin.ServerContrib) string {
 	return command
 }
 
+// resolve is how the server starts: its plugin's command or resolver's
+// launch, with the initializationOptions of settings.json laid over it.
 func (s *lspServer) resolve(ctx context.Context) (serverLaunch, error) {
+	launch, err := s.resolveLaunch(ctx)
+	if err == nil {
+		launch.Options = s.withUserOptions(launch.Options)
+	}
+	return launch, err
+}
+
+// withUserOptions lays the server's initializationOptions of
+// settings.json's languageServers over options. What it says is never
+// logged, as it may hold a token.
+func (s *lspServer) withUserOptions(options json.RawMessage) json.RawMessage {
+	if plugins == nil {
+		return options
+	}
+	patch, ok := userInitOptions(plugins.languageServer(s.contrib.ID))
+	if !ok {
+		return options
+	}
+	where := "languageServers." + s.contrib.ID + ".initializationOptions"
+	merged, err := mergeOptions(options, patch)
+	if err != nil {
+		s.plugin.Log("warn", where+" "+err.Error()+"; left out")
+		return options
+	}
+	s.plugin.Log("info", "starting "+s.contrib.ID+" with "+where)
+	return merged
+}
+
+// userInitOptions is the initializationOptions of a server's settings in
+// languageServers, and whether they set it: null too.
+func userInitOptions(prefs json.RawMessage) (json.RawMessage, bool) {
+	var fields map[string]json.RawMessage
+	if json.Unmarshal(prefs, &fields) != nil {
+		return nil, false
+	}
+	patch, ok := fields["initializationOptions"]
+	return patch, ok
+}
+
+// decodeJSON decodes data into v with its numbers as they are written,
+// as json.Number, so that none loses its digits.
+func decodeJSON(data []byte, v any) error {
+	d := json.NewDecoder(bytes.NewReader(data))
+	d.UseNumber()
+	return d.Decode(v)
+}
+
+// encodeJSON is v as JSON, its <, > and & as they are.
+func encodeJSON(v any) (json.RawMessage, error) {
+	var b bytes.Buffer
+	e := json.NewEncoder(&b)
+	e.SetEscapeHTML(false)
+	if err := e.Encode(v); err != nil {
+		return nil, err
+	}
+	return bytes.TrimSuffix(b.Bytes(), []byte("\n")), nil
+}
+
+// mergeOptions lays patch over options as a JSON merge patch (RFC 7386):
+// an object's keys go into the object of options, deeply, null takes a
+// key away, and any other value, an array too, takes the place of what
+// was there. A patch of null leaves no options; one that is not an
+// object is an error.
+func mergeOptions(options, patch json.RawMessage) (json.RawMessage, error) {
+	var p any
+	if err := decodeJSON(patch, &p); err != nil {
+		return nil, fmt.Errorf("is not JSON")
+	}
+	if p == nil {
+		return nil, nil
+	}
+	po, ok := p.(map[string]any)
+	if !ok {
+		return nil, fmt.Errorf("must be an object or null")
+	}
+	var base any
+	if len(options) > 0 {
+		decodeJSON(options, &base)
+	}
+	return encodeJSON(mergePatch(base, po))
+}
+
+// mergePatch lays the object patch over target, as mergeOptions says.
+func mergePatch(target any, patch map[string]any) map[string]any {
+	out, _ := target.(map[string]any)
+	if out == nil {
+		out = map[string]any{}
+	}
+	for key, value := range patch {
+		switch v := value.(type) {
+		case nil:
+			delete(out, key)
+		case map[string]any:
+			out[key] = mergePatch(out[key], v)
+		default:
+			out[key] = v
+		}
+	}
+	return out
+}
+
+// resolveLaunch is how the server starts, as its plugin says.
+func (s *lspServer) resolveLaunch(ctx context.Context) (serverLaunch, error) {
 	settings, explicit := serverSettings(s.plugin)
-	if s.contrib.Resolve == nil {
+	resolver := s.contrib.Resolve
+	// A local folder runs the resolver shipped in the plugin, given its
+	// script's path; an SSH folder keeps the command or resolve.
+	var script string
+	if local := s.contrib.LocalResolve; local != nil && !remote.Is(s.root) {
+		if s.plugin.Dir == "" {
+			return serverLaunch{}, fmt.Errorf("local resolver needs a plugin directory")
+		}
+		var err error
+		script, err = filepath.Abs(filepath.Join(s.plugin.Dir, filepath.FromSlash(local.Script)))
+		if err != nil {
+			return serverLaunch{}, fmt.Errorf("local resolver script: %w", err)
+		}
+		resolver = &plugin.ServerResolver{Command: local.Command}
+	}
+	if resolver == nil {
 		command, args, err := serverCommand(&s.contrib, settings, explicit)
 		return serverLaunch{Command: command, Args: args, Options: expandServerOptions(s.contrib.Options, settings)}, err
 	}
 	launch := serverLaunch{Command: s.contrib.Command, Args: s.contrib.Args, Options: expandServerOptions(s.contrib.Options, settings)}
-	command, args, err := expandServerCommand(s.contrib.Resolve.Command, s.contrib.Resolve.Args, settings)
+	command, args, err := expandServerCommand(resolver.Command, resolver.Args, settings)
 	if err != nil {
 		return launch, err
+	}
+	// The plugin's path is a literal, including any braces in its name.
+	if script != "" {
+		args = append(args, script)
 	}
 	root := s.root
 	if _, path, ok := remote.Split(root); ok {
@@ -278,6 +410,10 @@ func (s *lspServer) resolve(ctx context.Context) (serverLaunch, error) {
 func (l serverLaunch) validate() error {
 	if strings.TrimSpace(l.Command) == "" {
 		return fmt.Errorf("resolved language server has no command")
+	}
+	if source := l.SourceDefinition; source != nil &&
+		(strings.TrimSpace(source.Method) == "" || strings.TrimSpace(source.Capability) == "") {
+		return fmt.Errorf("source definition needs a method and experimental capability")
 	}
 	for key := range l.Env {
 		if !validEnvKey(key) {

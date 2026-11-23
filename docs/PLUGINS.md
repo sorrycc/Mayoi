@@ -48,8 +48,9 @@ settings window, or with `"enabled": true` in their settings. A file of a langua
 setting names its program, by name or path, when it is not on the path.
 
 TypeScript's server needs a TypeScript 5 or 6 in the folder's `node_modules`, or its `tsserverPath` setting naming a
-`tsserver.js`. TypeScript 7 has no `tsserver.js` but a server of its own: set `path` to `tsc`, which then runs with
+`tsserver.js`. TypeScript 7 has no `tsserver.js` but a server of its own: set `path` to `tsc` or `tsrs`, which then run with
 `--lsp --stdio` while `args` is left as it is. Mayoi says which applies when the server finds no TypeScript.
+Python's server is basedpyright. Set `path` to `ty` to run `ty server` while `args` is left as it is.
 
 A plugin you install under the name of one Mayoi comes with takes its place; removing it brings Mayoi's back.
 `mayoi --disable-plugins` runs Mayoi's own.
@@ -412,7 +413,9 @@ the old one is gone; the documents open are told of again.
 
 `command` and `args` take `${settings.key}`, the plugin's setting or its default; an argument that is all of a setting
 of `type` `array` is its strings, as many arguments. A string of `initializationOptions` that is all of
-`${settings.key}` is the setting's value, left out with its key when the setting is empty. A server that answers
+`${settings.key}` is the setting's value, left out with its key when the setting is empty. A person can lay their own
+`initializationOptions` over these by the server's `id`, with `languageServers` in settings.json: see
+[SETTINGS.md](SETTINGS.md#language-servers). Keep a server's `id` as it is between versions. A server that answers
 `initialize` with an error says it. `programArgs` are the arguments of a program by name, as
 `{"tsc": ["--lsp", "--stdio"]}`, in place of `args` when the command starts that program and no setting that `args` takes
 is set. `install` is the command that installs the program, said when it is missing:
@@ -425,6 +428,11 @@ is set. `install` is the command that installs the program, said when it is miss
 
 Servers are told a document's language by the protocol's name: `cpp` for C++, `javascriptreact` and
 `typescriptreact` for `.jsx` and `.tsx` files.
+
+Mayoi also asks for type definitions, implementations, and references when the server declares support for them.
+Set `sourceDefinitionCommand` to offer **Go → Go to Source Definition**. Mayoi sends the advertised command through
+`workspace/executeCommand` with arguments `[documentUri, position]` and expects an LSP location list or null.
+Mayoi applies path mappings to that command's URI and locations.
 
 For servers that need setup, use `resolve` instead of `command`:
 
@@ -444,6 +452,12 @@ fallback; substitution passes literal arguments and never invokes a shell.
 Keep resolution fast and offline; dependency installation belongs in a separate
 setup command. Resolution and initialization share a 30-second deadline.
 
+For a plugin that ships its own runtime, `localResolve` takes a `command` and a
+`script` relative to the plugin directory. In a local workspace, Mayoi passes
+the absolute script path as the first argument, runs it in the workspace, and
+uses the same resolver input and output. SSH and other remote workspaces use
+the contribution's ordinary `command` or `resolve`.
+
 The resolver must print one JSON object and exit successfully:
 
 ```ts
@@ -456,6 +470,7 @@ The resolver must print one JSON object and exit successfully:
   configuration?: Record<string, unknown>;
   workspaceFolders?: { uri: string; name: string }[];
   pathMappings?: { clientURI: string; serverURI: string }[];
+  sourceDefinition?: { method: string; capability: string };
 }
 ```
 
@@ -471,6 +486,12 @@ keys in workspace edits. Source/edit text, hover content, configuration,
 Plugins prepare server-specific paths inside their own configuration. This lets
 a server import canonical paths and the editor keep the workspace's symlink
 aliases for definitions and diagnostics. Standard declarations remain valid.
+
+`sourceDefinition` selects a document-position request for **Go to Source
+Definition** when the server sets the named `experimental` capability to
+`true`. The request and its location results use the same URI mappings as
+standard navigation. Otherwise Mayoi uses the declared
+`sourceDefinitionCommand` when that command is available.
 
 ### Coding agents
 

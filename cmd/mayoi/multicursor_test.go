@@ -106,14 +106,14 @@ func TestEscapeAndClickGoBackToOneCaret(t *testing.T) {
 func TestAddNextOccurrence(t *testing.T) {
 	hs, d := editHarness(t, "a.txt", "foo bar foo foofoo foo")
 	hs.place(d, 1, 1)
-	hs.key(multiKey, ui.KeyD)
+	hs.key(ui.Ctrl|multiKey, ui.KeyG)
 	expectSpans(t, d, [2]int{0, 3})
-	hs.key(multiKey, ui.KeyD)
+	hs.key(ui.Ctrl|multiKey, ui.KeyG)
 	expectSpans(t, d, [2]int{0, 3}, [2]int{8, 11})
 	// From a caret, whole words: foofoo is not one.
-	hs.key(multiKey, ui.KeyD)
+	hs.key(ui.Ctrl|multiKey, ui.KeyG)
 	expectSpans(t, d, [2]int{0, 3}, [2]int{8, 11}, [2]int{19, 22})
-	hs.key(multiKey, ui.KeyD) // round to the start: none left
+	hs.key(ui.Ctrl|multiKey, ui.KeyG) // round to the start: none left
 	expectSpans(t, d, [2]int{0, 3}, [2]int{8, 11}, [2]int{19, 22})
 	hs.tt.Type("qux")
 	hs.settle()
@@ -124,9 +124,9 @@ func TestAddNextOccurrence(t *testing.T) {
 	// From a selection, any match, never one that overlaps another.
 	hs, d = editHarness(t, "b.txt", "aaaaa")
 	hs.place(d, 0, 2)
-	hs.key(multiKey, ui.KeyD)
+	hs.key(ui.Ctrl|multiKey, ui.KeyG)
 	expectSpans(t, d, [2]int{0, 2}, [2]int{2, 4})
-	hs.key(multiKey, ui.KeyD)
+	hs.key(ui.Ctrl|multiKey, ui.KeyG)
 	expectSpans(t, d, [2]int{0, 2}, [2]int{2, 4})
 }
 
@@ -561,7 +561,7 @@ func TestCharStepKeepsClustersWhole(t *testing.T) {
 // TestShortcutsDoNotCollide checks against the others.
 func TestMultiCursorKeys(t *testing.T) {
 	for goos, want := range map[string]map[string]string{
-		"darwin": {"sel.addCursorAbove": "⌥⌘↑", "sel.addNextOccurrence": "⌘D", "sel.selectAllOccurrences": "⇧⌘L", "sel.columnDown": "⌥⇧⌘↓"},
+		"darwin": {"sel.addCursorAbove": "⌥⌘↑", "sel.addNextOccurrence": "⌃⌘G", "sel.selectAllOccurrences": "⇧⌘L", "sel.columnDown": "⌥⇧⌘↓"},
 		"windows": {"sel.addCursorAbove": "Ctrl+Alt+Up", "sel.addCursorBelow": "Ctrl+Alt+Down", "sel.addNextOccurrence": "Ctrl+D",
 			"sel.selectAllOccurrences": "Ctrl+Shift+L", "sel.columnDown": "Ctrl+Alt+Shift+Down"},
 		"linux": {"sel.addCursorAbove": "", "sel.addNextOccurrence": "Ctrl+D", "sel.selectAllOccurrences": "Ctrl+Shift+L", "sel.columnUp": ""},

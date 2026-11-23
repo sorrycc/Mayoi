@@ -40,19 +40,25 @@ func (a *app) takeKeys(el ui.Element, where keyPlace, fn func(ev ui.InputEvent) 
 		a.keyFocus = where
 	}
 	return el.HandleInput(func(ev ui.InputEvent) bool {
-		if ev.Kind == ui.InputKeyUp && a.held != nil && *a.held == ev.Key {
-			a.held = nil
-			a.invalidate()
-		}
-		if a.keyInput(ev, where) {
-			if where != placeTerminal {
-				k := ev.Key
-				a.held = &k
-			}
-			return true
-		}
-		return fn != nil && fn(ev)
+		return a.keyEvent(ev, where) || fn != nil && fn(ev)
 	})
+}
+
+// keyEvent takes an input event where, when the shortcuts have its key,
+// noting the key held until it is let go.
+func (a *app) keyEvent(ev ui.InputEvent, where keyPlace) bool {
+	if ev.Kind == ui.InputKeyUp && a.held != nil && *a.held == ev.Key {
+		a.held = nil
+		a.invalidate()
+	}
+	if a.keyInput(ev, where) {
+		if where != placeTerminal {
+			k := ev.Key
+			a.held = &k
+		}
+		return true
+	}
+	return false
 }
 
 // textKeys has a text field take the keys of the shortcuts first.
@@ -283,6 +289,9 @@ var vscodeCommands = map[string]string{
 	"workbench.action.pinEditor":                 "view.togglePinTab",
 	"workbench.action.unpinEditor":               "view.togglePinTab",
 	"workbench.action.splitEditorRight":          "view.splitRight",
+	"workbench.action.splitEditorDown":           "view.splitDown",
+	"workbench.action.newGroupRight":             "view.newColumnRight",
+	"workbench.action.newGroupBelow":             "view.newColumnDown",
 	"markdown.showPreview":                       "view.togglePreview",
 	"markdown.showPreviewToSide":                 "view.previewToSide",
 	"workbench.action.focusNextGroup":            "view.nextColumn",
@@ -406,11 +415,12 @@ func (a *app) runBinding(name string, args json.RawMessage, where keyPlace) {
 	case "editor.action.indentUsingSpaces":
 		a.openQuick(">Indent Using ")
 	case "deleteFile", "moveFileToTrash":
-		if path := a.explorerChoice(); path != "" {
+		// One file or folder at a time: none while several are chosen.
+		if path := a.explorerChoice(); path != "" && !a.explorerMulti(path) {
 			a.trash(path)
 		}
 	case "renameFile":
-		if path := a.explorerChoice(); path != "" {
+		if path := a.explorerChoice(); path != "" && !a.explorerMulti(path) {
 			a.askRename(path)
 		}
 	case "explorer.newFile", "explorer.newFolder":

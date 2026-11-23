@@ -5,6 +5,7 @@ needs a `## <version>` section here, or its build fails.
 
 ## Unreleased
 
+- **Download** and **Upload** of remote files and folders now work on Windows and in WSL.
 - Plugins keep targeting their source documents when you switch windows.
 - Plugins can read a document's text and version together and track untitled documents closing.
 - Plugin tab actions receive the tab you chose, including unsaved buffers.

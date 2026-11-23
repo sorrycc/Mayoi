@@ -284,6 +284,9 @@ type app struct {
 	layout   *tile
 	nextTile int
 	col      int
+	// keysCol is the column the keyboard was in as the frame before
+	// began, -1 when it was in none.
+	keysCol int
 	// findCol is the column the find widget shows in, the one with the
 	// keyboard as the frame's columns began: a click on another's tab as
 	// they draw moves col, and the widget's input binds one control.

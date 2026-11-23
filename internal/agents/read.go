@@ -339,9 +339,11 @@ func piSessions(dir string) []string {
 // readPi reads a transcript of Pi: its first line says the session and
 // where it ran, its first message of the user what was asked, and its
 // lines of session_info what it is named, the last of them winning, so
-// its end is read too.
+// its end is read too. One a subagent ran, of a session it names its
+// parent and a name of the subagent's, is the parent's to see, not ours.
 func readPi(path string) (Session, bool) {
 	s := Session{Harness: Pi}
+	parent := ""
 	f, err := os.Open(path)
 	if err != nil {
 		return s, false
@@ -366,10 +368,11 @@ func readPi(path string) (Session, bool) {
 			return true
 		}
 		var v struct {
-			Type    string
-			ID      string
-			Cwd     string
-			Message struct {
+			Type          string
+			ID            string
+			Cwd           string
+			ParentSession string `json:"parentSession"`
+			Message       struct {
 				Role    string
 				Content json.RawMessage
 			}
@@ -379,7 +382,7 @@ func readPi(path string) (Session, bool) {
 		}
 		switch {
 		case v.Type == "session" && s.ID == "":
-			s.ID, s.Dir = v.ID, v.Cwd
+			s.ID, s.Dir, parent = v.ID, v.Cwd, v.ParentSession
 		case v.Type == "message" && s.Prompt == "" && v.Message.Role == "user":
 			s.Prompt = promptOf(v.Message.Content)
 		}
@@ -388,8 +391,27 @@ func readPi(path string) (Session, bool) {
 	if fi.Size() > headMax {
 		tail(f, fi.Size(), tailMax, name)
 	}
+	if parent != "" && piSubagentName(s.Title) {
+		return s, false
+	}
 	// A transcript of nothing asked yet is no session to go back to.
 	return s, s.ID != "" && (s.Prompt != "" || s.Title != "")
+}
+
+// piSubagentName says if name is one pi-subagents gives a session it
+// runs: its kind of agent, "#" and 8 hex digits of the agent's id, as
+// "general-purpose#3c8c2fa2". Forks of Pi's own keep other names.
+func piSubagentName(name string) bool {
+	kind, id, ok := strings.Cut(name, "#")
+	if !ok || kind == "" || strings.ContainsAny(kind, " \t") || len(id) != 8 {
+		return false
+	}
+	for _, c := range id {
+		if !strings.ContainsRune("0123456789abcdef", c) {
+			return false
+		}
+	}
+	return true
 }
 
 // grokSummaries are Grok's summaries of its sessions: a folder for each

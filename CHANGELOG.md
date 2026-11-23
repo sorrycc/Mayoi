@@ -5,6 +5,7 @@ needs a `## <version>` section here, or its build fails.
 
 ## Unreleased
 
+- **Sessions** no longer lists Pi subagent sessions such as `general-purpose#3c8c2fa2`; Pi forks still show.
 - **Download** and **Upload** of remote files and folders now work on Windows and in WSL.
 - Dragging a file in the explorer no longer stops when you scroll with the wheel.
 - Plugins can compare two open buffers, including unsaved tabs, in the native Diff view.

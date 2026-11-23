@@ -352,3 +352,31 @@ func TestReadPiNameAtEnd(t *testing.T) {
 		t.Fatalf("readPi = %+v, %v", s, ok)
 	}
 }
+
+// A Pi session a subagent ran, of a parent and a name of pi-subagents,
+// is not listed; a fork of Pi's own, also of a parent, and a session of
+// no parent named alike are.
+func TestReadPiSkipsSubagents(t *testing.T) {
+	const parent = `,"parentSession":"/h/.pi/agent/sessions/--u--/p1.jsonl"`
+	prompt := `{"type":"message","message":{"role":"user","content":[{"type":"text","text":"go"}]}}` + "\n"
+	for _, c := range []struct {
+		name, header, name2 string
+		want                bool
+	}{
+		{"subagent", parent, "general-purpose#3c8c2fa2", false},
+		{"fork named", parent, "My fork", true},
+		{"fork unnamed", parent, "", true},
+		{"fork named with a hash", parent, "fix #12345678 later", true},
+		{"no parent", "", "x#12345678", true},
+	} {
+		path := filepath.Join(t.TempDir(), "s.jsonl")
+		info := ""
+		if c.name2 != "" {
+			info = `{"type":"session_info","name":"` + c.name2 + `"}` + "\n"
+		}
+		write(t, path, `{"type":"session","version":3,"id":"s1","cwd":"/u"`+c.header+`}`+"\n"+info+prompt)
+		if _, ok := readPi(path); ok != c.want {
+			t.Errorf("%s: readPi listed = %v, want %v", c.name, ok, c.want)
+		}
+	}
+}

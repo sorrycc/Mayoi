@@ -141,6 +141,7 @@
       document: async (ref) => doc(await call("workspace.document", { ref })),
     },
     window: {
+      showDiff: (left, right, opts) => call("window.showDiff", { left, right, layout: opts?.layout }),
       notify: (message, opts) =>
         call("window.notify", { message, action: opts?.action, kind: "info" }).then((chosen) => chosen),
       fail: (message) => call("window.notify", { message, kind: "error" }),

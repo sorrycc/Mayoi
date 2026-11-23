@@ -188,3 +188,24 @@ func TestPluginPickerWindowCloses(t *testing.T) {
 		t.Fatal("window close left picker unresolved")
 	}
 }
+
+func TestPluginLookupAfterWindowCloses(t *testing.T) {
+	hs, other := newHarness(t, false), newHarness(t, true)
+	a, b := hs.a, other.a
+	a.newFile()
+	b.newFile()
+	h := withPlugins(hs, probeFiles())
+	apps := []*app{a, b}
+	h.apps = func() []*app { return apps }
+	ref := b.documentRef(b.activeEditor().document)
+	if live := pluginCall(t, hs, h, "workspace.document", map[string]any{"ref": ref}); live.err != nil || live.value == nil {
+		t.Fatalf("background lookup: %+v", live)
+	}
+	b.shutdown()
+	if gone := pluginCall(t, hs, h, "workspace.document", map[string]any{"ref": ref}); gone.err != nil || gone.value != nil {
+		t.Fatalf("closed window lookup: %+v", gone)
+	}
+	if read := pluginCall(t, hs, h, "document.snapshot", map[string]any{"ref": ref}); read.err == nil {
+		t.Fatal("closed window read fell through")
+	}
+}

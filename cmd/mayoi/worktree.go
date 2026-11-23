@@ -20,22 +20,7 @@ func (a *gitContext) askOpenWorktree(branch, path string) {
 		if a.git.repo != r {
 			return
 		}
-		a.gitDo(locales.BusyOpeningWorktree(), func(_ *git.Repo) error {
-			info, err := vfs.Stat(path)
-			if err != nil {
-				return err
-			}
-			if !info.IsDir() {
-				return errors.New(locales.ErrWorktreeNotFolder(path))
-			}
-			return nil
-		}, func() {
-			if newWindow {
-				a.app.host.newWindow(path)
-			} else {
-				a.app.switchFolder(path)
-			}
-		})
+		a.openExistingWorktree(path, newWindow)
 	}
 	a.app.present(&confirm{
 		title:          locales.WorktreeOpenTitle(),
@@ -46,6 +31,25 @@ func (a *gitContext) askOpenWorktree(branch, path string) {
 		alternate:      locales.WorktreeOpenNew(),
 		alternateShort: locales.WorktreeNewWindow(),
 		runAlternate:   func() { open(true) },
+	})
+}
+
+func (a *gitContext) openExistingWorktree(path string, newWindow bool) {
+	a.gitDo(locales.BusyOpeningWorktree(), func(_ *git.Repo) error {
+		info, err := vfs.Stat(path)
+		if err != nil {
+			return err
+		}
+		if !info.IsDir() {
+			return errors.New(locales.ErrWorktreeNotFolder(path))
+		}
+		return nil
+	}, func() {
+		if newWindow {
+			a.app.host.newWindow(path)
+		} else {
+			a.app.switchFolder(path)
+		}
 	})
 }
 

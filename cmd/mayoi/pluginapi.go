@@ -219,6 +219,8 @@ func (h *pluginHost) Call(p *plugin.Plugin, generation uint64, method string, ra
 	main := func(fn func(*app) (any, error)) (any, error) { return h.inWindow(args.WindowID, fn) }
 	wait := func(fn func(*app, func(any, error))) (any, error) { return h.waitInWindow(args.WindowID, fn) }
 	switch method {
+	case "window.showDiff":
+		return h.showBufferDiff(raw)
 	case "commands.run":
 		if h.reg.CommandPlugin(args.ID) != nil {
 			var arg any
@@ -292,7 +294,12 @@ func (h *pluginHost) Call(p *plugin.Plugin, generation uint64, method string, ra
 			return out, nil
 		})
 	case "workspace.document":
-		return main(func(a *app) (any, error) {
+		// A reference outlives its document and window: either closed, null.
+		return h.main(func(_ *app) (any, error) {
+			a, err := h.window(args.WindowID)
+			if err != nil {
+				return nil, nil
+			}
 			d, err := docByID(a, args.Doc)
 			if err != nil {
 				return nil, nil

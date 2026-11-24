@@ -419,7 +419,7 @@ func (a *app) fileTree(c *ui.Context) {
 			}
 		}
 		moveOver := false
-		if v, ok := ui.DragOver[treeTake](row); ok {
+		if v, ok := a.treeDragOver(row); ok {
 			moveOver = a.canMove(treeSource(v), into)
 		}
 		if row.FileDragOver() || moveOver {
@@ -519,6 +519,9 @@ func (a *app) fileTree(c *ui.Context) {
 			}
 			ui.Icon(c, icon).FontSize(14).TextColor(col)
 			label := ui.Text(c, name).FontSize(13).SingleLine().Shrink(1).TextColor(p.text)
+			if a.chainLink(path, entry.first) {
+				linkMark(c, p)
+			}
 			// What Git has of the file: its letter, or a dot by a folder
 			// that has changes.
 			var letter byte

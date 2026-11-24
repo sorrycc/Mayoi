@@ -1157,6 +1157,7 @@
   "scmStopWriting": "停止撰写",
   "scmSubmoduleCommit": "子模块引用提交已变化",
   "scmSubmoduleCommitLabel": "引用提交",
+  "symbolicLink": "符号链接",
   "scmSubmoduleContentLabel": "内部更改",
   "scmSubmoduleDirty": "子模块中有未提交的更改",
   "scmSummary": "摘要",
@@ -1891,6 +1892,8 @@
   "sessionsArchivedHint": "从会话的菜单中归档，它就不再出现在列表里，可以在这里恢复或取消归档。",
   "prefTitleAgentSessionsClaudeDirs": "更多 Claude Code 文件夹",
   "prefDescAgentSessionsClaudeDirs": "除了 ~/.claude、各个 ~/.claude-* 文件夹和 $CLAUDE_CONFIG_DIR，会话视图还要列出其会话的 Claude Code 配置文件夹。",
+  "prefTitleTerminalClaudeTheme": "让 Claude Code 使用 Mayoi 主题",
+  "prefDescTerminalClaudeTheme": "本机的 Claude Code 无论从哪里启动都使用 Mayoi 的主题，写入 $CLAUDE_CONFIG_DIR 或 ~/.claude 配置文件夹。关闭后恢复它原来的主题。",
   "cmdMarkdownToggleTask": "切换任务",
   "cmdMarkdownMoveItemUp": "上移列表项",
   "cmdMarkdownMoveItemDown": "下移列表项",
@@ -2117,5 +2120,12 @@
   "prefTitleDiffFiles": "差异文件",
   "prefDescDiffFiles": "差异是在一个滚动视图中显示所有修改的文件，还是只显示选中的文件。",
   "prefDefaultDiffFiles": "所有文件",
-  "prefOptDiffFilesOne": "一次一个"
+  "prefOptDiffFilesOne": "一次一个",
+  "claudeThemeReplaced": "已替换 Claude Code 的主题 {theme}。关闭此项即可恢复。",
+  "claudeThemeLost": "Claude Code 中选择的主题替换了 Mayoi 的主题，Mayoi 已停止同步。关闭再打开此项即可重新同步。",
+  "claudeThemeNotFound": "在 shell 的路径中找不到 Claude Code。安装后关闭再打开此项。",
+  "claudeThemeTooOld": "Claude Code {version} 不支持自定义主题。更新到 {least} 或更高版本后关闭再打开此项。",
+  "claudeThemeTaken": "{path} 不是 Mayoi 的，Mayoi 未改动它。移走它后关闭再打开此项。",
+  "claudeThemeMalformed": "{path} 不是有效的 JSON，Mayoi 未改动它。修正后关闭再打开此项。",
+  "claudeThemeFailed": "无法更改 Claude Code 的主题：{err}"
 }

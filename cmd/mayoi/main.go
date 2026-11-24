@@ -92,6 +92,11 @@ type mayoi struct {
 	update      string
 	// prefs is the settings window, nil while it is closed.
 	prefs *prefsWindow
+	// claudeThemeOn is whether terminalClaudeTheme was on as the
+	// preferences last changed, claudeThemeSeen whether they have, and
+	// claudeThemeEpoch the times it was turned on since the app started.
+	claudeThemeOn, claudeThemeSeen bool
+	claudeThemeEpoch               int
 	// sidebar is what of the sidebar every project shares, once one has
 	// (sidebarSeen).
 	sidebar     sidebarShare
@@ -515,6 +520,14 @@ func main() {
 		// A menu or a button changing a preference shows in the settings
 		// window.
 		m.s.OnPrefsChanged(m.prefsChanged)
+		// Claude Code's theme follows Mayoi's, as the setting asks, the
+		// system's light or dark too.
+		claudeSync.mu.Lock()
+		claudeSync.store = claudeThemeStore(settingsPath())
+		claudeSync.changed = func() { mygo.RunOnMain(m.claudeThemeChanged) }
+		claudeSync.mu.Unlock()
+		mygo.Theme.OnUpdated(func() { mygo.RunOnMain(m.syncClaudeTheme) })
+		m.syncClaudeTheme()
 		if stop, err := m.s.Watch(func(p settings.Prefs) { mygo.RunOnMain(func() { m.reload(p); m.cloud.changed() }) }); err == nil {
 			mygo.App.OnQuit(stop)
 		}

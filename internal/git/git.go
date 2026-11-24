@@ -127,6 +127,9 @@ type Entry struct {
 	// has files Git does not track, '.' for each that did not. It is ""
 	// for a file.
 	Sub string
+	// Link is set for a symbolic link: as the work tree has it, or as the
+	// index or HEAD did when it was deleted.
+	Link bool
 }
 
 // Submodule reports whether the entry is a submodule, not a file.
@@ -192,6 +195,11 @@ func (s *Status) Equal(o *Status) bool {
 // and 10 of a conflict.
 var statusFields = [256]int{'1': 8, '2': 9, 'u': 10}
 
+// statusModes is where the modes of a record end, from its fourth field:
+// HEAD's, the index's and the work tree's, or of a conflict the three
+// stages' and the work tree's.
+var statusModes = [256]int{'1': 6, '2': 6, 'u': 7}
+
 // Status reads the state of the work tree.
 func (r *Repo) Status() (*Status, error) {
 	out, err := r.run(nil, "status", "--porcelain=v2", "-z", "--branch", "--untracked-files=all")
@@ -237,7 +245,7 @@ func parseStatus(r *Repo, out []byte) *Status {
 			if len(f) < n+1 || len(f[1]) != 2 {
 				continue
 			}
-			e := Entry{Path: r.Abs(f[n]), X: f[1][0], Y: f[1][1]}
+			e := Entry{Path: r.Abs(f[n]), X: f[1][0], Y: f[1][1], Link: linkMode(f[3:statusModes[rec[0]]])}
 			if strings.HasPrefix(f[2], "S") {
 				e.Sub = f[2]
 			}
@@ -247,10 +255,25 @@ func parseStatus(r *Repo, out []byte) *Status {
 			}
 			st.Entries = append(st.Entries, e)
 		case '?':
-			st.Entries = append(st.Entries, Entry{Path: r.Abs(rec[2:]), X: '?', Y: '?'})
+			p := r.Abs(rec[2:])
+			// Git says no mode of a file it does not track.
+			info, err := os.Lstat(p)
+			link := !remote.Is(p) && err == nil && info.Mode()&os.ModeSymlink != 0
+			st.Entries = append(st.Entries, Entry{Path: p, X: '?', Y: '?', Link: link})
 		}
 	}
 	return st
+}
+
+// linkMode reports whether the last of modes, as git status says them
+// from HEAD to the work tree, that is not 000000 is a symbolic link's.
+func linkMode(modes []string) bool {
+	for _, m := range slices.Backward(modes) {
+		if m != "000000" {
+			return m == "120000"
+		}
+	}
+	return false
 }
 
 // Show returns the text of path at rev: "HEAD", or "" for the index. ok

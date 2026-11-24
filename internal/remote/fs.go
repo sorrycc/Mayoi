@@ -154,11 +154,12 @@ func (c *Conn) stat(p string, follow bool) (*FileInfo, error) {
 type DirEntry struct {
 	Name string
 	Dir  bool
+	Link bool // a symbolic link, to a folder when Dir is set
 }
 
 // readDirScript lists the folders named after the first argument, each
-// as its path, then a NUL, then its entries, each "d name" or "f name"
-// followed by a NUL, and a blank entry to end it; a folder that cannot
+// as its path, then a NUL, then its entries, each "d name" or "f name",
+// "D name" or "F name" for a link, followed by a NUL, and a blank entry to end it; a folder that cannot
 // be read is "!" then its error.
 const readDirScript = "for dir; do\n" + readDirBody + "done\n"
 
@@ -170,8 +171,10 @@ const readDirBody = `  printf '%s\0' "$dir"
   fi
   for f in * .*; do
     case $f in .|..) continue;; esac
-    if [ -d "$f" ]; then printf 'd %s\0' "$f"
-    elif [ -e "$f" ] || [ -L "$f" ]; then printf 'f %s\0' "$f"
+    if [ -L "$f" ]; then
+      if [ -d "$f" ]; then printf 'D %s\0' "$f"; else printf 'F %s\0' "$f"; fi
+    elif [ -d "$f" ]; then printf 'd %s\0' "$f"
+    elif [ -e "$f" ]; then printf 'f %s\0' "$f"
     fi
   done
   printf '\0'
@@ -228,7 +231,7 @@ func parseDirs(out []byte) map[string]DirList {
 		for ; i < len(fields) && fields[i] != ""; i++ {
 			kind, name, ok := strings.Cut(fields[i], " ")
 			if ok {
-				entries = append(entries, DirEntry{Name: name, Dir: kind == "d"})
+				entries = append(entries, DirEntry{Name: name, Dir: kind == "d" || kind == "D", Link: kind == "D" || kind == "F"})
 			}
 		}
 		i++ // the blank entry that ends the folder

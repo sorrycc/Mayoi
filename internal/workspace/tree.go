@@ -52,6 +52,7 @@ type Tree struct {
 
 	children map[string][]string // a directory's entries, sorted
 	dirs     map[string]bool     // the directories among entries
+	links    map[string]bool     // the symbolic links among entries
 	loading  map[string]bool
 	gen      int // bumped by every change of the tree
 
@@ -97,7 +98,7 @@ type Tree struct {
 func NewTree(root string, post func(func())) *Tree {
 	t := &Tree{
 		Root: root, post: post,
-		children: map[string][]string{}, dirs: map[string]bool{root: true}, loading: map[string]bool{},
+		children: map[string][]string{}, dirs: map[string]bool{root: true}, links: map[string]bool{}, loading: map[string]bool{},
 		watched: map[string]bool{}, stamps: map[string]*stamp{},
 	}
 	if vfs.IsRemote(root) {
@@ -134,6 +135,10 @@ func (t *Tree) Gen() int { return t.gen }
 
 // IsDir reports whether path is a directory of the tree.
 func (t *Tree) IsDir(path string) bool { return t.dirs[path] }
+
+// IsLink reports whether path is a symbolic link of the tree, to a file
+// or a folder.
+func (t *Tree) IsLink(path string) bool { return t.links[path] }
 
 // Loaded reports whether a directory's entries were read.
 func (t *Tree) Loaded(dir string) bool {
@@ -181,7 +186,7 @@ func (t *Tree) Load(dir string) {
 	if l, ok := t.ahead[dir]; ok {
 		delete(t.ahead, dir)
 		kids, dirs := sortEntries(dir, l.entries)
-		t.set(dir, kids, dirs)
+		t.set(dir, kids, dirs, linksOf(dir, l.entries))
 		if time.Since(l.at) > aheadFresh {
 			t.reload(dir)
 		} else {
@@ -255,7 +260,7 @@ func (t *Tree) reload(dir string) {
 				return
 			}
 			kids, dirs := sortEntries(dir, entries)
-			t.set(dir, kids, dirs)
+			t.set(dir, kids, dirs, linksOf(dir, entries))
 			if err == nil {
 				t.readAhead(dir)
 			}
@@ -263,16 +268,20 @@ func (t *Tree) reload(dir string) {
 	})
 }
 
-// set records a directory's entries.
-func (t *Tree) set(dir string, kids []string, dirs map[string]bool) {
+// set records a directory's entries, and which of them are links.
+func (t *Tree) set(dir string, kids []string, dirs, links map[string]bool) {
 	old := t.children[dir]
 	for _, k := range old {
 		if t.dirs[k] && !dirs[k] {
 			t.forget(k)
 		}
+		delete(t.links, k)
 	}
 	for k := range dirs {
 		t.dirs[k] = true
+	}
+	for k := range links {
+		t.links[k] = true
 	}
 	t.children[dir] = kids
 	t.gen++
@@ -289,6 +298,7 @@ func (t *Tree) forget(dir string) {
 		if t.dirs[k] {
 			t.forget(k)
 		}
+		delete(t.links, k)
 	}
 	delete(t.children, dir)
 	delete(t.dirs, dir)
@@ -341,6 +351,17 @@ func sortEntries(dir string, entries []vfs.Entry) ([]string, map[string]bool) {
 		return compareNames(filepath.Base(a), filepath.Base(b))
 	})
 	return kids, dirs
+}
+
+// linksOf returns the paths of a directory's entries that are links.
+func linksOf(dir string, entries []vfs.Entry) map[string]bool {
+	links := map[string]bool{}
+	for _, e := range entries {
+		if e.Link {
+			links[remote.Join(dir, e.Name)] = true
+		}
+	}
+	return links
 }
 
 // compareNames orders names case-insensitively, then by case.
@@ -607,9 +628,10 @@ func (t *Tree) took(lists map[string][]vfs.Entry, errs map[string]error, files [
 			continue
 		}
 		kids, dirs := sortEntries(dir, entries)
+		links := linksOf(dir, entries)
 		same := slices.Equal(old, kids)
 		for _, k := range kids {
-			if same && t.dirs[k] != dirs[k] {
+			if same && (t.dirs[k] != dirs[k] || t.links[k] != links[k]) {
 				same = false
 			}
 			if !slices.Contains(old, k) && !dirs[k] {
@@ -624,7 +646,7 @@ func (t *Tree) took(lists map[string][]vfs.Entry, errs map[string]error, files [
 				removed = append(removed, k)
 			}
 		}
-		t.set(dir, kids, dirs)
+		t.set(dir, kids, dirs, links)
 		t.readAhead(dir)
 	}
 	for dir, err := range errs {

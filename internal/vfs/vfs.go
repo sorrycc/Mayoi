@@ -203,11 +203,12 @@ func RemoveAll(p string) error {
 	return os.RemoveAll(p)
 }
 
-// Entry is a file of a folder: its name, and whether it is a folder or a
-// link to one.
+// Entry is a file of a folder: its name, whether it is a folder or a
+// link to one, and whether it is a link.
 type Entry struct {
 	Name string
 	Dir  bool
+	Link bool
 }
 
 // ReadDir lists a folder.
@@ -219,7 +220,7 @@ func ReadDir(dir string) ([]Entry, error) {
 		}
 		out := make([]Entry, len(es))
 		for i, e := range es {
-			out[i] = Entry{Name: e.Name, Dir: e.Dir}
+			out[i] = Entry{Name: e.Name, Dir: e.Dir, Link: e.Link}
 		}
 		return out, nil
 	}
@@ -229,7 +230,7 @@ func ReadDir(dir string) ([]Entry, error) {
 	}
 	out := make([]Entry, 0, len(entries))
 	for _, e := range entries {
-		isDir := e.IsDir()
+		isDir, link := e.IsDir(), e.Type()&os.ModeSymlink != 0
 		// Windows calls a directory junction irregular: neither a link nor
 		// a folder.
 		if e.Type()&(os.ModeSymlink|os.ModeIrregular) != 0 {
@@ -237,7 +238,7 @@ func ReadDir(dir string) ([]Entry, error) {
 				isDir = true
 			}
 		}
-		out = append(out, Entry{Name: e.Name(), Dir: isDir})
+		out = append(out, Entry{Name: e.Name(), Dir: isDir, Link: link})
 	}
 	return out, nil
 }
@@ -272,7 +273,7 @@ func ReadDirs(dirs []string) (map[string][]Entry, map[string]error, error) {
 			}
 			es := make([]Entry, len(l.Entries))
 			for i, e := range l.Entries {
-				es[i] = Entry{Name: e.Name, Dir: e.Dir}
+				es[i] = Entry{Name: e.Name, Dir: e.Dir, Link: e.Link}
 			}
 			lists[p] = es
 		}
@@ -321,7 +322,7 @@ func Look(dirs, files []string) (map[string][]Entry, map[string]error, map[strin
 		}
 		es := make([]Entry, len(l.Entries))
 		for i, e := range l.Entries {
-			es[i] = Entry{Name: e.Name, Dir: e.Dir}
+			es[i] = Entry{Name: e.Name, Dir: e.Dir, Link: e.Link}
 		}
 		lists[p] = es
 	}

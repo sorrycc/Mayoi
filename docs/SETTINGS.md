@@ -80,6 +80,7 @@ takes its default.
 | `terminalBackendHcPath` | `""`          | A path to `hc`, a folder that has it, or a name on `PATH`   |                                                |
 | `terminalBackendHcEnv`  | none          | A list of `KEY=value` environment variables for `hc`        |                                                |
 | `terminalBackendHcShowInHerdr` | `true` | `true`, `false`                                      |                                                |
+| `terminalClaudeTheme`   | `false`       | `true`, `false`                                             |                                                |
 | `agentSessionsClaudeDirs` | none        | A list of more Claude Code config folders                   |                                                |
 | `projectTabs`           | `false`       | `true`, `false`                                             | **View → Project Tabs**                        |
 | `projectTabStyle`       | none          | A label, color and icon for each folder                     | A square's context menu on the rail            |
@@ -231,6 +232,18 @@ differ in width lines them up only roughly.
   space for each folder, a tab for each terminal. Terminals already running there show up as Mayoi attaches them again.
   Turned off, new terminals stay out of Herdr, and those already there stay until closed. Closing one in either app
   ends its shell, which closes it in the other. Terminals of a remote folder stay out of Herdr.
+- **`terminalClaudeTheme`** has Claude Code on this machine use Mayoi's theme. Mayoi writes `themes/mayoi.json` in
+  the config folder `CLAUDE_CONFIG_DIR` names, as your shell sets it, or `~/.claude`, and sets `"theme":
+  "custom:mayoi"` in its `settings.json`, keeping every other setting. That changes Claude Code started anywhere with
+  that folder, not only in Mayoi's terminals; a terminal that sets another `CLAUDE_CONFIG_DIR`, the folders of
+  `agentSessionsClaudeDirs` and remote folders are left alone. The theme has the colors of Mayoi's terminal in the
+  theme and appearance shown, a plugin's theme too, and Mayoi writes it again as they change, or as the system turns
+  light or dark. When the theme it replaces is a colorblind-friendly one, Mayoi's keeps its colors for diffs,
+  success, errors and warnings. Turned off, Claude Code gets back the theme it had, or none. A theme chosen with
+  `/theme` in Claude Code after that wins: Mayoi stops writing, and the setting's row says so until it is turned off
+  and on. Mayoi leaves a `themes/mayoi.json` it didn't write and a `settings.json` that isn't valid JSON as they are,
+  and says so. It needs Claude Code 2.1.119 or later on the path. Claude Code sessions already running may keep their
+  colors until they start again. It stays on each machine.
 - **`agentSessionsClaudeDirs`** lists more Claude Code config folders whose sessions the **Sessions** view shows, as
   `["~/work/claude"]`. Without it the view already reads `~/.claude`, each `~/.claude-*` folder and the folder
   `CLAUDE_CONFIG_DIR` names. It stays on each machine.

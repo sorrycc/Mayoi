@@ -5,7 +5,15 @@ needs a `## <version>` section here, or its build fails.
 
 ## Unreleased
 
+- **Settings → Terminal → Match Claude Code to Mayoi Theme** gives Claude Code on this Mac Mayoi's colors.
+- Turning it off gives Claude Code back its earlier theme; a theme you pick with `/theme` takes over.
+- Symbolic links to files and folders show a link mark after their name in the explorer.
+- Changed files that are symbolic links show the same mark in the **Source Control** changes list.
+- A tab dragged to another project's square no longer gets lost on its way over that project's files.
 - Find in Files follows directory symlinks in local projects.
+
+## 0.23.3
+
 - Opening a folder with `mayoi <folder>` brings its project window to the front.
 - Clicking a file's “Could not read” page or **Try Again** now makes that tab the active one.
 - In Live Preview, `Up` from a heading now moves to the line above instead of staying on the heading.

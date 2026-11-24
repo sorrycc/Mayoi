@@ -30,6 +30,16 @@ func (a *app) dragOver(e ui.Element) (dragItem, bool) {
 	return it, ok
 }
 
+// treeDragOver is ui.DragOver of what is dragged to the explorer, which
+// notes, as dragOver does, that the project still sees the drag.
+func (a *app) treeDragOver(e ui.Element) (treeTake, bool) {
+	v, ok := ui.DragOver[treeTake](e)
+	if ok {
+		a.dragSeen = true
+	}
+	return v, ok
+}
+
 // carrier is the project of a tab dragged here from another, nil for one
 // of this project, or what does not go across.
 func (a *app) carrier(it dragItem) *app {

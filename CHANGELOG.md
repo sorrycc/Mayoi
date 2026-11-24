@@ -3,6 +3,12 @@
 The update window shows the section of the version it offers. Every release
 needs a `## <version>` section here, or its build fails.
 
+## Unreleased
+
+- **TODOs** follows directory symlinks when **Settings → Editor → Follow Directory Symlinks** is on.
+- Filter **TODOs** by text, file path, or tag as you type.
+- Set which files **TODOs** scans in **⋯** and save that scope for each workspace.
+
 ## 0.23.4
 
 - **Settings → Terminal → Match Claude Code to Mayoi Theme** gives Claude Code on this Mac Mayoi's colors.

@@ -174,8 +174,8 @@ func TestBundledPlugins(t *testing.T) {
 	hs.until("the TODOs", func() bool {
 		h.mu.Lock()
 		defer h.mu.Unlock()
-		v := h.views["todos.list"]
-		return v != nil && v.Type == "empty"
+		data, _ := json.Marshal(h.views["todos.list"])
+		return strings.Contains(string(data), "No TODOs in this folder.")
 	})
 	// A TODO, saved, is found.
 	os.WriteFile(hs.path("main.go"), []byte("package main\n\n// TODO: say more\nfunc main() {}\n"), 0o644)

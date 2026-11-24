@@ -204,8 +204,7 @@ func (a *app) startSearch() {
 		s.waiting, s.running = true, true
 		return
 	}
-	if followSymlinks && (s.linkRead.Stale() || s.linkRead.Running()) {
-		a.refreshSearchLinks()
+	if followSymlinks && !a.refreshSearchLinks() {
 		s.waiting, s.running = true, true
 		return
 	}
@@ -218,7 +217,7 @@ func (a *app) startSearch() {
 		gen, includes, excludes := s.gen, s.includes, s.excludes
 		bg.Go(func() {
 			defer recoverCrash()
-			paths := workspace.SearchFollowingDirectoryLinks(root, indexed, candidates, includes, excludes, cancel.Load)
+			paths := workspace.SearchFollowingDirectoryLinks(root, indexed, candidates, includes, excludes.Match, workspace.MaxIndexed, cancel.Load)
 			if cancel.Load() {
 				return
 			}
@@ -234,13 +233,13 @@ func (a *app) startSearch() {
 	a.runFullSearch(re)
 }
 
-// refreshSearchLinks discovers link candidates once for a file index,
-// when a search first needs them.
-func (a *app) refreshSearchLinks() {
+// refreshSearchLinks starts discovery once per file index and reports
+// whether the candidates are ready.
+func (a *app) refreshSearchLinks() bool {
 	s := &a.inFiles
 	key := a.folderKey()
 	if !s.linkRead.Start(key) {
-		return
+		return !s.linkRead.Stale() && !s.linkRead.Running()
 	}
 	indexed := a.index
 	bg.Go(func() {
@@ -252,6 +251,7 @@ func (a *app) refreshSearchLinks() {
 			}
 		})
 	})
+	return false
 }
 
 func (a *app) runFullSearch(re *regexp.Regexp) {

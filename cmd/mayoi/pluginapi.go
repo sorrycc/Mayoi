@@ -184,8 +184,12 @@ func (h *pluginHost) Call(p *plugin.Plugin, generation uint64, method string, ra
 		Title       string          `json:"title"`
 		Language    string          `json:"language"`
 		Path        string          `json:"path"`
+		Root        string          `json:"root"`
 		Glob        string          `json:"glob"`
+		Exclude     string          `json:"exclude"`
+		ExcludeDirs []string        `json:"excludeFolders"`
 		Limit       int             `json:"limit"`
+		FollowLinks bool            `json:"followSymlinks"`
 		Message     string          `json:"message"`
 		Kind        string          `json:"kind"`
 		Action      string          `json:"action"`
@@ -216,8 +220,23 @@ func (h *pluginHost) Call(p *plugin.Plugin, generation uint64, method string, ra
 		}
 		args.WindowID, args.Doc = args.Ref.WindowID, args.Ref.DocumentID
 	}
-	main := func(fn func(*app) (any, error)) (any, error) { return h.inWindow(args.WindowID, fn) }
-	wait := func(fn func(*app, func(any, error))) (any, error) { return h.waitInWindow(args.WindowID, fn) }
+	main := func(fn func(*app) (any, error)) (any, error) {
+		return h.inWindow(args.WindowID, func(a *app) (any, error) {
+			if args.Root != "" && args.Root != a.root {
+				return nil, errors.New("the workspace changed")
+			}
+			return fn(a)
+		})
+	}
+	wait := func(fn func(*app, func(any, error))) (any, error) {
+		return h.waitInWindow(args.WindowID, func(a *app, done func(any, error)) {
+			if args.Root != "" && args.Root != a.root {
+				done(nil, errors.New("the workspace changed"))
+				return
+			}
+			fn(a, done)
+		})
+	}
 	switch method {
 	case "window.showDiff":
 		return h.showBufferDiff(raw)
@@ -450,40 +469,79 @@ func (h *pluginHost) Call(p *plugin.Plugin, generation uint64, method string, ra
 			return map[string]any{"isDir": info.IsDir(), "size": info.Size(), "mtime": info.ModTime().UnixMilli()}, nil
 		}
 	case "workspace.findFiles":
-		// The files of quick open's index, listed first when they are not.
-		for deadline := time.Now().Add(30 * time.Second); ; {
-			ready, err := main(func(a *app) (any, error) {
+		type fileIndex struct {
+			root         string
+			files, links []string
+		}
+		var index fileIndex
+		deadline := time.Now().Add(30 * time.Second)
+		for {
+			v, err := main(func(a *app) (any, error) {
 				if a.root == "" {
-					return true, nil
+					return fileIndex{}, nil
 				}
 				a.refreshIndex()
-				return a.index != nil && !a.indexRead.Running(), nil
+				expired := time.Now().After(deadline)
+				if !expired && (a.index == nil || a.indexRead.Running()) {
+					return nil, nil
+				}
+				index := fileIndex{root: a.root, files: a.index}
+				if args.FollowLinks && a.searchFollowsSymlinks() && a.index != nil {
+					if a.refreshSearchLinks() {
+						index.links = a.inFiles.directoryLinks
+					} else if !expired {
+						return nil, nil
+					}
+				}
+				return index, nil
 			})
 			if err != nil {
 				return nil, err
 			}
-			if ready.(bool) || time.Now().After(deadline) {
+			if v != nil {
+				index = v.(fileIndex)
 				break
 			}
 			time.Sleep(50 * time.Millisecond)
 		}
-		return main(func(a *app) (any, error) {
-			limit := args.Limit
-			if limit <= 0 {
-				limit = 1000
+		limit := args.Limit
+		if limit <= 0 {
+			limit = 1000
+		}
+		globs := workspace.ParseGlobs(args.Glob)
+		excludes := workspace.ParseGlobs(args.Exclude)
+		dirs := make([]string, 0, len(args.ExcludeDirs))
+		for _, dir := range args.ExcludeDirs {
+			if dir != "" {
+				dirs = append(dirs, dir)
 			}
-			out := []string{}
-			globs := workspace.ParseGlobs(args.Glob)
-			for _, f := range a.index {
-				if args.Glob == "" || globs.Match(f) {
-					out = append(out, f)
-					if len(out) >= limit {
-						break
-					}
+		}
+		excluded := func(path string) bool {
+			return excludes.Match(path) || slices.ContainsFunc(dirs, func(dir string) bool {
+				return path == dir || strings.HasPrefix(path, dir+"/") || strings.Contains(path, "/"+dir+"/")
+			})
+		}
+		out := []string{}
+		if args.Glob != "" && len(globs) == 0 {
+			return out, nil
+		}
+		if len(index.links) > 0 {
+			paths := workspace.SearchFollowingDirectoryLinks(index.root, index.files, index.links, globs, excluded, limit, func() bool {
+				return time.Now().After(deadline)
+			})
+			if paths != nil {
+				return paths.Files, nil
+			}
+		}
+		for _, f := range index.files {
+			if (len(globs) == 0 || globs.Match(f)) && !excluded(f) {
+				out = append(out, f)
+				if len(out) >= limit {
+					break
 				}
 			}
-			return out, nil
-		})
+		}
+		return out, nil
 	case "workspace.documents":
 		return main(func(a *app) (any, error) {
 			out := []any{}

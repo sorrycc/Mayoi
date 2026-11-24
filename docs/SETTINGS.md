@@ -92,7 +92,7 @@ takes its default.
 | `jsonlMode`             | `""`          | `""` (table), `"source"`                                    | **View → Open JSON Lines As**                  |
 | `editorAgentContext`    | `false`       | `true`, `false`                                             | Only this file                                 |
 | `editorHover`           | `true`        | `true`, `false`                                             | Only this file                                 |
-| `searchFollowSymlinks`  | `true`        | `true`, `false` for local Find in Files                     | **Settings → Editor**                          |
+| `searchFollowSymlinks`  | `true`        | `true`, `false` for local Find in Files and TODOs           | **Settings → Editor**                          |
 | `previewMermaid`        | `true`        | `true`, `false`                                             | Only this file                                 |
 | `previewMath`           | `true`        | `true`, `false`                                             | Only this file                                 |
 | `markdownMode`          | `""`          | `""` (source), `"live"`, `"reading"`                        | **View → Open Markdown As**                    |

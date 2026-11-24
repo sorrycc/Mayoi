@@ -57,7 +57,7 @@ func (a *app) pluginTick() {
 	}
 	if a.root != s.root {
 		s.root, s.indexed = a.root, false
-		h.reg.Emit("workspace.changed", map[string]any{"root": a.root})
+		h.reg.Emit("workspace.changed", map[string]any{"root": a.root, "windowId": a.pluginWindow()})
 	}
 	if !s.indexed && a.root != "" && a.index == nil && wantsWorkspace(h) {
 		a.refreshIndex()

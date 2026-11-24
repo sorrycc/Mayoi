@@ -380,7 +380,7 @@ func (d *editor) typeEdit(e textEdit) {
 	d.observe()
 	h := &d.hist
 	now := time.Now()
-	h.pushTyping(histStep{h.snap, d.sel, slices.Clone(d.cursors)}, now)
+	h.pushTyping(histStep{snap: h.snap, sel: d.sel, cursors: slices.Clone(d.cursors)}, now)
 	moved := movedByEdits([]textEdit{e})
 	d.applyEdits([2]int{moved(d.sel[0]), moved(d.sel[1])}, []textEdit{e})
 	d.quiet = true

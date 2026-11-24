@@ -101,7 +101,7 @@ func (a *app) editorReviewView(c *ui.Context, d *editor) bool {
 	if view.W <= 0 {
 		view = d.hscroll.Bounds(c)
 	}
-	d.gutterW = a.editorGutterWidth(d.buf.Snapshot().LineCount())
+	d.gutterW = a.editorGutterWidth(d.viewLines())
 	left := d.gutterW - 4
 	w := min(max(float32(160), view.W-left-14), maxNoteBoxW)
 	v.width = w

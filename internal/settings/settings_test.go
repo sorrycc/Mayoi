@@ -33,6 +33,18 @@ func TestRoundTrip(t *testing.T) {
 	}
 }
 
+// Turning log mode off keeps it off: 0 is a setting of its own, written
+// as one, not the absence of the number that a load would default.
+func TestLargeFileModeOffKept(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "s.json")
+	s := Load(path)
+	s.LargeFileModeMB = 0
+	s.Flush()
+	if got := Load(path).LargeFileModeMB; got != 0 {
+		t.Fatalf("largeFileModeMB loaded %d, want 0", got)
+	}
+}
+
 func TestZoomLevel(t *testing.T) {
 	for _, tc := range []struct {
 		json string

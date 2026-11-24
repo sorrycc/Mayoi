@@ -2,6 +2,7 @@ package main
 
 import (
 	"io/fs"
+	"os"
 	"slices"
 	"time"
 
@@ -29,6 +30,14 @@ func (a *app) loadFile(d *document) {
 	}
 	if d.sync == syncLoading || a.loadsClosed || d.dirty() {
 		return
+	}
+	// A local file over the size the settings names is read in the
+	// background: whole, or in windows when it is too big for that.
+	if a.logThreshold() > 0 {
+		if info, err := os.Stat(d.path); err == nil && !info.IsDir() && info.Size() > a.logThreshold() {
+			a.loadLog(d)
+			return
+		}
 	}
 	// Keep the previous error available while a retry is running.
 	d.sync, d.localQueued, d.readingAt = syncLoading, true, time.Time{}

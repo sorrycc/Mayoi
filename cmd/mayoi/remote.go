@@ -345,6 +345,14 @@ func (a *app) remoteLoaded(d *document, path string, info fs.FileInfo, data []by
 		data, enc, long, err = decodeDocument(path, data)
 	}
 	if err != nil {
+		if !remote.Is(path) && errors.Is(err, errLongLine) && a.longLineWhole(path) {
+			// A file over the threshold with a line too long for the
+			// usual read is read whole instead: its text shows, long
+			// lines and all. A smaller one keeps the editor's guard.
+			d.sync = syncIdle
+			a.loadLog(d)
+			return
+		}
 		d.sync, d.loadErr = syncLoadFailed, err
 		if !remote.Is(path) {
 			return // Keep local failures in their tabs with their context and retry.
@@ -781,6 +789,11 @@ func (a *app) loadingView(c *ui.Context, col *column, d *editor) {
 				ui.Icon(c, iconOpenFile).Size(16, 16)
 			}
 			ui.Text(c, locales.RemoteReading(d.name())).FontSize(13).TextColor(p.muted)
+			if d.document.logProgress > 0 {
+				// A file read whole, too big to read in a moment: how
+				// much of it is read.
+				ui.Progress(c.Key("log-progress"), float64(d.document.logProgress)).Height(4).Radius(0).Width(220)
+			}
 			if d.loadErr != nil {
 				ui.Text(c, d.loadErr.Error()).FontSize(12).TextColor(p.muted).MaxWidth(420)
 			}
@@ -818,6 +831,13 @@ func (a *app) shutdown() {
 	a.closePluginWindow()
 	a.loadsClosed = true
 	a.docClosed(nil)
+	a.logQueue = nil
+	for _, d := range a.docs {
+		if d.log != nil {
+			d.log.close()
+			d.log = nil
+		}
+	}
 	if a.tree != nil {
 		a.tree.Close()
 	}

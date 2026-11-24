@@ -328,7 +328,7 @@ func (s *lspServer) start(a *app, prev *lspServer) {
 		}
 		for _, w := range s.windows(a) {
 			for _, d := range w.docs {
-				if slices.Contains(s.contrib.Languages, languageOf(d)) {
+				if slices.Contains(s.contrib.Languages, languageOf(d)) && !d.lspTooBig() {
 					c.Open(serverURI(d.path), languageOf(d), d.buf.String())
 				}
 			}
@@ -462,7 +462,11 @@ func (a *app) lspDoc(event string, d *document) {
 	case "save":
 		c.Saved(uri)
 	default:
-		c.Open(uri, languageOf(d), d.buf.String())
+		// A whole-file read too big for a server, or a windowed one, is
+		// not sent: its text never reaches the server whole.
+		if !d.lspTooBig() {
+			c.Open(uri, languageOf(d), d.buf.String())
+		}
 	}
 }
 
@@ -538,6 +542,7 @@ func (a *app) askHover(d *editor, at int, rest *pointerHover) {
 		return
 	}
 	text := d.buf.String()
+	tooBig := d.document.lspTooBig()
 	var current func() bool
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	if rest == nil {
@@ -559,7 +564,7 @@ func (a *app) askHover(d *editor, at int, rest *pointerHover) {
 		defer cancel()
 		var parts []string
 		var span *lsp.Range
-		if c := s.wait(3 * time.Second); c != nil && c.Hover() {
+		if c := s.wait(3 * time.Second); c != nil && c.Hover() && !tooBig {
 			// The server knows the text as it is now.
 			c.Open(uri, lang, text)
 			if hover, err := c.HoverAt(ctx, uri, lsp.Position(pos)); err == nil && strings.TrimSpace(hover.Markdown) != "" {
@@ -654,6 +659,7 @@ func (a *app) locationsAt(d *editor, kind lsp.Navigation, click bool) {
 	}
 	pos, uri, root := caretPosition(d), serverURI(d.path), a.root
 	lang, text := languageOf(d.document), d.buf.String()
+	tooBig := d.document.lspTooBig()
 	command := s.contrib.SourceDefinitionCommand
 	bg.Go(func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -685,8 +691,11 @@ func (a *app) locationsAt(d *editor, kind lsp.Navigation, click bool) {
 		}
 		// The server knows the text as it is now: not as the last change
 		// it was told of a moment ago, nor before the documents open are
-		// told of, as a server that just started is.
-		c.Open(uri, lang, text)
+		// told of, as a server that just started is. A text too big to
+		// send it is not.
+		if !tooBig {
+			c.Open(uri, lang, text)
+		}
 		var locs []lsp.Location
 		var err error
 		if sourceMethod != "" {
@@ -827,6 +836,7 @@ func (a *app) complete() {
 	}
 	pos, uri := caretPosition(d), serverURI(d.path)
 	lang, text := languageOf(d.document), d.buf.String()
+	tooBig := d.document.lspTooBig()
 	current := a.lspAsked(s, d, &a.completeAsked)
 	bg.Go(func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -840,8 +850,11 @@ func (a *app) complete() {
 			})
 			return
 		}
-		// The server knows the text as it is now.
-		c.Open(uri, lang, text)
+		// The server knows the text as it is now, unless it is one too
+		// big to send it.
+		if !tooBig {
+			c.Open(uri, lang, text)
+		}
 		items, err := c.CompletionAt(ctx, uri, lsp.Position(pos))
 		a.post(func() {
 			if !current() {
@@ -943,7 +956,7 @@ func completionIcon(kind int) string {
 func (a *app) lspFormat(d *editor, limit time.Duration, then func()) bool {
 	s := a.lspFor(d.document, false)
 	c := s.live()
-	if c == nil || !c.Formatting() {
+	if c == nil || !c.Formatting() || d.document.lspTooBig() {
 		return false
 	}
 	c.Open(serverURI(d.path), languageOf(d.document), d.buf.String())

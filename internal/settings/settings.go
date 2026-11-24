@@ -184,6 +184,11 @@ type Prefs struct {
 	// its source, "live" as Live Preview, its source styled as it reads,
 	// or "reading" rendered.
 	MarkdownMode string `json:"markdownMode,omitempty"`
+	// LargeFileModeMB is the size in MB over which a local file opens by
+	// a whole-file read in the background, or in windows when it is too
+	// big for that: 0 has it off, the largest 1024. It is written even
+	// as 0, which is a setting rather than the absence of one.
+	LargeFileModeMB int `json:"largeFileModeMB"`
 	// JSONLMode is how a file of JSON Lines, .jsonl or .ndjson, opens: ""
 	// as a table of its rows, or "source".
 	JSONLMode string `json:"jsonlMode,omitempty"`
@@ -601,7 +606,8 @@ func Default() *Settings {
 			FontSize: 13, FontFamily: "monospace", FontWeight: 400, LineHeight: 1.55, TabSize: 4,
 			AutoSave: true, Blame: true, EditorHover: true, SearchFollowSymlinks: true, TerminalCopyOnSelect: true, TerminalBackendHcShowInHerdr: true, PreviewMermaid: true, PreviewMath: true,
 			DiffAlignedRows: true, DiffContext: 3, DiffSyncScroll: true, MergeAutoApply: true,
-			UsageStats: true, ConfirmBeforeQuit: true,
+			LargeFileModeMB: 32,
+			UsageStats:      true, ConfirmBeforeQuit: true,
 		},
 	}
 }
@@ -697,6 +703,7 @@ func (p *Prefs) normalize() {
 		p.TabSize = 4
 	}
 	p.TabSize = min(max(p.TabSize, 1), 8)
+	p.LargeFileModeMB = min(max(p.LargeFileModeMB, 0), 1024)
 	p.FontFeatures = slices.DeleteFunc(p.FontFeatures, func(f string) bool { return strings.TrimSpace(f) == "" })
 	p.AISecretFiles = slices.DeleteFunc(p.AISecretFiles, func(f string) bool { return strings.TrimSpace(f) == "" })
 	if p.TerminalFontSize != 0 {

@@ -58,24 +58,30 @@ func assertColumnGuideRow(t *testing.T, hs *harness, d *editor, off, on *image.R
 	}
 	row := max(2, int((v.H-80-editorPadY)/hs.a.font.lineH))
 	y := int((v.Y + editorPadY + float32(row)*hs.a.font.lineH) * zs)
-	seen := make([]bool, len(want))
+	seen := make([]float64, len(want))
 	for x := max(0, int(v.X*zs)); x < min(on.Bounds().Max.X, int((v.X+v.W)*zs)); x++ {
-		if off.RGBAAt(x, y) == on.RGBAAt(x, y) {
+		before, after := off.RGBAAt(x, y), on.RGBAAt(x, y)
+		if before == after {
 			continue
 		}
 		matched := false
 		for i, at := range want {
 			if float32(x) >= at-1 && float32(x) <= at+zs+1 {
-				seen[i], matched = true, true
+				seen[i] = max(seen[i], contrast(ui.RGBA(before.R, before.G, before.B, 1), ui.RGBA(after.R, after.G, after.B, 1)))
+				matched = true
 			}
 		}
 		if !matched {
 			t.Fatalf("unexpected guide pixel (%d,%d), boundaries %v, view %+v", x, y, want, v)
 		}
 	}
-	for i, found := range seen {
-		if !found {
-			t.Errorf("no guide at independently laid-out boundary %.2f on row %d", want[i], y)
+	least := 1.0
+	if hs.a.pal.dark {
+		least = 1.5
+	}
+	for i, ratio := range seen {
+		if ratio < least {
+			t.Errorf("guide at independently laid-out boundary %.2f on row %d has contrast %.2f, want at least %.1f", want[i], y, ratio, least)
 		}
 	}
 }

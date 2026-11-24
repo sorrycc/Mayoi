@@ -835,12 +835,17 @@ func (a *app) editorView(c *ui.Context, d *editor) {
 				pt.AnimationFrame()
 			}
 			if len(columnGuides) > 0 {
+				col := p.guide
+				if p.dark {
+					// A continuous column boundary needs more contrast than an indent guide.
+					col = col.Mix(p.text, 0.25)
+				}
 				clip := ui.Rect{X: r.X + d.hscroll.X + textX, Y: r.Y, W: max(0, view.W-textX-textPadR), H: r.H}
 				pt.Clip(clip, 0, func() {
 					for _, column := range columnGuides {
 						x := r.X + textX + float32(column)*f.charW
 						if x >= clip.X && x < clip.X+clip.W {
-							pt.Fill(ui.Rect{X: x, Y: r.Y, W: 1, H: r.H}, p.guide, 0)
+							pt.Fill(ui.Rect{X: x, Y: r.Y, W: 1, H: r.H}, col, 0)
 						}
 					}
 				})

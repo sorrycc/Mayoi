@@ -677,6 +677,11 @@ match to match; ↑ on the first match, or Escape, goes back to the query. A thi
   `*` and `?` match within a name, `**` any folders, and `{ts,tsx}` either. A pattern without a slash, as `*.ts` or
   `testdata`, matches a name anywhere; one with a slash matches from the folder's top. A folder's pattern takes the
   files in it.
+- In local projects, search follows directory symlinks. Include and exclude patterns use the link path, and linked
+  Git working trees keep their ignore rules. When an ordinary workspace path and a directory symlink reach the same file, the
+  ordinary path takes precedence if it matches the filters. Replace uses the files in the results.
+  Start a new search to pick up disk changes in linked directories outside the workspace.
+  Turn off **Settings → Editor → Follow Directory Symlinks** for a project that should skip them.
 
 ### Replace
 

@@ -986,6 +986,7 @@ func (a *app) refreshIndex() {
 		a.post(func() {
 			if a.indexRead.Done(key) && a.folderKey() == key {
 				a.index = files
+				a.inFiles.linkRead.Invalidate()
 				a.quick.stale = true
 			}
 		})

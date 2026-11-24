@@ -96,6 +96,9 @@ type searchState struct {
 	// includes and excludes are the globs of the files to include and to
 	// exclude the results are of.
 	includes, excludes workspace.Globs
+	linkRead           bg.Refresher[folderKey]
+	directoryLinks     []string // possible links in the current file index
+	linkPaths          *workspace.LinkedSearchPaths
 	// seen is the version of each open document's text the results are
 	// of, which a document edited searches again.
 	seen map[string]uint64
@@ -113,10 +116,14 @@ type searchState struct {
 	version, rowsOf int
 }
 
-// searchKey is what a search's results depend on: the query and its
-// options, and the files it looks in.
-func (s *searchState) searchKey() string {
-	return fmt.Sprintf("%v|%v|%v|%s|%s|%s", s.matchCase, s.word, s.regex, s.include, s.exclude, s.query)
+func (a *app) searchFollowsSymlinks() bool {
+	return !remote.Is(a.root) && a.prefs().SearchFollowSymlinks
+}
+
+// searchKey is what a search's results depend on: the query, options and
+// files it looks in.
+func (s *searchState) searchKey(followSymlinks bool) string {
+	return fmt.Sprintf("%v|%v|%v|%v|%s|%s|%s", s.matchCase, s.word, s.regex, followSymlinks, s.include, s.exclude, s.query)
 }
 
 // changed says the results changed, so their rows are made again.
@@ -162,6 +169,8 @@ func (a *app) resetSearch() {
 	s.gen++
 	s.key, s.re, s.files, s.count, s.running, s.stopped, s.err = "", nil, nil, 0, false, false, ""
 	s.seen, s.watched = nil, nil
+	s.directoryLinks, s.linkPaths = nil, nil
+	s.linkRead.Invalidate()
 	s.changed()
 }
 
@@ -169,12 +178,14 @@ func (a *app) resetSearch() {
 // background, dropping the results of the last search.
 func (a *app) startSearch() {
 	s := &a.inFiles
-	s.key, s.waiting = s.searchKey(), false
+	followSymlinks := a.searchFollowsSymlinks()
+	s.key, s.waiting = s.searchKey(followSymlinks), false
 	if s.cancel != nil {
 		s.cancel.Store(true)
 	}
 	s.gen++
 	s.re, s.files, s.count, s.running, s.stopped, s.err = nil, nil, 0, false, false, ""
+	s.linkPaths = nil
 	s.changed()
 	if s.query == "" || a.root == "" {
 		return
@@ -193,29 +204,81 @@ func (a *app) startSearch() {
 		s.waiting, s.running = true, true
 		return
 	}
-	s.re, s.fold = re, foldQueryOf(s.query, s.matchCase, s.word, s.regex)
+	if followSymlinks && (s.linkRead.Stale() || s.linkRead.Running()) {
+		a.refreshSearchLinks()
+		s.waiting, s.running = true, true
+		return
+	}
+	s.fold = foldQueryOf(s.query, s.matchCase, s.word, s.regex)
 	s.includes, s.excludes = workspace.ParseGlobs(s.include), workspace.ParseGlobs(s.exclude)
+	cancel := &atomic.Bool{}
+	s.cancel, s.running = cancel, true
+	if followSymlinks && len(s.directoryLinks) > 0 {
+		root, indexed, candidates := a.root, a.index, s.directoryLinks
+		gen, includes, excludes := s.gen, s.includes, s.excludes
+		bg.Go(func() {
+			defer recoverCrash()
+			paths := workspace.SearchFollowingDirectoryLinks(root, indexed, candidates, includes, excludes, cancel.Load)
+			if cancel.Load() {
+				return
+			}
+			a.post(func() {
+				if s.gen == gen && !cancel.Load() {
+					s.linkPaths = paths
+					a.runFullSearch(re)
+				}
+			})
+		})
+		return
+	}
+	a.runFullSearch(re)
+}
+
+// refreshSearchLinks discovers link candidates once for a file index,
+// when a search first needs them.
+func (a *app) refreshSearchLinks() {
+	s := &a.inFiles
+	key := a.folderKey()
+	if !s.linkRead.Start(key) {
+		return
+	}
+	indexed := a.index
+	bg.Go(func() {
+		defer recoverCrash()
+		links := workspace.DirectoryLinkCandidates(key.root, indexed)
+		a.post(func() {
+			if s.linkRead.Done(key) && a.folderKey() == key {
+				s.directoryLinks = links
+			}
+		})
+	})
+}
+
+func (a *app) runFullSearch(re *regexp.Regexp) {
+	s := &a.inFiles
+	s.re, s.seen = re, make(map[string]uint64)
+	for _, d := range a.docs {
+		if d.path != "" && !d.unread() {
+			s.seen[d.path] = d.buf.Version()
+		}
+	}
+	texts := make(map[string]string)
+	for rel, d := range a.searchDocuments() {
+		if !d.unread() && d.dirty() {
+			texts[rel] = d.buf.String()
+		}
+	}
+	if s.linkPaths != nil {
+		a.runSearch(s.gen, re, s.fold, s.linkPaths.Files, texts, s.cancel, false)
+		return
+	}
 	var rels []string
 	for _, rel := range a.index {
 		if s.wants(rel) {
 			rels = append(rels, rel)
 		}
 	}
-	// Open documents are searched as they are, edits and all.
-	s.seen = map[string]uint64{}
-	texts := map[string]string{}
-	for _, d := range a.docs {
-		if d.path == "" || d.unread() {
-			continue
-		}
-		s.seen[d.path] = d.buf.Version()
-		if rel, ok := a.relOf(d.path); ok && d.dirty() {
-			texts[rel] = d.buf.String()
-		}
-	}
-	cancel := &atomic.Bool{}
-	s.cancel, s.running = cancel, true
-	a.runSearch(s.gen, re, s.fold, rels, texts, cancel, false)
+	a.runSearch(s.gen, re, s.fold, rels, texts, s.cancel, false)
 }
 
 // wants reports whether search looks in a file, by the files to include
@@ -235,6 +298,37 @@ func (a *app) relOf(path string) (string, bool) {
 		return "", false
 	}
 	return rel, true
+}
+
+// searchRel uses the relative path chosen for the results, even when an
+// editor or a file watch reaches it through another directory path.
+func (a *app) searchRel(path string) (string, bool) {
+	rel, ok := a.relOf(path)
+	if ok && a.inFiles.linkPaths != nil {
+		return a.inFiles.linkPaths.ResultPath(rel)
+	}
+	return rel, ok
+}
+
+func (a *app) searchDocuments() map[string]*document {
+	docs := make(map[string]*document)
+	for _, d := range a.docs {
+		rel, ok := a.searchRel(d.path)
+		if !ok {
+			continue
+		}
+		// Use the edited buffer first. If both paths have edits,
+		// prefer the open buffer at the path shown in the results.
+		old := docs[rel]
+		switch {
+		case old == nil, old.unread() && !d.unread():
+			docs[rel] = d
+		case old.unread() != d.unread():
+		case d.dirty() && !old.dirty(), d.dirty() == old.dirty() && d.path == remote.Join(a.root, rel):
+			docs[rel] = d
+		}
+	}
+	return docs
 }
 
 // runSearch looks for re in the files rels, of the text in texts for
@@ -531,22 +625,25 @@ func (a *app) watchResult(path string) {
 // the editor, keeping the rest of the results.
 func (a *app) searchAgain(paths []string) {
 	s := &a.inFiles
-	if s.re == nil || a.root == "" {
+	if len(paths) == 0 || s.re == nil || a.root == "" {
 		return
 	}
+	docs := a.searchDocuments()
 	texts := map[string]string{}
 	var rels []string
 	for _, p := range paths {
-		rel, ok := a.relOf(p)
+		rel, ok := a.searchRel(p)
 		if !ok || !s.wants(rel) || slices.Contains(rels, rel) {
 			continue
 		}
-		_, shown := slices.BinarySearchFunc(s.files, rel, func(e *searchFile, rel string) int { return strings.Compare(e.rel, rel) })
-		if !shown && !slices.Contains(a.index, rel) {
-			continue // a file search does not look in
+		if s.linkPaths == nil {
+			_, shown := slices.BinarySearchFunc(s.files, rel, func(e *searchFile, rel string) int { return strings.Compare(e.rel, rel) })
+			if !shown && !slices.Contains(a.index, rel) {
+				continue // a file search does not look in
+			}
 		}
-		if i := a.docIndex(p); i >= 0 && !a.docs[i].unread() {
-			texts[rel] = a.docs[i].buf.String()
+		if d := docs[rel]; d != nil && !d.unread() {
+			texts[rel] = d.buf.String()
 		}
 		rels = append(rels, rel)
 	}
@@ -562,7 +659,7 @@ func (a *app) searchTick() {
 	if s.waiting && time.Since(s.typedAt) >= searchPause {
 		a.startSearch()
 	}
-	if s.re == nil {
+	if s.re == nil || s.running {
 		return
 	}
 	var edited []string
@@ -608,15 +705,21 @@ func (a *app) searchRows() []searchRow {
 // preview tab, the keyboard staying in the results, or with keep in a tab
 // of its own with the keyboard.
 func (a *app) openMatch(f *searchFile, m searchMatch, keep bool) {
+	path := f.path
+	if a.inFiles.linkPaths != nil {
+		if d := a.searchDocuments()[f.rel]; d != nil {
+			path = d.path
+		}
+	}
 	// The match is in the text, whatever markdownPreview says.
 	a.openText(func() {
 		if keep {
-			a.openFile(f.path, true)
+			a.openFile(path, true)
 		} else {
-			a.previewFile(f.path)
+			a.previewFile(path)
 		}
 	})
-	a.selectMatch(f.path, m)
+	a.selectMatch(path, m)
 }
 
 // selectMatch selects a match in the editor shown, when it has its file.
@@ -748,11 +851,12 @@ func (a *app) replaceMatches(files []*searchFile, only *searchMatch) {
 		return
 	}
 	tmpl := replaceTemplate(s.with, s.regex)
+	docs := a.searchDocuments()
 	n, changed := 0, 0
 	var closed []string
 	for _, f := range files {
-		if i := a.docIndex(f.path); i >= 0 {
-			if k := replaceInDoc(a.docs[i], re, tmpl, only); k > 0 {
+		if d := docs[f.rel]; d != nil {
+			if k := replaceInDoc(d, re, tmpl, only); k > 0 {
 				n += k
 				changed++
 			}
@@ -807,9 +911,10 @@ func (a *app) replaceAllInFiles() {
 		return
 	}
 	files := slices.Clone(s.files)
+	docs := a.searchDocuments()
 	closed := 0
 	for _, f := range files {
-		if a.docIndex(f.path) < 0 {
+		if docs[f.rel] == nil {
 			closed++
 		}
 	}
@@ -835,7 +940,7 @@ func (a *app) replaceAllInFiles() {
 func (a *app) searchView(c *ui.Context) {
 	p := a.pal
 	s := &a.inFiles
-	if k := s.searchKey(); k != s.key {
+	if k := s.searchKey(a.searchFollowsSymlinks()); k != s.key {
 		s.key, s.typedAt, s.waiting = k, time.Now(), true
 		bg.AfterFunc(searchPause, a.invalidate)
 	}
@@ -1041,7 +1146,7 @@ func (a *app) searchResults(c *ui.Context) {
 func (a *app) searchStepBack() {
 	s := &a.inFiles
 	rows := a.searchRows()
-	if s.waiting || s.key != s.searchKey() || s.re == nil && !s.running {
+	if s.waiting || s.key != s.searchKey(a.searchFollowsSymlinks()) || s.re == nil && !s.running {
 		a.startSearch()
 		return
 	}

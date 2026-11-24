@@ -1535,6 +1535,8 @@
   "prefDescEditorAgentContext": "在普通文件的行号旁显示 +，收集代码片段和可选评论。",
   "prefTitleEditorHover": "指针悬停提示",
   "prefDescEditorHover": "指针停在名称上时，显示语言服务器对它的说明。",
+  "prefTitleSearchFollowSymlinks": "跟随目录软链接",
+  "prefDescSearchFollowSymlinks": "搜索软链接指向的目录，包括位于本地工作区之外的目标。",
   "prefTitleMarkdownMode": "Markdown 打开方式",
   "prefDescMarkdownMode": "以源代码、实时预览（边看边编辑）或渲染后的样子打开 Markdown 文件。",
   "prefOptMarkdownModeLive": "实时预览",

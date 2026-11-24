@@ -3,7 +3,7 @@
 The update window shows the section of the version it offers. Every release
 needs a `## <version>` section here, or its build fails.
 
-## Unreleased
+## 0.23.4
 
 - **Settings → Terminal → Match Claude Code to Mayoi Theme** gives Claude Code on this Mac Mayoi's colors.
 - Turning it off gives Claude Code back its earlier theme; a theme you pick with `/theme` takes over.

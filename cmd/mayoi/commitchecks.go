@@ -134,7 +134,7 @@ func (a *gitContext) commitChecksDue(now time.Time) []string {
 		if len(out) >= commitChecksMax {
 			break
 		}
-		if !g.unpushed[cm.Hash] && !g.checksWanted[cm.Hash] && due(cm.Hash, cm.Time) {
+		if !g.unpushed[cm.Hash] && !g.incoming[cm.Hash] && !g.checksWanted[cm.Hash] && due(cm.Hash, cm.Time) {
 			out = append(out, cm.Hash)
 		}
 	}

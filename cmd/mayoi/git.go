@@ -76,13 +76,17 @@ type gitState struct {
 	message string
 	amend   bool
 
-	// history is the last commits of HEAD, newest first, and unpushed
-	// those its upstream lacks, read for the state historyOf names;
-	// historyN is how many to read, historyGen counts the reads.
+	// history is the last commits of HEAD, newest first, with any commits
+	// its upstream has that HEAD lacks ahead of them (and marked in
+	// incoming); unpushed are those HEAD has that its upstream lacks, read
+	// for the state historyOf names. historyN is how many to read,
+	// historyMore whether another page may follow, historyGen counts reads.
 	history        []git.Commit
 	unpushed       map[string]bool
+	incoming       map[string]bool
 	historyOf      string
 	historyN       int
+	historyMore    bool
 	historyGen     int
 	loadingHistory bool
 	// graph is the lanes of history, laid out for the read graphOf
@@ -378,16 +382,33 @@ func (a *gitContext) refreshHistory() {
 	}
 	g.loadingHistory = true
 	// Without a remote nothing is pushed or not: no commit is marked.
-	r, remotes, all, upstream := g.repo, len(g.remotes) > 0, a.app.settings.ScmAllBranches, st.Upstream
+	r, remotes, all, upstream, behind := g.repo, len(g.remotes) > 0, a.app.settings.ScmAllBranches, st.Upstream, st.Behind
 	bg.Go(func() {
 		defer recoverCrash()
 		var cs []git.Commit
 		var err error
-		var unpushed map[string]bool
+		var unpushed, incoming map[string]bool
+		var more bool
 		readGit(func() {
 			cs, err = r.Log(n, all)
+			if err != nil {
+				return
+			}
+			more = len(cs) >= n
 			if remotes {
 				unpushed = r.Unpushed(n, upstream)
+			}
+			if behind > 0 {
+				if in := r.Incoming(n); len(in) > 0 {
+					incoming = make(map[string]bool, len(in))
+					for _, c := range in {
+						incoming[c.Hash] = true
+					}
+					more = more || len(in) >= n
+					if !all {
+						cs = append(in, cs...)
+					}
+				}
 			}
 		})
 		a.app.post(func() {
@@ -399,7 +420,7 @@ func (a *gitContext) refreshHistory() {
 			if err != nil {
 				return
 			}
-			g.history, g.unpushed = cs, unpushed
+			g.history, g.unpushed, g.incoming, g.historyMore = cs, unpushed, incoming, more
 			g.historyGen++
 		})
 	})

@@ -1393,6 +1393,7 @@
   "scmMoreCommitActions": "More Commit Actions",
   "scmNoRepo": "No Git Repository",
   "scmNoRepoDetail": "The folder is not in a Git repository. Make it one to track and commit its changes.",
+  "scmNotPulled": "Not pulled yet",
   "scmNotPushed": " · not pushed",
   "scmOpInProgress": "{op} in progress",
   "scmOpenStaged": "Open Staged Changes",

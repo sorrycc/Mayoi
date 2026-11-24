@@ -271,6 +271,10 @@ commits not pushed yet. A local branch and its remote's at the same commit share
 that do not fit the sidebar's width fold into a count. **Show More Commits** reads 50 more. Point at a commit to see its
 author, hash and every branch and tag.
 
+Commits fetched from upstream that have not been pulled yet appear faded with a down arrow at the top of the list,
+together with their expanded files, and can be inspected and previewed like any other commit before pulling. Point at
+one to see **Not pulled yet** in its card.
+
 The branch button in the COMMITS header, or **Show All Branches** in the **⋯** menu, shows every branch, of the remotes
 too, and every tag, not only the history of the branch checked out. The button stays in the header, in the accent
 color, while it is on.

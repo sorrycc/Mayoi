@@ -1132,6 +1132,7 @@
   "scmMoreCommitActions": "その他のコミット操作",
   "scmNoRepo": "Git リポジトリがありません",
   "scmNoRepoDetail": "このフォルダーは Git リポジトリにありません。リポジトリにすると変更を追跡してコミットできます。",
+  "scmNotPulled": "まだプルしていません",
   "scmNotPushed": " · 未プッシュ",
   "scmOpInProgress": "{op}が進行中",
   "scmOpenStaged": "ステージされている変更を開く",

@@ -11802,6 +11802,16 @@ func (msgs Messages) ScmNoRepoDetail() string {
 	return Catalog.Format(msgs.locale, "scmNoRepoDetail", nil)
 }
 
+// ScmNotPulled says "Not pulled yet"
+// in the language the app shows.
+func ScmNotPulled() string { return In(i18n.Locale()).ScmNotPulled() }
+
+// ScmNotPulled says "Not pulled yet"
+// in the language of msgs.
+func (msgs Messages) ScmNotPulled() string {
+	return Catalog.Format(msgs.locale, "scmNotPulled", nil)
+}
+
 // ScmNotPushed says " · not pushed"
 // in the language the app shows.
 func ScmNotPushed() string { return In(i18n.Locale()).ScmNotPushed() }

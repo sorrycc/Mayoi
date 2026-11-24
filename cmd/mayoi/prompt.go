@@ -3,7 +3,6 @@ package main
 import (
 	"cmp"
 	"mayoi/locales"
-	"path/filepath"
 	"slices"
 	"strings"
 
@@ -54,18 +53,15 @@ func (a *app) promptView(c *ui.Context) {
 				Role(ui.RoleDialog).Label(pr.title)
 			box.Children(func() {
 				ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
-					ui.Text(c, pr.title).FontSize(13).FontWeight(600).TextColor(p.text)
+					// The title keeps its line: a long path's hint gives way.
+					ui.Text(c, pr.title).FontSize(13).FontWeight(600).TextColor(p.text).SingleLine().Shrink(0)
 					ui.Text(c, pr.hint).FontSize(12).TextColor(p.faint).SingleLine().Shrink(1)
 				})
 				in := a.textKeys(ui.TextInput(c.Key("prompt-"+pr.title), &pr.value)).AutoFocus().FontSize(13).Label(pr.title)
 				if !pr.selected {
 					// Select the name without its extension, as Finder does.
 					pr.selected = true
-					n := len([]rune(pr.value))
-					if ext := filepath.Ext(pr.value); ext != "" && ext != pr.value {
-						n -= len([]rune(ext))
-					}
-					in.SetTextSelection(0, n)
+					in.SetTextSelection(0, stemLen(pr.value))
 				}
 				if pr.err != "" {
 					in.Error(pr.err)

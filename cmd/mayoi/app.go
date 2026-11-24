@@ -242,11 +242,13 @@ type app struct {
 	// treeSynced is the document the tree last followed, selectInTree the
 	// file it should choose once its row shows.
 	treeSynced, selectInTree string
-	git                      gitState
-	gitClock                 func() time.Time // nil uses real time; tests use the frame clock
-	repositories             repositoryState
-	commitTools              commitTools
-	scm                      scmState
+	// treeRename is the row of the explorer whose name is being edited.
+	treeRename   *treeRename
+	git          gitState
+	gitClock     func() time.Time // nil uses real time; tests use the frame clock
+	repositories repositoryState
+	commitTools  commitTools
+	scm          scmState
 
 	// treeOpening follows the folders of the tree as they open.
 	treeOpening treeOpening

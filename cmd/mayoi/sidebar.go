@@ -328,6 +328,8 @@ func (a *app) fileTree(c *ui.Context) {
 	var picked, dragged string
 	var pickMods ui.Modifiers
 	var action func()
+	// renameShown is whether the row whose name is edited showed.
+	renameShown := false
 	// end is where the last row ends, while it shows: a click below it is
 	// on no file. top is where the first row starts, while it shows.
 	end, top := float32(-1), float32(-1)
@@ -376,10 +378,16 @@ func (a *app) fileTree(c *ui.Context) {
 				c.AnimationFrame()
 			}
 		}
+		// The row whose name is edited leaves the clicks and the drags to
+		// its field, which selects with them, and has no menu of its own.
+		editing := a.treeRename != nil && a.treeRename.path == path
+		if editing {
+			renameShown = true
+		}
 		// Shift and Cmd (Ctrl on Linux and Windows) choose the row with
 		// others, without opening a file or a folder.
 		mods := row.ClickModifiers() & (ui.Shift | ui.Cmd)
-		if row.Clicked() {
+		if row.Clicked() && !editing {
 			if mods != 0 {
 				picked, pickMods = path, mods
 			} else {
@@ -388,7 +396,7 @@ func (a *app) fileTree(c *ui.Context) {
 		}
 		// The row, not the list's, takes the clicks, and so the double
 		// click that keeps a file open.
-		if row.DoubleClicked() && !isDir && mods == 0 {
+		if row.DoubleClicked() && !isDir && mods == 0 && !editing {
 			kept = path
 		}
 		// A file drags to the columns and to rows of the explorer, a folder
@@ -398,7 +406,9 @@ func (a *app) fileTree(c *ui.Context) {
 		if !isDir {
 			value = dragItem{file: &fileDrag{path: path}, tree: src}
 		}
-		a.dragValue(row, value, func() []string { return []string{path} })
+		if !editing {
+			a.dragValue(row, value, func() []string { return []string{path} })
+		}
 		if row.Dragging() {
 			dragged = path
 		}
@@ -426,6 +436,9 @@ func (a *app) fileTree(c *ui.Context) {
 			row.Background(p.accent.Alpha(0.16)).Radius(4)
 		}
 		row.ContextMenu(func(m *ui.Menu) {
+			if editing {
+				return
+			}
 			a.filesMenuBelow = false
 			// The menu of a row chosen with others copies them all, and
 			// renames or deletes none; of another row, it is that row's
@@ -499,7 +512,7 @@ func (a *app) fileTree(c *ui.Context) {
 			}
 			m.Separator()
 			if m.Item(locales.RenameEllipsis()).Disabled(multi).Chosen() {
-				action = func() { a.askRename(path) }
+				action = func() { a.renameInTree(path) }
 			}
 			if m.Item(a.trashLabel()).Disabled(multi).Chosen() {
 				action = func() { a.trash(path) }
@@ -518,6 +531,18 @@ func (a *app) fileTree(c *ui.Context) {
 				col = col.Alpha(0.5)
 			}
 			ui.Icon(c, icon).FontSize(14).TextColor(col)
+			if editing {
+				// A compact row edits its last folder, after those that
+				// lead to it.
+				lead := ""
+				if base := filepath.Base(path); name != base && strings.HasSuffix(name, "/"+base) {
+					lead = strings.TrimSuffix(name, base)
+				}
+				if end := a.treeRenameField(c, a.treeRename, lead); end != nil {
+					action = end
+				}
+				return
+			}
 			label := ui.Text(c, name).FontSize(13).SingleLine().Shrink(1).TextColor(p.text)
 			if a.chainLink(path, entry.first) {
 				linkMark(c, p)
@@ -651,9 +676,10 @@ func (a *app) fileTree(c *ui.Context) {
 			action = func() { a.askUpload(a.root) }
 		}
 	})
-	if a.files.List.Shortcut(c, 0, ui.KeyEscape) {
+	if a.files.List.Shortcut(c, 0, ui.KeyEscape) && a.treeRename == nil {
 		a.fileRow = -1
 	}
+	a.treeRenameKeys(c, out.Submitted(), renameShown, &action)
 	a.explorerSelectionInput(out, view, picked, pickMods, dragged)
 	c.SetTheme(base)
 	if action != nil {
@@ -666,8 +692,10 @@ func (a *app) fileTree(c *ui.Context) {
 			clicked = path
 		}
 	}
-	if out.Submitted() && a.fileRow >= 0 && a.fileRow < a.files.Rows() {
-		// Enter: keep the file open with the focus.
+	// Enter keeps the file open with the focus, as ⌘↓ does where Enter
+	// renames, on macOS.
+	keep := enterRenames && a.files.List.Shortcut(c, ui.Cmd, ui.KeyDown)
+	if (keep || out.Submitted() && !enterRenames) && a.fileRow >= 0 && a.fileRow < a.files.Rows() && a.treeRename == nil {
 		if path := a.files.Item(a.fileRow); !t.IsDir(path) {
 			a.openFile(path, true)
 		}
@@ -865,37 +893,11 @@ func hasSlash(name string) bool {
 	return strings.ContainsAny(name, "/"+string(filepath.Separator))
 }
 
+// askRename asks for a new name for path in a dialog, where the explorer
+// cannot show it to edit in place.
 func (a *app) askRename(path string) {
 	a.prompt = &prompt{title: locales.RenameTitle(), hint: a.relOrPath(path), value: filepath.Base(path), done: func(name string) string {
-		name = strings.TrimSpace(name)
-		if name == "" || hasSlash(name) {
-			return locales.EnterNameNoSlashes()
-		}
-		to := remote.Join(remote.Dir(path), name)
-		if to == path {
-			return ""
-		}
-		if remote.Is(path) {
-			go func() {
-				err := vfs.Rename(path, to)
-				a.post(func() {
-					if err != nil {
-						a.fail("%s", locales.FailRename(filepath.Base(path), err.Error()))
-						return
-					}
-					a.renamed(path, to)
-				})
-			}()
-			return ""
-		}
-		if _, err := os.Lstat(to); err == nil {
-			return locales.NameExists()
-		}
-		if err := os.Rename(path, to); err != nil {
-			return err.Error()
-		}
-		a.renamed(path, to)
-		return ""
+		return a.renameEntry(path, name, false)
 	}}
 }
 

@@ -3,6 +3,15 @@
 The update window shows the section of the version it offers. Every release
 needs a `## <version>` section here, or its build fails.
 
+## Unreleased
+
+- Rename a file or folder right in its explorer row, as in VS Code, instead of in a dialog.
+- On macOS, `Enter` on a chosen file or folder renames it; `F2` does on every system.
+- On macOS, `⌘↓` keeps the chosen file open in a tab, as `Enter` did before.
+- **Rename…** in the explorer's menu and **Rename File** in the command palette edit the name in place too.
+- `Escape` keeps the old name; clicking elsewhere keeps the new one, and a taken name shows why below.
+- The title of the Rename, New File and New Folder dialogs no longer wraps beside a long path.
+
 ## 0.23.4
 
 - **Settings → Terminal → Match Claude Code to Mayoi Theme** gives Claude Code on this Mac Mayoi's colors.

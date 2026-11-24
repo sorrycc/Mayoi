@@ -286,6 +286,10 @@ type Prefs struct {
 	// sessions the Sessions view lists, besides ~/.claude, each
 	// ~/.claude-* folder and $CLAUDE_CONFIG_DIR. A folder may start with ~.
 	AgentSessionsClaudeDirs []string `json:"agentSessionsClaudeDirs,omitempty"`
+	// TerminalClaudeTheme has Claude Code of this machine use a theme
+	// made of the colors of Mayoi's, in its config folder of
+	// $CLAUDE_CONFIG_DIR or ~/.claude.
+	TerminalClaudeTheme bool `json:"terminalClaudeTheme,omitempty"`
 	// ProjectTabs keeps the folders open in one window, a rail on its left
 	// choosing which shows, rather than a window for each.
 	ProjectTabs bool `json:"projectTabs,omitempty"`
@@ -1195,8 +1199,9 @@ func (s *Settings) OnPrefsWritten(fn func()) {
 // chooses, what the person keeps on the machine, the looks of the
 // projects on the rail, by folders of this machine, and the hc to run
 // with its environment, which may hold secrets and runs as a terminal
-// opens, and the folders of Claude Code of this machine.
-var unsynced = []string{"scmRepositoryOpen", "scmRemotes", "syncIgnored", "projectTabStyle", "terminalShell", "terminalShellArgs", "terminalBackendHcPath", "terminalBackendHcEnv", "agentSessionsClaudeDirs"}
+// opens, and the folders of Claude Code of this machine, and whether its
+// Claude Code takes Mayoi's theme, which writes the config of this machine.
+var unsynced = []string{"scmRepositoryOpen", "scmRemotes", "syncIgnored", "projectTabStyle", "terminalShell", "terminalShellArgs", "terminalBackendHcPath", "terminalBackendHcEnv", "agentSessionsClaudeDirs", "terminalClaudeTheme"}
 
 // PrefKeys are the keys of the preferences in the settings' file.
 var PrefKeys = func() []string {

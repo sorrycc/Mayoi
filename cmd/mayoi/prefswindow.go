@@ -150,6 +150,14 @@ func (m *mayoi) prefsChanged() {
 	if m.prefs != nil {
 		m.prefs.invalidate()
 	}
+	m.syncClaudeTheme()
+}
+
+// claudeThemeChanged shows what syncing Claude Code's theme found.
+func (m *mayoi) claudeThemeChanged() {
+	if m.prefs != nil {
+		m.prefs.invalidate()
+	}
 }
 
 // closePrefs closes the settings window.
@@ -684,6 +692,15 @@ func (w *prefsWindow) row(c *ui.Context, f settings.Field, scope *prefFolder) {
 					}
 				})
 				ui.Text(c, prefDesc(f.Key)).FontSize(12).LineHeight(1.4).TextColor(p.muted)
+				if f.Key == claudeThemeKey && scope == nil {
+					if msg, failed := claudeThemeMessage(claudeSync.current()); msg != "" {
+						col := p.text
+						if failed {
+							col = p.dangerFg
+						}
+						ui.Text(c.Key("claude-theme-status"), msg).FontSize(12).LineHeight(1.4).TextColor(col).Transition(revealFade)
+					}
+				}
 				ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
 					ui.Text(c, f.Key).Font(w.monoFont()).FontSize(10.5).TextColor(p.faint).SingleLine().Shrink(1)
 					if scope != nil && !changed {

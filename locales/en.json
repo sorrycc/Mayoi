@@ -2117,6 +2117,8 @@
   "sessionsArchivedHint": "Archive a session from its menu to keep it out of the list. It waits here, to resume or restore.",
   "prefTitleAgentSessionsClaudeDirs": "More Claude Code Folders",
   "prefDescAgentSessionsClaudeDirs": "Config folders of Claude Code whose sessions the Sessions view lists, besides ~/.claude, each ~/.claude-* folder and $CLAUDE_CONFIG_DIR.",
+  "prefTitleTerminalClaudeTheme": "Match Claude Code to Mayoi Theme",
+  "prefDescTerminalClaudeTheme": "Claude Code on this machine takes Mayoi's theme wherever it starts, in the config folder of $CLAUDE_CONFIG_DIR or ~/.claude. Turning this off brings back the theme it had.",
   "cmdMarkdownToggleTask": "Toggle Task",
   "cmdMarkdownMoveItemUp": "Move List Item Up",
   "cmdMarkdownMoveItemDown": "Move List Item Down",
@@ -2343,5 +2345,12 @@
   "prefTitleDiffFiles": "Diff Files",
   "prefDescDiffFiles": "Whether a diff shows every changed file in one scroll, or the file chosen alone.",
   "prefDefaultDiffFiles": "All files",
-  "prefOptDiffFilesOne": "One at a time"
+  "prefOptDiffFilesOne": "One at a time",
+  "claudeThemeReplaced": "Replaced Claude Code's theme {theme}. Turning this off brings it back.",
+  "claudeThemeLost": "A theme chosen in Claude Code replaced Mayoi's, so Mayoi stopped matching it. Turn this off and on to match again.",
+  "claudeThemeNotFound": "Claude Code isn't on your shell's path. Install it, then turn this off and on.",
+  "claudeThemeTooOld": "Claude Code {version} has no custom themes. Update it to {least} or later, then turn this off and on.",
+  "claudeThemeTaken": "{path} isn't Mayoi's, so Mayoi left it. Move it away, then turn this off and on.",
+  "claudeThemeMalformed": "{path} isn't valid JSON, so Mayoi left it. Fix it, then turn this off and on.",
+  "claudeThemeFailed": "Couldn't change Claude Code's theme: {err}"
 }

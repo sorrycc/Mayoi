@@ -1889,6 +1889,8 @@
   "sessionsArchivedHint": "メニューからセッションをアーカイブすると一覧から外れます。ここから再開も復元もできます。",
   "prefTitleAgentSessionsClaudeDirs": "その他の Claude Code フォルダ",
   "prefDescAgentSessionsClaudeDirs": "~/.claude、各 ~/.claude-* フォルダ、$CLAUDE_CONFIG_DIR のほかに、セッションビューがセッションを一覧する Claude Code の設定フォルダ。",
+  "prefTitleTerminalClaudeTheme": "Claude Code を Mayoi のテーマに合わせる",
+  "prefDescTerminalClaudeTheme": "このマシンの Claude Code は、どこで起動しても Mayoi のテーマを使います。$CLAUDE_CONFIG_DIR または ~/.claude の設定フォルダに書き込みます。オフにすると元のテーマに戻ります。",
   "cmdMarkdownToggleTask": "タスクを切り替え",
   "cmdMarkdownMoveItemUp": "リスト項目を上へ移動",
   "cmdMarkdownMoveItemDown": "リスト項目を下へ移動",
@@ -2115,5 +2117,12 @@
   "prefTitleDiffFiles": "差分のファイル",
   "prefDescDiffFiles": "差分で変更されたすべてのファイルを続けて表示するか、選んだファイルだけを表示するか。",
   "prefDefaultDiffFiles": "すべてのファイル",
-  "prefOptDiffFilesOne": "1 ファイルずつ"
+  "prefOptDiffFilesOne": "1 ファイルずつ",
+  "claudeThemeReplaced": "Claude Code のテーマ {theme} を置き換えました。オフにすると元に戻ります。",
+  "claudeThemeLost": "Claude Code で選んだテーマが Mayoi のテーマを置き換えたため、Mayoi は合わせるのをやめました。オフにしてからオンにすると再び合わせます。",
+  "claudeThemeNotFound": "シェルのパスに Claude Code が見つかりません。インストールしてから、オフにしてオンにしてください。",
+  "claudeThemeTooOld": "Claude Code {version} はカスタムテーマに対応していません。{least} 以降に更新してから、オフにしてオンにしてください。",
+  "claudeThemeTaken": "{path} は Mayoi のものではないため、変更していません。移動してから、オフにしてオンにしてください。",
+  "claudeThemeMalformed": "{path} は有効な JSON ではないため、変更していません。修正してから、オフにしてオンにしてください。",
+  "claudeThemeFailed": "Claude Code のテーマを変更できませんでした：{err}"
 }

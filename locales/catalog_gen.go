@@ -19110,6 +19110,26 @@ func (msgs Messages) PrefDescAgentSessionsClaudeDirs() string {
 	return Catalog.Format(msgs.locale, "prefDescAgentSessionsClaudeDirs", nil)
 }
 
+// PrefTitleTerminalClaudeTheme says "Match Claude Code to Mayoi Theme"
+// in the language the app shows.
+func PrefTitleTerminalClaudeTheme() string { return In(i18n.Locale()).PrefTitleTerminalClaudeTheme() }
+
+// PrefTitleTerminalClaudeTheme says "Match Claude Code to Mayoi Theme"
+// in the language of msgs.
+func (msgs Messages) PrefTitleTerminalClaudeTheme() string {
+	return Catalog.Format(msgs.locale, "prefTitleTerminalClaudeTheme", nil)
+}
+
+// PrefDescTerminalClaudeTheme says "Claude Code on this machine takes Mayoi's theme wherever it starts, in the config folder of $CLAUDE_CONFIG_DIR or ~/.…"
+// in the language the app shows.
+func PrefDescTerminalClaudeTheme() string { return In(i18n.Locale()).PrefDescTerminalClaudeTheme() }
+
+// PrefDescTerminalClaudeTheme says "Claude Code on this machine takes Mayoi's theme wherever it starts, in the config folder of $CLAUDE_CONFIG_DIR or ~/.…"
+// in the language of msgs.
+func (msgs Messages) PrefDescTerminalClaudeTheme() string {
+	return Catalog.Format(msgs.locale, "prefDescTerminalClaudeTheme", nil)
+}
+
 // CmdMarkdownToggleTask says "Toggle Task"
 // in the language the app shows.
 func CmdMarkdownToggleTask() string { return In(i18n.Locale()).CmdMarkdownToggleTask() }
@@ -21396,4 +21416,76 @@ func PrefOptDiffFilesOne() string { return In(i18n.Locale()).PrefOptDiffFilesOne
 // in the language of msgs.
 func (msgs Messages) PrefOptDiffFilesOne() string {
 	return Catalog.Format(msgs.locale, "prefOptDiffFilesOne", nil)
+}
+
+// ClaudeThemeReplaced says "Replaced Claude Code's theme {theme}. Turning this off brings it back."
+// in the language the app shows.
+func ClaudeThemeReplaced(theme string) string { return In(i18n.Locale()).ClaudeThemeReplaced(theme) }
+
+// ClaudeThemeReplaced says "Replaced Claude Code's theme {theme}. Turning this off brings it back."
+// in the language of msgs.
+func (msgs Messages) ClaudeThemeReplaced(theme string) string {
+	return Catalog.Format(msgs.locale, "claudeThemeReplaced", map[string]any{"theme": theme})
+}
+
+// ClaudeThemeLost says "A theme chosen in Claude Code replaced Mayoi's, so Mayoi stopped matching it. Turn this off and on to match again."
+// in the language the app shows.
+func ClaudeThemeLost() string { return In(i18n.Locale()).ClaudeThemeLost() }
+
+// ClaudeThemeLost says "A theme chosen in Claude Code replaced Mayoi's, so Mayoi stopped matching it. Turn this off and on to match again."
+// in the language of msgs.
+func (msgs Messages) ClaudeThemeLost() string {
+	return Catalog.Format(msgs.locale, "claudeThemeLost", nil)
+}
+
+// ClaudeThemeNotFound says "Claude Code isn't on your shell's path. Install it, then turn this off and on."
+// in the language the app shows.
+func ClaudeThemeNotFound() string { return In(i18n.Locale()).ClaudeThemeNotFound() }
+
+// ClaudeThemeNotFound says "Claude Code isn't on your shell's path. Install it, then turn this off and on."
+// in the language of msgs.
+func (msgs Messages) ClaudeThemeNotFound() string {
+	return Catalog.Format(msgs.locale, "claudeThemeNotFound", nil)
+}
+
+// ClaudeThemeTooOld says "Claude Code {version} has no custom themes. Update it to {least} or later, then turn this off and on."
+// in the language the app shows.
+func ClaudeThemeTooOld(version string, least string) string {
+	return In(i18n.Locale()).ClaudeThemeTooOld(version, least)
+}
+
+// ClaudeThemeTooOld says "Claude Code {version} has no custom themes. Update it to {least} or later, then turn this off and on."
+// in the language of msgs.
+func (msgs Messages) ClaudeThemeTooOld(version string, least string) string {
+	return Catalog.Format(msgs.locale, "claudeThemeTooOld", map[string]any{"version": version, "least": least})
+}
+
+// ClaudeThemeTaken says "{path} isn't Mayoi's, so Mayoi left it. Move it away, then turn this off and on."
+// in the language the app shows.
+func ClaudeThemeTaken(path string) string { return In(i18n.Locale()).ClaudeThemeTaken(path) }
+
+// ClaudeThemeTaken says "{path} isn't Mayoi's, so Mayoi left it. Move it away, then turn this off and on."
+// in the language of msgs.
+func (msgs Messages) ClaudeThemeTaken(path string) string {
+	return Catalog.Format(msgs.locale, "claudeThemeTaken", map[string]any{"path": path})
+}
+
+// ClaudeThemeMalformed says "{path} isn't valid JSON, so Mayoi left it. Fix it, then turn this off and on."
+// in the language the app shows.
+func ClaudeThemeMalformed(path string) string { return In(i18n.Locale()).ClaudeThemeMalformed(path) }
+
+// ClaudeThemeMalformed says "{path} isn't valid JSON, so Mayoi left it. Fix it, then turn this off and on."
+// in the language of msgs.
+func (msgs Messages) ClaudeThemeMalformed(path string) string {
+	return Catalog.Format(msgs.locale, "claudeThemeMalformed", map[string]any{"path": path})
+}
+
+// ClaudeThemeFailed says "Couldn't change Claude Code's theme: {err}"
+// in the language the app shows.
+func ClaudeThemeFailed(err string) string { return In(i18n.Locale()).ClaudeThemeFailed(err) }
+
+// ClaudeThemeFailed says "Couldn't change Claude Code's theme: {err}"
+// in the language of msgs.
+func (msgs Messages) ClaudeThemeFailed(err string) string {
+	return Catalog.Format(msgs.locale, "claudeThemeFailed", map[string]any{"err": err})
 }

@@ -741,3 +741,34 @@ func TestArchivedSessionsPersist(t *testing.T) {
 		t.Errorf("archived again: %+v", again.ArchivedSessions)
 	}
 }
+
+// terminalClaudeTheme is off at first, and stays on its machine: another
+// machine's neither turns it on nor off.
+func TestClaudeThemeStaysOnTheMachine(t *testing.T) {
+	p := Default().Prefs
+	if p.TerminalClaudeTheme {
+		t.Fatal("terminalClaudeTheme is on by default")
+	}
+	p.TerminalClaudeTheme = true
+	if _, ok := p.Synced()["terminalClaudeTheme"]; ok {
+		t.Error("terminalClaudeTheme syncs")
+	}
+	q, err := p.WithSynced(map[string]json.RawMessage{"terminalClaudeTheme": json.RawMessage("false")})
+	if err != nil || !q.TerminalClaudeTheme {
+		t.Errorf("another machine's turned it off: %v %v", q.TerminalClaudeTheme, err)
+	}
+	p.TerminalClaudeTheme = false
+	q, _ = p.WithSynced(map[string]json.RawMessage{"terminalClaudeTheme": json.RawMessage("true")})
+	if q.TerminalClaudeTheme {
+		t.Error("another machine's turned it on")
+	}
+	// Saved and read again.
+	path := filepath.Join(t.TempDir(), "settings.json")
+	s := Load(path)
+	s.Prefs.TerminalClaudeTheme = true
+	s.Changed()
+	s.Flush()
+	if !Load(path).TerminalClaudeTheme {
+		t.Error("terminalClaudeTheme was not kept")
+	}
+}

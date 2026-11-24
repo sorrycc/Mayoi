@@ -285,12 +285,14 @@ func LoginPath() []string {
 // shellEnvKeys are the variables of the user's shell session that Git and
 // ssh need and an app opened from the Finder or the Dock does not inherit:
 // the agent's socket, without which a key with a passphrase cannot sign,
-// and the proxies that a push over HTTPS goes through. PATH is carried
-// apart, since the app's own folders must follow it.
+// and the proxies that a push over HTTPS goes through, and the config
+// folder of Claude Code, whose sessions and theme Mayoi reads and writes.
+// PATH is carried apart, since the app's own folders must follow it.
 var shellEnvKeys = []string{
 	"SSH_AUTH_SOCK", "SSH_AGENT_PID",
 	"HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "NO_PROXY",
 	"http_proxy", "https_proxy", "all_proxy", "no_proxy",
+	"CLAUDE_CONFIG_DIR",
 }
 
 // ShellEnvironment is where the user's shell looks for commands, the login

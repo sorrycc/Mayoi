@@ -182,7 +182,7 @@ func (m *mayoi) startPlugins(safe bool) {
 	h.reg.Locale = i18n.Locale
 	h.reg.SetSafe(safe)
 	plugins = h
-	highlight.LexerName = pluginLexer
+	highlight.LexerOverride = pluginLexer
 	h.syncPrefs()
 	h.reg.Load()
 	if stop, err := h.reg.Watch(); err == nil {
@@ -247,6 +247,11 @@ func (h *pluginHost) toggled(old, now map[string]json.RawMessage) {
 		started = started || is
 	}
 	if len(names) > 0 {
+		for _, a := range h.apps() {
+			for _, d := range a.docs {
+				a.refreshDocumentLexer(d)
+			}
+		}
 		forgetFailedServers(names...)
 		h.syncAgents()
 	}
@@ -365,6 +370,10 @@ func (h *pluginHost) Changed() {
 	h.mu.Unlock()
 	h.onMain(func() {
 		for _, a := range h.apps() {
+			for _, d := range a.docs {
+				d.currentLenses()
+				a.refreshDocumentLexer(d)
+			}
 			a.palette, a.hints = nil, nil
 			a.invalidate()
 		}
@@ -551,12 +560,20 @@ func (a *app) skippedKeys() []plugin.KeyContrib {
 
 // runCommand runs a command of a plugin, telling of what goes wrong.
 func (h *pluginHost) runCommand(a *app, id, arg string) {
+	var doc *document
+	if ed := a.activeEditor(); ed != nil {
+		doc = ed.document
+	}
+	h.runCommandContext(a, id, arg, a.pluginContext("command", doc))
+}
+
+func (h *pluginHost) runCommandContext(a *app, id, arg string, origin *plugin.CommandContext) {
 	go func() {
 		var argv any
 		if arg != "" {
 			argv = arg
 		}
-		if _, err := h.reg.Run(id, argv); err != nil && !errors.Is(err, plugin.ErrNoCommand) {
+		if _, err := h.reg.RunWithContext(id, argv, origin); err != nil && !errors.Is(err, plugin.ErrNoCommand) {
 			a.post(func() { a.fail("%s", locales.PluginCommandFailed(id, firstLine(err.Error()))) })
 		}
 	}()
@@ -609,7 +626,7 @@ func (a *app) pluginMenu(item func(id string) *mygo.MenuItem) *mygo.MenuItem {
 // pluginMenuItems puts the commands plugins add to a context menu, as
 // "explorer/context", in m, then a separator: each runs with arg, the
 // path the menu is of.
-func (a *app) pluginMenuItems(m *ui.Menu, where, arg string) {
+func (a *app) pluginMenuItems(m *ui.Menu, where, arg string, origins ...*plugin.CommandContext) {
 	if plugins == nil {
 		return
 	}
@@ -623,7 +640,11 @@ func (a *app) pluginMenuItems(m *ui.Menu, where, arg string) {
 			if label, ok := labels[mc.Command]; ok {
 				if m.Item(label).Chosen() {
 					id := mc.Command
-					a.post(func() { plugins.runCommand(a, id, arg) })
+					origin := a.pluginContext(where, nil)
+					if len(origins) > 0 {
+						origin = origins[0]
+					}
+					a.post(func() { plugins.runCommandContext(a, id, arg, origin) })
 				}
 				added = true
 			}
@@ -744,23 +765,13 @@ func truncate(s string, n int) string {
 	return s
 }
 
-// openGenerated opens text in an untitled tab, as a report.
-func (a *app) openGenerated(title, text string) {
-	a.untitled++
-	col := a.fileColumn()
-	a.addUntitled(col, a.untitled, text)
-	t := col.tabs[len(col.tabs)-1]
-	if t.ed != nil {
-		t.ed.title = title
-		t.ed.saved = t.ed.buf.Version()
-	}
-	a.activate(col, len(col.tabs)-1, true)
-}
-
 // languageOf is the language plugins know a document by: the lexer's
 // name in lower case, as "go" or "typescript", or a language a plugin
 // declares for its file.
 func languageOf(d *document) string {
+	if d.language != "" {
+		return d.language
+	}
 	if id := pluginLanguage(d.path); id != "" {
 		return id
 	}

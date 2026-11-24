@@ -59,6 +59,17 @@ var galleryStates = []struct {
 		ed.document.logProgress = 0.45
 	}},
 	{"file-error", func(hs *harness) { hs.a.openFile(hs.path("missing.go"), true) }},
+	{"file-symbols", func(hs *harness) {
+		hs.a.openFile(hs.path("main.go"), true)
+		hs.settle()
+		hs.a.openFileSymbols(hs.a.column(), hs.a.activeTab())
+	}},
+	{"file-symbols-headings", func(hs *harness) {
+		os.WriteFile(hs.path("notes.md"), []byte(headingsDoc), 0o644)
+		hs.a.openFile(hs.path("notes.md"), true)
+		hs.settle()
+		hs.a.openFileSymbols(hs.a.column(), hs.a.activeTab())
+	}},
 	{"heading-crumbs", func(hs *harness) {
 		os.WriteFile(hs.path("notes.md"), []byte(headingsDoc), 0o644)
 		hs.a.openFile(hs.path("notes.md"), true)

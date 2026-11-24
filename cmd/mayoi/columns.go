@@ -596,6 +596,24 @@ func (a *app) focusTab(t *colTab) {
 	a.focus = paneEditor
 }
 
+// keyboardTo lets go of the keyboard asked for by files still being read
+// out of sight of col, which the keyboard went to meanwhile: read, they
+// would take it back from there.
+func (a *app) keyboardTo(col *column) {
+	shown := col.tab()
+	for _, doc := range a.docs {
+		if !doc.unread() {
+			continue
+		}
+		for _, ed := range doc.views {
+			if shown == nil || shown.ed != ed {
+				ed.focusNext = false
+				ed.vscroll.CancelFocus()
+			}
+		}
+	}
+}
+
 // focusColumn gives the keyboard to the tab shown in the column that had
 // it last, or to an empty column New Column made, which holds it itself.
 func (a *app) focusColumn() {
@@ -681,7 +699,7 @@ func (a *app) closeTab(t *colTab, then, cancelled func()) {
 			}
 			done()
 		}
-		if doc := t.merge.doc; doc != nil && doc.dirty() && len(doc.views) <= 1 {
+		if doc := t.merge.doc; doc != nil && doc.dirty() && doc.sourceViews() <= 1 {
 			if a.autoSaves(doc) {
 				a.saveDocElse(doc, remove, stop)
 				return
@@ -715,7 +733,7 @@ func (a *app) closeTab(t *colTab, then, cancelled func()) {
 		return
 	}
 	doc := t.ed.document
-	if !doc.dirty() || len(doc.views) > 1 {
+	if !doc.dirty() || doc.sourceViews() > 1 {
 		remove()
 		return
 	}
@@ -782,6 +800,9 @@ func (a *app) dropTab(t *colTab) {
 	}
 	if t.merge != nil {
 		v := t.merge
+		if v.doc != nil && v.doc.sourceViews() == 1 {
+			a.freezeBufferComparisons(v.doc)
+		}
 		v.stop()
 		if v.doc != nil && len(v.doc.views) == 0 && a.docIndex(v.path) >= 0 {
 			a.docs = slices.DeleteFunc(a.docs, func(d *document) bool { return d == v.doc })
@@ -796,6 +817,9 @@ func (a *app) dropTab(t *colTab) {
 			t.ed.preview.stop()
 		}
 		t.ed.release()
+		if doc.sourceViews() == 0 {
+			a.freezeBufferComparisons(doc)
+		}
 		if len(doc.views) == 0 {
 			doc.hl.Close()
 			if doc.log != nil {
@@ -906,6 +930,9 @@ func (a *app) split(down bool) {
 		return
 	case t.diff != nil:
 		v := newDiffView(t.diff.layout)
+		if len(t.diff.files) > 0 && t.diff.files[0].buffers != nil {
+			v = newBufferCompareView(t.diff.layout, *t.diff.files[0].buffers)
+		}
 		if cm := t.diff.commit; cm.pending() {
 			// Read once, for each tab of it.
 			v = newPendingPR(t.diff.layout, cm.pr.number, cm.pr.title)
@@ -1112,6 +1139,8 @@ func (a *app) rememberTabs() {
 					// Its shell runs on, and the agent in it.
 					ts.Agent, ts.Session = string(t.term.agent), t.term.resumed
 				}
+			case t.diff != nil && len(t.diff.files) > 0 && t.diff.files[0].buffers != nil:
+				continue
 			case t.diff != nil && t.diff.commit.pending():
 				continue // a pull request still read opens again from GitHub
 			case t.diff != nil && t.diff.commit != nil:

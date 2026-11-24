@@ -80,7 +80,11 @@ func (a *app) view(c *ui.Context) {
 	c.SetZoom(float32(math.Pow(1.2, float64(a.settings.ZoomLevel))))
 	// Which pane has the keyboard focus, as the frame before left it, and
 	// which column: its editor is the one typing is of.
+	keys := -1
 	for i, col := range a.cols {
+		if col.body.FocusWithin(c) {
+			keys = i
+		}
 		if len(col.tabs) > 0 {
 			col.holds = holdNone // a tab came: the column holds the keys no more
 		}
@@ -100,6 +104,9 @@ func (a *app) view(c *ui.Context) {
 		case t.ed != nil && t.ed.vscroll.FocusWithin(c):
 			a.focus, a.col = paneEditor, i
 			t.ed.typist = t.ed
+		case t.ed != nil && t.ed.unread() && col.body.FocusWithin(c):
+			// Try Again of a file not read focused makes it the column too.
+			a.focus, a.col = paneEditor, i
 		case t.term != nil && (t.term.view.FocusWithin(c) || t.term.findInput.Focused(c)):
 			a.focus, a.col = paneEditor, i
 		case t.view != nil && t.view.pane.FocusWithin(c):
@@ -114,6 +121,10 @@ func (a *app) view(c *ui.Context) {
 			a.focus, a.col = paneEditor, i
 		}
 	}
+	if keys >= 0 && keys != a.keysCol {
+		a.keyboardTo(a.cols[keys])
+	}
+	a.keysCol = keys
 	a.autoSaveTick()
 	switch {
 	case a.panelTerm != nil && (a.panelTerm.view.FocusWithin(c) || a.panelTerm.findInput.Focused(c)):
@@ -705,7 +716,7 @@ func (a *app) columnView(c *ui.Context, col *column) {
 					a.issueViewUI(c, shown.issue)
 				case shown.ed.unread():
 					a.hideEditor(shown.ed)
-					a.loadingView(c, shown.ed)
+					a.loadingView(c, col, shown.ed)
 				case shown.ed.preview != nil:
 					a.hideEditor(shown.ed)
 					v := shown.ed.preview
@@ -998,6 +1009,11 @@ func (a *app) breadcrumbs(c *ui.Context, col *column, t *colTab) {
 	if k := &a.crumbs; k.open && k.heads && k.tab == t && k.at >= len(chain) {
 		a.closeCrumbs()
 	}
+	// The symbols of a file go as its name does: with the name, in the tab
+	// of another file, or with the text. Another column's box stays.
+	if k := &a.crumbs; k.open && k.self && k.col == col && (k.tab != t || d == nil) {
+		a.closeCrumbs()
+	}
 	ui.Row(c).Height(crumbsH).Padding(0, 14).Gap(4).AlignItems(ui.Center).Background(p.editor).Clip().Children(func() {
 		for i, part := range parts {
 			last := i == len(parts)-1
@@ -1032,6 +1048,28 @@ func (a *app) breadcrumbs(c *ui.Context, col *column, t *colTab) {
 				})
 				if b.Clicked() {
 					a.openCrumbs(col, t, part.dir)
+				}
+				if on {
+					a.crumbsBox(c, b)
+				}
+			} else if last && d != nil {
+				// The file itself: its symbols below it, as go to symbol
+				// lists them.
+				k := &a.crumbs
+				on := k.open && k.self && k.tab == t
+				label := locales.CrumbsCurrentFileTip(part.name)
+				b := ui.ButtonBase(c.Key("crumb-file")).Height(crumbsH-6).Padding(0, 5).Margin(0, -5, 0, 0).Radius(4).
+					AlignItems(ui.Center).Shrink(1).MinWidth(24).Label(label)
+				if on || b.Hovered() {
+					b.Background(p.hover)
+				}
+				b.Transition(hoverFade)
+				b.Children(func() {
+					// A long name, as a commit's subject, ends in an ellipsis.
+					ui.Text(c, part.name).FontSize(12).SingleLine().TextColor(p.text).Shrink(1).MinWidth(24)
+				})
+				if b.Clicked() {
+					a.openFileSymbols(col, t)
 				}
 				if on {
 					a.crumbsBox(c, b)

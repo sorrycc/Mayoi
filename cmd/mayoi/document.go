@@ -13,6 +13,7 @@ import (
 
 	"mayoi/internal/gitmarks"
 	"mayoi/internal/highlight"
+	"mayoi/internal/plugin"
 	"mayoi/internal/settings"
 	"mayoi/internal/vfs"
 	"mayoi/locales"
@@ -34,9 +35,15 @@ var (
 // document is a file open in the editor: its text, and what follows from
 // the text alone. Each tab that shows it has an editor of its own.
 type document struct {
-	id    int
-	path  string // absolute; "" for an untitled document
-	title string // an untitled document's name
+	outputOwner, outputKey string
+
+	language      string // explicit language, reset when saved under a new path
+	languageOwner string // retain the selected declaration across plugin reloads
+	lexerOwner    *plugin.Plugin
+	lenses        []codeLensBatch
+	id            int
+	path          string // absolute; "" for an untitled document
+	title         string // an untitled document's name
 	// number is the number of an untitled document's name, and kept the
 	// file that keeps its text as the app quits, of version keptVersion.
 	number int
@@ -139,6 +146,7 @@ type document struct {
 // text and its undo history, so that a file shows in several columns.
 type editor struct {
 	*document
+	bufferDiff bool // synthetic compare editors do not keep a closed source alive
 	// cmds are edits asked for by keys and menus, which the next frame
 	// makes, once the editor has its selection.
 	cmds []func(d *editor)
@@ -385,6 +393,16 @@ func (d *editor) release() {
 			doc.typist = doc.views[0]
 		}
 	}
+}
+
+func (d *document) sourceViews() int {
+	count := 0
+	for _, ed := range d.views {
+		if !ed.bufferDiff {
+			count++
+		}
+	}
+	return count
 }
 
 // main returns the editor that edits of the document as a whole are

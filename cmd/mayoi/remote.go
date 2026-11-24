@@ -765,10 +765,16 @@ func (a *app) remoteStatus(c *ui.Context, text func(string) ui.Element) {
 
 // loadingView shows in place of the editor of a file not read yet:
 // that it is being read, or why it could not be, with a button to try
-// again.
-func (a *app) loadingView(c *ui.Context, d *editor) {
+// again. Pressed, it makes its tab the one commands are for, as a press
+// on an editor's text does; it takes no focus itself, to add no stop of
+// Tab.
+func (a *app) loadingView(c *ui.Context, col *column, d *editor) {
 	p := a.pal
-	ui.Column(c).Fill().Center().Gap(10).Background(p.editor).Padding(24).Children(func() {
+	page := ui.Column(c).Fill().Center().Gap(10).Background(p.editor).Padding(24)
+	if page.Pressed() && (a.col != slices.Index(a.cols, col) || a.focus != paneEditor) {
+		a.activate(col, col.active, true)
+	}
+	page.Children(func() {
 		if d.sync == syncLoading {
 			if d.readingAt.IsZero() {
 				d.readingAt = c.Now()
@@ -812,6 +818,8 @@ func (a *app) loadingView(c *ui.Context, d *editor) {
 		// A binary file or one with a line too long fails again the same way.
 		retry := !errors.Is(d.loadErr, remote.ErrOffline) && !errors.Is(d.loadErr, errBinary) && !errors.Is(d.loadErr, errLongLine)
 		if retry && ui.Button(c.Key("retry:"+d.path), locales.RemoteTryAgain()).Clicked() {
+			// Its text, once read, takes the keyboard if it is still here.
+			a.activate(col, col.active, true)
 			a.loadFile(d.document)
 		}
 	})
@@ -820,6 +828,7 @@ func (a *app) loadingView(c *ui.Context, d *editor) {
 // shutdown stops watching the folder and lets go of its connection, as
 // the project closes for good.
 func (a *app) shutdown() {
+	a.closePluginWindow()
 	a.loadsClosed = true
 	a.docClosed(nil)
 	a.logQueue = nil

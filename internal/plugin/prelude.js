@@ -74,6 +74,7 @@
     if (!d) return null;
     return {
       id: d.id,
+      ref: d.ref,
       path: d.path,
       name: d.name,
       language: d.language,
@@ -81,9 +82,11 @@
       isDirty: d.dirty,
       isUntitled: d.untitled,
       lineCount: d.lineCount,
-      text: (range) => call("document.text", { doc: d.id, range }),
-      lineAt: (line) => call("document.line", { doc: d.id, line }),
-      save: () => call("document.save", { doc: d.id }),
+      text: (range) => call("document.text", { doc: d.id, ref: d.ref, range }),
+      snapshot: () => call("document.snapshot", { doc: d.id, ref: d.ref }),
+      setLanguage: (language, opts) => call("document.setLanguage", { ref: d.ref, language, version: opts?.version ?? d.version }),
+      lineAt: (line) => call("document.line", { doc: d.id, ref: d.ref, line }),
+      save: () => call("document.save", { doc: d.id, ref: d.ref }),
     };
   }
   function editorOf(e) {
@@ -99,10 +102,10 @@
       // document's version they were computed from: the document's own
       // when not given. Edits of a document changed since are refused.
       edit: (edits, opts) =>
-        call("editor.edit", { editor: e.id, edits, version: opts?.version ?? e.document.version, select: opts?.select }),
-      insert: (text) => call("editor.insert", { editor: e.id, text }),
-      setSelections: (selections) => call("editor.select", { editor: e.id, selections }),
-      reveal: (line) => call("editor.reveal", { editor: e.id, line }),
+        call("editor.edit", { editor: e.id, windowId: e.document.ref?.windowId, edits, version: opts?.version ?? e.document.version, select: opts?.select }),
+      insert: (text) => call("editor.insert", { editor: e.id, windowId: e.document.ref?.windowId, text }),
+      setSelections: (selections) => call("editor.select", { editor: e.id, windowId: e.document.ref?.windowId, selections }),
+      reveal: (line) => call("editor.reveal", { editor: e.id, windowId: e.document.ref?.windowId, line }),
     };
   }
 
@@ -123,8 +126,8 @@
       list: () => call("commands.list"),
     },
     editor: {
-      active: async () => editorOf(await call("editor.active")),
-      visible: async () => (await call("editor.visible")).map(editorOf),
+      active: async (opts) => editorOf(await call("editor.active", { windowId: opts?.windowId })),
+      visible: async (opts) => (await call("editor.visible", { windowId: opts?.windowId })).map(editorOf),
     },
     workspace: {
       root: () => call("workspace.root"),
@@ -134,9 +137,11 @@
       writeFile: (path, text) => call("workspace.writeFile", { path, text }),
       stat: (path) => call("workspace.stat", { path }),
       findFiles: (glob, opts) => call("workspace.findFiles", { glob, limit: opts?.limit }),
-      documents: async () => (await call("workspace.documents")).map(doc),
+      documents: async (opts) => (await call("workspace.documents", { windowId: opts?.windowId })).map(doc),
+      document: async (ref) => doc(await call("workspace.document", { ref })),
     },
     window: {
+      showDiff: (left, right, opts) => call("window.showDiff", { left, right, layout: opts?.layout }),
       notify: (message, opts) =>
         call("window.notify", { message, action: opts?.action, kind: "info" }).then((chosen) => chosen),
       fail: (message) => call("window.notify", { message, kind: "error" }),
@@ -145,6 +150,7 @@
         const i = await call("window.pick", {
           items: list.map(({ label, description, detail, icon }) => ({ label, description, detail, icon })),
           placeholder: opts?.placeholder,
+          windowId: opts?.windowId,
         });
         return i == null ? undefined : items[i];
       },
@@ -158,7 +164,7 @@
           .then(fn)
           .finally(() => call("window.progress", { title, done: true }));
       },
-      openText: (text, opts) => call("window.openText", { text, title: opts?.title, language: opts?.language }),
+      openText: (text, opts) => call("window.openText", { text, title: opts?.title, language: opts?.language, windowId: opts?.windowId, beside: opts?.beside, key: opts?.key }),
     },
     settings: {
       get: (key) => callSync("settings.get", { key }),
@@ -187,6 +193,8 @@
         call("process.run", { command, args: args ?? [], cwd: opts?.cwd, input: opts?.input, timeout: opts?.timeout }),
     },
     languages: {
+      setCodeLenses: (ref, items, opts) => call("languages.setCodeLenses", { ref, items, version: opts?.version }),
+      clearCodeLenses: (ref) => call("languages.clearCodeLenses", { ref }),
       setDiagnostics: (path, items, opts) => call("languages.diagnostics", { path, items, source: opts?.source }),
       clearDiagnostics: (path) => call("languages.diagnostics", { path, items: [], clear: path === undefined }),
       registerFormatter(id, fn) {
@@ -264,7 +272,7 @@
       case "command": {
         const fn = commandFns.get(p.id);
         if (!fn) throw new Error(`command ${p.id} is not registered`);
-        return await fn(p.arg);
+        return await fn(p.arg, p.context ?? undefined);
       }
       case "event": {
         const data = p.data;
@@ -322,7 +330,7 @@
         // An export of the entry module, as a user script's commands.
         const fn = globalThis.__mayoiExports?.[p.name];
         if (typeof fn !== "function") throw new Error(`${p.name} is not an exported function`);
-        return (await fn(p.arg)) ?? null;
+        return (await fn(p.arg, p.context ?? undefined)) ?? null;
       }
     }
     throw new Error(`unknown call ${kind}`);

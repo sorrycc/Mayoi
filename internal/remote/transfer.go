@@ -56,20 +56,64 @@ func (p *Progress) Canceled() bool {
 // canceled, and a function to call once the transfer is done. A transfer
 // canceled already does not start: the context would end only a moment
 // later, after a small one may have arrived.
-func (c *Conn) within(p *Progress) (string, context.Context, func(), error) {
+func (c *Conn) within(p *Progress) (context.Context, func(), error) {
 	if p.Canceled() {
-		return "", nil, nil, ErrCanceled
+		return nil, nil, ErrCanceled
 	}
-	sock, ctx, err := c.live()
+	ctx, err := c.transferContext()
 	if err != nil {
-		return "", nil, nil, err
+		return nil, nil, err
 	}
 	ctx, cancel := context.WithCancel(ctx)
 	if p == nil || p.ctx == nil {
-		return sock, ctx, cancel, nil
+		return ctx, cancel, nil
 	}
 	stop := context.AfterFunc(p.ctx, cancel)
-	return sock, ctx, func() { stop(); cancel() }, nil
+	return ctx, func() { stop(); cancel() }, nil
+}
+
+// transferContext is the context of the connection, or ErrOffline: with
+// the pool, as on Windows and in WSL, there is no master's socket.
+func (c *Conn) transferContext() (context.Context, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if c.state != Connected || (c.pool == nil && c.dir == "") {
+		return nil, ErrOffline
+	}
+	if c.ctx == nil {
+		return context.Background(), nil
+	}
+	return c.ctx, nil
+}
+
+// stream runs script on the host with stdin, nil for none, writing what
+// it prints to stdout, through the pool or the master, whichever the
+// connection has.
+func (c *Conn) stream(ctx context.Context, stdin io.Reader, stdout io.Writer, script string, args ...string) error {
+	var errb bytes.Buffer
+	c.mu.Lock()
+	pool := c.pool
+	c.mu.Unlock()
+	if pool != nil {
+		code, err := pool.Call(ctx, commandScript(script, args), stdin, stdout, &errb)
+		if err != nil {
+			return c.failure(err, errb.String())
+		}
+		if code != 0 {
+			return c.failure(fmt.Errorf("exit status %d", code), errb.String())
+		}
+		return nil
+	}
+	sock, _, err := c.live()
+	if err != nil {
+		return err
+	}
+	cmd := c.command(ctx, sock, stdin, script, args...)
+	cmd.Stdout, cmd.Stderr = stdout, &errb
+	if err := cmd.Run(); err != nil {
+		return c.failure(err, errb.String())
+	}
+	return nil
 }
 
 // stopped is err, or ErrCanceled once p was canceled.
@@ -174,7 +218,7 @@ func (c *Conn) Upload(srcs []string, dir string, p *Progress) ([]string, error) 
 	if p != nil {
 		p.total.Store(total)
 	}
-	sock, ctx, done, err := c.within(p)
+	ctx, done, err := c.within(p)
 	if err != nil {
 		return nil, err
 	}
@@ -190,8 +234,10 @@ trap 'rm -rf "$s"' EXIT
 trap 'exit 1' HUP INT TERM PIPE
 tar -x -o -f - -C "$s" || exit 1
 ` + placeScript
-	out, err := c.run(ctx, sock, pr, script, append([]string{dir}, names...)...)
+	var b bytes.Buffer
+	err = c.stream(ctx, pr, &b, script, append([]string{dir}, names...)...)
 	pr.Close()
+	out := b.Bytes()
 	if err != nil {
 		// Those it placed before it stopped, as a cancel can come after
 		// the last: whole, each ended by its NUL.
@@ -208,12 +254,13 @@ func (c *Conn) CopyOnHost(srcs []string, dir string, p *Progress) ([]string, err
 			return nil, errors.New("a folder cannot be pasted into itself")
 		}
 	}
-	sock, ctx, done, err := c.within(p)
+	ctx, done, err := c.within(p)
 	if err != nil {
 		return nil, err
 	}
 	defer done()
-	out, err := c.run(ctx, sock, nil, freeNameFn+`dir=$1; shift
+	var b bytes.Buffer
+	err = c.stream(ctx, nil, &b, freeNameFn+`dir=$1; shift
 for src; do
   d=0; [ -d "$src" ] && [ ! -L "$src" ] && d=1
   to=$(free "$(basename -- "$src")" $d) || exit 1
@@ -221,6 +268,7 @@ for src; do
   printf '%s/%s\0' "$dir" "$to"
 done
 `, append([]string{dir}, srcs...)...)
+	out := b.Bytes()
 	if err != nil {
 		return splitNul(out), p.stopped(err)
 	}
@@ -230,26 +278,23 @@ done
 // Download copies a file or folder of the host into the folder dir of
 // this machine, under name, which is where it lands.
 func (c *Conn) Download(src, to string, p *Progress) error {
-	sock, ctx, done, err := c.within(p)
+	ctx, done, err := c.within(p)
 	if err != nil {
 		return err
 	}
 	defer done()
-	cmd := c.command(ctx, sock, nil, `cd -- "$(dirname -- "$1")" || exit 1
+	pr, pw := io.Pipe()
+	ran := make(chan error, 1)
+	go func() {
+		err := c.stream(ctx, nil, pw, `cd -- "$(dirname -- "$1")" || exit 1
 COPYFILE_DISABLE=1 exec tar -c -f - -- "$(basename -- "$1")"`, src)
-	out, err := cmd.StdoutPipe()
-	if err != nil {
-		return err
-	}
-	var errb bytes.Buffer
-	cmd.Stderr = &errb
-	if err := cmd.Start(); err != nil {
+		pw.CloseWithError(err)
+		ran <- err
+	}()
+	readErr := readTar(&counter{r: pr, p: p}, path.Base(src), to)
+	io.Copy(io.Discard, pr)
+	if err := <-ran; err != nil {
 		return p.stopped(err)
-	}
-	readErr := readTar(&counter{r: out, p: p}, path.Base(src), to)
-	io.Copy(io.Discard, out)
-	if err := cmd.Wait(); err != nil {
-		return p.stopped(c.failure(err, errb.String()))
 	}
 	return p.stopped(readErr)
 }

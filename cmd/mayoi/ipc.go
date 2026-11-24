@@ -280,13 +280,15 @@ func (a *app) cliCommands(want []cli.Command, cwd string) ([]func(), error) {
 			return nil, fmt.Errorf("no command %s: mayoi commands lists them", c.ID)
 		}
 		arg, takes := commandArgs[c.ID]
+		if plugins != nil && plugins.reg.CommandPlugin(c.ID) != nil {
+			id, value := c.ID, c.Arg
+			origin := a.pluginContext("cli", nil)
+			runs = append(runs, func() { plugins.runCommandContext(a, id, value, origin) })
+			continue
+		}
 		switch {
 		case c.Arg == "":
 			runs = append(runs, cmds[i].run)
-		case plugins != nil && plugins.reg.CommandPlugin(c.ID) != nil:
-			// A plugin's command takes what it is given.
-			id, v := c.ID, c.Arg
-			runs = append(runs, func() { plugins.runCommand(a, id, v) })
 		case !takes:
 			return nil, fmt.Errorf("%s takes no argument", c.ID)
 		default:

@@ -726,7 +726,7 @@ func (m *mayoi) openFolder(dir string, reuse bool) {
 	for _, w := range m.s.Windows {
 		if filepath.Clean(w.Folder) == dir && m.of(w) == nil {
 			// As the last session left it.
-			m.openWindow(w)
+			m.openWindow(w).show()
 			return
 		}
 	}
@@ -736,7 +736,7 @@ func (m *mayoi) openFolder(dir string, reuse bool) {
 	if ses := m.s.TakeSession(dir); ses != nil {
 		w.Session = *ses
 	}
-	m.openWindow(w)
+	m.openWindow(w).show()
 }
 
 // openFile opens a file in the window whose folder holds it, else in the

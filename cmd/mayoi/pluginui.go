@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/alecthomas/chroma/v2"
 	"github.com/egoist/mygo/ui"
 
 	"mayoi/internal/bg"
@@ -528,7 +529,7 @@ func (a *app) format(d *editor, limit time.Duration, quiet bool, then func()) {
 	}
 	snap := d.buf.Snapshot()
 	version := snap.Version()
-	doc := docJSON(d.document)
+	doc := a.docJSON(d.document)
 	opts := map[string]any{"tabSize": max(d.indent.size, 1), "insertSpaces": !d.indent.tabs}
 	if d.indent.tabs {
 		opts["tabSize"] = tabWidth()
@@ -641,39 +642,38 @@ func (a *app) formatsOnSave(d *document) bool {
 
 // pluginLanguageOf is the language a plugin declares for a file, by its
 // name or extension, nil for none.
-func pluginLanguageOf(path string) *plugin.LanguageContrib {
+func pluginLanguageOf(path string) (*plugin.Plugin, *plugin.LanguageContrib) {
 	if plugins == nil || path == "" {
-		return nil
+		return nil, nil
 	}
 	base := filepath.Base(path)
 	ext := strings.ToLower(filepath.Ext(base))
 	for _, p := range plugins.enabled() {
 		for i, l := range p.Contributes.Languages {
 			if slices.Contains(l.Filenames, base) {
-				return &p.Contributes.Languages[i]
+				return p, &p.Contributes.Languages[i]
 			}
 			for _, e := range l.Extensions {
 				if strings.ToLower(e) == ext {
-					return &p.Contributes.Languages[i]
+					return p, &p.Contributes.Languages[i]
 				}
 			}
 		}
 	}
-	return nil
+	return nil, nil
 }
 
-// pluginLexer is the lexer a plugin's language names for a file, "" for
-// none: highlight.LexerName.
-func pluginLexer(path string) string {
-	if l := pluginLanguageOf(path); l != nil {
-		return l.Lexer
+// pluginLexer resolves the language contribution of a source file.
+func pluginLexer(path string) chroma.Lexer {
+	if owner, l := pluginLanguageOf(path); l != nil {
+		return owner.Lexer(l.ID)
 	}
-	return ""
+	return nil
 }
 
 // pluginComment is the line comment a plugin's language has, "" for none.
 func pluginComment(path string) string {
-	if l := pluginLanguageOf(path); l != nil {
+	if _, l := pluginLanguageOf(path); l != nil {
 		return l.Comment
 	}
 	return ""
@@ -682,7 +682,7 @@ func pluginComment(path string) string {
 // pluginLanguage is the language a plugin declares for a file, by its
 // name or extension, "" for none.
 func pluginLanguage(path string) string {
-	if l := pluginLanguageOf(path); l != nil {
+	if _, l := pluginLanguageOf(path); l != nil {
 		return l.ID
 	}
 	return ""

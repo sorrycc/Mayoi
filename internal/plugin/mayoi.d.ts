@@ -24,8 +24,31 @@ declare module "mayoi" {
     text: string;
   }
 
+  export interface DocumentRef {
+    readonly windowId: number;
+    readonly documentId: number;
+  }
+
+  export interface DocumentSnapshot {
+    readonly ref: DocumentRef;
+    readonly path: string;
+    readonly name: string;
+    readonly language: string;
+    readonly version: number;
+    readonly text: string;
+  }
+
+  export interface CommandContext {
+    source: "command" | "tab/context" | "explorer/context" | "api" | "cli" | "codeLens";
+    windowId: number;
+    document?: DocumentRef;
+    version?: number;
+    position?: Position;
+  }
+
   export interface Document {
     readonly id: number;
+    readonly ref: DocumentRef;
     /** The file's path, "" for an untitled document. On an SSH host, /ssh:host/path. */
     readonly path: string;
     readonly name: string;
@@ -37,6 +60,9 @@ declare module "mayoi" {
     readonly isUntitled: boolean;
     readonly lineCount: number;
     text(range?: Range): Promise<string>;
+    snapshot(): Promise<DocumentSnapshot>;
+    /** Changes highlighting without editing text; refuses a stale version (this document's by default). */
+    setLanguage(language: string, opts?: { version?: number }): Promise<boolean>;
     lineAt(line: number): Promise<string>;
     save(): Promise<void>;
   }
@@ -69,7 +95,7 @@ declare module "mayoi" {
 
   export const commands: {
     /** Runs fn for a command: one of plugin.json's, or a new one titled opts.title. */
-    register(id: string, fn: (arg?: string) => unknown, opts?: { title?: string }): Disposable;
+    register(id: string, fn: (arg?: string, context?: CommandContext) => unknown, opts?: { title?: string }): Disposable;
     /** Runs any command, Mayoi's too, with the argument `mayoi run id=arg` would give. */
     run(id: string, arg?: string): Promise<unknown>;
     list(): Promise<{ id: string; title: string }[]>;
@@ -77,8 +103,8 @@ declare module "mayoi" {
 
   export const editor: {
     /** The editor of the window in front, undefined for none. */
-    active(): Promise<Editor | null>;
-    visible(): Promise<Editor[]>;
+    active(opts?: { windowId?: number }): Promise<Editor | null>;
+    visible(opts?: { windowId?: number }): Promise<Editor[]>;
   };
 
   export interface FileStat {
@@ -96,7 +122,8 @@ declare module "mayoi" {
     writeFile(path: string, text: string): Promise<void>;
     stat(path: string): Promise<FileStat | null>;
     findFiles(glob: string, opts?: { limit?: number }): Promise<string[]>;
-    documents(): Promise<Document[]>;
+    documents(opts?: { windowId?: number }): Promise<Document[]>;
+    document(ref: DocumentRef): Promise<Document | null>;
   };
 
   export interface PickItem {
@@ -107,15 +134,25 @@ declare module "mayoi" {
   }
 
   export const window: {
+    /** Opens a native diff with editable live buffer sources in one window. */
+    showDiff(left: DocumentRef, right: DocumentRef, opts?: { layout?: "auto" | "split" | "inline" }): Promise<void>;
     /** A toast; with an action, it resolves true once the action is chosen. */
     notify(message: string, opts?: { action?: string }): Promise<boolean>;
     fail(message: string): Promise<void>;
-    pick<T extends PickItem | string>(items: T[], opts?: { placeholder?: string }): Promise<T | undefined>;
+    pick<T extends PickItem | string>(items: T[], opts?: { placeholder?: string; windowId?: number }): Promise<T | undefined>;
     prompt(opts?: { title?: string; value?: string; placeholder?: string }): Promise<string | undefined>;
     /** Shows a spinner in the status bar while fn runs. */
     progress<T>(title: string, fn: () => Promise<T> | T): Promise<T>;
-    /** Opens text in a new untitled tab. */
-    openText(text: string, opts?: { title?: string; language?: string }): Promise<void>;
+    /**
+     * Opens text, using plain text for unknown languages.
+     * beside anchors it to a source document; key reuses this plugin's clean output.
+     */
+    openText(text: string, opts?: {
+      title?: string; language?: string; windowId?: number;
+      beside?: DocumentRef;
+      /** Reuses a clean, untitled output in this window; refuses to overwrite unsaved edits. */
+      key?: string;
+    }): Promise<void>;
   };
 
   export const settings: {
@@ -145,7 +182,8 @@ declare module "mayoi" {
     "editor.change": DocumentEvent;
     "editor.focus": DocumentEvent;
     "editor.didSave": DocumentEvent;
-    "editor.close": { path: string };
+    "editor.close": { path: string; ref: DocumentRef };
+    "editor.metadata": DocumentEvent;
     "workspace.changed": { root: string };
     "git.changed": { root: string };
     "theme.changed": { theme: string; dark: boolean };
@@ -172,7 +210,19 @@ declare module "mayoi" {
     code?: string;
   }
 
+  export interface CodeLens {
+    id: string;
+    /** Zero-based source line; the action appears above it. */
+    line: number;
+    title: string;
+    command: string;
+    arg?: string;
+  }
+
   export const languages: {
+    /** Replaces this runtime's actions. Returns false for an expired version or document. */
+    setCodeLenses(ref: DocumentRef, items: CodeLens[], opts: { version: number }): Promise<boolean>;
+    clearCodeLenses(ref: DocumentRef): Promise<boolean>;
     /** Replaces the plugin's diagnostics of a file. */
     setDiagnostics(path: string, items: Diagnostic[], opts?: { source?: string }): Promise<void>;
     /** Clears the plugin's diagnostics of a file, or of every file. */

@@ -21,14 +21,15 @@ import (
 	"unicode"
 
 	"github.com/MoeForge/moejs"
+	"github.com/alecthomas/chroma/v2"
 )
 
 // Host is the app, as plugins see it.
 type Host interface {
 	// Call runs a call of a plugin to the app, on a goroutine of its own,
 	// which may wait for the app's main thread. The result is marshalled
-	// to JSON for the plugin.
-	Call(p *Plugin, method string, args json.RawMessage) (any, error)
+	// to JSON for the plugin. Generation is captured by the originating runtime.
+	Call(p *Plugin, generation uint64, method string, args json.RawMessage) (any, error)
 	// Settings are the plugin's object of plugins.<name> in settings.json,
 	// nil for none.
 	Settings(name string) json.RawMessage
@@ -80,7 +81,9 @@ type Plugin struct {
 	fsys    fs.FS
 	reg     *Registry
 	sig     string // the files as they were read, to tell a change
+	lexers  map[string]chroma.Lexer
 
+	generation  atomic.Uint64
 	mu          sync.Mutex
 	in          *instance
 	starting    chan struct{}
@@ -391,6 +394,9 @@ func (r *Registry) read(fsys fs.FS, dir string, bundled bool) *Plugin {
 			p.Manifest = *m
 		}
 	}
+	if err == nil {
+		err = p.loadLexers()
+	}
 	if p.Name == "" {
 		p.Name = filepath.Base(dir)
 	}
@@ -534,6 +540,7 @@ func (r *Registry) Close() {
 func (p *Plugin) shutdown() {
 	p.mu.Lock()
 	in := p.in
+	p.generation.Add(1)
 	p.in = nil
 	p.subs, p.hovers, p.dynamic = nil, nil, nil
 	p.mu.Unlock()
@@ -582,6 +589,11 @@ var ErrNoCommand = errors.New("no such command")
 // Run runs a command of a plugin, starting it first, and waits for what
 // it returns.
 func (r *Registry) Run(id string, arg any) (json.RawMessage, error) {
+	return r.RunWithContext(id, arg, nil)
+}
+
+// RunWithContext preserves the invocation's source while a plugin starts.
+func (r *Registry) RunWithContext(id string, arg any, origin *CommandContext) (json.RawMessage, error) {
 	p := r.CommandPlugin(id)
 	if p == nil {
 		return nil, ErrNoCommand
@@ -590,9 +602,9 @@ func (r *Registry) Run(id string, arg any) (json.RawMessage, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
 	defer cancel()
 	if p.Script {
-		return p.Request(ctx, "call", map[string]any{"name": strings.TrimPrefix(id, p.Name+"."), "arg": arg})
+		return p.Request(ctx, "call", map[string]any{"name": strings.TrimPrefix(id, p.Name+"."), "arg": arg, "context": origin})
 	}
-	return p.Request(ctx, "command", map[string]any{"id": id, "arg": arg})
+	return p.Request(ctx, "command", map[string]any{"id": id, "arg": arg, "context": origin})
 }
 
 // Request calls the plugin, starting it first.
@@ -645,12 +657,18 @@ func (p *Plugin) ensure() (*instance, error) {
 	}
 	ch := make(chan struct{})
 	p.starting = ch
+	generation := p.generation.Add(1)
 	p.mu.Unlock()
 	began := time.Now()
-	in, err := start(p, p.reg.host, p.reg.HTTP)
+	in, err := start(p, generation, p.reg.host, p.reg.HTTP)
 	p.mu.Lock()
 	p.starting = nil
+	if generation != p.generation.Load() && err == nil {
+		in.stop()
+		err = errors.New("plugin stopped during activation")
+	}
 	if err != nil {
+		p.generation.CompareAndSwap(generation, generation+1)
 		p.crashes++
 		p.lastErr = err.Error()
 	} else {
@@ -680,6 +698,7 @@ func (p *Plugin) follow(in *instance) {
 	p.mu.Lock()
 	ours := p.in == in
 	if ours {
+		p.generation.Add(1)
 		p.in = nil
 		p.subs, p.hovers, p.dynamic = nil, nil, nil
 		p.crashes++
@@ -710,7 +729,7 @@ func (r *Registry) RunOnce(source, ext string) (json.RawMessage, error) {
 	p := &Plugin{fsys: fsys, reg: r, Script: true}
 	p.Name, p.Main = "selection", file
 	defer p.shutdown()
-	in, err := start(p, r.host, r.HTTP)
+	in, err := start(p, p.generation.Add(1), r.host, r.HTTP)
 	if err != nil {
 		return nil, err
 	}
@@ -833,11 +852,11 @@ func (r *Registry) Emit(event string, data any) {
 
 // call routes a call of a plugin to the app: the registry answers some
 // itself, the host the others.
-func (r *Registry) call(p *Plugin, method string, args json.RawMessage) ([]byte, error) {
+func (r *Registry) call(p *Plugin, generation uint64, method string, args json.RawMessage) ([]byte, error) {
 	if r.host == nil {
 		return nil, errors.New("no host")
 	}
-	res, err := r.host.Call(p, method, args)
+	res, err := r.host.Call(p, generation, method, args)
 	if err != nil {
 		return nil, err
 	}

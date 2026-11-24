@@ -68,12 +68,13 @@ var (
 
 // instance is a plugin's runtime while it is active.
 type instance struct {
-	p        *Plugin
-	rt       *moejs.Runtime
-	loop     *eventloop.Loop
-	api      *webapi.API
-	dispatch moejs.Value
-	release  func(func(*moejs.Runtime)) // the hold that keeps the loop alive
+	p          *Plugin
+	generation uint64
+	rt         *moejs.Runtime
+	loop       *eventloop.Loop
+	api        *webapi.API
+	dispatch   moejs.Value
+	release    func(func(*moejs.Runtime)) // the hold that keeps the loop alive
 
 	mu      sync.Mutex
 	seq     int
@@ -147,7 +148,7 @@ func (l *loader) resolve(ref moejs.Referrer, spec string) (*moejs.Module, error)
 
 // start compiles the plugin and runs its top level and activate on a
 // loop of their own.
-func start(p *Plugin, host Host, httpClient *http.Client) (*instance, error) {
+func start(p *Plugin, generation uint64, host Host, httpClient *http.Client) (*instance, error) {
 	if err := compilePrelude(); err != nil {
 		return nil, err
 	}
@@ -160,7 +161,7 @@ func start(p *Plugin, host Host, httpClient *http.Client) (*instance, error) {
 	if err != nil {
 		return nil, err
 	}
-	in := &instance{p: p, waiting: map[int]chan reply{}, done: make(chan struct{})}
+	in := &instance{p: p, generation: generation, waiting: map[int]chan reply{}, done: make(chan struct{})}
 	in.rt = moejs.NewRuntime(moejs.Options{
 		DisableDynamicCode: true,
 		MemoryLimit:        MemoryLimit,
@@ -395,7 +396,7 @@ func (in *instance) natives(host Host) map[string]any {
 			method, data := str(moejs.Arg(args, 0)), str(moejs.Arg(args, 1))
 			promise, settle := in.loop.NewPromise()
 			go func() {
-				res, err := p.reg.call(p, method, json.RawMessage(data))
+				res, err := p.reg.call(p, in.generation, method, json.RawMessage(data))
 				settle(func(rt *moejs.Runtime) (moejs.Value, error) {
 					if err != nil {
 						return moejs.Undefined(), err

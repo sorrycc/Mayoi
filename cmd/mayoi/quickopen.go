@@ -8,7 +8,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	"unicode/utf8"
 
 	"github.com/egoist/mygo/ui"
 
@@ -484,13 +483,9 @@ func (a *app) quickSymbols(c *ui.Context, query string) {
 		}
 		q.open = false
 		if d := a.activeEditor(); d != nil {
+			// To the symbol, with its name selected.
 			sym := syms[q.results[i].Index]
-			a.editActive(func(d *editor) {
-				// To the line, with the name selected.
-				a.jumpToScope(d, sym.Line)
-				s, _ := d.buf.Snapshot().LineRange(sym.Line)
-				d.selectRange(s+sym.Col, s+sym.Col+utf8.RuneCountInString(sym.Name), false)
-			})()
+			a.editActive(func(d *editor) { a.goToSymbol(d, sym) })()
 		}
 	}
 	ui.Overlay(c, func() {

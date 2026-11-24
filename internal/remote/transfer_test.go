@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -148,6 +149,76 @@ for a; do
   [ "$a" = -W ] && w=1
 done
 ` + fakeSSH
+
+// shPool is a connection by a pool whose workers run the scripts with
+// this machine's sh, as the pool on Windows runs them on the host.
+func shPool(t *testing.T) *Conn {
+	t.Helper()
+	needsShell(t)
+	open := func() (workerPipe, error) {
+		inR, inW := io.Pipe()
+		outR, outW := io.Pipe()
+		done := make(chan struct{})
+		go func() {
+			serveFrames(pipeRW{inR, outW}, func(script string, stdin io.Reader, stdout, stderr io.Writer) int {
+				cmd := exec.Command("sh", "-c", script)
+				cmd.Stdin, cmd.Stdout, cmd.Stderr = stdin, stdout, stderr
+				if err := cmd.Run(); err != nil {
+					if e, ok := err.(*exec.ExitError); ok {
+						return e.ExitCode()
+					}
+					return 127
+				}
+				return 0
+			})
+			outW.Close()
+			close(done)
+		}()
+		return workerPipe{in: inW, out: outR, kill: func() { inR.Close(); outW.Close() }, done: done}, nil
+	}
+	c := &Conn{Host: "box", subs: map[int]func(){}, state: Connected}
+	p := newPool(open, c.markLost)
+	c.pool = p
+	if err := p.Start(); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(p.Stop)
+	return c
+}
+
+// Windows and WSL reach the host by the pool, with no master's socket.
+func TestTransferOverPool(t *testing.T) {
+	c := shPool(t)
+	local := t.TempDir()
+	if err := os.WriteFile(filepath.Join(local, "a.txt"), []byte("one"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	host := t.TempDir()
+	got, err := c.Upload([]string{filepath.Join(local, "a.txt")}, host, nil)
+	if err != nil {
+		t.Fatalf("upload: %v", err)
+	}
+	if len(got) != 1 || got[0] != host+"/a.txt" {
+		t.Fatalf("uploaded to %q", got)
+	}
+	copied, err := c.CopyOnHost([]string{host + "/a.txt"}, host, nil)
+	if err != nil || len(copied) != 1 || copied[0] != host+"/a copy.txt" {
+		t.Fatalf("copied to %q: %v", copied, err)
+	}
+	var p Progress
+	to := filepath.Join(t.TempDir(), "got")
+	if err := c.Download(host, to, &p); err != nil {
+		t.Fatalf("download: %v", err)
+	}
+	for _, name := range []string{"a.txt", "a copy.txt"} {
+		if b, err := os.ReadFile(filepath.Join(to, name)); err != nil || string(b) != "one" {
+			t.Errorf("downloaded %s: %q, %v", name, b, err)
+		}
+	}
+	if p.Done() == 0 {
+		t.Error("no progress")
+	}
+}
 
 func TestForward(t *testing.T) {
 	if runtime.GOOS == "windows" {

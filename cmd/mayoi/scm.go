@@ -1064,6 +1064,9 @@ func (a *gitContext) scmFile(c *ui.Context, r scmRow, action *func()) {
 		if letter == 'D' {
 			label.Strikethrough()
 		}
+		if e.Link {
+			linkMark(c, p)
+		}
 		rel := a.git.repo.Rel(e.Path)
 		// Rel is a slash path. filepath.Dir on Windows prints src\lib for
 		// a remote file, which is not the folder on the host.

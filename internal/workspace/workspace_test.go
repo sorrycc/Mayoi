@@ -71,6 +71,47 @@ func TestTreeLoadsSortsAndFollowsTheDisk(t *testing.T) {
 	m.wait(t, func() bool { return slices.Contains(changed, filepath.Join(root, "b.go")) })
 }
 
+func TestTreeKnowsLinks(t *testing.T) {
+	root := t.TempDir()
+	mkfiles(t, root, "real/a.go")
+	if err := os.Symlink("real", filepath.Join(root, "dir")); err != nil {
+		t.Skip(err)
+	}
+	os.Symlink(filepath.Join("real", "a.go"), filepath.Join(root, "file"))
+	m := make(mainThread, 64)
+	tree := NewTree(root, m.post)
+	defer tree.Close()
+	tree.Load(root)
+	m.wait(t, func() bool { return tree.Loaded(root) })
+	dir, file, real := filepath.Join(root, "dir"), filepath.Join(root, "file"), filepath.Join(root, "real")
+	if !tree.IsLink(dir) || !tree.IsDir(dir) {
+		t.Errorf("dir: link %v, folder %v", tree.IsLink(dir), tree.IsDir(dir))
+	}
+	if !tree.IsLink(file) || tree.IsDir(file) {
+		t.Errorf("file: link %v, folder %v", tree.IsLink(file), tree.IsDir(file))
+	}
+	if tree.IsLink(real) {
+		t.Error("a folder is a link")
+	}
+}
+
+func TestTookNoticesALinkReplacingAFile(t *testing.T) {
+	root := remote.Path("box", "/home/me/app")
+	a := remote.Join(root, "a")
+	tree := &Tree{
+		Root:     root,
+		remote:   true,
+		children: map[string][]string{root: {a}},
+		dirs:     map[string]bool{root: true},
+		links:    map[string]bool{},
+		closed:   true,
+	}
+	tree.took(map[string][]vfs.Entry{root: {{Name: "a", Link: true}}}, nil, nil, nil)
+	if !tree.IsLink(a) {
+		t.Fatal("a is not a link")
+	}
+}
+
 func TestIndexSkipsAndFuzzyRanks(t *testing.T) {
 	root := t.TempDir()
 	mkfiles(t, root, "src/main.go", "src/domain/manifest.json", "node_modules/m/index.js", "docs/README.md", "cmd/mayoi/main_test.go")

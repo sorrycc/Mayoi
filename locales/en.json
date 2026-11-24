@@ -1417,6 +1417,7 @@
   "scmStopWriting": "Stop Writing",
   "scmSubmoduleCommit": "Submodule commit changed",
   "scmSubmoduleCommitLabel": "Reference",
+  "symbolicLink": "Symbolic link",
   "scmSubmoduleContentLabel": "Content",
   "scmSubmoduleDirty": "Uncommitted changes in submodule",
   "scmSummary": "Summary",

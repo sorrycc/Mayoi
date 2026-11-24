@@ -106,6 +106,36 @@ func TestStatus(t *testing.T) {
 	}
 }
 
+func TestStatusKnowsLinks(t *testing.T) {
+	r, git := repo(t)
+	for _, name := range []string{"tracked", "gone", "new"} {
+		if err := os.Symlink("a.txt", filepath.Join(r.Root, name)); err != nil {
+			t.Skip(err)
+		}
+	}
+	git("add", "tracked", "gone")
+	git("commit", "-q", "-m", "links")
+	write(t, r.Root, "a.txt", "changed\n")
+	os.Remove(filepath.Join(r.Root, "gone"))
+	os.Remove(filepath.Join(r.Root, "tracked"))
+	os.Symlink("b.txt", filepath.Join(r.Root, "tracked"))
+	git("mv", "b.txt", "moved.txt")
+	st, err := r.Status()
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := map[string]bool{}
+	for _, e := range st.Entries {
+		got[r.Rel(e.Path)] = e.Link
+	}
+	want := map[string]bool{"a.txt": false, "tracked": true, "gone": true, "new": true, "moved.txt": false}
+	for k, v := range want {
+		if l, ok := got[k]; !ok || l != v {
+			t.Errorf("%s: link %v (listed %v), want %v", k, l, ok, v)
+		}
+	}
+}
+
 func TestSubmodule(t *testing.T) {
 	r, git := repo(t)
 	inner, _ := repo(t)

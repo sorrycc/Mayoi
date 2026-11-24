@@ -489,3 +489,29 @@ func TestExplorerMenuBelowTheFiles(t *testing.T) {
 		t.Fatalf("no new file prompt in the workspace: %+v", a.prompt)
 	}
 }
+
+func TestExplorerMarksLinks(t *testing.T) {
+	hs := newHarness(t, true)
+	hs.root = filepath.Join(t.TempDir(), "linked")
+	if err := os.MkdirAll(hs.path("real/inner"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	os.WriteFile(hs.path("real/inner/a.go"), []byte("package a\n"), 0o644)
+	if err := os.Symlink("real", hs.path("dir")); err != nil {
+		t.Skip(err)
+	}
+	os.Symlink(filepath.Join("real", "inner", "a.go"), hs.path("file"))
+	hs.a.openFolder(hs.root)
+	hs.until("the links", func() bool { return hs.tt.HasText("file") })
+	a := hs.a
+	if !a.chainLink(hs.path("dir"), hs.path("dir")) || !a.chainLink(hs.path("file"), hs.path("file")) {
+		t.Fatal("a link is not marked")
+	}
+	if a.chainLink(hs.path("real"), hs.path("real")) {
+		t.Fatal("a folder is marked as a link")
+	}
+	// A compact row is marked when a folder of its chain is a link.
+	if !a.chainLink(hs.path("dir/inner"), hs.path("dir")) {
+		t.Fatal("a chain through a link is not marked")
+	}
+}

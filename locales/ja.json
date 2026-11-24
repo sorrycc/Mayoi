@@ -1157,6 +1157,7 @@
   "scmStopWriting": "書くのをやめる",
   "scmSubmoduleCommit": "サブモジュールのコミットが変更されています",
   "scmSubmoduleCommitLabel": "参照コミット",
+  "symbolicLink": "シンボリックリンク",
   "scmSubmoduleContentLabel": "内容",
   "scmSubmoduleDirty": "サブモジュールに未コミットの変更があります",
   "scmSummary": "概要",

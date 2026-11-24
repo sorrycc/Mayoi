@@ -158,9 +158,9 @@ func TestParseStat(t *testing.T) {
 }
 
 func TestParseDirs(t *testing.T) {
-	out := []byte("/a\x00d sub\x00f x y.go\x00\x00/gone\x00!no such file or directory\x00/empty\x00\x00")
+	out := []byte("/a\x00d sub\x00f x y.go\x00D ln\x00F lf\x00\x00/gone\x00!no such file or directory\x00/empty\x00\x00")
 	lists := parseDirs(out)
-	if got := lists["/a"].Entries; !slices.Equal(got, []DirEntry{{"sub", true}, {"x y.go", false}}) {
+	if got := lists["/a"].Entries; !slices.Equal(got, []DirEntry{{"sub", true, false}, {"x y.go", false, false}, {"ln", true, true}, {"lf", false, true}}) {
 		t.Fatalf("/a = %+v", got)
 	}
 	if err := lists["/gone"].Err; !errors.Is(err, fs.ErrNotExist) {
@@ -304,7 +304,7 @@ func exerciseHost(t *testing.T, host string) {
 		t.Fatal(err)
 	}
 	slices.SortFunc(entries, func(a, b DirEntry) int { return strings.Compare(a.Name, b.Name) })
-	if want := []DirEntry{{"it's a file.txt", false}, {"link", true}, {"sub", true}}; !slices.Equal(entries, want) {
+	if want := []DirEntry{{"it's a file.txt", false, false}, {"link", true, true}, {"sub", true, false}}; !slices.Equal(entries, want) {
 		t.Fatalf("entries = %+v", entries)
 	}
 	lists, err := c.ReadDirs([]string{dir + "/sub", dir + "/gone"})

@@ -12042,6 +12042,16 @@ func (msgs Messages) ScmSubmoduleCommitLabel() string {
 	return Catalog.Format(msgs.locale, "scmSubmoduleCommitLabel", nil)
 }
 
+// SymbolicLink says "Symbolic link"
+// in the language the app shows.
+func SymbolicLink() string { return In(i18n.Locale()).SymbolicLink() }
+
+// SymbolicLink says "Symbolic link"
+// in the language of msgs.
+func (msgs Messages) SymbolicLink() string {
+	return Catalog.Format(msgs.locale, "symbolicLink", nil)
+}
+
 // ScmSubmoduleContentLabel says "Content"
 // in the language the app shows.
 func ScmSubmoduleContentLabel() string { return In(i18n.Locale()).ScmSubmoduleContentLabel() }

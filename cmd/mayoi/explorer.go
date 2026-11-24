@@ -3,8 +3,11 @@ package main
 import (
 	"path/filepath"
 
+	"github.com/egoist/mygo/ui"
+
 	"mayoi/internal/remote"
 	"mayoi/internal/workspace"
+	"mayoi/locales"
 )
 
 // explorerTree is the visible tree. A compact row keeps the last folder's
@@ -172,6 +175,27 @@ func (a *app) chainLetter(path, first string) byte {
 		dir = next
 	}
 	return letter
+}
+
+// chainLink reports whether a row is a symbolic link, or has one among
+// the folders of its chain, from first to its last, path.
+func (a *app) chainLink(path, first string) bool {
+	for dir := path; len(dir) >= len(first); {
+		if a.tree.IsLink(dir) {
+			return true
+		}
+		next := remote.Dir(dir)
+		if next == dir {
+			break
+		}
+		dir = next
+	}
+	return false
+}
+
+// linkMark marks a symbolic link after its name.
+func linkMark(c *ui.Context, p *palette) {
+	ui.Icon(c, iconLink).FontSize(11).TextColor(p.faint).Shrink(0).Tooltip(locales.SymbolicLink())
 }
 
 func (a *app) explorerDirVisible(dir string) bool {

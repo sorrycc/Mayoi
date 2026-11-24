@@ -28,7 +28,7 @@ func (a *app) treeRootDrop(e ui.Element, action *func()) bool {
 			*action = func() { a.dropInTree(s, a.root) }
 		}
 	}
-	v, ok := ui.DragOver[treeTake](e)
+	v, ok := a.treeDragOver(e)
 	return ok && a.canMove(treeSource(v), a.root)
 }
 

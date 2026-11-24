@@ -9,6 +9,7 @@ needs a `## <version>` section here, or its build fails.
 - Turning it off gives Claude Code back its earlier theme; a theme you pick with `/theme` takes over.
 - Symbolic links to files and folders show a link mark after their name in the explorer.
 - Changed files that are symbolic links show the same mark in the **Source Control** changes list.
+- A tab dragged to another project's square no longer gets lost on its way over that project's files.
 
 ## 0.23.3
 

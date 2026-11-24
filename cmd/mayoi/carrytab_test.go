@@ -120,17 +120,28 @@ func carryTabOverRail(t *testing.T, held bool) {
 		time.Sleep(20 * time.Millisecond)
 		step(tt)
 	}
+	// Over its explorer, once it has read its folder, the tab is still
+	// carried in.
+	(&harness{t: t, a: a, tt: tt}).settle()
+	x2, y2 := float32(150), float32(600)
+	tt.Move(x2, y2)
+	for range 2 {
+		step(tt)
+	}
+	if a.carried != tab {
+		t.Fatal("the tab carried in went as it passed over the explorer")
+	}
 	// On to its column, which shows where the tab would drop.
-	x2, y2 := float32(700), float32(400)
+	x3, y3 := float32(700), float32(400)
 	for i := 1; i <= 4; i++ {
 		k := float32(i) / 4
-		tt.Move(x1+(x2-x1)*k, y1+(y2-y1)*k)
+		tt.Move(x2+(x3-x2)*k, y2+(y3-y2)*k)
 		step(tt)
 	}
 	if a.carried != tab {
 		t.Fatal("the project shown does not see the tab carried in")
 	}
-	tt.Release(x2, y2)
+	tt.Release(x3, y3)
 	for range 3 {
 		step(tt)
 	}

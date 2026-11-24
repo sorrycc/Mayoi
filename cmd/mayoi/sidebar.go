@@ -419,7 +419,7 @@ func (a *app) fileTree(c *ui.Context) {
 			}
 		}
 		moveOver := false
-		if v, ok := ui.DragOver[treeTake](row); ok {
+		if v, ok := a.treeDragOver(row); ok {
 			moveOver = a.canMove(treeSource(v), into)
 		}
 		if row.FileDragOver() || moveOver {

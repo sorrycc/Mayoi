@@ -83,9 +83,11 @@ type multiDrag struct {
 }
 
 // multiOK reports whether the editor takes several selections: not in
-// vim mode, Live Preview or a preview, which have one caret of their own.
+// vim mode, Live Preview or a preview, which have one caret of their
+// own, and not in a log document, whose edits run through the whole
+// text rather than the window it shows.
 func (a *app) multiOK(d *editor) bool {
-	return d != nil && !a.prefs().Vim && !a.livePreview(d) && d.preview == nil
+	return d != nil && d.log == nil && !a.prefs().Vim && !a.livePreview(d) && d.preview == nil
 }
 
 // spans returns the selections sorted by their starts, the primary
@@ -523,15 +525,22 @@ func (d *editor) editSpans(all []cursor, p int, step stepping, fn func(s cursor)
 	if d.locked() {
 		return
 	}
+	// A document of a file read whole, or in a window, edits through its
+	// own path; this one writes only the buffer, which a save of the
+	// text as a whole would not write.
+	if d.log != nil {
+		d.collapse()
+		return
+	}
 	h := &d.hist
 	now := time.Now()
 	switch step {
 	case stepTyping:
 		d.observe()
-		h.pushTyping(histStep{h.snap, d.sel, slices.Clone(d.cursors)}, now)
+		h.pushTyping(histStep{snap: h.snap, sel: d.sel, cursors: slices.Clone(d.cursors)}, now)
 	case stepOwn:
 		d.observe()
-		h.grouped(histStep{h.snap, d.sel, slices.Clone(d.cursors)})
+		h.grouped(histStep{snap: h.snap, sel: d.sel, cursors: slices.Clone(d.cursors)})
 	}
 	out := make([]spanEdit, len(all))
 	for i, s := range all {
@@ -938,6 +947,12 @@ func (a *app) pasteSpans(d *editor, text string) {
 // those that move and delete act at all of them; Escape goes back to the
 // primary, as does any other key that edits but text typed.
 func (a *app) multiKey(d *editor, ev ui.InputEvent) bool {
+	// A document read whole, of a file too big for the usual read, edits
+	// one caret at a time: its keys take the usual path.
+	if d.log != nil {
+		d.collapse()
+		return false
+	}
 	m, k := ev.Mods, ev.Key
 	word := ui.Ctrl
 	if macKeys() {

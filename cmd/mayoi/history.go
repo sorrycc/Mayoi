@@ -53,6 +53,11 @@ func (h *history) grouped(s histStep) {
 type histStep struct {
 	snap ui.TextSnapshot
 	sel  [2]int
+	// A log document's step is not a snapshot but the edits that undo
+	// it, in base runes, with the selection there in base runes too: its
+	// buffer holds a run of the text, not all of it.
+	logUndo []logEdit
+	logSel  [2]int64
 	// cursors are the editor's other selections then (multicursor.go).
 	cursors []cursor
 }
@@ -97,7 +102,11 @@ func (d *document) observe() {
 	}
 	now := time.Now()
 	old, sel := h.snap, t.sel
-	h.pushTyping(histStep{h.snap, t.sel, slices.Clone(t.cursors)}, now)
+	if d.log != nil {
+		d.observeLog(t, old, snap, sel, now)
+		return
+	}
+	h.pushTyping(histStep{snap: h.snap, sel: t.sel, cursors: slices.Clone(t.cursors)}, now)
 	h.snap, h.typing, h.at = snap, true, now
 	if len(t.cursors) > 0 && t.typeAtAll(old, snap, sel) {
 		return
@@ -108,6 +117,66 @@ func (d *document) observe() {
 	}
 	t.keepClosers(h.snap)
 	t.followChange(old, h.snap, min(sel[0], sel[1]))
+}
+
+// observeLog is observe for a document in log mode: what typing changed
+// of the window's text is one edit of the text as a whole.
+func (d *document) observeLog(t *editor, old, snap ui.TextSnapshot, sel [2]int, now time.Time) {
+	h := &d.hist
+	l := d.log
+	join := h.group != groupNone || h.typing && now.Sub(h.at) <= typingPause && len(h.undo) > 0
+	h.snap, h.typing, h.at = snap, true, now
+	// Brackets and quotes typed close, in the same step.
+	if t.autoClose(old, snap, sel) {
+		h.snap = d.buf.Snapshot()
+	}
+	off := l.win.start
+	var u logEdit
+	var applied bool
+	var err error
+	if start, end, ok := changedRunes(old, h.snap, min(sel[1], old.Len())); ok {
+		// What the typing replaced, read as followChange reads it: the
+		// old text's runes start up to end, the new one's the n that
+		// follow start.
+		n := end - start + h.snap.Len() - old.Len()
+		u, applied, err = l.applyEdit(off+int64(start), off+int64(end), h.snap.Slice(start, start+n))
+	} else {
+		// The change reaches past where its ends are looked for: the
+		// window's whole run is replaced, for the text cannot be left
+		// other than what the buffer holds.
+		u, applied, err = l.applyEdit(off, off+int64(old.Len()), h.snap.Slice(0, h.snap.Len()))
+	}
+	switch {
+	case err != nil:
+		// The file cannot be read to say what the typing replaced:
+		// the document says so and keeps what it has.
+		d.sync, d.loadErr = syncLoadFailed, err
+	case applied:
+		s := histStep{logUndo: []logEdit{u}, logSel: d.selBase(sel)}
+		if join && len(h.undo) > 0 {
+			last := &h.undo[len(h.undo)-1]
+			last.logUndo = append(last.logUndo, u)
+			clear(h.redo)
+			h.redo = h.redo[:0]
+		} else {
+			h.push(s)
+		}
+	}
+	t.keepClosers(h.snap)
+	t.followChange(old, h.snap, min(sel[0], sel[1]))
+}
+
+// selBase returns where a selection of the window is in the base runes
+// of a log document's text.
+func (d *document) selBase(sel [2]int) [2]int64 {
+	l := d.log
+	n := int64(d.buf.Len())
+	off := l.win.start
+	edits := l.editsCopy()
+	return [2]int64{
+		baseOf(edits, off+min(max(int64(sel[0]), 0), n), nil),
+		baseOf(edits, off+min(max(int64(sel[1]), 0), n), nil),
+	}
 }
 
 // pushTyping makes the step of undo for typing at now: a new one, unless
@@ -136,9 +205,13 @@ func (d *editor) edit(sel [2]int, edits ...textEdit) {
 	if d.locked() {
 		return
 	}
+	if d.log != nil {
+		d.editLog(sel, edits...)
+		return
+	}
 	d.observe()
 	h := &d.hist
-	h.grouped(histStep{h.snap, d.sel, slices.Clone(d.cursors)})
+	h.grouped(histStep{snap: h.snap, sel: d.sel, cursors: slices.Clone(d.cursors)})
 	d.applyEdits(sel, edits)
 }
 
@@ -166,6 +239,54 @@ func (d *editor) applyEdits(sel [2]int, edits []textEdit) {
 	d.follow(moved)
 	d.moveMarks(moved)
 	d.foldsFollow(edits, moved, h.snap)
+	if len(edits) > 0 {
+		d.changed = min(edits[len(edits)-1].start, n)
+	}
+}
+
+// editLog is edit for a document in log mode: the edits are made in the
+// window's runes and in the text as a whole at once, so that a save
+// writes what the window shows.
+func (d *editor) editLog(sel [2]int, edits ...textEdit) {
+	d.observe()
+	h := &d.hist
+	l := d.log
+	sortEdits(edits)
+	var undos []logEdit
+	for _, e := range edits {
+		off := l.win.start
+		u, ok, err := l.applyEdit(off+int64(e.start), off+int64(e.end), e.text)
+		if err != nil {
+			// The file cannot be read to say what the edit replaces.
+			d.sync, d.loadErr = syncLoadFailed, err
+			return
+		}
+		if ok {
+			undos = append(undos, u)
+		}
+		d.buf.Replace(e.start, e.end, e.text)
+	}
+	h.snap, h.typing = d.buf.Snapshot(), false
+	d.closers = d.closers[:0]
+	if len(undos) > 0 {
+		slices.SortStableFunc(undos, func(a, b logEdit) int { return cmp.Compare(a.baseStart, b.baseStart) })
+		h.push(histStep{logUndo: undos, logSel: d.document.selBase(d.sel)})
+		if h.group == groupOpen {
+			h.group = groupJoin
+		}
+	}
+	n := h.snap.Len()
+	sel = [2]int{min(max(sel[0], 0), n), min(max(sel[1], 0), n)}
+	d.selectRange(sel[0], sel[1], false)
+	d.sel = sel
+	moved := func(x int) int {
+		for _, e := range edits {
+			x = movedBy(x, e.start, e.end, utf8.RuneCountInString(e.text))
+		}
+		return x
+	}
+	d.follow(moved)
+	d.moveMarks(moved)
 	if len(edits) > 0 {
 		d.changed = min(edits[len(edits)-1].start, n)
 	}
@@ -300,7 +421,18 @@ func (d *editor) undo() bool {
 	if h.group == groupJoin {
 		h.group = groupOpen // what is typed next is a step of its own
 	}
-	h.redo = append(h.redo, histStep{d.buf.Snapshot(), d.sel, slices.Clone(d.cursors)})
+	if d.log != nil {
+		again := histStep{logSel: d.document.selBase(d.sel)}
+		undo, err := d.log.applyBase(s.logUndo)
+		if err != nil {
+			return false // the file cannot be read: the step stays
+		}
+		again.logUndo = undo
+		h.redo = append(h.redo, again)
+		d.restoreLog(s)
+		return true
+	}
+	h.redo = append(h.redo, histStep{snap: d.buf.Snapshot(), sel: d.sel, cursors: slices.Clone(d.cursors)})
 	d.restore(s)
 	return true
 }
@@ -320,9 +452,33 @@ func (d *editor) redo() bool {
 	if h.group == groupJoin {
 		h.group = groupOpen
 	}
-	h.undo = append(h.undo, histStep{d.buf.Snapshot(), d.sel, slices.Clone(d.cursors)})
+	if d.log != nil {
+		again := histStep{logSel: d.document.selBase(d.sel)}
+		undo, err := d.log.applyBase(s.logUndo)
+		if err != nil {
+			return false // the file cannot be read: the step stays
+		}
+		again.logUndo = undo
+		h.undo = append(h.undo, again)
+		d.restoreLog(s)
+		return true
+	}
+	h.undo = append(h.undo, histStep{snap: d.buf.Snapshot(), sel: d.sel, cursors: slices.Clone(d.cursors)})
 	d.restore(s)
 	return true
+}
+
+// restoreLog brings a log document's text back to a step's, and selects
+// its selection: the window is built around it, and takes the selection
+// as it lands.
+func (d *editor) restoreLog(s histStep) {
+	l := d.log
+	edits := l.editsCopy()
+	n := l.runeLen()
+	sel := [2]int64{curOf(edits, s.logSel[0]), curOf(edits, s.logSel[1])}
+	d.logSelect(min(max(sel[0], 0), n), min(max(sel[1], 0), n))
+	d.hist.typing = false
+	d.closers = d.closers[:0]
 }
 
 // restore brings back the text and the selection of a step. The text as

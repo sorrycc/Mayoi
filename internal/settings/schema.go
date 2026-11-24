@@ -80,6 +80,7 @@ var Schema = []Field{
 	{Key: "trimTrailingWhitespace", Category: CatEditor, Kind: KindBool, Folder: true},
 	{Key: "tabSize", Category: CatEditor, Kind: KindNumber, Min: 1, Max: 8, Step: 1},
 	{Key: "jsonlMode", Category: CatEditor, Kind: KindEnum, Options: []string{"", "source"}, Folder: true},
+	{Key: "largeFileModeMB", Category: CatEditor, Kind: KindNumber, Min: 0, Max: 1024, Step: 1, Folder: true},
 	{Key: "editorAgentContext", Category: CatEditor, Kind: KindBool},
 	{Key: "editorHover", Category: CatEditor, Kind: KindBool},
 	{Key: "searchFollowSymlinks", Category: CatEditor, Kind: KindBool, Folder: true},

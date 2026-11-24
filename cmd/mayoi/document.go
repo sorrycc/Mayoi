@@ -81,6 +81,19 @@ type document struct {
 	// maxLineBytes, 0 for none. Only a file of JSON Lines has one: its
 	// table shows it, and in place of its source the editor says why not.
 	longLine int
+	// logProgress is how much of a file too big for the usual read has
+	// been read, 0 to 1, 0 when none is being read. The loading view
+	// shows it as a bar. logStop stops the read under way, closed as
+	// the document closes; logSwap says a read under way keeps the text
+	// it has — a reload of a clean whole-file document — rather than
+	// show the loading view.
+	log         *logDoc
+	logProgress float32
+	logStop     chan struct{}
+	logSwap     bool
+	// logWhole says the document was read by the whole-file path, for a
+	// file over the log threshold: its text is the whole file.
+	logWhole bool
 	diskCRLF bool     // the file on disk has CRLF line endings
 	trimmed  trimSeen // the text last found without trailing whitespace
 	hl       *highlight.Highlighter
@@ -191,6 +204,10 @@ type editor struct {
 	caret int     // the caret's rune offset in the last frame
 	textX float32 // where the text starts in the view, in the last frame
 	sel   [2]int  // the selection in the last frame
+	// logSel is a selection of a log document's text asked for, in runes
+	// of the whole text rather than the window: the window moves to it
+	// and the frame's own selection takes its place.
+	logSel *[2]int64
 	// cursors are the selections besides sel, which edit with it, sorted
 	// and apart, nil while there is one (multicursor.go). goal is the
 	// column moves up and down keep for sel while it is goalSel; column
@@ -404,15 +421,37 @@ func (d *document) name() string {
 	return filepath.Base(d.path)
 }
 
-func (d *document) dirty() bool { return d.buf.Version() != d.saved || d.crlf != d.diskCRLF }
+func (d *document) dirty() bool {
+	if d.log != nil {
+		return d.log.hasEdits() || d.crlf != d.diskCRLF
+	}
+	return d.buf.Version() != d.saved || d.crlf != d.diskCRLF
+}
 
 // unread reports whether the text of a document is not read yet,
-// or could not be.
-func (d *document) unread() bool { return d.sync == syncLoading || d.sync == syncLoadFailed }
+// or could not be. A read that keeps the text it has — a reload — is
+// not unread: the text stays until the new one is in.
+func (d *document) unread() bool {
+	return d.sync == syncLoading && !d.logSwap || d.sync == syncLoadFailed
+}
 
 // locked reports whether the document cannot be edited: its file
 // is not read, or its host not connected.
 func (d *document) locked() bool { return d.unread() || d.offline }
+
+// stopLogLoad stops the whole-file read under way, if there is one.
+func (d *document) stopLogLoad() {
+	if d.logStop != nil {
+		close(d.logStop)
+		d.logStop = nil
+	}
+}
+
+// lspTooBig reports whether a document's text is more than a language
+// server is sent: one read in windows, or one whole past the usual cap.
+func (d *document) lspTooBig() bool {
+	return d.log != nil || d.buf.ByteLen() > maxOpenBytes
+}
 
 // readDocument reads a file into a document.
 func readDocument(id int, path string, notify func()) (*document, error) {
@@ -496,9 +535,11 @@ func (d *document) save() error {
 	if err != nil {
 		return err
 	}
-	if _, err := vfs.WriteFile(d.path, data, 0o644); err != nil {
+	info, err := vfs.WriteFile(d.path, data, 0o644)
+	if err != nil {
 		return err
 	}
+	d.stamp = stampOf(info) // the file is as this wrote it: no reload of it
 	d.wrote(snap, d.crlf)
 	return nil
 }

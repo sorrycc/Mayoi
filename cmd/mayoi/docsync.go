@@ -73,7 +73,7 @@ func (a *app) nextSave(d *document) {
 	if d.sync != syncIdle || len(d.queued) == 0 {
 		return
 	}
-	if slices.ContainsFunc(d.queued, func(w saveWaiter) bool { return w.format }) {
+	if d.log == nil && slices.ContainsFunc(d.queued, func(w saveWaiter) bool { return w.format }) {
 		if ed := a.docEditor(d); ed != nil {
 			for i := range d.queued {
 				d.queued[i].format = false
@@ -90,9 +90,17 @@ func (a *app) nextSave(d *document) {
 	}
 	d.waiters, d.queued = d.queued, nil
 	a.trimOnSave(d, d.waiters)
+	if d.log != nil {
+		a.writeLog(d)
+		return
+	}
 	if remote.Is(d.path) {
 		a.writeRemote(d)
 		a.nextSave(d)
+		return
+	}
+	if d.buf.ByteLen() >= bigSaveBytes {
+		a.writeWhole(d)
 		return
 	}
 	a.answerSaves(d, d.save())

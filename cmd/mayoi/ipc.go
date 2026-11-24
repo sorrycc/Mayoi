@@ -431,10 +431,14 @@ type docWait struct {
 func (a *app) docClosed(d *document) {
 	if d != nil {
 		d.readDone()
+		d.stopLogLoad()
+		a.logQueue = slices.DeleteFunc(a.logQueue, func(q *document) bool { return q == d })
 	} else {
 		for _, doc := range a.docs {
 			doc.readDone()
+			doc.stopLogLoad()
 		}
+		a.logQueue = nil
 	}
 	a.waits = slices.DeleteFunc(a.waits, func(w docWait) bool {
 		if d == nil || w.doc == d {

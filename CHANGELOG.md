@@ -9,6 +9,7 @@ needs a `## <version>` section here, or its build fails.
 - Filter **TODOs** by text, file path, or tag as you type.
 - Set which files **TODOs** scans in **⋯** and save that scope for each workspace.
 - **TODOs** uses the same file filter labels as **Search** in every language.
+- Rescan **TODOs** from the command palette with **Find TODOs Again**.
 
 ## 0.23.4
 

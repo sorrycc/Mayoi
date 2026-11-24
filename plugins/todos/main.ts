@@ -225,7 +225,6 @@ function render(view: TodoView) {
         type: "row",
         children: [
           { type: "text", text: `${count} in ${byFile.size} files`, muted: true },
-          { type: "button", label: "Refresh", onClick: () => applyScope(view) },
           {
             type: "button", label: "⋯", tooltip: "Scan scope",
             onClick() {

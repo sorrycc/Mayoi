@@ -15450,6 +15450,26 @@ func (msgs Messages) PrefDescWordWrap() string {
 	return Catalog.Format(msgs.locale, "prefDescWordWrap", nil)
 }
 
+// PrefTitleColumnGuides says "Column Guides"
+// in the language the app shows.
+func PrefTitleColumnGuides() string { return In(i18n.Locale()).PrefTitleColumnGuides() }
+
+// PrefTitleColumnGuides says "Column Guides"
+// in the language of msgs.
+func (msgs Messages) PrefTitleColumnGuides() string {
+	return Catalog.Format(msgs.locale, "prefTitleColumnGuides", nil)
+}
+
+// PrefDescColumnGuides says "Show vertical guides at the specified columns to help keep lines to a chosen length. For example, [80, 120]."
+// in the language the app shows.
+func PrefDescColumnGuides() string { return In(i18n.Locale()).PrefDescColumnGuides() }
+
+// PrefDescColumnGuides says "Show vertical guides at the specified columns to help keep lines to a chosen length. For example, [80, 120]."
+// in the language of msgs.
+func (msgs Messages) PrefDescColumnGuides() string {
+	return Catalog.Format(msgs.locale, "prefDescColumnGuides", nil)
+}
+
 // PrefTitleTrimTrailingWhitespace says "Trim Trailing Whitespace"
 // in the language the app shows.
 func PrefTitleTrimTrailingWhitespace() string {

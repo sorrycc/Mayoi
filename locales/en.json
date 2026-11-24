@@ -1755,6 +1755,8 @@
   "prefDescAutoSave": "Saves a changed file a moment after you stop typing, and when you leave it.",
   "prefTitleWordWrap": "Word Wrap",
   "prefDescWordWrap": "Wraps long lines at the edge of the editor. A tab can still choose otherwise.",
+  "prefTitleColumnGuides": "Column Guides",
+  "prefDescColumnGuides": "Show vertical guides at the specified columns to help keep lines to a chosen length. For example, [80, 120].",
   "prefTitleTrimTrailingWhitespace": "Trim Trailing Whitespace",
   "prefDescTrimTrailingWhitespace": "Removes the spaces and tabs at the ends of lines as you save, keeping Markdown's line breaks.",
   "prefTitleTabSize": "Tab Size",

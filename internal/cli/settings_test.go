@@ -575,3 +575,54 @@ func TestSettingsLegacyAppearance(t *testing.T) {
 		t.Errorf("the appearance of a light or dark window went: %s", data)
 	}
 }
+
+func TestColumnGuidesCLI(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "settings.json")
+	for _, tc := range []struct{ raw, want string }{
+		{`[120,80,80,0,-1]`, `[80,120]`},
+		{`[]`, `[]`},
+	} {
+		s := Settings{Verb: "set", Folder: true, Changes: []Change{{Op: OpSet, Key: "columnGuides", Value: json.RawMessage(tc.raw)}}}
+		if _, err := s.Do(path); err != nil {
+			t.Fatal(err)
+		}
+		out, err := (Settings{Verb: "get", Folder: true, Keys: []string{"columnGuides"}}).Do(path)
+		if err != nil || strings.TrimSpace(out) != tc.want {
+			t.Fatalf("get: %q, %v", out, err)
+		}
+		data, err := os.ReadFile(path)
+		if err != nil || !strings.Contains(string(data), `"columnGuides"`) {
+			t.Fatalf("explicit folder value lost: %s, %v", data, err)
+		}
+	}
+	s := Settings{Verb: "unset", Folder: true, Changes: []Change{{Op: OpUnset, Key: "columnGuides"}}}
+	if _, err := s.Do(path); err != nil {
+		t.Fatal(err)
+	}
+	out, err := (Settings{Verb: "get", Folder: true, Keys: []string{"columnGuides"}}).Do(path)
+	if err != nil || strings.TrimSpace(out) != "null" {
+		t.Fatalf("inherit: %q, %v", out, err)
+	}
+}
+
+func TestColumnGuidesCLIInvalid(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "settings.json")
+	const original = `{"columnGuides":[80],"mine":true}`
+	putFile(t, path, original)
+	for _, raw := range []string{`80`, `"80"`, `{}`, `[80,"x"]`, `[1.5]`, `null`} {
+		s := Settings{Verb: "set", Changes: []Change{{Op: OpSet, Key: "columnGuides", Value: json.RawMessage(raw)}}}
+		if _, err := s.Do(path); err == nil || !strings.Contains(err.Error(), "a list of integer columns") {
+			t.Fatalf("%s: %v", raw, err)
+		}
+		data, err := os.ReadFile(path)
+		if err != nil || string(data) != original {
+			t.Fatalf("failed set wrote %s, %v", data, err)
+		}
+	}
+	for _, op := range []string{OpAdd, OpRemove} {
+		s := Settings{Verb: "set", Changes: []Change{{Op: op, Key: "columnGuides", Item: "120"}}}
+		if _, err := s.Do(path); err == nil {
+			t.Fatalf("accepted %s on column guides", op)
+		}
+	}
+}

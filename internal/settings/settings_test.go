@@ -772,3 +772,119 @@ func TestClaudeThemeStaysOnTheMachine(t *testing.T) {
 		t.Error("terminalClaudeTheme was not kept")
 	}
 }
+
+func TestColumnGuidesPreferences(t *testing.T) {
+	p := Default().Prefs
+	if len(p.ColumnGuides) != 0 || !p.IsDefaultKey("columnGuides") {
+		t.Fatal("column guides are not off by default")
+	}
+	for _, tc := range []struct {
+		raw  string
+		want []int
+	}{
+		{`[120,80,80,0,-1]`, []int{80, 120}},
+		{`[]`, nil},
+		{`null`, nil},
+		{`[null,40]`, []int{40}},
+	} {
+		if err := p.Set("columnGuides", json.RawMessage(tc.raw)); err != nil || !slices.Equal(p.ColumnGuides, tc.want) {
+			t.Fatalf("%s: got %v, %v", tc.raw, p.ColumnGuides, err)
+		}
+	}
+	for _, raw := range []string{`80`, `"80"`, `{}`, `[80,"x"]`, `[80,1.5]`} {
+		if err := p.Set("columnGuides", json.RawMessage(raw)); err == nil || !slices.Equal(p.ColumnGuides, []int{40}) {
+			t.Fatalf("bad value %s: got %v, %v", raw, p.ColumnGuides, err)
+		}
+	}
+	p.Reset("columnGuides")
+	if !p.IsDefaultKey("columnGuides") {
+		t.Fatal("reset left column guides on")
+	}
+}
+
+func TestColumnGuidesRoundTrip(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "settings.json")
+	if err := os.WriteFile(path, []byte(`{"columnGuides":[120,80,80,0]}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	s := Load(path)
+	s.Flush()
+	if got := Load(path).ColumnGuides; !slices.Equal(got, []int{80, 120}) {
+		t.Fatalf("round trip: %v", got)
+	}
+	if err := os.WriteFile(path, []byte(`{"columnGuides":[100]}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	p, ok := s.Edited()
+	if !ok || !slices.Equal(p.ColumnGuides, []int{100}) {
+		t.Fatalf("edited: %v, %v", p.ColumnGuides, ok)
+	}
+	back, err := Default().Prefs.WithSynced(p.Synced())
+	if err != nil || !slices.Equal(back.ColumnGuides, p.ColumnGuides) {
+		t.Fatalf("sync: %v, %v", back.ColumnGuides, err)
+	}
+	back.SyncIgnored = []string{"columnGuides"}
+	p.ColumnGuides = []int{40}
+	kept, err := back.WithSynced(p.Synced())
+	if err != nil || !slices.Equal(kept.ColumnGuides, []int{100}) {
+		t.Fatalf("ignored sync: %v, %v", kept.ColumnGuides, err)
+	}
+}
+
+func TestColumnGuidesFolder(t *testing.T) {
+	f := LoadFolder(t.TempDir())
+	user := Default().Prefs
+	user.ColumnGuides = []int{80, 120}
+	for _, tc := range []struct {
+		raw  json.RawMessage
+		want []int
+	}{
+		{nil, []int{80, 120}},
+		{json.RawMessage(`[100]`), []int{100}},
+		{json.RawMessage(`[]`), nil},
+		{json.RawMessage(`"bad"`), []int{80, 120}},
+		{nil, []int{80, 120}},
+	} {
+		if err := f.Set("columnGuides", tc.raw); err != nil {
+			t.Fatal(err)
+		}
+		if got := f.Apply(user).ColumnGuides; !slices.Equal(got, tc.want) {
+			t.Fatalf("folder %s: %v", tc.raw, got)
+		}
+		if !slices.Equal(user.ColumnGuides, []int{80, 120}) {
+			t.Fatal("folder changed the user's guides")
+		}
+	}
+	user.ColumnGuides = []int{120, 80, 80, -1}
+	if err := f.Set("wordWrap", json.RawMessage(`true`)); err != nil {
+		t.Fatal(err)
+	}
+	if got := f.Apply(user).ColumnGuides; !slices.Equal(got, []int{80, 120}) {
+		t.Fatalf("normalized copy: %v", got)
+	}
+	if !slices.Equal(user.ColumnGuides, []int{120, 80, 80, -1}) {
+		t.Fatal("normalizing the shallow copy changed its source slice")
+	}
+}
+
+func TestColumnGuidesWatch(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "settings.json")
+	s := Load(path)
+	got := make(chan Prefs, 4)
+	stop, err := s.Watch(func(p Prefs) { got <- p })
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer stop()
+	if err := os.WriteFile(path, []byte(`{"columnGuides":[100]}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case p := <-got:
+		if !slices.Equal(p.ColumnGuides, []int{100}) {
+			t.Fatalf("watched: %v", p.ColumnGuides)
+		}
+	case <-time.After(3 * time.Second):
+		t.Fatal("no column guide update")
+	}
+}

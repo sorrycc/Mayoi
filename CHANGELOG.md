@@ -16,6 +16,7 @@ needs a `## <version>` section here, or its build fails.
 - **Toggle Line Comment** (`⌘/`) now works in JSON, GraphQL, Less and `.gitignore` files.
 - In CSS, HTML, XML and Markdown, **Toggle Line Comment** wraps each line in `/* */` or `<!-- -->`.
 - In Vue and Svelte files it comments a line as its script, style or markup part expects.
+- Set `columnGuides` to show vertical guides at chosen columns in the editor.
 
 ## 0.23.4
 

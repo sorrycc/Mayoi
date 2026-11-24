@@ -88,6 +88,7 @@ takes its default.
 | `autoSave`              | `true`        | `true`, `false`                                             | **File → Auto Save**                           |
 | `wordWrap`              | `false`       | `true`, `false`                                             | **View → Word Wrap**                           |
 | `trimTrailingWhitespace` | `false`      | `true`, `false`                                             |                                                |
+| `columnGuides`          | `[]`          | Integer column widths, such as `[80, 120]`                  |                                                |
 | `tabSize`               | `4`           | `1` to `8`                                                  |                                                |
 | `jsonlMode`             | `""`          | `""` (table), `"source"`                                    | **View → Open JSON Lines As**                  |
 | `editorAgentContext`    | `false`       | `true`, `false`                                             | Only this file                                 |
@@ -260,6 +261,12 @@ differ in width lines them up only roughly.
 - **`autoSave`** saves a changed file a moment after you stop typing, and when you leave it.
 - **`wordWrap`** wraps long lines at the edge of the editor. **⌥Z** wraps or unwraps one tab only, until this
   setting changes.
+- **`columnGuides`** shows vertical guides in ordinary text editors at the chosen column widths, such as
+  `[80, 120]`. A guide at 80 follows 80 monospaced cells, each as wide as the font's `0`; tabs and wider characters
+  keep their usual layout. Guides follow horizontal scrolling and stay at the same columns with `wordWrap` on,
+  without changing where text wraps or how far it scrolls. An empty list hides them. A folder's list replaces your
+  list, so `[]` hides inherited guides in that folder. Live Preview, Reading, tables, Diff and Merge use their own
+  views and do not show them.
 - **`trimTrailingWhitespace`** removes the spaces and tabs at the ends of lines as you save a file, after any
   formatting, in one step that **Undo** takes back. In Markdown, two or more spaces ending a line of text stay, as
   they make a line break. Auto Save leaves the line the caret is on. **Trim Trailing Whitespace** in the command
@@ -457,7 +464,7 @@ window. **File → Open Folder Settings (JSON)** opens the file, and creates it 
 window, choose the folder in the menu at the top right: it lists only the preferences a folder can set, and the arrow
 beside one returns it to your setting.
 
-A folder can set these: `autoSave`, `wordWrap`, `trimTrailingWhitespace`, `jsonlMode`, `searchFollowSymlinks`, `markdownMode`, `previewMermaid`, `previewMath`,
+A folder can set these: `autoSave`, `wordWrap`, `columnGuides`, `trimTrailingWhitespace`, `jsonlMode`, `searchFollowSymlinks`, `markdownMode`, `previewMermaid`, `previewMath`,
 `terminalCopyOnSelect`, `diffHighlight`, `diffWhitespace`, `diffContext`, `diffCrossFiles`, `mergeAutoApply`,
 `blame`, `aiModel`, `vim`, `vimCtrlKeys`, `formatOnSave` and `formatters`.
 

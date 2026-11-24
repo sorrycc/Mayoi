@@ -722,6 +722,7 @@ func (a *app) editorView(c *ui.Context, d *editor) {
 		marks := d.git.Lines
 		gitRuns := d.gitRuns()
 		guideW := f.indentWidth(d.indent)
+		columnGuides := a.prefs().ColumnGuides
 		rows := a.overviewRows(d, snap, view.H)
 		spaces := a.selectedWhitespace(d, snap, first, last)
 		// The editor paints the selection, rounded, and keeps it in sight,
@@ -832,6 +833,17 @@ func (a *app) editorView(c *ui.Context, d *editor) {
 				t := float32(since) / float32(landFor)
 				pt.Fill(ui.Rect{X: r.X, Y: lineY(r, d.landLine), W: r.W, H: lineHeight(d.landLine)}, p.accent.Alpha(0.26*(1-t*t)), 0)
 				pt.AnimationFrame()
+			}
+			if len(columnGuides) > 0 {
+				clip := ui.Rect{X: r.X + d.hscroll.X + textX, Y: r.Y, W: max(0, view.W-textX-textPadR), H: r.H}
+				pt.Clip(clip, 0, func() {
+					for _, column := range columnGuides {
+						x := r.X + textX + float32(column)*f.charW
+						if x >= clip.X && x < clip.X+clip.W {
+							pt.Fill(ui.Rect{X: x, Y: r.Y, W: 1, H: r.H}, p.guide, 0)
+						}
+					}
+				})
 			}
 			// Highlighted text is on a marker's yellow, as in the preview.
 			for _, m := range highlights {

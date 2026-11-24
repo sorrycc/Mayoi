@@ -66,6 +66,31 @@ func TestBudgets(t *testing.T) {
 		// measure sets the window up and returns the frame to time.
 		measure func(t *testing.T, hs *harness) func()
 	}{
+		{"idle frame with column guides", 2 * time.Millisecond, false, func(t *testing.T, hs *harness) func() {
+			hs.a.settings.ColumnGuides = []int{80, 120}
+			bigDoc(hs)
+			return func() { step(hs.tt) }
+		}},
+		{"scroll frame with column guides", 5 * time.Millisecond, false, func(t *testing.T, hs *harness) func() {
+			hs.a.settings.ColumnGuides = []int{80, 120}
+			bigDoc(hs)
+			i := 0
+			return func() {
+				dy := float32(60)
+				if i/30%2 == 1 {
+					dy = -60
+				}
+				i++
+				hs.tt.Scroll(700, 400, 0, dy)
+				step(hs.tt)
+			}
+		}},
+		{"type frame with column guides", 4 * time.Millisecond, false, func(t *testing.T, hs *harness) func() {
+			hs.a.settings.ColumnGuides = []int{80, 120}
+			d := bigDoc(hs)
+			hs.place(d, 5000, 5000)
+			return func() { hs.tt.Type("a"); step(hs.tt) }
+		}},
 		{"idle frame", 2 * time.Millisecond, false, func(t *testing.T, hs *harness) func() {
 			bigDoc(hs)
 			return func() { step(hs.tt) }

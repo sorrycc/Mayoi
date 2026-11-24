@@ -18,7 +18,7 @@ const (
 	KindText        // a line of text
 	KindList        // a list of strings
 	KindStyles      // the looks of the projects on the rail, by folder
-	KindJSON        // an object, edited in settings.json
+	KindJSON        // structured JSON, edited in settings.json
 )
 
 // The categories of the preferences, in the order the settings window
@@ -77,6 +77,7 @@ var Schema = []Field{
 
 	{Key: "autoSave", Category: CatEditor, Kind: KindBool, Folder: true},
 	{Key: "wordWrap", Category: CatEditor, Kind: KindBool, Folder: true},
+	{Key: "columnGuides", Category: CatEditor, Kind: KindJSON, Folder: true},
 	{Key: "trimTrailingWhitespace", Category: CatEditor, Kind: KindBool, Folder: true},
 	{Key: "tabSize", Category: CatEditor, Kind: KindNumber, Min: 1, Max: 8, Step: 1},
 	{Key: "jsonlMode", Category: CatEditor, Kind: KindEnum, Options: []string{"", "source"}, Folder: true},

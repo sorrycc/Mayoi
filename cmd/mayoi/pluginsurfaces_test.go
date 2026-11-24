@@ -10,8 +10,10 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/egoist/mygo/i18n"
 	"github.com/egoist/mygo/ui"
 
+	"mayoi/locales"
 	bundled "mayoi/plugins"
 )
 
@@ -21,6 +23,7 @@ func withBundled(hs *harness) *pluginHost {
 	os.WriteFile(hs.path("main.go"), []byte("package main\n\n// TODO: say more\n// FIXME: the edge case\nfunc main() {}\n"), 0o644)
 	os.WriteFile(hs.path("notes.go"), []byte("package main\n\n// HACK: until the API settles\n"), 0o644)
 	h := withPlugins(hs, nil)
+	h.reg.Locale = i18n.Locale
 	h.reg.Dirs.Bundled = bundled.FS
 	turnOnBundled(hs, h)
 	h.reg.Load()
@@ -217,6 +220,7 @@ func TestTODOScanScope(t *testing.T) {
 	hs := newHarness(t, false)
 	withBundled(hs)
 	a, tt := hs.a, hs.tt
+	include, exclude := locales.SearchFilesInclude(), locales.SearchFilesExclude()
 	src := hs.path("src")
 	if err := os.MkdirAll(filepath.Join(src, "generated"), 0o755); err != nil {
 		t.Fatal(err)
@@ -232,7 +236,7 @@ func TestTODOScanScope(t *testing.T) {
 	}
 	a.window.SidebarView = "plugin:todos.list"
 	hs.until("the initial TODOs", func() bool { return tt.HasText("keep this source") })
-	if tt.HasText("Include") || tt.HasText("Exclude") {
+	if tt.HasText(include) || tt.HasText(exclude) {
 		t.Fatal("the scan scope should start collapsed")
 	}
 	click := func(label string) {
@@ -242,10 +246,10 @@ func TestTODOScanScope(t *testing.T) {
 		}
 	}
 	click("⋯")
-	hs.until("the scope fields", func() bool { return tt.HasText("Exclude") })
-	click("Files to include")
+	hs.until("the scope fields", func() bool { return tt.HasText(exclude) })
+	tt.Key(0, ui.KeyTab)
 	tt.Type("src/**")
-	click("Files to exclude")
+	tt.Key(0, ui.KeyTab)
 	tt.Type("src/generated/**, **/*.test.go")
 	for i := range 4000 {
 		if err := os.WriteFile(filepath.Join(src, "generated", fmt.Sprintf("%04d.go", i)), nil, 0o644); err != nil {
@@ -265,13 +269,33 @@ func TestTODOScanScope(t *testing.T) {
 	}
 	a.openFolder(other)
 	hs.until("the unfiltered other workspace", func() bool { return tt.HasText("other workspace marker") })
-	if tt.HasText("keep this source") || tt.HasText("Include") {
+	if tt.HasText("keep this source") || tt.HasText(include) {
 		t.Fatal("the first workspace's view leaked into the other workspace")
 	}
 	a.openFolder(hs.root)
 	hs.until("the saved scope after returning to the first workspace", func() bool {
 		return tt.HasText("keep this source") && !tt.HasText("generated marker") && !tt.HasText("other workspace marker")
 	})
+}
+
+func TestTODOScanScopeLabelsMatchSearch(t *testing.T) {
+	original := i18n.Locale()
+	t.Cleanup(func() { i18n.SetLocaleFunc(func() string { return original }) })
+	for _, language := range []string{"en", "ja", "zh-Hans"} {
+		t.Run(language, func(t *testing.T) {
+			i18n.SetLocaleFunc(func() string { return language })
+			hs := newHarness(t, false)
+			withBundled(hs)
+			hs.a.window.SidebarView = "plugin:todos.list"
+			hs.until("the TODOs", func() bool { return hs.tt.HasText("say more") })
+			if err := hs.tt.Click("⋯"); err != nil {
+				t.Fatal(err)
+			}
+			hs.until("the same file filters as Search", func() bool {
+				return hs.tt.HasText(locales.SearchFilesInclude()) && hs.tt.HasText(locales.SearchFilesExclude())
+			})
+		})
+	}
 }
 
 func TestShotPluginSurfaces(t *testing.T) {

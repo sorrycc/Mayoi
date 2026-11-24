@@ -12,6 +12,14 @@ const maxFiles = 4000;
 const maxSize = 512 * 1024;
 const viewId = "todos.list";
 
+const englishScopeLabels = { include: "files to include", exclude: "files to exclude" };
+const scopeLabelsByLanguage = new Map([
+  ["ja", { include: "含めるファイル", exclude: "除外するファイル" }],
+  ["zh", { include: "包含的文件", exclude: "排除的文件" }],
+]);
+const language = new Intl.NumberFormat().resolvedOptions().locale.split("-")[0];
+const scopeLabels = scopeLabelsByLanguage.get(language) ?? englishScopeLabels;
+
 interface ScanScope {
   include: string;
   exclude: string;
@@ -145,7 +153,8 @@ async function scan(view: TodoView) {
   }
 }
 
-function scopeField(view: TodoView, field: keyof ScanScope, label: string, example: string): ViewNode {
+function scopeField(view: TodoView, field: keyof ScanScope, example: string): ViewNode {
+  const label = scopeLabels[field];
   return {
     type: "stack",
     gap: 3,
@@ -154,7 +163,7 @@ function scopeField(view: TodoView, field: keyof ScanScope, label: string, examp
       {
         type: "input",
         value: view.draft[field],
-        label: "Files to " + field,
+        label,
         placeholder: example,
         onChange(value) { view.draft[field] = value; },
         onSubmit(value) {
@@ -229,8 +238,8 @@ function render(view: TodoView) {
       {
         type: "stack",
         children: view.details ? [
-          scopeField(view, "include", "Include", "src/**"),
-          scopeField(view, "exclude", "Exclude", "**/*.test.ts, dist/**"),
+          scopeField(view, "include", "src/**"),
+          scopeField(view, "exclude", "**/*.test.ts, dist/**"),
         ] : [],
       },
       results,

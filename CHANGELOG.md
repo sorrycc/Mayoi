@@ -11,6 +11,9 @@ needs a `## <version>` section here, or its build fails.
 - **Rename…** in the explorer's menu and **Rename File** in the command palette edit the name in place too.
 - `Escape` keeps the old name; clicking elsewhere keeps the new one, and a taken name shows why below.
 - The title of the Rename, New File and New Folder dialogs no longer wraps beside a long path.
+- **Toggle Line Comment** (`⌘/`) now works in JSON, GraphQL, Less and `.gitignore` files.
+- In CSS, HTML, XML and Markdown, **Toggle Line Comment** wraps each line in `/* */` or `<!-- -->`.
+- In Vue and Svelte files it comments a line as its script, style or markup part expects.
 
 ## 0.23.4
 

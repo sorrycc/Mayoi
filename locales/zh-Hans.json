@@ -1568,6 +1568,8 @@
   "prefDescTerminalBackendHcShowInHerdr": "在 Herdr 应用中显示 herdr-core 的终端，每个文件夹一个空间；远程文件夹的终端不显示。",
   "prefTitleDiffLayout": "差异布局",
   "prefDescDiffLayout": "并排、单列，或足够宽时并排。",
+  "prefTitleDiffEditMode": "Diff 编辑模式",
+  "prefDescDiffEditMode": "默认关闭。开启后，本地 Changes 和 Untracked 差异默认处于编辑模式。手动切换只影响当前差异文件，不改动此设置。旧版本、暂存区和提交记录始终只读。",
   "prefTitleDiffHighlight": "差异高亮",
   "prefDescDiffHighlight": "修改的行显示什么：变化的词、字符，或仅整行。",
   "prefTitleDiffWhitespace": "差异空白",

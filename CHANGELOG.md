@@ -5,6 +5,14 @@ needs a `## <version>` section here, or its build fails.
 
 ## Unreleased
 
+- Fix typing or pasting into the previous file after switching files in an editable diff.
+- Fix staged deletions offering to edit a later file in the diff.
+- Fix shortcut chords inserting their keys into editable diff text.
+- Fix typing becoming unavailable after selecting or deleting all text in an editable diff.
+- Fix double-click word selection and triple-click line selection in editable diffs.
+- Fix a bug blocking typing in files after the first with **Layout → One File at a Time**.
+- Enable `diffEditMode` to edit local **Changes** and **Untracked** diffs directly.
+- The **Edit** button starts on with `diffEditMode` and toggles only the current diff file.
 - Switching between Live Preview and Reading View keeps the same passage in view, without a jump.
 - Language servers that watch files pick up local workspace changes without reopening the folder.
 - Rename a file or folder right in its explorer row, as in VS Code, instead of in a dialog.

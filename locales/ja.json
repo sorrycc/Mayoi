@@ -1568,6 +1568,8 @@
   "prefDescTerminalBackendHcShowInHerdr": "herdr-core のターミナルを Herdr アプリにフォルダごとのスペースで表示します。リモートフォルダのターミナルは表示されません。",
   "prefTitleDiffLayout": "差分のレイアウト",
   "prefDescDiffLayout": "横並び、1 列、または十分な幅があれば横並び。",
+  "prefTitleDiffEditMode": "差分の編集モード",
+  "prefDescDiffEditMode": "既定ではオフです。オンにするとローカルの Changes と Untracked の差分を編集モードで開きます。編集ボタンの切り替えは現在の差分ファイルだけに適用され、設定は変わりません。旧版、ステージ済みの変更、コミットは読み取り専用です。",
   "prefTitleDiffHighlight": "差分のハイライト",
   "prefDescDiffHighlight": "変更行で示すもの。単語、文字、または行だけです。",
   "prefTitleDiffWhitespace": "差分の空白",

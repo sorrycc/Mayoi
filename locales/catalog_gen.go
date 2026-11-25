@@ -15870,6 +15870,26 @@ func (msgs Messages) PrefDescDiffLayout() string {
 	return Catalog.Format(msgs.locale, "prefDescDiffLayout", nil)
 }
 
+// PrefTitleDiffEditMode says "Diff Edit Mode"
+// in the language the app shows.
+func PrefTitleDiffEditMode() string { return In(i18n.Locale()).PrefTitleDiffEditMode() }
+
+// PrefTitleDiffEditMode says "Diff Edit Mode"
+// in the language of msgs.
+func (msgs Messages) PrefTitleDiffEditMode() string {
+	return Catalog.Format(msgs.locale, "prefTitleDiffEditMode", nil)
+}
+
+// PrefDescDiffEditMode says "Start local Changes and Untracked diffs in edit mode.
+// Off by default. The Edit button affects only the current diff f…" in the language the app shows.
+func PrefDescDiffEditMode() string { return In(i18n.Locale()).PrefDescDiffEditMode() }
+
+// PrefDescDiffEditMode says "Start local Changes and Untracked diffs in edit mode.
+// Off by default. The Edit button affects only the current diff f…" in the language of msgs.
+func (msgs Messages) PrefDescDiffEditMode() string {
+	return Catalog.Format(msgs.locale, "prefDescDiffEditMode", nil)
+}
+
 // PrefTitleDiffHighlight says "Diff Highlight"
 // in the language the app shows.
 func PrefTitleDiffHighlight() string { return In(i18n.Locale()).PrefTitleDiffHighlight() }

@@ -198,6 +198,10 @@ type Prefs struct {
 	// DiffFiles is how many files a diff shows at once: "" every file
 	// changed, one after another, or "one" the file chosen alone.
 	DiffFiles string `json:"diffFiles,omitempty"`
+	// DiffEditMode is the default edit mode for local Changes and
+	// Untracked diffs. It defaults to false; manual toggles affect
+	// only the current diff file without changing this preference.
+	DiffEditMode bool `json:"diffEditMode,omitempty"`
 	// DiffHighlight is what a diff shows of a line that changed: "line"
 	// no more than the line, "char" the characters that changed, or ""
 	// the words that changed. What it shows is only so: a diff's block

@@ -1796,6 +1796,8 @@
   "prefDescTerminalBackendHcShowInHerdr": "Show terminals of herdr-core in the Herdr app, in a space for each folder. Terminals of a remote folder stay out of it.",
   "prefTitleDiffLayout": "Diff Layout",
   "prefDescDiffLayout": "Side by side, in one column, or side by side when wide enough.",
+  "prefTitleDiffEditMode": "Diff Edit Mode",
+  "prefDescDiffEditMode": "Start local Changes and Untracked diffs in edit mode. Off by default. The Edit button affects only the current diff file and leaves this setting unchanged. Old versions, staged changes and commits stay read-only.",
   "prefTitleDiffHighlight": "Diff Highlight",
   "prefDescDiffHighlight": "What a changed line shows: the words, the characters, or only the line.",
   "prefTitleDiffWhitespace": "Diff Whitespace",

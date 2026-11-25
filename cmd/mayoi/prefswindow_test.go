@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -698,13 +699,23 @@ func TestPrefsFontPicker(t *testing.T) {
 	ph := newPrefsHarness(t)
 	w := ph.w
 	w.section = settings.CatFonts
-	w.families = []string{"Courier New", "Menlo", "Monaco"}
+	const studio = "Sample Studio"
+	w.families = visibleFontNames([]ui.FontFamily{
+		{Name: ".SF NS Mono", Monospaced: true},
+		{Name: "Courier New", Monospaced: true},
+		{Name: "Menlo", Monospaced: true},
+		{Name: studio},
+		{Name: "Monaco", Monospaced: true},
+	})
+	if want := []string{"Courier New", "Menlo", "Monaco", studio}; !slices.Equal(w.families.all, want) {
+		t.Fatalf("visible font names %q, want %q", w.families.all, want)
+	}
 	ph.frames()
 	if err := ph.pt.Click("Show Fonts"); err != nil {
 		t.Fatal(err)
 	}
 	ph.frames()
-	for _, f := range []string{"monospace", "Courier New", "Menlo", "Monaco"} {
+	for _, f := range []string{"monospace", "Courier New", "Menlo", "Monaco", studio} {
 		if !ph.pt.HasText(f) {
 			t.Fatalf("no %s in %q", f, ph.pt.Texts())
 		}
@@ -729,6 +740,17 @@ func TestPrefsFontPicker(t *testing.T) {
 	if ph.m.s.FontFamily != "Iosevka, mono" {
 		t.Errorf("Enter applied %q", ph.m.s.FontFamily)
 	}
+	w.firstH.SelectAll()
+	ph.frames()
+	ph.pt.Type("studio")
+	ph.frames()
+	if err := ph.pt.Click(studio); err != nil {
+		t.Fatal(err)
+	}
+	ph.frames()
+	if ph.m.s.FontFamily != studio {
+		t.Fatalf("chose %q, want %q", ph.m.s.FontFamily, studio)
+	}
 	// A font chosen after some typing is the one that stays, as the page
 	// goes.
 	w.firstH.SelectAll()
@@ -747,8 +769,104 @@ func TestPrefsFontPicker(t *testing.T) {
 	if got := fontOptions([]string{"Menlo", "Hack", "JetBrains Mono"}, "mon"); !slices.Equal(got, []string{"monospace", "JetBrains Mono"}) {
 		t.Errorf("mon finds %q", got)
 	}
-	if got := monoFamilies([]ui.FontFamily{{Name: "Menlo", Monospaced: true}, {Name: "Helvetica"}, {Name: ".SF NS Mono", Monospaced: true}}); !slices.Equal(got, []string{"Menlo"}) {
-		t.Errorf("monoFamilies %q", got)
+}
+
+func TestPrefsFontPickerMonospacedOnly(t *testing.T) {
+	const filter = "Only Show Monospaced Fonts"
+	const sample = "Sample Studio"
+	for _, tc := range []struct {
+		field string
+		font  func(*settings.Settings) string
+	}{
+		{"fontFamily", func(s *settings.Settings) string { return s.FontFamily }},
+		{"terminalFontFamily", func(s *settings.Settings) string { return s.TerminalFontFamily }},
+	} {
+		t.Run(tc.field, func(t *testing.T) {
+			ph := newPrefsHarness(t)
+			w := ph.w
+			w.query = tc.field
+			w.families = visibleFontNames([]ui.FontFamily{
+				{Name: "Sample Mono", Monospaced: true},
+				{Name: sample},
+				{Name: "Sample Serif"},
+			})
+			ph.frames()
+			w.firstH.Focus(ph.c)
+			ph.frames()
+			key := func(mods ui.Modifiers, k ui.Key) {
+				ph.pt.Key(mods, k)
+				ph.frames()
+			}
+			toggle := func() {
+				t.Helper()
+				key(0, ui.KeyTab)
+				if !ph.pt.Focused(filter) {
+					t.Fatal("Tab did not focus the font filter")
+				}
+				key(0, ui.KeySpace)
+				key(ui.Shift, ui.KeyTab)
+			}
+			key(0, ui.KeyDown)
+			if !ph.pt.HasText(sample) {
+				t.Fatal("sample missing with the filter off")
+			}
+			before, _ := ph.pt.Find(filter)
+			toggle()
+			if !w.monospacedFontsOnly || ph.pt.HasText(sample) || !ph.pt.HasText("Sample Mono") {
+				t.Fatalf("incorrect filtered list: %q", ph.pt.Texts())
+			}
+			w.firstH.SelectAll()
+			ph.frames()
+			ph.pt.Type("studio")
+			ph.frames()
+			if !ph.pt.HasText("No matching fonts") || ph.pt.HasText(sample) {
+				t.Fatalf("incorrect search with the filter on: %q", ph.pt.Texts())
+			}
+			if after, _ := ph.pt.Find(filter); after != before {
+				t.Fatalf("filter moved from %v to %v when there were no matches", before, after)
+			}
+			toggle()
+			if w.monospacedFontsOnly || !ph.pt.HasText(sample) || ph.pt.HasText("Sample Mono") {
+				t.Fatalf("turning the filter off lost the search: %q", ph.pt.Texts())
+			}
+			key(0, ui.KeyDown)
+			key(0, ui.KeyEnter)
+			if got := tc.font(ph.m.s); got != sample {
+				t.Fatalf("chosen font = %q, want %q", got, sample)
+			}
+
+			key(0, ui.KeyDown)
+			toggle()
+			if !w.monospacedFontsOnly || !ph.pt.HasText(sample) || ph.pt.HasText("Sample Serif") {
+				t.Fatalf("the filter should retain only the chosen non-monospaced family: %q", ph.pt.Texts())
+			}
+		})
+	}
+}
+
+func TestPrefsFontPickerLongList(t *testing.T) {
+	ph := newPrefsHarness(t)
+	w := ph.w
+	w.section = settings.CatFonts
+	families := make([]ui.FontFamily, 1000)
+	for i := range families {
+		families[i].Name = fmt.Sprintf("Sample Font %04d", i)
+	}
+	w.families = visibleFontNames(families)
+	ph.frames()
+	w.firstH.Focus(ph.c)
+	ph.frames()
+	ph.pt.Key(0, ui.KeyUp)
+	ph.frames()
+	if last := families[len(families)-1].Name; w.peek != last || !ph.pt.HasText(last) {
+		t.Fatalf("Up did not bring the final row into view: %q", w.peek)
+	}
+	ph.pt.Key(0, ui.KeyUp)
+	ph.frames()
+	ph.pt.Key(0, ui.KeyEnter)
+	ph.frames()
+	if want := families[len(families)-2].Name; ph.m.s.FontFamily != want {
+		t.Fatalf("chose %q, want %q", ph.m.s.FontFamily, want)
 	}
 }
 

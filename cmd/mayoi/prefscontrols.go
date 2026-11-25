@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"math"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -263,34 +264,51 @@ func prefNumber(key string, v float64) string {
 	return strconv.FormatFloat(v, 'f', -1, 64)
 }
 
-// prefFonts are the text preferences that name a font family, which a
-// picker of the monospaced fonts installed sets.
+// prefFonts are the text preferences set by the font picker.
 var prefFonts = map[string]bool{"fontFamily": true, "terminalFontFamily": true}
 
-// fontFamilies are the monospaced font families installed, which the
-// system lists once, off the UI thread: none until it has.
-func (w *prefsWindow) fontFamilies() []string {
+// fontFamilies lists the available font families once, off the UI thread.
+func (w *prefsWindow) fontFamilies(current string) []string {
 	if !w.familiesAsked && w.win != nil {
 		w.familiesAsked = true
 		win := w.win
 		go func() {
-			names := monoFamilies(ui.FontFamilies())
+			names := visibleFontNames(ui.FontFamilies())
 			win.Update(func() { w.families = names })
 		}()
 	}
-	return w.families
+	if !w.monospacedFontsOnly {
+		return w.families.all
+	}
+	// Keep the installed family already in use among the choices.
+	mono := w.families.monospaced
+	current = strings.TrimSpace(current)
+	nonMono := w.families.all[len(mono):]
+	if i := slices.IndexFunc(nonMono, func(name string) bool { return strings.EqualFold(name, current) }); i >= 0 {
+		return append(slices.Clone(mono), nonMono[i])
+	}
+	return mono
 }
 
-// monoFamilies are the names of the monospaced of families, but the
-// system's hidden ones, whose names start with a dot.
-func monoFamilies(families []ui.FontFamily) []string {
-	var out []string
+type fontFamilyNames struct {
+	all, monospaced []string
+}
+
+// visibleFontNames puts known monospaced families first. Some coding
+// fonts lack the system's monospace trait, so every visible family is offered.
+func visibleFontNames(families []ui.FontFamily) fontFamilyNames {
+	var mono, other []string
 	for _, f := range families {
-		if f.Monospaced && !strings.HasPrefix(f.Name, ".") {
-			out = append(out, f.Name)
+		if strings.HasPrefix(f.Name, ".") {
+			continue
+		}
+		if f.Monospaced {
+			mono = append(mono, f.Name)
+		} else {
+			other = append(other, f.Name)
 		}
 	}
-	return out
+	return fontFamilyNames{all: append(mono, other...), monospaced: mono}
 }
 
 // fontOptions are the families the picker of the fonts offers for what
@@ -314,97 +332,190 @@ func fontOptions(families []string, typed string) []string {
 	return append(starts, has...)
 }
 
-// fontPicker sets the font family of a preference: a field of it, in
-// that font, that offers the monospaced fonts installed, each in itself,
-// filtering them as it is typed in. A font chosen applies at once; what
-// is typed, a list that falls back as "Iosevka, monospace" too, as Enter
-// is pressed or the field is left. The code of the fonts shows the font
-// the arrows or the pointer are on.
+const (
+	fontPickerWidth = 240
+	fontRowHeight   = 28
+	fontVisibleRows = 9
+)
+
+type fontPickerState struct {
+	open, filtering, pointerOpened bool
+	highlight                      int
+	pointer                        [2]float32
+	filter                         ui.Handle
+	list                           ui.ListState
+}
+
+// openPicker starts at the first family; the arrows may then select one.
+func (s *fontPickerState) openPicker(pointer bool) {
+	s.open, s.filtering, s.pointerOpened = true, false, pointer
+	s.highlight = -1
+	s.list.ScrollTo(0, ui.Start)
+}
+
+// fontPicker previews the family highlighted by the arrows or pointer.
+// Enter picks it, or applies the text directly when no family is highlighted.
 func (w *prefsWindow) fontPicker(c *ui.Context, f settings.Field, v string, buf *string, apply func(any)) {
-	p := w.pal
-	t := c.Theme()
-	var cb ui.ComboboxParts
-	// The input is the field, so that the fonts open under all of it, and
-	// the arrow that opens them floats over its end.
-	ui.Box(c.Key("prefs-control-" + f.Key)).Width(240).Children(func() {
-		cb = ui.ComboboxBase(c.Key("font"), buf)
-		focused := cb.Input.Focused()
-		edge := p.border
-		if focused {
-			edge = p.accent
-		}
-		in := w.first(cb.Input.Height(30).Padding(0, 30, 0, 10).Radius(6).Background(t.Surface).Border(1, edge).Transition(fieldFocus).
+	p, t := w.pal, c.Theme()
+	field := ui.Box(c.Key("prefs-control-" + f.Key)).Width(fontPickerWidth)
+	var in ui.Element
+	var state *fontPickerState
+	field.Children(func() {
+		in = w.first(ui.TextInputBase(c.Key("font"), buf).Role(ui.RoleComboBox).
+			Height(30).Padding(0, 30, 0, 10).Radius(6).Background(t.Surface).Border(1, p.border).Transition(fieldFocus).
 			Font(monoFallback(v)).FontSize(12.5).TextColor(p.text).Label(prefTitle(f.Key)))
 		if ph := prefText("prefHint", f.Key); ph != prefKey("prefHint", f.Key) {
 			in.Placeholder(ph)
 		}
-		open := cb.Open()
+		state = ui.Local(in, "picker", func() fontPickerState { return fontPickerState{highlight: -1} })
+
 		arrow := ui.ButtonBase(c.Key("arrow")).Absolute().Right(4).Top(4).Size(22, 22).Radius(5).AlignItems(ui.Center).
 			Justify(ui.Center).Label(locales.PrefsFontsShow()).KeepFocus()
 		if arrow.Hovered() {
 			arrow.Background(p.hover)
 		}
 		arrow.Transition(hoverFade)
+		if arrow.Clicked() {
+			if state.open {
+				state.open = false
+			} else {
+				state.openPicker(!arrow.FocusVisible())
+			}
+			in.Focus()
+		}
 		turn := float32(0)
-		if open {
+		if state.open {
 			turn = 180
 		}
 		arrow.Children(func() {
 			ui.Icon(c.Key("chevron"), iconChevronDown).FontSize(12).TextColor(p.muted).AnimatePose(ui.Pose{Rotate: turn}, ui.Snappy)
 		})
-		if arrow.Clicked() {
-			cb.SetOpen(!open)
-			cb.Input.Focus()
-		}
 	})
-	focused := cb.Input.Focused()
-	typed := ""
-	if cb.Filtering() {
-		typed = *buf
+
+	filterFocused := state.filter.Focused(c)
+	focused := in.Focused() || filterFocused
+	if focused {
+		in.BorderColor(p.accent)
+	} else {
+		state.open = false
 	}
-	peek := ""
-	cb.Popup(func(panel ui.Element) {
-		panel.Padding(4).Radius(8).Background(t.Surface).Border(1, p.border)
-		if p.dark {
-			panel.Shadow(0, 10, 28, 0, ui.RGBA(0, 0, 0, 0.42))
-		} else {
-			panel.Shadow(0, 8, 24, 0, ui.RGBA(20, 20, 40, 0.16))
+
+	x, y, _ := in.PointerPosition()
+	pointer := [2]float32{x, y}
+	switch {
+	case in.Changed():
+		if !state.open {
+			state.openPicker(false)
 		}
-		dropIn(panel, 4)
-		ui.Scroll(c.Key("fonts")).MaxHeight(264).Children(func() {
-			for _, name := range fontOptions(w.fontFamilies(), typed) {
-				item := cb.Item(name).Row().Height(28).Padding(0, 8).Gap(8).Radius(5).AlignItems(ui.Center)
-				if item.Highlighted() {
-					item.Background(p.active)
-					peek = name
-				}
-				item.Transition(hoverFade)
-				item.Children(func() {
-					ui.Text(c, name).Font(monoFallback(name)).FontSize(13).TextColor(p.text).SingleLine().Grow(1).Shrink(1).MinWidth(0)
-					if strings.EqualFold(strings.TrimSpace(v), name) {
-						ui.Icon(c, iconCheck).FontSize(12).TextColor(p.accent).Shrink(0)
-					}
-				})
-			}
-		})
-	})
-	if name, ok := cb.Chosen(); ok {
-		// The font chosen, not what was typed before it.
+		state.filtering, state.highlight, state.pointer = true, 0, pointer
+		state.list.ScrollTo(0, ui.Start)
+	case in.Clicked() && !state.open:
+		state.openPicker(true)
+		state.pointer = pointer
+	}
+
+	direction := 0
+	switch {
+	case in.Shortcut(0, ui.KeyDown):
+		direction = 1
+	case in.Shortcut(0, ui.KeyUp):
+		direction = -1
+	}
+	openedWithArrow := direction != 0 && !state.open
+	if openedWithArrow {
+		state.openPicker(false)
+	}
+	choose := func(name string) {
+		state.open = false
 		*buf = name
 		w.editing[f.Key], w.drawn[f.Key] = false, true
 		delete(w.drafts, f.Key)
 		if name != v {
 			apply(name)
 		}
-		return
 	}
+	submitted := in.Submitted()
+	peek := ""
+	if state.open {
+		query := ""
+		if state.filtering {
+			query = *buf
+		}
+		names := fontOptions(w.fontFamilies(v), query)
+		state.highlight = min(state.highlight, len(names)-1)
+		if direction != 0 && len(names) > 0 {
+			if openedWithArrow && direction < 0 {
+				state.highlight = len(names) - 1
+			} else {
+				state.highlight = max(0, min(state.highlight+direction, len(names)-1))
+			}
+			state.list.ScrollIntoView(state.highlight)
+			state.pointer = pointer
+		}
+		if state.highlight >= 0 && submitted {
+			choose(names[state.highlight])
+			return
+		}
+		panel := ui.PopoverBase(c.Key("font-popup-"+f.Key), field, &state.open, func(panel ui.Element) {
+			panel.Width(fontPickerWidth).Padding(4).Radius(8).Background(t.Surface).Border(1, p.border).KeepFocus()
+			if p.dark {
+				panel.Shadow(0, 10, 28, 0, ui.RGBA(0, 0, 0, 0.42))
+			} else {
+				panel.Shadow(0, 8, 24, 0, ui.RGBA(20, 20, 40, 0.16))
+			}
+			if state.pointerOpened {
+				dropIn(panel, 4)
+			}
+
+			label := locales.PrefsFontsMonospacedOnly()
+			filter := ui.Checkbox(c.Key("font-filter"), &w.monospacedFontsOnly, label).
+				Bind(&state.filter).Label(label).Height(fontRowHeight).Padding(0, 8).AlignItems(ui.Center)
+			in.OnShortcut(0, ui.KeyTab, func() { state.filter.Focus(c) })
+			filter.OnShortcut(ui.Shift, ui.KeyTab, func() { in.Focus() })
+			if filter.Changed() {
+				state.highlight, state.pointer = -1, pointer
+				state.list.ScrollTo(0, ui.Start)
+			}
+			if len(names) == 0 {
+				ui.Text(c, locales.PrefsFontsNoMatches()).Padding(6, 8).FontSize(13).TextColor(p.muted)
+				return
+			}
+			ui.List(c.Key("fonts"), &state.list, len(names)).Height(fontRowHeight * float32(min(len(names), fontVisibleRows))).
+				ItemKey(func(i int) any { return names[i] }).Rows(func(row ui.ListRow) {
+				i, name := row.Index, names[row.Index]
+				item := ui.Row(row.Context).Height(fontRowHeight).Padding(0, 8).Gap(8).Radius(5).AlignItems(ui.Center).
+					Role(ui.RoleListItem).Label(name).Tooltip(name).OnClick(func() { choose(name) })
+				if item.Hovered() && pointer != state.pointer {
+					state.highlight, state.pointer = i, pointer
+				}
+				if i == state.highlight {
+					item.Background(p.active)
+					in.ActiveDescendant(item)
+				}
+				selected := strings.EqualFold(strings.TrimSpace(v), name)
+				item.Checked(selected).Transition(hoverFade)
+				item.Children(func() {
+					ui.Text(row.Context, name).Font(monoFallback(name)).FontSize(13).TextColor(p.text).SingleLine().Grow(1).Shrink(1).MinWidth(0)
+					if selected {
+						ui.Icon(row.Context, iconCheck).FontSize(12).TextColor(p.accent).Shrink(0)
+					}
+				})
+			})
+		})
+		if panel.Dismissed() && filterFocused {
+			in.Focus()
+		}
+		if state.open && state.highlight >= 0 {
+			peek = names[state.highlight]
+		}
+	}
+	in.Expanded(state.open)
 	if f.Key == "fontFamily" && peek != w.peek {
 		w.peek = peek
 		w.invalidate()
 	}
-	w.draft(f.Key, v, buf, focused, cb.Input.Submitted(), func(x any) {
-		// The code's font left empty stays as it was, as the terminal's
-		// does not: that is the code's.
+	w.draft(f.Key, v, buf, focused, submitted, func(x any) {
+		// The editor requires a family while the terminal can inherit it.
 		if f.Key != "fontFamily" || strings.TrimSpace(x.(string)) != "" {
 			apply(x)
 		}

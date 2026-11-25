@@ -1684,6 +1684,8 @@
   "prefsWasInherited": "{name} uses your setting again",
   "prefsDismiss": "Dismiss",
   "prefsFontsShow": "Show Fonts",
+  "prefsFontsMonospacedOnly": "Only Show Monospaced Fonts",
+  "prefsFontsNoMatches": "No matching fonts",
   "keysWereReset": "Keys of {command} reset to default",
   "keysWereRemoved": "Keys of {command} removed",
   "prefsNoFolder": "Open a folder on this machine to give it settings of its own",

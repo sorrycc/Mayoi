@@ -206,7 +206,7 @@ func Start(ctx context.Context, opts Options) (*Client, error) {
 		c.mu.Unlock()
 		close(c.done)
 		if c.watches != nil {
-			c.watches.cancel()
+			c.watches.close()
 		}
 	}()
 	workspaceCaps := map[string]any{"workspaceFolders": true, "configuration": true}

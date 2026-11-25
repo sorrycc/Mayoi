@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"maps"
 	"path"
 	"path/filepath"
 	"strings"
@@ -22,10 +23,14 @@ type fileWatches struct {
 	roots  []string
 	ctx    context.Context
 	cancel context.CancelFunc
+	// notify sends the server its changes.
+	notify func(changes []watchedFileChange) error
 
 	mu    sync.Mutex
 	rules map[string][]fileWatchRule
-	stop  context.CancelFunc
+	// unwatch ends the subscriptions to the watches of roots, nil when
+	// none run.
+	unwatch []func()
 }
 
 type fileWatchRule struct {
@@ -53,11 +58,29 @@ func newFileWatches(c *Client) *fileWatches {
 		return nil
 	}
 	ctx, cancel := context.WithCancel(context.Background())
-	return &fileWatches{client: c, roots: roots, ctx: ctx, cancel: cancel, rules: map[string][]fileWatchRule{}}
+	w := &fileWatches{client: c, roots: roots, ctx: ctx, cancel: cancel, rules: map[string][]fileWatchRule{}}
+	w.notify = func(changes []watchedFileChange) error {
+		return c.send(ctx, watchedFiles, map[string]any{"changes": changes}, nil)
+	}
+	return w
+}
+
+// close ends the watches, as the server stops.
+func (w *fileWatches) close() {
+	w.mu.Lock()
+	w.cancel()
+	unwatch := w.unwatch
+	w.unwatch = nil
+	w.mu.Unlock()
+	for _, f := range unwatch {
+		f()
+	}
 }
 
 // update takes a server's registration or removal. The protocol spells the
-// removal field "unregisterations". Watch setup finishes before the reply.
+// removal field "unregisterations". The watches start in the background,
+// so that the reply, and what the server says after it, don't wait for them
+// to look at the tree.
 func (w *fileWatches) update(method string, params json.RawMessage) {
 	var request struct {
 		Registrations []struct {
@@ -102,19 +125,18 @@ func (w *fileWatches) update(method string, params json.RawMessage) {
 			}
 		}
 	}
-	var start context.Context
+	var stop []func()
 	switch {
-	case len(w.rules) > 0 && w.stop == nil:
-		start, w.stop = context.WithCancel(w.ctx)
-	case len(w.rules) == 0 && w.stop != nil:
-		w.stop()
-		w.stop = nil
+	case len(w.rules) > 0 && w.unwatch == nil && w.ctx.Err() == nil:
+		for _, root := range w.roots {
+			w.unwatch = append(w.unwatch, watchRoot(root, w))
+		}
+	case len(w.rules) == 0 && w.unwatch != nil:
+		stop, w.unwatch = w.unwatch, nil
 	}
 	w.mu.Unlock()
-	if start != nil {
-		for _, root := range w.roots {
-			w.watch(start, root)
-		}
+	for _, f := range stop {
+		f()
 	}
 }
 
@@ -169,31 +191,90 @@ func (r fileWatchRule) matches(rel, name string, kind int) bool {
 	}
 }
 
-func (w *fileWatches) watch(ctx context.Context, root string) {
-	watcher, err := mygo.WatchFiles(ctx, root, mygo.FileWatchOptions{
+// rootWatch is the watch of a root, which every server of a folder there
+// shares: two servers of a folder cost one snapshot of its tree.
+type rootWatch struct {
+	key    string // the root, its symlinks resolved
+	cancel context.CancelFunc
+	subs   map[*fileWatches]string // with the root each knows it by
+}
+
+// rootWatches are the watches that run, by key; the lock guards their subs.
+var rootWatches = struct {
+	sync.Mutex
+	m map[string]*rootWatch
+}{m: map[string]*rootWatch{}}
+
+// watchRoot subscribes w to the watch of root, starting it for the first,
+// and returns what ends the subscription: the last one stops the watch.
+func watchRoot(root string, w *fileWatches) func() {
+	key := root
+	if resolved, err := filepath.EvalSymlinks(root); err == nil {
+		key = resolved
+	}
+	rootWatches.Lock()
+	defer rootWatches.Unlock()
+	rw := rootWatches.m[key]
+	if rw == nil {
+		ctx, cancel := context.WithCancel(context.Background())
+		rw = &rootWatch{key: key, cancel: cancel, subs: map[*fileWatches]string{}}
+		rootWatches.m[key] = rw
+		go rw.run(ctx)
+	}
+	rw.subs[w] = root
+	return func() {
+		rootWatches.Lock()
+		defer rootWatches.Unlock()
+		if _, ok := rw.subs[w]; !ok {
+			return
+		}
+		delete(rw.subs, w)
+		if len(rw.subs) == 0 {
+			rw.cancel()
+			if rootWatches.m[key] == rw {
+				delete(rootWatches.m, key)
+			}
+		}
+	}
+}
+
+// run watches the root and tells each subscriber what changed.
+func (rw *rootWatch) run(ctx context.Context) {
+	watcher, err := mygo.WatchFiles(ctx, rw.key, mygo.FileWatchOptions{
 		Recursive: true,
 		Ignore:    func(rel string, dir bool) bool { return dir && workspace.Skipped(path.Base(rel)) },
 	})
-	if err != nil {
-		w.logError(ctx, root, err)
-		return
-	}
-	go func() {
+	if err == nil {
 		defer watcher.Close()
 		for {
-			events, err := watcher.Next(ctx)
-			if err != nil {
-				w.logError(ctx, root, err)
-				return
+			var events []mygo.FileEvent
+			if events, err = watcher.Next(ctx); err != nil {
+				break
 			}
-			changes := w.changes(root, events)
-			if len(changes) != 0 && ctx.Err() == nil {
-				if w.client.send(ctx, watchedFiles, map[string]any{"changes": changes}, nil) != nil {
-					return
+			for w, root := range rw.subscribers() {
+				if changes := w.changes(root, events); len(changes) != 0 && w.ctx.Err() == nil {
+					w.notify(changes)
 				}
 			}
 		}
-	}()
+	}
+	rootWatches.Lock()
+	if rootWatches.m[rw.key] == rw {
+		delete(rootWatches.m, rw.key)
+	}
+	subs := maps.Clone(rw.subs)
+	rootWatches.Unlock()
+	if ctx.Err() == nil {
+		for w, root := range subs {
+			w.logError(root, err)
+		}
+	}
+}
+
+func (rw *rootWatch) subscribers() map[*fileWatches]string {
+	rootWatches.Lock()
+	defer rootWatches.Unlock()
+	return maps.Clone(rw.subs)
 }
 
 type watchedFileChange struct {
@@ -237,8 +318,8 @@ func (w *fileWatches) changes(root string, events []mygo.FileEvent) []watchedFil
 	return changes
 }
 
-func (w *fileWatches) logError(ctx context.Context, root string, err error) {
-	if ctx.Err() == nil && !errors.Is(err, io.EOF) && w.client.h.Log != nil {
+func (w *fileWatches) logError(root string, err error) {
+	if w.ctx.Err() == nil && !errors.Is(err, io.EOF) && w.client.h.Log != nil {
 		w.client.h.Log("warn", "file watcher: "+root+": "+err.Error())
 	}
 }

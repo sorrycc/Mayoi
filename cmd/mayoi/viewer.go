@@ -631,11 +631,7 @@ func (a *app) setPreview(d *editor, on bool) {
 		if isMarkdown(d.document) {
 			// It opens where the text is.
 			m := &markdownPreview{}
-			y := d.vscroll.Y
-			if d.hidden {
-				y = d.hiddenY
-			}
-			m.sync.want, m.sync.placing = a.textPlace(d, y), true
+			m.sync.want, m.sync.placing = a.readingPlace(d), true
 			d.preview.markdown = m
 		}
 		if t := d.preview.jsonl; t != nil {
@@ -643,14 +639,9 @@ func (a *app) setPreview(d *editor, on bool) {
 			t.line = d.buf.Snapshot().LineAt(d.sel[1])
 		}
 	} else {
+		place := float32(-1)
 		if m := d.preview.markdown; m != nil && m.lines > 0 {
-			// The text opens where the preview was.
-			y := a.textY(d, m.sync.top)
-			if d.hidden {
-				d.hiddenY, d.hiddenPlaced = y, false
-			} else {
-				d.vscroll.Y = y
-			}
+			place = m.sync.top
 		}
 		row := -1
 		if t := d.preview.jsonl; t != nil && t.ix != nil && t.row >= 0 && t.row < t.count() {
@@ -659,6 +650,10 @@ func (a *app) setPreview(d *editor, on bool) {
 		}
 		d.preview.stop()
 		d.preview = nil
+		if place >= 0 {
+			// The text opens where the preview was.
+			a.textFromReading(d, place)
+		}
 		if row >= 0 {
 			d.whenRead(func(d *editor) { d.selectLine(row+1, 1) })
 		}

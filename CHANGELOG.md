@@ -3,7 +3,7 @@
 The update window shows the section of the version it offers. Every release
 needs a `## <version>` section here, or its build fails.
 
-## Unreleased
+## 0.23.5
 
 - Switching between Live Preview and Reading View keeps the same passage in view, without a jump.
 - Language servers that watch files pick up local workspace changes without reopening the folder.

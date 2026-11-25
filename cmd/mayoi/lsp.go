@@ -292,6 +292,7 @@ func (s *lspServer) start(a *app, prev *lspServer) {
 	}
 	c, err := lsp.Start(ctx, lsp.Options{Cmd: cmd, Stdin: pw, RootURI: rootURI, InitOptions: launch.Options,
 		Configuration: launch.Configuration, WorkspaceFolders: launch.WorkspaceFolders, PathMappings: launch.PathMappings,
+		WatchFiles: !vfs.IsRemote(root),
 		Handlers: lsp.Handlers{
 			Diagnostics: func(uri string, items []lsp.Diagnostic) {
 				path := serverPath(root, uri)

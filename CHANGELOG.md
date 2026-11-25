@@ -5,6 +5,7 @@ needs a `## <version>` section here, or its build fails.
 
 ## Unreleased
 
+- Language servers that watch files pick up local workspace changes without reopening the folder.
 - Rename a file or folder right in its explorer row, as in VS Code, instead of in a dialog.
 - On macOS, `Enter` on a chosen file or folder renames it; `F2` does on every system.
 - On macOS, `⌘↓` keeps the chosen file open in a tab, as `Enter` did before.

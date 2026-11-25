@@ -94,7 +94,9 @@ type Options struct {
 	Configuration    map[string]any
 	WorkspaceFolders []WorkspaceFolder
 	PathMappings     []PathMapping
-	Handlers         Handlers
+	// WatchFiles enables dynamic file watches in local workspace folders.
+	WatchFiles bool
+	Handlers   Handlers
 }
 
 // Client is a running server.
@@ -123,6 +125,7 @@ type Client struct {
 	configuration      map[string]any
 	folders            []WorkspaceFolder
 	toServer, toClient []PathMapping
+	watches            *fileWatches
 }
 
 type response struct {
@@ -172,6 +175,9 @@ func Start(ctx context.Context, opts Options) (*Client, error) {
 	if c.folders == nil {
 		c.folders = []WorkspaceFolder{{URI: opts.RootURI, Name: filepath.Base(Path(opts.RootURI))}}
 	}
+	if opts.WatchFiles {
+		c.watches = newFileWatches(c)
+	}
 	if stderr != nil {
 		go c.logLines(stderr)
 	}
@@ -199,7 +205,14 @@ func Start(ctx context.Context, opts Options) (*Client, error) {
 		}
 		c.mu.Unlock()
 		close(c.done)
+		if c.watches != nil {
+			c.watches.cancel()
+		}
 	}()
+	workspaceCaps := map[string]any{"workspaceFolders": true, "configuration": true}
+	if c.watches != nil && len(c.watches.roots) > 0 {
+		workspaceCaps["didChangeWatchedFiles"] = map[string]bool{"dynamicRegistration": true, "relativePatternSupport": true}
+	}
 	var initOpts any
 	if len(opts.InitOptions) > 0 {
 		initOpts = opts.InitOptions
@@ -222,7 +235,7 @@ func Start(ctx context.Context, opts Options) (*Client, error) {
 				"formatting":         map[string]any{},
 				"publishDiagnostics": map[string]any{"relatedInformation": false},
 			},
-			"workspace": map[string]any{"workspaceFolders": true, "configuration": true},
+			"workspace": workspaceCaps,
 		},
 		"clientInfo": map[string]any{"name": "Mayoi"},
 	}
@@ -489,6 +502,10 @@ func (c *Client) read(r *bufio.Reader) {
 func (c *Client) answer(id json.RawMessage, method string, params json.RawMessage) {
 	var result any
 	switch method {
+	case "client/registerCapability", "client/unregisterCapability":
+		if c.watches != nil {
+			c.watches.update(method, params)
+		}
 	case "workspace/configuration":
 		var p struct {
 			Items []struct {

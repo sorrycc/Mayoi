@@ -3,6 +3,7 @@ package remote
 import (
 	"io"
 	"os/exec"
+	"strconv"
 )
 
 // frameShell is the long-lived POSIX shell inside one Windows worker.
@@ -136,6 +137,42 @@ func startSSH(host string, stderr io.Writer) (workerPipe, error) {
 		return workerPipe{}, err
 	}
 	if err := cmd.Start(); err != nil {
+		return workerPipe{}, err
+	}
+	done := make(chan struct{})
+	go func() {
+		cmd.Wait()
+		close(done)
+	}()
+	return workerPipe{in: in, out: out, kill: func() { cmd.Process.Kill() }, done: done}, nil
+}
+
+// startSSHPS starts a worker of a Windows host: PowerShell reads the
+// frame server, and then the frames.
+func startSSHPS(host string, stderr io.Writer) (workerPipe, error) {
+	args := poolSSHArgs(host)
+	args[len(args)-1] = psLauncher
+	cmd := hiddenCommand("ssh", args...)
+	if stderr == nil {
+		cmd.Stderr = io.Discard
+	} else {
+		cmd.Stderr = stderr
+	}
+	in, err := cmd.StdinPipe()
+	if err != nil {
+		return workerPipe{}, err
+	}
+	out, err := cmd.StdoutPipe()
+	if err != nil {
+		return workerPipe{}, err
+	}
+	if err := cmd.Start(); err != nil {
+		return workerPipe{}, err
+	}
+	server := psFrameServerScript()
+	if _, err := io.WriteString(in, strconv.Itoa(len(server))+"\n"+server); err != nil {
+		cmd.Process.Kill()
+		cmd.Wait()
 		return workerPipe{}, err
 	}
 	done := make(chan struct{})

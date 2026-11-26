@@ -782,7 +782,12 @@ is the system `ssh`, `%USERPROFILE%\.ssh` and the Windows ssh-agent, not WSL's `
   Git commands reuse that connection instead of signing in again.
 - The folder's path stays `/ssh:host/path` on Windows as well, as a complete path. A file under that folder stays in it
   for search, Source Control and the breadcrumbs. A language server for a document in the folder runs on the host. A
-  host that does not answer as a POSIX shell is refused, and the files stay read-only.
+  host that answers neither as a POSIX shell nor as PowerShell is refused, says so, and is not tried again by itself.
+- A Windows host with OpenSSH Server works too, through the Windows PowerShell it comes with, whether its shell is
+  `cmd.exe` or PowerShell. Its folders show as `/C:/Users/me`, `/` lists its drives, and the folder box takes
+  `C:\Users\me` as typed. Git, `gh` and language servers run there, search asks `rg` when the host has it, and
+  terminals are PowerShell. Changes are looked for every few seconds, as on hosts without `inotifywait`, and each
+  command starts a PowerShell, so the host answers more slowly than a Linux or macOS one.
 - The Explorer, quick open, search and replace in files, Source Control, blame, the gutter marks and diffs work as in a
   local folder, running `git`, `rg` (or `grep`) and `find` on the host. Terminals are shells of the host.
 - The folders in a folder of the Explorer are read along with it, at one round trip, but those the index skips, as

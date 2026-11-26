@@ -3,6 +3,14 @@
 The update window shows the section of the version it offers. Every release
 needs a `## <version>` section here, or its build fails.
 
+## Unreleased
+
+- **Remote SSH** connects to Windows hosts running OpenSSH Server, through the PowerShell Windows comes with.
+- A Windows host's files, Git, search and language servers work as on Linux, and its terminals open PowerShell.
+- On a Windows host, `/` lists its drives and the folder box takes `C:\Users\me` as you type it.
+- A host that runs neither `sh` nor PowerShell now says why it can't connect, instead of "not connected".
+- Such a host is no longer retried forever; **Reconnect** tries it again.
+
 ## 0.23.5
 
 - Switching between Live Preview and Reading View keeps the same passage in view, without a jump.

@@ -935,12 +935,29 @@ func parseCommit(rec string) (Commit, bool) {
 // Log returns the last n commits of HEAD's history, or of every branch
 // and tag when all is set, newest first and each after the commits made
 // on it: none before the first commit.
-func (r *Repo) Log(n int, all bool) ([]Commit, error) {
+func (r *Repo) Log(n int, all bool) ([]Commit, error) { return r.log(n, all, "") }
+
+// LogPath returns the last n commits that changed path, newest first,
+// following the file through renames, as the file's history. all reads
+// every branch and tag, as Log does.
+func (r *Repo) LogPath(path string, n int, all bool) ([]Commit, error) {
+	return r.log(n, all, r.Rel(path))
+}
+
+// log reads the history of HEAD, or of the file at path when it is not "".
+func (r *Repo) log(n int, all bool, path string) ([]Commit, error) {
 	args := []string{"log", "-z", "--date-order", "--decorate=full", "-n", strconv.Itoa(n), commitFormat, "HEAD"}
 	if all {
 		args = append(args, "--branches", "--remotes", "--tags")
 	}
-	out, err := r.run(nil, append(args, "--")...)
+	if path != "" {
+		args = append(args, "--follow")
+	}
+	args = append(args, "--")
+	if path != "" {
+		args = append(args, path)
+	}
+	out, err := r.run(nil, args...)
 	if err != nil {
 		// Before the first commit HEAD names none: no history, no error.
 		if r.Head() == "" {

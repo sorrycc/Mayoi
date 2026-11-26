@@ -21519,3 +21519,43 @@ func ClaudeThemeFailed(err string) string { return In(i18n.Locale()).ClaudeTheme
 func (msgs Messages) ClaudeThemeFailed(err string) string {
 	return Catalog.Format(msgs.locale, "claudeThemeFailed", map[string]any{"err": err})
 }
+
+// CmdGitFileHistory says "Open File History"
+// in the language the app shows.
+func CmdGitFileHistory() string { return In(i18n.Locale()).CmdGitFileHistory() }
+
+// CmdGitFileHistory says "Open File History"
+// in the language of msgs.
+func (msgs Messages) CmdGitFileHistory() string {
+	return Catalog.Format(msgs.locale, "cmdGitFileHistory", nil)
+}
+
+// ScmFileHistory says "File History of {path}"
+// in the language the app shows.
+func ScmFileHistory(path string) string { return In(i18n.Locale()).ScmFileHistory(path) }
+
+// ScmFileHistory says "File History of {path}"
+// in the language of msgs.
+func (msgs Messages) ScmFileHistory(path string) string {
+	return Catalog.Format(msgs.locale, "scmFileHistory", map[string]any{"path": path})
+}
+
+// ScmFileHistoryClear says "Clear File History"
+// in the language the app shows.
+func ScmFileHistoryClear() string { return In(i18n.Locale()).ScmFileHistoryClear() }
+
+// ScmFileHistoryClear says "Clear File History"
+// in the language of msgs.
+func (msgs Messages) ScmFileHistoryClear() string {
+	return Catalog.Format(msgs.locale, "scmFileHistoryClear", nil)
+}
+
+// ScmFileHistoryNone says "No commit changed this file."
+// in the language the app shows.
+func ScmFileHistoryNone() string { return In(i18n.Locale()).ScmFileHistoryNone() }
+
+// ScmFileHistoryNone says "No commit changed this file."
+// in the language of msgs.
+func (msgs Messages) ScmFileHistoryNone() string {
+	return Catalog.Format(msgs.locale, "scmFileHistoryNone", nil)
+}

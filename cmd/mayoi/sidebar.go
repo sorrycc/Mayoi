@@ -503,6 +503,9 @@ func (a *app) fileTree(c *ui.Context) {
 			}
 			if !isDir && a.repositoryForPath(path).git.repo != nil {
 				m.Separator()
+				if m.Item(locales.CmdGitFileHistory()).Chosen() {
+					action = func() { a.showFileHistory(path) }
+				}
 				if m.Item(locales.CmdGitOpenFileOnRemote()).Chosen() {
 					action = func() { a.fileOnRemote(path, nil, false) }
 				}

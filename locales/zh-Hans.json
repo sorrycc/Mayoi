@@ -2127,5 +2127,9 @@
   "claudeThemeTooOld": "Claude Code {version} 不支持自定义主题。更新到 {least} 或更高版本后关闭再打开此项。",
   "claudeThemeTaken": "{path} 不是 Mayoi 的，Mayoi 未改动它。移走它后关闭再打开此项。",
   "claudeThemeMalformed": "{path} 不是有效的 JSON，Mayoi 未改动它。修正后关闭再打开此项。",
-  "claudeThemeFailed": "无法更改 Claude Code 的主题：{err}"
+  "claudeThemeFailed": "无法更改 Claude Code 的主题：{err}",
+  "cmdGitFileHistory": "打开文件历史",
+  "scmFileHistory": "{path} 的文件历史",
+  "scmFileHistoryClear": "清除文件历史",
+  "scmFileHistoryNone": "没有提交更改过此文件。"
 }

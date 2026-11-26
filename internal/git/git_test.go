@@ -448,6 +448,37 @@ func TestLogAndCommitFiles(t *testing.T) {
 	}
 }
 
+func TestLogPath(t *testing.T) {
+	r, git := repo(t)
+	write(t, r.Root, "a.txt", "one\nchanged\nthree\n")
+	git("commit", "-qam", "change a")
+	write(t, r.Root, "b.txt", "bee\nbuzz\n")
+	git("commit", "-qam", "change b")
+	git("mv", "a.txt", "aa.txt")
+	git("commit", "-qm", "rename a")
+	cs, err := r.LogPath(r.Abs("aa.txt"), 10, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var subjects []string
+	for _, c := range cs {
+		subjects = append(subjects, c.Subject)
+	}
+	want := []string{"rename a", "change a", "first"}
+	if !slices.Equal(subjects, want) {
+		t.Fatalf("history %v, want %v", subjects, want)
+	}
+	// The number asked for is the number read.
+	if cs, err = r.LogPath(r.Abs("aa.txt"), 1, false); err != nil || len(cs) != 1 || cs[0].Subject != "rename a" {
+		t.Errorf("one commit %+v %v", cs, err)
+	}
+	// A file no commit changed has no history.
+	write(t, r.Root, "new.txt", "new\n")
+	if cs, err = r.LogPath(r.Abs("new.txt"), 10, false); err != nil || len(cs) != 0 {
+		t.Errorf("an untracked file's history %+v %v", cs, err)
+	}
+}
+
 func TestLogBeforeTheFirstCommit(t *testing.T) {
 	if _, err := exec.LookPath("git"); err != nil {
 		t.Skip("no git")

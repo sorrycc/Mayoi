@@ -79,9 +79,13 @@ type gitState struct {
 	// history is the last commits of HEAD, newest first, and unpushed
 	// those its upstream lacks, read for the state historyOf names;
 	// historyN is how many to read, historyGen counts the reads.
+	// historyPath scopes the history to the commits that changed a file,
+	// as the editor spells it; "" reads the branch's own.
 	history        []git.Commit
 	unpushed       map[string]bool
+	historyPath    string
 	historyOf      string
+	historyErr     string // why the history could not be read, "" when it was
 	historyN       int
 	historyGen     int
 	loadingHistory bool
@@ -349,19 +353,21 @@ func (a *gitContext) refreshGit() {
 }
 
 // historyKey names the state the history is read for: where HEAD and its
-// upstream are, and how many commits are asked for.
+// upstream are, how many commits are asked for, and the file whose own
+// history is read, if one is.
 func (a *gitContext) historyKey() string {
 	g := a.git
 	st := g.status
 	if st == nil {
 		return ""
 	}
-	return fmt.Sprintf("%s|%s|%d|%d|%d|%d|%t|%d", st.Head, st.Upstream, st.Ahead, st.Behind, max(g.historyN, historyPage),
-		len(g.remotes), a.app.settings.ScmAllBranches, g.refsGen)
+	return fmt.Sprintf("%s|%s|%d|%d|%d|%d|%t|%d|%s", st.Head, st.Upstream, st.Ahead, st.Behind, max(g.historyN, historyPage),
+		len(g.remotes), a.app.settings.ScmAllBranches, g.refsGen, g.historyPath)
 }
 
 // refreshHistory reads the last commits again in the background when HEAD
-// or its upstream moved, or more are asked for.
+// or its upstream moved, more are asked for, or another file's history
+// is read.
 func (a *gitContext) refreshHistory() {
 	if !a.live() {
 		return
@@ -378,14 +384,18 @@ func (a *gitContext) refreshHistory() {
 	}
 	g.loadingHistory = true
 	// Without a remote nothing is pushed or not: no commit is marked.
-	r, remotes, all, upstream := g.repo, len(g.remotes) > 0, a.app.settings.ScmAllBranches, st.Upstream
+	r, remotes, all, upstream, path := g.repo, len(g.remotes) > 0, a.app.settings.ScmAllBranches, st.Upstream, g.historyPath
 	bg.Go(func() {
 		defer recoverCrash()
 		var cs []git.Commit
 		var err error
 		var unpushed map[string]bool
 		readGit(func() {
-			cs, err = r.Log(n, all)
+			if path != "" {
+				cs, err = r.LogPath(path, n, all)
+			} else {
+				cs, err = r.Log(n, all)
+			}
 			if remotes {
 				unpushed = r.Unpushed(n, upstream)
 			}
@@ -395,8 +405,15 @@ func (a *gitContext) refreshHistory() {
 				return
 			}
 			g.loadingHistory = false
+			// The file whose history was asked for changed meanwhile:
+			// what was read is of another list, which reads on.
+			if g.historyPath != path {
+				return
+			}
 			g.historyOf = key
+			g.historyErr = ""
 			if err != nil {
+				g.historyErr = err.Error()
 				return
 			}
 			g.history, g.unpushed = cs, unpushed

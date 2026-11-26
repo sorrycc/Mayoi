@@ -2127,5 +2127,9 @@
   "claudeThemeTooOld": "Claude Code {version} はカスタムテーマに対応していません。{least} 以降に更新してから、オフにしてオンにしてください。",
   "claudeThemeTaken": "{path} は Mayoi のものではないため、変更していません。移動してから、オフにしてオンにしてください。",
   "claudeThemeMalformed": "{path} は有効な JSON ではないため、変更していません。修正してから、オフにしてオンにしてください。",
-  "claudeThemeFailed": "Claude Code のテーマを変更できませんでした：{err}"
+  "claudeThemeFailed": "Claude Code のテーマを変更できませんでした：{err}",
+  "cmdGitFileHistory": "ファイル履歴を開く",
+  "scmFileHistory": "{path} のファイル履歴",
+  "scmFileHistoryClear": "ファイル履歴をクリア",
+  "scmFileHistoryNone": "このファイルを変更したコミットはありません。"
 }

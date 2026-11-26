@@ -281,6 +281,11 @@ The branch button in the COMMITS header, or **Show All Branches** in the **⋯**
 too, and every tag, not only the history of the branch checked out. The button stays in the header, in the accent
 color, while it is on.
 
+**Git → Open File History**, and the same item in a file tab's and the Explorer's menu, shows the commits that changed
+the file of the tab shown: source control lists those alone, under a chip that names the file. A click shows each
+commit at that file, and the chip's × shows the branch's history again. Git follows the file through renames, and a file
+no commit changed says so.
+
 Click a commit to see it in the preview tab, the keyboard staying in the list, so clicking through commits leaves one
 tab; Enter, a double click or **Open Changes** in its menu keeps it in a tab of its own, focused. The tab shows its
 message, author, date, hash, branches and tags at the top, then each file it changed from its first parent, as the

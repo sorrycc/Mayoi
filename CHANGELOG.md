@@ -5,6 +5,7 @@ needs a `## <version>` section here, or its build fails.
 
 ## Unreleased
 
+- On Windows, `F12` and `Ctrl`-click now open definitions in the active WSL distro or on the Linux SSH host.
 - **Remote SSH** connects to Windows hosts running OpenSSH Server, through the PowerShell Windows comes with.
 - A Windows host's files, Git, search and language servers work as on Linux, and its terminals open PowerShell.
 - On a Windows host, `/` lists its drives and the folder box takes `C:\Users\me` as you type it.

@@ -165,7 +165,7 @@ func serverPath(root, uri string) string {
 		return ""
 	}
 	if remote.Is(root) {
-		return remote.On(root, p)
+		return remote.On(root, filepath.ToSlash(p))
 	}
 	return p
 }

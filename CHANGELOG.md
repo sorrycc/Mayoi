@@ -10,6 +10,7 @@ needs a `## <version>` section here, or its build fails.
 - On a Windows host, `/` lists its drives and the folder box takes `C:\Users\me` as you type it.
 - A host that runs neither `sh` nor PowerShell now says why it can't connect, instead of "not connected".
 - Such a host is no longer retried forever; **Reconnect** tries it again.
+- A plugin theme can ship light and dark palettes under one entry with `darkPath`, following **Appearance**.
 
 ## 0.23.5
 

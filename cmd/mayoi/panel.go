@@ -169,13 +169,14 @@ func (a *app) termThemes() (light, dark *terminal.Theme) {
 	return termTheme(paletteFor(th, false)), termTheme(paletteFor(th, true))
 }
 
-// themeTerminals gives the terminals the colors of the theme, once it
-// changes, as they follow the window's light and dark themselves.
+// themeTerminals gives the terminals the colors of the theme, once it or
+// the plugins change, as they follow the window's light and dark themselves.
 func (a *app) themeTerminals() {
-	if a.settings.Theme == a.termTheme {
+	gen := pluginsGen()
+	if a.settings.Theme == a.termTheme && gen == a.termGen {
 		return
 	}
-	a.termTheme = a.settings.Theme
+	a.termTheme, a.termGen = a.settings.Theme, gen
 	light, dark := a.termThemes()
 	for _, s := range a.terms {
 		s.term.SetTheme(light, dark)

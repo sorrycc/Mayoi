@@ -418,6 +418,22 @@ or a VS Code color theme as it is, whose `colors` and `tokenColors` Mayoi maps t
 or a theme's id, as `claude`. The theme shows in **View → Theme → Color Theme…**, the settings window, and the command
 palette.
 
+A theme is always dark when its entry has `"dark": true` or its file says so (`"dark": true`, a VS Code `"type"` other
+than `light` or `hcLight`, or `"base": "dark"`); then **Appearance** is greyed out. A file that says neither follows the appearance.
+
+To ship one theme with a light and a dark palette, as Mayoi's own themes are, give its entry `darkPath` too:
+
+```jsonc
+"themes": [{ "id": "solarized.theme", "label": "Solarized", "path": "light.json", "darkPath": "dark.json" }]
+```
+
+`path` is then the light palette and `darkPath` the dark one, and **Light**, **Dark** and **Follow System** choose
+between them while the theme stays chosen; the editor and the terminals change with the system's appearance. Which
+file is read decides darkness, whatever the file's `dark`, `type` or `base` says; a `base` that is a theme's id takes
+that theme's palette of the same appearance. Such an entry can't also have `"dark": true`. When one of the files is
+missing or does not parse, that appearance falls back to Mayoi's own palette. Both paths are inside the plugin's
+folder.
+
 ### Languages and snippets
 
 ```jsonc

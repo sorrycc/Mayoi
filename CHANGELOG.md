@@ -5,6 +5,7 @@ needs a `## <version>` section here, or its build fails.
 
 ## Unreleased
 
+- **View → Theme → Ackers** brings Monokai Pro's warm charcoal and vivid code colors to Mayoi.
 - **Toggle Line Comment** wraps JSX children in `{/* ... */}`, so React leaves them out of the page.
 - On Windows, `F12` and `Ctrl`-click now open definitions in WSL folders and on Linux SSH hosts.
 - On Windows, language server errors and warnings now show in WSL folders and on Linux SSH hosts.

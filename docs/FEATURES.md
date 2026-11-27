@@ -947,10 +947,11 @@ already running.
 
 ## Appearance and persistence
 
-**View → Theme** picks a theme, Mayoi, The Matrix, Claude, Qoder, Grok Bot, Cursor, Purple Gold, or one of the Halloween
-themes, Jack-o'-Lantern, Witch's Brew and Blood Moon, and apart from it whether the window follows the system's light or
-dark mode or is always Light or Dark. Light and Dark are greyed out under The Matrix, Purple Gold and the Halloween
-themes, which are always dark.
+**View → Theme** picks a theme, Mayoi, The Matrix, Claude, Qoder, Grok Bot, Cursor, Ackers, Purple Gold, GTA VI, or one
+of the Halloween themes, Jack-o'-Lantern, Witch's Brew and Blood Moon, and apart from it whether the window follows the
+system's light or dark mode or is always Light or Dark. Light and Dark are greyed out under The Matrix, Ackers, Purple
+Gold, GTA VI and the Halloween themes, which are always dark. Ackers brings Monokai Pro's warm charcoal and vivid code
+colors to the whole window.
 The Matrix is its two worlds: the sidebar, tabs, panels and status bar in the real world's gunmetal steel, and the code
 and the terminal in the Matrix's greens, each kind of code in a hue of its own and comments in the steel. File icons
 are in greens. Primary buttons take the red pill and chosen rows the blue;

@@ -248,12 +248,14 @@ Pk $p ([IO.Path]::GetFileName($p.TrimEnd([char]92,[char]47)))
 // psExec runs the program $A[1] in the folder $A[0] with the command line
 // $A[2], without the variables named by the $A[3] after it and with the
 // variables after those, its standard streams those of the script. A
-// .cmd or .bat goes through cmd.exe, as npm installs programs.
+// .cmd or .bat goes through cmd.exe, as npm installs programs. A variable
+// is taken out with a null: PowerShell makes $null "", which .NET 9 and
+// later keep as an empty variable.
 const psExec = `$p=N $A[0]
 if(-not [IO.Directory]::Exists($p)){Fail ($A[0]+': No such file or directory')}
 [Environment]::CurrentDirectory=$p
 $u=[int]$A[3];$j=4
-for(;$j -lt 4+$u;$j++){[Environment]::SetEnvironmentVariable($A[$j],$null)}
+for(;$j -lt 4+$u;$j++){[Environment]::SetEnvironmentVariable($A[$j],[NullString]::Value)}
 for(;$j -lt $A.Count;$j++){$kv=$A[$j];$x=$kv.IndexOf('=');[Environment]::SetEnvironmentVariable($kv.Substring(0,$x),$kv.Substring($x+1))}
 $exe=$A[1]
 if(-not ($exe.Contains('/') -or $exe.Contains([string][char]92))){$c=Get-Command $exe -CommandType Application -ErrorAction SilentlyContinue|Select-Object -First 1
@@ -267,7 +269,7 @@ $pr=[Diagnostics.Process]::Start($si);$pr.WaitForExit();exit $pr.ExitCode
 // psFindProgram prints mayoi:found when the program $A[1] runs in the
 // folder $A[0], with the variables of psExec, and mayoi:missing if not.
 const psFindProgram = `$u=[int]$A[2];$j=3
-for(;$j -lt 3+$u;$j++){[Environment]::SetEnvironmentVariable($A[$j],$null)}
+for(;$j -lt 3+$u;$j++){[Environment]::SetEnvironmentVariable($A[$j],[NullString]::Value)}
 for(;$j -lt $A.Count;$j++){$kv=$A[$j];$x=$kv.IndexOf('=');[Environment]::SetEnvironmentVariable($kv.Substring(0,$x),$kv.Substring($x+1))}
 $exe=$A[1]
 if($exe.Contains('/') -or $exe.Contains([string][char]92)){$ok=[IO.File]::Exists((N $exe))}else{$ok=$null -ne (Get-Command $exe -CommandType Application -ErrorAction SilentlyContinue)}

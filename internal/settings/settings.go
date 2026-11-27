@@ -166,6 +166,8 @@ type Prefs struct {
 	TrimTrailingWhitespace bool `json:"trimTrailingWhitespace,omitempty"`
 	// TabSize is how many columns a tab takes in the editor, from 1 to 8.
 	TabSize int `json:"tabSize"`
+	// ColumnGuides marks column-width boundaries; an empty list hides them.
+	ColumnGuides []int `json:"columnGuides,omitempty"`
 	// EditorAgentContext offers selection actions in ordinary files to
 	// collect code snippets and send them with review comments.
 	EditorAgentContext bool `json:"editorAgentContext,omitempty"`
@@ -198,6 +200,10 @@ type Prefs struct {
 	// DiffFiles is how many files a diff shows at once: "" every file
 	// changed, one after another, or "one" the file chosen alone.
 	DiffFiles string `json:"diffFiles,omitempty"`
+	// DiffEditMode is the default edit mode for local Changes and
+	// Untracked diffs. It defaults to false; manual toggles affect
+	// only the current diff file without changing this preference.
+	DiffEditMode bool `json:"diffEditMode,omitempty"`
 	// DiffHistoryOnly shows only the files of the history a commit's diff
 	// was opened from, when it is true; the diff's Only Selected Paths
 	// toggle says so for a tab whatever the setting.
@@ -706,6 +712,10 @@ func (p *Prefs) normalize() {
 		p.TabSize = 4
 	}
 	p.TabSize = min(max(p.TabSize, 1), 8)
+	// Folder preferences copy Prefs by value and can share its slices.
+	p.ColumnGuides = slices.DeleteFunc(slices.Clone(p.ColumnGuides), func(n int) bool { return n <= 0 })
+	slices.Sort(p.ColumnGuides)
+	p.ColumnGuides = slices.Compact(p.ColumnGuides)
 	p.FontFeatures = slices.DeleteFunc(p.FontFeatures, func(f string) bool { return strings.TrimSpace(f) == "" })
 	p.AISecretFiles = slices.DeleteFunc(p.AISecretFiles, func(f string) bool { return strings.TrimSpace(f) == "" })
 	if p.TerminalFontSize != 0 {

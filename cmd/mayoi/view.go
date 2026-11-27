@@ -62,7 +62,7 @@ func (a *app) view(c *ui.Context) {
 	a.pumpChain()
 	// The key the keymap took is let go of where its release does not
 	// come: in a place with no text, or another window.
-	if a.held != nil && (a.blurred || a.keyFocus != placeEditor && a.keyFocus != placeInput) {
+	if a.held != nil && (a.blurred || a.keyFocus != placeEditor && a.keyFocus != placeInput && a.keyFocus != placeDiff) {
 		a.held = nil
 	}
 	// The places that take the keys say so as they are built.

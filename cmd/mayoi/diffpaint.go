@@ -150,6 +150,7 @@ func (a *app) diffPaneUI(c *ui.Context, v *diffView) {
 		v.commit.lines = card.lines
 	}
 	a.layoutRows(v, l)
+	a.endHiddenDiffEdit(v)
 	rows := v.rows
 	wrap := v.built.wrap
 	widest := 0
@@ -274,10 +275,16 @@ func (a *app) diffPaneUI(c *ui.Context, v *diffView) {
 		Focusable().FocusRing(false).Label(locales.DiffPaneLabel())
 	// While the working tree side is edited, the input methods type for
 	// the caret the diff paints.
-	if e := v.editing; e != nil {
-		if rc, ok := a.diffCaretRect(v, e, l); ok {
-			pane.TextCaret(rc)
+	if e := v.editing; e != nil && !a.chording() {
+		rc, ok := a.diffCaretRect(v, e, l)
+		if !ok {
+			// EOF and a pending diff refresh may have no row; typing stays active.
+			rc = ui.Rect{X: l.textX, Y: editorPadY, W: 3, H: lineH}
+			if v.split && e.side == 1 {
+				rc.X += l.right()
+			}
 		}
+		pane.TextCaret(rc)
 	}
 	a.takeKeys(pane, placeDiff, func(ev ui.InputEvent) bool {
 		if ev.Kind == ui.InputScroll && v.split && !a.settings.DiffSyncScroll && l.onRight(ev.X) {

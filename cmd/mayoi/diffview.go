@@ -285,6 +285,9 @@ type diffFile struct {
 	loaded         bool
 	err            string
 
+	// editMode is this buffer's manual choice, nil to follow the preference.
+	editMode *bool
+
 	// gitStale has the sides Git keeps read again, diskStale the work
 	// tree's file; docVersion is the version of the open document's text
 	// compared last. peerDocVersion is the corresponding version of the
@@ -374,7 +377,7 @@ type diffView struct {
 
 	// rows are the rows of the files as they show, and tops where each
 	// starts, in lines, and after the last, the lines of all. starts are
-	// the first rows of each hunk, and heads the headers of each file.
+	// the first rows of each hunk, and heads the headers of visible files.
 	rows          []diffRow
 	tops          []int
 	starts, heads []int
@@ -2542,6 +2545,7 @@ func (a *app) diffInput(v *diffView, ev ui.InputEvent) bool {
 	if a.typingNote() {
 		return false
 	}
+	a.endHiddenDiffEdit(v)
 	if ev.Kind == ui.InputKeyDown && v.edited != nil {
 		switch m := ev.Mods; {
 		case ev.Key == ui.KeyZ && m == ui.Cmd:
@@ -2909,10 +2913,13 @@ func (a *app) diffButtons(c *ui.Context, t *colTab) {
 	// Editing the working tree side of the file of the chosen row, which
 	// the I key does too.
 	if f := a.diffEditTarget(v); f != nil {
-		editing := v.editing != nil && v.editing.f == f
+		editing := a.diffEditEnabled(v, f)
 		label := locales.DiffEditButton()
 		if editing {
-			label = locales.DiffEditButtonActive()
+			label = locales.DiffEditButtonReady()
+			if v.editing != nil && v.editing.f == f {
+				label = locales.DiffEditButtonActive()
+			}
 		}
 		b = button(iconPencil, label, editing)
 		if f.buffers != nil {
@@ -2923,8 +2930,13 @@ func (a *app) diffButtons(c *ui.Context, t *colTab) {
 		if b.Clicked() {
 			a.post(func() {
 				a.diffAction(v, func() {
-					if e := v.editing; e != nil && e.f == f {
+					if a.diffEditEnabled(v, f) {
+						if f.buffers == nil {
+							enabled := false
+							f.editMode = &enabled
+						}
 						a.endDiffEdit(v)
+						a.invalidate()
 						return
 					}
 					a.beginDiffEdit(v, v.focusRow())

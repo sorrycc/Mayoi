@@ -6,6 +6,15 @@ needs a `## <version>` section here, or its build fails.
 ## Unreleased
 
 - Pasting into an empty, unrecognized document detects its language; clearing it allows a new detection.
+- Hover over underlined code to read and copy diagnostics alongside symbol documentation.
+- Fix typing or pasting into the previous file after switching files in an editable diff.
+- Fix staged deletions offering to edit a later file in the diff.
+- Fix shortcut chords inserting their keys into editable diff text.
+- Fix typing becoming unavailable after selecting or deleting all text in an editable diff.
+- Double-clicks select words and triple-clicks select lines in editable diffs; dragging extends by each.
+- Fix a bug blocking typing in files after the first with **Layout → One File at a Time**.
+- Enable `diffEditMode` to edit local **Changes** and **Untracked** diffs directly.
+- The **Edit** button toggles only this diff file; **Edit on Click** means no typing caret is placed yet.
 - **Toggle Line Comment** wraps JSX children in `{/* ... */}`, so React leaves them out of the page.
 - On Windows, `F12` and `Ctrl`-click now open definitions in WSL folders and on Linux SSH hosts.
 - On Windows, language server errors and warnings now show in WSL folders and on Linux SSH hosts.
@@ -25,6 +34,8 @@ needs a `## <version>` section here, or its build fails.
 - A host that runs neither `sh` nor PowerShell now says why it can't connect, instead of "not connected".
 - Such a host is no longer retried forever; **Reconnect** tries it again.
 - A plugin theme can ship light and dark palettes under one entry with `darkPath`, following **Appearance**.
+- Set `columnGuides` to show vertical guides at chosen columns in the editor.
+- In a folder's settings, **Edit in settings.json** opens that folder's `.mayoi/settings.json`, not yours.
 
 ## 0.23.5
 

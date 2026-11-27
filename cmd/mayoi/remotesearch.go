@@ -117,6 +117,9 @@ func grepFiles(c *remote.Conn, root string, q *grepQuery) (map[string]bool, bool
 	if !q.regex {
 		flags = append(flags, "-F")
 	}
+	if c.Windows() {
+		return grepWindows(c, root, flags, q)
+	}
 	var script string
 	if c.Info().Rg {
 		script = `cd -- "$1" || exit 2; shift
@@ -148,6 +151,36 @@ grep "$@" .`
 		sep = "\x00"
 	}
 	for name := range strings.SplitSeq(string(out), sep) {
+		if name = strings.TrimPrefix(name, "./"); name != "" {
+			hits[name] = true
+		}
+	}
+	return hits, true
+}
+
+// grepWindows is grepFiles on a Windows host, with rg when it has one:
+// without, it cannot say.
+func grepWindows(c *remote.Conn, root string, flags []string, q *grepQuery) (map[string]bool, bool) {
+	if !c.Info().Rg {
+		return nil, false
+	}
+	args := append([]string{"-l", "--no-messages", "--hidden", "-0"}, flags...)
+	cmd, err := c.Exec(root, nil, nil, nil, "rg", append(args, "-e", q.query, ".")...)
+	if err != nil {
+		return nil, false
+	}
+	var out bytes.Buffer
+	cmd.Stdout = &out
+	if err := cmd.Run(); err != nil {
+		var ee *exec.ExitError
+		if errors.As(err, &ee) && ee.ExitCode() == 1 {
+			return map[string]bool{}, true // nothing matches
+		}
+		return nil, false
+	}
+	hits := map[string]bool{}
+	for name := range strings.SplitSeq(out.String(), "\x00") {
+		name = strings.ReplaceAll(name, `\`, "/")
 		if name = strings.TrimPrefix(name, "./"); name != "" {
 			hits[name] = true
 		}

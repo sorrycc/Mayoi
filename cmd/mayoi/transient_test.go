@@ -117,8 +117,9 @@ func TestSearchPreviewTab(t *testing.T) {
 	wantTabs(t, hs, "README.md", "n1.txt", "n2.txt")
 }
 
-// A click in the Explorer previews the file, Enter keeps it, and
-// a preview comes back as one at the next start.
+// A click in the Explorer previews the file, Enter keeps it (⌘↓ on
+// macOS, where Enter renames), and a preview comes back as one at the
+// next start.
 func TestExplorerPreviewTab(t *testing.T) {
 	hs := newHarness(t, true)
 	a, tt := hs.a, hs.tt
@@ -129,7 +130,11 @@ func TestExplorerPreviewTab(t *testing.T) {
 	hs.settle()
 	wantTabs(t, hs, "go.mod*")
 	// Enter, as a double click does.
-	tt.Key(0, ui.KeyEnter)
+	if enterRenames {
+		tt.Key(ui.Cmd, ui.KeyDown)
+	} else {
+		tt.Key(0, ui.KeyEnter)
+	}
 	hs.settle()
 	wantTabs(t, hs, "go.mod")
 	tt.Click("main.go")

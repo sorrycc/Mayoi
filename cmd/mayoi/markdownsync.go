@@ -76,7 +76,7 @@ func (a *app) textPlace(d *editor, y float32) float32 {
 	if y <= 0 {
 		return 0
 	}
-	g := a.geometry(d, d.buf.Snapshot().LineCount())
+	g := a.textGeometry(d, d.buf.Snapshot().LineCount())
 	at := g.at(y)
 	line := float32(at)
 	if h := g.top(at+1) - g.top(at); h > 0 {
@@ -88,12 +88,66 @@ func (a *app) textPlace(d *editor, y float32) float32 {
 // textY is the offset that puts a place at the top of an editor's text.
 func (a *app) textY(d *editor, place float32) float32 {
 	lines := d.buf.Snapshot().LineCount()
-	g := a.geometry(d, lines)
+	g := a.textGeometry(d, lines)
 	if place == markdownEnd {
 		return max(d.vscroll.MaxY, editorPadY+g.height())
 	}
 	at := min(int(place), lines-1)
 	return editorPadY + g.top(at) + (place-float32(at))*(g.top(at+1)-g.top(at))
+}
+
+// textGeometry places the lines of an editor's text as they show without
+// its Reading view: Live Preview's are as high as what they hold, as its
+// text area last laid them out, wrapped or not, while the Reading view
+// shows in its place.
+func (a *app) textGeometry(d *editor, n int) geometry {
+	g := a.geometry(d, n)
+	if d.preview != nil && d.live && isMarkdown(d.document) && d.lines.Count() > 0 {
+		g.lines, g.gaps = &d.lines, nil
+	}
+	return g
+}
+
+// readingPlace is the place at the top of an editor's text as its Reading
+// view opens in its place. The text keeps it as its offset, that many lines
+// down, which a tab restored before its text area laid a line out reads
+// back the same: Live Preview's rows are not known then.
+func (a *app) readingPlace(d *editor) float32 {
+	y := d.vscroll.Y
+	if d.hidden {
+		y = d.hiddenY
+	}
+	place := a.textPlace(d, y)
+	if place != markdownEnd {
+		y = editorPadY + place*a.font.lineH
+		if d.hidden {
+			d.hiddenY = y
+		} else {
+			d.vscroll.Y = y
+		}
+	}
+	return place
+}
+
+// textFromReading puts an editor's text back where its Reading view was,
+// a place, as the view closes. The text area is built anew, its rows'
+// heights estimates until it lays them out: as a tab coming back in sight,
+// it keeps the place's line at the top, as far into it as the place, and
+// covers the frame it scrolls to its caret in.
+func (a *app) textFromReading(d *editor, place float32) {
+	y := a.textY(d, place)
+	// Back in sight in the next frame, the editor puts itself back.
+	d.hidden, d.hiddenY, d.hiddenPlaced = true, y, false
+	if place == markdownEnd {
+		return
+	}
+	snap := d.buf.Snapshot()
+	lines := snap.LineCount()
+	at := min(int(place), lines-1)
+	g := a.geometry(d, lines)
+	d.hiddenAt, _ = snap.LineRange(at)
+	d.hiddenOff = editorPadY + g.top(at) - y
+	d.hiddenPlaced = true
 }
 
 // markdownGroup is the run of blocks from i that start on the same line,

@@ -108,6 +108,17 @@ func walk(root string) []string {
 // remoteWalk lists the files under a remote root with find, on its host,
 // leaving out the directories Skipped names.
 func remoteWalk(root string) []string {
+	if c, rp, ok := remote.Lookup(root); ok && c.Windows() {
+		// Windows has a find, but it looks for text.
+		found, _ := c.Walk(rp, skippedNames, MaxIndexed)
+		var files []string
+		for _, f := range found {
+			if !Hidden(f[strings.LastIndexByte(f, '/')+1:]) {
+				files = append(files, f)
+			}
+		}
+		return files
+	}
 	args := []string{"."}
 	first := true
 	args = append(args, "(")

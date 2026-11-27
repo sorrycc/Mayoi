@@ -5,11 +5,31 @@ needs a `## <version>` section here, or its build fails.
 
 ## Unreleased
 
+- **Remote SSH** connects to Windows hosts running OpenSSH Server, through the PowerShell Windows comes with.
+- A Windows host's files, Git, search and language servers work as on Linux, and its terminals open PowerShell.
+- On a Windows host, `/` lists its drives and the folder box takes `C:\Users\me` as you type it.
+- A host that runs neither `sh` nor PowerShell now says why it can't connect, instead of "not connected".
+- Such a host is no longer retried forever; **Reconnect** tries it again.
+- A plugin theme can ship light and dark palettes under one entry with `darkPath`, following **Appearance**.
 - **TODOs** follows directory symlinks when **Settings → Editor → Follow Directory Symlinks** is on.
 - Filter **TODOs** by text, file path, or tag as you type.
 - Set which files **TODOs** scans in **⋯** and save that scope for each workspace.
 - **TODOs** uses the same file filter labels as **Search** in every language.
-- Rescan **TODOs** from the command palette with **Find TODOs Again**.
+- **TODOs** drops its inline **Refresh** button; a scan that fails offers **Find TODOs Again** instead.
+
+## 0.23.5
+
+- Switching between Live Preview and Reading View keeps the same passage in view, without a jump.
+- Language servers that watch files pick up local workspace changes without reopening the folder.
+- Rename a file or folder right in its explorer row, as in VS Code, instead of in a dialog.
+- On macOS, `Enter` on a chosen file or folder renames it; `F2` does on every system.
+- On macOS, `⌘↓` keeps the chosen file open in a tab, as `Enter` did before.
+- **Rename…** in the explorer's menu and **Rename File** in the command palette edit the name in place too.
+- `Escape` keeps the old name; clicking elsewhere keeps the new one, and a taken name shows why below.
+- The title of the Rename, New File and New Folder dialogs no longer wraps beside a long path.
+- **Toggle Line Comment** (`⌘/`) now works in JSON, GraphQL, Less and `.gitignore` files.
+- In CSS, HTML, XML and Markdown, **Toggle Line Comment** wraps each line in `/* */` or `<!-- -->`.
+- In Vue and Svelte files it comments a line as its script, style or markup part expects.
 
 ## 0.23.4
 

@@ -232,7 +232,8 @@ func TestExplorerCopiesSelection(t *testing.T) {
 		}
 	}
 	a.runBinding("renameFile", nil, placeExplorer)
-	if a.prompt != nil {
+	hs.key(0, ui.KeyF2)
+	if a.prompt != nil || a.treeRename != nil {
 		t.Fatal("F2 renamed one of several")
 	}
 	// A row not chosen: its menu is its own, and the others go.

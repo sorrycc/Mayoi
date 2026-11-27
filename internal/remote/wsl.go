@@ -134,7 +134,7 @@ func (c *Conn) dialWSL(ctx context.Context) {
 	c.pool = p
 	c.mu.Unlock()
 	pctx, cancel := context.WithTimeout(ctx, 45*time.Second)
-	info, err := c.probePool(pctx)
+	info, err := c.probePool(pctx, p, false)
 	cancel()
 	if err != nil {
 		p.Stop()

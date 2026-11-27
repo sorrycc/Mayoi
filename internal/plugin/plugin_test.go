@@ -300,6 +300,7 @@ func TestManifestChecks(t *testing.T) {
 		`{"name": "x", "main": "m.ts", "contributes": {"agents": [{"id": "x.a", "name": "A", "resume": "a", "tint": "red"}]}}`,
 		`{"name": "x", "contributes": {"agents": [{"id": "x.a", "name": "A", "resume": "a"}]}}`,
 		`{"name": "x", "contributes": {"agents": [{"id": "x.a", "name": "A", "resume": "a", "sessions": {"glob": "~/*.x", "format": "xml"}}]}}`,
+		`{"name": "x", "contributes": {"themes": [{"id": "x.t", "label": "T", "path": "l.json", "darkPath": "d.json", "dark": true}]}}`,
 	} {
 		if _, err := ParseManifest([]byte(bad)); err == nil {
 			t.Errorf("%s parsed", bad)

@@ -97,8 +97,18 @@ func HostOf(p string) string {
 
 // On returns p, a path a program on the machine of ref wrote, as the
 // editor knows it: as ref's host or distribution has it when ref is remote.
+// A path of a Windows drive, as C:\Users or C:/Users, is /C:/Users there.
 func On(ref, p string) string {
 	kind, name, _, ok := splitKind(ref)
+	if ok && kind == KindSSH {
+		if dp, drive := hostDrivePath(p); drive {
+			return Path(name, dp)
+		}
+		if isDrivePath(p) {
+			// As a server's URI may spell it, /c:/Users.
+			return Path(name, "/"+strings.ToUpper(p[1:2])+p[2:])
+		}
+	}
 	if ok && strings.HasPrefix(p, "/") && !Is(p) {
 		if kind == KindWSL {
 			return WSLPath(name, p)
@@ -181,6 +191,13 @@ func splitPort(host string) (string, string) {
 		return h, port
 	}
 	return host, ""
+}
+
+// HostAbs reports whether p, a path a program of a host wrote, is
+// absolute there: from / or, on Windows, from a drive.
+func HostAbs(p string) bool {
+	_, drive := hostDrivePath(p)
+	return strings.HasPrefix(p, "/") || drive
 }
 
 // IsAbs reports whether p is a remote path or an absolute path of this

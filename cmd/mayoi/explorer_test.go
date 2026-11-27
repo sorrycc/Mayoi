@@ -81,11 +81,11 @@ func TestCompactExplorerFolders(t *testing.T) {
 	if err := tt.ChooseMenuItem("Rename…"); err != nil {
 		t.Fatal(err)
 	}
-	if a.prompt == nil || a.prompt.value != "example" {
-		t.Fatalf("rename did not target the last folder: %+v", a.prompt)
-	}
-	a.prompt = nil
 	hs.settle()
+	if r := a.treeRename; r == nil || r.path != leaf || r.draft != "example" {
+		t.Fatalf("rename did not target the last folder: %+v", r)
+	}
+	hs.key(0, ui.KeyEscape)
 	if err := tt.RightClick(packageChain); err != nil {
 		t.Fatal(err)
 	}

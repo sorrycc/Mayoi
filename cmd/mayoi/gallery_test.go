@@ -59,6 +59,20 @@ var galleryStates = []struct {
 		hs.place(d, at, at)
 		hs.a.hover = newHoverCard(d, "```go\nfunc main()\n```\n\n**main** runs the program, as `go run` does.\n\n- It takes no arguments\n- See [the docs](https://go.dev).", nil, d.sel[1])
 	}},
+	{"hover-diagnostics", func(hs *harness) {
+		h := withPlugins(hs, map[string]map[string]string{"lint": {"plugin.json": `{"name":"lint"}`}})
+		hs.a.openFile(hs.path("main.go"), true)
+		hs.settle()
+		d := hs.a.activeEditor()
+		at := max(0, strings.Index(d.buf.String(), "func ")+5)
+		hs.place(d, at, at)
+		snap := d.buf.Snapshot()
+		h.setDiagnosticList("lint", d.path, "gopls", false, []diagnostic{{
+			Range: textRange{positionOf(snap, at), positionOf(snap, at+4)}, Severity: "warning",
+			Message: "This declaration can be simplified.\nUse the suggested form to avoid an unnecessary allocation.", Code: "modernize",
+		}})
+		hs.a.hover = newHoverCard(d, "```go\nfunc main()\n```\n\nRuns the program.", nil, at)
+	}},
 	{"file-loading", func(hs *harness) {
 		hs.a.openFile(hs.path("main.go"), true)
 		hs.settle()

@@ -1630,11 +1630,11 @@ func applyTheme(c *ui.Context, prefs *settings.Prefs, fade *paletteFade) *palett
 	return p
 }
 
-// paletteFadeFor is how long the window takes from one palette to the
-// next.
 // scrollbarWidth is how wide the scroll bars are, in DIPs.
 const scrollbarWidth = 8
 
+// paletteFadeFor is how long the window takes from one palette to the
+// next.
 const paletteFadeFor = motionMove
 
 // paletteFade takes the window from one palette to another: each of its

@@ -15460,11 +15460,11 @@ func (msgs Messages) PrefTitleColumnGuides() string {
 	return Catalog.Format(msgs.locale, "prefTitleColumnGuides", nil)
 }
 
-// PrefDescColumnGuides says "Show vertical guides at the specified columns to help keep lines to a chosen length. For example, [80, 120]."
+// PrefDescColumnGuides says "Shows vertical guides at the columns you choose, to help keep lines short, such as [80, 120]."
 // in the language the app shows.
 func PrefDescColumnGuides() string { return In(i18n.Locale()).PrefDescColumnGuides() }
 
-// PrefDescColumnGuides says "Show vertical guides at the specified columns to help keep lines to a chosen length. For example, [80, 120]."
+// PrefDescColumnGuides says "Shows vertical guides at the columns you choose, to help keep lines short, such as [80, 120]."
 // in the language of msgs.
 func (msgs Messages) PrefDescColumnGuides() string {
 	return Catalog.Format(msgs.locale, "prefDescColumnGuides", nil)

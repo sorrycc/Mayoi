@@ -1756,7 +1756,7 @@
   "prefTitleWordWrap": "Word Wrap",
   "prefDescWordWrap": "Wraps long lines at the edge of the editor. A tab can still choose otherwise.",
   "prefTitleColumnGuides": "Column Guides",
-  "prefDescColumnGuides": "Show vertical guides at the specified columns to help keep lines to a chosen length. For example, [80, 120].",
+  "prefDescColumnGuides": "Shows vertical guides at the columns you choose, to help keep lines short, such as [80, 120].",
   "prefTitleTrimTrailingWhitespace": "Trim Trailing Whitespace",
   "prefDescTrimTrailingWhitespace": "Removes the spaces and tabs at the ends of lines as you save, keeping Markdown's line breaks.",
   "prefTitleTabSize": "Tab Size",

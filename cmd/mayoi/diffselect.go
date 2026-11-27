@@ -245,17 +245,17 @@ func (a *app) diffTextInput(v *diffView, ev ui.InputEvent) bool {
 			return false
 		}
 		row := a.rowUnder(v, ev.X+v.scroll.X, ev.Y+v.scroll.Y, l)
-		if row >= 0 && row < len(v.rows) && v.rows[row].kind == rowLine && v.files[v.rows[row].file].buffers != nil {
+		if row >= 0 && row < len(v.rows) && v.rows[row].kind == rowLine {
+			f := v.files[v.rows[row].file]
+			clickEdits := f.buffers != nil || a.diffEditEnabled(v, f)
 			editSide := side
 			if editSide < 0 {
-				editSide = 1
-				if v.rows[row].new < 0 {
-					editSide = 0
-				}
+				editSide = btoi(v.rows[row].new >= 0)
 			}
-			if v.rows[row].sideLine(editSide) >= 0 && v.files[v.rows[row].file].writableSide(editSide) && a.beginDiffEditSide(v, row, editSide) {
+			if clickEdits && v.rows[row].sideLine(editSide) >= 0 && f.writableSide(editSide) && a.beginDiffEditSide(v, row, editSide) {
 				return a.diffEditPointerDown(v, v.editing, ev)
 			}
+			// Typing after a read-only click must not reach the previous caret.
 			a.endDiffEdit(v)
 		}
 		s := v.textSel

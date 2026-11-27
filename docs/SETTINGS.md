@@ -102,6 +102,7 @@ takes its default.
 | `blame`                 | `true`        | `true`, `false`                                             | **Git → Inline Blame**                         |
 | `diffLayout`            | `""`          | `""` (side by side when wide enough), `"split"`, `"inline"` | A diff's **Layout** button                     |
 | `diffFiles`             | `""`          | `""` (every file in one scroll), `"one"` (one file at a time, not in a commit's changes) | A diff's **Layout** menu                   |
+| `diffEditMode`          | `false`       | `true`, `false`                                                | **Settings → Diffs and Merges**            |
 | `diffHistoryOnly`       | `true`        | `true`, `false`                                                | A diff's **Only Selected Paths** button    |
 | `diffCrossFiles`        | `""`          | `""` (say it, and cross on one more step), `"always"`, `"never"` | Only this file                            |
 | `diffHighlight`         | `""`          | `""` (changed words), `"line"`, `"char"`                       | A diff's **Highlight** menu                |
@@ -299,6 +300,12 @@ differ in width lines them up only roughly.
 - **`diffHighlight`** chooses whether changed lines show word-level, character-level or line-level tinting. The
   highlighting changes how a diff looks; block actions still use whole line hunks.
 - **`diffContext`** keeps that many unchanged lines around each diff hunk visible and folds the rest.
+- **`diffEditMode`** sets the default edit mode for local **Changes** and **Untracked** diffs. It is `false` by
+  default: **Edit** starts off, and `i` or **Edit** enters editing. When `true`, **Edit on Click** shows until working
+  tree text is clicked to place a caret; **Editing** then shows while typing is available. A manual toggle applies only to the current file in that diff. Switching
+  to another file and back keeps the choice; this preference and other files stay unchanged. Old versions, staged
+  changes and commits stay read-only. Staged and commit diffs have no **Edit** button. In a one-column diff, only
+  added and unchanged working tree lines can be edited.
 - **`diffAlignedRows`** keeps the rows of a split diff's sides aligned: a line the one side lacks holds a space on the
   other. Turn it off, and each side's lines close up where the other has lines it lacks, the sides reading in streams
   of their own, which scroll on their own whatever `diffSyncScroll` has.

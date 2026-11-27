@@ -20,7 +20,9 @@ type diffEdit struct {
 	f          *diffFile
 	doc        *document
 	ed         *editor
-	drag       bool   // the pointer is extending the selection
+	drag       bool // the pointer is extending the selection
+	dragClicks int
+	dragAnchor [2]int
 	compose    string // the text an input method marks, which sits in the buffer
 	composeAt  int    // where the marked text begins, in rune offsets
 	composeWas string // the text the mark took the place of, which an escape gives back
@@ -39,6 +41,20 @@ func (f *diffFile) writableSide(side int) bool {
 	return side == 1 && (f.base == diffIndex || f.base == diffHead)
 }
 
+// diffEditEnabled reports the buffer's mode, even before a click places a caret.
+func (a *app) diffEditEnabled(v *diffView, f *diffFile) bool {
+	if f.buffers != nil {
+		return v.editing != nil && v.editing.f == f
+	}
+	if f.editMode != nil {
+		return *f.editMode
+	}
+	if v.editing != nil && v.editing.f == f {
+		return true
+	}
+	return a.settings.DiffEditMode && f.base == diffIndex && !remote.Is(f.path)
+}
+
 func (r *diffRow) sideLine(side int) int {
 	if side == 0 {
 		return r.old
@@ -50,7 +66,7 @@ func (v *diffView) editRow(i, side int) int {
 	if i < 0 || i >= len(v.rows) {
 		return -1
 	}
-	for k := i; k < len(v.rows); k++ {
+	for k := i; k < len(v.rows) && v.rows[k].file == v.rows[i].file; k++ {
 		if r := v.rows[k]; r.kind == rowLine && r.sideLine(side) >= 0 {
 			return k
 		}
@@ -83,6 +99,7 @@ func (a *app) beginDiffEditSide(v *diffView, i, side int) bool {
 	}
 	f := v.files[v.rows[i].file]
 	if e := v.editing; e != nil && e.f == f && e.side == side {
+		v.setCursor(i)
 		a.diffCaretToLine(e, v.rows[i].sideLine(side))
 		return true
 	}
@@ -108,6 +125,11 @@ func (a *app) beginDiffEditSide(v *diffView, i, side int) bool {
 	}
 	e := a.diffEditOf(v, f, doc, side)
 	a.diffCaretToLine(e, v.rows[i].sideLine(side))
+	v.setCursor(i)
+	if f.buffers == nil && !a.diffEditEnabled(v, f) {
+		enabled := true
+		f.editMode = &enabled
+	}
 	v.editing, v.edited, v.boundary = e, doc, nil
 	v.pane.Focus()
 	a.invalidate()
@@ -123,10 +145,28 @@ func (a *app) endDiffEdit(v *diffView) {
 	a.invalidate()
 }
 
+// endHiddenDiffEdit stops a caret retained from another file after navigation.
+func (a *app) endHiddenDiffEdit(v *diffView) {
+	if v.editing == nil {
+		return
+	}
+	if i := v.focusRow(); i >= 0 {
+		k := v.rows[i].file
+		if k >= 0 && k < len(v.files) && v.files[k] == v.editing.f &&
+			(!v.built.one || v.shownFile() == v.editing.f) {
+			return
+		}
+	}
+	a.endDiffEdit(v)
+}
+
 // diffEditInput takes the input of a diff whose writable side is edited:
 // the text and the edit commands the system sends, the keys of the caret,
 // and the pointer on the side. It reports whether it took the event.
 func (a *app) diffEditInput(v *diffView, ev ui.InputEvent) bool {
+	if (ev.Kind == ui.InputText || ev.Kind == ui.InputCompose) && a.chording() {
+		return true
+	}
 	e := v.editing
 	switch ev.Kind {
 	case ui.InputText:
@@ -151,7 +191,14 @@ func (a *app) diffEditInput(v *diffView, ev ui.InputEvent) bool {
 		if !e.drag {
 			return false
 		}
-		a.diffCaretAtPoint(v, e, ev.X, ev.Y, true)
+		if a.diffCaretAtPoint(v, e, ev.X, ev.Y, true) && v.editing == e && e.dragClicks >= 2 {
+			unit := e.selectionUnit(e.ed.sel[1], e.dragClicks)
+			if e.ed.sel[1] < e.dragAnchor[0] {
+				e.ed.sel = [2]int{e.dragAnchor[1], unit[0]}
+			} else {
+				e.ed.sel = [2]int{e.dragAnchor[0], unit[1]}
+			}
+		}
 		a.invalidate()
 		return true
 	case ui.InputPointerUp:
@@ -213,6 +260,10 @@ func (a *app) diffEditKey(v *diffView, e *diffEdit, ev ui.InputEvent) bool {
 		a.invalidate()
 		return true
 	case ev.Key == ui.KeyEscape && m == 0 && e.compose == "":
+		if e.f.buffers == nil {
+			enabled := false
+			e.f.editMode = &enabled
+		}
 		a.endDiffEdit(v)
 		return true
 	case ev.Key == ui.KeyS && m == ui.Cmd:
@@ -331,7 +382,17 @@ func (a *app) diffCaretByRow(v *diffView, e *diffEdit, down, extend bool) {
 func (v *diffView) caretRow(e *diffEdit) int {
 	line, _, _ := e.caretLine()
 	file := slices.Index(v.files, e.f)
-	if file < 0 || file >= len(v.heads) {
+	if file < 0 {
+		return -1
+	}
+	if v.built.one {
+		if file != v.shownAt {
+			return -1
+		}
+		// Headers index visible files, while files includes hidden ones.
+		file = 0
+	}
+	if file >= len(v.heads) {
 		return -1
 	}
 	hi := len(v.rows)
@@ -438,6 +499,9 @@ func (a *app) diffCaretAtPoint(v *diffView, e *diffEdit, x, y float32, extend bo
 		return false
 	}
 	if f != e.f || side != e.side {
+		if f.buffers == nil && !a.diffEditEnabled(v, f) {
+			return false
+		}
 		if !f.writableSide(side) {
 			return false
 		}
@@ -447,6 +511,7 @@ func (a *app) diffCaretAtPoint(v *diffView, e *diffEdit, x, y float32, extend bo
 		e = v.editing
 		extend = false
 	}
+	v.setCursor(row)
 	wrap := v.built.wrap
 	lineH := a.font.lineH
 	// Where the row's text starts, and the row of a wrapped line y is in.
@@ -478,13 +543,29 @@ func (a *app) diffEditPointerDown(v *diffView, e *diffEdit, ev ui.InputEvent) bo
 	if ev.Button != 0 {
 		return false
 	}
-	if !a.diffCaretAtPoint(v, e, ev.X, ev.Y, ev.Mods&ui.Shift != 0) {
+	if !a.diffCaretAtPoint(v, e, ev.X, ev.Y, ev.Mods&ui.Shift != 0 && ev.Clicks < 2) {
 		return false
 	}
+	e = v.editing
+	e.dragClicks = ev.Clicks
+	if ev.Clicks >= 2 {
+		e.dragAnchor = e.selectionUnit(e.ed.sel[1], ev.Clicks)
+		e.ed.sel = e.dragAnchor
+	}
 	v.clearTextSel()
-	v.editing.drag = true
+	e.drag = true
 	a.invalidate()
 	return true
+}
+
+func (e *diffEdit) selectionUnit(at, clicks int) [2]int {
+	snap := e.doc.buf.Snapshot()
+	from, to := snap.LineRange(snap.LineAt(min(at, snap.Len())))
+	if clicks == 2 {
+		lo, hi := wordAround(snap.Slice(from, to), at-from)
+		from, to = from+lo, from+hi
+	}
+	return [2]int{from, to}
 }
 
 // diffCaretCol returns how many runes of a line of a diff fit before x,

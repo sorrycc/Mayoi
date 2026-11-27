@@ -352,6 +352,14 @@ of how many you are on, with the lines added and removed. At the last, or first,
 so, and one more press that way goes to the next file with changes, or the last of the previous; **diffCrossFiles** in
 the settings has it cross at once, or never leave the file. At the first or last file it says so, and stops.
 
+For local **Changes** and **Untracked** diffs, `diffEditMode` sets the default edit mode. It is `false`
+by default: browse the diff and press `i` or choose **Edit** to edit the working tree side in place.
+Turn on **Settings → Diffs and Merges → Diff Edit Mode** to start with **Edit** on, then click working
+tree text to place the caret and edit. Toggling **Edit** changes only the current file in that diff and
+leaves the setting unchanged. Switching to another file and back keeps the manual choice. Old-version
+text is always read-only. Staged and commit diffs have no **Edit** button and stay read-only. Save with
+⌘S, undo with ⌘Z and press Escape to leave editing; the diff stays open throughout.
+
 **Layout → One File at a Time** (`diffFiles`) has a diff show one file alone, as VS Code does, and read only that
 file. A single commit's changes always list every file. Clicking a file in Source Control shows it; the next and previous file show the next or
 previous one, and the change navigation goes on into it as **diffCrossFiles** says, never scrolling into another

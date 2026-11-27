@@ -386,6 +386,9 @@ func (a *app) tabMenu(m *ui.Menu, col *column, t *colTab, closing **colTab) {
 	}
 	if path != "" && a.repositoryForPath(path).git.repo != nil {
 		m.Separator()
+		if m.Item(locales.CmdGitFileHistory()).Chosen() {
+			a.post(func() { a.showFileHistory(path) })
+		}
 		if m.Item(locales.CmdGitOpenFileOnRemote()).Chosen() {
 			a.post(func() { a.fileOnRemote(path, t.ed, false) })
 		}

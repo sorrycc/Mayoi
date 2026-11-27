@@ -2130,5 +2130,17 @@
   "claudeThemeTooOld": "Claude Code {version} 不支持自定义主题。更新到 {least} 或更高版本后关闭再打开此项。",
   "claudeThemeTaken": "{path} 不是 Mayoi 的，Mayoi 未改动它。移走它后关闭再打开此项。",
   "claudeThemeMalformed": "{path} 不是有效的 JSON，Mayoi 未改动它。修正后关闭再打开此项。",
-  "claudeThemeFailed": "无法更改 Claude Code 的主题：{err}"
+  "claudeThemeFailed": "无法更改 Claude Code 的主题：{err}",
+  "cmdGitFileHistory": "打开文件历史",
+  "scmPathHistory": "{path} 的历史",
+  "scmPathHistoryClear": "清除历史",
+  "scmPathHistoryNone": "没有提交更改过 {path}。",
+  "scmPathsCount": "{count} 个路径",
+  "cmdGitFolderHistory": "打开文件夹历史",
+  "cmdGitPathsHistory": "打开历史",
+  "cmdGitOnlySelectedPaths": "仅显示所选路径",
+  "diffOnlySelectedPaths": "仅显示所选路径",
+  "prefTitleDiffHistoryOnly": "将提交筛选到历史范围",
+  "prefDescDiffHistoryOnly": "从文件或目录历史打开的提交只显示该范围内的文件；diff 工具栏的“仅显示所选路径”按钮可显示提交的全部文件。",
+  "scmPathHistoryMore": "… 还有 {count} 个"
 }

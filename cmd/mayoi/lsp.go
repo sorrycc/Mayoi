@@ -596,7 +596,7 @@ func (a *app) askHover(d *editor, at int, rest *pointerHover) {
 			}
 		}
 	}
-	if rest != nil && s == nil && len(providers) == 0 {
+	if rest != nil && s == nil && len(providers) == 0 && len(diagnosticsAt(d, at)) == 0 {
 		return
 	}
 	text := d.buf.String()
@@ -617,6 +617,11 @@ func (a *app) askHover(d *editor, at int, rest *pointerHover) {
 		}
 	}
 	auto := rest != nil
+	if len(diagnosticsAt(d, at)) > 0 {
+		h := newHoverCard(d, "", nil, at)
+		h.auto = auto
+		a.hover = h
+	}
 	bg.Go(func() {
 		defer cancel()
 		var parts []string
@@ -642,7 +647,7 @@ func (a *app) askHover(d *editor, at int, rest *pointerHover) {
 			if !current() {
 				return
 			}
-			if len(parts) == 0 {
+			if len(parts) == 0 && len(diagnosticsAt(d, at)) == 0 {
 				if auto {
 					return // the pointer asked: nothing shows, nothing is said
 				}

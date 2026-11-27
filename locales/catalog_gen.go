@@ -4594,6 +4594,16 @@ func (msgs Messages) CopiedCode() string {
 	return Catalog.Format(msgs.locale, "copiedCode", nil)
 }
 
+// CopiedDiagnostic says "Copied the diagnostic"
+// in the language the app shows.
+func CopiedDiagnostic() string { return In(i18n.Locale()).CopiedDiagnostic() }
+
+// CopiedDiagnostic says "Copied the diagnostic"
+// in the language of msgs.
+func (msgs Messages) CopiedDiagnostic() string {
+	return Catalog.Format(msgs.locale, "copiedDiagnostic", nil)
+}
+
 // CopiedCommitHashes says "{count, plural, one {Copied # commit hash} other {Copied # commit hashes}}"
 // in the language the app shows.
 func CopiedCommitHashes(count int) string { return In(i18n.Locale()).CopiedCommitHashes(count) }
@@ -4662,6 +4672,16 @@ func CopyCode() string { return In(i18n.Locale()).CopyCode() }
 // in the language of msgs.
 func (msgs Messages) CopyCode() string {
 	return Catalog.Format(msgs.locale, "copyCode", nil)
+}
+
+// CopyDiagnostic says "Copy Diagnostic"
+// in the language the app shows.
+func CopyDiagnostic() string { return In(i18n.Locale()).CopyDiagnostic() }
+
+// CopyDiagnostic says "Copy Diagnostic"
+// in the language of msgs.
+func (msgs Messages) CopyDiagnostic() string {
+	return Catalog.Format(msgs.locale, "copyDiagnostic", nil)
 }
 
 // CopyCommitHash says "Copy Commit Hash"

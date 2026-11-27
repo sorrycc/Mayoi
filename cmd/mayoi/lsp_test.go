@@ -205,4 +205,10 @@ func TestServerPathOnRemoteLinux(t *testing.T) {
 			}
 		}
 	}
+	// A Windows host's server spells a drive as it likes.
+	for _, uri := range []string{"file:///c:/Users/me/a.go", "file:///C%3A/Users/me/a.go"} {
+		if got, want := serverPath("/ssh:win/C:/Users/me", uri), "/ssh:win/C:/Users/me/a.go"; got != want {
+			t.Errorf("serverPath(%q) = %q, want %q", uri, got, want)
+		}
+	}
 }

@@ -21,7 +21,6 @@ import (
 	"github.com/egoist/mygo/ui"
 
 	"mayoi/internal/git"
-	"mayoi/internal/highlight"
 	"mayoi/internal/remote"
 	"mayoi/locales"
 )
@@ -1313,7 +1312,7 @@ func (a *app) statusFit(c *ui.Context, width float32) statusVisibility {
 		add(&v.lines, measure(locales.LinesCount(n), false))
 		add(&v.eol, measure(eol, false))
 		add(&v.indent, measure(d.indent.String(), false))
-		add(&v.language, measure(highlight.DisplayName(d.hl.Lexer()), false))
+		add(&v.language, measure(documentLanguageName(d.document), false))
 	}
 	if a.host.account() != "" {
 		used += syncStatusW
@@ -1648,7 +1647,7 @@ func (a *app) statusBar(c *ui.Context) {
 			}
 		})
 		if visible.language {
-			item("lang", highlight.DisplayName(d.hl.Lexer()), "", nil, nil)
+			item("lang", documentLanguageName(d.document), locales.CmdEditorChangeLanguage(), nil, a.openLanguagePicker)
 		}
 	})
 }

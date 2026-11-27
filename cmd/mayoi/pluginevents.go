@@ -95,6 +95,11 @@ func (a *app) pluginTick() {
 			a.lspDoc("save", d)
 		}
 		if ok && (seen.path != d.path || seen.name != d.name() || seen.language != languageOf(d)) {
+			if seen.language != languageOf(d) {
+				h.reg.Activate("onLanguage:" + languageOf(d))
+				a.moveServer(d)
+				a.lspDoc("open", d)
+			}
 			h.reg.Emit("editor.metadata", a.docEvent(d))
 		}
 		s.docs[d] = docSeen{ver, saved, d.path, d.name(), languageOf(d)}

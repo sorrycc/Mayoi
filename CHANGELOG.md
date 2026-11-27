@@ -5,6 +5,7 @@ needs a `## <version>` section here, or its build fails.
 
 ## Unreleased
 
+- **Toggle Line Comment** wraps JSX children in `{/* ... */}`, so React leaves them out of the page.
 - On Windows, `F12` and `Ctrl`-click now open definitions in WSL folders and on Linux SSH hosts.
 - On Windows, language server errors and warnings now show in WSL folders and on Linux SSH hosts.
 - Click the language in the status bar, or run `Change Language…`, to pick how a file or untitled tab is highlighted.

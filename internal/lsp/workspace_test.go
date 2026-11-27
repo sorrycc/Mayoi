@@ -250,6 +250,34 @@ func TestBlockedWriteDeadline(t *testing.T) {
 	}
 }
 
+func TestCancellationWriteDoesNotDelayResponseDeadline(t *testing.T) {
+	reader, writer := io.Pipe()
+	defer reader.Close()
+	defer writer.Close()
+	c := &Client{in: writer, waiting: map[int]chan response{}}
+	go func() {
+		r := bufio.NewReader(reader)
+		var n int
+		line, _ := r.ReadString('\n')
+		fmt.Sscanf(line, "Content-Length: %d", &n)
+		r.ReadString('\n')
+		io.CopyN(io.Discard, r, int64(n))
+		// The server accepted the request, then stopped reading its cancellation.
+	}()
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Millisecond)
+	defer cancel()
+	answer := make(chan error, 1)
+	go func() { _, err := c.Call(ctx, "noReply", nil); answer <- err }()
+	select {
+	case err := <-answer:
+		if err != context.DeadlineExceeded {
+			t.Fatal(err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("cancellation blocked the response deadline")
+	}
+}
+
 // A server busy for longer than any deadline still gets the whole document.
 func TestNotifyWaitsForSlowReader(t *testing.T) {
 	reader, writer := io.Pipe()

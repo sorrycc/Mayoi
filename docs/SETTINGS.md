@@ -123,6 +123,8 @@ takes its default.
 | `confirmBeforeQuit`     | `true`        | `true`, `false`                                             | **Don't ask again** when Mayoi asks to quit   |
 | `plugins`               | none          | Each plugin's own settings, and `"enabled": false` to turn it off | The **Plugins** page of the settings window |
 | `formatOnSave`          | none          | `true` for each language to format as it saves, or `"*"` for all | Only this file                          |
+| `organizeImportsOnSave` | none          | `true` for each language to organize imports through LSP on manual saves, or `"*"` for all | Only this file              |
+| `fixAllOnSave`          | none          | `true` for each language to apply LSP fixes on manual saves, or `"*"` for all | Only this file            |
 | `formatters`            | none          | The formatter of each language, where plugins offer several | Only this file                                 |
 | `languageServers`       | none          | Each language server's `initializationOptions`, by its id   | Only this file                                 |
 
@@ -353,13 +355,31 @@ differ in width lines them up only roughly.
   [PLUGINS.md](PLUGINS.md).
 - **`formatOnSave`** formats a document with a plugin's formatter as it saves, by language, as `{"go": true}`, or
   `{"*": true}` for every language that has a formatter.
+- **`organizeImportsOnSave`** asks the language server through LSP to add missing imports, remove unused imports
+  and sort them on manual saves, by language, as `{"go": true}`, or `{"*": true}` for all languages. It is off by default.
+- **`fixAllOnSave`** asks the language server through LSP for automatic source fixes on manual saves, with the same
+  language map. It is off by default and independent of import organization and formatting. It uses the server's current
+  diagnostics; it does not apply every quick fix.
 - **`formatters`** chooses the formatter of a language where plugins offer several, by the formatter's id or its
   plugin's name, as `{"typescript": "prettier"}`.
+
+Both settings use Language Server Protocol (LSP) code actions and require a running language server that supports
+the corresponding action.
+
+When enabled together, imports are organized before automatic fixes, then formatting runs if `formatOnSave` asks
+for it. These steps share a 1.5-second save deadline. A failure or timeout leaves the latest text to be saved;
+changes already applied can be undone. Auto Save does not run these code actions.
+
+Code actions on save support direct, unannotated text edits in the current file. Actions requiring a command,
+resolution, another file or a file operation are reported as unsupported. The server decides which imports and
+fixes to offer; for example, gopls chooses imports from the workspace and module cache.
 
 ```json
 {
   "plugins": { "word-count": { "wordsPerMinute": 200 }, "prettier": { "enabled": false } },
   "formatOnSave": { "typescript": true },
+  "organizeImportsOnSave": { "go": true },
+  "fixAllOnSave": { "go": true },
   "formatters": { "typescript": "biome" }
 }
 ```
@@ -474,7 +494,7 @@ beside one returns it to your setting.
 
 A folder can set these: `autoSave`, `wordWrap`, `columnGuides`, `trimTrailingWhitespace`, `jsonlMode`, `searchFollowSymlinks`, `markdownMode`, `previewMermaid`, `previewMath`,
 `terminalCopyOnSelect`, `diffHighlight`, `diffWhitespace`, `diffContext`, `diffCrossFiles`, `mergeAutoApply`,
-`blame`, `aiModel`, `vim`, `vimCtrlKeys`, `formatOnSave` and `formatters`.
+`blame`, `aiModel`, `vim`, `vimCtrlKeys`, `formatOnSave`, `organizeImportsOnSave`, `fixAllOnSave` and `formatters`.
 
 ```json
 {

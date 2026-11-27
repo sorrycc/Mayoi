@@ -522,6 +522,7 @@ func (a *app) lspDoc(event string, d *document) {
 	uri := serverURI(d.path)
 	switch event {
 	case "save":
+		c.Open(uri, languageOf(d), d.buf.String())
 		c.Saved(uri)
 	default:
 		c.Open(uri, languageOf(d), d.buf.String())
@@ -1014,7 +1015,6 @@ func (a *app) lspFormat(d *editor, limit time.Duration, then func()) bool {
 	if c == nil || !c.Formatting() {
 		return false
 	}
-	c.Open(serverURI(d.path), languageOf(d.document), d.buf.String())
 	snap := d.buf.Snapshot()
 	version := snap.Version()
 	size, spaces := max(d.indent.size, 1), !d.indent.tabs
@@ -1022,10 +1022,15 @@ func (a *app) lspFormat(d *editor, limit time.Duration, then func()) bool {
 		size = tabWidth()
 	}
 	uri := serverURI(d.path)
+	language, text := languageOf(d.document), snap.String()
 	go func() {
 		ctx, cancel := context.WithTimeout(context.Background(), limit)
 		defer cancel()
-		edits, err := c.Format(ctx, uri, size, spaces)
+		_, err := c.OpenContext(ctx, uri, language, text)
+		var edits []lsp.TextEdit
+		if err == nil {
+			edits, err = c.Format(ctx, uri, size, spaces)
+		}
 		a.post(func() {
 			defer func() {
 				if then != nil {

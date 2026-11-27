@@ -92,6 +92,10 @@ func parameterURIs(method string) uriFields {
 		"textDocument/hover", "textDocument/definition", "textDocument/typeDefinition", "textDocument/implementation",
 		"textDocument/references", "textDocument/completion", "textDocument/formatting":
 		return documentURI
+	case "textDocument/codeAction":
+		return uriFields{"textDocument": {"uri": nil}, "context": {"diagnostics": {"*": {
+			"relatedInformation": {"*": {"location": {"uri": nil}}},
+		}}}}
 	case "textDocument/publishDiagnostics":
 		return uriFields{"uri": nil, "diagnostics": {"*": {
 			"relatedInformation": {"*": {"location": {"uri": nil}}},
@@ -204,6 +208,8 @@ func mapResult(method string, data json.RawMessage, mappings []PathMapping, toSe
 		return mapURIFields(data, locationURIs, mappings, toServer)
 	case "workspace/workspaceFolders":
 		return mapURIFields(data, folderURIs, mappings, toServer)
+	case "textDocument/codeAction":
+		return mapURIFields(data, uriFields{"*": {"edit": editURIs}}, mappings, toServer)
 	default:
 		return data
 	}

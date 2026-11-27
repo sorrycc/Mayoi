@@ -5,6 +5,8 @@ needs a `## <version>` section here, or its build fails.
 
 ## Unreleased
 
+- LSP: Enable `organizeImportsOnSave` to organize imports on manual saves.
+- LSP: Enable `fixAllOnSave` to apply automatic fixes on manual saves.
 - Hover over underlined code to read and copy diagnostics alongside symbol documentation.
 - Fix typing or pasting into the previous file after switching files in an editable diff.
 - Fix staged deletions offering to edit a later file in the diff.

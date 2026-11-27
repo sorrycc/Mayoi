@@ -18,7 +18,7 @@ const (
 	syncLoading
 	// syncLoadFailed: it could not be read, loadErr says why.
 	syncLoadFailed
-	// syncFormatting: a save waits for a plugin's formatter.
+	// syncFormatting: a save waits for code actions or a formatter.
 	syncFormatting
 	// syncSaving: a remote file is written in the background.
 	syncSaving
@@ -33,11 +33,12 @@ var errNotSaved = errors.New("not saved")
 
 // saveWaiter is a save asked for: done runs once the text as it was then
 // is written, or failed with why it could not be. format runs the
-// formatter first, as formatOnSave asks.
+// formatter first, as formatOnSave asks. actions runs the enabled save actions.
 type saveWaiter struct {
-	done   func()
-	failed func(error)
-	format bool
+	done    func()
+	failed  func(error)
+	format  bool
+	actions bool
 	// auto is a save the document makes itself, as Auto Save does.
 	auto bool
 }
@@ -68,18 +69,21 @@ func (a *app) requestSave(d *document, w saveWaiter) {
 }
 
 // nextSave makes the saves queued once nothing is under way: the
-// formatter first if one of them asks for it, then the write.
+// save actions and formatter first if requested, then the write.
 func (a *app) nextSave(d *document) {
 	if d.sync != syncIdle || len(d.queued) == 0 {
 		return
 	}
-	if slices.ContainsFunc(d.queued, func(w saveWaiter) bool { return w.format }) {
+	format := slices.ContainsFunc(d.queued, func(w saveWaiter) bool { return w.format })
+	actions := slices.ContainsFunc(d.queued, func(w saveWaiter) bool { return w.actions })
+	if format || actions {
 		if ed := a.docEditor(d); ed != nil {
 			for i := range d.queued {
 				d.queued[i].format = false
+				d.queued[i].actions = false
 			}
 			d.sync = syncFormatting
-			a.format(ed, formatOnSaveLimit, true, func() {
+			a.prepareSave(ed, actions, format, func() {
 				if d.sync == syncFormatting {
 					d.sync = syncIdle
 				}

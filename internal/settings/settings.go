@@ -346,6 +346,10 @@ type Prefs struct {
 	// FormatOnSave formats a document with a plugin's formatter as it
 	// saves, by language, as "go", or "*" for every language.
 	FormatOnSave map[string]bool `json:"formatOnSave,omitempty"`
+	// OrganizeImportsOnSave organizes imports through LSP on manual saves, by language or "*".
+	OrganizeImportsOnSave map[string]bool `json:"organizeImportsOnSave,omitempty"`
+	// FixAllOnSave applies LSP source fixes on manual saves, by language or "*".
+	FixAllOnSave map[string]bool `json:"fixAllOnSave,omitempty"`
 	// Formatters chooses the formatter of a language where plugins offer
 	// several: the formatter's id, or its plugin's name.
 	Formatters map[string]string `json:"formatters,omitempty"`

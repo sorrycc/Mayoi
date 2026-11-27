@@ -2357,11 +2357,14 @@
   "claudeThemeMalformed": "{path} isn't valid JSON, so Mayoi left it. Fix it, then turn this off and on.",
   "claudeThemeFailed": "Couldn't change Claude Code's theme: {err}",
   "cmdGitFileHistory": "Open File History",
-  "scmFileHistory": "File History of {path}",
-  "scmFileHistoryClear": "Clear File History",
-  "scmFileHistoryNone": "No commit changed this file.",
   "cmdGitOnlyThisFile": "Show Only This File",
   "diffOnlyThisFile": "Only This File",
   "prefTitleDiffCommitFileOnly": "Only This File",
-  "prefDescDiffCommitFileOnly": "A commit's diff opened from a file's history shows that file alone; the diff's Only This File button shows every file of the commit, or the file again."
+  "prefDescDiffCommitFileOnly": "A commit's diff opened from a file's history shows that file alone; the diff's Only This File button shows every file of the commit, or the file again.",
+  "scmPathHistory": "History of {path}",
+  "scmPathHistoryClear": "Clear History",
+  "scmPathHistoryNone": "No commit changed {path}.",
+  "scmPathsCount": "{count, plural, one {# path} other {# paths}}",
+  "cmdGitFolderHistory": "Open Folder History",
+  "cmdGitPathsHistory": "Open History"
 }

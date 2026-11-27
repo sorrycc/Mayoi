@@ -21530,36 +21530,6 @@ func (msgs Messages) CmdGitFileHistory() string {
 	return Catalog.Format(msgs.locale, "cmdGitFileHistory", nil)
 }
 
-// ScmFileHistory says "File History of {path}"
-// in the language the app shows.
-func ScmFileHistory(path string) string { return In(i18n.Locale()).ScmFileHistory(path) }
-
-// ScmFileHistory says "File History of {path}"
-// in the language of msgs.
-func (msgs Messages) ScmFileHistory(path string) string {
-	return Catalog.Format(msgs.locale, "scmFileHistory", map[string]any{"path": path})
-}
-
-// ScmFileHistoryClear says "Clear File History"
-// in the language the app shows.
-func ScmFileHistoryClear() string { return In(i18n.Locale()).ScmFileHistoryClear() }
-
-// ScmFileHistoryClear says "Clear File History"
-// in the language of msgs.
-func (msgs Messages) ScmFileHistoryClear() string {
-	return Catalog.Format(msgs.locale, "scmFileHistoryClear", nil)
-}
-
-// ScmFileHistoryNone says "No commit changed this file."
-// in the language the app shows.
-func ScmFileHistoryNone() string { return In(i18n.Locale()).ScmFileHistoryNone() }
-
-// ScmFileHistoryNone says "No commit changed this file."
-// in the language of msgs.
-func (msgs Messages) ScmFileHistoryNone() string {
-	return Catalog.Format(msgs.locale, "scmFileHistoryNone", nil)
-}
-
 // CmdGitOnlyThisFile says "Show Only This File"
 // in the language the app shows.
 func CmdGitOnlyThisFile() string { return In(i18n.Locale()).CmdGitOnlyThisFile() }
@@ -21598,4 +21568,64 @@ func PrefDescDiffCommitFileOnly() string { return In(i18n.Locale()).PrefDescDiff
 // in the language of msgs.
 func (msgs Messages) PrefDescDiffCommitFileOnly() string {
 	return Catalog.Format(msgs.locale, "prefDescDiffCommitFileOnly", nil)
+}
+
+// ScmPathHistory says "History of {path}"
+// in the language the app shows.
+func ScmPathHistory(path string) string { return In(i18n.Locale()).ScmPathHistory(path) }
+
+// ScmPathHistory says "History of {path}"
+// in the language of msgs.
+func (msgs Messages) ScmPathHistory(path string) string {
+	return Catalog.Format(msgs.locale, "scmPathHistory", map[string]any{"path": path})
+}
+
+// ScmPathHistoryClear says "Clear History"
+// in the language the app shows.
+func ScmPathHistoryClear() string { return In(i18n.Locale()).ScmPathHistoryClear() }
+
+// ScmPathHistoryClear says "Clear History"
+// in the language of msgs.
+func (msgs Messages) ScmPathHistoryClear() string {
+	return Catalog.Format(msgs.locale, "scmPathHistoryClear", nil)
+}
+
+// ScmPathHistoryNone says "No commit changed {path}."
+// in the language the app shows.
+func ScmPathHistoryNone(path string) string { return In(i18n.Locale()).ScmPathHistoryNone(path) }
+
+// ScmPathHistoryNone says "No commit changed {path}."
+// in the language of msgs.
+func (msgs Messages) ScmPathHistoryNone(path string) string {
+	return Catalog.Format(msgs.locale, "scmPathHistoryNone", map[string]any{"path": path})
+}
+
+// ScmPathsCount says "{count, plural, one {# path} other {# paths}}"
+// in the language the app shows.
+func ScmPathsCount(count int) string { return In(i18n.Locale()).ScmPathsCount(count) }
+
+// ScmPathsCount says "{count, plural, one {# path} other {# paths}}"
+// in the language of msgs.
+func (msgs Messages) ScmPathsCount(count int) string {
+	return Catalog.Format(msgs.locale, "scmPathsCount", map[string]any{"count": count})
+}
+
+// CmdGitFolderHistory says "Open Folder History"
+// in the language the app shows.
+func CmdGitFolderHistory() string { return In(i18n.Locale()).CmdGitFolderHistory() }
+
+// CmdGitFolderHistory says "Open Folder History"
+// in the language of msgs.
+func (msgs Messages) CmdGitFolderHistory() string {
+	return Catalog.Format(msgs.locale, "cmdGitFolderHistory", nil)
+}
+
+// CmdGitPathsHistory says "Open History"
+// in the language the app shows.
+func CmdGitPathsHistory() string { return In(i18n.Locale()).CmdGitPathsHistory() }
+
+// CmdGitPathsHistory says "Open History"
+// in the language of msgs.
+func (msgs Messages) CmdGitPathsHistory() string {
+	return Catalog.Format(msgs.locale, "cmdGitPathsHistory", nil)
 }

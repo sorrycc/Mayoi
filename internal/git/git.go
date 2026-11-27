@@ -936,7 +936,7 @@ func parseCommit(rec string) (Commit, bool) {
 // and tag when all is set, newest first and each after the commits made
 // on it: none before the first commit.
 func (r *Repo) Log(n int, all bool) ([]Commit, error) {
-	cs, _, err := r.log(n, all, "")
+	cs, _, err := r.log(n, all, nil, false)
 	return cs, err
 }
 
@@ -944,22 +944,32 @@ func (r *Repo) Log(n int, all bool) ([]Commit, error) {
 // following the file through renames, and the path the file had in each,
 // by hash. all reads every branch and tag, as Log does.
 func (r *Repo) LogPath(path string, n int, all bool) ([]Commit, map[string]string, error) {
-	return r.log(n, all, r.Rel(path))
+	return r.log(n, all, []string{path}, true)
 }
 
-// log reads the history of HEAD, or of the file at path when it is not
-// "", with the name that file went by in each commit.
-func (r *Repo) log(n int, all bool, path string) ([]Commit, map[string]string, error) {
+// LogPaths returns the last n commits that changed any of paths, newest
+// first: a folder's are those of the files under it, and every branch
+// and tag are read when all is set, as Log does. Renames are not
+// followed, which git does for one file alone.
+func (r *Repo) LogPaths(paths []string, n int, all bool) ([]Commit, error) {
+	cs, _, err := r.log(n, all, paths, false)
+	return cs, err
+}
+
+// log reads the history of HEAD, of the files and folders at paths when
+// there are any, following the renames of one file when follow is set
+// and naming the file in each commit.
+func (r *Repo) log(n int, all bool, paths []string, follow bool) ([]Commit, map[string]string, error) {
 	args := []string{"log", "-z", "--date-order", "--decorate=full", "-n", strconv.Itoa(n), commitFormat, "HEAD"}
 	if all {
 		args = append(args, "--branches", "--remotes", "--tags")
 	}
-	if path != "" {
+	if follow {
 		args = append(args, "--follow", "--name-only")
 	}
 	args = append(args, "--")
-	if path != "" {
-		args = append(args, path)
+	for _, path := range paths {
+		args = append(args, r.Rel(path))
 	}
 	out, err := r.run(nil, args...)
 	if err != nil {

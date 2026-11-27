@@ -484,6 +484,53 @@ func TestLogPath(t *testing.T) {
 	}
 }
 
+func TestLogPaths(t *testing.T) {
+	r, git := repo(t)
+	write(t, r.Root, "docs/a.md", "a\n")
+	write(t, r.Root, "docs/b.md", "b\n")
+	git("add", ".")
+	git("commit", "-qm", "add the docs")
+	write(t, r.Root, "a.txt", "one\nchanged\nthree\n")
+	git("commit", "-qam", "change a")
+	write(t, r.Root, "docs/a.md", "a\nmore\n")
+	git("commit", "-qam", "change a doc")
+
+	subjects := func(cs []Commit) []string {
+		var out []string
+		for _, c := range cs {
+			out = append(out, c.Subject)
+		}
+		return out
+	}
+	// A folder's history is that of the files under it.
+	cs, err := r.LogPaths([]string{r.Abs("docs")}, 10, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := []string{"change a doc", "add the docs"}; !slices.Equal(subjects(cs), want) {
+		t.Errorf("the docs' history %v, want %v", subjects(cs), want)
+	}
+	// Several paths are any of them; a file among them is one more path.
+	cs, err = r.LogPaths([]string{r.Abs("docs"), r.Abs("a.txt")}, 10, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := []string{"change a doc", "change a", "add the docs", "first"}; !slices.Equal(subjects(cs), want) {
+		t.Errorf("the history of the docs and a.txt %v, want %v", subjects(cs), want)
+	}
+	// The number asked for is the number read.
+	if cs, err = r.LogPaths([]string{r.Abs("docs")}, 1, false); err != nil || len(cs) != 1 || cs[0].Subject != "change a doc" {
+		t.Errorf("one commit %+v %v", cs, err)
+	}
+	// A folder no commit changed has no history.
+	write(t, r.Root, "empty", "e\n")
+	os.MkdirAll(filepath.Join(r.Root, "later"), 0o755)
+	write(t, r.Root, "later/c.md", "c\n")
+	if cs, err = r.LogPaths([]string{r.Abs("later")}, 10, false); err != nil || len(cs) != 0 {
+		t.Errorf("an untracked folder's history %+v %v", cs, err)
+	}
+}
+
 func TestLogBeforeTheFirstCommit(t *testing.T) {
 	if _, err := exec.LookPath("git"); err != nil {
 		t.Skip("no git")

@@ -175,6 +175,7 @@ func (a *app) commandsIn(t locales.Messages) []command {
 		{"git.writeMessage", t.CmdGitWriteMessage(), "", func() { a.showSourceControl(); a.writeMessage() }},
 		{"git.openChanges", t.CmdGitOpenChanges(), "", a.openChanges},
 		{"git.fileHistory", t.CmdGitFileHistory(), "", a.openFileHistory},
+		{"git.folderHistory", t.CmdGitFolderHistory(), "", a.openFolderHistory},
 		{"git.openAllChanges", t.CmdGitOpenAllChanges(), "", func() { a.openChangesTab(true) }},
 		{"git.compareFiles", t.CmdGitCompareFiles(), "", a.compareLocalFiles},
 		{"git.solveConflicts", t.CmdGitSolveConflicts(), "", a.solveActiveConflicts},
@@ -796,7 +797,7 @@ func (a *app) menu(cli bool, run func(id string, win *mygo.Window)) *mygo.Menu {
 		}},
 		{Label: locales.MenuGit(), Submenu: []*mygo.MenuItem{
 			item("git.commit"), item("git.commitPush"), item("git.amend"), item("git.undoCommit"), mygo.Separator(),
-			item("git.openChanges"), item("git.fileHistory"), item("git.openAllChanges"), item("git.compareFiles"), item("git.nextChange"), item("git.prevChange"), item("git.nextFile"), item("git.prevFile"),
+			item("git.openChanges"), item("git.fileHistory"), item("git.folderHistory"), item("git.openAllChanges"), item("git.compareFiles"), item("git.nextChange"), item("git.prevChange"), item("git.nextFile"), item("git.prevFile"),
 			item("git.collapseAllFiles"), item("git.expandAllFiles"), commitFiles, onlyFile, mygo.Separator(),
 			item("git.showChange"), item("git.revertChange"), item("git.appendChange"), item("git.stageChange"), mygo.Separator(),
 			item("git.stageFile"), item("git.unstageFile"), item("git.stageAll"), mygo.Separator(),

@@ -71,8 +71,8 @@ type scmRow struct {
 	// are read or when they could not be.
 	under *git.Commit
 	note  string
-	// scope is the row of the file whose history the commits are, and
-	// empty the row that says no commit changed it.
+	// scope is the row of the paths whose history the commits are, and
+	// empty the row that says no commit changed them.
 	scope bool
 	empty bool
 }
@@ -225,13 +225,13 @@ func (a *gitContext) scmRows() []scmRow {
 			rows = append(rows, scmRow{group: scmGroup(g), e: e, key: fmt.Sprintf("%d:%s", g, e.Path)})
 		}
 	}
-	if h := g.history; (len(h) > 0 || s.section == scmHistory || g.historyPath != "") && s.section != scmChanges {
+	if h := g.history; (len(h) > 0 || s.section == scmHistory || len(g.historyPaths) > 0) && s.section != scmChanges {
 		rows = append(rows, scmRow{group: groupCommits, header: true, count: len(h), key: "group:commits"})
 		if !s.collapsed[groupCommits] {
-			// The file whose history the commits are shows under the
+			// The paths whose history the commits are show under the
 			// header, with the button that goes back to the branch's.
-			if g.historyPath != "" {
-				rows = append(rows, scmRow{group: groupCommits, scope: true, key: "scope:" + g.historyPath})
+			if len(g.historyPaths) > 0 {
+				rows = append(rows, scmRow{group: groupCommits, scope: true, key: "scope:" + strings.Join(g.historyPaths, "\x00")})
 			}
 			for i := range h {
 				rows = append(rows, scmRow{group: groupCommits, commit: &h[i], at: i, key: "commit:" + h[i].Hash})
@@ -239,7 +239,7 @@ func (a *gitContext) scmRows() []scmRow {
 					rows = a.commitFileRows(rows, &h[i], i)
 				}
 			}
-			if len(h) == 0 && g.historyPath != "" && g.historyOf == a.historyKey() && g.historyErr == "" {
+			if len(h) == 0 && len(g.historyPaths) > 0 && g.historyOf == a.historyKey() && g.historyErr == "" {
 				rows = append(rows, scmRow{group: groupCommits, empty: true, key: "commits:empty"})
 			}
 			if len(h) >= max(g.historyN, historyPage) {
@@ -538,9 +538,9 @@ func (a *gitContext) scmList(c *ui.Context) {
 		case r.header:
 			return ""
 		case r.scope:
-			return locales.ScmFileHistory(a.historyPathLabel())
+			return locales.ScmPathHistory(a.historyLabel())
 		case r.empty:
-			return locales.ScmFileHistoryNone()
+			return locales.ScmPathHistoryNone(a.historyLabel())
 		case r.note != "":
 			return r.note
 		case r.dir != "":
@@ -677,12 +677,7 @@ func (a *gitContext) scmListInput(out ui.Element, rows []scmRow, reveal func(int
 		case r.dir != "":
 			a.toggleDir(r)
 		case r.commit != nil:
-			// A file's history shows each commit at that file.
-			if g.historyPath != "" {
-				a.showCommitFromHistory(*r.commit, a.fileOf(r.commit.Hash), true)
-			} else {
-				a.showCommit(*r.commit, true)
-			}
+			a.showHistoryCommit(*r.commit, true)
 		case r.more:
 			g.historyN = max(g.historyN, historyPage) + historyPage
 		}
@@ -1393,12 +1388,7 @@ func (a *gitContext) scmCommit(c *ui.Context, r scmRow, action *func()) {
 				}
 			}
 			if mods&(ui.Cmd|ui.Shift) == 0 {
-				// A file's history shows each commit at that file.
-				if g.historyPath != "" {
-					a.showCommitFromHistory(*cm, a.fileOf(cm.Hash), false)
-				} else {
-					a.previewCommit(*cm)
-				}
+				a.showHistoryCommit(*cm, false)
 			}
 		}
 	}
@@ -1702,30 +1692,22 @@ func (a *gitContext) scmMore(c *ui.Context, action *func()) {
 	}
 }
 
-// historyPathLabel spells the file whose history is read: its path in
-// the repository, as the row says it.
-func (a *gitContext) historyPathLabel() string {
-	if a.git.historyPath == "" || a.git.repo == nil {
-		return ""
-	}
-	return a.git.repo.Rel(a.git.historyPath)
-}
-
-// scmScope is the row of the file whose history the commits are: its
-// path, and the button that shows the branch's history again.
+// scmScope is the row of the paths whose history the commits are: the
+// file's, the folder's or their count, and the button that shows the
+// branch's history again.
 func (a *gitContext) scmScope(c *ui.Context) {
 	p := a.app.pal
 	row := ui.Row(c).Grow(1).Height(scmRowHeight).Padding(0, 4, 0, 6).AlignItems(ui.Center)
-	row.Tooltip(locales.ScmFileHistory(a.historyPathLabel()))
+	row.Tooltip(locales.ScmPathHistory(a.historyLabel()))
 	row.Children(func() {
 		ui.Box(c).Size(12, scmRowHeight)
 		chip := ui.Row(c).Height(20).MaxWidthPercent(100).Gap(4).Padding(0, 2, 0, 5).Radius(5).
 			AlignItems(ui.Center).Background(p.hover)
 		chip.Children(func() {
-			ui.Icon(c, iconClock).FontSize(11).Shrink(0).TextColor(p.muted)
-			ui.Text(c, a.historyPathLabel()).FontSize(11.5).TextColor(p.muted).SingleLine().Shrink(1).MinWidth(0)
-			if a.app.smallButton(c, iconX, locales.ScmFileHistoryClear()) {
-				a.app.post(a.clearFileHistory)
+			ui.Icon(c, a.historyIcon()).FontSize(11).Shrink(0).TextColor(p.muted)
+			ui.Text(c, a.historyLabel()).FontSize(11.5).TextColor(p.muted).SingleLine().Shrink(1).MinWidth(0)
+			if a.app.smallButton(c, iconX, locales.ScmPathHistoryClear()) {
+				a.app.post(a.clearHistory)
 			}
 		})
 	})
@@ -1736,7 +1718,7 @@ func (a *gitContext) scmEmpty(c *ui.Context) {
 	p := a.app.pal
 	ui.Row(c).Grow(1).Height(scmRowHeight).Padding(0, 4, 0, 12).AlignItems(ui.Center).Children(func() {
 		ui.Box(c).Size(12, scmRowHeight)
-		ui.Text(c, locales.ScmFileHistoryNone()).FontSize(11.5).TextColor(p.faint).SingleLine().Shrink(1)
+		ui.Text(c, locales.ScmPathHistoryNone(a.historyLabel())).FontSize(11.5).TextColor(p.faint).SingleLine().Shrink(1)
 	})
 }
 

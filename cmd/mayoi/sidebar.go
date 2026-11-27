@@ -501,16 +501,42 @@ func (a *app) fileTree(c *ui.Context) {
 			if m.Item(locales.CopyRelativePath()).Chosen() {
 				action = func() { a.services.WriteClipboard(joinPaths(paths, t.Rel)) }
 			}
-			if !isDir && a.repositoryForPath(path).git.repo != nil {
+			// A file's, a folder's or the rows chosen together's history,
+			// of one repository, and a file's links to its remote.
+			if ctx := a.repositoryForPath(path); ctx.git.repo != nil {
 				m.Separator()
-				if m.Item(locales.CmdGitFileHistory()).Chosen() {
-					action = func() { a.showFileHistory(path) }
+				sameRepo := true
+				for _, p := range paths {
+					if a.repositoryForPath(p).git != ctx.git {
+						sameRepo = false
+						break
+					}
 				}
-				if m.Item(locales.CmdGitOpenFileOnRemote()).Chosen() {
-					action = func() { a.fileOnRemote(path, nil, false) }
+				switch {
+				case multi:
+					item := m.Item(locales.CmdGitPathsHistory())
+					if !sameRepo {
+						item.Disabled(true)
+					}
+					if item.Chosen() && sameRepo {
+						action = func() { a.showPathsHistory(paths) }
+					}
+				case isDir:
+					if m.Item(locales.CmdGitFolderHistory()).Chosen() {
+						action = func() { a.showFolderHistory(path) }
+					}
+				default:
+					if m.Item(locales.CmdGitFileHistory()).Chosen() {
+						action = func() { a.showFileHistory(path) }
+					}
 				}
-				if m.Item(locales.CmdGitCopyPermalink()).Chosen() {
-					action = func() { a.fileOnRemote(path, nil, true) }
+				if !isDir {
+					if m.Item(locales.CmdGitOpenFileOnRemote()).Chosen() {
+						action = func() { a.fileOnRemote(path, nil, false) }
+					}
+					if m.Item(locales.CmdGitCopyPermalink()).Chosen() {
+						action = func() { a.fileOnRemote(path, nil, true) }
+					}
 				}
 			}
 			m.Separator()

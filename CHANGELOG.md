@@ -8,6 +8,8 @@ needs a `## <version>` section here, or its build fails.
 - **Git → Open File History** lists the commits that changed a file, each opening at that file.
 - A commit opened from a file's history shows that file alone; **Only This File** in the diff shows the others.
 - `diffCommitFileOnly` turns that off, so the commit opens at the file among all of them.
+- **Open Folder History** lists the commits that changed anything under a folder.
+- **Open History** on several rows chosen in the Explorer lists the commits of any of them.
 - **Remote SSH** connects to Windows hosts running OpenSSH Server, through the PowerShell Windows comes with.
 - A Windows host's files, Git, search and language servers work as on Linux, and its terminals open PowerShell.
 - On a Windows host, `/` lists its drives and the folder box takes `C:\Users\me` as you type it.

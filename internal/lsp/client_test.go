@@ -131,3 +131,45 @@ func TestStartRefused(t *testing.T) {
 		}
 	}
 }
+
+func TestDocumentSyncSkipsUnchangedText(t *testing.T) {
+	cmd := exec.Command(os.Args[0])
+	cmd.Env = append(os.Environ(), "MAYOI_FAKE_LSP=1")
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	c, err := Start(ctx, Options{Cmd: cmd, RootURI: URI(t.TempDir())})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer c.Close()
+	uri := URI("/work/sync.fake")
+	for _, step := range []struct {
+		text    string
+		close   bool
+		version int
+	}{
+		{text: "first", version: 1},
+		{text: "first", version: 1},
+		{text: "second", version: 2},
+		{text: "second", version: 2},
+		{text: "second", close: true, version: 1},
+	} {
+		if step.close {
+			c.Closed(uri)
+		}
+		c.Open(uri, "fake", step.text)
+		data, err := c.Call(ctx, "test/snapshot", nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var snapshot struct {
+			Document struct{ TextDocument struct{ Version int } }
+		}
+		if err := json.Unmarshal(data, &snapshot); err != nil {
+			t.Fatal(err)
+		}
+		if got := snapshot.Document.TextDocument.Version; got != step.version {
+			t.Fatalf("text %q, close %v: server version %d, want %d", step.text, step.close, got, step.version)
+		}
+	}
+}

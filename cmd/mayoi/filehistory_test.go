@@ -414,3 +414,43 @@ func TestFileHistoryClearsWhenTheFileLeaves(t *testing.T) {
 		t.Errorf("another folder's history is scoped to %v", a.git.historyPaths)
 	}
 }
+
+// TestHistoryScopeKeysAndErrors: Enter on the scope row shows the
+// branch's history again, and a history that could not be read says why
+// under its scope rather than leaving the list blank.
+func TestHistoryScopeKeysAndErrors(t *testing.T) {
+	hs := newHarness(t, true)
+	git := hs.gitRepo()
+	a := hs.a
+	f := hs.path("f.txt")
+	os.WriteFile(f, []byte("f\n"), 0o644)
+	git("add", ".")
+	git("commit", "-qm", "add f")
+	hs.settleGit()
+	a.showFileHistory(f)
+	hs.settleGit()
+	hs.settle()
+	ctx := a.repositoryForPath(f)
+	// A read that failed: the row under the scope gives git's reason.
+	ctx.git.history, ctx.git.historyErr = nil, "fatal: bad revision\nmore"
+	ctx.git.historyGen++
+	a.invalidate()
+	hs.settle()
+	if !hs.tt.HasText("fatal: bad revision") {
+		t.Errorf("no error state: %q", hs.tt.Texts())
+	}
+	// The scope row is chosen as the history opens; Enter clears it.
+	if err := hs.tt.Click("f.txt"); err != nil {
+		t.Fatal(err)
+	}
+	hs.settle()
+	if rows := ctx.scmRows(); ctx.scm.row < 0 || ctx.scm.row >= len(rows) || !rows[ctx.scm.row].scope {
+		t.Fatalf("the scope row is not chosen: row %d", ctx.scm.row)
+	}
+	hs.tt.Key(0, ui.KeyEnter)
+	hs.settleGit()
+	hs.settle()
+	if len(ctx.git.historyPaths) != 0 {
+		t.Errorf("Enter on the scope row keeps the history of %v", ctx.git.historyPaths)
+	}
+}

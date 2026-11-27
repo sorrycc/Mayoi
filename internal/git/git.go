@@ -968,8 +968,9 @@ func (r *Repo) log(n int, all bool, paths []string, follow bool) ([]Commit, map[
 		args = append(args, "--follow", "--name-only")
 	}
 	args = append(args, "--")
+	// The paths are names, not patterns: a [ or * in one is its own.
 	for _, path := range paths {
-		args = append(args, r.Rel(path))
+		args = append(args, ":(literal)"+r.Rel(path))
 	}
 	out, err := r.run(nil, args...)
 	if err != nil {

@@ -201,7 +201,7 @@ type Prefs struct {
 	// DiffHistoryOnly shows only the files of the history a commit's diff
 	// was opened from, when it is true; the diff's Only Selected Paths
 	// toggle says so for a tab whatever the setting.
-	DiffHistoryOnly bool `json:"diffHistoryOnly,omitempty"`
+	DiffHistoryOnly bool `json:"diffHistoryOnly"`
 	// DiffHighlight is what a diff shows of a line that changed: "line"
 	// no more than the line, "char" the characters that changed, or ""
 	// the words that changed. What it shows is only so: a diff's block

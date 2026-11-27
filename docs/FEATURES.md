@@ -288,7 +288,7 @@ rows chosen in the Explorer have **Open History** for all of them, files and fol
 the paths it lists. A commit opened from one of them shows the files of those paths alone — the file by the name it had
 then, across renames — and **Only Selected Paths** in the diff's toolbar, or the same checkbox in the **Git** menu, shows
 every file of the commit, and those paths again. With `diffHistoryOnly` off, a commit opens with every file of it. Only
-one file's history follows renames. The chip's × shows the branch's history again, and paths no commit changed say so.
+one file's history follows renames. The chip's ×, or Enter on its row, shows the branch's history again, and paths no commit changed say so.
 
 Click a commit to see it in the preview tab, the keyboard staying in the list, so clicking through commits leaves one
 tab; Enter, a double click or **Open Changes** in its menu keeps it in a tab of its own, focused. The tab shows its

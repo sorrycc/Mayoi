@@ -425,6 +425,12 @@ func TestDiffPrefs(t *testing.T) {
 	if s.DiffHighlight != "char" || s.DiffContext != 100 || s.DiffSyncScroll || s.DiffHistoryOnly {
 		t.Fatalf("loaded %+v", s.Prefs)
 	}
+	// Off, it is written as off, not left out to load as on again.
+	prefs, _ := s.Encode()
+	os.WriteFile(path, prefs, 0o644)
+	if Load(path).DiffHistoryOnly {
+		t.Fatalf("diffHistoryOnly off did not stay off: %s", prefs)
+	}
 	os.WriteFile(path, []byte(`{"diffHighlight": "banana", "diffContext": -2}`), 0o644)
 	s = Load(path)
 	if s.DiffHighlight != "" || s.DiffContext != 0 {

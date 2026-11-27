@@ -239,7 +239,8 @@ func (a *gitContext) scmRows() []scmRow {
 					rows = a.commitFileRows(rows, &h[i], i)
 				}
 			}
-			if len(h) == 0 && len(g.historyPaths) > 0 && g.historyOf == a.historyKey() && g.historyErr == "" {
+			// No commit changed the paths, or they could not be read.
+			if len(h) == 0 && len(g.historyPaths) > 0 && g.historyOf == a.historyKey() {
 				rows = append(rows, scmRow{group: groupCommits, empty: true, key: "commits:empty"})
 			}
 			if len(h) >= max(g.historyN, historyPage) {
@@ -540,7 +541,7 @@ func (a *gitContext) scmList(c *ui.Context) {
 		case r.scope:
 			return locales.ScmPathHistory(a.historyLabel())
 		case r.empty:
-			return locales.ScmPathHistoryNone(a.historyLabel())
+			return a.historyEmpty()
 		case r.note != "":
 			return r.note
 		case r.dir != "":
@@ -678,6 +679,8 @@ func (a *gitContext) scmListInput(out ui.Element, rows []scmRow, reveal func(int
 			a.toggleDir(r)
 		case r.commit != nil:
 			a.showHistoryCommit(*r.commit, true)
+		case r.scope:
+			a.clearHistory()
 		case r.more:
 			g.historyN = max(g.historyN, historyPage) + historyPage
 		}
@@ -1713,13 +1716,24 @@ func (a *gitContext) scmScope(c *ui.Context) {
 	})
 }
 
-// scmEmpty says that no commit changed the file whose history is read.
+// scmEmpty says that no commit changed the paths whose history is read,
+// or why their history could not be read.
 func (a *gitContext) scmEmpty(c *ui.Context) {
 	p := a.app.pal
-	ui.Row(c).Grow(1).Height(scmRowHeight).Padding(0, 4, 0, 12).AlignItems(ui.Center).Children(func() {
+	ui.Row(c).Grow(1).Height(scmRowHeight).Padding(0, 4, 0, 12).AlignItems(ui.Center).Tooltip(a.git.historyErr).Children(func() {
 		ui.Box(c).Size(12, scmRowHeight)
-		ui.Text(c, locales.ScmPathHistoryNone(a.historyLabel())).FontSize(11.5).TextColor(p.faint).SingleLine().Shrink(1)
+		ui.Text(c, a.historyEmpty()).FontSize(11.5).TextColor(p.faint).SingleLine().Shrink(1)
 	})
+}
+
+// historyEmpty is what the row under an empty history's scope says: why
+// it could not be read, or that no commit changed its paths.
+func (a *gitContext) historyEmpty() string {
+	if err := a.git.historyErr; err != "" {
+		line, _, _ := strings.Cut(strings.TrimSpace(err), "\n")
+		return line
+	}
+	return locales.ScmPathHistoryNone(a.historyLabel())
 }
 
 // shortAgo says how long before now t was, in a few letters.

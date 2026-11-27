@@ -159,7 +159,7 @@ func jsxInChildren(stack *[]jsxFrame) bool {
 // jsxTagNameAhead reports whether a < at i starts a tag: a name or the
 // empty tag <> follows it, not the < of a comparison.
 func jsxTagNameAhead(s string, i int, toks []chroma.Token, at int, inChildren bool) bool {
-	if !inChildren && jsxNameBefore(toks, at) {
+	if !inChildren && jsxValueBefore(s, i, toks, at) {
 		return false // Array<T>, React.FC<T>, foo<T>, not <foo>
 	}
 	if i+1 < len(s) {
@@ -193,6 +193,21 @@ func jsxTypeAfter(toks []chroma.Token, at int) bool {
 		return true
 	}
 	return false
+}
+
+// jsxValueBefore reports whether a value ends right before the < at i of
+// a punctuation token, so the < opens type arguments or compares, as in
+// Array<T>, a?.<T>() and f(x)<y, and does not start a tag, as the < of
+// render(<App> does.
+func jsxValueBefore(s string, i int, toks []chroma.Token, at int) bool {
+	if i > 0 {
+		switch s[i-1] {
+		case ')', ']', '.':
+			return true
+		}
+		return false
+	}
+	return jsxNameBefore(toks, at)
 }
 
 // jsxNameBefore reports whether a name or type token is immediately

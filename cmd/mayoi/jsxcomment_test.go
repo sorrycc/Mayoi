@@ -149,3 +149,28 @@ func TestCommentJSXDoesNotNestAComment(t *testing.T) {
 	hs.settle()
 	expectText(t, d, src)
 }
+
+func TestCommentJSXTagAfterAParen(t *testing.T) {
+	src := "render(<App>\n  <Child />\n</App>);\n"
+	hs, d := editHarness(t, "main.tsx", src)
+	at := strings.Index(src, "<Child />")
+	hs.place(d, at, at)
+	hs.a.run("sel.comment")
+	hs.settle()
+	want := strings.Replace(src, "  <Child />", "  {/* <Child /> */}", 1)
+	expectText(t, d, want)
+	hs.a.run("sel.comment")
+	hs.settle()
+	expectText(t, d, src)
+}
+
+func TestCommentJSXLeavesValueComparisonsAlone(t *testing.T) {
+	src := "const s = a?.<string>();\nif (f(x)<limit && y>2) go();\nconst ok = xs[i]<n && n>0;\nconst x = 1;\n"
+	hs, d := editHarness(t, "App.tsx", src)
+	at := strings.Index(src, "const x = 1")
+	hs.place(d, at, at)
+	hs.a.run("sel.comment")
+	hs.settle()
+	want := strings.Replace(src, "const x = 1", "// const x = 1", 1)
+	expectText(t, d, want)
+}

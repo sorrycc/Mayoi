@@ -342,18 +342,7 @@ func Command(dir string, env []string, stdin io.Reader, name string, args ...str
 // CommandEnvironment also removes inherited variables, on the folder's host.
 func CommandEnvironment(dir string, env, unset []string, stdin io.Reader, name string, args ...string) (*exec.Cmd, error) {
 	if c, rp, ok := remote.Lookup(dir); ok {
-		cargs := []string{rp}
-		for _, key := range unset {
-			cargs = append(cargs, "-u", key)
-		}
-		cargs = append(cargs, env...)
-		cargs = append(cargs, name)
-		cargs = append(cargs, args...)
-		// The arguments: the folder, then the environment's, then the
-		// program's.
-		script := `cd -- "$1" || exit 1; shift
-exec env "$@"`
-		return c.Command(stdin, script, cargs...)
+		return c.Exec(rp, env, unset, stdin, name, args...)
 	}
 	cmd := exec.Command(name, args...)
 	cmd.Dir = dir

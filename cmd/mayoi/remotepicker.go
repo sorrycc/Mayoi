@@ -11,6 +11,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode"
 	"unicode/utf8"
 
 	"github.com/egoist/mygo/ui"
@@ -362,6 +363,19 @@ func pickDir(query string) (dir, prefix string) {
 	return path.Dir(path.Clean(q)), path.Base(q)
 }
 
+// windowsQuery makes a query of a Windows host typed as Windows spells
+// paths, C:\Users or C:, the path the editor knows it by, /C:/Users/.
+func windowsQuery(query string) string {
+	if len(query) < 2 || query[1] != ':' || !unicode.IsLetter(rune(query[0])) || len(query) > 2 && query[2] != '\\' && query[2] != '/' {
+		return query
+	}
+	q := "/" + strings.ToUpper(query[:1]) + strings.ReplaceAll(query[1:], `\`, "/")
+	if len(q) == 3 {
+		q += "/"
+	}
+	return q
+}
+
 // expandHome makes a query that starts with ~ start with the home folder
 // of the host instead, as a shell would.
 func expandHome(query, home string) string {
@@ -646,7 +660,11 @@ func (a *app) pickHeader(c *ui.Context, title, placeholder string, rows []string
 		if in.Changed() {
 			r.err = ""
 			if r.stage == pickFolder && r.conn != nil {
-				if q := expandHome(r.query, r.conn.Info().Home); q != r.query {
+				q := expandHome(r.query, r.conn.Info().Home)
+				if r.conn.Windows() {
+					q = windowsQuery(q)
+				}
+				if q != r.query {
 					r.query, r.toEnd = q, true
 					a.invalidate()
 				}

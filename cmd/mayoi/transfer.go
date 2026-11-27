@@ -189,10 +189,23 @@ func (a *app) uploadPaths(s *session, srcs []string, done func()) {
 				return
 			}
 			if slices.Contains(a.terms, s) {
-				s.term.Paste(quotePaths(got))
+				s.term.Paste(quoteHostPaths(c, got))
 			}
 		})
 	}()
+}
+
+// quoteHostPaths are paths of the host of c as its terminal takes them
+// typed: on a Windows host, as PowerShell spells and quotes them.
+func quoteHostPaths(c *remote.Conn, paths []string) string {
+	if !c.Windows() {
+		return quotePaths(paths)
+	}
+	quoted := make([]string, len(paths))
+	for i, p := range paths {
+		quoted[i] = "'" + strings.ReplaceAll(remote.WindowsPath(p), "'", "''") + "'"
+	}
+	return strings.Join(quoted, " ") + " "
 }
 
 // quotePaths are paths as a terminal takes them typed: quoted for the

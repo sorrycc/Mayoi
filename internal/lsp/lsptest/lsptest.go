@@ -29,7 +29,8 @@ func Serve(in io.Reader, out io.Writer) {
 	}
 	var initialize, document, navigation json.RawMessage
 	texts := map[string]string{} // by URI
-	var late func()              // the answer held back
+	languages := map[string]string{}
+	var late func() // the answer held back
 	var options struct {
 		HoverContents  json.RawMessage `json:"hoverContents"`
 		FailInitialize string          `json:"failInitialize"`
@@ -101,14 +102,18 @@ func Serve(in io.Reader, out io.Writer) {
 			document = append(json.RawMessage(nil), m.Params...)
 			var p struct {
 				TextDocument struct {
-					URI  string `json:"uri"`
-					Text string `json:"text"`
+					URI      string `json:"uri"`
+					Text     string `json:"text"`
+					Language string `json:"languageId"`
 				} `json:"textDocument"`
 				ContentChanges []struct {
 					Text string `json:"text"`
 				} `json:"contentChanges"`
 			}
 			json.Unmarshal(m.Params, &p)
+			if m.Method == "textDocument/didOpen" {
+				languages[p.TextDocument.URI] = p.TextDocument.Language
+			}
 			text := p.TextDocument.Text
 			if len(p.ContentChanges) > 0 {
 				text = p.ContentChanges[0].Text
@@ -124,6 +129,11 @@ func Serve(in io.Reader, out io.Writer) {
 			}
 			send(map[string]any{"jsonrpc": "2.0", "method": "textDocument/publishDiagnostics",
 				"params": map[string]any{"uri": p.TextDocument.URI, "diagnostics": diags}})
+		case "textDocument/didClose":
+			var p struct{ TextDocument struct{ URI string } }
+			json.Unmarshal(m.Params, &p)
+			delete(texts, p.TextDocument.URI)
+			delete(languages, p.TextDocument.URI)
 		case "textDocument/hover":
 			// "plain", "marked" and "long" answer as their names say, with
 			// the range of the word.
@@ -143,7 +153,7 @@ func Serve(in io.Reader, out io.Writer) {
 				answer(map[string]any{"contents": map[string]any{"kind": "markdown", "value": "**hello**"}})
 			}
 		case "test/snapshot":
-			reply(map[string]any{"initialize": initialize, "document": document, "navigation": navigation})
+			reply(map[string]any{"initialize": initialize, "document": document, "navigation": navigation, "languages": languages})
 		case "test/noReply":
 			// A response timeout must not disconnect an otherwise healthy client.
 		case "textDocument/definition":

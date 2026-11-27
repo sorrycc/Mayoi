@@ -448,6 +448,121 @@ func TestLogAndCommitFiles(t *testing.T) {
 	}
 }
 
+func TestLogPath(t *testing.T) {
+	r, git := repo(t)
+	write(t, r.Root, "a.txt", "one\nchanged\nthree\n")
+	git("commit", "-qam", "change a")
+	write(t, r.Root, "b.txt", "bee\nbuzz\n")
+	git("commit", "-qam", "change b")
+	git("mv", "a.txt", "aa.txt")
+	git("commit", "-qm", "rename a")
+	cs, names, err := r.LogPath(r.Abs("aa.txt"), 10, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var subjects []string
+	for _, c := range cs {
+		subjects = append(subjects, c.Subject)
+	}
+	want := []string{"rename a", "change a", "first"}
+	if !slices.Equal(subjects, want) {
+		t.Fatalf("history %v, want %v", subjects, want)
+	}
+	// Each commit names the file as it was then: before the rename, as it
+	// was called.
+	if len(names) != 3 || names[cs[0].Hash] != "aa.txt" || names[cs[1].Hash] != "a.txt" || names[cs[2].Hash] != "a.txt" {
+		t.Errorf("the file's names %v", names)
+	}
+	// The number asked for is the number read.
+	if cs, _, err = r.LogPath(r.Abs("aa.txt"), 1, false); err != nil || len(cs) != 1 || cs[0].Subject != "rename a" {
+		t.Errorf("one commit %+v %v", cs, err)
+	}
+	// A file no commit changed has no history.
+	write(t, r.Root, "new.txt", "new\n")
+	if cs, names, err = r.LogPath(r.Abs("new.txt"), 10, false); err != nil || len(cs) != 0 || len(names) != 0 {
+		t.Errorf("an untracked file's history %+v %v, names %v", cs, err, names)
+	}
+}
+
+func TestLogPaths(t *testing.T) {
+	r, git := repo(t)
+	write(t, r.Root, "docs/a.md", "a\n")
+	write(t, r.Root, "docs/b.md", "b\n")
+	git("add", ".")
+	git("commit", "-qm", "add the docs")
+	write(t, r.Root, "a.txt", "one\nchanged\nthree\n")
+	git("commit", "-qam", "change a")
+	write(t, r.Root, "docs/a.md", "a\nmore\n")
+	git("commit", "-qam", "change a doc")
+
+	subjects := func(cs []Commit) []string {
+		var out []string
+		for _, c := range cs {
+			out = append(out, c.Subject)
+		}
+		return out
+	}
+	// A folder's history is that of the files under it.
+	cs, err := r.LogPaths([]string{r.Abs("docs")}, 10, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := []string{"change a doc", "add the docs"}; !slices.Equal(subjects(cs), want) {
+		t.Errorf("the docs' history %v, want %v", subjects(cs), want)
+	}
+	// Several paths are any of them; a file among them is one more path.
+	cs, err = r.LogPaths([]string{r.Abs("docs"), r.Abs("a.txt")}, 10, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := []string{"change a doc", "change a", "add the docs", "first"}; !slices.Equal(subjects(cs), want) {
+		t.Errorf("the history of the docs and a.txt %v, want %v", subjects(cs), want)
+	}
+	// The number asked for is the number read.
+	if cs, err = r.LogPaths([]string{r.Abs("docs")}, 1, false); err != nil || len(cs) != 1 || cs[0].Subject != "change a doc" {
+		t.Errorf("one commit %+v %v", cs, err)
+	}
+	// A folder no commit changed has no history.
+	write(t, r.Root, "empty", "e\n")
+	os.MkdirAll(filepath.Join(r.Root, "later"), 0o755)
+	write(t, r.Root, "later/c.md", "c\n")
+	if cs, err = r.LogPaths([]string{r.Abs("later")}, 10, false); err != nil || len(cs) != 0 {
+		t.Errorf("an untracked folder's history %+v %v", cs, err)
+	}
+}
+
+func TestLogPathLiteral(t *testing.T) {
+	// A [ in a name is the name's, not a pattern matching a1.txt.
+	t.Run("brackets", func(t *testing.T) {
+		r, git := repo(t)
+		write(t, r.Root, "a1.txt", "x\n")
+		git("add", "a1.txt")
+		git("commit", "-qm", "add a1")
+		write(t, r.Root, "a[1].txt", "y\n")
+		git("add", "--", ":(literal)a[1].txt")
+		git("commit", "-qm", "add a[1]")
+		if cs, err := r.LogPaths([]string{r.Abs("a[1].txt")}, 10, false); err != nil || len(cs) != 1 || cs[0].Subject != "add a[1]" {
+			t.Errorf("the history of a[1].txt %+v %v", cs, err)
+		}
+		if cs, _, err := r.LogPath(r.Abs("a[1].txt"), 10, false); err != nil || len(cs) != 1 {
+			t.Errorf("the followed history of a[1].txt %+v %v", cs, err)
+		}
+	})
+	// A name starting with a colon is not a pathspec's magic.
+	t.Run("colon", func(t *testing.T) {
+		if runtime.GOOS == "windows" {
+			t.Skip("Windows names have no colon")
+		}
+		r, git := repo(t)
+		write(t, r.Root, ":colon.txt", "z\n")
+		git("add", "--", ":(literal):colon.txt")
+		git("commit", "-qm", "add :colon")
+		if cs, _, err := r.LogPath(r.Abs(":colon.txt"), 10, false); err != nil || len(cs) != 1 || cs[0].Subject != "add :colon" {
+			t.Errorf("the history of :colon.txt %+v %v", cs, err)
+		}
+	})
+}
+
 func TestLogBeforeTheFirstCommit(t *testing.T) {
 	if _, err := exec.LookPath("git"); err != nil {
 		t.Skip("no git")

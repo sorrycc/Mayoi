@@ -1789,6 +1789,9 @@
   "cmdSelInsertSnippet": "スニペットを挿入…",
   "snippetsNone": "{language} のスニペットを持つプラグインはありません",
   "snippetsPlaceholder": "スニペットを挿入",
+  "cmdEditorChangeLanguage": "言語を変更…",
+  "languageAutoDetect": "自動検出",
+  "languagePickPlaceholder": "言語モードを選択",
   "pluginsSyncInstalled": "設定の同期で {names} をインストールしました",
   "pluginsSyncRemoved": "設定の同期で {names} を削除しました",
   "pluginsSyncFailed": "プラグインを同期できませんでした: {err}",
@@ -2126,5 +2129,17 @@
   "claudeThemeTooOld": "Claude Code {version} はカスタムテーマに対応していません。{least} 以降に更新してから、オフにしてオンにしてください。",
   "claudeThemeTaken": "{path} は Mayoi のものではないため、変更していません。移動してから、オフにしてオンにしてください。",
   "claudeThemeMalformed": "{path} は有効な JSON ではないため、変更していません。修正してから、オフにしてオンにしてください。",
-  "claudeThemeFailed": "Claude Code のテーマを変更できませんでした：{err}"
+  "claudeThemeFailed": "Claude Code のテーマを変更できませんでした：{err}",
+  "cmdGitFileHistory": "ファイル履歴を開く",
+  "scmPathHistory": "{path} の履歴",
+  "scmPathHistoryClear": "履歴をクリア",
+  "scmPathHistoryNone": "{path} を変更したコミットはありません。",
+  "scmPathsCount": "{count} 個のパス",
+  "cmdGitFolderHistory": "フォルダ履歴を開く",
+  "cmdGitPathsHistory": "履歴を開く",
+  "cmdGitOnlySelectedPaths": "選択したパスのみ表示",
+  "diffOnlySelectedPaths": "選択したパスのみ表示",
+  "prefTitleDiffHistoryOnly": "コミットを履歴の範囲に絞る",
+  "prefDescDiffHistoryOnly": "ファイルやフォルダの履歴から開いたコミットは、その履歴の範囲のファイルだけを表示します。diff ツールバーの「選択したパスのみ表示」でコミットのすべてのファイルを表示できます。",
+  "scmPathHistoryMore": "… ほか {count} 件"
 }

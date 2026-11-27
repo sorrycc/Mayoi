@@ -679,6 +679,22 @@ func pluginComment(path string) string {
 	return ""
 }
 
+// documentPluginComment is the line comment a plugin declares for a
+// document's language: the one set for it, or else its file's.
+func documentPluginComment(d *document) string {
+	if d.language == "" {
+		return pluginComment(d.path)
+	}
+	if d.lexerOwner != nil {
+		for _, l := range d.lexerOwner.Contributes.Languages {
+			if strings.EqualFold(l.ID, d.language) {
+				return l.Comment
+			}
+		}
+	}
+	return ""
+}
+
 // pluginLanguage is the language a plugin declares for a file, by its
 // name or extension, "" for none.
 func pluginLanguage(path string) string {

@@ -79,9 +79,17 @@ type gitState struct {
 	// history is the last commits of HEAD, newest first, and unpushed
 	// those its upstream lacks, read for the state historyOf names;
 	// historyN is how many to read, historyGen counts the reads.
+	// historyPaths scope the history to the commits that changed them,
+	// as the editor spells them; none reads the branch's own, and
+	// historyFollow follows one file's renames, with historyAt the path
+	// the file had in each commit, by hash.
 	history        []git.Commit
 	unpushed       map[string]bool
+	historyPaths   []string
+	historyFollow  bool
+	historyAt      map[string]string
 	historyOf      string
+	historyErr     string // why the history could not be read, "" when it was
 	historyN       int
 	historyGen     int
 	loadingHistory bool
@@ -349,19 +357,21 @@ func (a *gitContext) refreshGit() {
 }
 
 // historyKey names the state the history is read for: where HEAD and its
-// upstream are, and how many commits are asked for.
+// upstream are, how many commits are asked for, and the file whose own
+// history is read, if one is.
 func (a *gitContext) historyKey() string {
 	g := a.git
 	st := g.status
 	if st == nil {
 		return ""
 	}
-	return fmt.Sprintf("%s|%s|%d|%d|%d|%d|%t|%d", st.Head, st.Upstream, st.Ahead, st.Behind, max(g.historyN, historyPage),
-		len(g.remotes), a.app.settings.ScmAllBranches, g.refsGen)
+	return fmt.Sprintf("%s|%s|%d|%d|%d|%d|%t|%d|%t|%s", st.Head, st.Upstream, st.Ahead, st.Behind, max(g.historyN, historyPage),
+		len(g.remotes), a.app.settings.ScmAllBranches, g.refsGen, g.historyFollow, strings.Join(g.historyPaths, "\x00"))
 }
 
 // refreshHistory reads the last commits again in the background when HEAD
-// or its upstream moved, or more are asked for.
+// or its upstream moved, more are asked for, or another file's history
+// is read.
 func (a *gitContext) refreshHistory() {
 	if !a.live() {
 		return
@@ -379,13 +389,22 @@ func (a *gitContext) refreshHistory() {
 	g.loadingHistory = true
 	// Without a remote nothing is pushed or not: no commit is marked.
 	r, remotes, all, upstream := g.repo, len(g.remotes) > 0, a.app.settings.ScmAllBranches, st.Upstream
+	paths, follow := slices.Clone(g.historyPaths), g.historyFollow
 	bg.Go(func() {
 		defer recoverCrash()
 		var cs []git.Commit
+		var at map[string]string
 		var err error
 		var unpushed map[string]bool
 		readGit(func() {
-			cs, err = r.Log(n, all)
+			switch {
+			case follow:
+				cs, at, err = r.LogPath(paths[0], n, all)
+			case len(paths) > 0:
+				cs, err = r.LogPaths(paths, n, all)
+			default:
+				cs, err = r.Log(n, all)
+			}
 			if remotes {
 				unpushed = r.Unpushed(n, upstream)
 			}
@@ -395,11 +414,18 @@ func (a *gitContext) refreshHistory() {
 				return
 			}
 			g.loadingHistory = false
-			g.historyOf = key
-			if err != nil {
+			// The paths whose history was asked for changed meanwhile:
+			// what was read is of another list, which reads on.
+			if g.historyFollow != follow || !slices.Equal(g.historyPaths, paths) {
 				return
 			}
-			g.history, g.unpushed = cs, unpushed
+			g.historyOf = key
+			g.historyErr = ""
+			if err != nil {
+				g.historyErr = err.Error()
+				return
+			}
+			g.history, g.historyAt, g.unpushed = cs, at, unpushed
 			g.historyGen++
 		})
 	})

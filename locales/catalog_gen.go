@@ -21559,3 +21559,23 @@ func ScmFileHistoryNone() string { return In(i18n.Locale()).ScmFileHistoryNone()
 func (msgs Messages) ScmFileHistoryNone() string {
 	return Catalog.Format(msgs.locale, "scmFileHistoryNone", nil)
 }
+
+// CmdGitOnlyThisFile says "Show Only This File"
+// in the language the app shows.
+func CmdGitOnlyThisFile() string { return In(i18n.Locale()).CmdGitOnlyThisFile() }
+
+// CmdGitOnlyThisFile says "Show Only This File"
+// in the language of msgs.
+func (msgs Messages) CmdGitOnlyThisFile() string {
+	return Catalog.Format(msgs.locale, "cmdGitOnlyThisFile", nil)
+}
+
+// DiffOnlyThisFile says "Only This File"
+// in the language the app shows.
+func DiffOnlyThisFile() string { return In(i18n.Locale()).DiffOnlyThisFile() }
+
+// DiffOnlyThisFile says "Only This File"
+// in the language of msgs.
+func (msgs Messages) DiffOnlyThisFile() string {
+	return Catalog.Format(msgs.locale, "diffOnlyThisFile", nil)
+}

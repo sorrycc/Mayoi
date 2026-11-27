@@ -354,6 +354,11 @@ type diffView struct {
 	wrapGen  int
 
 	files []*diffFile
+	// all is every file a commit changed, as it was read, and only the
+	// path of one of them to show alone; "" shows all of them. The files
+	// of the changes of a work tree are files itself.
+	all  []*diffFile
+	only string
 	// foldFiles is the last bulk choice, including files not yet listed.
 	// Once chosen, it also replaces automatic folding of large files.
 	foldFiles *bool
@@ -1071,7 +1076,7 @@ func (a *app) listCommitFiles(v *diffView) {
 				return
 			}
 			cm.info, cm.files = info, files
-			v.files = make([]*diffFile, 0, len(files))
+			all := make([]*diffFile, 0, len(files))
 			for _, e := range commitEntries(files) {
 				f := &diffFile{path: e.Path, base: diffCommit, group: groupCommits, letter: e.X, gitStale: true}
 				f.repoRoot = v.repoRoot
@@ -1083,8 +1088,10 @@ func (a *app) listCommitFiles(v *diffView) {
 				if v.foldFiles != nil {
 					f.folded = *v.foldFiles
 				}
-				v.files = append(v.files, f)
+				all = append(all, f)
 			}
+			v.all = all
+			v.files = v.onlyFiles()
 			v.tree.gen++
 			if a.tree != nil {
 				a.rememberTabs()
@@ -1092,6 +1099,80 @@ func (a *app) listCommitFiles(v *diffView) {
 			v.changed()
 		})
 	})
+}
+
+// toggleOnlyThisFile filters the commit's diff shown to the file at its
+// top, or shows every file of it again, from the menu and the palette.
+func (a *app) toggleOnlyThisFile() {
+	if v := a.activeDiff(); v != nil {
+		a.toggleDiffOnly(v)
+	}
+}
+
+// activeDiffOnly reports whether the commit's diff shown filters its
+// files to one.
+func (a *app) activeDiffOnly() bool {
+	v := a.activeDiff()
+	return v != nil && v.commit != nil && v.only != ""
+}
+
+// onlyFiles returns the files a commit's diff shows: every file it
+// changed, or the one whose history it was opened at, when the commit
+// changed it.
+func (v *diffView) onlyFiles() []*diffFile {
+	if v.only == "" || v.all == nil {
+		return v.all
+	}
+	for _, f := range v.all {
+		if f.path == v.only || f.entry.Orig == v.only {
+			return []*diffFile{f}
+		}
+	}
+	// A merge, or a commit the file's history named otherwise: all show.
+	v.only = ""
+	return v.all
+}
+
+// setDiffOnly shows one file of a commit's changes alone, or every file
+// of them again when path is "".
+func (a *app) setDiffOnly(v *diffView, path string) {
+	if v.commit == nil || v.only == path {
+		return
+	}
+	v.only = path
+	// The files show filtered as they are read, or again when they were.
+	if v.commit.loaded {
+		v.files = v.onlyFiles()
+		v.tree.gen++
+	}
+	v.changed()
+}
+
+// toggleDiffOnly shows the file at the top of a commit's diff alone, or
+// every file of it again.
+func (a *app) toggleDiffOnly(v *diffView) {
+	if v.commit == nil {
+		return
+	}
+	if v.only != "" {
+		path := v.only
+		a.setDiffOnly(v, "")
+		v.reveal = &diffTarget{path: path, any: true}
+		v.changed()
+		return
+	}
+	path := ""
+	if r := v.focusRow(); r >= 0 && r < len(v.rows) {
+		if i := v.rows[r].file; i >= 0 && i < len(v.files) {
+			path = v.files[i].path
+		}
+	}
+	if path == "" && len(v.files) > 0 {
+		path = v.files[0].path
+	}
+	if path != "" {
+		a.setDiffOnly(v, path)
+	}
 }
 
 // commitEntries returns the files a commit changed as entries of a
@@ -2701,8 +2782,15 @@ func (a *app) diffButtons(c *ui.Context, t *colTab) {
 	}
 	a.reviewSendButton(c)
 	if v.commit != nil {
-		if button(iconListTree, a.withKey(locales.DiffToggleCommitFiles(), "git.toggleCommitFiles"), a.window.CommitFilesOpen).Clicked() {
-			a.post(a.toggleCommitFiles)
+		// The panel of the files of a commit is off while the diff shows
+		// one of them alone: the buttons after it keep their place.
+		if v.only == "" {
+			if button(iconListTree, a.withKey(locales.DiffToggleCommitFiles(), "git.toggleCommitFiles"), a.window.CommitFilesOpen).Clicked() {
+				a.post(a.toggleCommitFiles)
+			}
+		}
+		if button(iconFile, a.withKey(locales.DiffOnlyThisFile(), "git.onlyThisFile"), v.only != "").Clicked() {
+			a.post(func() { a.toggleDiffOnly(v) })
 		}
 	}
 	act(iconArrowUp, locales.DiffPrevChange(), func() { v.stepHunk(-1, a.crossesDiff()) })

@@ -84,6 +84,7 @@ type gitState struct {
 	history        []git.Commit
 	unpushed       map[string]bool
 	historyPath    string
+	historyAt      map[string]string // the file's path in each commit of its history, by hash
 	historyOf      string
 	historyErr     string // why the history could not be read, "" when it was
 	historyN       int
@@ -388,11 +389,12 @@ func (a *gitContext) refreshHistory() {
 	bg.Go(func() {
 		defer recoverCrash()
 		var cs []git.Commit
+		var at map[string]string
 		var err error
 		var unpushed map[string]bool
 		readGit(func() {
 			if path != "" {
-				cs, err = r.LogPath(path, n, all)
+				cs, at, err = r.LogPath(path, n, all)
 			} else {
 				cs, err = r.Log(n, all)
 			}
@@ -416,7 +418,7 @@ func (a *gitContext) refreshHistory() {
 				g.historyErr = err.Error()
 				return
 			}
-			g.history, g.unpushed = cs, unpushed
+			g.history, g.historyAt, g.unpushed = cs, at, unpushed
 			g.historyGen++
 		})
 	})

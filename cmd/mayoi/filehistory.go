@@ -41,7 +41,7 @@ func (a *gitContext) setFileHistory(path string) {
 		return
 	}
 	g.historyPath = path
-	g.history, g.unpushed = nil, nil
+	g.history, g.historyAt, g.unpushed = nil, nil, nil
 	g.historyN = 0
 	g.historyGen++
 	g.historyOf = ""
@@ -51,6 +51,16 @@ func (a *gitContext) setFileHistory(path string) {
 	s.anchor = ""
 	s.revealScope = path != ""
 	a.app.invalidate()
+}
+
+// fileOf returns the path the file whose history is read had in a
+// commit: before a rename, the name it went by then. It is the file's
+// path now when the history does not say, as for a merge.
+func (a *gitContext) fileOf(hash string) string {
+	if name := a.git.historyAt[hash]; name != "" && a.git.repo != nil {
+		return a.git.repo.Abs(name)
+	}
+	return a.git.historyPath
 }
 
 // clearFileHistory shows the branch's history again.

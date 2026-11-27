@@ -2359,5 +2359,7 @@
   "cmdGitFileHistory": "Open File History",
   "scmFileHistory": "File History of {path}",
   "scmFileHistoryClear": "Clear File History",
-  "scmFileHistoryNone": "No commit changed this file."
+  "scmFileHistoryNone": "No commit changed this file.",
+  "cmdGitOnlyThisFile": "Show Only This File",
+  "diffOnlyThisFile": "Only This File"
 }

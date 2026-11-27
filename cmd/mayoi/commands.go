@@ -186,6 +186,7 @@ func (a *app) commandsIn(t locales.Messages) []command {
 		{"git.collapseAllFiles", t.CmdGitCollapseAllFiles(), "", func() { a.foldDiffFiles(true) }},
 		{"git.expandAllFiles", t.CmdGitExpandAllFiles(), "", func() { a.foldDiffFiles(false) }},
 		{"git.toggleCommitFiles", t.CmdGitToggleCommitFiles(), "", a.toggleCommitFiles},
+		{"git.onlyThisFile", t.CmdGitOnlyThisFile(), "", a.toggleOnlyThisFile},
 		{"git.appendChange", t.CmdGitAppendChange(), "", a.appendAtCursor},
 		{"git.showChange", t.CmdGitShowChange(), "", a.editActive(func(d *editor) { d.peekHunk(caretLine(d)) })},
 		{"git.revertChange", t.CmdGitRevertChange(), "", a.editActive(func(d *editor) { a.onCaretHunk(d, a.revertHunk) })},
@@ -685,6 +686,12 @@ func (a *app) menu(cli bool, run func(id string, win *mygo.Window)) *mygo.Menu {
 			item("file.quit"),
 		})}
 	}
+	// The file of a commit shown alone, off unless a commit's diff shows;
+	// the panel of a commit's files is off while one file shows.
+	onlyFile := checkbox("git.onlyThisFile", a.activeDiffOnly())
+	onlyFile.Disabled = a.activeDiff() == nil || a.activeDiff().commit == nil
+	commitFiles := checkbox("git.toggleCommitFiles", a.window.CommitFilesOpen)
+	commitFiles.Disabled = a.activeDiffOnly()
 	// The items of the review comments, off while there are none.
 	reviewItem := func(id string) *mygo.MenuItem {
 		it := item(id)
@@ -790,7 +797,7 @@ func (a *app) menu(cli bool, run func(id string, win *mygo.Window)) *mygo.Menu {
 		{Label: locales.MenuGit(), Submenu: []*mygo.MenuItem{
 			item("git.commit"), item("git.commitPush"), item("git.amend"), item("git.undoCommit"), mygo.Separator(),
 			item("git.openChanges"), item("git.fileHistory"), item("git.openAllChanges"), item("git.compareFiles"), item("git.nextChange"), item("git.prevChange"), item("git.nextFile"), item("git.prevFile"),
-			item("git.collapseAllFiles"), item("git.expandAllFiles"), checkbox("git.toggleCommitFiles", a.window.CommitFilesOpen), mygo.Separator(),
+			item("git.collapseAllFiles"), item("git.expandAllFiles"), commitFiles, onlyFile, mygo.Separator(),
 			item("git.showChange"), item("git.revertChange"), item("git.appendChange"), item("git.stageChange"), mygo.Separator(),
 			item("git.stageFile"), item("git.unstageFile"), item("git.stageAll"), mygo.Separator(),
 			item("git.switchBranch"), item("git.switchWorktree"), item("git.createBranch"), item("git.fetch"), item("git.pull"), item("git.push"), mygo.Separator(),

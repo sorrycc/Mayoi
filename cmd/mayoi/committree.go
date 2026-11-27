@@ -48,9 +48,10 @@ const (
 )
 
 // showsCommitFiles reports whether a diff shows the panel of its files:
-// a commit's, once it has files, when the panel is open.
+// a commit's, once it has files, when the panel is open and the diff is
+// not filtering them to one.
 func (a *app) showsCommitFiles(v *diffView) bool {
-	return v.commit != nil && len(v.files) > 0 && a.window.CommitFilesOpen
+	return v.commit != nil && len(v.files) > 0 && v.only == "" && a.window.CommitFilesOpen
 }
 
 // toggleCommitFiles shows the panel of the files of commits' tabs, or
@@ -425,18 +426,34 @@ func (a *gitContext) commitFileRows(rows []scmRow, cm *git.Commit, at int) []scm
 
 // showCommitFile shows a commit's changes scrolled to a file of it: in
 // the preview tab, the keyboard staying where it is, or kept in a tab of
-// its own, focused.
+// its own focused.
 func (a *gitContext) showCommitFile(cm git.Commit, path string, keep bool) {
+	a.showCommitAt(cm, path, keep, false)
+}
+
+// showCommitFileOnly shows a commit's changes of one file alone, as a
+// file's history opens it.
+func (a *gitContext) showCommitFileOnly(cm git.Commit, path string, keep bool) {
+	a.showCommitAt(cm, path, keep, true)
+}
+
+// showCommitAt shows a commit at a file of it, filtered to that file
+// when only.
+func (a *gitContext) showCommitAt(cm git.Commit, path string, keep, only bool) {
 	var v *diffView
 	if keep {
 		v = a.showCommit(cm, true)
 	} else {
 		v = a.previewCommit(cm)
 	}
-	if v != nil {
-		v.reveal = &diffTarget{path: path, any: true}
-		v.changed()
+	if v == nil {
+		return
 	}
+	a.app.setDiffOnly(v, path)
+	if !only {
+		v.reveal = &diffTarget{path: path, any: true}
+	}
+	v.changed()
 }
 
 // scmCommitFile is a row under a commit of the history whose files show:

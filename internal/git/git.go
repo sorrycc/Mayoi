@@ -935,23 +935,27 @@ func parseCommit(rec string) (Commit, bool) {
 // Log returns the last n commits of HEAD's history, or of every branch
 // and tag when all is set, newest first and each after the commits made
 // on it: none before the first commit.
-func (r *Repo) Log(n int, all bool) ([]Commit, error) { return r.log(n, all, "") }
+func (r *Repo) Log(n int, all bool) ([]Commit, error) {
+	cs, _, err := r.log(n, all, "")
+	return cs, err
+}
 
 // LogPath returns the last n commits that changed path, newest first,
-// following the file through renames, as the file's history. all reads
-// every branch and tag, as Log does.
-func (r *Repo) LogPath(path string, n int, all bool) ([]Commit, error) {
+// following the file through renames, and the path the file had in each,
+// by hash. all reads every branch and tag, as Log does.
+func (r *Repo) LogPath(path string, n int, all bool) ([]Commit, map[string]string, error) {
 	return r.log(n, all, r.Rel(path))
 }
 
-// log reads the history of HEAD, or of the file at path when it is not "".
-func (r *Repo) log(n int, all bool, path string) ([]Commit, error) {
+// log reads the history of HEAD, or of the file at path when it is not
+// "", with the name that file went by in each commit.
+func (r *Repo) log(n int, all bool, path string) ([]Commit, map[string]string, error) {
 	args := []string{"log", "-z", "--date-order", "--decorate=full", "-n", strconv.Itoa(n), commitFormat, "HEAD"}
 	if all {
 		args = append(args, "--branches", "--remotes", "--tags")
 	}
 	if path != "" {
-		args = append(args, "--follow")
+		args = append(args, "--follow", "--name-only")
 	}
 	args = append(args, "--")
 	if path != "" {
@@ -961,17 +965,39 @@ func (r *Repo) log(n int, all bool, path string) ([]Commit, error) {
 	if err != nil {
 		// Before the first commit HEAD names none: no history, no error.
 		if r.Head() == "" {
-			return nil, nil
+			return nil, nil, nil
 		}
-		return nil, err
+		return nil, nil, err
 	}
 	var cs []Commit
+	var names map[string]string
+	last := ""
 	for _, rec := range strings.Split(string(out), "\x00") {
 		if c, ok := parseCommit(rec); ok {
 			cs = append(cs, c)
+			last = c.Hash
+			continue
+		}
+		if name, ok := commitName(rec); ok && last != "" {
+			if names == nil {
+				names = make(map[string]string, len(cs))
+			}
+			names[last] = name
 		}
 	}
-	return cs, nil
+	return cs, names, nil
+}
+
+// commitName returns the name of the file a commit changed, as
+// --name-only prints it after the commit's fields: a newline and the
+// name, ended by the NUL that -z writes.
+func commitName(rec string) (string, bool) {
+	name, ok := strings.CutPrefix(rec, "\n")
+	if !ok {
+		return "", false
+	}
+	name = strings.TrimRight(name, "\n")
+	return name, name != ""
 }
 
 // Unpushed returns the commits, up to n of them, that HEAD has and its

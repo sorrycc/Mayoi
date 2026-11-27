@@ -2131,5 +2131,7 @@
   "cmdGitFileHistory": "ファイル履歴を開く",
   "scmFileHistory": "{path} のファイル履歴",
   "scmFileHistoryClear": "ファイル履歴をクリア",
-  "scmFileHistoryNone": "このファイルを変更したコミットはありません。"
+  "scmFileHistoryNone": "このファイルを変更したコミットはありません。",
+  "cmdGitOnlyThisFile": "このファイルのみ表示",
+  "diffOnlyThisFile": "このファイルのみ表示"
 }

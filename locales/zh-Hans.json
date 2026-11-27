@@ -2131,5 +2131,7 @@
   "cmdGitFileHistory": "打开文件历史",
   "scmFileHistory": "{path} 的文件历史",
   "scmFileHistoryClear": "清除文件历史",
-  "scmFileHistoryNone": "没有提交更改过此文件。"
+  "scmFileHistoryNone": "没有提交更改过此文件。",
+  "cmdGitOnlyThisFile": "仅显示此文件",
+  "diffOnlyThisFile": "仅显示此文件"
 }

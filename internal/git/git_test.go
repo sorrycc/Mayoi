@@ -456,7 +456,7 @@ func TestLogPath(t *testing.T) {
 	git("commit", "-qam", "change b")
 	git("mv", "a.txt", "aa.txt")
 	git("commit", "-qm", "rename a")
-	cs, err := r.LogPath(r.Abs("aa.txt"), 10, false)
+	cs, names, err := r.LogPath(r.Abs("aa.txt"), 10, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -468,14 +468,19 @@ func TestLogPath(t *testing.T) {
 	if !slices.Equal(subjects, want) {
 		t.Fatalf("history %v, want %v", subjects, want)
 	}
+	// Each commit names the file as it was then: before the rename, as it
+	// was called.
+	if len(names) != 3 || names[cs[0].Hash] != "aa.txt" || names[cs[1].Hash] != "a.txt" || names[cs[2].Hash] != "a.txt" {
+		t.Errorf("the file's names %v", names)
+	}
 	// The number asked for is the number read.
-	if cs, err = r.LogPath(r.Abs("aa.txt"), 1, false); err != nil || len(cs) != 1 || cs[0].Subject != "rename a" {
+	if cs, _, err = r.LogPath(r.Abs("aa.txt"), 1, false); err != nil || len(cs) != 1 || cs[0].Subject != "rename a" {
 		t.Errorf("one commit %+v %v", cs, err)
 	}
 	// A file no commit changed has no history.
 	write(t, r.Root, "new.txt", "new\n")
-	if cs, err = r.LogPath(r.Abs("new.txt"), 10, false); err != nil || len(cs) != 0 {
-		t.Errorf("an untracked file's history %+v %v", cs, err)
+	if cs, names, err = r.LogPath(r.Abs("new.txt"), 10, false); err != nil || len(cs) != 0 || len(names) != 0 {
+		t.Errorf("an untracked file's history %+v %v, names %v", cs, err, names)
 	}
 }
 

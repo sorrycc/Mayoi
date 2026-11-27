@@ -677,9 +677,9 @@ func (a *gitContext) scmListInput(out ui.Element, rows []scmRow, reveal func(int
 		case r.dir != "":
 			a.toggleDir(r)
 		case r.commit != nil:
-			// A file's history shows each commit at that file.
+			// A file's history shows each commit at that file alone.
 			if g.historyPath != "" {
-				a.showCommitFile(*r.commit, g.historyPath, true)
+				a.showCommitFileOnly(*r.commit, a.fileOf(r.commit.Hash), true)
 			} else {
 				a.showCommit(*r.commit, true)
 			}
@@ -1393,9 +1393,9 @@ func (a *gitContext) scmCommit(c *ui.Context, r scmRow, action *func()) {
 				}
 			}
 			if mods&(ui.Cmd|ui.Shift) == 0 {
-				// A file's history shows each commit at that file.
+				// A file's history shows each commit at that file alone.
 				if g.historyPath != "" {
-					a.showCommitFile(*cm, g.historyPath, false)
+					a.showCommitFileOnly(*cm, a.fileOf(cm.Hash), false)
 				} else {
 					a.previewCommit(*cm)
 				}

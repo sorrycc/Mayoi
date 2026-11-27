@@ -8,9 +8,9 @@ import (
 )
 
 // TestFileHistory scopes source control's commits to the commits that
-// changed a file: its row says which file, a click shows each commit at
-// that file, and the button beside the path shows the branch's history
-// again.
+// changed a file: its row says which file, a click shows that file's
+// changes of the commit alone, its toolbar every file of the commit, and
+// the button beside the path the branch's history again.
 func TestFileHistory(t *testing.T) {
 	hs := newHarness(t, true)
 	git := hs.gitRepo()
@@ -60,8 +60,7 @@ func TestFileHistory(t *testing.T) {
 	if !hs.tt.HasText("zz.txt") {
 		t.Errorf("the view does not name the file: %q", hs.tt.Texts())
 	}
-	// A click on a commit shows it at the file: the commit's changes
-	// scrolled to zz.txt, which follows aa.txt.
+	// A click on a commit shows the file's changes of it alone.
 	if err := hs.tt.Click("change both"); err != nil {
 		t.Fatal(err)
 	}
@@ -72,11 +71,31 @@ func TestFileHistory(t *testing.T) {
 		t.Fatalf("tab %+v", tab)
 	}
 	v := tab.diff
-	if len(v.files) != 2 {
-		t.Fatalf("the commit's files %+v", v.files)
+	if v.only != zz || len(v.files) != 1 || v.files[0].path != zz {
+		t.Fatalf("the commit shows %+v, only %q", v.files, v.only)
+	}
+	if !v.files[0].loaded || len(v.files[0].hunks) == 0 {
+		t.Fatalf("the file of the commit %+v", v.files[0])
+	}
+	// The toggle beside the panel shows every file of the commit again,
+	// at the one it showed.
+	if err := hs.tt.Click("Only This File"); err != nil {
+		t.Fatal(err)
+	}
+	hs.settle()
+	if v.only != "" || len(v.files) != 2 {
+		t.Fatalf("every file of the commit %+v, only %q", v.files, v.only)
 	}
 	if v.cursor < 0 || v.cursor >= len(v.rows) || v.files[v.rows[v.cursor].file].path != zz {
 		t.Errorf("the commit opens at %d, not at zz.txt", v.cursor)
+	}
+	// Once more, for the file at its top.
+	if err := hs.tt.Click("Only This File"); err != nil {
+		t.Fatal(err)
+	}
+	hs.settle()
+	if v.only != zz || len(v.files) != 1 {
+		t.Errorf("only %q of %+v", v.only, v.files)
 	}
 	// The branch's history comes back, without the file's commits alone.
 	if err := hs.tt.Click("Clear File History"); err != nil {
@@ -104,6 +123,57 @@ func TestFileHistory(t *testing.T) {
 	}
 	if !hs.tt.HasText("No commit changed this file.") {
 		t.Errorf("no empty state: %q", hs.tt.Texts())
+	}
+}
+
+// TestFileHistoryFollowsRenames: a commit made before the file was
+// renamed shows the file by the name it had then, alone.
+func TestFileHistoryFollowsRenames(t *testing.T) {
+	hs := newHarness(t, true)
+	git := hs.gitRepo()
+	a := hs.a
+	old, renamed, other := hs.path("old.txt"), hs.path("new.txt"), hs.path("other.txt")
+	os.WriteFile(old, []byte("one\n"), 0o644)
+	os.WriteFile(other, []byte("o\n"), 0o644)
+	git("add", ".")
+	git("commit", "-qm", "add both")
+	os.WriteFile(old, []byte("one\ntwo\n"), 0o644)
+	os.WriteFile(other, []byte("o\np\n"), 0o644)
+	git("commit", "-qam", "change both")
+	git("mv", "old.txt", "new.txt")
+	git("commit", "-qm", "rename it")
+
+	a.showFileHistory(renamed)
+	hs.settleGit()
+	hs.settle()
+	g := a.repositoryForPath(renamed).git
+	if g.historyPath != renamed || len(g.history) != 3 {
+		t.Fatalf("history of %q: %d commits", g.historyPath, len(g.history))
+	}
+	// The rename's commit is newest, then those of the name before it.
+	if err := hs.tt.Click("change both"); err != nil {
+		t.Fatal(err)
+	}
+	hs.settleGit()
+	hs.settle()
+	tab := a.activeTab()
+	if tab == nil || tab.diff == nil || tab.diff.commit == nil || tab.diff.commit.info.Subject != "change both" {
+		t.Fatalf("tab %+v", tab)
+	}
+	v := tab.diff
+	if v.only != old || len(v.files) != 1 || v.files[0].path != old {
+		t.Fatalf("the commit shows %+v, only %q, not %q", v.files, v.only, old)
+	}
+	if !v.files[0].loaded || len(v.files[0].hunks) == 0 {
+		t.Fatalf("the file of the commit %+v", v.files[0])
+	}
+	// The other file of the commit comes back with the toggle.
+	if err := hs.tt.Click("Only This File"); err != nil {
+		t.Fatal(err)
+	}
+	hs.settle()
+	if v.only != "" || len(v.files) != 2 {
+		t.Fatalf("every file of the commit %+v, only %q", v.files, v.only)
 	}
 }
 

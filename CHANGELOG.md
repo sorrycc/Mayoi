@@ -6,6 +6,12 @@ needs a `## <version>` section here, or its build fails.
 ## Unreleased
 
 - **Toggle Line Comment** wraps JSX children in `{/* ... */}`, so React leaves them out of the page.
+- On Windows, `F12` and `Ctrl`-click now open definitions in WSL folders and on Linux SSH hosts.
+- On Windows, language server errors and warnings now show in WSL folders and on Linux SSH hosts.
+- Click the language in the status bar, or run `Change Language…`, to pick how a file or untitled tab is highlighted.
+- The language box opens on the current choice and offers **Auto Detect** to go back to the file name's language.
+- A chosen language moves the file to that language's server and drops the old server's problems.
+- A chosen language comes back with its tab after a restart; **Save As** goes back to Auto Detect.
 - **Remote SSH** connects to Windows hosts running OpenSSH Server, through the PowerShell Windows comes with.
 - A Windows host's files, Git, search and language servers work as on Linux, and its terminals open PowerShell.
 - On a Windows host, `/` lists its drives and the folder box takes `C:\Users\me` as you type it.

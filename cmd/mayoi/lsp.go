@@ -52,6 +52,10 @@ type lspServer struct {
 	ctx      context.Context
 	cancel   context.CancelFunc
 	stopping atomic.Bool
+	// detached are the files a change of language took from it, whose
+	// diagnostics it may still send late, until it has them open again.
+	detachedMu sync.Mutex
+	detached   map[string]bool
 }
 
 // lspFailure is why a language server could not start.
@@ -165,7 +169,7 @@ func serverPath(root, uri string) string {
 		return ""
 	}
 	if remote.Is(root) {
-		return remote.On(root, p)
+		return remote.On(root, filepath.ToSlash(p))
 	}
 	return p
 }
@@ -296,7 +300,7 @@ func (s *lspServer) start(a *app, prev *lspServer) {
 		Handlers: lsp.Handlers{
 			Diagnostics: func(uri string, items []lsp.Diagnostic) {
 				path := serverPath(root, uri)
-				if path == "" || plugins == nil || !s.current() {
+				if path == "" || plugins == nil || !s.current() || s.isDetached(path, uri) {
 					return
 				}
 				list := make([]diagnostic, len(items))
@@ -433,6 +437,63 @@ func (s *lspServer) wait(limit time.Duration) *lsp.Client {
 	return s.live()
 }
 
+// moveServer takes a document whose language changed from the servers
+// that have it open, but for the one of its new language, which opens it
+// again as that language next. Each other server's diagnostics of it go,
+// and so do those it sends late.
+func (a *app) moveServer(d *document) {
+	if d.path == "" {
+		return
+	}
+	uri := serverURI(d.path)
+	next := a.lspFor(d, false)
+	lspServers.Lock()
+	servers := make([]*lspServer, 0, len(lspServers.m))
+	for _, s := range lspServers.m {
+		servers = append(servers, s)
+	}
+	lspServers.Unlock()
+	for _, s := range servers {
+		c := s.live()
+		if c == nil || !c.IsOpen(uri) {
+			continue
+		}
+		c.Closed(uri)
+		if s != next {
+			s.detach(d.path)
+		}
+	}
+}
+
+// detach drops the server's diagnostics of a file it no longer has, and
+// those it sends of it until it opens it again.
+func (s *lspServer) detach(path string) {
+	s.detachedMu.Lock()
+	if s.detached == nil {
+		s.detached = map[string]bool{}
+	}
+	s.detached[path] = true
+	s.detachedMu.Unlock()
+	if plugins != nil {
+		plugins.setDiagnosticList(s.owner(), path, "", false, nil)
+	}
+}
+
+// isDetached is whether diagnostics the server sends of a file are late
+// ones, of a file a change of language took from it.
+func (s *lspServer) isDetached(path, uri string) bool {
+	s.detachedMu.Lock()
+	defer s.detachedMu.Unlock()
+	if !s.detached[path] {
+		return false
+	}
+	if c := s.live(); c != nil && c.IsOpen(uri) {
+		delete(s.detached, path)
+		return false
+	}
+	return true
+}
+
 // lspDoc tells a document's server what happened to it: "open", "change",
 // "save" or "close".
 func (a *app) lspDoc(event string, d *document) {
@@ -551,7 +612,7 @@ func (a *app) askHover(d *editor, at int, rest *pointerHover) {
 		rest.ctx, rest.cancel = ctx, cancel
 		current = func() bool {
 			r := &a.rest
-			return a.restAsked == n && r.ed == d && r.word == word && d.buf.Version() == version &&
+			return a.restAsked == n && r.ed == d && r.word == word && d.buf.Version() == version && languageOf(d.document) == lang &&
 				a.picksOpened == picks && (s == nil || s.current())
 		}
 	}
@@ -611,9 +672,10 @@ func (a *app) askHover(d *editor, at int, rest *pointerHover) {
 func (a *app) lspAsked(s *lspServer, d *editor, asked *int) func() bool {
 	*asked++
 	n, root, version, sel, picks := *asked, a.root, d.buf.Version(), d.sel, a.picksOpened
+	language := languageOf(d.document)
 	return func() bool {
 		return *asked == n && a.root == root && a.activeEditor() == d && d.buf.Version() == version && d.sel == sel &&
-			a.picksOpened == picks && (s == nil || s.current())
+			a.picksOpened == picks && languageOf(d.document) == language && (s == nil || s.current())
 	}
 }
 

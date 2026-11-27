@@ -71,6 +71,8 @@ takes its default.
 | `terminalCopyOnSelect`  | `true`        | `true`, `false`                                             |                                                |
 | `theme`                 | `""`          | `""` (Mayoi), `"matrix"`, `"claude"`, `"qoder"`, `"grokbot"`, `"cursor"`, `"purplegold"`, `"pumpkin"`, `"witchsbrew"`, `"bloodmoon"`, `"gtavi"` | **View → Theme**, **Color Theme…**             |
 | `appearance`            | `""`          | `""` (follow the system), `"light"`, `"dark"`               | **View → Theme**                               |
+| `iconTheme`             | `""`          | `""` (Mayoi's icons), or the id of a plugin's file icon theme | **View → Theme → File Icon Theme**           |
+| `iconThemeAssociations` | none          | Icons of the file icon theme for files and folders          | Only this file                                 |
 | `sidebarRight`          | `false`       | `true`, `false`                                             | **View → Sidebar on Right**                    |
 | `panelPosition`         | `""`          | `""` (bottom), `"left"`, `"right"`                          | **View → Panel Position**                      |
 | `terminalLocation`      | `""`          | `""` (the panel), `"editor"`                                | **View → New Terminals in Editor Area**        |
@@ -174,6 +176,26 @@ differ in width lines them up only roughly.
 - **`theme`** is Mayoi's own theme, The Matrix, Claude, Qoder, Grok Bot, Cursor, Purple Gold, a Halloween theme:
   `"pumpkin"` for Jack-o'-Lantern, `"witchsbrew"` for Witch's Brew and `"bloodmoon"` for Blood Moon, or `"gtavi"` for
   GTA VI. The Matrix, Purple Gold, the Halloween themes and GTA VI are always dark, so they ignore `appearance`.
+- **`iconTheme`** gives files and folders the icons of a file icon theme a plugin brings, by its id, as
+  `"material-icon-theme.default"`, in the Explorer, tabs, Quick Open, breadcrumbs, Search and Source Control. The icons
+  keep their own colors in every theme. `""`, or the id of a theme whose plugin is off, is Mayoi's own icons. See
+  [PLUGINS.md](PLUGINS.md#file-icon-themes).
+- **`iconThemeAssociations`** gives files and folders other icons of the icon theme, by the ids of its icons, as
+  `material-icon-theme.files.associations` and `folders.associations` do in VS Code. A key of `files` is a file's name,
+  the end of its path, as `"docs/notes.md"`, or `*.` and an extension; a key of `folders` is a folder's name or the end
+  of its path. An open folder takes the open icon the theme pairs with the one given. An id the theme has no icon of
+  is left out. Names are matched in any case.
+
+  ```json
+  {
+    "iconTheme": "material-icon-theme.default",
+    "iconThemeAssociations": {
+      "files": { "*.mdx": "markdown", "Jenkinsfile": "groovy" },
+      "folders": { "scripts": "folder-tools" }
+    }
+  }
+  ```
+
 - **`panelPosition`** is where the terminal panel is: `""` or `"bottom"` below the editors, `"left"` or `"right"` at a
   side of the window. At a side it sits past the sidebar, so with the sidebar on the same side the panel is the outer
   of the two.

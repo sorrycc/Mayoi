@@ -293,6 +293,7 @@ func (a *app) commandsIn(t locales.Messages) []command {
 		{"view.theme.witchsbrew", t.CmdViewThemeWitchsBrew(), "", func() { a.setTheme(themeWitchsBrew) }},
 		{"view.theme.bloodmoon", t.CmdViewThemeBloodMoon(), "", func() { a.setTheme(themeBloodMoon) }},
 		{"view.theme.gtavi", "GTA VI", "", func() { a.setTheme(themeGTAVI) }},
+		{"view.iconTheme.mayoi", "Mayoi", "", func() { a.setIconTheme("") }},
 		{localeCommand + "system", t.CmdViewLocaleSystem(), "", func() { a.setLocale("") }},
 	}
 	// The languages, each named in itself.
@@ -463,6 +464,15 @@ func (a *app) setTheme(theme string) {
 	a.themeChanged()
 }
 
+// setIconTheme gives files and folders the icons of the icon theme of id,
+// or Mayoi's own for "".
+func (a *app) setIconTheme(id string) {
+	a.settings.IconTheme = id
+	a.settings.Changed()
+	a.host.redrawWindows()
+	a.host.menuChanged()
+}
+
 func (a *app) themeChanged() {
 	a.settings.Changed()
 	a.host.setTheme(a.settings.Theme, a.settings.Appearance)
@@ -590,6 +600,11 @@ func (a *app) menu(cli bool, run func(id string, win *mygo.Window)) *mygo.Menu {
 		return it
 	}
 	theme := func(id, th string) *mygo.MenuItem { return radio(id, a.settings.Theme == th) }
+	// Mayoi's icons, then the icon themes of the plugins.
+	icons := []*mygo.MenuItem{radio("view.iconTheme.mayoi", a.settings.IconTheme == "")}
+	for _, t := range pluginIconThemes() {
+		icons = append(icons, radio("view.iconTheme."+t.contrib.ID, a.settings.IconTheme == t.contrib.ID))
+	}
 	// The system's language, then each of the app's.
 	languages := []*mygo.MenuItem{radio(localeCommand+"system", a.localeOn("system")), mygo.Separator()}
 	for _, tag := range mygo.App.Languages() {
@@ -783,7 +798,8 @@ func (a *app) menu(cli bool, run func(id string, win *mygo.Window)) *mygo.Menu {
 				theme("view.theme.qoder", themeQoder), theme("view.theme.grokbot", themeGrokBot), theme("view.theme.cursor", themeCursor),
 				theme("view.theme.purplegold", themePurpleGold), theme("view.theme.pumpkin", themePumpkin),
 				theme("view.theme.witchsbrew", themeWitchsBrew), theme("view.theme.bloodmoon", themeBloodMoon),
-				theme("view.theme.gtavi", themeGTAVI),
+				theme("view.theme.gtavi", themeGTAVI), mygo.Separator(),
+				{Label: locales.MenuFileIconTheme(), Submenu: icons},
 			}},
 			{Label: locales.MenuLanguage(), Submenu: languages}, mygo.Separator(),
 			{Role: mygo.RoleToggleFullScreen}, {Role: mygo.RoleToggleDevTools},

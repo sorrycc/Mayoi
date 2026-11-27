@@ -172,6 +172,7 @@ languages plugins declare.
 | `formatters`      | Formatters of `languages`, for **Format Document** and `formatOnSave`                          |
 | `webviews`        | Panels of HTML from the plugin's folder, in the sidebar                                        |
 | `themes`          | Themes, in Mayoi's format or VS Code's                                                         |
+| `iconThemes`      | File icon themes, in VS Code's format                                                          |
 | `languages`       | File `extensions` and `filenames`, the Chroma `lexer` that highlights them, and `lineComment`  |
 | `snippets`        | Snippets in VS Code's format, for a `language` or `*`                                          |
 | `terminalLinks`   | A `pattern` of links clicked in a terminal (URLs and paths), which runs `command` with the match |
@@ -433,6 +434,27 @@ file is read decides darkness, whatever the file's `dark`, `type` or `base` says
 that theme's palette of the same appearance. Such an entry can't also have `"dark": true`. When one of the files is
 missing or does not parse, that appearance falls back to Mayoi's own palette. Both paths are inside the plugin's
 folder.
+
+### File icon themes
+
+```jsonc
+"iconThemes": [{ "id": "material-icon-theme.default", "label": "Material Icon Theme", "path": "dist/material-icons.json" }]
+```
+
+The file is a file icon theme of VS Code as it is, so the file and the icons of a VS Code icon theme, in a plugin's
+folder with this entry, work in Mayoi: `iconDefinitions`, each an SVG file by its `iconPath` from the file's folder;
+`file`, `folder` and `folderExpanded`, the icons of the rest; `fileNames`, `fileExtensions`, `languageIds`,
+`folderNames` and `folderNamesExpanded`; and `light`, which changes any of them in light windows.
+
+A file takes the icon of its name, then of its extensions, `spec.ts` before `ts` for `a.spec.ts`, then of its language,
+by VS Code's ids of languages. A name may have the end of its path, as `docs/readme.md`, and names are matched in any
+case. An open folder the theme has no open icon of keeps its closed one. Icons that are a font's glyphs or PNGs, and
+`rootFolderNames` and `highContrast`, are left out: such files and folders take Mayoi's icons, as do those whose SVG
+does not parse, which the plugin's log tells.
+
+**View → Theme → File Icon Theme**, the settings window and the command palette choose the theme, which `iconTheme`
+keeps, and `iconThemeAssociations` gives files and folders other icons of it; see
+[SETTINGS.md](SETTINGS.md#the-rest).
 
 ### Languages and snippets
 

@@ -62,6 +62,8 @@ type Field struct {
 var Schema = []Field{
 	{Key: "theme", Category: CatAppearance, Kind: KindEnum, Options: []string{"", "matrix", "claude", "qoder", "grokbot", "cursor", "purplegold", "pumpkin", "witchsbrew", "bloodmoon", "gtavi"}},
 	{Key: "appearance", Category: CatAppearance, Kind: KindEnum, Options: []string{"", "light", "dark"}},
+	{Key: "iconTheme", Category: CatAppearance, Kind: KindText},
+	{Key: "iconThemeAssociations", Category: CatAppearance, Kind: KindJSON},
 	{Key: "zoomLevel", Category: CatAppearance, Kind: KindNumber, Min: MinZoomLevel, Max: MaxZoomLevel, Step: 0.5},
 	{Key: "sidebarRight", Category: CatAppearance, Kind: KindBool},
 	{Key: "explorerCompactFolders", Category: CatAppearance, Kind: KindBool},

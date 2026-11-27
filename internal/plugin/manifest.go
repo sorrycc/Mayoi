@@ -52,6 +52,7 @@ type Contributes struct {
 	Views           []ViewContrib             `json:"views,omitempty"`
 	Previews        []PreviewContrib          `json:"previews,omitempty"`
 	Themes          []ThemeContrib            `json:"themes,omitempty"`
+	IconThemes      []IconThemeContrib        `json:"iconThemes,omitempty"`
 	Languages       []LanguageContrib         `json:"languages,omitempty"`
 	Snippets        []SnippetContrib          `json:"snippets,omitempty"`
 	Formatters      []FormatterContrib        `json:"formatters,omitempty"`
@@ -171,6 +172,14 @@ type ThemeContrib struct {
 	DarkPath string `json:"darkPath,omitempty"`
 	// Dark tells a theme for dark windows; a theme file may say too.
 	Dark bool `json:"dark,omitempty"`
+}
+
+// IconThemeContrib is a file icon theme: a JSON file in VS Code's format
+// of icon themes, in the plugin's folder, whose icons are SVG files there.
+type IconThemeContrib struct {
+	ID    string `json:"id"`
+	Label string `json:"label"`
+	Path  string `json:"path"`
 }
 
 // LanguageContrib tells Mayoi of a language: its files, how its comments
@@ -417,6 +426,14 @@ func (m *Manifest) check() error {
 		}
 		if t.Dark && t.DarkPath != "" {
 			return fmt.Errorf("theme %q: dark and darkPath conflict", t.ID)
+		}
+	}
+	for _, t := range c.IconThemes {
+		if err := own("icon theme", t.ID); err != nil {
+			return err
+		}
+		if t.Path == "" || t.Path == "." || !fs.ValidPath(t.Path) || strings.ContainsAny(t.Path, "\\:") {
+			return fmt.Errorf("icon theme %q needs a path inside the plugin", t.ID)
 		}
 	}
 	for _, s := range c.LanguageServers {

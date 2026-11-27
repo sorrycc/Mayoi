@@ -258,6 +258,12 @@ type Prefs struct {
 	// "grokbot" for Grok Bot or "cursor" for Cursor, light or dark as
 	// Appearance is, or "" for Mayoi's own.
 	Theme string `json:"theme,omitempty"`
+	// IconTheme is the id of the file icon theme a plugin contributes, as
+	// "material-icon-theme.default", or "" for Mayoi's own icons.
+	IconTheme string `json:"iconTheme,omitempty"`
+	// IconThemeAssociations give files and folders icons of the icon
+	// theme, by the ids of its icons.
+	IconThemeAssociations *IconAssociations `json:"iconThemeAssociations,omitempty"`
 	// SidebarRight puts the sidebar right of the editors, rather than left.
 	SidebarRight bool `json:"sidebarRight,omitempty"`
 	// ExplorerCompactFolders shows a chain of single-child folders on one
@@ -353,6 +359,15 @@ type Prefs struct {
 	// from, as ~/.mayoi/plugins/plugins.json has them, which Mayoi keeps
 	// here for settings sync to bring to the person's other machines.
 	PluginSources map[string]PluginSource `json:"pluginSources,omitempty"`
+}
+
+// IconAssociations give files and folders the icons of a file icon theme
+// by the ids of its icons. A key of Files is a name, as "Jenkinsfile", a
+// path's end, as "docs/notes.md", or "*." and an extension, as "*.mdx";
+// a key of Folders is a folder's name, or a path's end.
+type IconAssociations struct {
+	Files   map[string]string `json:"files,omitempty"`
+	Folders map[string]string `json:"folders,omitempty"`
 }
 
 // TabStyle is a project's own look on the rail: Label, up to two

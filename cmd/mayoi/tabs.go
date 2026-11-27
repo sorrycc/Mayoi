@@ -1,6 +1,7 @@
 package main
 
 import (
+	"cmp"
 	"slices"
 	"time"
 
@@ -152,12 +153,12 @@ func (a *app) tabStrip(c *ui.Context, col *column) {
 						case t.issue != nil:
 							icon, tint = t.issue.icon(), p.addedFg
 						case t.term == nil:
-							icon, tint = fileIcon(p, t.name())
+							icon, tint = fileIcon(p, cmp.Or(t.path(), t.name()))
 						}
 						if t.term != nil {
 							a.termIcon(c, t.term, 14, tint, under)
 						} else {
-							ui.Icon(c, icon).FontSize(14).TextColor(tint)
+							iconElement(c, icon, 14, tint)
 						}
 						name := ui.Text(c, t.name()).FontSize(12.5).SingleLine().MaxWidth(220)
 						if t.transient {

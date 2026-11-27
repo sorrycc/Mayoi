@@ -301,6 +301,10 @@ func TestManifestChecks(t *testing.T) {
 		`{"name": "x", "contributes": {"agents": [{"id": "x.a", "name": "A", "resume": "a"}]}}`,
 		`{"name": "x", "contributes": {"agents": [{"id": "x.a", "name": "A", "resume": "a", "sessions": {"glob": "~/*.x", "format": "xml"}}]}}`,
 		`{"name": "x", "contributes": {"themes": [{"id": "x.t", "label": "T", "path": "l.json", "darkPath": "d.json", "dark": true}]}}`,
+		`{"name": "x", "contributes": {"iconThemes": [{"id": "y.i", "label": "I", "path": "i.json"}]}}`,
+		`{"name": "x", "contributes": {"iconThemes": [{"id": "x.i", "label": "I"}]}}`,
+		`{"name": "x", "contributes": {"iconThemes": [{"id": "x.i", "label": "I", "path": "../i.json"}]}}`,
+		`{"name": "x", "contributes": {"iconThemes": [{"id": "x.i", "label": "I", "path": "/i.json"}]}}`,
 	} {
 		if _, err := ParseManifest([]byte(bad)); err == nil {
 			t.Errorf("%s parsed", bad)
@@ -310,6 +314,10 @@ func TestManifestChecks(t *testing.T) {
 		"tint": ["#d97757", "#c15f3c"], "sessions": {"glob": "~/.x/**/*.jsonl", "format": "jsonl", "id": "sessionId"}}]}}`))
 	if err != nil || m.Contributes.Agents[0].Tint != (Tint{"#d97757", "#c15f3c"}) || m.Contributes.Agents[0].Sessions.ID != "sessionId" {
 		t.Errorf("an agent of files: %v %+v", err, m)
+	}
+	m, err = ParseManifest([]byte(`{"name": "x", "contributes": {"iconThemes": [{"id": "x.i", "label": "I", "path": "dist/i.json"}]}}`))
+	if err != nil || m.Contributes.IconThemes[0].Path != "dist/i.json" {
+		t.Errorf("an icon theme: %v %+v", err, m)
 	}
 	if !Satisfies("0.20.1", ">=0.20.0 <1.0.0") || Satisfies("0.19.0", ">=0.20.0") || !Satisfies("dev", ">=9") {
 		t.Fatal("Satisfies")

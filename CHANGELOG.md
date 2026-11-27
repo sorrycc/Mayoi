@@ -5,6 +5,10 @@ needs a `## <version>` section here, or its build fails.
 
 ## Unreleased
 
+- Plugins can bring file icon themes in VS Code's format, such as Material Icon Theme.
+- **View → Theme → File Icon Theme** gives files and folders a plugin's icons, or Mayoi's own.
+- File icon themes show in the Explorer, tabs, Quick Open, breadcrumbs, Search and Source Control.
+- `iconThemeAssociations` gives files and folders other icons of the file icon theme, by name or extension.
 - Hover over underlined code to read and copy diagnostics alongside symbol documentation.
 - Fix typing or pasting into the previous file after switching files in an editable diff.
 - Fix staged deletions offering to edit a later file in the diff.

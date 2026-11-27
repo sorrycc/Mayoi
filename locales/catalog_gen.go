@@ -7334,6 +7334,16 @@ func (msgs Messages) MenuTheme() string {
 	return Catalog.Format(msgs.locale, "menuTheme", nil)
 }
 
+// MenuFileIconTheme says "File Icon Theme"
+// in the language the app shows.
+func MenuFileIconTheme() string { return In(i18n.Locale()).MenuFileIconTheme() }
+
+// MenuFileIconTheme says "File Icon Theme"
+// in the language of msgs.
+func (msgs Messages) MenuFileIconTheme() string {
+	return Catalog.Format(msgs.locale, "menuFileIconTheme", nil)
+}
+
 // MenuUpdateTo says "Update to {version}…"
 // in the language the app shows.
 func MenuUpdateTo(version string) string { return In(i18n.Locale()).MenuUpdateTo(version) }
@@ -15216,6 +15226,48 @@ func (msgs Messages) PrefDescAppearance() string {
 	return Catalog.Format(msgs.locale, "prefDescAppearance", nil)
 }
 
+// PrefTitleIconTheme says "File Icon Theme"
+// in the language the app shows.
+func PrefTitleIconTheme() string { return In(i18n.Locale()).PrefTitleIconTheme() }
+
+// PrefTitleIconTheme says "File Icon Theme"
+// in the language of msgs.
+func (msgs Messages) PrefTitleIconTheme() string {
+	return Catalog.Format(msgs.locale, "prefTitleIconTheme", nil)
+}
+
+// PrefDescIconTheme says "The icons of files and folders: Mayoi's own, or those of an icon theme a plugin brings."
+// in the language the app shows.
+func PrefDescIconTheme() string { return In(i18n.Locale()).PrefDescIconTheme() }
+
+// PrefDescIconTheme says "The icons of files and folders: Mayoi's own, or those of an icon theme a plugin brings."
+// in the language of msgs.
+func (msgs Messages) PrefDescIconTheme() string {
+	return Catalog.Format(msgs.locale, "prefDescIconTheme", nil)
+}
+
+// PrefTitleIconThemeAssociations says "Icon Associations"
+// in the language the app shows.
+func PrefTitleIconThemeAssociations() string {
+	return In(i18n.Locale()).PrefTitleIconThemeAssociations()
+}
+
+// PrefTitleIconThemeAssociations says "Icon Associations"
+// in the language of msgs.
+func (msgs Messages) PrefTitleIconThemeAssociations() string {
+	return Catalog.Format(msgs.locale, "prefTitleIconThemeAssociations", nil)
+}
+
+// PrefDescIconThemeAssociations says "Icons of the icon theme for files and folders, by name, path or extension, edited in settings.json."
+// in the language the app shows.
+func PrefDescIconThemeAssociations() string { return In(i18n.Locale()).PrefDescIconThemeAssociations() }
+
+// PrefDescIconThemeAssociations says "Icons of the icon theme for files and folders, by name, path or extension, edited in settings.json."
+// in the language of msgs.
+func (msgs Messages) PrefDescIconThemeAssociations() string {
+	return Catalog.Format(msgs.locale, "prefDescIconThemeAssociations", nil)
+}
+
 // PrefTitleZoomLevel says "Window Zoom"
 // in the language the app shows.
 func PrefTitleZoomLevel() string { return In(i18n.Locale()).PrefTitleZoomLevel() }
@@ -17912,6 +17964,16 @@ func PluginsThemes() string { return In(i18n.Locale()).PluginsThemes() }
 // in the language of msgs.
 func (msgs Messages) PluginsThemes() string {
 	return Catalog.Format(msgs.locale, "pluginsThemes", nil)
+}
+
+// PluginsIconThemes says "File Icon Themes"
+// in the language the app shows.
+func PluginsIconThemes() string { return In(i18n.Locale()).PluginsIconThemes() }
+
+// PluginsIconThemes says "File Icon Themes"
+// in the language of msgs.
+func (msgs Messages) PluginsIconThemes() string {
+	return Catalog.Format(msgs.locale, "pluginsIconThemes", nil)
 }
 
 // PluginsLanguages says "Languages"

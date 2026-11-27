@@ -1094,7 +1094,7 @@ func (a *gitContext) scmFile(c *ui.Context, r scmRow, action *func()) {
 	row.Children(func() {
 		name := filepath.Base(e.Path)
 		icon, col := entryIcon(p, e, name)
-		ui.Icon(c, icon).FontSize(14).TextColor(col)
+		iconElement(c, icon, 14, col)
 		label := ui.Text(c, name).FontSize(13).SingleLine().Shrink(0).TextColor(gitColor(p, letter))
 		if letter == 'D' {
 			label.Strikethrough()
@@ -1784,12 +1784,9 @@ func (a *gitContext) scmFolder(c *ui.Context, r scmRow, action *func()) {
 	a.app.scmGuides(row, r.depth)
 	hovered, clicked := row.Hovered(), row.Clicked()
 	row.Children(func() {
-		folder := iconFolderOpen
-		if closed {
-			folder = iconFolder
-		}
+		folder, tint := folderIcon(p, r.name, !closed)
 		chevron(c, !closed).FontSize(12).TextColor(p.muted)
-		ui.Icon(c, folder).FontSize(14).TextColor(p.accent).Margin(0, 2, 0, 0)
+		iconElement(c, folder, 14, tint).Margin(0, 2, 0, 0)
 		ui.Text(c, r.name).FontSize(13).TextColor(p.text).SingleLine().Shrink(1)
 		ui.Spacer(c)
 		if !hovered {
@@ -2026,7 +2023,7 @@ func openLabel(e git.Entry) string {
 // entryIcon is the icon of a changed file, or of a submodule.
 func entryIcon(p *palette, e git.Entry, name string) (*ui.SVG, ui.Color) {
 	if e.Submodule() {
-		return iconFolder, p.accent
+		return folderIcon(p, name, false)
 	}
 	return fileIcon(p, name)
 }

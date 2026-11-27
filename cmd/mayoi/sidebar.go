@@ -549,17 +549,18 @@ func (a *app) fileTree(c *ui.Context) {
 		})
 		row.Children(func() {
 			ignored := a.isIgnored(path)
-			icon, col := iconFolder, p.accent
-			switch {
-			case isDir && a.files.Open.Has(path):
-				icon = iconFolderOpen
-			case !isDir:
-				icon, col = fileIcon(p, name)
+			var icon *ui.SVG
+			var col ui.Color
+			if isDir {
+				icon, col = folderIcon(p, path, a.files.Open.Has(path))
+			} else {
+				icon, col = fileIcon(p, path)
 			}
+			glyph := iconElement(c, icon, 14, col)
 			if ignored {
-				col = col.Alpha(0.5)
+				// Dimmed whole, as an icon theme's colors are its own.
+				glyph.Opacity(0.5)
 			}
-			ui.Icon(c, icon).FontSize(14).TextColor(col)
 			if editing {
 				// A compact row edits its last folder, after those that
 				// lead to it.

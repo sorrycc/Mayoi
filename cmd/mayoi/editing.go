@@ -117,13 +117,17 @@ var blockComments = map[string][2]string{
 // commentFor returns the line comment of a document's language, "" when
 // it has none.
 func commentFor(d *document) string {
-	if c := pluginComment(d.path); c != "" {
+	if c := documentPluginComment(d); c != "" {
 		return c
 	}
 	if d.hl != nil {
 		if c := lineComments[highlight.Name(d.hl.Lexer())]; c != "" {
 			return c
 		}
+	}
+	// A language chosen for the document is all that counts.
+	if d.language != "" {
+		return ""
 	}
 	// Files Chroma has no lexer for.
 	name := strings.ToLower(filepath.Base(d.path))
@@ -349,6 +353,10 @@ func opensColonBlock(d *document) bool {
 func toggleComment(d *editor) {
 	snap := d.buf.Snapshot()
 	first, last := lineSpan(snap, d.sel)
+	if jsxChildrenLines(d.document, snap, first, last) {
+		toggleJSXComment(d, snap, first, last)
+		return
+	}
 	mark, block := commentAt(d.document, snap, first)
 	if mark == "" {
 		if block[0] != "" {

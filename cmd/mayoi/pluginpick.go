@@ -19,6 +19,8 @@ type pickItem struct {
 
 	// icon is the icon Icon names, found as the box opens.
 	icon *ui.SVG
+	// current marks the item that is in effect now, checked at its end.
+	current bool
 }
 
 // pluginPicker is the box a plugin's window.pick shows, found by label as
@@ -31,6 +33,7 @@ type pluginPicker struct {
 	items       []pickItem
 	labels      []string
 	placeholder string
+	initial     int // the item chosen as the box opens
 	results     []workspace.Match
 	shown       string
 	stale       bool
@@ -92,6 +95,9 @@ func (a *app) pluginPickerView(c *ui.Context) {
 			pk.results = workspace.Fuzzy(pk.labels, q, 200)
 		}
 		pk.shown, pk.stale, pk.sel = pk.query, false, 0
+		if q == "" && pk.initial > 0 && pk.initial < len(pk.results) {
+			pk.sel, pk.moved = pk.initial, true
+		}
 	}
 	// Return on nothing found shakes the box, as the palette does.
 	choose := func(i int) {
@@ -186,6 +192,9 @@ func (a *app) pluginPickRow(c *ui.Context, i int, m workspace.Match) {
 				ui.Text(c, it.Detail).FontSize(11.5).TextColor(p.muted).SingleLine()
 			}
 		})
+		if it.current {
+			ui.Icon(c, iconCheck).FontSize(14).TextColor(p.accent).Shrink(0)
+		}
 	})
 }
 

@@ -2020,6 +2020,9 @@
   "cmdSelInsertSnippet": "Insert Snippet…",
   "snippetsNone": "No plugin has snippets for {language}",
   "snippetsPlaceholder": "Insert a snippet",
+  "cmdEditorChangeLanguage": "Change Language…",
+  "languageAutoDetect": "Auto Detect",
+  "languagePickPlaceholder": "Select a language mode",
   "pluginsSyncInstalled": "Settings sync installed {names}",
   "pluginsSyncRemoved": "Settings sync removed {names}",
   "pluginsSyncFailed": "Could not sync the plugins: {err}",
@@ -2357,5 +2360,17 @@
   "claudeThemeTooOld": "Claude Code {version} has no custom themes. Update it to {least} or later, then turn this off and on.",
   "claudeThemeTaken": "{path} isn't Mayoi's, so Mayoi left it. Move it away, then turn this off and on.",
   "claudeThemeMalformed": "{path} isn't valid JSON, so Mayoi left it. Fix it, then turn this off and on.",
-  "claudeThemeFailed": "Couldn't change Claude Code's theme: {err}"
+  "claudeThemeFailed": "Couldn't change Claude Code's theme: {err}",
+  "cmdGitFileHistory": "Open File History",
+  "scmPathHistory": "History of {path}",
+  "scmPathHistoryClear": "Clear History",
+  "scmPathHistoryNone": "No commit changed {path}.",
+  "scmPathsCount": "{count, plural, one {# path} other {# paths}}",
+  "cmdGitFolderHistory": "Open Folder History",
+  "cmdGitPathsHistory": "Open History",
+  "cmdGitOnlySelectedPaths": "Show Only Selected Paths",
+  "diffOnlySelectedPaths": "Only Selected Paths",
+  "prefTitleDiffHistoryOnly": "Filter Commits to the History",
+  "prefDescDiffHistoryOnly": "A commit opened from a file's or folder's history shows only the files of that history; the diff's Only Selected Paths button shows every file of the commit.",
+  "scmPathHistoryMore": "… and {count, plural, one {# more} other {# more}}"
 }

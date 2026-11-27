@@ -71,6 +71,8 @@ Closing a changed file saves it without asking. Untitled files wait for ⌘S. Tu
 - Enter keeps the indent, and indents one more level after an opening bracket.
 - Brackets and quotes close themselves, wrap a selection, and are stepped over when typed again.
 - Commands comment lines, move, copy and delete lines, and insert a line above or below.
+- In JSX and TSX, **Toggle Line Comment** wraps the lines of JSX children in `{/* ... */}`, where `//` would be text
+  on the page; a line in a tag or in JavaScript keeps `//`.
 - Cut (⌘X) cuts the selection, or the entire line at the caret when nothing is selected. Undo restores it in one step.
 - Home goes to the first non-blank character of the line.
 - The status bar shows the file's indentation and line endings, and you can change either from there.
@@ -282,6 +284,15 @@ author, hash and every branch and tag.
 The branch button in the COMMITS header, or **Show All Branches** in the **⋯** menu, shows every branch, of the remotes
 too, and every tag, not only the history of the branch checked out. The button stays in the header, in the accent
 color, while it is on.
+
+**Git → Open File History**, and the same item in a file tab's and the Explorer's menu, shows the commits that changed
+the file of the tab shown: source control lists those alone, under a chip that names the file. A folder's **Open Folder
+History**, in the Explorer's menu or the command palette, lists the commits that changed anything under it, and several
+rows chosen in the Explorer have **Open History** for all of them, files and folders together; point at the chip to see
+the paths it lists. A commit opened from one of them shows the files of those paths alone — the file by the name it had
+then, across renames — and **Only Selected Paths** in the diff's toolbar, or the same checkbox in the **Git** menu, shows
+every file of the commit, and those paths again. With `diffHistoryOnly` off, a commit opens with every file of it. Only
+one file's history follows renames. The chip's ×, or Enter on its row, shows the branch's history again, and paths no commit changed say so.
 
 Click a commit to see it in the preview tab, the keyboard staying in the list, so clicking through commits leaves one
 tab; Enter, a double click or **Open Changes** in its menu keeps it in a tab of its own, focused. The tab shows its

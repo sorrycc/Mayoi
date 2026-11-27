@@ -619,7 +619,7 @@ func (a *app) askHover(d *editor, at int, rest *pointerHover) {
 	auto := rest != nil
 	if len(diagnosticsAt(d, at)) > 0 {
 		h := newHoverCard(d, "", nil, at)
-		h.auto = auto
+		h.auto, h.waiting = auto, s != nil || len(providers) > 0
 		a.hover = h
 	}
 	bg.Go(func() {

@@ -3,9 +3,11 @@ package main
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"mayoi/locales"
 )
@@ -154,5 +156,103 @@ func TestHoverDiagnosticsDoNotResyncUnchangedText(t *testing.T) {
 				t.Fatal("diagnostics and documentation did not show together")
 			}
 		})
+	}
+}
+
+// A card above its line, of a diagnostic whose documentation answers
+// within readingShows, shows once with both: its copy button never moves.
+func TestHoverDiagnosticsHoldStillAsDocumentationArrives(t *testing.T) {
+	hs := withFakeServer(t)
+	path := hs.path("a.fake")
+	os.WriteFile(path, []byte(strings.Repeat("\n", 20)+"use late one\n"), 0o644)
+	hs.a.openFile(path, true)
+	d := hs.a.activeEditor()
+	serverUp(hs)
+	plugins.setDiagnosticList("lint", d.path, "lint", false, []diagnostic{{
+		Range: textRange{position{20, 4}, position{20, 8}}, Severity: "warning", Message: "Local advice",
+	}})
+	hs.settle()
+	x, y := restAt(t, hs, d, 25)
+	hs.tt.Move(x, y)
+	step(hs.tt)
+	hs.tt.Advance(hoverDwell)
+	step(hs.tt)
+	// Held without settling, which would pass readingShows.
+	hs.held++
+	for deadline := time.Now().Add(settleTimeout); string(fakeCall(hs, "test/held")) != "true"; {
+		if time.Now().After(deadline) {
+			t.Fatal("the documentation was never asked for")
+		}
+		time.Sleep(time.Millisecond)
+	}
+	for range 3 {
+		step(hs.tt)
+	}
+	if _, ok := hs.tt.Find(locales.CopyDiagnostic()); ok || hs.a.hover == nil || !hs.a.hover.waiting {
+		t.Fatal("the diagnostic showed before documentation could answer")
+	}
+	releaseLate(hs)
+	first, ok := hs.tt.Find(locales.CopyDiagnostic())
+	if !ok || !strings.Contains(hs.a.hover.tree.Text, "**hello**") {
+		t.Fatalf("diagnostic and documentation: %q", hs.tt.Texts())
+	}
+	hs.tt.Advance(readingShows)
+	hs.settle()
+	if again, _ := hs.tt.Find(locales.CopyDiagnostic()); again != first {
+		t.Fatalf("copy button moved: %v, then %v", first, again)
+	}
+}
+
+// An empty range at a line's end underlines the line's last rune, which
+// shows its diagnostic too.
+func TestHoverDiagnosticsAtLineEnd(t *testing.T) {
+	hs := newHarness(t, false)
+	h := withPlugins(hs, map[string]map[string]string{"lint": {"plugin.json": `{"name":"lint"}`}})
+	path := hs.path("eol.txt")
+	os.WriteFile(path, []byte("call(a\nnext\n"), 0o644)
+	hs.a.openFile(path, true)
+	hs.settle()
+	d := hs.a.activeEditor()
+	h.setDiagnosticList("lint", path, "lint", false, []diagnostic{
+		{Range: textRange{position{0, 6}, position{0, 6}}, Message: "expected )"},
+		{Range: textRange{position{1, 2}, position{1, 0}}, Message: "backwards"},
+	})
+	hs.settle()
+	for at, want := range map[int]string{4: "", 5: "expected )", 6: "", 7: "backwards", 8: "backwards", 9: ""} {
+		got := diagnosticsAt(d, at)
+		if want == "" && len(got) > 0 || want != "" && (len(got) != 1 || got[0].Message != want) {
+			t.Errorf("rune %d: %v, want %q", at, got, want)
+		}
+	}
+	restOn(t, hs, d, 5)
+	hs.until("the diagnostic hover", func() bool { return hs.tt.HasText("expected )") && hs.a.hover != nil })
+}
+
+// Finding the diagnostics at a rune looks at its line alone, however many
+// the document has.
+func TestHoverDiagnosticsManyAreCheap(t *testing.T) {
+	hs := newHarness(t, false)
+	h := withPlugins(hs, map[string]map[string]string{"lint": {"plugin.json": `{"name":"lint"}`}})
+	path := hs.path("big.txt")
+	var b strings.Builder
+	var list []diagnostic
+	for i := range 20000 {
+		fmt.Fprintf(&b, "a fairly long line of text, number %d, of words\n", i)
+		list = append(list, diagnostic{Range: textRange{position{i, 2}, position{i, 8}}, Message: "m"})
+	}
+	os.WriteFile(path, []byte(b.String()), 0o644)
+	hs.a.openFile(path, true)
+	hs.settle()
+	d := hs.a.activeEditor()
+	h.setDiagnosticList("lint", path, "lint", false, list)
+	plugins.diagnosticsOf(path)
+	start := time.Now()
+	for range 10 {
+		if len(diagnosticsAt(d, 3)) != 1 {
+			t.Fatal("the diagnostic of the first line")
+		}
+	}
+	if per := time.Since(start) / 10; per > 20*time.Millisecond {
+		t.Fatalf("diagnosticsAt took %v with 20000 diagnostics", per)
 	}
 }

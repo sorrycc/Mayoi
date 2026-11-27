@@ -308,31 +308,43 @@ func diagRuns(d *document, snap interface {
 	}
 	var out []diagRun
 	for _, dg := range plugins.diagnosticsOf(d.path) {
-		s, e := dg.Range.Start, dg.Range.End
-		if e.Line < s.Line || (e.Line == s.Line && e.Character < s.Character) {
-			s, e = e, s
-		}
+		s, e := diagEnds(dg)
 		for l := max(s.Line, first); l <= min(e.Line, last, snap.LineCount()-1); l++ {
-			text := snap.Line(l)
-			n := len([]rune(text))
-			from, to := 0, n
-			if l == s.Line {
-				from = utf16ToRunes(text, s.Character)
-			}
-			if l == e.Line {
-				to = utf16ToRunes(text, e.Character)
-			}
-			if to <= from {
-				// An empty range marks the word, or the line's end.
-				to = min(from+1, n)
-				if to <= from {
-					from, to = max(n-1, 0), n
-				}
-			}
+			from, to := diagSpan(s, e, l, snap.Line(l))
 			out = append(out, diagRun{lineRun{l, from, to}, dg.Severity})
 		}
 	}
 	return out
+}
+
+// diagEnds are where a diagnostic starts and ends, the first first.
+func diagEnds(dg diagnostic) (s, e position) {
+	s, e = dg.Range.Start, dg.Range.End
+	if e.Line < s.Line || (e.Line == s.Line && e.Character < s.Character) {
+		s, e = e, s
+	}
+	return s, e
+}
+
+// diagSpan is the runes of line l, whose text is text, that a diagnostic
+// from s to e underlines.
+func diagSpan(s, e position, l int, text string) (from, to int) {
+	n := len([]rune(text))
+	from, to = 0, n
+	if l == s.Line {
+		from = utf16ToRunes(text, s.Character)
+	}
+	if l == e.Line {
+		to = utf16ToRunes(text, e.Character)
+	}
+	if to <= from {
+		// An empty range marks the word, or the line's end.
+		to = min(from+1, n)
+		if to <= from {
+			from, to = max(n-1, 0), n
+		}
+	}
+	return from, to
 }
 
 // utf16ToRunes is the rune offset in s of a UTF-16 offset.

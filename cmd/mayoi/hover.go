@@ -49,6 +49,11 @@ type hoverCard struct {
 	// auto is a card the pointer asked for, resting on a name: it goes
 	// as the pointer leaves the name and the card.
 	auto bool
+	// waiting is a card of diagnostics alone while documentation is asked
+	// for: it shows readingShows after waitFrom unless the answer comes
+	// first, so documentation that answers sooner moves nothing in it.
+	waiting  bool
+	waitFrom time.Time
 }
 
 // newHoverCard is the card of Markdown text for rune at of d, the caret
@@ -309,16 +314,25 @@ func (a *app) pointedRune(g geometry, snap ui.TextSnapshot, x, y float32) (at in
 	return s + i, true
 }
 
-// diagnosticsAt returns the problems whose ranges cover the hovered rune.
+// diagnosticsAt is the diagnostics of d whose underline covers rune at.
 func diagnosticsAt(d *editor, at int) []diagnostic {
 	if plugins == nil {
 		return nil
 	}
 	snap := d.buf.Snapshot()
+	if at < 0 || at >= snap.Len() {
+		return nil
+	}
+	l := snap.LineAt(at)
+	ls, _ := snap.LineRange(l)
+	text := snap.Line(l)
 	var out []diagnostic
 	for _, dg := range plugins.diagnosticsOf(d.path) {
-		start, end := posRune(snap, dg.Range.Start), posRune(snap, dg.Range.End)
-		if at >= start && at < end || start == end && at == start {
+		s, e := diagEnds(dg)
+		if l < s.Line || l > e.Line {
+			continue
+		}
+		if from, to := diagSpan(s, e, l, text); at-ls >= from && at-ls < to {
 			out = append(out, dg)
 		}
 	}
@@ -482,6 +496,16 @@ func (a *app) hoverView(c *ui.Context) {
 	if len(diags) == 0 && len(h.sig) == 0 && len(h.docs) == 0 {
 		a.hover = nil
 		return
+	}
+	if h.waiting {
+		if h.waitFrom.IsZero() {
+			h.waitFrom = c.Now()
+		}
+		if wait := readingShows - c.Now().Sub(h.waitFrom); wait > 0 {
+			c.After(wait)
+			return
+		}
+		h.waiting = false
 	}
 	at, shows := a.hoverAnchor(h)
 	if !shows {

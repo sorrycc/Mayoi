@@ -846,3 +846,77 @@ func TestPrefsIdle(t *testing.T) {
 		}
 	}
 }
+
+func TestColumnGuidesPrefs(t *testing.T) {
+	ph := newPrefsHarness(t)
+	ph.w.query = "columnGuides"
+	ph.frames()
+	if !ph.pt.HasText("Column Guides") {
+		t.Fatal("search did not find column guides")
+	}
+	ph.w.set("columnGuides", json.RawMessage(`[80,120]`))
+	if !slices.Equal(ph.a.prefs().ColumnGuides, []int{80, 120}) {
+		t.Fatal("user change did not apply")
+	}
+	ph.w.folder = ph.root
+	scope := ph.w.scope()
+	ph.w.setFolder(scope, "columnGuides", json.RawMessage(`[]`))
+	if len(ph.a.prefs().ColumnGuides) != 0 || len(ph.m.s.ColumnGuides) != 2 {
+		t.Fatal("folder did not disable inherited guides")
+	}
+	ph.w.reset("columnGuides", scope)
+	if !slices.Equal(ph.a.prefs().ColumnGuides, []int{80, 120}) {
+		t.Fatal("reset did not restore inheritance")
+	}
+	ph.w.reset("columnGuides", nil)
+	if len(ph.a.prefs().ColumnGuides) != 0 {
+		t.Fatal("user reset did not hide guides")
+	}
+}
+
+func TestColumnGuidesPrefsFolderJSON(t *testing.T) {
+	ph := newPrefsHarness(t)
+	other := newHarness(t, true)
+	other.a.settings = ph.m.s
+	other.a.window = ph.m.s.NewWindow()
+	other.a.window.Folder = other.root
+	f := &frame{m: ph.m}
+	h := &desktop{m: ph.m, a: other.a, f: f}
+	f.active = h
+	ph.m.wins = append(ph.m.wins, h)
+	ph.w.folder, ph.w.query = other.root, "columnGuides"
+	ph.frames()
+	if err := ph.pt.Click("Edit in settings.json"); err != nil {
+		t.Fatal(err)
+	}
+	ph.frames()
+	other.settle()
+	if got := other.a.activeFile(); got != settings.FolderPath(other.root) {
+		t.Fatalf("opened %q instead of the selected folder's JSON", got)
+	}
+	if ph.a.activeFile() == settings.FolderPath(other.root) {
+		t.Fatal("opened the selected folder's JSON in the wrong window")
+	}
+}
+
+func TestColumnGuidesPrefsReload(t *testing.T) {
+	ph := newPrefsHarness(t)
+	p := ph.m.s.Prefs
+	p.ColumnGuides = []int{80}
+	ph.m.reload(p)
+	if !slices.Equal(ph.a.prefs().ColumnGuides, []int{80}) {
+		t.Fatal("global reload did not apply")
+	}
+	path := settings.FolderPath(ph.root)
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte(`{"columnGuides":[100]}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	ph.a.folderPrefs.f.Reload()
+	ph.a.folderPrefsChanged()
+	if !slices.Equal(ph.a.prefs().ColumnGuides, []int{100}) || !slices.Equal(ph.m.s.ColumnGuides, []int{80}) {
+		t.Fatal("folder reload did not replace the user's guides independently")
+	}
+}

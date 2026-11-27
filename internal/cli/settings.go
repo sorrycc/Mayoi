@@ -672,6 +672,9 @@ func checked(f settings.Field, raw json.RawMessage) (json.RawMessage, error) {
 
 // wants says what value the preference of f takes, as a person gives it.
 func wants(f settings.Field) string {
+	if f.Key == "columnGuides" {
+		return "a list of integer columns, as [80, 120]"
+	}
 	switch f.Kind {
 	case settings.KindBool:
 		return "true or false"

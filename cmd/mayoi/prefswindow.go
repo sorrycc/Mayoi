@@ -876,7 +876,13 @@ func (w *prefsWindow) control(c *ui.Context, f settings.Field, raw json.RawMessa
 		w.stylesControl(c, raw)
 	case settings.KindJSON:
 		if ui.Button(k, locales.PrefsEditInJSON()).FontSize(12).Padding(3, 10).Clicked() {
-			w.inFront(func(a *app) { a.openSettings() })
+			if scope != nil {
+				h := scope.h
+				h.do(h.a.openFolderSettings)
+				h.show()
+			} else {
+				w.inFront(func(a *app) { a.openSettings() })
+			}
 		}
 	}
 }

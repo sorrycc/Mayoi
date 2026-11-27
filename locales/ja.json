@@ -1529,6 +1529,8 @@
   "prefDescAutoSave": "入力をやめて少し経ったときと、ファイルから離れたときに保存します。",
   "prefTitleWordWrap": "折り返し",
   "prefDescWordWrap": "長い行をエディターの端で折り返します。タブごとに変えることもできます。",
+  "prefTitleColumnGuides": "桁ガイド",
+  "prefDescColumnGuides": "指定した桁に縦のガイドを表示し、行の長さの目安にします。例 [80, 120]。",
   "prefTitleTrimTrailingWhitespace": "行末の空白を削除",
   "prefDescTrimTrailingWhitespace": "保存時に行末のスペースとタブを削除します。Markdown の改行は残します。",
   "prefTitleTabSize": "タブ幅",

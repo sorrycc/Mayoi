@@ -532,22 +532,35 @@ func TestLogPaths(t *testing.T) {
 }
 
 func TestLogPathLiteral(t *testing.T) {
-	r, git := repo(t)
-	write(t, r.Root, "a1.txt", "x\n")
-	git("add", "a1.txt")
-	git("commit", "-qm", "add a1")
-	write(t, r.Root, "a[1].txt", "y\n")
-	write(t, r.Root, ":b.txt", "z\n")
-	git("add", "--", ":(literal)a[1].txt", ":(literal):b.txt")
-	git("commit", "-qm", "add the odd names")
 	// A [ in a name is the name's, not a pattern matching a1.txt.
-	if cs, err := r.LogPaths([]string{r.Abs("a[1].txt")}, 10, false); err != nil || len(cs) != 1 {
-		t.Errorf("the history of a[1].txt %+v %v", cs, err)
-	}
+	t.Run("brackets", func(t *testing.T) {
+		r, git := repo(t)
+		write(t, r.Root, "a1.txt", "x\n")
+		git("add", "a1.txt")
+		git("commit", "-qm", "add a1")
+		write(t, r.Root, "a[1].txt", "y\n")
+		git("add", "--", ":(literal)a[1].txt")
+		git("commit", "-qm", "add a[1]")
+		if cs, err := r.LogPaths([]string{r.Abs("a[1].txt")}, 10, false); err != nil || len(cs) != 1 || cs[0].Subject != "add a[1]" {
+			t.Errorf("the history of a[1].txt %+v %v", cs, err)
+		}
+		if cs, _, err := r.LogPath(r.Abs("a[1].txt"), 10, false); err != nil || len(cs) != 1 {
+			t.Errorf("the followed history of a[1].txt %+v %v", cs, err)
+		}
+	})
 	// A name starting with a colon is not a pathspec's magic.
-	if cs, _, err := r.LogPath(r.Abs(":b.txt"), 10, false); err != nil || len(cs) != 1 {
-		t.Errorf("the history of :b.txt %+v %v", cs, err)
-	}
+	t.Run("colon", func(t *testing.T) {
+		if runtime.GOOS == "windows" {
+			t.Skip("Windows names have no colon")
+		}
+		r, git := repo(t)
+		write(t, r.Root, ":colon.txt", "z\n")
+		git("add", "--", ":(literal):colon.txt")
+		git("commit", "-qm", "add :colon")
+		if cs, _, err := r.LogPath(r.Abs(":colon.txt"), 10, false); err != nil || len(cs) != 1 || cs[0].Subject != "add :colon" {
+			t.Errorf("the history of :colon.txt %+v %v", cs, err)
+		}
+	})
 }
 
 func TestLogBeforeTheFirstCommit(t *testing.T) {

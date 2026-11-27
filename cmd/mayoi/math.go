@@ -36,15 +36,30 @@ type mathFormula struct {
 	svg              *ui.SVG
 	w, ascent, depth float32
 	display          bool
+	// hasText is whether MathJax set text in the formula's SVG for the
+	// characters its math font lacks, as the 或 of \text{或}.
+	hasText bool
 	// err is why the formula could not be drawn, "" when it was.
 	err string
 }
 
 // draw draws the formula in r, in color.
+//
+// An icon is drawn from a mask, which the text system rasterizes without
+// fonts: a formula whose SVG holds text would show a gap where the text
+// belongs. Those draw as a picture instead, whose text MyGo sets in the
+// window's fonts. A picture takes its currentColor from the window's text
+// color rather than color, so a formula that holds text draws in the
+// window's text color even where surrounding text has another color.
 func (f *mathFormula) draw(pt *ui.Painter, r ui.Rect, color ui.Color) {
-	if f.svg != nil && r.W > 0 {
-		pt.Icon(f.svg, r, color)
+	if f.svg == nil || r.W <= 0 {
+		return
 	}
+	if f.hasText {
+		pt.Image(f.svg, r, ui.FillBox)
+		return
+	}
+	pt.Icon(f.svg, r, color)
 }
 
 // mathKey is a formula's TeX and whether it is in display style.
@@ -125,10 +140,10 @@ func renderMath(tex string, display bool) *mathFormula {
 	if m := mathError.FindStringSubmatch(svg); m != nil {
 		return &mathFormula{display: display, err: html.UnescapeString(m[1])}
 	}
-	// MyGo's SVGs have no text: MathJax writes in it what its fonts lack.
-	if strings.Contains(svg, "<text") {
-		return &mathFormula{display: display, err: locales.ErrMathText()}
-	}
+	// Text MathJax sets is characters its math font lacks, as the 或 of
+	// \qquad\text{或}\qquad, which MyGo draws in the window's fonts: the
+	// formula draws as a picture, which sets text, rather than as an icon.
+	hasText := strings.Contains(svg, "<text")
 	m := mathViewBox.FindStringSubmatch(svg)
 	if m == nil {
 		return &mathFormula{display: display, err: locales.ErrSVGNoSize()}
@@ -151,7 +166,7 @@ func renderMath(tex string, display bool) *mathFormula {
 		return &mathFormula{display: display, err: err.Error()}
 	}
 	// The view box starts its height above the baseline.
-	return &mathFormula{svg: s, display: display, w: float32(v[2] / 1000), ascent: float32(-v[1] / 1000), depth: float32((v[1] + v[3]) / 1000)}
+	return &mathFormula{svg: s, display: display, hasText: hasText, w: float32(v[2] / 1000), ascent: float32(-v[1] / 1000), depth: float32((v[1] + v[3]) / 1000)}
 }
 
 // mathSpan is the span of a formula within text of size: a box it is
@@ -232,6 +247,51 @@ func (n *mathNode) Kind() ast.NodeKind { return kindMath }
 
 func (n *mathNode) Dump(source []byte, level int) {
 	ast.DumpHelper(n, source, level, map[string]string{"TeX": n.tex}, nil)
+}
+
+// mathGuardParser is Goldmark's setext heading parser, or its thematic
+// break parser, except that it leaves a line of = or - alone while the
+// paragraph it would end is a display formula: the = of a matrix product's
+// line alone is a heading underline to Goldmark, and three - a rule, and
+// either would end the formula it is in.
+type mathGuardParser struct {
+	parser.BlockParser
+}
+
+func (p mathGuardParser) Open(parent ast.Node, reader text.Reader, pc parser.Context) (ast.Node, parser.State) {
+	if mathFormulaOpen(pc.LastOpenedBlock().Node, parent, reader.Source()) {
+		return nil, parser.NoChildren
+	}
+	return p.BlockParser.Open(parent, reader, pc)
+}
+
+// mathFormulaOpen reports whether para is a paragraph whose display formula
+// the line about to open would end: it opens with a $$ of its own, and the
+// $$ that closes it comes after that line. The line that closes a formula
+// ends it, so the parsers work again below it.
+func mathFormulaOpen(para ast.Node, parent ast.Node, source []byte) bool {
+	p, ok := para.(*ast.Paragraph)
+	if !ok || p.Parent() != parent {
+		return false
+	}
+	lines := p.Lines()
+	if lines.Len() == 0 || !isMathFenceLine(lines.At(0), source) {
+		return false
+	}
+	// Every line the paragraph has taken so far, the last of them the one
+	// to end: a $$ among them closes the formula before it.
+	for i := 1; i < lines.Len(); i++ {
+		if isMathFenceLine(lines.At(i), source) {
+			return false
+		}
+	}
+	return true
+}
+
+// isMathFenceLine reports whether seg, a line of source, is a $$ of its own,
+// which opens or ends a display formula.
+func isMathFenceLine(seg text.Segment, source []byte) bool {
+	return seg.Len() > 0 && strings.TrimSpace(string(seg.Value(source))) == "$$"
 }
 
 // mathParser parses the formulas of text as GitHub does: $$ to $$, or $

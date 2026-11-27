@@ -281,7 +281,6 @@
       }
     }
   },
-  "errMathText": "it uses characters the math font lacks",
   "errMathTimeout": "the formula took too long to draw",
   "errMermaidTimeout": "the diagram took too long to draw",
   "mathCannotDraw": "Cannot draw the math: {err}",

@@ -5,6 +5,8 @@ needs a `## <version>` section here, or its build fails.
 
 ## Unreleased
 
+- A block of math whose line is just `=` or `-` renders again, as a matrix product's does.
+- Math formulas with `\text{...}` outside the math font now render in the window's fonts.
 - **Toggle Line Comment** wraps JSX children in `{/* ... */}`, so React leaves them out of the page.
 - On Windows, `F12` and `Ctrl`-click now open definitions in WSL folders and on Linux SSH hosts.
 - On Windows, language server errors and warnings now show in WSL folders and on Linux SSH hosts.

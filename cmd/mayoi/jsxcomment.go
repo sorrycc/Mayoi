@@ -64,36 +64,56 @@ func jsxDocument(d *document) bool {
 // file: a large file's earlier lines should not make ⌘/ wait a second.
 const maxJSXPrefix = 256 << 10
 
-// jsxChildrenAt reports whether a line of a JSX or TSX document is in its
-// children, where a comment is {/* ... */}. A line after maxJSXPrefix is
-// left to the line comment, which is quick.
-func jsxChildrenAt(d *document, snap ui.TextSnapshot, line int) bool {
+// jsxChildrenLines reports whether the lines first to last of a JSX or
+// TSX document take one JSX comment: the first line is in its children,
+// and the last is too or ends a JSX comment. One lex of the text before
+// the last line reads both. A line after maxJSXPrefix is left to the line
+// comment, which is quick.
+func jsxChildrenLines(d *document, snap ui.TextSnapshot, first, last int) bool {
 	if !jsxDocument(d) || d.hl == nil {
 		return false
 	}
-	s, _ := snap.LineRange(line)
-	prefix := snap.Slice(0, s)
-	if len(prefix) > maxJSXPrefix {
-		return false
+	l := d.hl.Lexer()
+	fs, _ := snap.LineRange(first)
+	ls, _ := snap.LineRange(last)
+	prefix := snap.Slice(0, ls)
+	if first == last || len(prefix) > maxJSXPrefix {
+		if first != last && !jsxCommentEndsAt(snap, last) {
+			return false
+		}
+		prefix = snap.Slice(0, fs)
+		if len(prefix) > maxJSXPrefix {
+			return false
+		}
+		return jsxContexts(l, prefix, len(prefix))[0] == jsxChildrenPlace
 	}
-	return jsxContext(d.hl.Lexer(), prefix) == jsxChildrenPlace
+	places := jsxContexts(l, prefix, len(prefix)-len(snap.Slice(fs, ls)), len(prefix))
+	return places[0] == jsxChildrenPlace &&
+		(places[1] == jsxChildrenPlace || jsxCommentEndsAt(snap, last))
 }
 
-// jsxContext reads where the text before a line leaves a JSX file.
-func jsxContext(l chroma.Lexer, prefix string) jsxPlace {
+// jsxContexts reads where text leaves a JSX file at each of the byte
+// offsets at, which are in order, from one pass of the lexer.
+func jsxContexts(l chroma.Lexer, text string, at ...int) []jsxPlace {
+	places := make([]jsxPlace, len(at))
 	if l == nil {
-		return jsxCodePlace
+		return places
 	}
-	it, err := l.Tokenise(nil, prefix)
+	it, err := l.Tokenise(nil, text)
 	if err != nil {
-		return jsxCodePlace
+		return places
 	}
 	var toks []chroma.Token
 	for t := it(); t != chroma.EOF; t = it() {
 		toks = append(toks, t)
 	}
 	var stack []jsxFrame
+	next, off := 0, 0
 	for i, tok := range toks {
+		for ; next < len(at) && off >= at[next]; next++ {
+			places[next] = jsxPlaceOf(stack)
+		}
+		off += len(tok.Value)
 		if tok.Type == chroma.Punctuation {
 			jsxPunctuation(&stack, tok.Value, toks, i)
 			continue
@@ -109,6 +129,14 @@ func jsxContext(l chroma.Lexer, prefix string) jsxPlace {
 			top.generic = true
 		}
 	}
+	for ; next < len(at); next++ {
+		places[next] = jsxPlaceOf(stack)
+	}
+	return places
+}
+
+// jsxPlaceOf is where a line is with the frames open before it.
+func jsxPlaceOf(stack []jsxFrame) jsxPlace {
 	if len(stack) == 0 {
 		return jsxCodePlace
 	}

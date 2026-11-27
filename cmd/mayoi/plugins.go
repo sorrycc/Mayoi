@@ -484,6 +484,10 @@ func (a *app) pluginCommands(t locales.Messages, own []command) []command {
 		id := th.contrib.ID
 		cmds = append(cmds, command{"view.theme." + id, th.contrib.Label, "", func() { a.setTheme(id) }})
 	}
+	for _, th := range pluginIconThemes() {
+		id := th.contrib.ID
+		cmds = append(cmds, command{"view.iconTheme." + id, th.contrib.Label, "", func() { a.setIconTheme(id) }})
+	}
 	cmds = append(cmds,
 		command{"plugins.reload", t.CmdPluginsReload(), "", func() { plugins.reloadAll() }},
 		command{"plugins.log", t.CmdPluginsLog(), "", a.showPluginLog},

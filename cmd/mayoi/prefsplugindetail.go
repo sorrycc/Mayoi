@@ -194,6 +194,12 @@ func contribGroups(pl *plugin.Plugin, tag string) []contribGroup {
 	add("themes", locales.PluginsThemes(), iconPalette, rows)
 
 	rows = nil
+	for _, th := range ct.IconThemes {
+		rows = append(rows, contribRow{title: th.Label, detail: th.ID})
+	}
+	add("iconThemes", locales.PluginsIconThemes(), iconImage, rows)
+
+	rows = nil
 	for _, l := range ct.Languages {
 		rows = append(rows, contribRow{title: l.ID, mono: true, detail: strings.Join(append(slices.Clone(l.Extensions), l.Filenames...), "  ")})
 	}

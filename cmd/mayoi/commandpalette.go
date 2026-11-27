@@ -27,6 +27,8 @@ func commandGroup(t locales.Messages, id string) string {
 	switch {
 	case strings.HasPrefix(id, "view.appearance."), strings.HasPrefix(id, "view.theme."):
 		return t.MenuTheme()
+	case strings.HasPrefix(id, "view.iconTheme."):
+		return t.MenuFileIconTheme()
 	case strings.HasPrefix(id, localeCommand):
 		return t.MenuLanguage()
 	}
@@ -141,6 +143,8 @@ func (a *app) commandOn(id string) bool {
 		return s.Appearance == ""
 	case "view.theme.mayoi":
 		return s.Theme == ""
+	case "view.iconTheme.mayoi":
+		return s.IconTheme == ""
 	}
 	if pos, ok := strings.CutPrefix(id, "view.panelPosition."); ok {
 		return a.panelSide() == pos
@@ -153,6 +157,9 @@ func (a *app) commandOn(id string) bool {
 	}
 	if theme, ok := strings.CutPrefix(id, "view.theme."); ok {
 		return s.Theme == theme
+	}
+	if theme, ok := strings.CutPrefix(id, "view.iconTheme."); ok {
+		return s.IconTheme == theme
 	}
 	return false
 }

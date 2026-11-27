@@ -891,7 +891,7 @@ func (a *app) paintFileHeader(pt *ui.Painter, f *diffFile, r ui.Rect, hovered bo
 	x += 18
 	name := filepath.Base(f.path)
 	icon, iconCol := entryIcon(p, f.entry, name)
-	pt.Icon(icon, ui.Rect{X: x, Y: mid - 7, W: 14, H: 14}, iconCol)
+	paintIcon(pt, icon, ui.Rect{X: x, Y: mid - 7, W: 14, H: 14}, iconCol)
 	x += 20
 	rel := a.relOrPath(f.path)
 	if f.buffers != nil {

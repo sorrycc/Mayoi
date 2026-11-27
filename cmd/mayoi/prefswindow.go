@@ -853,6 +853,10 @@ func (w *prefsWindow) control(c *ui.Context, f settings.Field, raw json.RawMessa
 	case settings.KindText:
 		var v string
 		json.Unmarshal(raw, &v)
+		if f.Key == "iconTheme" {
+			w.iconThemeSelect(k, f, v, apply)
+			return
+		}
 		buf := w.textBuffer(f.Key, v)
 		if prefFonts[f.Key] {
 			w.fontPicker(c, f, v, buf, apply)
@@ -1075,4 +1079,23 @@ func (w *prefsWindow) setFolder(scope *prefFolder, key string, raw json.RawMessa
 	a := scope.h.a
 	a.post(a.folderPrefsChanged)
 	w.invalidate()
+}
+
+// iconThemeSelect chooses the file icon theme: Mayoi's icons, or one a
+// plugin that is on contributes. An id no plugin has shows as it is.
+func (w *prefsWindow) iconThemeSelect(k *ui.Context, f settings.Field, v string, apply func(any)) {
+	ids, labels := []string{""}, []string{"Mayoi"}
+	for _, t := range pluginIconThemes() {
+		ids, labels = append(ids, t.contrib.ID), append(labels, t.contrib.Label)
+	}
+	i := slices.Index(ids, v)
+	if i < 0 {
+		ids, labels, i = append(ids, v), append(labels, v), len(ids)
+	}
+	chosen := labels[i]
+	if w.first(ui.Select(k, &chosen, labels).Label(prefTitle(f.Key)).MinWidth(180)).Changed() {
+		if j := slices.Index(labels, chosen); j >= 0 && ids[j] != v {
+			apply(ids[j])
+		}
+	}
 }

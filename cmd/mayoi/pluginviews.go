@@ -554,7 +554,7 @@ func (a *app) viewRowContent(c *ui.Context, it *viewItem) {
 	switch name := strings.ToLower(it.Icon); {
 	case name == "file":
 		icon, col := fileIcon(p, it.Label)
-		ui.Icon(c, icon).FontSize(14).TextColor(col).Shrink(0)
+		iconElement(c, icon, 14, col).Shrink(0)
 	case name != "":
 		ui.Icon(c, namedIcon(name)).FontSize(14).TextColor(p.muted).Shrink(0)
 	}

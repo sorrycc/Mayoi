@@ -928,7 +928,7 @@ func (a *app) wikiRow(c *ui.Context, d *editor, i int, it wikiItem) {
 		case wikiBlocksMode:
 			icon = iconQuote
 		}
-		ui.Icon(c, icon).FontSize(14).TextColor(col)
+		iconElement(c, icon, 14, col)
 		ui.RichText(c, a.matchSpans(it.title, 0, it.positions, p.text)...).FontSize(13).SingleLine().Shrink(1)
 		if it.detail != "" {
 			ui.Spacer(c)

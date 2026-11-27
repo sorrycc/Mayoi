@@ -265,12 +265,9 @@ func (a *app) commitTreeRowUI(c *ui.Context, v *diffView, i int, r commitTreeRow
 	if r.dir != "" {
 		closed := t.closed[r.dir]
 		row.Gap(4).Children(func() {
-			folder := iconFolderOpen
-			if closed {
-				folder = iconFolder
-			}
+			folder, tint := folderIcon(p, r.name, !closed)
 			chevron(c, !closed).FontSize(12).TextColor(p.muted)
-			ui.Icon(c, folder).FontSize(14).TextColor(p.accent).Margin(0, 2, 0, 0)
+			iconElement(c, folder, 14, tint).Margin(0, 2, 0, 0)
 			ui.Text(c, r.name).FontSize(13).TextColor(p.text).SingleLine().Shrink(1)
 		})
 		if clicked && *action == nil {
@@ -322,7 +319,7 @@ func (a *app) commitFileLabel(c *ui.Context, e git.Entry, tree bool, rel string)
 	p := a.pal
 	name := filepath.Base(e.Path)
 	icon, col := entryIcon(p, e, name)
-	ui.Icon(c, icon).FontSize(14).TextColor(col).Shrink(0)
+	iconElement(c, icon, 14, col).Shrink(0)
 	label := ui.Text(c, name).FontSize(13).SingleLine().Shrink(0).TextColor(gitColor(p, e.X))
 	if e.X == 'D' {
 		label.Strikethrough()
@@ -520,13 +517,10 @@ func (a *gitContext) scmCommitFile(c *ui.Context, i int, r scmRow, action *func(
 				ui.Text(c, r.note).FontSize(12).TextColor(p.faint).SingleLine().Shrink(1)
 			case r.dir != "":
 				closed := a.scm.closedDirs[r.key]
-				folder := iconFolderOpen
-				if closed {
-					folder = iconFolder
-				}
+				folder, tint := folderIcon(p, r.name, !closed)
 				ui.Row(c).Gap(4).AlignItems(ui.Center).Shrink(1).MinWidth(0).Children(func() {
 					chevron(c, !closed).FontSize(12).TextColor(p.muted)
-					ui.Icon(c, folder).FontSize(14).TextColor(p.accent).Margin(0, 2, 0, 0)
+					iconElement(c, folder, 14, tint).Margin(0, 2, 0, 0)
 					ui.Text(c, r.name).FontSize(13).TextColor(p.text).SingleLine().Shrink(1)
 				})
 			default:

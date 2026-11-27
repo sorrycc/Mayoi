@@ -135,8 +135,15 @@ var (
 	iconQuote         = lucide(`<path d="M16 3a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2 1 1 0 0 1 1 1v1a2 2 0 0 1-2 2 1 1 0 0 0-1 1v2a1 1 0 0 0 1 1 6 6 0 0 0 6-6V5a2 2 0 0 0-2-2z"/><path d="M5 3a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2 1 1 0 0 1 1 1v1a2 2 0 0 1-2 2 1 1 0 0 0-1 1v2a1 1 0 0 0 1 1 6 6 0 0 0 6-6V5a2 2 0 0 0-2-2z"/>`)
 )
 
-// fileIcon returns the icon of a file and its color, by its name.
+// fileIcon returns the icon of a file and its color, by its name or path:
+// the icon theme's, in its own colors, or else Mayoi's.
 func fileIcon(p *palette, name string) (*ui.SVG, ui.Color) {
+	if s := themeFileIcon(p, name); s != nil {
+		return s, p.text
+	}
+	if i := strings.LastIndexAny(name, "/"+string(filepath.Separator)); i >= 0 {
+		name = name[i+1:]
+	}
 	lower := strings.ToLower(name)
 	ext := strings.TrimPrefix(filepath.Ext(lower), ".")
 	switch lower {
@@ -192,6 +199,18 @@ func fileIcon(p *palette, name string) (*ui.SVG, ui.Color) {
 		return iconLock, p.faint
 	}
 	return iconFile, p.muted
+}
+
+// folderIcon returns the icon of a folder, open or not, and its color, by
+// its name or path: the icon theme's, in its own colors, or else Mayoi's.
+func folderIcon(p *palette, name string, open bool) (*ui.SVG, ui.Color) {
+	if s := themeFolderIcon(p, name, open); s != nil {
+		return s, p.text
+	}
+	if open {
+		return iconFolderOpen, p.accent
+	}
+	return iconFolder, p.accent
 }
 
 // agentIcons are the marks of the agents, by id and mark, made the first

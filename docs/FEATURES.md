@@ -1011,7 +1011,11 @@ while Git works, in place of the hop, and go out as a commit clears the changes.
 Theme…** on the welcome page, opens a box of the themes, each with a little window in its colors and its character: the
 window takes each theme as ↑ and ↓ move to it, and ← and → switch the appearance; Return keeps them, and Escape goes
 back to those the box opened on. From one theme or appearance to another, every color of the window fades to the new
-one's, at once when the system asks for reduced motion. **View → Sidebar on Right**
+one's, at once when the system asks for reduced motion. **View → Theme → File Icon Theme** gives files and folders
+the icons of an icon theme a plugin brings, in VS Code's format, such as Material Icon Theme, in their own colors: in
+the Explorer, tabs, Quick Open, breadcrumbs, Search and Source Control, with folders open and closed told apart, and
+the theme's light icons in a light window. `iconThemeAssociations` gives a file or folder another icon of the theme.
+**Mayoi** brings Mayoi's own icons back. **View → Sidebar on Right**
 moves the sidebar to the right of the editors. It remembers the sidebar's and the panel's sides, the sidebar and panel
 sizes, and every window with its folder, frame, columns and tabs, each tab with its caret, selection, scroll position
 and own word wrap, and the folders open in the Explorer. Started without a folder, Mayoi reopens the windows that were

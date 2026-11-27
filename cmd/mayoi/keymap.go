@@ -421,7 +421,7 @@ func (a *app) runBinding(name string, args json.RawMessage, where keyPlace) {
 		}
 	case "renameFile":
 		if path := a.explorerChoice(); path != "" && !a.explorerMulti(path) {
-			a.askRename(path)
+			a.renameInTree(path)
 		}
 	case "explorer.newFile", "explorer.newFolder":
 		a.askNewEntry(a.targetDir(), name == "explorer.newFolder")
@@ -592,10 +592,11 @@ func (a *app) revealActive() {
 	}
 }
 
-// renameActive asks for a new name for the file of the document shown.
+// renameActive edits the name of the file of the document shown in the
+// explorer, or asks for it where the explorer cannot show it.
 func (a *app) renameActive() {
 	if t := a.activeTab(); t != nil && t.ed != nil && t.ed.path != "" {
-		a.askRename(t.ed.path)
+		a.renameInTree(t.ed.path)
 	}
 }
 

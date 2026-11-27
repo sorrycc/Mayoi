@@ -356,6 +356,7 @@ func TestSVGPreview(t *testing.T) {
 	hs.until("the fix", func() bool { return v.err == "" })
 
 	// Editing commands show the text again.
+	text := d.buf.Snapshot().String()
 	a.run("sel.comment")
 	hs.settle()
 	if d.preview != nil || !tt.HasText("Show Preview (⇧⌘V)") {
@@ -363,6 +364,15 @@ func TestSVGPreview(t *testing.T) {
 	}
 	if got := a.window.Columns[0].Tabs[0]; got.Preview {
 		t.Errorf("preview still remembered: %+v", got)
+	}
+	// The comment wraps the line, and toggling it again restores the SVG.
+	if got, want := d.buf.Snapshot().String(), "<!-- "+strings.TrimSuffix(text, "\n")+" -->\n"; got != want {
+		t.Fatalf("commented to %q, want %q", got, want)
+	}
+	a.run("sel.comment")
+	hs.settle()
+	if got := d.buf.Snapshot().String(); got != text {
+		t.Fatalf("uncommented to %q, want %q", got, text)
 	}
 	a.run("view.togglePreview")
 	hs.settle()

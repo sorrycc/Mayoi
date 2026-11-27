@@ -1951,3 +1951,102 @@ func TestMarkdownExternalEnds(t *testing.T) {
 		t.Error("text without links has icons")
 	}
 }
+
+// markdownModeDoc is a long note as people write them: headings, wrapped
+// paragraphs, and tall blocks of every kind.
+func markdownModeDoc() string {
+	var b strings.Builder
+	b.WriteString("# Field notes\n\n")
+	for i := range 60 {
+		fmt.Fprintf(&b, "## Section %d\n\nParagraph %d wraps across several rows of the page as it goes on about the weather, the soil, the birds and whatever else was seen along the trail that morning.\n\n", i, i)
+		switch i % 5 {
+		case 1:
+			b.WriteString("| Col A | Col B | Col C |\n| --- | --- | --- |\n")
+			for r := range 8 {
+				fmt.Fprintf(&b, "| a%d | b%d | c%d |\n", r, r, r)
+			}
+			b.WriteString("\n")
+		case 2:
+			b.WriteString("![Tall](tall.png)\n\n")
+		case 3:
+			b.WriteString("```go\nfunc f() {\n\tfor i := range 10 {\n\t\tprintln(i)\n\t}\n}\n```\n\n")
+		case 4:
+			b.WriteString("> [!NOTE]\n> A callout with a line of text\n> and another one under it.\n\n")
+		}
+	}
+	return b.String()
+}
+
+// Switching a tab between Live Preview and the Reading view keeps the
+// passage at the top, both ways and again and again, from the frame it
+// shows in: the Reading view's place read with Live Preview's rows, and
+// the text put back by its line as its new area lays its rows out.
+func TestMarkdownModeSwitchKeepsPlace(t *testing.T) {
+	for _, wrap := range []bool{false, true} {
+		for _, at := range []string{"top", "middle", "bottom"} {
+			t.Run(fmt.Sprintf("wrap=%v/%s", wrap, at), func(t *testing.T) {
+				hs := newHarness(t, true)
+				a := hs.a
+				a.settings.WordWrap = wrap
+				writePNG(t, hs.path("tall.png"), 400, 600)
+				path := hs.path("note.md")
+				if err := os.WriteFile(path, []byte(markdownModeDoc()), 0o644); err != nil {
+					t.Fatal(err)
+				}
+				a.openFile(path, true)
+				hs.settle()
+				d := a.activeEditor()
+				a.setMarkdownMode("live")
+				hs.settle()
+				hs.place(d, 40, 45)
+				hs.settle()
+				sel := d.sel
+				switch at {
+				case "middle":
+					hs.scrollEditor(d, 9000)
+				case "bottom":
+					hs.scrollEditor(d, d.vscroll.MaxY)
+				}
+				place := a.textPlace(d, d.vscroll.Y)
+				near := func(got, want float32) bool {
+					if want == markdownEnd || got == markdownEnd {
+						return got == want
+					}
+					return math.Abs(float64(got-want)) <= 0.5
+				}
+				for round := range 3 {
+					a.setMarkdownMode("reading")
+					hs.until("reading view", func() bool { return d.preview != nil && d.preview.loaded })
+					hs.settle()
+					m := d.preview.markdown
+					if got := m.sync.top; !near(got, place) {
+						t.Fatalf("round %d: Reading view opened at line %v, Live Preview was at %v", round, got, place)
+					}
+					if round == 1 && at == "middle" {
+						// Read on, and Live Preview opens there.
+						m.scroll.Y += 700
+						hs.settle()
+						place = m.sync.top
+					}
+					a.setMarkdownMode("live")
+					for frame := range 4 {
+						step(hs.tt)
+						if d.coverFrame == a.frame {
+							continue // covered, as the new area scrolls to the caret
+						}
+						if got := a.textPlace(d, d.vscroll.Y); !near(got, place) {
+							t.Fatalf("round %d frame %d: Live Preview showed line %v, want %v", round, frame, got, place)
+						}
+					}
+					hs.settle()
+					if got := a.textPlace(d, d.vscroll.Y); !near(got, place) {
+						t.Fatalf("round %d: Live Preview settled at line %v, want %v", round, got, place)
+					}
+					if d.sel != sel {
+						t.Fatalf("round %d: selection %v, want %v", round, d.sel, sel)
+					}
+				}
+			})
+		}
+	}
+}

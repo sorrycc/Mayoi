@@ -147,7 +147,13 @@ func programOnHost(ctx context.Context, root string, env, unset []string, name s
 		_, err := exec.LookPath(name)
 		return err == nil, true
 	}
-	cmd, err := vfs.CommandEnvironment(root, env, unset, nil, "/bin/sh", "-c", programCheck, "sh", name)
+	var cmd *exec.Cmd
+	var err error
+	if c, _, _ := remote.Lookup(root); c.Windows() {
+		cmd, err = c.FindProgram(env, unset, name)
+	} else {
+		cmd, err = vfs.CommandEnvironment(root, env, unset, nil, "/bin/sh", "-c", programCheck, "sh", name)
+	}
 	if err != nil {
 		return false, false
 	}

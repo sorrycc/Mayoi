@@ -105,6 +105,13 @@ var lineComments = map[string]string{
 	"SQL": "--", "PostgreSQL SQL dialect": "--", "MySQL": "--", "Lua": "--", "Haskell": "--", "Elm": "--",
 	"Common Lisp": ";", "Clojure": ";", "Scheme": ";", "Racket": ";", "EmacsLisp": ";", "Fennel": ";",
 	"VimL": `"`, "Erlang": "%", "TeX": "%", "MATLAB": "%", "Fortran": "!",
+	"JSON": "//", "GraphQL": "#",
+}
+
+// blockComments are the comments of languages with no line comment, by
+// Chroma's name: Toggle Line Comment wraps each line in one.
+var blockComments = map[string][2]string{
+	"CSS": {"/*", "*/"}, "HTML": {"<!--", "-->"}, "XML": {"<!--", "-->"}, "markdown": {"<!--", "-->"},
 }
 
 // commentFor returns the line comment of a document's language, "" when
@@ -113,10 +120,48 @@ func commentFor(d *document) string {
 	if c := pluginComment(d.path); c != "" {
 		return c
 	}
-	if d.hl == nil {
-		return ""
+	if d.hl != nil {
+		if c := lineComments[highlight.Name(d.hl.Lexer())]; c != "" {
+			return c
+		}
 	}
-	return lineComments[highlight.Name(d.hl.Lexer())]
+	// Files Chroma has no lexer for.
+	name := strings.ToLower(filepath.Base(d.path))
+	switch {
+	case filepath.Ext(name) == ".less":
+		return "//"
+	case strings.HasPrefix(name, ".") && strings.HasSuffix(name, "ignore"):
+		return "#"
+	}
+	return ""
+}
+
+// commentAt returns the comment of the document's language at a line:
+// its line comment, or else the start and end of its block comment. In
+// Vue and Svelte files it is that of the part the line is in.
+func commentAt(d *document, snap ui.TextSnapshot, line int) (string, [2]string) {
+	if c := commentFor(d); c != "" || d.hl == nil {
+		return c, [2]string{}
+	}
+	switch name := highlight.Name(d.hl.Lexer()); name {
+	case "vue", "Svelte":
+		s, _ := snap.LineRange(line)
+		return sectionComment(snap.Slice(0, s))
+	default:
+		return "", blockComments[name]
+	}
+}
+
+// sectionComment is the comment of a Vue or Svelte file after the text
+// before: its script's, its style's, or its markup's.
+func sectionComment(before string) (string, [2]string) {
+	switch {
+	case strings.LastIndex(before, "<script") > strings.LastIndex(before, "</script"):
+		return "//", [2]string{}
+	case strings.LastIndex(before, "<style") > strings.LastIndex(before, "</style"):
+		return "", [2]string{"/*", "*/"}
+	}
+	return "", [2]string{"<!--", "-->"}
 }
 
 // leading returns the whitespace that starts s.
@@ -302,12 +347,15 @@ func opensColonBlock(d *document) bool {
 // toggleComment comments the lines of the selection out, or in when all
 // of them are.
 func toggleComment(d *editor) {
-	mark := commentFor(d.document)
-	if mark == "" {
-		return
-	}
 	snap := d.buf.Snapshot()
 	first, last := lineSpan(snap, d.sel)
+	mark, block := commentAt(d.document, snap, first)
+	if mark == "" {
+		if block[0] != "" {
+			toggleBlockComments(d, snap, first, last, block)
+		}
+		return
+	}
 	type ln struct {
 		s      int
 		indent int // runes
@@ -358,6 +406,73 @@ func toggleComment(d *editor) {
 		}
 	}
 	d.edit(sel, edits...)
+}
+
+// toggleBlockComments wraps each line of first to last in a block
+// comment, or unwraps them when all of them are wrapped.
+func toggleBlockComments(d *editor, snap ui.TextSnapshot, first, last int, block [2]string) {
+	open, end := block[0], block[1]
+	type ln struct {
+		s, e int // runes, of the text without the spaces around it
+		text string
+	}
+	var lines []ln
+	all := true
+	for i := first; i <= last; i++ {
+		s, e := snap.LineRange(i)
+		text := snap.Slice(s, e)
+		trimmed := strings.TrimSpace(text)
+		if trimmed == "" {
+			continue
+		}
+		s += utf8.RuneCountInString(leading(text))
+		e -= utf8.RuneCountInString(text) - utf8.RuneCountInString(strings.TrimRight(text, " \t"))
+		lines = append(lines, ln{s, e, trimmed})
+		if len(trimmed) < len(open)+len(end) || !strings.HasPrefix(trimmed, open) || !strings.HasSuffix(trimmed, end) {
+			all = false
+		}
+	}
+	if len(lines) == 0 {
+		return
+	}
+	no, ne := utf8.RuneCountInString(open), utf8.RuneCountInString(end)
+	sel := d.sel
+	var edits []textEdit
+	for i := len(lines) - 1; i >= 0; i-- {
+		l := lines[i]
+		if all {
+			a, b := no, ne
+			body := l.text[len(open) : len(l.text)-len(end)]
+			if strings.HasPrefix(body, " ") {
+				a++
+				body = body[1:]
+			}
+			if strings.HasSuffix(body, " ") {
+				b++
+			}
+			edits = append(edits, textEdit{l.e - b, l.e, ""}, textEdit{l.s, l.s + a, ""})
+			sel = shiftSel(sel, l.e-b, -b)
+			sel = shiftSel(sel, l.s, -a)
+		} else {
+			edits = append(edits, textEdit{l.e, l.e, " " + end}, textEdit{l.s, l.s, open + " "})
+			sel = insertSel(sel, l.e, ne+1)
+			sel = insertSel(sel, l.s, no+1)
+		}
+	}
+	d.edit(sel, edits...)
+}
+
+// insertSel moves the offsets of a selection by n runes inserted at at:
+// those after it, and a caret at it, but not the start of a selection
+// there, which takes the inserted text in.
+func insertSel(sel [2]int, at, n int) [2]int {
+	out := sel
+	for k, x := range sel {
+		if x > at || x == at && (sel[0] == sel[1] || x != min(sel[0], sel[1])) {
+			out[k] = x + n
+		}
+	}
+	return out
 }
 
 // moveLines moves the lines of the selection up a line, or down.

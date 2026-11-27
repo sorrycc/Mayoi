@@ -167,6 +167,8 @@ type ThemeContrib struct {
 	ID    string `json:"id"`
 	Label string `json:"label"`
 	Path  string `json:"path"`
+	// DarkPath is the palette of dark windows, Path then the light ones'.
+	DarkPath string `json:"darkPath,omitempty"`
 	// Dark tells a theme for dark windows; a theme file may say too.
 	Dark bool `json:"dark,omitempty"`
 }
@@ -412,6 +414,9 @@ func (m *Manifest) check() error {
 	for _, t := range c.Themes {
 		if err := own("theme", t.ID); err != nil {
 			return err
+		}
+		if t.Dark && t.DarkPath != "" {
+			return fmt.Errorf("theme %q: dark and darkPath conflict", t.ID)
 		}
 	}
 	for _, s := range c.LanguageServers {

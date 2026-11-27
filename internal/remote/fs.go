@@ -2,6 +2,7 @@ package remote
 
 import (
 	"archive/tar"
+	"bufio"
 	"bytes"
 	"errors"
 	"fmt"
@@ -125,7 +126,11 @@ func (c *Conn) StatMany(paths []string) (map[string]*FileInfo, error) {
 	if len(paths) == 0 {
 		return map[string]*FileInfo{}, nil
 	}
-	out, err := c.Run(nil, c.Info().statCmd(true)+` -- "$@" 2>/dev/null; exit 0`, paths...)
+	script := c.Info().statCmd(true) + ` -- "$@" 2>/dev/null; exit 0`
+	if c.windows() {
+		script = psStatAll
+	}
+	out, err := c.Run(nil, script, paths...)
 	if err != nil {
 		return nil, err
 	}
@@ -139,7 +144,11 @@ func (c *Conn) Stat(p string) (*FileInfo, error) { return c.stat(p, true) }
 func (c *Conn) Lstat(p string) (*FileInfo, error) { return c.stat(p, false) }
 
 func (c *Conn) stat(p string, follow bool) (*FileInfo, error) {
-	out, err := c.Run(nil, c.Info().statCmd(follow)+` -- "$1" 2>/dev/null; exit 0`, p)
+	script := c.Info().statCmd(follow) + ` -- "$1" 2>/dev/null; exit 0`
+	if c.windows() {
+		script = psStatAll
+	}
+	out, err := c.Run(nil, script, p)
 	if err != nil {
 		return nil, err
 	}
@@ -201,7 +210,11 @@ func (c *Conn) ReadDirs(dirs []string) (map[string]DirList, error) {
 	if len(dirs) == 0 {
 		return map[string]DirList{}, nil
 	}
-	out, err := c.Run(nil, readDirScript, dirs...)
+	script := readDirScript
+	if c.windows() {
+		script = psReadDirs
+	}
+	out, err := c.Run(nil, script, dirs...)
 	if err != nil {
 		return nil, err
 	}
@@ -252,7 +265,11 @@ exec cat -- "$1"`
 		script = `if [ -d "$1" ]; then echo "$1: is a directory" >&2; exit 1; fi
 exec head -c ` + strconv.FormatInt(limit+1, 10) + ` -- "$1"`
 	}
-	out, err := c.Run(nil, script, p)
+	args := []string{p}
+	if c.windows() {
+		script, args = psReadFile, []string{p, psLimit(limit)}
+	}
+	out, err := c.Run(nil, script, args...)
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
 			return nil, notExist("open", p)
@@ -276,7 +293,11 @@ func (c *Conn) ReadFileInfo(p string, limit int64) (*FileInfo, []byte, error) {
 if [ ! -e "$1" ]; then echo "$1: No such file or directory" >&2; exit 1; fi
 ` + c.Info().statCmd(true) + ` -- "$1" || exit 1
 exec ` + read + ` -- "$1"`
-	out, err := c.Run(nil, script, p)
+	args := []string{p}
+	if c.windows() {
+		script, args = psReadFileInfo, []string{p, psLimit(limit)}
+	}
+	out, err := c.Run(nil, script, args...)
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
 			return nil, nil, notExist("open", p)
@@ -333,6 +354,9 @@ if [ $n -ne $2 ]; then echo "the file did not arrive whole" >&2; exit 1; fi
 cat "$t" > "$1" || exit 1
 ` + st + ` -- "$1"
 `
+	if c.windows() {
+		script = psWriteFile
+	}
 	out, err := c.Run(bytes.NewReader(data), script, p, strconv.Itoa(len(data)), stamp)
 	if err != nil {
 		if re, ok := err.(*Error); ok && strings.Contains(re.Stderr, changedMark) {
@@ -348,6 +372,10 @@ cat "$t" > "$1" || exit 1
 
 // Rename moves a file of the host, unless the target is there.
 func (c *Conn) Rename(from, to string) error {
+	if c.windows() {
+		_, err := c.Run(nil, psRename, from, to)
+		return err
+	}
 	_, err := c.Run(nil, `if [ "$1" != "$2" ] && { [ -e "$2" ] || [ -L "$2" ]; }; then echo "$2: file exists" >&2; exit 1; fi
 exec mv -- "$1" "$2"`, from, to)
 	return err
@@ -355,18 +383,30 @@ exec mv -- "$1" "$2"`, from, to)
 
 // Remove deletes a file of the host, or a folder and all in it.
 func (c *Conn) Remove(p string) error {
-	_, err := c.Run(nil, `exec rm -rf -- "$1"`, p)
+	script := `exec rm -rf -- "$1"`
+	if c.windows() {
+		script = psRemove
+	}
+	_, err := c.Run(nil, script, p)
 	return err
 }
 
 // MkdirAll makes a folder of the host, and those above it.
 func (c *Conn) MkdirAll(p string) error {
-	_, err := c.Run(nil, `exec mkdir -p -- "$1"`, p)
+	script := `exec mkdir -p -- "$1"`
+	if c.windows() {
+		script = psMkdirAll
+	}
+	_, err := c.Run(nil, script, p)
 	return err
 }
 
 // Create makes an empty file of the host, unless one is there.
 func (c *Conn) Create(p string) error {
+	if c.windows() {
+		_, err := c.Run(nil, psCreate, p)
+		return err
+	}
 	_, err := c.Run(nil, `if [ -e "$1" ] || [ -L "$1" ]; then echo "$1: file exists" >&2; exit 1; fi
 mkdir -p -- "$(dirname -- "$1")" && : > "$1"`, p)
 	return err
@@ -380,10 +420,18 @@ func (c *Conn) ReadFiles(dir string, rels []string, max int64, fn func(rel strin
 	if len(rels) == 0 {
 		return nil
 	}
+	windows := c.windows()
 	args := make([]string, 0, len(rels)+2)
 	args = append(args, dir, strconv.FormatInt(max, 10))
 	for _, r := range rels {
-		args = append(args, "./"+r)
+		if windows {
+			args = append(args, r)
+		} else {
+			args = append(args, "./"+r)
+		}
+	}
+	if windows {
+		return c.readFilesPacked(args, rels, fn)
 	}
 	cmd, err := c.Command(nil, `cd -- "$1" || exit 1; max=$2; shift 2
 find "$@" -prune -type f -size -"$max"c 2>/dev/null | {
@@ -449,6 +497,9 @@ func (c *Conn) Look(dirs, files []string) (map[string]DirList, map[string]*FileI
 	}
 	args := append([]string{strconv.Itoa(len(dirs))}, dirs...)
 	args = append(args, files...)
+	if c.windows() {
+		return c.look(psLook, args)
+	}
 	script := `n=$1; shift
 k=0
 for dir; do
@@ -460,6 +511,10 @@ shift $n
 if [ $# -gt 0 ]; then ` + c.Info().statCmd(true) + ` -- "$@" 2>/dev/null; fi
 exit 0
 `
+	return c.look(script, args)
+}
+
+func (c *Conn) look(script string, args []string) (map[string]DirList, map[string]*FileInfo, error) {
 	out, err := c.Run(nil, script, args...)
 	if err != nil {
 		return nil, nil, err
@@ -475,13 +530,64 @@ exit 0
 // links, in one command, as for the refs of Git.
 func (c *Conn) StatUnder(files []string, dir string) (map[string]*FileInfo, error) {
 	st := c.Info().statCmd(true)
-	out, err := c.Run(nil, `d=$1; shift
-if [ $# -gt 0 ]; then `+st+` -- "$@" 2>/dev/null; fi
-find "$d" -type d -exec `+st+` {} + 2>/dev/null
+	script := `d=$1; shift
+if [ $# -gt 0 ]; then ` + st + ` -- "$@" 2>/dev/null; fi
+find "$d" -type d -exec ` + st + ` {} + 2>/dev/null
 exit 0
-`, append([]string{dir}, files...)...)
+`
+	if c.windows() {
+		script = psStatUnder
+	}
+	out, err := c.Run(nil, script, append([]string{dir}, files...)...)
 	if err != nil {
 		return nil, err
 	}
 	return parseStat(out), nil
+}
+
+// psLimit is the bytes psReadFile reads for a limit: one more, to tell a
+// file larger than it, or all with none.
+func psLimit(limit int64) string {
+	if limit > 0 {
+		return strconv.FormatInt(limit+1, 10)
+	}
+	return "-1"
+}
+
+// readFilesPacked is ReadFiles on a Windows host, whose files come as a
+// pack.
+func (c *Conn) readFilesPacked(args, rels []string, fn func(rel string, data []byte)) error {
+	cmd, err := c.Command(nil, psReadFiles, args...)
+	if err != nil {
+		return err
+	}
+	out, err := cmd.StdoutPipe()
+	if err != nil {
+		return err
+	}
+	var errb bytes.Buffer
+	cmd.Stderr = &errb
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+	asked := make(map[string]bool, len(rels))
+	for _, r := range rels {
+		asked[r] = true
+	}
+	readErr := eachPacked(bufio.NewReader(out), func(dir bool, rel string, _ int64, r io.Reader) error {
+		if dir || !asked[rel] {
+			return nil
+		}
+		data, err := io.ReadAll(r)
+		if err != nil {
+			return err
+		}
+		fn(rel, data)
+		return nil
+	})
+	io.Copy(io.Discard, out)
+	if err := cmd.Wait(); err != nil {
+		return c.failure(err, errb.String())
+	}
+	return readErr
 }

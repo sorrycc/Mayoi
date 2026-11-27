@@ -7,6 +7,12 @@ from it. In a Git work tree, a changed file shows its letter (M, A, D, U for unt
 color, and a folder with changes inside gets a dot. While the pointer is over the sidebar, the folder's row at the top
 has New File, New Folder, Refresh and Collapse Folders.
 
+Rename a file or folder in its row, as in VS Code: Enter on macOS, F2 on every system, **Rename…** in its menu or
+**Rename File** in the command palette shows its name in a field there, the part before its extension selected. Enter
+keeps the new name, as clicking elsewhere does; Escape keeps the old one. A name that is taken or has a slash says so
+below the field, which stays open. A compact row renames its last folder. With the explorer hidden, or for a file
+outside the folder, **Rename File** asks in a dialog.
+
 A click on the space below the files, or Escape, unselects the file or folder chosen, so new files go in the workspace's
 folder. A right click there opens the workspace's menu: New File…, New Folder…, Reveal in Finder, Open in Terminal and
 Paste.
@@ -33,7 +39,7 @@ have unsaved edits.
 
 A file clicked in the Explorer, or chosen in search's results, opens in a preview tab, its name in italics: the next
 file chosen takes its place, so looking through files leaves one tab. Editing it, double-clicking it or its tab,
-pressing Enter on it, or dragging it to another column keeps it open. A file already in a tab shows there. Each column
+pressing Enter on it (⌘↓ on macOS, where Enter renames it), or dragging it to another column keeps it open. A file already in a tab shows there. Each column
 has its own preview tab, which comes back as one at the next start. A commit clicked in source control opens in the
 same preview tab.
 
@@ -780,7 +786,12 @@ is the system `ssh`, `%USERPROFILE%\.ssh` and the Windows ssh-agent, not WSL's `
   Git commands reuse that connection instead of signing in again.
 - The folder's path stays `/ssh:host/path` on Windows as well, as a complete path. A file under that folder stays in it
   for search, Source Control and the breadcrumbs. A language server for a document in the folder runs on the host. A
-  host that does not answer as a POSIX shell is refused, and the files stay read-only.
+  host that answers neither as a POSIX shell nor as PowerShell is refused, says so, and is not tried again by itself.
+- A Windows host with OpenSSH Server works too, through the Windows PowerShell it comes with, whether its shell is
+  `cmd.exe` or PowerShell. Its folders show as `/C:/Users/me`, `/` lists its drives, and the folder box takes
+  `C:\Users\me` as typed. Git, `gh` and language servers run there, search asks `rg` when the host has it, and
+  terminals are PowerShell. Changes are looked for every few seconds, as on hosts without `inotifywait`, and each
+  command starts a PowerShell, so the host answers more slowly than a Linux or macOS one.
 - The Explorer, quick open, search and replace in files, Source Control, blame, the gutter marks and diffs work as in a
   local folder, running `git`, `rg` (or `grep`) and `find` on the host. Terminals are shells of the host.
 - The folders in a folder of the Explorer are read along with it, at one round trip, but those the index skips, as

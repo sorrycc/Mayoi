@@ -53,6 +53,17 @@ func (g Globs) Match(rel string) bool {
 	return false
 }
 
+// MatchPath matches only the path itself, as file watcher patterns do.
+func (g Globs) MatchPath(rel string) bool {
+	segs := strings.Split(rel, "/")
+	for _, pat := range g {
+		if matchSegs(pat, segs) {
+			return true
+		}
+	}
+	return false
+}
+
 // matchSegs matches the segments of a pattern to those of a path, `**`
 // taking any number of them.
 func matchSegs(pat, segs []string) bool {

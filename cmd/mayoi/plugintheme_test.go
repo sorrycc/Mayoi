@@ -3,6 +3,7 @@ package main
 import (
 	"os"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/egoist/mygo/ui"
@@ -115,4 +116,90 @@ func TestPluginThemesLanguagesSnippets(t *testing.T) {
 func snippetVarsText(a *app, d *editor) string {
 	out, _ := snippetText("${TM_FILENAME_BASE}", a.snippetVars(d))
 	return out
+}
+
+// One theme with a palette for light windows and one for dark, as the
+// issue's Solarized: tiny, so that each color tells its file.
+const solPlugin = `{
+  "name": "sol",
+  "contributes": {
+    "themes": [{"id": "sol.theme", "label": "Sol", "path": "light.json", "darkPath": "dark.json"},
+      {"id": "sol.broken", "label": "Broken", "path": "light.json", "darkPath": "missing.json"}]
+  }
+}`
+
+// The light file says it is dark, and the dark one light: the file read
+// tells the darkness.
+const (
+	solLight = `{"type": "dark", "colors": {"editor.background": "#fdf6e3", "terminal.ansiRed": "#dc322f"}}`
+	solDark  = `{"base": "light", "colors": {"editor": "#002b36"}, "ansi": ["#073642", "#cb4b16"]}`
+)
+
+func TestPluginThemeLightAndDark(t *testing.T) {
+	hs := newHarness(t, false)
+	withPlugins(hs, map[string]map[string]string{
+		"sol":   {"plugin.json": solPlugin, "light.json": solLight, "dark.json": solDark},
+		"night": {"plugin.json": nightPlugin, "night.json": nightTheme, "paper.json": paperTheme},
+	})
+	light, dark := paletteFor("sol.theme", false), paletteFor("sol.theme", true)
+	if light.dark || light.editor != ui.Hex("#fdf6e3") || light.ansi[1] != ui.Hex("#dc322f") {
+		t.Fatalf("light palette: dark=%v editor=%v", light.dark, light.editor)
+	}
+	if !dark.dark || dark.editor != ui.Hex("#002b36") || dark.ansi[1] != ui.Hex("#cb4b16") || dark.chrome != darkPal.chrome {
+		t.Fatalf("dark palette: dark=%v editor=%v", dark.dark, dark.editor)
+	}
+	if alwaysDark("sol.theme") || themeSource("sol.theme", "light") != themeSource("", "light") ||
+		themeSource("sol.theme", "") != themeSource("", "") {
+		t.Fatal("the theme does not follow the appearance")
+	}
+	n := 0
+	for _, c := range allThemes() {
+		if strings.HasPrefix(c.id, "sol.theme") {
+			n++
+		}
+	}
+	if n != 1 {
+		t.Fatalf("%d entries of the theme", n)
+	}
+	// A file that does not read is Mayoi's own palette there.
+	if paletteFor("sol.broken", true) != darkPal || paletteFor("sol.broken", false).editor != light.editor {
+		t.Fatal("a missing dark file")
+	}
+	// A theme of one file stays as it was: dark always, or light.
+	if !alwaysDark("night.dark") || !paletteFor("night.dark", false).dark || alwaysDark("night.paper") || paletteFor("night.paper", true).dark {
+		t.Fatal("themes of one file")
+	}
+
+	// Chosen once, the appearance picks the palette of the editor and the
+	// terminals, the theme kept.
+	a := hs.a
+	a.run("view.theme.sol.theme")
+	hs.settle()
+	for _, tc := range []struct {
+		appearance string
+		want       *palette
+	}{{"dark", dark}, {"light", light}, {"", light}} {
+		a.setAppearance(tc.appearance)
+		hs.settle()
+		if a.settings.Theme != "sol.theme" || a.pal.editor != tc.want.editor || a.pal.dark != tc.want.dark {
+			t.Errorf("appearance %q: theme %q, editor %v", tc.appearance, a.settings.Theme, a.pal.editor)
+		}
+	}
+	lt, dt := a.termThemes()
+	if lt.Palette != light.ansi || dt.Palette != dark.ansi || lt.Background != light.panel || dt.Background != dark.panel {
+		t.Error("the terminals' colors are not the theme's")
+	}
+	if a.termTheme != "sol.theme" {
+		t.Errorf("the terminals have %q's colors", a.termTheme)
+	}
+
+	// Follow System, in a window the system makes dark: the system's
+	// appearance is the harness's, not the native app's.
+	hd := newHarness(t, true)
+	withPlugins(hd, map[string]map[string]string{"sol": {"plugin.json": solPlugin, "light.json": solLight, "dark.json": solDark}})
+	hd.a.run("view.theme.sol.theme")
+	hd.settle()
+	if hd.a.settings.Appearance != "" || hd.a.pal.editor != dark.editor || !hd.a.pal.dark {
+		t.Errorf("following a dark system: appearance %q, editor %v", hd.a.settings.Appearance, hd.a.pal.editor)
+	}
 }

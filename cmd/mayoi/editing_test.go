@@ -303,6 +303,57 @@ func TestCommentByChromaName(t *testing.T) {
 	}
 }
 
+func TestCommentOfMoreLanguages(t *testing.T) {
+	for file, want := range map[string]string{
+		"a.jsonc": "// x\n", "a.graphql": "# x\n", "a.less": "// x\n", ".gitignore": "# x\n",
+		"a.css": "/* x */\n", "a.html": "<!-- x -->\n", "a.xml": "<!-- x -->\n", "a.md": "<!-- x -->\n",
+	} {
+		t.Run(file, func(t *testing.T) {
+			hs, d := editHarness(t, file, "x\n")
+			hs.a.run("sel.comment")
+			hs.settle()
+			expectText(t, d, want)
+			hs.a.run("sel.comment")
+			hs.settle()
+			expectText(t, d, "x\n")
+		})
+	}
+}
+
+func TestBlockCommentLines(t *testing.T) {
+	hs, d := editHarness(t, "a.css", "a {\n  color: red;\n\n  top: 0; \n}\n")
+	hs.place(d, 4, 29)
+	hs.a.run("sel.comment")
+	hs.settle()
+	expectText(t, d, "a {\n  /* color: red; */\n\n  /* top: 0; */ \n}\n")
+	hs.a.run("sel.comment")
+	hs.settle()
+	expectText(t, d, "a {\n  color: red;\n\n  top: 0; \n}\n")
+	expectSel(t, d, 4, 29)
+}
+
+func TestCommentBySection(t *testing.T) {
+	for _, file := range []string{"App.vue", "App.svelte"} {
+		t.Run(file, func(t *testing.T) {
+			src := "<template>\n  <p>x</p>\n</template>\n<script setup>\nlet x\n</script>\n<style>\np {}\n</style>\n"
+			hs, d := editHarness(t, file, src)
+			for _, c := range []struct {
+				at   int
+				want string
+			}{{13, "  <!-- <p>x</p> -->"}, {50, "// let x"}, {74, "/* p {} */"}} {
+				hs.place(d, c.at, c.at)
+				hs.a.run("sel.comment")
+				hs.settle()
+				if !strings.Contains(d.buf.Snapshot().String(), c.want) {
+					t.Errorf("at %d: got %q, want a line %q", c.at, d.buf.Snapshot().String(), c.want)
+				}
+				hs.a.run("edit.undo")
+				hs.settle()
+			}
+		})
+	}
+}
+
 func TestReplaceAllUndoes(t *testing.T) {
 	hs, d := editHarness(t, "a.txt", "cat cat dog cat\n")
 	a := hs.a

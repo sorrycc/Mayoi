@@ -42,7 +42,7 @@ func Open(dir string) (*Repo, error) {
 	}
 	// The folders of a remote work tree are as its host spells them.
 	r := &Repo{Root: remote.Clean(remote.Join(dir, lines[0])), Dir: remote.On(dir, lines[1]), Common: lines[2]}
-	if !strings.HasPrefix(r.Common, "/") && !remote.IsAbs(r.Common) {
+	if !remote.HostAbs(r.Common) && !remote.IsAbs(r.Common) {
 		r.Common = remote.Join(dir, r.Common)
 	} else {
 		r.Common = remote.On(dir, r.Common)

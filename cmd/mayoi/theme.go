@@ -1412,6 +1412,7 @@ const (
 	themeWitchsBrew = "witchsbrew"
 	themeBloodMoon  = "bloodmoon"
 	themeGTAVI      = "gtavi"
+	themeAckers     = "ackers"
 )
 
 // alwaysDark is whether a theme is dark whatever the Appearance is.
@@ -1420,7 +1421,7 @@ func alwaysDark(theme string) bool {
 		return true
 	}
 	switch theme {
-	case themeMatrix, themePurpleGold, themePumpkin, themeWitchsBrew, themeBloodMoon, themeGTAVI:
+	case themeMatrix, themePurpleGold, themePumpkin, themeWitchsBrew, themeBloodMoon, themeGTAVI, themeAckers:
 		return true
 	}
 	return false
@@ -1461,6 +1462,8 @@ func paletteFor(theme string, dark bool) *palette {
 		return bloodMoonPal
 	case theme == themeGTAVI:
 		return gtaVIPal
+	case theme == themeAckers:
+		return ackersPal
 	case dark:
 		return darkPal
 	}

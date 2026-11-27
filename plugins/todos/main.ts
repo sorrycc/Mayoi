@@ -12,13 +12,14 @@ const maxFiles = 4000;
 const maxSize = 512 * 1024;
 const viewId = "todos.list";
 
-const englishScopeLabels = { include: "files to include", exclude: "files to exclude" };
-const scopeLabelsByLanguage = new Map([
-  ["ja", { include: "含めるファイル", exclude: "除外するファイル" }],
-  ["zh", { include: "包含的文件", exclude: "排除的文件" }],
+// The retry label is the title of todos.refresh in plugin.json.
+const englishLabels = { include: "files to include", exclude: "files to exclude", retry: "Find TODOs Again" };
+const labelsByLanguage = new Map([
+  ["ja", { include: "含めるファイル", exclude: "除外するファイル", retry: "TODO を再検索" }],
+  ["zh", { include: "包含的文件", exclude: "排除的文件", retry: "重新查找 TODO" }],
 ]);
 const language = new Intl.NumberFormat().resolvedOptions().locale.split("-")[0];
-const scopeLabels = scopeLabelsByLanguage.get(language) ?? englishScopeLabels;
+const labels = labelsByLanguage.get(language) ?? englishLabels;
 
 interface ScanScope {
   include: string;
@@ -51,8 +52,17 @@ function scopeKey(context: WorkspaceContext): string {
   return "scope:" + context.root;
 }
 
+function forget(windowId: number) {
+  const view = openViews.get(windowId);
+  if (!view) return;
+  view.scanId++;
+  clearTimeout(view.filterTimer);
+  openViews.delete(windowId);
+}
+
 function show(context: WorkspaceContext) {
-  if (!context.root) return;
+  // Mayoi shows a window without a folder as such, whichever view is chosen.
+  if (!context.root) return forget(context.windowId);
   const existing = openViews.get(context.windowId);
   if (existing?.context.root === context.root) {
     if (!existing.loading) return scan(existing);
@@ -154,7 +164,7 @@ async function scan(view: TodoView) {
 }
 
 function scopeField(view: TodoView, field: keyof ScanScope, example: string): ViewNode {
-  const label = scopeLabels[field];
+  const label = labels[field];
   return {
     type: "stack",
     gap: 3,
@@ -203,7 +213,13 @@ function render(view: TodoView) {
   if (view.loading) {
     results = { type: "row", children: [{ type: "progress" }, { type: "text", text: "Finding TODOs…", muted: true }] };
   } else if (view.failed) {
-    results = { type: "empty", icon: "warning", text: "Could not scan TODOs." };
+    results = {
+      type: "stack",
+      children: [
+        { type: "empty", icon: "warning", text: "Could not scan TODOs." },
+        { type: "button", label: labels.retry, onClick: () => commands.run("todos.refresh") },
+      ],
+    };
   } else if (items.length) {
     results = { type: "tree", items };
   } else {
@@ -252,9 +268,7 @@ events.on("workspace.changed", (context) => {
   const view = openViews.get(context.windowId);
   if (view && view.context.root !== context.root) {
     if (context.root) return show(context);
-    view.scanId++;
-    clearTimeout(view.filterTimer);
-    openViews.delete(context.windowId);
+    forget(context.windowId);
   }
 });
 events.on("editor.didSave", ({ document }) => {

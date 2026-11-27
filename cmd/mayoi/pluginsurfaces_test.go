@@ -358,3 +358,59 @@ func TestShotPluginSurfaces(t *testing.T) {
 		hs.settle()
 	}
 }
+
+// A window without a folder shows it has none, not a view that waits, and
+// TODOs scans the folder once it opens again.
+func TestTODOsWithoutFolder(t *testing.T) {
+	hs := newHarness(t, false)
+	withBundled(hs)
+	a, tt := hs.a, hs.tt
+	root := a.root
+	a.showPluginView("todos.list")
+	hs.until("the first scan", func() bool { return tt.HasText("say more") })
+	a.closeFolder()
+	hs.until("the folder closed", func() bool { return a.root == "" })
+	hs.until("no folder open", func() bool { return tt.HasText(locales.NoFolderOpen()) })
+	if tt.HasText(locales.PluginViewLoading()) || tt.HasText("say more") {
+		t.Fatal("a window without a folder shows TODOs or waits for them")
+	}
+
+	a.openFolder(root)
+	hs.until("the folder's TODOs again", func() bool { return tt.HasText("say more") })
+}
+
+// A scan that fails offers Find TODOs Again, which scans again.
+func TestTODOsRetryFailedScan(t *testing.T) {
+	hs := newHarness(t, false)
+	h := withBundled(hs)
+	a, tt := hs.a, hs.tt
+	a.showPluginView("todos.list")
+	hs.until("the first scan", func() bool { return tt.HasText("say more") })
+	d := a.activeEditor().document
+
+	// The window's folder changes under a scan, without the event that
+	// would start the other folder's scan, so this one fails.
+	root := a.root
+	a.window.SidebarView = ""
+	a.root = t.TempDir()
+	a.pluginSeen.root = a.root
+	h.reg.Emit("editor.didSave", a.docEvent(d))
+	hs.until("the failed scan", func() bool {
+		h.mu.Lock()
+		defer h.mu.Unlock()
+		data, _ := json.Marshal(h.views["todos.list"])
+		return strings.Contains(string(data), "Could not scan TODOs.")
+	})
+	a.root, a.pluginSeen.root = root, root
+	a.window.SidebarView = "plugin:todos.list"
+	a.settings.Changed()
+	hs.until("the failure and its retry", func() bool {
+		return tt.HasText("Could not scan TODOs.") && tt.HasText("Find TODOs Again")
+	})
+	if err := tt.Click("Find TODOs Again"); err != nil {
+		t.Fatal(err)
+	}
+	hs.until("the TODOs scanned again", func() bool {
+		return tt.HasText("say more") && !tt.HasText("Could not scan TODOs.")
+	})
+}

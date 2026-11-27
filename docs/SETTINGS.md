@@ -102,6 +102,7 @@ takes its default.
 | `diffLayout`            | `""`          | `""` (side by side when wide enough), `"split"`, `"inline"` | A diff's **Layout** button                     |
 | `diffFiles`             | `""`          | `""` (every file in one scroll), `"one"` (one file at a time, not in a commit's changes) | A diff's **Layout** menu                   |
 | `diffEditMode`          | `false`       | `true`, `false`                                                | **Settings → Diffs and Merges**            |
+| `diffHistoryOnly`       | `true`        | `true`, `false`                                                | A diff's **Only Selected Paths** button    |
 | `diffCrossFiles`        | `""`          | `""` (say it, and cross on one more step), `"always"`, `"never"` | Only this file                            |
 | `diffHighlight`         | `""`          | `""` (changed words), `"line"`, `"char"`                       | A diff's **Highlight** menu                |
 | `diffWhitespace`        | `""`          | `""` (exact), `"eol"`, `"all"`, `"blank"`                      | A diff's **Whitespace** menu               |
@@ -293,8 +294,8 @@ differ in width lines them up only roughly.
   highlighting changes how a diff looks; block actions still use whole line hunks.
 - **`diffContext`** keeps that many unchanged lines around each diff hunk visible and folds the rest.
 - **`diffEditMode`** sets the default edit mode for local **Changes** and **Untracked** diffs. It is `false` by
-  default: **Edit** starts off, and `i` or **Edit** enters editing. When `true`, **Edit** starts on; click working
-  tree text to place the caret and edit. A manual toggle applies only to the current file in that diff. Switching
+  default: **Edit** starts off, and `i` or **Edit** enters editing. When `true`, **Edit on Click** shows until working
+  tree text is clicked to place a caret; **Editing** then shows while typing is available. A manual toggle applies only to the current file in that diff. Switching
   to another file and back keeps the choice; this preference and other files stay unchanged. Old versions, staged
   changes and commits stay read-only. Staged and commit diffs have no **Edit** button. In a one-column diff, only
   added and unchanged working tree lines can be edited.

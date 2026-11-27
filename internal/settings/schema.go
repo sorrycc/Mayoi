@@ -107,6 +107,7 @@ var Schema = []Field{
 	{Key: "diffContext", Category: CatDiff, Kind: KindNumber, Min: 0, Max: MaxDiffContext, Step: 1, Folder: true},
 	{Key: "diffFiles", Category: CatDiff, Kind: KindEnum, Options: []string{"", "one"}},
 	{Key: "diffEditMode", Category: CatDiff, Kind: KindBool},
+	{Key: "diffHistoryOnly", Category: CatDiff, Kind: KindBool},
 	{Key: "diffCrossFiles", Category: CatDiff, Kind: KindEnum, Options: []string{"", "always", "never"}, Folder: true},
 	{Key: "diffSyncScroll", Category: CatDiff, Kind: KindBool},
 	{Key: "diffAlignedRows", Category: CatDiff, Kind: KindBool},

@@ -46,7 +46,10 @@ var ErrLost = errors.New("the connection was lost")
 // Info is what the connection found of the host as it connected.
 type Info struct {
 	Home string // the home folder
-	OS   string // as uname -s says it: Linux, Darwin
+	OS   string // as uname -s says it: Linux, Darwin; Windows
+	// Windows is set for a Windows host, which runs PowerShell in place of
+	// sh, and whose paths start with the drive, as /C:/Users/me.
+	Windows bool
 	// gnu is set where stat takes GNU's -c rather than BSD's -f, and
 	// nanos where it gives the time of a change to the nanosecond.
 	gnu, nanos bool
@@ -332,12 +335,44 @@ func (c *Conn) dialPool(ctx context.Context) {
 	c.pool = p
 	c.mu.Unlock()
 	pctx, cancel := context.WithTimeout(ctx, 45*time.Second)
-	info, err := c.probePool(pctx)
+	info, err := c.probePool(pctx, p, false)
 	cancel()
+	if err != nil && ctx.Err() == nil && !errors.Is(err, context.DeadlineExceeded) && !Refused(sshError(notes.String(), err)) {
+		// No sh: a Windows host, whose workers run PowerShell.
+		p.Stop()
+		var wnotes syncBuffer
+		wp := newPool(func() (workerPipe, error) {
+			return startSSHPS(c.Host, &wnotes)
+		}, func(err error) {
+			gate.Lock()
+			ok := up
+			gate.Unlock()
+			if ok {
+				c.markLost(err)
+			}
+		})
+		if wp.Start() == nil {
+			c.mu.Lock()
+			if c.ctx != ctx {
+				c.mu.Unlock()
+				wp.Stop()
+				return
+			}
+			c.pool = wp
+			c.mu.Unlock()
+			pctx, cancel := context.WithTimeout(ctx, 45*time.Second)
+			if winfo, werr := c.probePool(pctx, wp, true); werr == nil {
+				p, info, err = wp, winfo, nil
+			} else {
+				wp.Stop()
+			}
+			cancel()
+		}
+	}
 	if err != nil {
 		p.Stop()
 		c.mu.Lock()
-		if c.pool == p {
+		if c.ctx == ctx {
 			c.pool = nil
 		}
 		c.mu.Unlock()
@@ -425,6 +460,20 @@ func (c *Conn) dialMaster(ctx context.Context) {
 	c.master, c.exited = cmd, exited
 	c.mu.Unlock()
 	info, err := c.probe(ctx, sock)
+	if err != nil && ctx.Err() == nil {
+		// No sh: a Windows host runs PowerShell.
+		if winfo, werr := c.probeWith(ctx, sock, psScript(psProbe, nil), psLauncher); werr == nil {
+			info, err = winfo, nil
+		} else {
+			select {
+			case <-exited:
+			default:
+				// Signed in, but neither answered: trying again changes
+				// nothing.
+				err = &refusedError{"The host runs neither sh nor PowerShell: " + err.Error()}
+			}
+		}
+	}
 	if err != nil {
 		cmd.Process.Kill()
 		<-exited
@@ -466,21 +515,35 @@ done
 
 // probe finds what the host is and has.
 func (c *Conn) probe(ctx context.Context, sock string) (Info, error) {
-	out, err := c.run(ctx, sock, nil, probeScript)
-	if err != nil {
-		return Info{}, err
-	}
-	return parseInfo(out)
+	return c.probeWith(ctx, sock, commandScript(probeScript, nil), launcher)
 }
 
-func (c *Conn) probePool(ctx context.Context) (Info, error) {
+// probeWith runs the script of a probe, full, with launch, and says what
+// the host said as it failed: the connection is not up yet.
+func (c *Conn) probeWith(ctx context.Context, sock, full, launch string) (Info, error) {
+	cmd := c.commandWith(ctx, sock, nil, full, launch)
 	var out, errb bytes.Buffer
-	code, err := c.pool.Call(ctx, commandScript(probeScript, nil), nil, &out, &errb)
+	cmd.Stdout, cmd.Stderr = &out, &errb
+	if err := cmd.Run(); err != nil {
+		return Info{}, sshError(errb.String(), err)
+	}
+	return parseInfo(out.Bytes())
+}
+
+// probePool probes the host through the pool p, whose workers run
+// PowerShell when windows is set.
+func (c *Conn) probePool(ctx context.Context, p *pool, windows bool) (Info, error) {
+	full := commandScript(probeScript, nil)
+	if windows {
+		full = psScript(psProbe, nil)
+	}
+	var out, errb bytes.Buffer
+	code, err := p.Call(ctx, full, nil, &out, &errb)
 	if err != nil {
 		return Info{}, err
 	}
 	if code != 0 {
-		return Info{}, fmt.Errorf("exit status %d", code)
+		return Info{}, sshError(errb.String(), fmt.Errorf("exit status %d", code))
 	}
 	return parseInfo(out.Bytes())
 }
@@ -490,7 +553,7 @@ func parseInfo(out []byte) (Info, error) {
 	if len(lines) < 2 {
 		return Info{}, errors.New("the host did not answer as a POSIX shell does")
 	}
-	info := Info{Home: lines[0], OS: lines[1]}
+	info := Info{Home: lines[0], OS: lines[1], Windows: lines[1] == "Windows"}
 	for i, l := range lines[2:] {
 		switch {
 		case l == "gnu":
@@ -606,6 +669,22 @@ func (c *Conn) Command(stdin io.Reader, script string, args ...string) (*exec.Cm
 	return c.command(ctx, sock, stdin, script, args...), nil
 }
 
+// windows reports whether the host is a Windows one.
+func (c *Conn) windows() bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.info.Windows
+}
+
+// full is the text of one command, script with its arguments args, as
+// the host's shell takes it.
+func (c *Conn) full(script string, args []string) string {
+	if c.windows() {
+		return psScript(script, args)
+	}
+	return commandScript(script, args)
+}
+
 func (c *Conn) usingPool() bool {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -629,9 +708,17 @@ func commandScript(script string, args []string) string {
 }
 
 func (c *Conn) command(ctx context.Context, sock string, stdin io.Reader, script string, args ...string) *exec.Cmd {
-	full := commandScript(script, args)
+	launch := launcher
+	if c.windows() {
+		launch = psLauncher
+	}
+	return c.commandWith(ctx, sock, stdin, c.full(script, args), launch)
+}
+
+// commandWith is the ssh that has launch run the text full on the host.
+func (c *Conn) commandWith(ctx context.Context, sock string, stdin io.Reader, full, launch string) *exec.Cmd {
 	head := strings.NewReader(strconv.Itoa(len(full)) + "\n" + full)
-	cmd := exec.CommandContext(ctx, "ssh", c.clientArgs(sock, false, launcher)...)
+	cmd := exec.CommandContext(ctx, "ssh", c.clientArgs(sock, false, launch)...)
 	if stdin != nil {
 		cmd.Stdin = io.MultiReader(head, stdin)
 	} else {
@@ -665,7 +752,7 @@ func (c *Conn) runOnPool(stdin io.Reader, script string, args ...string) ([]byte
 		ctx = context.Background()
 	}
 	var out, errb bytes.Buffer
-	code, err := pool.Call(ctx, commandScript(script, args), stdin, &out, &errb)
+	code, err := pool.Call(ctx, c.full(script, args), stdin, &out, &errb)
 	if err != nil {
 		return out.Bytes(), c.failure(err, errb.String())
 	}
@@ -746,10 +833,49 @@ func (c *Conn) TerminalCommand(dir string) []string {
 			"-o", "ServerAliveInterval=10", "-o", "ServerAliveCountMax=3", "-t"}
 	}
 	args = append(args, hostArgs(c.Host)...)
+	if c.windows() {
+		// PowerShell, in the folder, as cmd.exe or PowerShell starts it.
+		cd := "Set-Location -LiteralPath " + psQuote(WindowsPath(dir))
+		return append(args, "powershell -NoLogo -NoExit -EncodedCommand "+encodePS(cd))
+	}
 	// The login shell runs this: its quoting is that of most shells, and
 	// sh does the rest.
 	return append(args, "exec sh -c "+quote(`cd "$1" 2>/dev/null || cd; exec "${SHELL:-sh}" -l`)+" sh "+quote(dir))
 }
+
+// Exec returns the command that runs the program name with args in the
+// folder dir of the host, with env added to its environment and the
+// variables unset removed, and stdin, nil for none.
+func (c *Conn) Exec(dir string, env, unset []string, stdin io.Reader, name string, args ...string) (*exec.Cmd, error) {
+	if c.windows() {
+		return c.Command(stdin, psExec, psExecArgs(dir, env, unset, name, args)...)
+	}
+	cargs := []string{dir}
+	for _, key := range unset {
+		cargs = append(cargs, "-u", key)
+	}
+	cargs = append(cargs, env...)
+	cargs = append(cargs, name)
+	cargs = append(cargs, args...)
+	// The arguments: the folder, then the environment's, then the
+	// program's.
+	script := `cd -- "$1" || exit 1; shift
+exec env "$@"`
+	return c.Command(stdin, script, cargs...)
+}
+
+// FindProgram returns the command that prints mayoi:found when the
+// program name runs on a Windows host, with env added to its environment
+// and unset removed, and mayoi:missing when it does not.
+func (c *Conn) FindProgram(env, unset []string, name string) (*exec.Cmd, error) {
+	args := []string{"", name, strconv.Itoa(len(unset))}
+	args = append(append(args, unset...), env...)
+	return c.Command(nil, psFindProgram, args...)
+}
+
+// Windows reports whether the host is a Windows one, which runs
+// PowerShell rather than sh.
+func (c *Conn) Windows() bool { return c.windows() }
 
 // sshStartError is the failure to start ssh at all, as when it is not
 // installed. Callers keep this wording.

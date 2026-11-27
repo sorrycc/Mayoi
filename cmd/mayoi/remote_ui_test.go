@@ -25,6 +25,21 @@ func TestRetryDelay(t *testing.T) {
 	}
 }
 
+func TestWindowsQuery(t *testing.T) {
+	for query, want := range map[string]string{
+		`C:`:          "/C:/",
+		`c:\Users\me`: "/C:/Users/me",
+		`D:/src`:      "/D:/src",
+		"/home":       "/home",
+		"C:x":         "C:x",
+		"~/src":       "~/src",
+	} {
+		if got := windowsQuery(query); got != want {
+			t.Errorf("windowsQuery(%q) = %q, want %q", query, got, want)
+		}
+	}
+}
+
 func TestExpandHome(t *testing.T) {
 	for _, c := range []struct{ query, want string }{
 		{"~", "/home/me/"},

@@ -737,3 +737,48 @@ func relexPatch(l chroma.Lexer, r request, prev []Line) patch {
 func alike(x, y []Line) bool {
 	return slices.EqualFunc(x, y, func(a, b Line) bool { return slices.Equal(a.Tokens, b.Tokens) })
 }
+
+// ID returns the id of a lexer's language as Mayoi names languages to
+// plugins and language servers: its name in lower case without spaces,
+// "plaintext" for nil.
+func ID(l chroma.Lexer) string {
+	return strings.ToLower(strings.ReplaceAll(Name(l), " ", ""))
+}
+
+// ByName returns the lexer of a language by its name, alias or ID, nil
+// for plain text or one it does not know. Markdown and Vue get Mayoi's
+// own, as Lexer gives their files.
+func ByName(name string) chroma.Lexer {
+	switch strings.ToLower(name) {
+	case "", "plaintext", "text":
+		return nil
+	case "markdown", "md":
+		return markdown()
+	case "vue":
+		return vue()
+	}
+	for _, l := range lexers.GlobalLexerRegistry.Lexers {
+		if ID(l) == strings.ToLower(name) {
+			return chroma.Coalesce(l)
+		}
+	}
+	if l := lexers.Get(name); l != nil && l.Config().Name != "plaintext" {
+		return chroma.Coalesce(l)
+	}
+	return nil
+}
+
+// Languages returns the lexers of the languages to choose from, by their
+// display names, plain text left out.
+func Languages() []chroma.Lexer {
+	var list []chroma.Lexer
+	for _, l := range lexers.GlobalLexerRegistry.Lexers {
+		if l.Config().Name != "plaintext" {
+			list = append(list, l)
+		}
+	}
+	slices.SortFunc(list, func(x, y chroma.Lexer) int {
+		return strings.Compare(strings.ToLower(DisplayName(x)), strings.ToLower(DisplayName(y)))
+	})
+	return list
+}

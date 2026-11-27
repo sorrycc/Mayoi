@@ -5302,6 +5302,16 @@ func (msgs Messages) DiffEditButtonActive() string {
 	return Catalog.Format(msgs.locale, "diffEditButtonActive", nil)
 }
 
+// DiffEditButtonReady says "Edit on Click"
+// in the language the app shows.
+func DiffEditButtonReady() string { return In(i18n.Locale()).DiffEditButtonReady() }
+
+// DiffEditButtonReady says "Edit on Click"
+// in the language of msgs.
+func (msgs Messages) DiffEditButtonReady() string {
+	return Catalog.Format(msgs.locale, "diffEditButtonReady", nil)
+}
+
 // DiffEditOnlyLocal says "Only the working tree side of a diff can be edited, and {name} has none here."
 // in the language the app shows.
 func DiffEditOnlyLocal(name string) string { return In(i18n.Locale()).DiffEditOnlyLocal(name) }
@@ -15880,12 +15890,12 @@ func (msgs Messages) PrefTitleDiffEditMode() string {
 	return Catalog.Format(msgs.locale, "prefTitleDiffEditMode", nil)
 }
 
-// PrefDescDiffEditMode says "Start local Changes and Untracked diffs in edit mode.
-// Off by default. The Edit button affects only the current diff f…" in the language the app shows.
+// PrefDescDiffEditMode says "Start local Changes and Untracked diffs in edit mode. Off by default. The Edit button affects only the current diff f…"
+// in the language the app shows.
 func PrefDescDiffEditMode() string { return In(i18n.Locale()).PrefDescDiffEditMode() }
 
-// PrefDescDiffEditMode says "Start local Changes and Untracked diffs in edit mode.
-// Off by default. The Edit button affects only the current diff f…" in the language of msgs.
+// PrefDescDiffEditMode says "Start local Changes and Untracked diffs in edit mode. Off by default. The Edit button affects only the current diff f…"
+// in the language of msgs.
 func (msgs Messages) PrefDescDiffEditMode() string {
 	return Catalog.Format(msgs.locale, "prefDescDiffEditMode", nil)
 }
@@ -18112,6 +18122,36 @@ func SnippetsPlaceholder() string { return In(i18n.Locale()).SnippetsPlaceholder
 // in the language of msgs.
 func (msgs Messages) SnippetsPlaceholder() string {
 	return Catalog.Format(msgs.locale, "snippetsPlaceholder", nil)
+}
+
+// CmdEditorChangeLanguage says "Change Language…"
+// in the language the app shows.
+func CmdEditorChangeLanguage() string { return In(i18n.Locale()).CmdEditorChangeLanguage() }
+
+// CmdEditorChangeLanguage says "Change Language…"
+// in the language of msgs.
+func (msgs Messages) CmdEditorChangeLanguage() string {
+	return Catalog.Format(msgs.locale, "cmdEditorChangeLanguage", nil)
+}
+
+// LanguageAutoDetect says "Auto Detect"
+// in the language the app shows.
+func LanguageAutoDetect() string { return In(i18n.Locale()).LanguageAutoDetect() }
+
+// LanguageAutoDetect says "Auto Detect"
+// in the language of msgs.
+func (msgs Messages) LanguageAutoDetect() string {
+	return Catalog.Format(msgs.locale, "languageAutoDetect", nil)
+}
+
+// LanguagePickPlaceholder says "Select a language mode"
+// in the language the app shows.
+func LanguagePickPlaceholder() string { return In(i18n.Locale()).LanguagePickPlaceholder() }
+
+// LanguagePickPlaceholder says "Select a language mode"
+// in the language of msgs.
+func (msgs Messages) LanguagePickPlaceholder() string {
+	return Catalog.Format(msgs.locale, "languagePickPlaceholder", nil)
 }
 
 // PluginsSyncInstalled says "Settings sync installed {names}"
@@ -21538,4 +21578,124 @@ func ClaudeThemeFailed(err string) string { return In(i18n.Locale()).ClaudeTheme
 // in the language of msgs.
 func (msgs Messages) ClaudeThemeFailed(err string) string {
 	return Catalog.Format(msgs.locale, "claudeThemeFailed", map[string]any{"err": err})
+}
+
+// CmdGitFileHistory says "Open File History"
+// in the language the app shows.
+func CmdGitFileHistory() string { return In(i18n.Locale()).CmdGitFileHistory() }
+
+// CmdGitFileHistory says "Open File History"
+// in the language of msgs.
+func (msgs Messages) CmdGitFileHistory() string {
+	return Catalog.Format(msgs.locale, "cmdGitFileHistory", nil)
+}
+
+// ScmPathHistory says "History of {path}"
+// in the language the app shows.
+func ScmPathHistory(path string) string { return In(i18n.Locale()).ScmPathHistory(path) }
+
+// ScmPathHistory says "History of {path}"
+// in the language of msgs.
+func (msgs Messages) ScmPathHistory(path string) string {
+	return Catalog.Format(msgs.locale, "scmPathHistory", map[string]any{"path": path})
+}
+
+// ScmPathHistoryClear says "Clear History"
+// in the language the app shows.
+func ScmPathHistoryClear() string { return In(i18n.Locale()).ScmPathHistoryClear() }
+
+// ScmPathHistoryClear says "Clear History"
+// in the language of msgs.
+func (msgs Messages) ScmPathHistoryClear() string {
+	return Catalog.Format(msgs.locale, "scmPathHistoryClear", nil)
+}
+
+// ScmPathHistoryNone says "No commit changed {path}."
+// in the language the app shows.
+func ScmPathHistoryNone(path string) string { return In(i18n.Locale()).ScmPathHistoryNone(path) }
+
+// ScmPathHistoryNone says "No commit changed {path}."
+// in the language of msgs.
+func (msgs Messages) ScmPathHistoryNone(path string) string {
+	return Catalog.Format(msgs.locale, "scmPathHistoryNone", map[string]any{"path": path})
+}
+
+// ScmPathsCount says "{count, plural, one {# path} other {# paths}}"
+// in the language the app shows.
+func ScmPathsCount(count int) string { return In(i18n.Locale()).ScmPathsCount(count) }
+
+// ScmPathsCount says "{count, plural, one {# path} other {# paths}}"
+// in the language of msgs.
+func (msgs Messages) ScmPathsCount(count int) string {
+	return Catalog.Format(msgs.locale, "scmPathsCount", map[string]any{"count": count})
+}
+
+// CmdGitFolderHistory says "Open Folder History"
+// in the language the app shows.
+func CmdGitFolderHistory() string { return In(i18n.Locale()).CmdGitFolderHistory() }
+
+// CmdGitFolderHistory says "Open Folder History"
+// in the language of msgs.
+func (msgs Messages) CmdGitFolderHistory() string {
+	return Catalog.Format(msgs.locale, "cmdGitFolderHistory", nil)
+}
+
+// CmdGitPathsHistory says "Open History"
+// in the language the app shows.
+func CmdGitPathsHistory() string { return In(i18n.Locale()).CmdGitPathsHistory() }
+
+// CmdGitPathsHistory says "Open History"
+// in the language of msgs.
+func (msgs Messages) CmdGitPathsHistory() string {
+	return Catalog.Format(msgs.locale, "cmdGitPathsHistory", nil)
+}
+
+// CmdGitOnlySelectedPaths says "Show Only Selected Paths"
+// in the language the app shows.
+func CmdGitOnlySelectedPaths() string { return In(i18n.Locale()).CmdGitOnlySelectedPaths() }
+
+// CmdGitOnlySelectedPaths says "Show Only Selected Paths"
+// in the language of msgs.
+func (msgs Messages) CmdGitOnlySelectedPaths() string {
+	return Catalog.Format(msgs.locale, "cmdGitOnlySelectedPaths", nil)
+}
+
+// DiffOnlySelectedPaths says "Only Selected Paths"
+// in the language the app shows.
+func DiffOnlySelectedPaths() string { return In(i18n.Locale()).DiffOnlySelectedPaths() }
+
+// DiffOnlySelectedPaths says "Only Selected Paths"
+// in the language of msgs.
+func (msgs Messages) DiffOnlySelectedPaths() string {
+	return Catalog.Format(msgs.locale, "diffOnlySelectedPaths", nil)
+}
+
+// PrefTitleDiffHistoryOnly says "Filter Commits to the History"
+// in the language the app shows.
+func PrefTitleDiffHistoryOnly() string { return In(i18n.Locale()).PrefTitleDiffHistoryOnly() }
+
+// PrefTitleDiffHistoryOnly says "Filter Commits to the History"
+// in the language of msgs.
+func (msgs Messages) PrefTitleDiffHistoryOnly() string {
+	return Catalog.Format(msgs.locale, "prefTitleDiffHistoryOnly", nil)
+}
+
+// PrefDescDiffHistoryOnly says "A commit opened from a file's or folder's history shows only the files of that history; the diff's Only Selected Path…"
+// in the language the app shows.
+func PrefDescDiffHistoryOnly() string { return In(i18n.Locale()).PrefDescDiffHistoryOnly() }
+
+// PrefDescDiffHistoryOnly says "A commit opened from a file's or folder's history shows only the files of that history; the diff's Only Selected Path…"
+// in the language of msgs.
+func (msgs Messages) PrefDescDiffHistoryOnly() string {
+	return Catalog.Format(msgs.locale, "prefDescDiffHistoryOnly", nil)
+}
+
+// ScmPathHistoryMore says "… and {count, plural, one {# more} other {# more}}"
+// in the language the app shows.
+func ScmPathHistoryMore(count int) string { return In(i18n.Locale()).ScmPathHistoryMore(count) }
+
+// ScmPathHistoryMore says "… and {count, plural, one {# more} other {# more}}"
+// in the language of msgs.
+func (msgs Messages) ScmPathHistoryMore(count int) string {
+	return Catalog.Format(msgs.locale, "scmPathHistoryMore", map[string]any{"count": count})
 }

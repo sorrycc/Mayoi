@@ -95,7 +95,7 @@ func (c *Conn) stream(ctx context.Context, stdin io.Reader, stdout io.Writer, sc
 	pool := c.pool
 	c.mu.Unlock()
 	if pool != nil {
-		code, err := pool.Call(ctx, commandScript(script, args), stdin, stdout, &errb)
+		code, err := pool.Call(ctx, c.full(script, args), stdin, stdout, &errb)
 		if err != nil {
 			return c.failure(err, errb.String())
 		}
@@ -223,9 +223,14 @@ func (c *Conn) Upload(srcs []string, dir string, p *Progress) ([]string, error) 
 		return nil, err
 	}
 	defer done()
+	windows := c.windows()
 	pr, pw := io.Pipe()
 	go func() {
-		pw.CloseWithError(writeTar(&counter{w: pw, p: p}, srcs))
+		if windows {
+			pw.CloseWithError(writePack(&counter{w: pw, p: p}, srcs))
+		} else {
+			pw.CloseWithError(writeTar(&counter{w: pw, p: p}, srcs))
+		}
 	}()
 	script := `dir=$1; shift
 if [ -z "$dir" ]; then dir=$(mktemp -d "${TMPDIR:-/tmp}/mayoi-paste.XXXXXX") || exit 1; fi
@@ -234,6 +239,9 @@ trap 'rm -rf "$s"' EXIT
 trap 'exit 1' HUP INT TERM PIPE
 tar -x -o -f - -C "$s" || exit 1
 ` + placeScript
+	if windows {
+		script = psUpload
+	}
 	var b bytes.Buffer
 	err = c.stream(ctx, pr, &b, script, append([]string{dir}, names...)...)
 	pr.Close()
@@ -260,14 +268,18 @@ func (c *Conn) CopyOnHost(srcs []string, dir string, p *Progress) ([]string, err
 	}
 	defer done()
 	var b bytes.Buffer
-	err = c.stream(ctx, nil, &b, freeNameFn+`dir=$1; shift
+	script := freeNameFn + `dir=$1; shift
 for src; do
   d=0; [ -d "$src" ] && [ ! -L "$src" ] && d=1
   to=$(free "$(basename -- "$src")" $d) || exit 1
   cp -R -P -p -- "$src" "$dir/$to" || exit 1
   printf '%s/%s\0' "$dir" "$to"
 done
-`, append([]string{dir}, srcs...)...)
+`
+	if c.windows() {
+		script = psCopy
+	}
+	err = c.stream(ctx, nil, &b, script, append([]string{dir}, srcs...)...)
 	out := b.Bytes()
 	if err != nil {
 		return splitNul(out), p.stopped(err)
@@ -283,15 +295,25 @@ func (c *Conn) Download(src, to string, p *Progress) error {
 		return err
 	}
 	defer done()
+	windows := c.windows()
+	script := `cd -- "$(dirname -- "$1")" || exit 1
+COPYFILE_DISABLE=1 exec tar -c -f - -- "$(basename -- "$1")"`
+	if windows {
+		script = psDownload
+	}
 	pr, pw := io.Pipe()
 	ran := make(chan error, 1)
 	go func() {
-		err := c.stream(ctx, nil, pw, `cd -- "$(dirname -- "$1")" || exit 1
-COPYFILE_DISABLE=1 exec tar -c -f - -- "$(basename -- "$1")"`, src)
+		err := c.stream(ctx, nil, pw, script, src)
 		pw.CloseWithError(err)
 		ran <- err
 	}()
-	readErr := readTar(&counter{r: pr, p: p}, path.Base(src), to)
+	var readErr error
+	if windows {
+		readErr = readPack(&counter{r: pr, p: p}, path.Base(src), to)
+	} else {
+		readErr = readTar(&counter{r: pr, p: p}, path.Base(src), to)
+	}
 	io.Copy(io.Discard, pr)
 	if err := <-ran; err != nil {
 		return p.stopped(err)

@@ -71,6 +71,8 @@ Closing a changed file saves it without asking. Untitled files wait for ⌘S. Tu
 - Enter keeps the indent, and indents one more level after an opening bracket.
 - Brackets and quotes close themselves, wrap a selection, and are stepped over when typed again.
 - Commands comment lines, move, copy and delete lines, and insert a line above or below.
+- In JSX and TSX, **Toggle Line Comment** wraps the lines of JSX children in `{/* ... */}`, where `//` would be text
+  on the page; a line in a tag or in JavaScript keeps `//`.
 - Cut (⌘X) cuts the selection, or the entire line at the caret when nothing is selected. Undo restores it in one step.
 - Home goes to the first non-blank character of the line.
 - The status bar shows the file's indentation and line endings, and you can change either from there.
@@ -280,6 +282,15 @@ author, hash and every branch and tag.
 The branch button in the COMMITS header, or **Show All Branches** in the **⋯** menu, shows every branch, of the remotes
 too, and every tag, not only the history of the branch checked out. The button stays in the header, in the accent
 color, while it is on.
+
+**Git → Open File History**, and the same item in a file tab's and the Explorer's menu, shows the commits that changed
+the file of the tab shown: source control lists those alone, under a chip that names the file. A folder's **Open Folder
+History**, in the Explorer's menu or the command palette, lists the commits that changed anything under it, and several
+rows chosen in the Explorer have **Open History** for all of them, files and folders together; point at the chip to see
+the paths it lists. A commit opened from one of them shows the files of those paths alone — the file by the name it had
+then, across renames — and **Only Selected Paths** in the diff's toolbar, or the same checkbox in the **Git** menu, shows
+every file of the commit, and those paths again. With `diffHistoryOnly` off, a commit opens with every file of it. Only
+one file's history follows renames. The chip's ×, or Enter on its row, shows the branch's history again, and paths no commit changed say so.
 
 Click a commit to see it in the preview tab, the keyboard staying in the list, so clicking through commits leaves one
 tab; Enter, a double click or **Open Changes** in its menu keeps it in a tab of its own, focused. The tab shows its
@@ -790,7 +801,12 @@ is the system `ssh`, `%USERPROFILE%\.ssh` and the Windows ssh-agent, not WSL's `
   Git commands reuse that connection instead of signing in again.
 - The folder's path stays `/ssh:host/path` on Windows as well, as a complete path. A file under that folder stays in it
   for search, Source Control and the breadcrumbs. A language server for a document in the folder runs on the host. A
-  host that does not answer as a POSIX shell is refused, and the files stay read-only.
+  host that answers neither as a POSIX shell nor as PowerShell is refused, says so, and is not tried again by itself.
+- A Windows host with OpenSSH Server works too, through the Windows PowerShell it comes with, whether its shell is
+  `cmd.exe` or PowerShell. Its folders show as `/C:/Users/me`, `/` lists its drives, and the folder box takes
+  `C:\Users\me` as typed. Git, `gh` and language servers run there, search asks `rg` when the host has it, and
+  terminals are PowerShell. Changes are looked for every few seconds, as on hosts without `inotifywait`, and each
+  command starts a PowerShell, so the host answers more slowly than a Linux or macOS one.
 - The Explorer, quick open, search and replace in files, Source Control, blame, the gutter marks and diffs work as in a
   local folder, running `git`, `rg` (or `grep`) and `find` on the host. Terminals are shells of the host.
 - The folders in a folder of the Explorer are read along with it, at one round trip, but those the index skips, as

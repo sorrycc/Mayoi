@@ -1177,7 +1177,9 @@ func (a *app) rememberTabs() {
 				if saved := ed.restoreTab; saved != nil {
 					ts.Preview, ts.Live, ts.Sel, ts.Folds = saved.Preview, saved.Live, saved.Sel, saved.Folds
 					ts.ScrollX, ts.ScrollY, ts.Wrap = saved.ScrollX, saved.ScrollY, saved.Wrap
+					ts.Language, ts.LanguagePlugin = saved.Language, saved.LanguagePlugin
 				} else {
+					ts.Language, ts.LanguagePlugin = ed.document.language, ed.document.languageOwner
 					ts.Sel, ts.ScrollX, ts.ScrollY, ts.Folds = ed.sel, ed.hscroll.X, ed.vscroll.Y, ed.foldLines()
 					if ed.hidden {
 						ts.ScrollY = ed.hiddenY
@@ -1288,7 +1290,8 @@ func (a *app) restoreTab(t *colTab, ts settings.Tab) {
 }
 
 // restoreEditor puts back where an editor of a tab restored was scrolled,
-// its caret and its own choice to wrap.
+// its caret, its own choice to wrap and the language chosen for its
+// document.
 func (a *app) restoreEditor(ed *editor, ts settings.Tab) {
 	// The file may be shorter than it was.
 	n := ed.buf.Len()
@@ -1308,6 +1311,9 @@ func (a *app) restoreEditor(ed *editor, ts settings.Tab) {
 	}
 	ed.live = ts.Live
 	a.setPreview(ed, ts.Preview)
+	if ts.Language != "" && ed.document.language == "" {
+		a.restoreDocumentLanguage(ed.document, ts.Language, ts.LanguagePlugin)
+	}
 }
 
 // restoreTabs opens the columns of the last session and their files, as

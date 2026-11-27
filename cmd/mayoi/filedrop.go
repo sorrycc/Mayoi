@@ -198,7 +198,7 @@ func (a *app) pastePaths(s *session, paths []string) {
 	for i, p := range paths {
 		rps[i] = hostPath(p)
 	}
-	s.term.Paste(quotePaths(rps))
+	s.term.Paste(quoteHostPaths(c, rps))
 }
 
 // shellQuote quotes s for a POSIX shell, unless it needs no quotes.

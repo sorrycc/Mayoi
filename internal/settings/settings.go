@@ -202,6 +202,10 @@ type Prefs struct {
 	// Untracked diffs. It defaults to false; manual toggles affect
 	// only the current diff file without changing this preference.
 	DiffEditMode bool `json:"diffEditMode,omitempty"`
+	// DiffHistoryOnly shows only the files of the history a commit's diff
+	// was opened from, when it is true; the diff's Only Selected Paths
+	// toggle says so for a tab whatever the setting.
+	DiffHistoryOnly bool `json:"diffHistoryOnly"`
 	// DiffHighlight is what a diff shows of a line that changed: "line"
 	// no more than the line, "char" the characters that changed, or ""
 	// the words that changed. What it shows is only so: a diff's block
@@ -586,6 +590,11 @@ type Tab struct {
 	// the number of its name.
 	Untitled string `json:"untitled,omitempty"`
 	Number   int    `json:"number,omitempty"`
+	// Language is the language chosen for the tab's document, "" for the
+	// one its file name gives, and LanguagePlugin the plugin that declares
+	// it, "" for Mayoi's own.
+	Language       string `json:"language,omitempty"`
+	LanguagePlugin string `json:"languagePlugin,omitempty"`
 	// Issue is the number of the issue, or of the pull request whose
 	// conversation, the tab shows, of the repository at RepoRoot.
 	Issue int `json:"issue,omitempty"`
@@ -604,7 +613,7 @@ func Default() *Settings {
 		Prefs: Prefs{
 			FontSize: 13, FontFamily: "monospace", FontWeight: 400, LineHeight: 1.55, TabSize: 4,
 			AutoSave: true, Blame: true, EditorHover: true, SearchFollowSymlinks: true, TerminalCopyOnSelect: true, TerminalBackendHcShowInHerdr: true, PreviewMermaid: true, PreviewMath: true,
-			DiffAlignedRows: true, DiffContext: 3, DiffSyncScroll: true, MergeAutoApply: true,
+			DiffAlignedRows: true, DiffContext: 3, DiffSyncScroll: true, MergeAutoApply: true, DiffHistoryOnly: true,
 			UsageStats: true, ConfirmBeforeQuit: true,
 		},
 	}

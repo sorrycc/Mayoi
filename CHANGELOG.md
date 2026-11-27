@@ -9,10 +9,32 @@ needs a `## <version>` section here, or its build fails.
 - Fix staged deletions offering to edit a later file in the diff.
 - Fix shortcut chords inserting their keys into editable diff text.
 - Fix typing becoming unavailable after selecting or deleting all text in an editable diff.
-- Fix double-click word selection and triple-click line selection in editable diffs.
+- Double-clicks select words and triple-clicks select lines in editable diffs; dragging extends by each.
 - Fix a bug blocking typing in files after the first with **Layout → One File at a Time**.
 - Enable `diffEditMode` to edit local **Changes** and **Untracked** diffs directly.
-- The **Edit** button starts on with `diffEditMode` and toggles only the current diff file.
+- The **Edit** button toggles only this diff file; **Edit on Click** means no typing caret is placed yet.
+- **Toggle Line Comment** wraps JSX children in `{/* ... */}`, so React leaves them out of the page.
+- On Windows, `F12` and `Ctrl`-click now open definitions in WSL folders and on Linux SSH hosts.
+- On Windows, language server errors and warnings now show in WSL folders and on Linux SSH hosts.
+- Click the language in the status bar, or run `Change Language…`, to pick how a file or untitled tab is highlighted.
+- The language box opens on the current choice and offers **Auto Detect** to go back to the file name's language.
+- A chosen language moves the file to that language's server and drops the old server's problems.
+- A chosen language comes back with its tab after a restart; **Save As** goes back to Auto Detect.
+- **Git → Open File History** lists the commits that changed a file, each opening at that file.
+- A commit opened from a history shows only the files of its paths; **Only Selected Paths** in the diff shows the rest.
+- `diffHistoryOnly` turns that off, so the commit opens with every file of it.
+- **Open Folder History** lists the commits that changed anything under a folder.
+- **Open History** on several rows chosen in the Explorer lists the commits of any of them.
+- The chip of a history of several paths lists them when the pointer rests on it.
+- **Remote SSH** connects to Windows hosts running OpenSSH Server, through the PowerShell Windows comes with.
+- A Windows host's files, Git, search and language servers work as on Linux, and its terminals open PowerShell.
+- On a Windows host, `/` lists its drives and the folder box takes `C:\Users\me` as you type it.
+- A host that runs neither `sh` nor PowerShell now says why it can't connect, instead of "not connected".
+- Such a host is no longer retried forever; **Reconnect** tries it again.
+- A plugin theme can ship light and dark palettes under one entry with `darkPath`, following **Appearance**.
+
+## 0.23.5
+
 - Switching between Live Preview and Reading View keeps the same passage in view, without a jump.
 - Language servers that watch files pick up local workspace changes without reopening the folder.
 - Rename a file or folder right in its explorer row, as in VS Code, instead of in a dialog.

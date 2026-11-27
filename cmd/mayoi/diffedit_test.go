@@ -5,6 +5,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/egoist/mygo/ui"
 )
@@ -545,6 +546,7 @@ func TestDiffEditPlacesTheCaretByClicking(t *testing.T) {
 	// A drag from there down selects the lines between: the press puts the
 	// caret where it is, at the character the click had found.
 	y2 := y + 2*a.font.lineH
+	hs.tt.Advance(time.Second)
 	hs.tt.Press(x, y)
 	hs.tt.Move(x, y2)
 	hs.tt.Release(x, y2)

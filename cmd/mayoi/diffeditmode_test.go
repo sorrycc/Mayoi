@@ -53,12 +53,15 @@ func TestDiffEditModeWorkingTree(t *testing.T) {
 				hs.settleDiff(v)
 				a.setDiffLayout(v, layout)
 				hs.settle()
-				if _, ok := hs.tt.Find("Editing"); !ok {
-					t.Fatal("the edit button did not start enabled")
+				if _, ok := hs.tt.Find("Edit on Click"); !ok {
+					t.Fatal("the edit button did not show that a click is needed")
 				}
 				clickDiffText(t, hs, v, diffEditRow(v, path, 0), 1, 1)
 				if v.editing == nil || v.editing.ed.sel != [2]int{1, 1} {
 					t.Fatal("the click did not place an editing caret at the character")
+				}
+				if _, ok := hs.tt.Find("Editing"); !ok {
+					t.Fatal("the button did not show typing after the click placed a caret")
 				}
 				if active, _ := hs.tt.TextInputActive(); !active {
 					t.Fatal("the native window does not accept typed characters")
@@ -260,7 +263,7 @@ func TestDiffEditModeNativeInputInOneFile(t *testing.T) {
 }
 
 func TestDiffEditModeButtonIsLocalToTheBuffer(t *testing.T) {
-	labels := [...]string{"Edit", "Editing"}
+	labels := [...]string{"Edit", "Edit on Click"}
 	for _, enabled := range []bool{false, true} {
 		t.Run(labels[btoi(enabled)], func(t *testing.T) {
 			hs, v := oneFileDiffOf(t)
@@ -304,7 +307,7 @@ func TestDiffEditModeButtonIsLocalToTheBuffer(t *testing.T) {
 }
 
 func TestDiffEditModeDoesNotTransferBetweenBuffers(t *testing.T) {
-	labels := [...]string{"Edit", "Editing"}
+	labels := [...]string{"Edit", "Edit on Click"}
 	for _, enabled := range []bool{false, true} {
 		t.Run(labels[btoi(enabled)], func(t *testing.T) {
 			hs, v := oneFileDiffOf(t)
@@ -450,6 +453,42 @@ func TestDiffEditModeMultipleClicksSelectText(t *testing.T) {
 				hs.tt.Command("copy")
 				if got := hs.a.services.ReadClipboard(); got != want {
 					t.Fatalf("copied %q, want %q", got, want)
+				}
+			})
+		}
+	}
+}
+
+func TestDiffEditModeDragExtendsWordsAndLines(t *testing.T) {
+	for _, layout := range []diffLayout{layoutSplit, layoutInline} {
+		for _, tc := range []struct {
+			name        string
+			clicks, row int
+			col         float32
+			want        string
+		}{
+			{"word-forward", 2, 25, 13.3, "twenty-five"},
+			{"word-backward", 2, 25, 1.3, "line twenty"},
+			{"line-forward", 3, 27, 1.3, "line twenty-five\nline 26\nline 27"},
+			{"line-backward", 3, 23, 1.3, "line 23\nline 24\nline twenty-five"},
+		} {
+			t.Run(layout.key()+"/"+tc.name, func(t *testing.T) {
+				hs, v, path, at := diffSelTab(t, layout)
+				hs.a.settings.AutoSave, hs.a.settings.DiffEditMode = false, true
+				x, y := at(diffEditRow(v, path, 25), 1, 7.3)
+				for range tc.clicks - 1 {
+					hs.tt.ClickAt(x, y)
+				}
+				hs.tt.Press(x, y)
+				x, y = at(diffEditRow(v, path, tc.row), 1, tc.col)
+				hs.tt.Move(x, y)
+				hs.tt.Release(x, y)
+				hs.settleDiff(v)
+				if v.editing == nil {
+					t.Fatal("the drag did not leave an editing selection")
+				}
+				if got := v.editing.diffEditedText(); got != tc.want {
+					t.Fatalf("drag selected %q, want %q", got, tc.want)
 				}
 			})
 		}

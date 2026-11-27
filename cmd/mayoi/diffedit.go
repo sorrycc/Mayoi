@@ -20,7 +20,9 @@ type diffEdit struct {
 	f          *diffFile
 	doc        *document
 	ed         *editor
-	drag       bool   // the pointer is extending the selection
+	drag       bool // the pointer is extending the selection
+	dragClicks int
+	dragAnchor [2]int
 	compose    string // the text an input method marks, which sits in the buffer
 	composeAt  int    // where the marked text begins, in rune offsets
 	composeWas string // the text the mark took the place of, which an escape gives back
@@ -189,7 +191,14 @@ func (a *app) diffEditInput(v *diffView, ev ui.InputEvent) bool {
 		if !e.drag {
 			return false
 		}
-		a.diffCaretAtPoint(v, e, ev.X, ev.Y, true)
+		if a.diffCaretAtPoint(v, e, ev.X, ev.Y, true) && v.editing == e && e.dragClicks >= 2 {
+			unit := e.selectionUnit(e.ed.sel[1], e.dragClicks)
+			if e.ed.sel[1] < e.dragAnchor[0] {
+				e.ed.sel = [2]int{e.dragAnchor[1], unit[0]}
+			} else {
+				e.ed.sel = [2]int{e.dragAnchor[0], unit[1]}
+			}
+		}
 		a.invalidate()
 		return true
 	case ui.InputPointerUp:
@@ -538,19 +547,25 @@ func (a *app) diffEditPointerDown(v *diffView, e *diffEdit, ev ui.InputEvent) bo
 		return false
 	}
 	e = v.editing
+	e.dragClicks = ev.Clicks
 	if ev.Clicks >= 2 {
-		snap := e.doc.buf.Snapshot()
-		from, to := snap.LineRange(snap.LineAt(min(e.ed.sel[1], snap.Len())))
-		if ev.Clicks == 2 {
-			lo, hi := wordAround(snap.Slice(from, to), e.ed.sel[1]-from)
-			from, to = from+lo, from+hi
-		}
-		e.ed.sel = [2]int{from, to}
+		e.dragAnchor = e.selectionUnit(e.ed.sel[1], ev.Clicks)
+		e.ed.sel = e.dragAnchor
 	}
 	v.clearTextSel()
 	e.drag = true
 	a.invalidate()
 	return true
+}
+
+func (e *diffEdit) selectionUnit(at, clicks int) [2]int {
+	snap := e.doc.buf.Snapshot()
+	from, to := snap.LineRange(snap.LineAt(min(at, snap.Len())))
+	if clicks == 2 {
+		lo, hi := wordAround(snap.Slice(from, to), at-from)
+		from, to = from+lo, from+hi
+	}
+	return [2]int{from, to}
 }
 
 // diffCaretCol returns how many runes of a line of a diff fit before x,

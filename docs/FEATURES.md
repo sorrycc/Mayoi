@@ -155,6 +155,8 @@ reloading from disk can all be undone. Undoing back to the saved text marks the 
 ### Reading aids
 
 - Indent guides, with the caret's block drawn brighter.
+- `columnGuides` marks chosen column widths with vertical lines in ordinary text editors, including Markdown source;
+  Live Preview, Reading, tables, Diff and Merge use their own views.
 - The bracket matching the one at the caret is boxed.
 - Other occurrences of the word at the caret are highlighted.
 - The selection has rounded corners and shows its spaces and tabs. It stays visible, dimmed, while the keyboard is

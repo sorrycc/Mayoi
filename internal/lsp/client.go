@@ -99,6 +99,11 @@ type Options struct {
 	Handlers   Handlers
 }
 
+type openDocument struct {
+	version        int
+	language, text string
+}
+
 // Client is a running server.
 type Client struct {
 	cmd  *exec.Cmd
@@ -120,8 +125,9 @@ type Client struct {
 	waiting map[int]chan response
 	done    chan struct{}
 	err     error
-	// versions are the documents open, by URI, and their versions.
-	versions           map[string]int
+	// Serialize document notifications so a skipped update cannot overtake a pending send.
+	opening            sync.Mutex
+	documents          map[string]openDocument
 	configuration      map[string]any
 	folders            []WorkspaceFolder
 	toServer, toClient []PathMapping
@@ -170,7 +176,7 @@ func Start(ctx context.Context, opts Options) (*Client, error) {
 		return nil, err
 	}
 	c := &Client{cmd: opts.Cmd, in: in, h: opts.Handlers, waiting: map[int]chan response{}, done: make(chan struct{}),
-		versions: map[string]int{}, configuration: opts.Configuration, folders: opts.WorkspaceFolders,
+		documents: map[string]openDocument{}, configuration: opts.Configuration, folders: opts.WorkspaceFolders,
 		toServer: sortedMappings(opts.PathMappings, true), toClient: sortedMappings(opts.PathMappings, false)}
 	if c.folders == nil {
 		c.folders = []WorkspaceFolder{{URI: opts.RootURI, Name: filepath.Base(Path(opts.RootURI))}}
@@ -589,14 +595,21 @@ func LanguageID(language, uri string) string {
 	return language
 }
 
-// Open tells the server of a document open, or of its new text: the whole
-// text each time, which every server takes.
+// Open synchronizes a document with full-text updates, skipping unchanged text.
 func (c *Client) Open(uri, language, text string) {
+	c.opening.Lock()
+	defer c.opening.Unlock()
 	c.mu.Lock()
-	v, open := c.versions[uri]
-	v++
-	c.versions[uri] = v
+	doc, open := c.documents[uri]
+	if open && doc.language == language && doc.text == text {
+		c.mu.Unlock()
+		return
+	}
+	doc.version++
+	doc.language, doc.text = language, text
+	c.documents[uri] = doc
 	c.mu.Unlock()
+	v := doc.version
 	if !open {
 		c.Notify("textDocument/didOpen", map[string]any{"textDocument": map[string]any{
 			"uri": uri, "languageId": LanguageID(language, uri), "version": v, "text": text,
@@ -613,7 +626,7 @@ func (c *Client) Open(uri, language, text string) {
 func (c *Client) IsOpen(uri string) bool {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	_, ok := c.versions[uri]
+	_, ok := c.documents[uri]
 	return ok
 }
 
@@ -626,9 +639,11 @@ func (c *Client) Saved(uri string) {
 
 // Closed tells the server a document closed.
 func (c *Client) Closed(uri string) {
+	c.opening.Lock()
+	defer c.opening.Unlock()
 	c.mu.Lock()
-	_, open := c.versions[uri]
-	delete(c.versions, uri)
+	_, open := c.documents[uri]
+	delete(c.documents, uri)
 	c.mu.Unlock()
 	if open {
 		c.Notify("textDocument/didClose", map[string]any{"textDocument": map[string]any{"uri": uri}})

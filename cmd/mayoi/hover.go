@@ -32,7 +32,9 @@ type hoverCard struct {
 	ed        *editor
 	// at is the rune it is of: where the server's range starts on the
 	// caret's line, else the caret.
-	at      int
+	at int
+	// Diagnostics follow the queried position even if documentation anchors elsewhere.
+	diagAt  int
 	version uint64
 	sel     [2]int
 	// x is where at stands across its line, measured once, for an editor
@@ -47,12 +49,17 @@ type hoverCard struct {
 	// auto is a card the pointer asked for, resting on a name: it goes
 	// as the pointer leaves the name and the card.
 	auto bool
+	// waiting is a card of diagnostics alone while documentation is asked
+	// for: it shows readingShows after waitFrom unless the answer comes
+	// first, so documentation that answers sooner moves nothing in it.
+	waiting  bool
+	waitFrom time.Time
 }
 
 // newHoverCard is the card of Markdown text for rune at of d, the caret
 // or the pointer's, of the server's range span or none.
 func newHoverCard(d *editor, text string, span *lsp.Range, at int) *hoverCard {
-	h := &hoverCard{tree: &viewNode{Type: "markdown", Text: text}, ed: d, at: at, version: d.buf.Version(), sel: d.sel}
+	h := &hoverCard{tree: &viewNode{Type: "markdown", Text: text}, ed: d, at: at, diagAt: at, version: d.buf.Version(), sel: d.sel}
 	snap := d.buf.Snapshot()
 	if span != nil {
 		start := posRune(snap, fromLSP(span.Start))
@@ -188,7 +195,13 @@ func (a *app) restHover(c *ui.Context, d *editor, area ui.Element, g geometry, s
 		probe := restProbe{d, px, py, d.hscroll.X, d.vscroll.Y, view.W, g.height(), snap.Version()}
 		if r.probe != probe {
 			r.probe = probe
-			r.found.word, r.found.at, r.found.ok = a.pointedWord(g, snap, px-d.textX, py+d.vscroll.Y-editorPadY)
+			word, at, ok := a.pointedWord(g, snap, px-d.textX, py+d.vscroll.Y-editorPadY)
+			if !ok {
+				at, ok = a.pointedRune(g, snap, px-d.textX, py+d.vscroll.Y-editorPadY)
+				ok = ok && len(diagnosticsAt(d, at)) > 0
+				word = [2]int{at, at + 1}
+			}
+			r.found = restFound{word: word, at: at, ok: ok}
 		}
 		found = r.found
 	}
@@ -200,6 +213,9 @@ func (a *app) restHover(c *ui.Context, d *editor, area ui.Element, g geometry, s
 	}
 	if r.ed == d && r.word == found.word {
 		r.seen = a.builds
+		if h := a.hover; h != nil && h.auto && h.ed == d {
+			h.diagAt = found.at
+		}
 		if !r.asked {
 			if wait := hoverDwell - c.Now().Sub(r.since); wait > 0 {
 				c.After(wait)
@@ -254,6 +270,28 @@ func (h *hoverCard) holds(x, y float32, at ui.Rect) bool {
 // places the lines, and the rune there: none over the space past a line's
 // end, at a fold's mark, or on a rune not of a name.
 func (a *app) pointedWord(g geometry, snap ui.TextSnapshot, x, y float32) (word [2]int, at int, ok bool) {
+	at, ok = a.pointedRune(g, snap, x, y)
+	if !ok {
+		return
+	}
+	s, e := snap.LineRange(snap.LineAt(at))
+	runes := []rune(snap.Slice(s, e))
+	i := at - s
+	if !isWordRune(runes[i]) {
+		return word, at, false
+	}
+	from, to := i, i+1
+	for from > 0 && isWordRune(runes[from-1]) {
+		from--
+	}
+	for to < len(runes) && isWordRune(runes[to]) {
+		to++
+	}
+	return [2]int{s + from, s + to}, at, true
+}
+
+// pointedRune finds a glyph, including punctuation covered by a diagnostic.
+func (a *app) pointedRune(g geometry, snap ui.TextSnapshot, x, y float32) (at int, ok bool) {
 	if x < 0 || y < 0 || g.n == 0 {
 		return
 	}
@@ -270,17 +308,35 @@ func (a *app) pointedWord(g geometry, snap ui.TextSnapshot, x, y float32) (word 
 	} else {
 		i = a.font.runeAt(text, len(runes), x)
 	}
-	if i < 0 || !isWordRune(runes[i]) {
+	if i < 0 {
 		return
 	}
-	from, to := i, i+1
-	for from > 0 && isWordRune(runes[from-1]) {
-		from--
+	return s + i, true
+}
+
+// diagnosticsAt is the diagnostics of d whose underline covers rune at.
+func diagnosticsAt(d *editor, at int) []diagnostic {
+	if plugins == nil {
+		return nil
 	}
-	for to < len(runes) && isWordRune(runes[to]) {
-		to++
+	snap := d.buf.Snapshot()
+	if at < 0 || at >= snap.Len() {
+		return nil
 	}
-	return [2]int{s + from, s + to}, s + i, true
+	l := snap.LineAt(at)
+	ls, _ := snap.LineRange(l)
+	text := snap.Line(l)
+	var out []diagnostic
+	for _, dg := range plugins.diagnosticsOf(d.path) {
+		s, e := diagEnds(dg)
+		if l < s.Line || l > e.Line {
+			continue
+		}
+		if from, to := diagSpan(s, e, l, text); at-ls >= from && at-ls < to {
+			out = append(out, dg)
+		}
+	}
+	return out
 }
 
 // laidRuneAt is the rune of line i, from rune s of the text and n runes
@@ -436,6 +492,21 @@ func (a *app) hoverView(c *ui.Context) {
 		a.hover = nil
 		return
 	}
+	diags := diagnosticsAt(h.ed, h.diagAt)
+	if len(diags) == 0 && len(h.sig) == 0 && len(h.docs) == 0 {
+		a.hover = nil
+		return
+	}
+	if h.waiting {
+		if h.waitFrom.IsZero() {
+			h.waitFrom = c.Now()
+		}
+		if wait := readingShows - c.Now().Sub(h.waitFrom); wait > 0 {
+			c.After(wait)
+			return
+		}
+		h.waiting = false
+	}
 	at, shows := a.hoverAnchor(h)
 	if !shows {
 		return // back as the line scrolls into view
@@ -457,6 +528,7 @@ func (a *app) hoverView(c *ui.Context) {
 		}
 		box.Children(func() {
 			ui.Scroll(c.Key("hover-scroll")).TrackScroll(&h.scroll).Children(func() {
+				a.hoverDiagnosticsView(c, diags, len(h.sig)+len(h.docs) > 0)
 				if len(h.sig) > 0 {
 					col := ui.Column(c.Key("hover-sig")).Gap(4).Padding(8, 12).Background(p.editor)
 					if len(h.docs) > 0 {
@@ -493,6 +565,40 @@ func (a *app) hoverView(c *ui.Context) {
 				a.hushRest()
 			}
 			a.hover = nil
+		}
+	})
+}
+
+func (a *app) hoverDiagnosticsView(c *ui.Context, diags []diagnostic, separated bool) {
+	if len(diags) == 0 {
+		return
+	}
+	col := ui.Column(c.Key("hover-diagnostics")).Gap(8).Padding(8, 12)
+	if separated {
+		col.BorderWidth(0, 0, 1, 0).BorderColor(a.pal.border)
+	}
+	col.Children(func() {
+		for i, dg := range diags {
+			source := dg.source
+			if dg.Code != "" {
+				source = strings.TrimSpace(source + " (" + dg.Code + ")")
+			}
+			ui.Row(c.Key(i)).Gap(8).AlignItems(ui.Start).Children(func() {
+				ui.Column(c.Key("text")).Gap(4).Grow(1).Shrink(1).Children(func() {
+					ui.Text(c, dg.Message).FontSize(a.font.size).TextColor(a.pal.diagColor(dg.Severity)).Selectable()
+					if source != "" {
+						ui.Text(c, source).FontSize(11).TextColor(a.pal.muted).Selectable()
+					}
+				})
+				if a.smallButton(c, iconCopy, locales.CopyDiagnostic()) {
+					text := dg.Message
+					if source != "" {
+						text += "\n" + source
+					}
+					a.services.WriteClipboard(text)
+					a.tell(note{message: locales.CopiedDiagnostic()})
+				}
+			})
 		}
 	})
 }

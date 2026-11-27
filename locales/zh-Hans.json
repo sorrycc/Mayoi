@@ -2129,14 +2129,15 @@
   "claudeThemeMalformed": "{path} 不是有效的 JSON，Mayoi 未改动它。修正后关闭再打开此项。",
   "claudeThemeFailed": "无法更改 Claude Code 的主题：{err}",
   "cmdGitFileHistory": "打开文件历史",
-  "cmdGitOnlyThisFile": "仅显示此文件",
-  "diffOnlyThisFile": "仅显示此文件",
-  "prefTitleDiffCommitFileOnly": "仅显示此文件",
-  "prefDescDiffCommitFileOnly": "从文件历史打开的提交只显示该文件；diff 工具栏的“仅显示此文件”按钮可切换为提交的全部文件，再切回该文件。",
   "scmPathHistory": "{path} 的历史",
   "scmPathHistoryClear": "清除历史",
   "scmPathHistoryNone": "没有提交更改过 {path}。",
   "scmPathsCount": "{count} 个路径",
   "cmdGitFolderHistory": "打开文件夹历史",
-  "cmdGitPathsHistory": "打开历史"
+  "cmdGitPathsHistory": "打开历史",
+  "cmdGitOnlySelectedPaths": "仅显示所选路径",
+  "diffOnlySelectedPaths": "仅显示所选路径",
+  "prefTitleDiffHistoryOnly": "将提交筛选到历史范围",
+  "prefDescDiffHistoryOnly": "从文件或目录历史打开的提交只显示该范围内的文件；diff 工具栏的“仅显示所选路径”按钮可显示提交的全部文件。",
+  "scmPathHistoryMore": "… 还有 {count} 个"
 }

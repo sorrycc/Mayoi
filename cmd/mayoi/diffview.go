@@ -354,11 +354,13 @@ type diffView struct {
 	wrapGen  int
 
 	files []*diffFile
-	// all is every file a commit changed, as it was read, and only the
-	// path of one of them to show alone; "" shows all of them. The files
-	// of the changes of a work tree are files itself.
-	all  []*diffFile
-	only string
+	// all is every file a commit changed, as it was read. paths are the
+	// history's the commit was opened from, folder set when they are one
+	// folder's, and only whether those paths alone show.
+	all    []*diffFile
+	paths  []string
+	folder bool
+	only   bool
 	// foldFiles is the last bulk choice, including files not yet listed.
 	// Once chosen, it also replaces automatic folding of large files.
 	foldFiles *bool
@@ -1101,45 +1103,71 @@ func (a *app) listCommitFiles(v *diffView) {
 	})
 }
 
-// toggleOnlyThisFile filters the commit's diff shown to the file at its
-// top, or shows every file of it again, from the menu and the palette.
-func (a *app) toggleOnlyThisFile() {
+// toggleOnlyPaths filters the commit's diff shown to the paths of the
+// history it was opened from, or shows every file of it again, from the
+// menu and the palette.
+func (a *app) toggleOnlyPaths() {
 	if v := a.activeDiff(); v != nil {
 		a.toggleDiffOnly(v)
 	}
 }
 
 // activeDiffOnly reports whether the commit's diff shown filters its
-// files to one.
+// files to the paths of its history.
 func (a *app) activeDiffOnly() bool {
 	v := a.activeDiff()
-	return v != nil && v.commit != nil && v.only != ""
+	return v != nil && v.commit != nil && v.only
 }
 
 // onlyFiles returns the files a commit's diff shows: every file it
-// changed, or the one whose history it was opened at, when the commit
-// changed it.
+// changed, or those of the history's paths when only is set.
 func (v *diffView) onlyFiles() []*diffFile {
-	if v.only == "" || v.all == nil {
+	if !v.only || len(v.paths) == 0 || v.all == nil {
 		return v.all
 	}
+	kept := make([]*diffFile, 0, len(v.all))
 	for _, f := range v.all {
-		if f.path == v.only || f.entry.Orig == v.only {
-			return []*diffFile{f}
+		if pathWithin(v.paths, f.path) || pathWithin(v.paths, f.entry.Orig) {
+			kept = append(kept, f)
 		}
 	}
-	// A merge, or a commit the file's history named otherwise: all show.
-	v.only = ""
-	return v.all
+	if len(kept) == 0 {
+		// A merge, or a commit that changed none of them: all show.
+		v.only = false
+		return v.all
+	}
+	return kept
 }
 
-// setDiffOnly shows one file of a commit's changes alone, or every file
-// of them again when path is "".
-func (a *app) setDiffOnly(v *diffView, path string) {
-	if v.commit == nil || v.only == path {
+// pathWithin reports whether path is one of paths, or under one of the
+// folders among them.
+func pathWithin(paths []string, path string) bool {
+	if path == "" {
+		return false
+	}
+	p := filepath.ToSlash(path)
+	for _, scope := range paths {
+		dir := strings.TrimSuffix(filepath.ToSlash(scope), "/")
+		if p == dir || strings.HasPrefix(p, dir+"/") {
+			return true
+		}
+	}
+	return false
+}
+
+// setDiffPaths shows the files of a commit's paths alone, or every file
+// of it again when only is false.
+func (a *app) setDiffPaths(v *diffView, paths []string, only bool, folder bool) {
+	if v.commit == nil {
 		return
 	}
-	v.only = path
+	if !only || len(paths) == 0 {
+		only = false
+	}
+	if slices.Equal(v.paths, paths) && v.only == only && v.folder == folder {
+		return
+	}
+	v.paths, v.folder, v.only = slices.Clone(paths), folder, only
 	// The files show filtered as they are read, or again when they were.
 	if v.commit.loaded {
 		v.files = v.onlyFiles()
@@ -1148,31 +1176,25 @@ func (a *app) setDiffOnly(v *diffView, path string) {
 	v.changed()
 }
 
-// toggleDiffOnly shows the file at the top of a commit's diff alone, or
-// every file of it again.
+// toggleDiffOnly shows the files of a commit's history alone, or every
+// file of it again.
 func (a *app) toggleDiffOnly(v *diffView) {
-	if v.commit == nil {
+	if v.commit == nil || len(v.paths) == 0 {
 		return
 	}
-	if v.only != "" {
-		path := v.only
-		a.setDiffOnly(v, "")
-		v.reveal = &diffTarget{path: path, any: true}
+	if v.only {
+		at := ""
+		if len(v.files) > 0 {
+			at = v.files[0].path
+		}
+		a.setDiffPaths(v, v.paths, false, v.folder)
+		if at != "" {
+			v.reveal = &diffTarget{path: at, any: true}
+		}
 		v.changed()
 		return
 	}
-	path := ""
-	if r := v.focusRow(); r >= 0 && r < len(v.rows) {
-		if i := v.rows[r].file; i >= 0 && i < len(v.files) {
-			path = v.files[i].path
-		}
-	}
-	if path == "" && len(v.files) > 0 {
-		path = v.files[0].path
-	}
-	if path != "" {
-		a.setDiffOnly(v, path)
-	}
+	a.setDiffPaths(v, v.paths, true, v.folder)
 }
 
 // commitEntries returns the files a commit changed as entries of a
@@ -2783,14 +2805,23 @@ func (a *app) diffButtons(c *ui.Context, t *colTab) {
 	a.reviewSendButton(c)
 	if v.commit != nil {
 		// The panel of the files of a commit is off while the diff shows
-		// one of them alone: the buttons after it keep their place.
-		if v.only == "" {
+		// some of them alone: the buttons after it keep their place.
+		if !v.only {
 			if button(iconListTree, a.withKey(locales.DiffToggleCommitFiles(), "git.toggleCommitFiles"), a.window.CommitFilesOpen).Clicked() {
 				a.post(a.toggleCommitFiles)
 			}
 		}
-		if button(iconFile, a.withKey(locales.DiffOnlyThisFile(), "git.onlyThisFile"), v.only != "").Clicked() {
-			a.post(func() { a.toggleDiffOnly(v) })
+		if len(v.paths) > 0 || v.only {
+			icon := iconFile
+			switch {
+			case len(v.paths) > 1:
+				icon = iconFiles
+			case v.folder:
+				icon = iconFolder
+			}
+			if button(icon, a.withKey(locales.DiffOnlySelectedPaths(), "git.onlyPaths"), v.only).Clicked() {
+				a.post(func() { a.toggleDiffOnly(v) })
+			}
 		}
 	}
 	act(iconArrowUp, locales.DiffPrevChange(), func() { v.stepHunk(-1, a.crossesDiff()) })

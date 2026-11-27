@@ -21530,46 +21530,6 @@ func (msgs Messages) CmdGitFileHistory() string {
 	return Catalog.Format(msgs.locale, "cmdGitFileHistory", nil)
 }
 
-// CmdGitOnlyThisFile says "Show Only This File"
-// in the language the app shows.
-func CmdGitOnlyThisFile() string { return In(i18n.Locale()).CmdGitOnlyThisFile() }
-
-// CmdGitOnlyThisFile says "Show Only This File"
-// in the language of msgs.
-func (msgs Messages) CmdGitOnlyThisFile() string {
-	return Catalog.Format(msgs.locale, "cmdGitOnlyThisFile", nil)
-}
-
-// DiffOnlyThisFile says "Only This File"
-// in the language the app shows.
-func DiffOnlyThisFile() string { return In(i18n.Locale()).DiffOnlyThisFile() }
-
-// DiffOnlyThisFile says "Only This File"
-// in the language of msgs.
-func (msgs Messages) DiffOnlyThisFile() string {
-	return Catalog.Format(msgs.locale, "diffOnlyThisFile", nil)
-}
-
-// PrefTitleDiffCommitFileOnly says "Only This File"
-// in the language the app shows.
-func PrefTitleDiffCommitFileOnly() string { return In(i18n.Locale()).PrefTitleDiffCommitFileOnly() }
-
-// PrefTitleDiffCommitFileOnly says "Only This File"
-// in the language of msgs.
-func (msgs Messages) PrefTitleDiffCommitFileOnly() string {
-	return Catalog.Format(msgs.locale, "prefTitleDiffCommitFileOnly", nil)
-}
-
-// PrefDescDiffCommitFileOnly says "A commit's diff opened from a file's history shows that file alone; the diff's Only This File button shows every file…"
-// in the language the app shows.
-func PrefDescDiffCommitFileOnly() string { return In(i18n.Locale()).PrefDescDiffCommitFileOnly() }
-
-// PrefDescDiffCommitFileOnly says "A commit's diff opened from a file's history shows that file alone; the diff's Only This File button shows every file…"
-// in the language of msgs.
-func (msgs Messages) PrefDescDiffCommitFileOnly() string {
-	return Catalog.Format(msgs.locale, "prefDescDiffCommitFileOnly", nil)
-}
-
 // ScmPathHistory says "History of {path}"
 // in the language the app shows.
 func ScmPathHistory(path string) string { return In(i18n.Locale()).ScmPathHistory(path) }
@@ -21628,4 +21588,54 @@ func CmdGitPathsHistory() string { return In(i18n.Locale()).CmdGitPathsHistory()
 // in the language of msgs.
 func (msgs Messages) CmdGitPathsHistory() string {
 	return Catalog.Format(msgs.locale, "cmdGitPathsHistory", nil)
+}
+
+// CmdGitOnlySelectedPaths says "Show Only Selected Paths"
+// in the language the app shows.
+func CmdGitOnlySelectedPaths() string { return In(i18n.Locale()).CmdGitOnlySelectedPaths() }
+
+// CmdGitOnlySelectedPaths says "Show Only Selected Paths"
+// in the language of msgs.
+func (msgs Messages) CmdGitOnlySelectedPaths() string {
+	return Catalog.Format(msgs.locale, "cmdGitOnlySelectedPaths", nil)
+}
+
+// DiffOnlySelectedPaths says "Only Selected Paths"
+// in the language the app shows.
+func DiffOnlySelectedPaths() string { return In(i18n.Locale()).DiffOnlySelectedPaths() }
+
+// DiffOnlySelectedPaths says "Only Selected Paths"
+// in the language of msgs.
+func (msgs Messages) DiffOnlySelectedPaths() string {
+	return Catalog.Format(msgs.locale, "diffOnlySelectedPaths", nil)
+}
+
+// PrefTitleDiffHistoryOnly says "Filter Commits to the History"
+// in the language the app shows.
+func PrefTitleDiffHistoryOnly() string { return In(i18n.Locale()).PrefTitleDiffHistoryOnly() }
+
+// PrefTitleDiffHistoryOnly says "Filter Commits to the History"
+// in the language of msgs.
+func (msgs Messages) PrefTitleDiffHistoryOnly() string {
+	return Catalog.Format(msgs.locale, "prefTitleDiffHistoryOnly", nil)
+}
+
+// PrefDescDiffHistoryOnly says "A commit opened from a file's or folder's history shows only the files of that history; the diff's Only Selected Path…"
+// in the language the app shows.
+func PrefDescDiffHistoryOnly() string { return In(i18n.Locale()).PrefDescDiffHistoryOnly() }
+
+// PrefDescDiffHistoryOnly says "A commit opened from a file's or folder's history shows only the files of that history; the diff's Only Selected Path…"
+// in the language of msgs.
+func (msgs Messages) PrefDescDiffHistoryOnly() string {
+	return Catalog.Format(msgs.locale, "prefDescDiffHistoryOnly", nil)
+}
+
+// ScmPathHistoryMore says "… and {count, plural, one {# more} other {# more}}"
+// in the language the app shows.
+func ScmPathHistoryMore(count int) string { return In(i18n.Locale()).ScmPathHistoryMore(count) }
+
+// ScmPathHistoryMore says "… and {count, plural, one {# more} other {# more}}"
+// in the language of msgs.
+func (msgs Messages) ScmPathHistoryMore(count int) string {
+	return Catalog.Format(msgs.locale, "scmPathHistoryMore", map[string]any{"count": count})
 }

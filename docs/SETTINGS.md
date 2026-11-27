@@ -101,7 +101,7 @@ takes its default.
 | `blame`                 | `true`        | `true`, `false`                                             | **Git → Inline Blame**                         |
 | `diffLayout`            | `""`          | `""` (side by side when wide enough), `"split"`, `"inline"` | A diff's **Layout** button                     |
 | `diffFiles`             | `""`          | `""` (every file in one scroll), `"one"` (one file at a time, not in a commit's changes) | A diff's **Layout** menu                   |
-| `diffCommitFileOnly`    | `true`        | `true`, `false`                                                | A diff's **Only This File** button         |
+| `diffHistoryOnly`       | `true`        | `true`, `false`                                                | A diff's **Only Selected Paths** button    |
 | `diffCrossFiles`        | `""`          | `""` (say it, and cross on one more step), `"always"`, `"never"` | Only this file                            |
 | `diffHighlight`         | `""`          | `""` (changed words), `"line"`, `"char"`                       | A diff's **Highlight** menu                |
 | `diffWhitespace`        | `""`          | `""` (exact), `"eol"`, `"all"`, `"blank"`                      | A diff's **Whitespace** menu               |

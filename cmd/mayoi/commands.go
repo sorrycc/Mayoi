@@ -187,7 +187,7 @@ func (a *app) commandsIn(t locales.Messages) []command {
 		{"git.collapseAllFiles", t.CmdGitCollapseAllFiles(), "", func() { a.foldDiffFiles(true) }},
 		{"git.expandAllFiles", t.CmdGitExpandAllFiles(), "", func() { a.foldDiffFiles(false) }},
 		{"git.toggleCommitFiles", t.CmdGitToggleCommitFiles(), "", a.toggleCommitFiles},
-		{"git.onlyThisFile", t.CmdGitOnlyThisFile(), "", a.toggleOnlyThisFile},
+		{"git.onlyPaths", t.CmdGitOnlySelectedPaths(), "", a.toggleOnlyPaths},
 		{"git.appendChange", t.CmdGitAppendChange(), "", a.appendAtCursor},
 		{"git.showChange", t.CmdGitShowChange(), "", a.editActive(func(d *editor) { d.peekHunk(caretLine(d)) })},
 		{"git.revertChange", t.CmdGitRevertChange(), "", a.editActive(func(d *editor) { a.onCaretHunk(d, a.revertHunk) })},
@@ -687,10 +687,10 @@ func (a *app) menu(cli bool, run func(id string, win *mygo.Window)) *mygo.Menu {
 			item("file.quit"),
 		})}
 	}
-	// The file of a commit shown alone, off unless a commit's diff shows;
-	// the panel of a commit's files is off while one file shows.
-	onlyFile := checkbox("git.onlyThisFile", a.activeDiffOnly())
-	onlyFile.Disabled = a.activeDiff() == nil || a.activeDiff().commit == nil
+	// The paths of a history shown alone, off unless a commit opened from
+	// one shows; the panel of a commit's files is off while they show.
+	onlyFile := checkbox("git.onlyPaths", a.activeDiffOnly())
+	onlyFile.Disabled = a.activeDiff() == nil || a.activeDiff().commit == nil || len(a.activeDiff().paths) == 0
 	commitFiles := checkbox("git.toggleCommitFiles", a.window.CommitFilesOpen)
 	commitFiles.Disabled = a.activeDiffOnly()
 	// The items of the review comments, off while there are none.

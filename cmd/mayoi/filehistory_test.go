@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/egoist/mygo/ui"
@@ -74,31 +75,31 @@ func TestFileHistory(t *testing.T) {
 		t.Fatalf("tab %+v", tab)
 	}
 	v := tab.diff
-	if v.only != zz || len(v.files) != 1 || v.files[0].path != zz {
-		t.Fatalf("the commit shows %+v, only %q", v.files, v.only)
+	if !v.only || len(v.files) != 1 || v.files[0].path != zz {
+		t.Fatalf("the commit shows %+v, only %v", v.files, v.only)
 	}
 	if !v.files[0].loaded || len(v.files[0].hunks) == 0 {
 		t.Fatalf("the file of the commit %+v", v.files[0])
 	}
 	// The toggle beside the panel shows every file of the commit again,
 	// at the one it showed.
-	if err := hs.tt.Click("Only This File"); err != nil {
+	if err := hs.tt.Click("Only Selected Paths"); err != nil {
 		t.Fatal(err)
 	}
 	hs.settle()
-	if v.only != "" || len(v.files) != 2 {
-		t.Fatalf("every file of the commit %+v, only %q", v.files, v.only)
+	if v.only || len(v.files) != 2 {
+		t.Fatalf("every file of the commit %+v, only %v", v.files, v.only)
 	}
 	if v.cursor < 0 || v.cursor >= len(v.rows) || v.files[v.rows[v.cursor].file].path != zz {
 		t.Errorf("the commit opens at %d, not at zz.txt", v.cursor)
 	}
 	// Once more, for the file at its top.
-	if err := hs.tt.Click("Only This File"); err != nil {
+	if err := hs.tt.Click("Only Selected Paths"); err != nil {
 		t.Fatal(err)
 	}
 	hs.settle()
-	if v.only != zz || len(v.files) != 1 {
-		t.Errorf("only %q of %+v", v.only, v.files)
+	if !v.only || len(v.files) != 1 {
+		t.Errorf("only %v of %+v", v.only, v.files)
 	}
 	// The branch's history comes back, without the file's commits alone.
 	if err := hs.tt.Click("Clear History"); err != nil {
@@ -129,14 +130,14 @@ func TestFileHistory(t *testing.T) {
 	}
 }
 
-// TestFileHistoryWithoutAutoFilter: with diffCommitFileOnly off, a
+// TestFileHistoryWithoutAutoFilter: with diffHistoryOnly off, a
 // commit opens at the file among every file of it, and the toggle still
 // filters that tab.
 func TestFileHistoryWithoutAutoFilter(t *testing.T) {
 	hs := newHarness(t, true)
 	git := hs.gitRepo()
 	a := hs.a
-	a.settings.DiffCommitFileOnly = false
+	a.settings.DiffHistoryOnly = false
 	zz, aa := hs.path("zz.txt"), hs.path("aa.txt")
 	os.WriteFile(zz, []byte("z\n"), 0o644)
 	os.WriteFile(aa, []byte("a\n"), 0o644)
@@ -158,18 +159,18 @@ func TestFileHistoryWithoutAutoFilter(t *testing.T) {
 	if v == nil || v.commit == nil {
 		t.Fatalf("no commit's diff")
 	}
-	if v.only != "" || len(v.files) != 2 {
-		t.Fatalf("the commit shows %+v, only %q", v.files, v.only)
+	if v.only || len(v.files) != 2 {
+		t.Fatalf("the commit shows %+v, only %v", v.files, v.only)
 	}
 	if v.cursor < 0 || v.cursor >= len(v.rows) || v.files[v.rows[v.cursor].file].path != zz {
 		t.Errorf("the commit opens at %d, not at zz.txt", v.cursor)
 	}
-	if err := hs.tt.Click("Only This File"); err != nil {
+	if err := hs.tt.Click("Only Selected Paths"); err != nil {
 		t.Fatal(err)
 	}
 	hs.settle()
-	if v.only != zz || len(v.files) != 1 {
-		t.Errorf("the toggle shows %+v, only %q", v.files, v.only)
+	if !v.only || len(v.files) != 1 {
+		t.Errorf("the toggle shows %+v, only %v", v.files, v.only)
 	}
 }
 
@@ -208,19 +209,19 @@ func TestFileHistoryFollowsRenames(t *testing.T) {
 		t.Fatalf("tab %+v", tab)
 	}
 	v := tab.diff
-	if v.only != old || len(v.files) != 1 || v.files[0].path != old {
-		t.Fatalf("the commit shows %+v, only %q, not %q", v.files, v.only, old)
+	if !v.only || len(v.files) != 1 || v.files[0].path != old {
+		t.Fatalf("the commit shows %+v, only %v, not %q", v.files, v.only, old)
 	}
 	if !v.files[0].loaded || len(v.files[0].hunks) == 0 {
 		t.Fatalf("the file of the commit %+v", v.files[0])
 	}
 	// The other file of the commit comes back with the toggle.
-	if err := hs.tt.Click("Only This File"); err != nil {
+	if err := hs.tt.Click("Only Selected Paths"); err != nil {
 		t.Fatal(err)
 	}
 	hs.settle()
-	if v.only != "" || len(v.files) != 2 {
-		t.Fatalf("every file of the commit %+v, only %q", v.files, v.only)
+	if v.only || len(v.files) != 2 {
+		t.Fatalf("every file of the commit %+v, only %v", v.files, v.only)
 	}
 }
 
@@ -246,6 +247,9 @@ func TestFolderAndPathsHistory(t *testing.T) {
 	git("commit", "-qam", "change a note")
 	os.WriteFile(main, []byte("package main\n\nfunc main() {}\n"), 0o644)
 	git("commit", "-qam", "change app")
+	os.WriteFile(note, []byte("a\nmore\nagain\n"), 0o644)
+	os.WriteFile(hs.path("README.md"), []byte("# Mayoi\n\nChanged.\n"), 0o644)
+	git("commit", "-qam", "change a note and the readme")
 	hs.settleGit()
 	hs.settle()
 
@@ -266,7 +270,7 @@ func TestFolderAndPathsHistory(t *testing.T) {
 	for _, c := range g.history {
 		subjects = append(subjects, c.Subject)
 	}
-	if want := []string{"change a note", "add notes and app"}; !slices.Equal(subjects, want) {
+	if want := []string{"change a note and the readme", "change a note", "add notes and app"}; !slices.Equal(subjects, want) {
 		t.Fatalf("the folder's history %v, want %v", subjects, want)
 	}
 	if !hs.tt.HasText("notes/") {
@@ -279,8 +283,19 @@ func TestFolderAndPathsHistory(t *testing.T) {
 	hs.settleGit()
 	hs.settle()
 	v := a.activeTab().diff
-	if v == nil || v.commit == nil || v.only != "" || len(v.files) != 2 {
-		t.Fatalf("the commit %+v, only %q", v, v.only)
+	if v == nil || v.commit == nil || !v.only || !v.folder || len(v.files) != 1 || v.files[0].path != note {
+		t.Fatalf("the commit %+v, only %v, of %+v", v, v.only, v.files)
+	}
+	// The toggle shows every file of the commit, at the folder's first.
+	if err := hs.tt.Click("Only Selected Paths"); err != nil {
+		t.Fatal(err)
+	}
+	hs.settle()
+	if v.only || len(v.files) != 2 {
+		t.Fatalf("every file of the commit %+v, only %v", v.files, v.only)
+	}
+	if v.cursor < 0 || v.cursor >= len(v.rows) || v.files[v.rows[v.cursor].file].path != note {
+		t.Errorf("the commit opens at %d, not at %s", v.cursor, note)
 	}
 
 	// The rows chosen together's history is of any of them.
@@ -304,8 +319,34 @@ func TestFolderAndPathsHistory(t *testing.T) {
 	if len(g.historyPaths) != 2 || g.historyFollow {
 		t.Fatalf("history of %v, following %v", g.historyPaths, g.historyFollow)
 	}
-	if len(g.history) != 3 || !hs.tt.HasText("2 paths") {
+	if len(g.history) != 4 || !hs.tt.HasText("2 paths") {
 		t.Fatalf("the selection's history %d commits: %q", len(g.history), hs.tt.Texts())
+	}
+
+	// Its commits show the files of the paths alone, not the readme.
+	if err := hs.tt.Click("change a note and the readme"); err != nil {
+		t.Fatal(err)
+	}
+	hs.settle()
+	v = a.activeTab().diff
+	if v == nil || !v.only || len(v.files) != 1 || v.files[0].path != note {
+		t.Fatalf("the commit shows %+v, only %v", v.files, v.only)
+	}
+	// The chip lists the paths chosen when the pointer rests on it.
+	if r, ok := hs.tt.Find("2 paths"); !ok {
+		t.Error("no chip of the history's paths")
+	} else {
+		hs.tt.Move(r.X+r.W/2, r.Y+r.H/2)
+		hs.tt.Advance(3 * hoverDwell)
+	}
+	hovered := ""
+	for _, text := range hs.tt.Texts() {
+		if strings.HasPrefix(text, "History of 2 paths\n") {
+			hovered = text
+		}
+	}
+	if !strings.Contains(hovered, "app") || !strings.Contains(hovered, "notes") {
+		t.Errorf("the chip's tooltip says %q", hovered)
 	}
 
 	// A file among folders is one of the paths too.

@@ -2129,14 +2129,15 @@
   "claudeThemeMalformed": "{path} は有効な JSON ではないため、変更していません。修正してから、オフにしてオンにしてください。",
   "claudeThemeFailed": "Claude Code のテーマを変更できませんでした：{err}",
   "cmdGitFileHistory": "ファイル履歴を開く",
-  "cmdGitOnlyThisFile": "このファイルのみ表示",
-  "diffOnlyThisFile": "このファイルのみ表示",
-  "prefTitleDiffCommitFileOnly": "このファイルのみ表示",
-  "prefDescDiffCommitFileOnly": "ファイル履歴から開いたコミットはそのファイルだけを表示します。diff ツールバーの「このファイルのみ表示」でコミットのすべてのファイルと切り替えられます。",
   "scmPathHistory": "{path} の履歴",
   "scmPathHistoryClear": "履歴をクリア",
   "scmPathHistoryNone": "{path} を変更したコミットはありません。",
   "scmPathsCount": "{count} 個のパス",
   "cmdGitFolderHistory": "フォルダ履歴を開く",
-  "cmdGitPathsHistory": "履歴を開く"
+  "cmdGitPathsHistory": "履歴を開く",
+  "cmdGitOnlySelectedPaths": "選択したパスのみ表示",
+  "diffOnlySelectedPaths": "選択したパスのみ表示",
+  "prefTitleDiffHistoryOnly": "コミットを履歴の範囲に絞る",
+  "prefDescDiffHistoryOnly": "ファイルやフォルダの履歴から開いたコミットは、その履歴の範囲のファイルだけを表示します。diff ツールバーの「選択したパスのみ表示」でコミットのすべてのファイルを表示できます。",
+  "scmPathHistoryMore": "… ほか {count} 件"
 }

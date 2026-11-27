@@ -417,12 +417,12 @@ func TestMigrateTheme(t *testing.T) {
 func TestDiffPrefs(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "settings.json")
 	s := Load(path)
-	if s.DiffHighlight != "" || s.DiffContext != 3 || !s.DiffSyncScroll || !s.DiffCommitFileOnly {
+	if s.DiffHighlight != "" || s.DiffContext != 3 || !s.DiffSyncScroll || !s.DiffHistoryOnly {
 		t.Fatalf("defaults %+v", s.Prefs)
 	}
-	os.WriteFile(path, []byte(`{"diffHighlight": "char", "diffContext": 400, "diffSyncScroll": false, "diffCommitFileOnly": false}`), 0o644)
+	os.WriteFile(path, []byte(`{"diffHighlight": "char", "diffContext": 400, "diffSyncScroll": false, "diffHistoryOnly": false}`), 0o644)
 	s = Load(path)
-	if s.DiffHighlight != "char" || s.DiffContext != 100 || s.DiffSyncScroll || s.DiffCommitFileOnly {
+	if s.DiffHighlight != "char" || s.DiffContext != 100 || s.DiffSyncScroll || s.DiffHistoryOnly {
 		t.Fatalf("loaded %+v", s.Prefs)
 	}
 	os.WriteFile(path, []byte(`{"diffHighlight": "banana", "diffContext": -2}`), 0o644)

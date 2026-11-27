@@ -1698,7 +1698,7 @@ func (a *gitContext) scmMore(c *ui.Context, action *func()) {
 func (a *gitContext) scmScope(c *ui.Context) {
 	p := a.app.pal
 	row := ui.Row(c).Grow(1).Height(scmRowHeight).Padding(0, 4, 0, 6).AlignItems(ui.Center)
-	row.Tooltip(locales.ScmPathHistory(a.historyLabel()))
+	row.Tooltip(a.historyTip())
 	row.Children(func() {
 		ui.Box(c).Size(12, scmRowHeight)
 		chip := ui.Row(c).Height(20).MaxWidthPercent(100).Gap(4).Padding(0, 2, 0, 5).Radius(5).

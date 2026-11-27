@@ -132,19 +132,28 @@ func (a *gitContext) fileOf(hash string) string {
 }
 
 // showHistoryCommit shows a commit of the history shown, in the preview
-// tab or in one of its own: at the file it follows, alone when
-// diffCommitFileOnly says so, and whole for a folder's history, or
-// several paths', as for the branch's own.
+// tab or in one of its own: the files of the history's paths alone when
+// diffHistoryOnly says so, at the file it follows when not, and every
+// file of it for the branch's own history.
 func (a *gitContext) showHistoryCommit(cm git.Commit, keep bool) {
-	if a.git.historyFollow {
-		a.showCommitFromHistory(cm, a.fileOf(cm.Hash), keep)
+	paths := slices.Clone(a.git.historyPaths)
+	if len(paths) == 0 {
+		if keep {
+			a.showCommit(cm, true)
+		} else {
+			a.previewCommit(cm)
+		}
 		return
 	}
-	if keep {
-		a.showCommit(cm, true)
-	} else {
-		a.previewCommit(cm)
+	at := ""
+	if a.git.historyFollow {
+		// The file went by another name before a rename, and that name
+		// is the one the commit changed.
+		at = a.fileOf(cm.Hash)
+		paths = []string{at}
 	}
+	folder := len(paths) == 1 && !a.git.historyFollow
+	a.showCommitPaths(cm, paths, at, keep, a.app.settings.DiffHistoryOnly, folder)
 }
 
 // historyLabel names the paths whose history is read: the file, the
@@ -166,6 +175,26 @@ func (a *gitContext) historyLabel() string {
 		return rel + "/"
 	}
 	return rel
+}
+
+// historyTip names the paths whose history is read, and lists them when
+// there is more than one.
+func (a *gitContext) historyTip() string {
+	tip := locales.ScmPathHistory(a.historyLabel())
+	paths := a.git.historyPaths
+	if len(paths) < 2 || a.git.repo == nil {
+		return tip
+	}
+	// A long selection says how many more there are than it lists.
+	const listed = 20
+	for i, p := range paths {
+		if i == listed {
+			tip += "\n" + locales.ScmPathHistoryMore(len(paths)-listed)
+			break
+		}
+		tip += "\n" + a.git.repo.Rel(p)
+	}
+	return tip
 }
 
 // historyIcon is the icon of the row of the paths whose history is read.

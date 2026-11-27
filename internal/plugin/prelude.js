@@ -132,11 +132,14 @@
     workspace: {
       root: () => call("workspace.root"),
       isRemote: () => call("workspace.isRemote"),
-      open: (path, opts) => call("workspace.open", { path, line: opts?.line, column: opts?.column }),
-      readFile: (path) => call("workspace.readFile", { path }),
+      open: (path, opts) => call("workspace.open", { path, line: opts?.line, column: opts?.column, windowId: opts?.windowId, root: opts?.root }),
+      readFile: (path, opts) => call("workspace.readFile", { path, windowId: opts?.windowId, root: opts?.root }),
       writeFile: (path, text) => call("workspace.writeFile", { path, text }),
-      stat: (path) => call("workspace.stat", { path }),
-      findFiles: (glob, opts) => call("workspace.findFiles", { glob, limit: opts?.limit }),
+      stat: (path, opts) => call("workspace.stat", { path, windowId: opts?.windowId, root: opts?.root }),
+      findFiles: (glob, opts) => call("workspace.findFiles", {
+        glob, limit: opts?.limit, followSymlinks: opts?.followSymlinks, exclude: opts?.exclude, excludeFolders: opts?.excludeFolders,
+        windowId: opts?.windowId, root: opts?.root,
+      }),
       documents: async (opts) => (await call("workspace.documents", { windowId: opts?.windowId })).map(doc),
       document: async (ref) => doc(await call("workspace.document", { ref })),
     },
@@ -220,15 +223,16 @@
       };
     },
     views: {
-      render(id, tree) {
-        drop("view:" + id);
-        return call("views.render", { id, tree: withHandlers("view:" + id, tree) });
+      render(id, tree, opts) {
+        const owner = "view:" + id + (opts?.root ? ":" + opts.root : "");
+        drop(owner);
+        return call("views.render", { id, tree: withHandlers(owner, { ...tree, workspace: opts?.root }) });
       },
       onShow(id, fn) {
         viewShows.set(id, fn);
         return disposable(() => viewShows.delete(id));
       },
-      reveal: (id) => call("views.reveal", { id }),
+      reveal: (id, opts) => call("views.reveal", { id, windowId: opts?.windowId }),
     },
     previews: {
       register(id, fn) {
@@ -312,7 +316,7 @@
       }
       case "viewShow": {
         const fn = viewShows.get(p.id);
-        if (fn) await fn();
+        if (fn) await fn({ root: p.root, windowId: p.windowId });
         return null;
       }
       case "webview": {

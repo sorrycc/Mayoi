@@ -231,7 +231,7 @@ func TestPluginViewStateIsTheWindows(t *testing.T) {
 	hs.settle()
 	pv := a.viewStates["lint.view"]
 	viewsMu.Lock()
-	rv := pluginViews["lint.view"]
+	rv := pluginViews[pluginViewKey{id: "lint.view"}]
 	viewsMu.Unlock()
 	one, other := rv.tree.Children[0].Items[0], rv.tree.Children[1].Items[0]
 	if pv.sel != one.path || one.path == other.path {

@@ -226,7 +226,7 @@ Every call that reaches the editor returns a promise.
 | `commands`               | `register(id, fn, {title})`, `run(id, arg)` (Mayoi's commands too), `list()`              |
 | `editor`                 | `active()`, `visible()`; an editor's `document`, `selections`, `edit(edits, {version})`, `insert(text)`, `setSelections`, `reveal(line)` |
 | a document               | `path`, `name`, `language`, `version`, `isDirty`, `lineCount`, `text(range?)`, `lineAt(line)`, `save()` |
-| `workspace`              | `root()`, `isRemote()`, `open(path, {line})`, `readFile`, `writeFile`, `stat`, `findFiles(glob)`, `documents()` |
+| `workspace`              | `root()`, `isRemote()`, `open(path, {line})`, `readFile`, `writeFile`, `stat`, `findFiles(glob, {limit, exclude, followSymlinks})`, `documents()` |
 | `window`                 | `notify(message, {action})`, `fail`, `pick(items)`, `prompt({title, value})`, `progress(title, fn)`, `openText(text)` |
 | `settings`               | `get(key)` of the plugin's settings, `all()`, `mayoi(key)` of Mayoi's own, `onChange(fn)` |
 | `storage`                | `get(key)`, `set(key, value)` and `keys()`, global or with `{folder: true}` of the folder |
@@ -243,6 +243,11 @@ Every call that reaches the editor returns a promise.
 
 An edit names the version of the document it was worked out from. When the document changed since, as when you typed
 meanwhile, `edit` returns `false` and changes nothing. An edit that applies is one step of undo.
+
+Pass `followSymlinks: true` to `workspace.findFiles` to follow directory symlinks when `searchFollowSymlinks` is enabled
+for the local workspace. The bundled **TODOs** view uses this option when it scans.
+The include glob and the `exclude` globs use the same syntax as **Find in Files**. Both apply before the result limit.
+The optional `excludeFolders` list excludes literal folder names or paths.
 
 #### Events
 

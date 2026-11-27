@@ -113,15 +113,23 @@ declare module "mayoi" {
     mtime: number;
   }
 
+  export interface WorkspaceContext {
+    root: string;
+    windowId: number;
+  }
+
   /** The folder of the window in front. Paths are absolute, or relative to the folder. */
   export const workspace: {
     root(): Promise<string>;
     isRemote(): Promise<boolean>;
-    open(path: string, opts?: { line?: number; column?: number }): Promise<void>;
-    readFile(path: string): Promise<string>;
+    open(path: string, opts?: Partial<WorkspaceContext> & { line?: number; column?: number }): Promise<void>;
+    readFile(path: string, opts?: Partial<WorkspaceContext>): Promise<string>;
     writeFile(path: string, text: string): Promise<void>;
-    stat(path: string): Promise<FileStat | null>;
-    findFiles(glob: string, opts?: { limit?: number }): Promise<string[]>;
+    stat(path: string, opts?: Partial<WorkspaceContext>): Promise<FileStat | null>;
+    /** With followSymlinks, follows local directory links when searchFollowSymlinks is enabled. */
+    findFiles(glob: string, opts?: Partial<WorkspaceContext> & {
+      limit?: number; followSymlinks?: boolean; exclude?: string; excludeFolders?: string[];
+    }): Promise<string[]>;
     documents(opts?: { windowId?: number }): Promise<Document[]>;
     document(ref: DocumentRef): Promise<Document | null>;
   };
@@ -184,7 +192,7 @@ declare module "mayoi" {
     "editor.didSave": DocumentEvent;
     "editor.close": { path: string; ref: DocumentRef };
     "editor.metadata": DocumentEvent;
-    "workspace.changed": { root: string };
+    "workspace.changed": WorkspaceContext;
     "git.changed": { root: string };
     "theme.changed": { theme: string; dark: boolean };
     "settings.changed": Record<string, never>;
@@ -263,10 +271,10 @@ declare module "mayoi" {
     | { type: "svg"; svg: string; height?: number }
     | { type: "list"; items: ViewListItem[]; empty?: string }
     | { type: "tree"; items: ViewTreeItem[] }
-    | { type: "input"; value?: string; placeholder?: string; onChange?: (v: string) => unknown; onSubmit?: (v: string) => unknown }
+    | { type: "input"; value?: string; label?: string; placeholder?: string; onChange?: (v: string) => unknown; onSubmit?: (v: string) => unknown }
     | { type: "select"; value?: string; options: string[]; onChange?: (v: string) => unknown }
     | { type: "checkbox"; label: string; checked?: boolean; onChange?: (v: boolean) => unknown }
-    | { type: "button"; label: string; icon?: string; primary?: boolean; onClick?: () => unknown }
+    | { type: "button"; label: string; tooltip?: string; icon?: string; primary?: boolean; onClick?: () => unknown }
     | { type: "progress"; value?: number }
     | { type: "divider" }
     | { type: "empty"; text: string; icon?: string };
@@ -290,10 +298,10 @@ declare module "mayoi" {
 
   export const views: {
     /** Draws a view plugin.json declares, until it renders again. */
-    render(id: string, tree: ViewNode): Promise<void>;
+    render(id: string, tree: ViewNode, opts?: { root?: string }): Promise<void>;
     /** Runs fn as the view shows, to render it. */
-    onShow(id: string, fn: () => unknown): Disposable;
-    reveal(id: string): Promise<void>;
+    onShow(id: string, fn: (context: WorkspaceContext) => unknown): Disposable;
+    reveal(id: string, opts?: { windowId?: number }): Promise<void>;
   };
 
   export const previews: {

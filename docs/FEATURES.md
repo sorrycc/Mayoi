@@ -1028,6 +1028,10 @@ language servers, and they work on SSH folders with nothing installed on the hos
 - Signed in, the plugins you install from Git follow you to your other machines.
 - Mayoi comes with **Word Count**, the words of a Markdown file in the status bar, **TODOs**, the folder's TODO
   comments in the sidebar, and the language servers of Go, TypeScript and JavaScript, Python, Rust and C/C++.
+- In **TODOs**, open **⋯** to set files to include and exclude with the same patterns as **Find in Files**.
+  Press Enter in either field to apply them. Each workspace remembers its scope.
+- **Find TODOs Again** in the command palette scans the folder again, as does saving a file; a scan that fails
+  offers it in the view.
 - They start off. A file of a language whose server is off offers **Turn On** when its program is installed, and
   says how to install it when it is not; a server's `path` setting names a program not on the path.
 - A plugin you install under the name of one Mayoi comes with takes its place.

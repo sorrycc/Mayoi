@@ -11,6 +11,11 @@ needs a `## <version>` section here, or its build fails.
 - A host that runs neither `sh` nor PowerShell now says why it can't connect, instead of "not connected".
 - Such a host is no longer retried forever; **Reconnect** tries it again.
 - A plugin theme can ship light and dark palettes under one entry with `darkPath`, following **Appearance**.
+- **TODOs** follows directory symlinks when **Settings → Editor → Follow Directory Symlinks** is on.
+- Filter **TODOs** by text, file path, or tag as you type.
+- Set which files **TODOs** scans in **⋯** and save that scope for each workspace.
+- **TODOs** uses the same file filter labels as **Search** in every language.
+- **TODOs** drops its inline **Refresh** button; a scan that fails offers **Find TODOs Again** instead.
 
 ## 0.23.5
 

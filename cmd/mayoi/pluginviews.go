@@ -43,9 +43,11 @@ type viewNode struct {
 	Placeholder string      `json:"placeholder"`
 	Options     []string    `json:"options"`
 	Label       string      `json:"label"`
+	Tooltip     string      `json:"tooltip"`
 	Checked     bool        `json:"checked"`
 	Icon        string      `json:"icon"`
 	Primary     bool        `json:"primary"`
+	Workspace   string      `json:"workspace"`
 	OnClick     *handlerRef `json:"onClick"`
 	OnChange    *handlerRef `json:"onChange"`
 	OnSubmit    *handlerRef `json:"onSubmit"`
@@ -95,6 +97,9 @@ type pluginView struct {
 	// last clicked, by path.
 	open map[string]bool
 	sel  string
+	// The onShow request made while a restored sidebar waits for its tree.
+	requestedRoot   string
+	requestedPlugin *plugin.Plugin
 }
 
 // renderedView is the tree a plugin rendered a view with last, which
@@ -120,26 +125,28 @@ func (h *pluginHost) renderView(p *plugin.Plugin, id string, raw json.RawMessage
 		return err
 	}
 	h.mu.Lock()
-	old := h.views[id]
 	h.views[id] = &n
 	h.mu.Unlock()
-	// Text fields keep what was typed in them, by place.
-	if old != nil {
-		keepInputs(old, &n)
-	}
+	key := pluginViewKey{id, n.Workspace}
 	viewsMu.Lock()
-	pluginViews[id] = &renderedView{plugin: p, tree: &n}
+	// Text fields keep what was typed in them, by place.
+	if old := pluginViews[key]; old != nil && old.plugin == p {
+		keepInputs(old.tree, &n)
+	}
+	pluginViews[key] = &renderedView{plugin: p, tree: &n}
 	viewsMu.Unlock()
 	h.redraw()
 	return nil
 }
 
-// pluginViews are the views rendered, by id.
-var pluginViews = map[string]*renderedView{}
+type pluginViewKey struct{ id, root string }
+
+// An empty root is a view shared by every window.
+var pluginViews = map[pluginViewKey]*renderedView{}
 
 // viewState is this window's state of the plugin view of id, as the tree
 // the plugin rendered last.
-func (a *app) viewState(id string, rv *renderedView) *pluginView {
+func (a *app) pluginViewState(id string) *pluginView {
 	pv := a.viewStates[id]
 	if pv == nil {
 		if a.viewStates == nil {
@@ -148,6 +155,11 @@ func (a *app) viewState(id string, rv *renderedView) *pluginView {
 		pv = &pluginView{open: map[string]bool{}}
 		a.viewStates[id] = pv
 	}
+	return pv
+}
+
+func (a *app) viewState(id string, rv *renderedView) *pluginView {
+	pv := a.pluginViewState(id)
 	pv.plugin, pv.tree = rv.plugin, rv.tree
 	return pv
 }
@@ -237,14 +249,21 @@ func (a *app) showPluginView(id string) {
 	}
 	a.settings.Changed()
 	if slot.webview == nil {
-		p := slot.plugin
-		plugins.reg.Activate("onView:" + id)
-		bg.Go(func() {
-			ctx, cancel := context.WithTimeout(context.Background(), plugin.BusyLimit)
-			defer cancel()
-			p.Request(ctx, "viewShow", map[string]any{"id": id})
-		})
+		a.requestPluginView(slot)
 	}
+}
+
+func (a *app) requestPluginView(slot *pluginSlot) {
+	pv := a.pluginViewState(slot.id)
+	pv.requestedRoot, pv.requestedPlugin = a.root, slot.plugin
+	p := slot.plugin
+	payload := map[string]any{"id": slot.id, "root": a.root, "windowId": a.pluginWindow()}
+	plugins.reg.Activate("onView:" + slot.id)
+	bg.Go(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), plugin.BusyLimit)
+		defer cancel()
+		p.Request(ctx, "viewShow", payload)
+	})
 }
 
 // pluginSwitches are the sidebar's buttons of the plugins' views.
@@ -286,10 +305,17 @@ func (a *app) pluginSidebar(c *ui.Context) {
 		return
 	}
 	viewsMu.Lock()
-	rv := pluginViews[id]
+	rv := pluginViews[pluginViewKey{id, a.root}]
+	if rv == nil {
+		rv = pluginViews[pluginViewKey{id, ""}]
+	}
 	viewsMu.Unlock()
-	if rv == nil || rv.tree == nil {
+	if rv == nil || rv.tree == nil || rv.plugin != slot.plugin {
 		// Until the plugin, which may be starting, renders the view.
+		pv := a.pluginViewState(id)
+		if pv.requestedRoot != a.root || pv.requestedPlugin != slot.plugin {
+			a.requestPluginView(slot)
+		}
 		ui.Column(c.Key("plugin-view-waits")).Padding(28, 20).Gap(10).AlignItems(ui.Center).Transition(revealFade).Children(func() {
 			ui.Spinner(c).Size(16, 16)
 			ui.Text(c, locales.PluginViewLoading()).FontSize(12).TextColor(p.muted)
@@ -389,7 +415,11 @@ func (a *app) drawViewNode(c *ui.Context, key any, n *viewNode, pv *pluginView) 
 			v := n.Value
 			n.input = &v
 		}
-		in := a.textKeys(ui.TextInput(c.Key(key), n.input)).FontSize(12.5).Placeholder(n.Placeholder).Label(n.Placeholder)
+		label := n.Label
+		if label == "" {
+			label = n.Placeholder
+		}
+		in := a.textKeys(ui.TextInput(c.Key(key), n.input)).FontSize(12.5).Placeholder(n.Placeholder).Label(label)
 		if in.Changed() {
 			call(n.OnChange, *n.input)
 		}
@@ -428,6 +458,9 @@ func (a *app) drawViewNode(c *ui.Context, key any, n *viewNode, pv *pluginView) 
 			b = ui.Button(c.Key(key), n.Label)
 		}
 		b.FontSize(12).Padding(3, 10)
+		if n.Tooltip != "" {
+			b.Label(n.Tooltip).Tooltip(n.Tooltip)
+		}
 		pressPose(b)
 		if b.Clicked() {
 			call(n.OnClick, nil)

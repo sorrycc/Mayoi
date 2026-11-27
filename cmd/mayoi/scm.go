@@ -1009,12 +1009,6 @@ func (a *gitContext) scmHeader(c *ui.Context, r scmRow, action *func()) {
 // just opened, or for a file just changed. The rows shown at first, or
 // once the section or the layout changes, show at once.
 func (a *gitContext) scmFade(c *ui.Context, row ui.Element, key string) {
-	a.scmFadeRow(c, row, key, false)
-}
-
-// scmFadeRow is scmFade, resting at scmIncomingFade when faded is set, as
-// for a commit the upstream has and HEAD lacks.
-func (a *gitContext) scmFadeRow(c *ui.Context, row ui.Element, key string, faded bool) {
 	s := a.scm
 	now := c.Now()
 	if s.appearGen != s.rowsGen {
@@ -1026,15 +1020,9 @@ func (a *gitContext) scmFadeRow(c *ui.Context, row ui.Element, key string, faded
 		s.appear.note(len(rows), func(i int) string { return rows[i].key }, now, scope != s.appearScope)
 		s.appearGen, s.appearScope = s.rowsGen, scope
 	}
-	shown := s.appear.shown(key, now)
-	if shown < 1 {
+	if k := s.appear.shown(key, now); k < 1 {
+		row.Opacity(k)
 		c.AnimationFrame()
-	}
-	if faded {
-		shown *= scmIncomingFade
-	}
-	if shown < 1 {
-		row.Opacity(shown)
 	}
 }
 
@@ -1260,7 +1248,10 @@ func (a *gitContext) scmCommit(c *ui.Context, r scmRow, action *func()) {
 		row.Background(p.active)
 	}
 	focused := selected || a.scm.row >= 0 && a.scm.row < len(a.scm.rows) && a.scm.rows[a.scm.row].key == r.key
-	a.scmFadeRow(c, row, r.key, incoming && !focused && !row.Hovered())
+	// A commit not pulled yet rests quieter, its subject muted and its
+	// graph and avatar faded, and shows in full under the pointer or keys.
+	quiet := incoming && !focused && !row.Hovered()
+	a.scmFade(c, row, r.key)
 	clicked := row.Clicked()
 	row.ContextMenu(func(m *ui.Menu) { a.scmCommitMenu(m, cm, head, action) })
 	open := a.scm.openCommits[cm.Hash]
@@ -1283,17 +1274,24 @@ func (a *gitContext) scmCommit(c *ui.Context, r scmRow, action *func()) {
 			if b.Clicked() {
 				*action = func() { a.toggleCommitOpen(*cm) }
 			}
-			ui.Box(c).Size(graphLaneW*float32(lanes-1)+12, 22).Shrink(0).Draw(func(pt *ui.Painter, b ui.Rect) {
+			graphBox := ui.Box(c).Size(graphLaneW*float32(lanes-1)+12, 22).Shrink(0).Draw(func(pt *ui.Painter, b ui.Rect) {
 				if gr != nil {
 					a.app.paintGraphRow(pt, b, gr, cm, head)
 				}
 			})
+			if quiet {
+				graphBox.Opacity(scmIncomingFade)
+			}
 		}
 		ring := p.chrome
 		if a.scm.selection.Has(r.key) {
 			ring = mix(p.chrome, p.active.Alpha(1), float32(p.active.A)/255)
 		}
-		a.app.commitAvatar(c, cm.Author, cm.Email, cm.CoAuthors, 15, ring)
+		avatar := ui.Box(c).Shrink(0)
+		if quiet {
+			avatar.Opacity(scmIncomingFade)
+		}
+		avatar.Children(func() { a.app.commitAvatar(c, cm.Author, cm.Email, cm.CoAuthors, 15, ring) })
 		lane := p.accent
 		if gr != nil {
 			lane = graphColor(p, gr.color)
@@ -1321,7 +1319,7 @@ func (a *gitContext) scmCommit(c *ui.Context, r scmRow, action *func()) {
 		}
 		col := p.text
 		switch {
-		case len(cm.Parents) > 1:
+		case quiet, len(cm.Parents) > 1:
 			col = p.muted
 		case !unpushed && !head:
 			col = mix(p.text, p.muted, 0.35)
@@ -1406,8 +1404,9 @@ const (
 	graphMaxLanes = 6
 )
 
-// scmIncomingFade is how solid a row of a commit the upstream has and HEAD
-// lacks shows: readable, and plainly not one of HEAD's yet.
+// scmIncomingFade is how solid the graph and avatar of a commit the
+// upstream has and HEAD lacks rest: plainly not one of HEAD's yet. Its
+// text is never faded, so it stays as legible as a merge's.
 const scmIncomingFade = 0.6
 
 // badgeRoom is how many of n badges a commit's row shows, and how wide
@@ -1633,7 +1632,8 @@ func (a *gitContext) scmCommitMenu(m *ui.Menu, cm *git.Commit, head bool, action
 	if m.Item(locales.ScmResetTo(branch)).Disabled(moving || head).Chosen() {
 		*action = func() { a.resetTo(*cm) }
 	}
-	if m.Item(locales.ScmRevertCommit()).Disabled(moving).Chosen() {
+	// A commit not pulled yet has no changes in HEAD to take back.
+	if m.Item(locales.ScmRevertCommit()).Disabled(moving || g.incoming[cm.Hash]).Chosen() {
 		*action = func() { a.revertCommit(*cm) }
 	}
 	if m.Item(locales.ScmCherryPickCommit()).Disabled(moving || in).Chosen() {

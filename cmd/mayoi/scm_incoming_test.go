@@ -3,6 +3,7 @@ package main
 import (
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -161,6 +162,29 @@ func TestScmIncoming(t *testing.T) {
 			t.Errorf("hover card for local commit should not show %q: %q", locales.ScmNotPulled(), r.hs.tt.Texts())
 		}
 		r.hs.tt.Move(1, 1)
+		r.hs.settle()
+	})
+
+	t.Run("revert waits for pull", func(t *testing.T) {
+		revert := func(subject string) error {
+			t.Helper()
+			if err := r.hs.tt.RightClick(subject); err != nil {
+				t.Fatal(err)
+			}
+			r.hs.settle()
+			defer r.hs.tt.CloseMenu()
+			if !slices.Contains(r.hs.tt.Menu(), locales.ScmRevertCommit()) {
+				t.Fatalf("menu of %q = %q", subject, r.hs.tt.Menu())
+			}
+			return r.hs.tt.ChooseMenuItem(locales.ScmRevertCommit())
+		}
+		if err := revert("remote two"); err == nil || !strings.Contains(err.Error(), "disabled") {
+			t.Fatalf("Revert Commit on an incoming commit: %v", err)
+		}
+		if err := revert("local one"); err != nil || r.hs.a.confirm == nil {
+			t.Fatalf("Revert Commit on a local commit: %v, asked %v", err, r.hs.a.confirm != nil)
+		}
+		r.hs.a.dismiss()
 		r.hs.settle()
 	})
 

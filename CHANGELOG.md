@@ -11,6 +11,7 @@ needs a `## <version>` section here, or its build fails.
 - A host that runs neither `sh` nor PowerShell now says why it can't connect, instead of "not connected".
 - Such a host is no longer retried forever; **Reconnect** tries it again.
 - A plugin theme can ship light and dark palettes under one entry with `darkPath`, following **Appearance**.
+- Fetched remote commits appear faded under **COMMITS** so you can inspect them before pulling.
 
 ## 0.23.5
 
@@ -34,7 +35,6 @@ needs a `## <version>` section here, or its build fails.
 - Changed files that are symbolic links show the same mark in the **Source Control** changes list.
 - A tab dragged to another project's square no longer gets lost on its way over that project's files.
 - Find in Files follows directory symlinks in local projects.
-- Fetched remote commits appear faded under **COMMITS** so you can inspect them before pulling.
 
 ## 0.23.3
 

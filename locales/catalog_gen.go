@@ -18094,6 +18094,36 @@ func (msgs Messages) SnippetsPlaceholder() string {
 	return Catalog.Format(msgs.locale, "snippetsPlaceholder", nil)
 }
 
+// CmdEditorChangeLanguage says "Change Language…"
+// in the language the app shows.
+func CmdEditorChangeLanguage() string { return In(i18n.Locale()).CmdEditorChangeLanguage() }
+
+// CmdEditorChangeLanguage says "Change Language…"
+// in the language of msgs.
+func (msgs Messages) CmdEditorChangeLanguage() string {
+	return Catalog.Format(msgs.locale, "cmdEditorChangeLanguage", nil)
+}
+
+// LanguageAutoDetect says "Auto Detect"
+// in the language the app shows.
+func LanguageAutoDetect() string { return In(i18n.Locale()).LanguageAutoDetect() }
+
+// LanguageAutoDetect says "Auto Detect"
+// in the language of msgs.
+func (msgs Messages) LanguageAutoDetect() string {
+	return Catalog.Format(msgs.locale, "languageAutoDetect", nil)
+}
+
+// LanguagePickPlaceholder says "Select a language mode"
+// in the language the app shows.
+func LanguagePickPlaceholder() string { return In(i18n.Locale()).LanguagePickPlaceholder() }
+
+// LanguagePickPlaceholder says "Select a language mode"
+// in the language of msgs.
+func (msgs Messages) LanguagePickPlaceholder() string {
+	return Catalog.Format(msgs.locale, "languagePickPlaceholder", nil)
+}
+
 // PluginsSyncInstalled says "Settings sync installed {names}"
 // in the language the app shows.
 func PluginsSyncInstalled(names string) string { return In(i18n.Locale()).PluginsSyncInstalled(names) }

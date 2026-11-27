@@ -586,6 +586,11 @@ type Tab struct {
 	// the number of its name.
 	Untitled string `json:"untitled,omitempty"`
 	Number   int    `json:"number,omitempty"`
+	// Language is the language chosen for the tab's document, "" for the
+	// one its file name gives, and LanguagePlugin the plugin that declares
+	// it, "" for Mayoi's own.
+	Language       string `json:"language,omitempty"`
+	LanguagePlugin string `json:"languagePlugin,omitempty"`
 	// Issue is the number of the issue, or of the pull request whose
 	// conversation, the tab shows, of the repository at RepoRoot.
 	Issue int `json:"issue,omitempty"`

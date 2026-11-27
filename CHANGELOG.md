@@ -5,6 +5,13 @@ needs a `## <version>` section here, or its build fails.
 
 ## Unreleased
 
+- **Toggle Line Comment** wraps JSX children in `{/* ... */}`, so React leaves them out of the page.
+- On Windows, `F12` and `Ctrl`-click now open definitions in WSL folders and on Linux SSH hosts.
+- On Windows, language server errors and warnings now show in WSL folders and on Linux SSH hosts.
+- Click the language in the status bar, or run `Change Language…`, to pick how a file or untitled tab is highlighted.
+- The language box opens on the current choice and offers **Auto Detect** to go back to the file name's language.
+- A chosen language moves the file to that language's server and drops the old server's problems.
+- A chosen language comes back with its tab after a restart; **Save As** goes back to Auto Detect.
 - **Git → Open File History** lists the commits that changed a file, each opening at that file.
 - A commit opened from a history shows only the files of its paths; **Only Selected Paths** in the diff shows the rest.
 - `diffHistoryOnly` turns that off, so the commit opens with every file of it.
@@ -16,6 +23,7 @@ needs a `## <version>` section here, or its build fails.
 - On a Windows host, `/` lists its drives and the folder box takes `C:\Users\me` as you type it.
 - A host that runs neither `sh` nor PowerShell now says why it can't connect, instead of "not connected".
 - Such a host is no longer retried forever; **Reconnect** tries it again.
+- A plugin theme can ship light and dark palettes under one entry with `darkPath`, following **Appearance**.
 
 ## 0.23.5
 

@@ -196,3 +196,19 @@ func TestLanguageServerRetryOnOpen(t *testing.T) {
 	a.openFile(path, true)
 	hs.until("the server's diagnostics", func() bool { return len(h.diagnosticsOf(path)) == 1 })
 }
+
+func TestServerPathOnRemoteLinux(t *testing.T) {
+	for _, root := range []string{"/wsl:Ubuntu", "/ssh:linux"} {
+		for _, path := range []string{"/home/oss/project/src/common.h", "/usr/include/stdio.h"} {
+			if got := serverPath(root+"/home/oss/project", "file://"+path); got != root+path {
+				t.Errorf("serverPath(%q, %q) = %q, want %q", root, path, got, root+path)
+			}
+		}
+	}
+	// A Windows host's server spells a drive as it likes.
+	for _, uri := range []string{"file:///c:/Users/me/a.go", "file:///C%3A/Users/me/a.go"} {
+		if got, want := serverPath("/ssh:win/C:/Users/me", uri), "/ssh:win/C:/Users/me/a.go"; got != want {
+			t.Errorf("serverPath(%q) = %q, want %q", uri, got, want)
+		}
+	}
+}

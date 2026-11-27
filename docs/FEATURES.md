@@ -71,6 +71,8 @@ Closing a changed file saves it without asking. Untitled files wait for ⌘S. Tu
 - Enter keeps the indent, and indents one more level after an opening bracket.
 - Brackets and quotes close themselves, wrap a selection, and are stepped over when typed again.
 - Commands comment lines, move, copy and delete lines, and insert a line above or below.
+- In JSX and TSX, **Toggle Line Comment** wraps the lines of JSX children in `{/* ... */}`, where `//` would be text
+  on the page; a line in a tag or in JavaScript keeps `//`.
 - Cut (⌘X) cuts the selection, or the entire line at the caret when nothing is selected. Undo restores it in one step.
 - Home goes to the first non-blank character of the line.
 - The status bar shows the file's indentation and line endings, and you can change either from there.

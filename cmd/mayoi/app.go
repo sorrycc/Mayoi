@@ -328,8 +328,10 @@ type app struct {
 	panelScroll ui.ScrollState
 	panelLayout panelHeaderLayout
 	// termTheme is the theme of the settings the terminals have the colors
-	// of.
+	// of, and termGen the plugins' generation then, as a plugin's theme
+	// may change under its name.
 	termTheme string
+	termGen   uint64
 	// termFont is the font the terminals have.
 	termFont terminal.Font
 	// termCopy is whether the terminals copy what is selected.

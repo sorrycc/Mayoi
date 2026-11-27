@@ -11,6 +11,7 @@ import (
 	"github.com/egoist/mygo/ui"
 
 	"mayoi/internal/highlight"
+	"mayoi/internal/settings"
 	"mayoi/locales"
 )
 
@@ -40,7 +41,7 @@ func TestLanguagePickerEntrances(t *testing.T) {
 					tt.Key(0, ui.KeyEnter)
 				}
 				hs.settle()
-				if !a.pluginPick.open || a.pluginPick.placeholder != locales.CmdEditorChangeLanguage() {
+				if !a.pluginPick.open || a.pluginPick.placeholder != locales.LanguagePickPlaceholder() {
 					t.Fatal("language picker did not open")
 				}
 				tt.Type("JSONC")
@@ -251,5 +252,233 @@ func TestLanguageChangeDiscardsPendingLSPAnswer(t *testing.T) {
 				t.Fatal("old language's hover answer was displayed")
 			}
 		})
+	}
+}
+
+// pickLanguage chooses a row of the box of languages by what is typed.
+func pickLanguage(hs *harness, query string) {
+	hs.tt.Type(query)
+	hs.settle()
+	hs.tt.Key(0, ui.KeyEnter)
+	hs.settle()
+}
+
+func TestLanguagePickerExtensionlessAutoDetect(t *testing.T) {
+	hs := newHarness(t, false)
+	a, tt := hs.a, hs.tt
+	a.settings.AutoSave = false // the unsaved change has to stay unsaved
+	path := hs.path("notes")
+	if err := os.WriteFile(path, []byte("{\"a\": 1}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	a.openFile(path, true)
+	hs.settle()
+	ed := a.activeEditor()
+	d := ed.document
+	tt.Type("x")
+	hs.key(ui.Shift, ui.KeyRight)
+	hs.key(ui.Shift, ui.KeyRight)
+	hs.settle()
+	if ed.sel[0] == ed.sel[1] {
+		t.Fatal("no selection")
+	}
+	text, version, dirty, sel := d.buf.String(), d.buf.Version(), d.dirty(), ed.sel
+	kept := func(when string) {
+		t.Helper()
+		if d.buf.String() != text || d.buf.Version() != version || d.dirty() != dirty || ed.sel != sel || d.path != path {
+			t.Fatalf("%s changed the document", when)
+		}
+	}
+	if err := tt.Click("Plain Text"); err != nil {
+		t.Fatal(err)
+	}
+	hs.settle()
+	pk := &a.pluginPick
+	if !pk.open || pk.items[0].Label != locales.LanguageAutoDetect() || !pk.items[0].current || pk.sel != 0 {
+		t.Fatal("the box did not open on Auto Detect")
+	}
+	if pk.items[0].Description != "Plain Text" {
+		t.Fatalf("Auto Detect says %q, want what the file name gives", pk.items[0].Description)
+	}
+	pickLanguage(hs, "JSON")
+	if languageOf(d) != "json" || highlight.Name(d.hl.Lexer()) != "JSON" || !tt.HasText("JSON") {
+		t.Fatal("JSON was not applied or shown")
+	}
+	kept("choosing JSON")
+	// A second editor of the document shows its language too.
+	a.splitRight()
+	hs.settle()
+	if other := a.activeEditor(); other == ed || other.document != d || documentLanguageName(other.document) != "JSON" {
+		t.Fatal("the split does not show the document's language")
+	}
+	a.openLanguagePicker()
+	hs.settle()
+	if it := pk.items[pk.sel]; it.Label != "JSON" || !it.current {
+		t.Fatalf("the box opened on %q, not the current language", it.Label)
+	}
+	pickLanguage(hs, "Auto Detect")
+	if d.language != "" || languageOf(d) != "plaintext" || d.hl.Lexer() != nil || !tt.HasText("Plain Text") {
+		t.Fatal("Auto Detect did not go back to the file name's language")
+	}
+	kept("Auto Detect")
+	ed.undo()
+	hs.settle()
+	if d.buf.String() != "{\"a\": 1}\n" {
+		t.Fatal("choosing languages changed undo")
+	}
+}
+
+func TestLanguageAutoDetectFollowsFileName(t *testing.T) {
+	hs, ed := editHarness(t, "main.go", "package main\n")
+	a := hs.a
+	a.openLanguagePicker()
+	hs.settle()
+	if got := a.pluginPick.items[0].Description; got != "Go" {
+		t.Fatalf("Auto Detect says %q, want Go", got)
+	}
+	pickLanguage(hs, "Plain Text")
+	if languageOf(ed.document) != "plaintext" || ed.hl.Lexer() != nil {
+		t.Fatal("Plain Text did not override the file name")
+	}
+	a.openLanguagePicker()
+	hs.settle()
+	pickLanguage(hs, "Auto Detect")
+	if languageOf(ed.document) != "go" || highlight.Name(ed.hl.Lexer()) != "Go" {
+		t.Fatal("Auto Detect did not give Go back")
+	}
+}
+
+func TestLanguagePickerUsesMayoiLexers(t *testing.T) {
+	hs := newHarness(t, false)
+	a := hs.a
+	a.newFile()
+	hs.settle()
+	d := a.activeEditor().document
+	for _, c := range []struct{ query, file string }{{"Markdown", "a.md"}, {"Vue", "a.vue"}} {
+		a.openLanguagePicker()
+		hs.settle()
+		pickLanguage(hs, c.query)
+		if d.hl.Lexer() != highlight.Lexer(c.file) {
+			t.Fatalf("%s got another lexer than %s files", c.query, c.file)
+		}
+	}
+}
+
+func TestLanguageRestoredWithTab(t *testing.T) {
+	hs := newHarness(t, false)
+	a := hs.a
+	path := hs.path("notes")
+	if err := os.WriteFile(path, []byte("{}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	a.openFile(path, true)
+	hs.settle()
+	ed := a.activeEditor()
+	a.openLanguagePicker()
+	hs.settle()
+	pickLanguage(hs, "JSON")
+	var ts settings.Tab
+	for _, col := range a.session().Columns {
+		for _, tab := range col.Tabs {
+			if tab.File == path {
+				ts = tab
+			}
+		}
+	}
+	if ts.Language != "json" || ts.LanguagePlugin != "" {
+		t.Fatalf("session kept language %q of %q", ts.Language, ts.LanguagePlugin)
+	}
+	a.clearDocumentLanguage(ed.document)
+	a.restoreEditor(ed, ts)
+	if languageOf(ed.document) != "json" || highlight.Name(ed.hl.Lexer()) != "JSON" {
+		t.Fatal("restoring the tab did not restore its language")
+	}
+	// A language Mayoi no longer knows is left out; one of a plugin not
+	// loaded yet waits for it.
+	a.clearDocumentLanguage(ed.document)
+	a.restoreEditor(ed, settings.Tab{File: path, Language: "nosuchlanguage"})
+	if ed.document.language != "" {
+		t.Fatal("an unknown language was restored")
+	}
+	a.restoreEditor(ed, settings.Tab{File: path, Language: "example", LanguagePlugin: "syntax"})
+	if languageOf(ed.document) != "example" || ed.document.languageOwner != "syntax" {
+		t.Fatal("a plugin's language was not kept for the plugin")
+	}
+}
+
+func TestLanguageChangeDropsLateDiagnostics(t *testing.T) {
+	t.Setenv("MAYOI_FAKE_LSP", "1")
+	server := func(name, id, language string) string {
+		m, _ := json.Marshal(map[string]any{"name": name, "contributes": map[string]any{"languageServers": []any{
+			map[string]any{"id": id, "languages": []string{language}, "command": os.Args[0], "args": []string{"-test.run=^$"}},
+		}}})
+		return string(m)
+	}
+	hs := newHarness(t, false)
+	a := hs.a
+	h := withPlugins(hs, map[string]map[string]string{
+		"fakego":   {"plugin.json": server("fakego", "fakego.server", "go")},
+		"fakejson": {"plugin.json": server("fakejson", "fakejson.server", "json")},
+	})
+	t.Cleanup(stopServers)
+	path := hs.path("bad.go")
+	if err := os.WriteFile(path, []byte("bad"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	a.openFile(path, true)
+	hs.until("Go diagnostics", func() bool { return len(h.diagnosticsOf(path)) == 1 })
+	goServer := serverOf(serverKey(a.root, "fakego.server"))
+	goOwner, jsonOwner := goServer.owner(), "lsp:fakejson.server\x00"+a.root
+	a.openLanguagePicker()
+	hs.settle()
+	pickLanguage(hs, "JSON")
+	hs.until("JSON diagnostics", func() bool {
+		h.mu.Lock()
+		defer h.mu.Unlock()
+		return h.diags[path][jsonOwner] != nil && h.diags[path][goOwner] == nil
+	})
+	// The Go server answers a change it got before the switch.
+	uri := serverURI(path)
+	goServer.live().Notify("textDocument/didChange", map[string]any{
+		"textDocument": map[string]any{"uri": uri, "version": 9}, "contentChanges": []any{map[string]any{"text": "bad"}}})
+	serverDocumentLanguages(t, goServer) // its publish comes before this answer
+	hs.settle()
+	h.mu.Lock()
+	late := h.diags[path][goOwner]
+	h.mu.Unlock()
+	if late != nil {
+		t.Fatal("the old server's late diagnostics came back")
+	}
+	// Back to Go, the Go server's diagnostics are its again.
+	a.openLanguagePicker()
+	hs.settle()
+	pickLanguage(hs, "Auto Detect")
+	hs.until("Go diagnostics again", func() bool {
+		h.mu.Lock()
+		defer h.mu.Unlock()
+		return h.diags[path][goOwner] != nil && h.diags[path][jsonOwner] == nil
+	})
+}
+
+func TestClosingTabKeepsDiagnostics(t *testing.T) {
+	t.Setenv("MAYOI_FAKE_LSP", "1")
+	manifest, _ := json.Marshal(map[string]any{"name": "fake", "contributes": map[string]any{"languageServers": []any{
+		map[string]any{"id": "fake.go", "languages": []string{"go"}, "command": os.Args[0], "args": []string{"-test.run=^$"}},
+	}}})
+	hs := newHarness(t, false)
+	a := hs.a
+	h := withPlugins(hs, map[string]map[string]string{"fake": {"plugin.json": string(manifest)}})
+	t.Cleanup(stopServers)
+	path := hs.path("bad.go")
+	if err := os.WriteFile(path, []byte("bad"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	a.openFile(path, true)
+	hs.until("Go diagnostics", func() bool { return len(h.diagnosticsOf(path)) == 1 })
+	a.closeActive()
+	hs.settle()
+	hs.settle()
+	if len(h.diagnosticsOf(path)) != 1 {
+		t.Fatal("closing the tab dropped its file's problems")
 	}
 }

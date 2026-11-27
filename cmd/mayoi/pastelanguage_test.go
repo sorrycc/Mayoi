@@ -13,6 +13,7 @@ import (
 func TestPasteDetectsLanguage(t *testing.T) {
 	for _, sample := range []struct{ language, text string }{
 		{"json", `{"name":"Mayoi","ok":true}`},
+		{"json", " [1, 2, 3] \n"},
 		{"jsonc", "{\n// settings\n\"ok\": true,\n}"},
 		{"go", "package main\nimport \"fmt\"\nfunc main() { fmt.Println(\"hello\") }\n"},
 		{"bash", "#!/bin/bash\necho hello\n"},
@@ -48,6 +49,14 @@ func TestPasteDetectsLanguage(t *testing.T) {
 				hs.key(ui.Cmd, ui.KeyZ)
 				if d.buf.String() != "" {
 					t.Fatal("paste is not one step of undo")
+				}
+				if languageOf(d.document) != "plaintext" || d.language != "" {
+					t.Fatal("undo kept an inferred language as a manual choice")
+				}
+				hs.tt.SetClipboard("package main\n")
+				hs.key(ui.Cmd, ui.KeyV)
+				if languageOf(d.document) != "go" {
+					t.Fatal("paste after undo did not detect a new language")
 				}
 			})
 		}
@@ -107,7 +116,7 @@ func TestPasteDetectionIgnoresTypingAndUnknownText(t *testing.T) {
 	}
 	hs.key(ui.Cmd, ui.KeyA)
 	hs.command("delete")
-	for _, text := range []string{"", " \n", "hello world", `{"unfinished":`} {
+	for _, text := range []string{"", " \n", "hello world", `{"unfinished":`, "42", "true", "false", "null", `"hello"`, "// comment\n42"} {
 		hs.tt.SetClipboard(text)
 		hs.key(ui.Cmd, ui.KeyV)
 		if languageOf(d.document) != "plaintext" || d.language != "" {
@@ -133,8 +142,8 @@ func TestPasteKeepsFirstDetectedLanguage(t *testing.T) {
 	hs.key(ui.Cmd, ui.KeyA)
 	hs.command("delete")
 	hs.key(ui.Cmd, ui.KeyV)
-	if languageOf(d.document) != "json" {
-		t.Fatal("clearing the document discarded its detected language")
+	if languageOf(d.document) != "go" {
+		t.Fatal("paste into the cleared document did not detect its new language")
 	}
 }
 
@@ -148,6 +157,20 @@ func TestVimPasteDetectsLanguage(t *testing.T) {
 	expectText(t, d, `{"ok":true}`)
 	hs.vim("u")
 	expectText(t, d, "")
+	if languageOf(d.document) != "plaintext" {
+		t.Fatal("Vim undo kept the inferred language")
+	}
+}
+
+func TestPasteManualLanguageSurvivesUndo(t *testing.T) {
+	hs, d := editHarness(t, "new.unknown", "")
+	hs.tt.SetClipboard(`{"ok":true}`)
+	hs.key(ui.Cmd, ui.KeyV)
+	hs.a.chooseLanguage(d.document, languageChoice{id: "json"})
+	hs.key(ui.Cmd, ui.KeyZ)
+	if d.buf.String() != "" || languageOf(d.document) != "json" || d.pastedLanguage {
+		t.Fatal("undo discarded the language explicitly chosen after detection")
+	}
 }
 
 func TestPasteDetectionUpdatesLSP(t *testing.T) {

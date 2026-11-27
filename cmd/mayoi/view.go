@@ -54,6 +54,11 @@ func (a *app) view(c *ui.Context) {
 		a.start()
 	}
 	a.drain()
+	for _, d := range a.docs {
+		if d.pastedLanguage && d.buf.Snapshot().Len() == 0 {
+			a.clearDocumentLanguage(d)
+		}
+	}
 	a.pumpChain()
 	// The key the keymap took is let go of where its release does not
 	// come: in a place with no text, or another window.

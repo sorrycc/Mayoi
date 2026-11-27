@@ -48,9 +48,10 @@ const (
 )
 
 // showsCommitFiles reports whether a diff shows the panel of its files:
-// a commit's, once it has files, when the panel is open.
+// a commit's, once it has files, when the panel is open and the diff is
+// not filtering them to the history's paths.
 func (a *app) showsCommitFiles(v *diffView) bool {
-	return v.commit != nil && len(v.files) > 0 && a.window.CommitFilesOpen
+	return v.commit != nil && len(v.files) > 0 && !v.only && a.window.CommitFilesOpen
 }
 
 // toggleCommitFiles shows the panel of the files of commits' tabs, or
@@ -425,7 +426,8 @@ func (a *gitContext) commitFileRows(rows []scmRow, cm *git.Commit, at int) []scm
 
 // showCommitFile shows a commit's changes scrolled to a file of it: in
 // the preview tab, the keyboard staying where it is, or kept in a tab of
-// its own, focused.
+// its own focused. A tab that showed a history's paths alone shows every
+// file of the commit.
 func (a *gitContext) showCommitFile(cm git.Commit, path string, keep bool) {
 	var v *diffView
 	if keep {
@@ -433,10 +435,34 @@ func (a *gitContext) showCommitFile(cm git.Commit, path string, keep bool) {
 	} else {
 		v = a.previewCommit(cm)
 	}
-	if v != nil {
-		v.reveal = &diffTarget{path: path, any: true}
-		v.changed()
+	if v == nil {
+		return
 	}
+	if v.only {
+		a.app.setDiffPaths(v, v.paths, false, v.folder)
+	}
+	v.reveal = &diffTarget{path: path, any: true}
+	v.changed()
+}
+
+// showCommitPaths shows a commit as a history opens it: the files of its
+// paths alone when only, or every file of it, at the file at when it
+// names one.
+func (a *gitContext) showCommitPaths(cm git.Commit, paths []string, at string, keep, only, folder bool) {
+	var v *diffView
+	if keep {
+		v = a.showCommit(cm, true)
+	} else {
+		v = a.previewCommit(cm)
+	}
+	if v == nil {
+		return
+	}
+	a.app.setDiffPaths(v, paths, only, folder)
+	if !only && at != "" {
+		v.reveal = &diffTarget{path: at, any: true}
+	}
+	v.changed()
 }
 
 // scmCommitFile is a row under a commit of the history whose files show:

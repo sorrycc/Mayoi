@@ -273,6 +273,12 @@ reads a folder with a loop of `[ -d ]`, stats with GNU's or BSD's `stat`, as the
 and several at once as a tar stream, and writes a file whole to a temporary one first, then copies it in. `config.go`
 lists the hosts of `~/.ssh/config`.
 
+A Windows host has no `sh`: when the probe fails, `windows.go` tries Windows PowerShell, which every Windows since 10
+has. Its folders keep slash paths with the drive first, `/ssh:host/C:/Users/me`, and its scripts, PowerShell's, take
+them to `C:\Users\me` and back. They write bytes to standard output, never through PowerShell's own output, and files
+go both ways as a pack of their own rather than tar. A program runs through `ProcessStartInfo` with its command line
+quoted as Windows parts it; a Windows client's workers start a PowerShell per command and pass frames to it.
+
 **`internal/vfs`.** The file system the editor uses: each function takes a local path or a remote one and does what
 the `os` function of its name does. `Command` runs a program in a folder, on the machine of the folder, which is how
 `internal/git`, `gitmarks` and the index run `git` and `find` on a host. A remote path takes a round trip, so the app

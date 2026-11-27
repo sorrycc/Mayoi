@@ -119,15 +119,24 @@ func pluginThemeDark(id string) bool {
 			if t.contrib.Dark {
 				return true
 			}
-			f, err := readThemeFile(t)
+			if t.contrib.DarkPath != "" {
+				return false // a palette for either
+			}
+			f, err := readThemeFile(t, false)
 			return err == nil && f.isDark(false)
 		}
 	}
 	return false
 }
 
-func readThemeFile(t pluginTheme) (*themeFile, error) {
-	data, err := fs.ReadFile(t.plugin.FS(), path.Clean(t.contrib.Path))
+// readThemeFile reads a theme's file: of a theme with a palette for
+// either, its dark one in a dark window.
+func readThemeFile(t pluginTheme, dark bool) (*themeFile, error) {
+	name := t.contrib.Path
+	if dark && t.contrib.DarkPath != "" {
+		name = t.contrib.DarkPath
+	}
+	data, err := fs.ReadFile(t.plugin.FS(), path.Clean(name))
 	if err != nil {
 		return nil, err
 	}
@@ -157,11 +166,15 @@ func (f *themeFile) isDark(window bool) bool {
 // loadPluginTheme makes the palette of a plugin's theme; a file that does
 // not read is Mayoi's own palette, as the log says.
 func loadPluginTheme(t pluginTheme, window bool) *palette {
-	f, err := readThemeFile(t)
+	f, err := readThemeFile(t, window)
 	if err != nil {
 		return nil
 	}
 	dark := f.isDark(window) || t.contrib.Dark
+	if t.contrib.DarkPath != "" {
+		// Which of its files is read tells the darkness, not the file.
+		dark = window
+	}
 	var base *palette
 	switch f.Base {
 	case "", "dark", "light":

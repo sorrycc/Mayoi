@@ -316,7 +316,7 @@ func (c *Conn) bridgeCommand(stdin io.Reader, script string, args ...string) (*e
 	if err != nil {
 		return nil, err
 	}
-	token, err := b.register(commandScript(script, args))
+	token, err := b.register(c.full(script, args))
 	if err != nil {
 		return nil, err
 	}

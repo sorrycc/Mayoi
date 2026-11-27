@@ -76,21 +76,26 @@ type gitState struct {
 	message string
 	amend   bool
 
-	// history is the last commits of HEAD, newest first, and unpushed
-	// those its upstream lacks, read for the state historyOf names;
-	// historyN is how many to read, historyGen counts the reads.
+	// history is the last commits of HEAD, newest first, with any commits
+	// its upstream has that HEAD lacks ahead of them (and marked in
+	// incoming); unpushed are those HEAD has that its upstream lacks, read
+	// for the state historyOf names. historyN is how many to read,
+	// historyMore whether another page may follow, historyGen counts reads.
 	// historyPaths scope the history to the commits that changed them,
 	// as the editor spells them; none reads the branch's own, and
 	// historyFollow follows one file's renames, with historyAt the path
-	// the file had in each commit, by hash.
+	// the file had in each commit, by hash. A scoped history reads no
+	// incoming commits.
 	history        []git.Commit
 	unpushed       map[string]bool
+	incoming       map[string]bool
 	historyPaths   []string
 	historyFollow  bool
 	historyAt      map[string]string
 	historyOf      string
 	historyErr     string // why the history could not be read, "" when it was
 	historyN       int
+	historyMore    bool
 	historyGen     int
 	loadingHistory bool
 	// graph is the lanes of history, laid out for the read graphOf
@@ -388,14 +393,15 @@ func (a *gitContext) refreshHistory() {
 	}
 	g.loadingHistory = true
 	// Without a remote nothing is pushed or not: no commit is marked.
-	r, remotes, all, upstream := g.repo, len(g.remotes) > 0, a.app.settings.ScmAllBranches, st.Upstream
+	r, remotes, all, upstream, behind := g.repo, len(g.remotes) > 0, a.app.settings.ScmAllBranches, st.Upstream, st.Behind
 	paths, follow := slices.Clone(g.historyPaths), g.historyFollow
 	bg.Go(func() {
 		defer recoverCrash()
 		var cs []git.Commit
 		var at map[string]string
 		var err error
-		var unpushed map[string]bool
+		var unpushed, incoming map[string]bool
+		var more bool
 		readGit(func() {
 			switch {
 			case follow:
@@ -405,8 +411,26 @@ func (a *gitContext) refreshHistory() {
 			default:
 				cs, err = r.Log(n, all)
 			}
+			if err != nil {
+				return
+			}
+			more = len(cs) >= n
 			if remotes {
 				unpushed = r.Unpushed(n, upstream)
+			}
+			// A history scoped to paths shows only commits that changed
+			// them: the upstream's would be of every file.
+			if behind > 0 && len(paths) == 0 {
+				if in := r.Incoming(n); len(in) > 0 {
+					incoming = make(map[string]bool, len(in))
+					for _, c := range in {
+						incoming[c.Hash] = true
+					}
+					more = more || len(in) >= n
+					if !all {
+						cs = append(in, cs...)
+					}
+				}
 			}
 		})
 		a.app.post(func() {
@@ -425,7 +449,7 @@ func (a *gitContext) refreshHistory() {
 				g.historyErr = err.Error()
 				return
 			}
-			g.history, g.historyAt, g.unpushed = cs, at, unpushed
+			g.history, g.historyAt, g.unpushed, g.incoming, g.historyMore = cs, at, unpushed, incoming, more
 			g.historyGen++
 		})
 	})

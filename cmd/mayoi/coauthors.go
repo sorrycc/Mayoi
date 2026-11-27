@@ -198,7 +198,10 @@ func (a *gitContext) commitHoverCard(c *ui.Context, row ui.Element, cm *git.Comm
 					})
 				}
 				for _, s := range extra {
-					ui.Text(c, s).FontSize(11.5).TextColor(p.muted).SingleLine()
+					t := ui.Text(c, s).FontSize(11.5).TextColor(p.muted).SingleLine()
+					if s == locales.ScmNotPulled() {
+						t.FontWeight(600).TextColor(p.modifiedFg)
+					}
 				}
 			})
 		})

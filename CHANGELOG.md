@@ -24,6 +24,7 @@ needs a `## <version>` section here, or its build fails.
 - A host that runs neither `sh` nor PowerShell now says why it can't connect, instead of "not connected".
 - Such a host is no longer retried forever; **Reconnect** tries it again.
 - A plugin theme can ship light and dark palettes under one entry with `darkPath`, following **Appearance**.
+- Fetched remote commits appear faded under **COMMITS** so you can inspect them before pulling.
 
 ## 0.23.5
 

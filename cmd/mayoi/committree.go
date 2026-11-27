@@ -480,6 +480,7 @@ func (a *gitContext) scmCommitFile(c *ui.Context, i int, r scmRow, action *func(
 	tree := a.app.settings.ScmTree && r.note == ""
 	row := ui.Row(c).Grow(1).Gap(6).AlignItems(ui.Center).Height(22).Padding(0, 4, 0, 6)
 	a.scmFade(c, row, r.key)
+	quiet := a.git.incoming[cm.Hash] && i != a.scm.row && !row.Hovered()
 	clicked := row.Clicked()
 	if r.dir == "" && r.note == "" {
 		row.Tooltip(a.git.repo.Rel(r.e.Path))
@@ -494,11 +495,15 @@ func (a *gitContext) scmCommitFile(c *ui.Context, i int, r scmRow, action *func(
 	}
 	row.Children(func() {
 		ui.Box(c).Size(12, 22).Shrink(0) // under the commit's arrow
-		ui.Box(c).Size(graphLaneW*float32(lanes-1)+12, 22).Shrink(0).Draw(func(pt *ui.Painter, b ui.Rect) {
+		graphBox := ui.Box(c).Size(graphLaneW*float32(lanes-1)+12, 22).Shrink(0).Draw(func(pt *ui.Painter, b ui.Rect) {
 			if gr != nil {
 				a.app.paintGraphThrough(pt, b, gr)
 			}
 		})
+		if quiet {
+			// Its commit's lanes rest faded with it; its files read in full.
+			graphBox.Opacity(scmIncomingFade)
+		}
 		indent := float32(0)
 		if tree {
 			indent = treeIndent(r.depth) - 4

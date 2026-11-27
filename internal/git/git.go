@@ -932,6 +932,16 @@ func parseCommit(rec string) (Commit, bool) {
 	return c, true
 }
 
+func parseCommits(out []byte) []Commit {
+	var cs []Commit
+	for _, rec := range strings.Split(string(out), "\x00") {
+		if c, ok := parseCommit(rec); ok {
+			cs = append(cs, c)
+		}
+	}
+	return cs
+}
+
 // Log returns the last n commits of HEAD's history, or of every branch
 // and tag when all is set, newest first and each after the commits made
 // on it: none before the first commit.
@@ -1009,6 +1019,20 @@ func commitName(rec string) (string, bool) {
 	}
 	name = strings.TrimRight(name, "\n")
 	return name, name != ""
+}
+
+// Incoming returns up to n commits reachable from HEAD's upstream that
+// HEAD lacks, newest first: none when HEAD has no upstream, or none ahead
+// of it.
+func (r *Repo) Incoming(n int) []Commit {
+	if n <= 0 {
+		return nil
+	}
+	out, err := r.run(nil, "log", "-z", "--date-order", "--decorate=full", "-n", strconv.Itoa(n), commitFormat, "HEAD..@{upstream}", "--")
+	if err != nil {
+		return nil
+	}
+	return parseCommits(out)
 }
 
 // Unpushed returns the commits, up to n of them, that HEAD has and its

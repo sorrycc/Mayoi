@@ -103,7 +103,7 @@ func (a *gitContext) setHistory(paths []string, follow bool) {
 		return
 	}
 	g.historyPaths, g.historyFollow = paths, follow
-	g.history, g.historyAt, g.unpushed = nil, nil, nil
+	g.history, g.historyAt, g.unpushed, g.incoming, g.historyMore = nil, nil, nil, nil, false
 	g.historyN = 0
 	g.historyGen++
 	g.historyOf = ""

@@ -243,7 +243,7 @@ func (a *gitContext) scmRows() []scmRow {
 			if len(h) == 0 && len(g.historyPaths) > 0 && g.historyOf == a.historyKey() {
 				rows = append(rows, scmRow{group: groupCommits, empty: true, key: "commits:empty"})
 			}
-			if len(h) >= max(g.historyN, historyPage) {
+			if g.historyMore {
 				rows = append(rows, scmRow{group: groupCommits, more: true, key: "commits:more"})
 			}
 		}
@@ -1258,39 +1258,15 @@ func (a *gitContext) scmCommit(c *ui.Context, r scmRow, action *func()) {
 	p := a.app.pal
 	cm := r.commit
 	g := a.git
-	unpushed := g.unpushed[cm.Hash]
+	incoming := r.at >= 0 && g.incoming[cm.Hash]
+	unpushed := !incoming && g.unpushed[cm.Hash]
 	head := g.status != nil && g.status.Head == cm.Hash
 	badges := refBadges(cm.Refs)
 	prs := a.prHeadsAt(cm.Hash)
 	// What the card says past its fields, which the row's description
 	// says too, for those who do not see the card.
-	var extra []string
-	if unpushed {
-		extra = append(extra, strings.TrimPrefix(locales.ScmNotPushed(), " · "))
-	}
-	if len(cm.Parents) > 1 {
-		extra = append(extra, strings.TrimPrefix(locales.ScmMerge(), " · "))
-	}
-	for _, pr := range prs {
-		extra = append(extra, prHeadTip(pr))
-	}
-	if st, ok := a.checksOf(cm.Hash); ok {
-		extra = append(extra, checksSummary(st))
-	}
-	tip := fmt.Sprintf("%s\n%s · %s · %s", cm.Subject, cm.Author, ago(cm.Time, time.Now()), cm.Short())
-	if len(cm.CoAuthors) > 0 {
-		tip += "\n" + locales.ScmCoAuthoredWith(coAuthorNames(cm.CoAuthors))
-	}
-	if len(badges) > 0 {
-		names := make([]string, len(badges))
-		for i, b := range badges {
-			names[i] = b.label()
-		}
-		tip += "\n" + strings.Join(names, ", ")
-	}
-	for _, s := range extra {
-		tip += "\n" + s
-	}
+	extra := a.commitExtras(r)
+	tip := scmCommitTip(cm, badges, extra)
 	indent := float32(6)
 	if r.at < 0 {
 		indent = scmPanelContentIndent(r.depth)
@@ -1302,10 +1278,15 @@ func (a *gitContext) scmCommit(c *ui.Context, r scmRow, action *func()) {
 		a.commitHoverCard(c, row, cm, extra)
 	}
 	row.Description(tip)
-	a.scmFade(c, row, r.key)
-	if a.scm.selection.Has(r.key) {
+	selected := a.scm.selection.Has(r.key)
+	if selected {
 		row.Background(p.active)
 	}
+	focused := selected || a.scm.row >= 0 && a.scm.row < len(a.scm.rows) && a.scm.rows[a.scm.row].key == r.key
+	// A commit not pulled yet rests quieter, its subject muted and its
+	// graph and avatar faded, and shows in full under the pointer or keys.
+	quiet := incoming && !focused && !row.Hovered()
+	a.scmFade(c, row, r.key)
 	clicked := row.Clicked()
 	row.ContextMenu(func(m *ui.Menu) { a.scmCommitMenu(m, cm, head, action) })
 	open := a.scm.openCommits[cm.Hash]
@@ -1328,23 +1309,30 @@ func (a *gitContext) scmCommit(c *ui.Context, r scmRow, action *func()) {
 			if b.Clicked() {
 				*action = func() { a.toggleCommitOpen(*cm) }
 			}
-			ui.Box(c).Size(graphLaneW*float32(lanes-1)+12, 22).Shrink(0).Draw(func(pt *ui.Painter, b ui.Rect) {
+			graphBox := ui.Box(c).Size(graphLaneW*float32(lanes-1)+12, 22).Shrink(0).Draw(func(pt *ui.Painter, b ui.Rect) {
 				if gr != nil {
 					a.app.paintGraphRow(pt, b, gr, cm, head)
 				}
 			})
+			if quiet {
+				graphBox.Opacity(scmIncomingFade)
+			}
 		}
 		ring := p.chrome
 		if a.scm.selection.Has(r.key) {
 			ring = mix(p.chrome, p.active.Alpha(1), float32(p.active.A)/255)
 		}
-		a.app.commitAvatar(c, cm.Author, cm.Email, cm.CoAuthors, 15, ring)
+		avatar := ui.Box(c).Shrink(0)
+		if quiet {
+			avatar.Opacity(scmIncomingFade)
+		}
+		avatar.Children(func() { a.app.commitAvatar(c, cm.Author, cm.Email, cm.CoAuthors, 15, ring) })
 		lane := p.accent
 		if gr != nil {
 			lane = graphColor(p, gr.color)
 		}
-		// The row's lead, before its badges: its indent, the graph and
-		// the author.
+		// The row's lead, before its badges: its indent, the arrow, the
+		// graph and the author.
 		lead := indent + 15 + 6
 		if r.at >= 0 {
 			lead += 12 + 6 + graphLaneW*float32(lanes-1) + 12 + 6
@@ -1366,7 +1354,7 @@ func (a *gitContext) scmCommit(c *ui.Context, r scmRow, action *func()) {
 		}
 		col := p.text
 		switch {
-		case len(cm.Parents) > 1:
+		case quiet, len(cm.Parents) > 1:
 			col = p.muted
 		case !unpushed && !head:
 			col = mix(p.text, p.muted, 0.35)
@@ -1375,6 +1363,8 @@ func (a *gitContext) scmCommit(c *ui.Context, r scmRow, action *func()) {
 		ui.Spacer(c)
 		if unpushed {
 			ui.Icon(c, iconArrowUp).FontSize(11).TextColor(p.accent).Shrink(0)
+		} else if incoming {
+			ui.Icon(c, iconArrowDown).FontSize(11).TextColor(p.modifiedFg).Shrink(0)
 		} else if a.hasCommitChecks() {
 			// How its checks went, in room every pushed row keeps.
 			a.commitChecksIcon(c, cm.Hash, action)
@@ -1397,12 +1387,62 @@ func (a *gitContext) scmCommit(c *ui.Context, r scmRow, action *func()) {
 	}
 }
 
+// commitExtras is what the row of a commit says past its fields, which
+// its card says too: that it is not pulled yet, nor pushed, that it is a
+// merge, the pull requests it heads, and how its checks went.
+func (a *gitContext) commitExtras(r scmRow) []string {
+	cm := r.commit
+	incoming := r.at >= 0 && a.git.incoming[cm.Hash]
+	var extra []string
+	if incoming {
+		extra = append(extra, locales.ScmNotPulled())
+	} else if a.git.unpushed[cm.Hash] {
+		extra = append(extra, strings.TrimPrefix(locales.ScmNotPushed(), " · "))
+	}
+	if len(cm.Parents) > 1 {
+		extra = append(extra, strings.TrimPrefix(locales.ScmMerge(), " · "))
+	}
+	for _, pr := range a.prHeadsAt(cm.Hash) {
+		extra = append(extra, prHeadTip(pr))
+	}
+	if st, ok := a.checksOf(cm.Hash); ok {
+		extra = append(extra, checksSummary(st))
+	}
+	return extra
+}
+
+// scmCommitTip is what the row of a commit says, and carries to those who
+// do not see its card: the commit, the names of its refs, then what extra
+// says of it, as that it is not pulled yet.
+func scmCommitTip(cm *git.Commit, badges []refBadge, extra []string) string {
+	tip := fmt.Sprintf("%s\n%s · %s · %s", cm.Subject, cm.Author, ago(cm.Time, time.Now()), cm.Short())
+	if len(cm.CoAuthors) > 0 {
+		tip += "\n" + locales.ScmCoAuthoredWith(coAuthorNames(cm.CoAuthors))
+	}
+	if len(badges) > 0 {
+		names := make([]string, len(badges))
+		for i, b := range badges {
+			names[i] = b.label()
+		}
+		tip += "\n" + strings.Join(names, ", ")
+	}
+	for _, s := range extra {
+		tip += "\n" + s
+	}
+	return tip
+}
+
 // graphLaneW is how far apart the lanes of the history's graph are, and
 // graphMaxLanes how many it shows: those past it run along its edge.
 const (
 	graphLaneW    = 10
 	graphMaxLanes = 6
 )
+
+// scmIncomingFade is how solid the graph and avatar of a commit the
+// upstream has and HEAD lacks rest: plainly not one of HEAD's yet. Its
+// text is never faded, so it stays as legible as a merge's.
+const scmIncomingFade = 0.6
 
 // badgeRoom is how many of n badges a commit's row shows, and how wide
 // each is at most: those that fit beside the start of its subject and its
@@ -1627,7 +1667,8 @@ func (a *gitContext) scmCommitMenu(m *ui.Menu, cm *git.Commit, head bool, action
 	if m.Item(locales.ScmResetTo(branch)).Disabled(moving || head).Chosen() {
 		*action = func() { a.resetTo(*cm) }
 	}
-	if m.Item(locales.ScmRevertCommit()).Disabled(moving).Chosen() {
+	// A commit not pulled yet has no changes in HEAD to take back.
+	if m.Item(locales.ScmRevertCommit()).Disabled(moving || g.incoming[cm.Hash]).Chosen() {
 		*action = func() { a.revertCommit(*cm) }
 	}
 	if m.Item(locales.ScmCherryPickCommit()).Disabled(moving || in).Chosen() {

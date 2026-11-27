@@ -1132,6 +1132,7 @@
   "scmMoreCommitActions": "更多提交操作",
   "scmNoRepo": "没有 Git 仓库",
   "scmNoRepoDetail": "此文件夹不在 Git 仓库中。将其初始化为仓库以跟踪并提交更改。",
+  "scmNotPulled": "尚未拉取",
   "scmNotPushed": " · 未推送",
   "scmOpInProgress": "{op}正在进行中",
   "scmOpenStaged": "打开暂存的更改",

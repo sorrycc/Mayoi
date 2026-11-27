@@ -383,6 +383,21 @@ func TestMarkdownMathHoldsTogether(t *testing.T) {
 			src:  "$$\nx\n- y\n",
 			want: []markdownKind{markdownParagraph, markdownParagraph},
 		},
+		{
+			name: "an unclosed formula over a table",
+			src:  "$$\n| a | b |\n| - | - |\n| 1 | 2 |\n",
+			want: []markdownKind{markdownParagraph, markdownTableHeader, markdownTable},
+		},
+		{
+			name: "an unclosed formula, a line, then a table",
+			src:  "$$\nx\n| a | b |\n| - | - |\n| 1 | 2 |\n",
+			want: []markdownKind{markdownParagraph, markdownTableHeader, markdownTable},
+		},
+		{
+			name: "an unclosed formula over a line of - alone",
+			src:  "$$\na\n-\nb\n",
+			want: []markdownKind{markdownParagraph},
+		},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			if got := kinds(parse(c.src)); !slices.Equal(got, c.want) {
@@ -550,5 +565,11 @@ func TestLivePreviewMathFence(t *testing.T) {
 		if !strings.HasPrefix(b.source, "$$\n") || !strings.HasSuffix(b.source, "\n$$") {
 			t.Errorf("block %d source = %q", i, b.source)
 		}
+	}
+
+	// A $$ no line closes is text, and a table below it is a table.
+	table := "| a | b |\n| - | - |\n| 1 | 2 |"
+	if live := liveParse("$$\n" + table + "\n"); len(live.blocks) != 1 || live.blocks[0].source != table {
+		t.Errorf("an unclosed formula over a table: %+v", live.blocks)
 	}
 }

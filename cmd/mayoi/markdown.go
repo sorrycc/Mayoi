@@ -571,13 +571,6 @@ func markdownFrontMatter(lines []string) bool {
 	return keys
 }
 
-// markdownParser parses GitHub's Markdown: goldmark's parser with the
-// parts of its GFM and footnote extensions that parse, without their HTML
-// renderers, which the preview has no use for and would make Mayoi
-// larger, with Obsidian's wiki links, and with its math when math is set.
-// Emphasis, strikethrough and ==highlight== use the CJK-friendly flanking
-// rule.
-
 // mathTableTransformer is Goldmark's table paragraph transformer, except
 // that it hides the lines of a display formula from it: a line of - alone
 // inside $$ ... $$ is a delimiter row to Goldmark, which would turn the
@@ -602,7 +595,20 @@ func (t mathTableTransformer) Transform(node *ast.Paragraph, reader text.Reader,
 			break
 		}
 	}
-	if close < 0 || close+1 >= lines.Len() {
+	// A $$ no line closes is not a formula, and its table parses as it
+	// would without math. But for a line of - alone: without math, the
+	// setext heading takes it before a table can, and here that parser
+	// left it to the formula, so it is no table's delimiter row either.
+	if close < 0 {
+		for i := 1; i < lines.Len(); i++ {
+			if isDashLine(lines.At(i), source) {
+				return
+			}
+		}
+		t.ParagraphTransformer.Transform(node, reader, pc)
+		return
+	}
+	if close+1 >= lines.Len() {
 		return
 	}
 	tail := ast.NewParagraph()
@@ -623,6 +629,13 @@ func (t mathTableTransformer) Transform(node *ast.Paragraph, reader text.Reader,
 	lines.SetSliced(0, close+1)
 	lines.AppendAll(tail.Lines().Sliced(0, tail.Lines().Len()))
 	parent.RemoveChild(parent, tail)
+}
+
+// isDashLine reports whether seg, a line of source, is of - and spaces
+// alone, as a setext heading's underline or a thematic break of - is.
+func isDashLine(seg text.Segment, source []byte) bool {
+	s := strings.TrimSpace(string(seg.Value(source)))
+	return s != "" && strings.Trim(s, "- ") == ""
 }
 
 // mathBlockParsers are Goldmark's block parsers, but for the setext heading
@@ -657,6 +670,12 @@ func mathBlockEndsAFormula(p parser.BlockParser) bool {
 	return slices.Contains(p.Trigger(), '=') || p == parser.NewThematicBreakParser()
 }
 
+// markdownParser parses GitHub's Markdown: goldmark's parser with the
+// parts of its GFM and footnote extensions that parse, without their HTML
+// renderers, which the preview has no use for and would make Mayoi
+// larger, with Obsidian's wiki links, and with its math when math is set.
+// Emphasis, strikethrough and ==highlight== use the CJK-friendly flanking
+// rule.
 func markdownParser(math bool) parser.Parser {
 	var inlines []util.PrioritizedValue
 	for _, v := range parser.DefaultInlineParsers() {

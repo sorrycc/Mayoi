@@ -431,10 +431,10 @@ func (a *gitContext) showCommitFile(cm git.Commit, path string, keep bool) {
 	a.showCommitAt(cm, path, keep, false)
 }
 
-// showCommitFileOnly shows a commit's changes of one file alone, as a
-// file's history opens it.
-func (a *gitContext) showCommitFileOnly(cm git.Commit, path string, keep bool) {
-	a.showCommitAt(cm, path, keep, true)
+// showCommitFromHistory shows a commit as a file's history opens it: at
+// that file, and alone on it when diffCommitFileOnly says so.
+func (a *gitContext) showCommitFromHistory(cm git.Commit, path string, keep bool) {
+	a.showCommitAt(cm, path, keep, a.app.settings.DiffCommitFileOnly)
 }
 
 // showCommitAt shows a commit at a file of it, filtered to that file
@@ -449,7 +449,12 @@ func (a *gitContext) showCommitAt(cm git.Commit, path string, keep, only bool) {
 	if v == nil {
 		return
 	}
-	a.app.setDiffOnly(v, path)
+	// A tab that showed one file before shows every file, or the one now.
+	filter := ""
+	if only {
+		filter = path
+	}
+	a.app.setDiffOnly(v, filter)
 	if !only {
 		v.reveal = &diffTarget{path: path, any: true}
 	}

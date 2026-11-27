@@ -2361,5 +2361,7 @@
   "scmFileHistoryClear": "Clear File History",
   "scmFileHistoryNone": "No commit changed this file.",
   "cmdGitOnlyThisFile": "Show Only This File",
-  "diffOnlyThisFile": "Only This File"
+  "diffOnlyThisFile": "Only This File",
+  "prefTitleDiffCommitFileOnly": "Only This File",
+  "prefDescDiffCommitFileOnly": "A commit's diff opened from a file's history shows that file alone; the diff's Only This File button shows every file of the commit, or the file again."
 }

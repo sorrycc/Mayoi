@@ -21579,3 +21579,23 @@ func DiffOnlyThisFile() string { return In(i18n.Locale()).DiffOnlyThisFile() }
 func (msgs Messages) DiffOnlyThisFile() string {
 	return Catalog.Format(msgs.locale, "diffOnlyThisFile", nil)
 }
+
+// PrefTitleDiffCommitFileOnly says "Only This File"
+// in the language the app shows.
+func PrefTitleDiffCommitFileOnly() string { return In(i18n.Locale()).PrefTitleDiffCommitFileOnly() }
+
+// PrefTitleDiffCommitFileOnly says "Only This File"
+// in the language of msgs.
+func (msgs Messages) PrefTitleDiffCommitFileOnly() string {
+	return Catalog.Format(msgs.locale, "prefTitleDiffCommitFileOnly", nil)
+}
+
+// PrefDescDiffCommitFileOnly says "A commit's diff opened from a file's history shows that file alone; the diff's Only This File button shows every file…"
+// in the language the app shows.
+func PrefDescDiffCommitFileOnly() string { return In(i18n.Locale()).PrefDescDiffCommitFileOnly() }
+
+// PrefDescDiffCommitFileOnly says "A commit's diff opened from a file's history shows that file alone; the diff's Only This File button shows every file…"
+// in the language of msgs.
+func (msgs Messages) PrefDescDiffCommitFileOnly() string {
+	return Catalog.Format(msgs.locale, "prefDescDiffCommitFileOnly", nil)
+}

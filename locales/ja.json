@@ -2133,5 +2133,7 @@
   "scmFileHistoryClear": "ファイル履歴をクリア",
   "scmFileHistoryNone": "このファイルを変更したコミットはありません。",
   "cmdGitOnlyThisFile": "このファイルのみ表示",
-  "diffOnlyThisFile": "このファイルのみ表示"
+  "diffOnlyThisFile": "このファイルのみ表示",
+  "prefTitleDiffCommitFileOnly": "このファイルのみ表示",
+  "prefDescDiffCommitFileOnly": "ファイル履歴から開いたコミットはそのファイルだけを表示します。diff ツールバーの「このファイルのみ表示」でコミットのすべてのファイルと切り替えられます。"
 }

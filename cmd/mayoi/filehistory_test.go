@@ -126,6 +126,50 @@ func TestFileHistory(t *testing.T) {
 	}
 }
 
+// TestFileHistoryWithoutAutoFilter: with diffCommitFileOnly off, a
+// commit opens at the file among every file of it, and the toggle still
+// filters that tab.
+func TestFileHistoryWithoutAutoFilter(t *testing.T) {
+	hs := newHarness(t, true)
+	git := hs.gitRepo()
+	a := hs.a
+	a.settings.DiffCommitFileOnly = false
+	zz, aa := hs.path("zz.txt"), hs.path("aa.txt")
+	os.WriteFile(zz, []byte("z\n"), 0o644)
+	os.WriteFile(aa, []byte("a\n"), 0o644)
+	git("add", ".")
+	git("commit", "-qm", "add both")
+	os.WriteFile(zz, []byte("z\nzz\n"), 0o644)
+	os.WriteFile(aa, []byte("a\naa\n"), 0o644)
+	git("commit", "-qam", "change both")
+
+	a.showFileHistory(zz)
+	hs.settleGit()
+	hs.settle()
+	if err := hs.tt.Click("change both"); err != nil {
+		t.Fatal(err)
+	}
+	hs.settleGit()
+	hs.settle()
+	v := a.activeTab().diff
+	if v == nil || v.commit == nil {
+		t.Fatalf("no commit's diff")
+	}
+	if v.only != "" || len(v.files) != 2 {
+		t.Fatalf("the commit shows %+v, only %q", v.files, v.only)
+	}
+	if v.cursor < 0 || v.cursor >= len(v.rows) || v.files[v.rows[v.cursor].file].path != zz {
+		t.Errorf("the commit opens at %d, not at zz.txt", v.cursor)
+	}
+	if err := hs.tt.Click("Only This File"); err != nil {
+		t.Fatal(err)
+	}
+	hs.settle()
+	if v.only != zz || len(v.files) != 1 {
+		t.Errorf("the toggle shows %+v, only %q", v.files, v.only)
+	}
+}
+
 // TestFileHistoryFollowsRenames: a commit made before the file was
 // renamed shows the file by the name it had then, alone.
 func TestFileHistoryFollowsRenames(t *testing.T) {

@@ -284,8 +284,9 @@ color, while it is on.
 **Git → Open File History**, and the same item in a file tab's and the Explorer's menu, shows the commits that changed
 the file of the tab shown: source control lists those alone, under a chip that names the file. A click shows the
 commit's changes of that file alone, under the name it had then across renames; **Only This File** in the diff's
-toolbar, or the same checkbox in the **Git** menu, shows every file of the commit, and the one file again. The chip's ×
-shows the branch's history again, and a file no commit changed says so.
+toolbar, or the same checkbox in the **Git** menu, shows every file of the commit, and the one file again. With
+`diffCommitFileOnly` off, a commit opens at that file among every file of it. The chip's × shows the branch's history
+again, and a file no commit changed says so.
 
 Click a commit to see it in the preview tab, the keyboard staying in the list, so clicking through commits leaves one
 tab; Enter, a double click or **Open Changes** in its menu keeps it in a tab of its own, focused. The tab shows its

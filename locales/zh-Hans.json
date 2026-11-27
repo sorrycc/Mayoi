@@ -2133,5 +2133,7 @@
   "scmFileHistoryClear": "清除文件历史",
   "scmFileHistoryNone": "没有提交更改过此文件。",
   "cmdGitOnlyThisFile": "仅显示此文件",
-  "diffOnlyThisFile": "仅显示此文件"
+  "diffOnlyThisFile": "仅显示此文件",
+  "prefTitleDiffCommitFileOnly": "仅显示此文件",
+  "prefDescDiffCommitFileOnly": "从文件历史打开的提交只显示该文件；diff 工具栏的“仅显示此文件”按钮可切换为提交的全部文件，再切回该文件。"
 }

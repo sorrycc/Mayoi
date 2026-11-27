@@ -198,6 +198,10 @@ type Prefs struct {
 	// DiffFiles is how many files a diff shows at once: "" every file
 	// changed, one after another, or "one" the file chosen alone.
 	DiffFiles string `json:"diffFiles,omitempty"`
+	// DiffCommitFileOnly shows only the file whose history a commit's
+	// diff was opened at, when it is true; the diff's Only This File
+	// toggle says so for a tab whatever the setting.
+	DiffCommitFileOnly bool `json:"diffCommitFileOnly,omitempty"`
 	// DiffHighlight is what a diff shows of a line that changed: "line"
 	// no more than the line, "char" the characters that changed, or ""
 	// the words that changed. What it shows is only so: a diff's block
@@ -600,7 +604,7 @@ func Default() *Settings {
 		Prefs: Prefs{
 			FontSize: 13, FontFamily: "monospace", FontWeight: 400, LineHeight: 1.55, TabSize: 4,
 			AutoSave: true, Blame: true, EditorHover: true, SearchFollowSymlinks: true, TerminalCopyOnSelect: true, TerminalBackendHcShowInHerdr: true, PreviewMermaid: true, PreviewMath: true,
-			DiffAlignedRows: true, DiffContext: 3, DiffSyncScroll: true, MergeAutoApply: true,
+			DiffAlignedRows: true, DiffContext: 3, DiffSyncScroll: true, MergeAutoApply: true, DiffCommitFileOnly: true,
 			UsageStats: true, ConfirmBeforeQuit: true,
 		},
 	}

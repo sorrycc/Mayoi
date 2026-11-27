@@ -1622,7 +1622,7 @@ func applyTheme(c *ui.Context, prefs *settings.Prefs, fade *paletteFade) *palett
 	t.Radius = 6
 	t.Spacing = 3.5
 	t.FontSize = 13
-	t.ScrollbarWidth = 8
+	t.ScrollbarWidth = scrollbarWidth
 	t.Surface, t.SurfaceHover, t.SurfacePressed = p.surface, p.surfaceHover, p.surfacePressed
 	t.Scrollbar = p.scrollbar
 	t.Inverse, t.InverseText = p.inverse, p.inverseText
@@ -1632,6 +1632,9 @@ func applyTheme(c *ui.Context, prefs *settings.Prefs, fade *paletteFade) *palett
 
 // paletteFadeFor is how long the window takes from one palette to the
 // next.
+// scrollbarWidth is how wide the scroll bars are, in DIPs.
+const scrollbarWidth = 8
+
 const paletteFadeFor = motionMove
 
 // paletteFade takes the window from one palette to another: each of its

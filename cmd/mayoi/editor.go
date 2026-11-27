@@ -20,6 +20,7 @@ const (
 	editorPadY = 8  // above the first line
 	gutterGap  = 10 // between the line numbers and the text
 	textPadR   = 32 // right of the widest line
+	barInset   = 2  // between a scroll bar and the edge of the view
 	// widestWhole is the size of the largest text, in bytes, whose longest
 	// line is measured again at every edit: that of a larger one only grows.
 	widestWhole = 1 << 20
@@ -614,7 +615,7 @@ func (a *app) editorView(c *ui.Context, d *editor) {
 		area.TrackScroll(&d.vscroll).
 			// The area is as wide as its widest line: keep its scroll bar
 			// at the right of the view, wherever it scrolls sideways.
-			ScrollbarInsets(2, max(0, d.hscroll.MaxX-d.hscroll.X)+2, 2, 0)
+			ScrollbarInsets(barInset, max(0, d.hscroll.MaxX-d.hscroll.X)+barInset, barInset, 0)
 		if d.focusNext {
 			d.focusNext = false
 			d.vscroll.Focus(c)
@@ -723,6 +724,15 @@ func (a *app) editorView(c *ui.Context, d *editor) {
 		gitRuns := d.gitRuns()
 		guideW := f.indentWidth(d.indent)
 		columnGuides := a.prefs().ColumnGuides
+		// The guides show where the text does: to where it wraps, or else
+		// to the vertical scroll bar.
+		guidesRight := view.W - textPadR
+		if !wrap {
+			guidesRight = view.W
+			if d.vscroll.MaxY > 0 {
+				guidesRight -= c.Theme().ScrollbarWidth + barInset
+			}
+		}
 		rows := a.overviewRows(d, snap, view.H)
 		spaces := a.selectedWhitespace(d, snap, first, last)
 		// The editor paints the selection, rounded, and keeps it in sight,
@@ -840,11 +850,15 @@ func (a *app) editorView(c *ui.Context, d *editor) {
 					// A continuous column boundary needs more contrast than an indent guide.
 					col = col.Mix(p.text, 0.25)
 				}
-				clip := ui.Rect{X: r.X + d.hscroll.X + textX, Y: r.Y, W: max(0, view.W-textX-textPadR), H: r.H}
+				clip := ui.Rect{X: r.X + d.hscroll.X + textX, Y: r.Y, W: max(0, guidesRight-textX), H: r.H}
 				pt.Clip(clip, 0, func() {
+					// The columns are sorted: none after one past the clip shows.
 					for _, column := range columnGuides {
 						x := r.X + textX + float32(column)*f.charW
-						if x >= clip.X && x < clip.X+clip.W {
+						if x >= clip.X+clip.W {
+							break
+						}
+						if x >= clip.X {
 							pt.Fill(ui.Rect{X: x, Y: r.Y, W: 1, H: r.H}, col, 0)
 						}
 					}

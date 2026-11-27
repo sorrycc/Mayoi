@@ -175,6 +175,8 @@ func (a *app) commandsIn(t locales.Messages) []command {
 		{"git.amend", t.CmdGitAmend(), "", func() { a.showSourceControl(); a.startAmend() }},
 		{"git.writeMessage", t.CmdGitWriteMessage(), "", func() { a.showSourceControl(); a.writeMessage() }},
 		{"git.openChanges", t.CmdGitOpenChanges(), "", a.openChanges},
+		{"git.fileHistory", t.CmdGitFileHistory(), "", a.openFileHistory},
+		{"git.folderHistory", t.CmdGitFolderHistory(), "", a.openFolderHistory},
 		{"git.openAllChanges", t.CmdGitOpenAllChanges(), "", func() { a.openChangesTab(true) }},
 		{"git.compareFiles", t.CmdGitCompareFiles(), "", a.compareLocalFiles},
 		{"git.solveConflicts", t.CmdGitSolveConflicts(), "", a.solveActiveConflicts},
@@ -186,6 +188,7 @@ func (a *app) commandsIn(t locales.Messages) []command {
 		{"git.collapseAllFiles", t.CmdGitCollapseAllFiles(), "", func() { a.foldDiffFiles(true) }},
 		{"git.expandAllFiles", t.CmdGitExpandAllFiles(), "", func() { a.foldDiffFiles(false) }},
 		{"git.toggleCommitFiles", t.CmdGitToggleCommitFiles(), "", a.toggleCommitFiles},
+		{"git.onlyPaths", t.CmdGitOnlySelectedPaths(), "", a.toggleOnlyPaths},
 		{"git.appendChange", t.CmdGitAppendChange(), "", a.appendAtCursor},
 		{"git.showChange", t.CmdGitShowChange(), "", a.editActive(func(d *editor) { d.peekHunk(caretLine(d)) })},
 		{"git.revertChange", t.CmdGitRevertChange(), "", a.editActive(func(d *editor) { a.onCaretHunk(d, a.revertHunk) })},
@@ -685,6 +688,12 @@ func (a *app) menu(cli bool, run func(id string, win *mygo.Window)) *mygo.Menu {
 			item("file.quit"),
 		})}
 	}
+	// The paths of a history shown alone, off unless a commit opened from
+	// one shows; the panel of a commit's files is off while they show.
+	onlyFile := checkbox("git.onlyPaths", a.activeDiffOnly())
+	onlyFile.Disabled = a.activeDiff() == nil || a.activeDiff().commit == nil || len(a.activeDiff().paths) == 0
+	commitFiles := checkbox("git.toggleCommitFiles", a.window.CommitFilesOpen)
+	commitFiles.Disabled = a.activeDiffOnly()
 	// The items of the review comments, off while there are none.
 	reviewItem := func(id string) *mygo.MenuItem {
 		it := item(id)
@@ -789,8 +798,8 @@ func (a *app) menu(cli bool, run func(id string, win *mygo.Window)) *mygo.Menu {
 		}},
 		{Label: locales.MenuGit(), Submenu: []*mygo.MenuItem{
 			item("git.commit"), item("git.commitPush"), item("git.amend"), item("git.undoCommit"), mygo.Separator(),
-			item("git.openChanges"), item("git.openAllChanges"), item("git.compareFiles"), item("git.nextChange"), item("git.prevChange"), item("git.nextFile"), item("git.prevFile"),
-			item("git.collapseAllFiles"), item("git.expandAllFiles"), checkbox("git.toggleCommitFiles", a.window.CommitFilesOpen), mygo.Separator(),
+			item("git.openChanges"), item("git.fileHistory"), item("git.folderHistory"), item("git.openAllChanges"), item("git.compareFiles"), item("git.nextChange"), item("git.prevChange"), item("git.nextFile"), item("git.prevFile"),
+			item("git.collapseAllFiles"), item("git.expandAllFiles"), commitFiles, onlyFile, mygo.Separator(),
 			item("git.showChange"), item("git.revertChange"), item("git.appendChange"), item("git.stageChange"), mygo.Separator(),
 			item("git.stageFile"), item("git.unstageFile"), item("git.stageAll"), mygo.Separator(),
 			item("git.switchBranch"), item("git.switchWorktree"), item("git.createBranch"), item("git.fetch"), item("git.pull"), item("git.push"), mygo.Separator(),

@@ -417,13 +417,19 @@ func TestMigrateTheme(t *testing.T) {
 func TestDiffPrefs(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "settings.json")
 	s := Load(path)
-	if s.DiffHighlight != "" || s.DiffContext != 3 || !s.DiffSyncScroll {
+	if s.DiffHighlight != "" || s.DiffContext != 3 || !s.DiffSyncScroll || !s.DiffHistoryOnly {
 		t.Fatalf("defaults %+v", s.Prefs)
 	}
-	os.WriteFile(path, []byte(`{"diffHighlight": "char", "diffContext": 400, "diffSyncScroll": false}`), 0o644)
+	os.WriteFile(path, []byte(`{"diffHighlight": "char", "diffContext": 400, "diffSyncScroll": false, "diffHistoryOnly": false}`), 0o644)
 	s = Load(path)
-	if s.DiffHighlight != "char" || s.DiffContext != 100 || s.DiffSyncScroll {
+	if s.DiffHighlight != "char" || s.DiffContext != 100 || s.DiffSyncScroll || s.DiffHistoryOnly {
 		t.Fatalf("loaded %+v", s.Prefs)
+	}
+	// Off, it is written as off, not left out to load as on again.
+	prefs, _ := s.Encode()
+	os.WriteFile(path, prefs, 0o644)
+	if Load(path).DiffHistoryOnly {
+		t.Fatalf("diffHistoryOnly off did not stay off: %s", prefs)
 	}
 	os.WriteFile(path, []byte(`{"diffHighlight": "banana", "diffContext": -2}`), 0o644)
 	s = Load(path)

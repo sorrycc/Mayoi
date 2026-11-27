@@ -71,11 +71,16 @@ type scmRow struct {
 	// are read or when they could not be.
 	under *git.Commit
 	note  string
+	// scope is the row of the paths whose history the commits are, and
+	// empty the row that says no commit changed them.
+	scope bool
+	empty bool
 }
 
 // file reports whether a row is a file's.
 func (r *scmRow) file() bool {
-	return r.panel == nil && !r.header && r.commit == nil && !r.more && r.dir == "" && r.under == nil
+	return r.panel == nil && !r.header && r.commit == nil && !r.more && r.dir == "" && r.under == nil &&
+		!r.scope && !r.empty
 }
 
 // choice is the list of rows a row is chosen with: the files, the commits
@@ -138,6 +143,9 @@ type scmState struct {
 	// selectAll is Select All of the Edit menu, which the list takes in
 	// its next frame.
 	selectAll bool
+	// revealScope scrolls the list to the row of the file whose history
+	// it shows, once it is there.
+	revealScope bool
 }
 
 // scmScrollQuiet is how long the list rests after scrolling before its
@@ -217,14 +225,23 @@ func (a *gitContext) scmRows() []scmRow {
 			rows = append(rows, scmRow{group: scmGroup(g), e: e, key: fmt.Sprintf("%d:%s", g, e.Path)})
 		}
 	}
-	if h := g.history; (len(h) > 0 || s.section == scmHistory) && s.section != scmChanges {
+	if h := g.history; (len(h) > 0 || s.section == scmHistory || len(g.historyPaths) > 0) && s.section != scmChanges {
 		rows = append(rows, scmRow{group: groupCommits, header: true, count: len(h), key: "group:commits"})
 		if !s.collapsed[groupCommits] {
+			// The paths whose history the commits are show under the
+			// header, with the button that goes back to the branch's.
+			if len(g.historyPaths) > 0 {
+				rows = append(rows, scmRow{group: groupCommits, scope: true, key: "scope:" + strings.Join(g.historyPaths, "\x00")})
+			}
 			for i := range h {
 				rows = append(rows, scmRow{group: groupCommits, commit: &h[i], at: i, key: "commit:" + h[i].Hash})
 				if s.openCommits[h[i].Hash] {
 					rows = a.commitFileRows(rows, &h[i], i)
 				}
+			}
+			// No commit changed the paths, or they could not be read.
+			if len(h) == 0 && len(g.historyPaths) > 0 && g.historyOf == a.historyKey() {
+				rows = append(rows, scmRow{group: groupCommits, empty: true, key: "commits:empty"})
 			}
 			if g.historyMore {
 				rows = append(rows, scmRow{group: groupCommits, more: true, key: "commits:more"})
@@ -499,6 +516,14 @@ func (a *gitContext) scmList(c *ui.Context) {
 	if len(rows) == 0 {
 		return
 	}
+	// A file's history shows at once, past the changes above it.
+	if s.revealScope {
+		s.revealScope = false
+		if i := slices.IndexFunc(rows, func(r scmRow) bool { return r.scope }); i >= 0 {
+			s.row = i
+			s.list.ScrollIntoView(i)
+		}
+	}
 	s.list.Selected = &s.row
 	s.list.Header = func(i int) bool { return i < len(rows) && rows[i].header }
 	s.list.Key = func(i int) any {
@@ -513,6 +538,10 @@ func (a *gitContext) scmList(c *ui.Context) {
 			return r.panel.label
 		case r.header:
 			return ""
+		case r.scope:
+			return locales.ScmPathHistory(a.historyLabel())
+		case r.empty:
+			return a.historyEmpty()
 		case r.note != "":
 			return r.note
 		case r.dir != "":
@@ -544,6 +573,10 @@ func (a *gitContext) scmList(c *ui.Context) {
 				a.scmCommit(c, r, &action)
 			case r.under != nil:
 				a.scmCommitFile(c, i, r, &action)
+			case r.scope:
+				a.scmScope(c)
+			case r.empty:
+				a.scmEmpty(c)
 			case r.more:
 				a.scmMore(c, &action)
 			case r.dir != "":
@@ -645,7 +678,9 @@ func (a *gitContext) scmListInput(out ui.Element, rows []scmRow, reveal func(int
 		case r.dir != "":
 			a.toggleDir(r)
 		case r.commit != nil:
-			a.showCommit(*r.commit, true)
+			a.showHistoryCommit(*r.commit, true)
+		case r.scope:
+			a.clearHistory()
 		case r.more:
 			g.historyN = max(g.historyN, historyPage) + historyPage
 		}
@@ -1346,7 +1381,7 @@ func (a *gitContext) scmCommit(c *ui.Context, r scmRow, action *func()) {
 				}
 			}
 			if mods&(ui.Cmd|ui.Shift) == 0 {
-				a.previewCommit(*cm)
+				a.showHistoryCommit(*cm, false)
 			}
 		}
 	}
@@ -1699,6 +1734,47 @@ func (a *gitContext) scmMore(c *ui.Context, action *func()) {
 	if clicked {
 		*action = func() { a.git.historyN = max(a.git.historyN, historyPage) + historyPage }
 	}
+}
+
+// scmScope is the row of the paths whose history the commits are: the
+// file's, the folder's or their count, and the button that shows the
+// branch's history again.
+func (a *gitContext) scmScope(c *ui.Context) {
+	p := a.app.pal
+	row := ui.Row(c).Grow(1).Height(scmRowHeight).Padding(0, 4, 0, 6).AlignItems(ui.Center)
+	row.Tooltip(a.historyTip())
+	row.Children(func() {
+		ui.Box(c).Size(12, scmRowHeight)
+		chip := ui.Row(c).Height(20).MaxWidthPercent(100).Gap(4).Padding(0, 2, 0, 5).Radius(5).
+			AlignItems(ui.Center).Background(p.hover)
+		chip.Children(func() {
+			ui.Icon(c, a.historyIcon()).FontSize(11).Shrink(0).TextColor(p.muted)
+			ui.Text(c, a.historyLabel()).FontSize(11.5).TextColor(p.muted).SingleLine().Shrink(1).MinWidth(0)
+			if a.app.smallButton(c, iconX, locales.ScmPathHistoryClear()) {
+				a.app.post(a.clearHistory)
+			}
+		})
+	})
+}
+
+// scmEmpty says that no commit changed the paths whose history is read,
+// or why their history could not be read.
+func (a *gitContext) scmEmpty(c *ui.Context) {
+	p := a.app.pal
+	ui.Row(c).Grow(1).Height(scmRowHeight).Padding(0, 4, 0, 12).AlignItems(ui.Center).Tooltip(a.git.historyErr).Children(func() {
+		ui.Box(c).Size(12, scmRowHeight)
+		ui.Text(c, a.historyEmpty()).FontSize(11.5).TextColor(p.faint).SingleLine().Shrink(1)
+	})
+}
+
+// historyEmpty is what the row under an empty history's scope says: why
+// it could not be read, or that no commit changed its paths.
+func (a *gitContext) historyEmpty() string {
+	if err := a.git.historyErr; err != "" {
+		line, _, _ := strings.Cut(strings.TrimSpace(err), "\n")
+		return line
+	}
+	return locales.ScmPathHistoryNone(a.historyLabel())
 }
 
 // shortAgo says how long before now t was, in a few letters.

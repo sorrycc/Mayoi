@@ -360,3 +360,39 @@ func TestScmIncomingNothingToCompare(t *testing.T) {
 	hs.settleGit()
 	check("detached")
 }
+
+// A file's history shows only the commits of HEAD that changed it: none
+// of the upstream's leak in, nor a page more, and going back to the
+// branch's history shows them again, once each, past another page.
+func TestScmIncomingScopedHistory(t *testing.T) {
+	r := newIncomingRepo(t, true)
+	r.fetch(t)
+	if len(r.hs.a.git.incoming) != 2 {
+		t.Fatalf("read %d commits not pulled", len(r.hs.a.git.incoming))
+	}
+	for _, follow := range []bool{true, false} {
+		r.hs.a.rootRepository().setHistory([]string{r.hs.path("main.go")}, follow)
+		if len(r.hs.a.git.incoming) != 0 || r.hs.a.git.historyMore {
+			t.Fatalf("follow=%v: switching scope kept %d incoming, more %v", follow, len(r.hs.a.git.incoming), r.hs.a.git.historyMore)
+		}
+		r.hs.settleGit()
+		if got := strings.Join(r.rows(), " | "); got != "commits:first" {
+			t.Fatalf("follow=%v: file history rows %s", follow, got)
+		}
+		if len(r.hs.a.git.incoming) != 0 || r.hs.a.git.historyMore {
+			t.Fatalf("follow=%v: file history read %d incoming, more %v", follow, len(r.hs.a.git.incoming), r.hs.a.git.historyMore)
+		}
+		r.hs.a.rootRepository().clearHistory()
+		r.hs.settleGit()
+	}
+	r.hs.a.git.historyN = 2 * historyPage
+	r.hs.settleGit()
+	got := strings.Join(r.rows(), " | ")
+	want := "not-pulled:remote two | not-pulled:remote one | commits:local one | commits:first"
+	if got != want {
+		t.Fatalf("branch history rows\n%s\nwant\n%s", got, want)
+	}
+	if r.hs.a.git.historyMore {
+		t.Fatal("a short history offers more")
+	}
+}

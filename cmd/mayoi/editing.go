@@ -353,6 +353,10 @@ func opensColonBlock(d *document) bool {
 func toggleComment(d *editor) {
 	snap := d.buf.Snapshot()
 	first, last := lineSpan(snap, d.sel)
+	if jsxChildrenLines(d.document, snap, first, last) {
+		toggleJSXComment(d, snap, first, last)
+		return
+	}
 	mark, block := commentAt(d.document, snap, first)
 	if mark == "" {
 		if block[0] != "" {

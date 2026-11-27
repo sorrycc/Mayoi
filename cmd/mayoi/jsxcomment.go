@@ -44,10 +44,12 @@ const (
 )
 
 // jsxDocument reports whether a document is JSX or TSX. Chroma calls a
-// .tsx file's lexer TypeScript, as it calls a .ts file's.
+// .tsx file's lexer TypeScript, as it calls a .ts file's. A language
+// chosen for the document counts over its file name.
 func jsxDocument(d *document) bool {
-	switch strings.ToLower(filepath.Ext(d.path)) {
-	case ".tsx", ".jsx":
+	ext := strings.ToLower(filepath.Ext(d.path))
+	jsxName := ext == ".tsx" || ext == ".jsx"
+	if jsxName && d.language == "" {
 		return true
 	}
 	if d.hl == nil {
@@ -56,6 +58,8 @@ func jsxDocument(d *document) bool {
 	switch highlight.Name(d.hl.Lexer()) {
 	case "TSX", "react", "JSX":
 		return true
+	case "TypeScript", "JavaScript":
+		return jsxName
 	}
 	return false
 }

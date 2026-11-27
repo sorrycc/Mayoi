@@ -174,3 +174,22 @@ func TestCommentJSXLeavesValueComparisonsAlone(t *testing.T) {
 	want := strings.Replace(src, "const x = 1", "// const x = 1", 1)
 	expectText(t, d, want)
 }
+
+func TestCommentJSXFollowsAChosenLanguage(t *testing.T) {
+	src := "const view = (\n  <section>\n    <G3Alert />\n  </section>\n);\n"
+	for _, c := range []struct{ file, language, want string }{
+		{"App.tsx", "html", "    <!-- <G3Alert /> -->"},
+		{"App.tsx", "typescript", "    {/* <G3Alert /> */}"},
+		{"App.ts", "react", "    {/* <G3Alert /> */}"},
+	} {
+		t.Run(c.file+" as "+c.language, func(t *testing.T) {
+			hs, d := editHarness(t, c.file, src)
+			hs.a.setDocumentLanguage(d.document, nil, c.language)
+			at := strings.Index(src, "<G3Alert")
+			hs.place(d, at, at)
+			hs.a.run("sel.comment")
+			hs.settle()
+			expectText(t, d, strings.Replace(src, "    <G3Alert />", c.want, 1))
+		})
+	}
+}

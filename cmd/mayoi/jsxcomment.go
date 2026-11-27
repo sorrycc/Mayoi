@@ -60,14 +60,22 @@ func jsxDocument(d *document) bool {
 	return false
 }
 
+// maxJSXPrefix is the most text lexed to tell where a line is in a JSX
+// file: a large file's earlier lines should not make ⌘/ wait a second.
+const maxJSXPrefix = 256 << 10
+
 // jsxChildrenAt reports whether a line of a JSX or TSX document is in its
-// children, where a comment is {/* ... */}.
+// children, where a comment is {/* ... */}. A line after maxJSXPrefix is
+// left to the line comment, which is quick.
 func jsxChildrenAt(d *document, snap ui.TextSnapshot, line int) bool {
 	if !jsxDocument(d) || d.hl == nil {
 		return false
 	}
 	s, _ := snap.LineRange(line)
 	prefix := snap.Slice(0, s)
+	if len(prefix) > maxJSXPrefix {
+		return false
+	}
 	return jsxContext(d.hl.Lexer(), prefix) == jsxChildrenPlace
 }
 
@@ -122,7 +130,7 @@ func jsxPunctuation(stack *[]jsxFrame, s string, toks []chroma.Token, at int) {
 			if i+1 < len(s) && s[i+1] == '/' {
 				jsxPushTag(stack, true)
 				i++
-			} else if jsxTagNameAhead(s, i, toks, at) {
+			} else if jsxTagNameAhead(s, i, toks, at, jsxInChildren(stack)) {
 				jsxPushTag(stack, false)
 			}
 		case '/':
@@ -143,11 +151,16 @@ func jsxPunctuation(stack *[]jsxFrame, s string, toks []chroma.Token, at int) {
 	}
 }
 
+// jsxInChildren reports whether the line so far is in JSX children.
+func jsxInChildren(stack *[]jsxFrame) bool {
+	return len(*stack) > 0 && (*stack)[len(*stack)-1].kind == jsxChildrenFrame
+}
+
 // jsxTagNameAhead reports whether a < at i starts a tag: a name or the
 // empty tag <> follows it, not the < of a comparison.
-func jsxTagNameAhead(s string, i int, toks []chroma.Token, at int) bool {
-	if at > 0 && toks[at-1].Type == chroma.NameOther {
-		return false // foo<T>, not <foo>
+func jsxTagNameAhead(s string, i int, toks []chroma.Token, at int, inChildren bool) bool {
+	if !inChildren && jsxNameBefore(toks, at) {
+		return false // Array<T>, React.FC<T>, foo<T>, not <foo>
 	}
 	if i+1 < len(s) {
 		next := s[i+1]
@@ -178,6 +191,19 @@ func jsxTypeAfter(toks []chroma.Token, at int) bool {
 			return false
 		}
 		return true
+	}
+	return false
+}
+
+// jsxNameBefore reports whether a name or type token is immediately
+// before the < at at, as a TypeScript type argument's is.
+func jsxNameBefore(toks []chroma.Token, at int) bool {
+	for i := at - 1; i >= 0; i-- {
+		if toks[i].Type == chroma.Text {
+			continue
+		}
+		t := toks[i].Type
+		return t.InCategory(chroma.Name) || t == chroma.KeywordType
 	}
 	return false
 }
@@ -328,6 +354,14 @@ func toggleJSXComment(d *editor, snap ui.TextSnapshot, first, last int) {
 		edits = append(edits, textEdit{prefixAt, prefixAt + prefixN, ""})
 		sel = shiftSel(sel, prefixAt, -prefixN)
 		d.edit(sel, edits...)
+		return
+	}
+
+	// A block that already holds a JSX comment cannot take another:
+	// its */} would end the new one early.
+	start, _ := snap.LineRange(first)
+	_, end := snap.LineRange(last)
+	if strings.Contains(snap.Slice(start, end), jsxClose) {
 		return
 	}
 

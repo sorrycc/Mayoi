@@ -77,7 +77,14 @@ func TestCommentJSXUnwrapsAJSXComment(t *testing.T) {
 }
 
 func TestCommentJSXLeavesTypeScriptGenericsAlone(t *testing.T) {
-	src := "const identity = <T,>(value: T) => value;\nconst typed = <T extends Foo>(value: T) => value;\nconst g = foo<T>(x);\nconst x = 1;\n"
+	src := "const identity = <T,>(value: T) => value;\n" +
+		"const typed = <T extends Foo>(value: T) => value;\n" +
+		"const xs: Array<string> = [];\n" +
+		"const c: React.FC<Props> = (props) => null;\n" +
+		"new Map<string, Set<number>>();\n" +
+		"const z = y as Array<number>;\n" +
+		"const g = foo<T>(x);\n" +
+		"const x = 1;\n"
 	hs, d := editHarness(t, "App.tsx", src)
 	at := strings.Index(src, "const x = 1")
 	hs.place(d, at, at)
@@ -113,6 +120,31 @@ func TestCommentJSXTextChild(t *testing.T) {
 	hs.settle()
 	want := strings.Replace(src, "    Hello {name}", "    {/* Hello {name} */}", 1)
 	expectText(t, d, want)
+	hs.a.run("sel.comment")
+	hs.settle()
+	expectText(t, d, src)
+}
+
+func TestCommentJSXTagAfterText(t *testing.T) {
+	src := "const view = (\n  <p>\n    Click<b>here</b>\n    more\n  </p>\n);\n"
+	hs, d := editHarness(t, "App.tsx", src)
+	at := strings.Index(src, "more")
+	hs.place(d, at, at)
+	hs.a.run("sel.comment")
+	hs.settle()
+	want := strings.Replace(src, "    more", "    {/* more */}", 1)
+	expectText(t, d, want)
+	hs.a.run("sel.comment")
+	hs.settle()
+	expectText(t, d, src)
+}
+
+func TestCommentJSXDoesNotNestAComment(t *testing.T) {
+	src := "const view = (\n  <section>\n    <A />\n    {/* note */}\n    <B />\n  </section>\n);\n"
+	hs, d := editHarness(t, "App.tsx", src)
+	start := strings.Index(src, "<A />")
+	end := strings.Index(src, "<B />") + len("<B />")
+	hs.place(d, start, end)
 	hs.a.run("sel.comment")
 	hs.settle()
 	expectText(t, d, src)

@@ -16,4 +16,6 @@ type CommandContext struct {
 		Line      int `json:"line"`
 		Character int `json:"character"`
 	} `json:"position,omitempty"`
+	// Cwd is the folder of the terminal a clicked link came from.
+	Cwd string `json:"cwd,omitempty"`
 }

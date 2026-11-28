@@ -30,6 +30,15 @@ func shellDir(started, reported string) string {
 	return started
 }
 
+// sessionDir is the folder a terminal's shell reports, or the one it
+// started in. It reads what the terminal last heard, not the disk.
+func sessionDir(s *session) string {
+	if s.term == nil {
+		return s.dir
+	}
+	return shellDir(s.dir, s.term.Dir())
+}
+
 // windowsDrivePath is a file URL's path on Windows, /C:/dir, as the
 // shell's directory. filepath does not treat that form as absolute.
 func windowsDrivePath(p string) (string, bool) {
@@ -50,10 +59,7 @@ func (a *app) terminalFile(s *session, link string) bool {
 	if strings.Contains(link, "://") || strings.HasPrefix(link, "mailto:") {
 		return false
 	}
-	dir := s.dir
-	if s.term != nil {
-		dir = shellDir(s.dir, s.term.Dir())
-	}
+	dir := sessionDir(s)
 	resolve := func(name string) string {
 		if strings.HasPrefix(name, "~/") || strings.HasPrefix(name, `~\`) {
 			name = filepath.Join(homeDir(), name[2:])

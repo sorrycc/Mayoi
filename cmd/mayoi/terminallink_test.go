@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"net"
 	"net/url"
 	"os"
@@ -10,6 +11,7 @@ import (
 	"github.com/egoist/mygo/plugins/terminal"
 	"github.com/egoist/mygo/ui"
 
+	"mayoi/internal/plugin"
 	"mayoi/internal/remote"
 )
 
@@ -170,5 +172,168 @@ func TestTerminalLinkLeavesOtherLinks(t *testing.T) {
 	}
 	if len(hs.a.docs) != 0 {
 		t.Fatal("opened a document for a rejected link")
+	}
+}
+
+// linkProbe records each terminal link command it runs, with its context.
+func linkProbe() map[string]map[string]string {
+	return map[string]map[string]string{"linkprobe": {
+		"plugin.json": `{"name":"linkprobe","main":"main.ts","contributes":{
+"commands":[{"id":"linkprobe.open","title":"Open"},{"id":"linkprobe.calls","title":"Calls"}],
+"terminalLinks":[{"pattern":"\\./report\\.html","command":"linkprobe.open"}]}}`,
+		"main.ts": `import { commands } from "mayoi";
+const calls = [];
+commands.register("linkprobe.open", (arg, context) => { calls.push({ arg, context }); });
+commands.register("linkprobe.calls", () => calls);
+`,
+	}}
+}
+
+type linkCall struct {
+	Arg     string
+	Context plugin.CommandContext
+}
+
+// linkCalls waits for the probe to have run n times and returns its calls.
+func linkCalls(t *testing.T, hs *harness, h *pluginHost, n int) []linkCall {
+	t.Helper()
+	var calls []linkCall
+	hs.until("terminal link command", func() bool {
+		calls = nil
+		if err := json.Unmarshal(pluginRun(t, hs, h, "linkprobe.calls", nil, nil), &calls); err != nil {
+			t.Fatal(err)
+		}
+		return len(calls) >= n
+	})
+	return calls
+}
+
+func TestTerminalClickGivesPluginShellDir(t *testing.T) {
+	if testing.Short() && os.Getenv("MYGO_GHOSTTY_VT") == "" {
+		t.Skip("loads libghostty-vt")
+	}
+	hs := newHarness(t, true)
+	preview := hs.path("preview")
+	if err := os.MkdirAll(preview, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(preview, "report.html"), []byte("<h1>Report</h1>\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	h := withPlugins(hs, linkProbe())
+	hs.a.openFile(hs.path("README.md"), true)
+	doc := hs.a.activeEditor().document
+
+	type shell struct {
+		s    *session
+		term *terminal.Terminal
+		tt   *ui.Tester
+	}
+	start := func() shell {
+		s := &session{dir: hs.root}
+		conn, peer := net.Pipe()
+		t.Cleanup(func() { peer.Close() })
+		term, err := terminal.New(terminal.Options{
+			Conn:     conn,
+			OpenLink: func(link string) bool { return hs.a.terminalLink(s, link) },
+		})
+		if err != nil {
+			conn.Close()
+			t.Fatal(err)
+		}
+		t.Cleanup(func() { term.Close() })
+		s.term = term
+		tt := ui.NewTester(func(c *ui.Context) { terminal.View(c, term).Fill() }, 800, 200)
+		tt.Frame()
+		return shell{s, term, tt}
+	}
+	cd := func(sh shell, dir string) {
+		u := (&url.URL{Scheme: "file", Host: "localhost", Path: filepath.ToSlash(dir)}).String()
+		sh.term.Feed([]byte("\x1b]7;" + u + "\x07"))
+	}
+	click := func(sh shell) {
+		sh.term.Feed([]byte("\x1b[2J\x1b[H./report.html\r\n"))
+		sh.tt.Frame()
+		cols, rows := sh.term.Size()
+		x, y := 3.5*800/float32(cols), 0.5*200/float32(rows)
+		sh.tt.Move(x, y)
+		sh.tt.HoldModifiers(ui.Cmd)
+		sh.tt.ClickAtWith(ui.Cmd, x, y)
+	}
+
+	a, b := start(), start()
+	// Each click's command runs on its own, so wait for one before the next.
+	n := 0
+	clickWait := func(sh shell) {
+		click(sh)
+		n++
+		linkCalls(t, hs, h, n)
+	}
+	// No directory reported yet: the folder the terminal started in.
+	clickWait(a)
+	cd(a, hs.root)
+	clickWait(a)
+	cd(a, preview)
+	clickWait(a)
+	// b, at the root, is clicked while a has moved; then a again.
+	cd(b, hs.root)
+	clickWait(b)
+	clickWait(a)
+	calls := linkCalls(t, hs, h, 5)
+	want := []string{hs.root, hs.root, preview, hs.root, preview}
+	for i, c := range calls {
+		if c.Arg != "./report.html" || c.Context.Cwd != want[i] {
+			t.Errorf("click %d: arg %q, cwd %q, want %q", i, c.Arg, c.Context.Cwd, want[i])
+		}
+		if c.Context.Source != "command" || c.Context.Document == nil || *c.Context.Document != hs.a.documentRef(doc) {
+			t.Errorf("click %d lost the command context: %+v", i, c.Context)
+		}
+	}
+	if d := hs.a.activeEditor(); d == nil || d.document != doc {
+		t.Fatal("the plugin's link also opened the file in the editor")
+	}
+}
+
+func TestTerminalLinkPluginCwdFallback(t *testing.T) {
+	hs := newHarness(t, true)
+	h := withPlugins(hs, linkProbe())
+	if !hs.a.terminalLink(&session{dir: hs.root}, "see ./report.html now") {
+		t.Fatal("plugin link was not handled")
+	}
+	linkCalls(t, hs, h, 1)
+	remoteDir := remote.Path("offline-test", "/srv/app")
+	if !hs.a.terminalLink(&session{dir: remoteDir}, "./report.html") {
+		t.Fatal("plugin link in a remote terminal was not handled")
+	}
+	calls := linkCalls(t, hs, h, 2)
+	if calls[0].Arg != "./report.html" || calls[0].Context.Cwd != hs.root {
+		t.Errorf("without a shell: %+v", calls[0])
+	}
+	if calls[1].Context.Cwd != remoteDir {
+		t.Errorf("remote cwd %q, want %q", calls[1].Context.Cwd, remoteDir)
+	}
+	// Links no plugin matches still open as files.
+	if !hs.a.terminalLink(&session{dir: hs.root}, "README.md") {
+		t.Fatal("unmatched file link was not opened")
+	}
+	if d := hs.a.activeEditor(); d == nil || d.path != hs.path("README.md") {
+		t.Fatalf("unmatched file link opened %v", d)
+	}
+}
+
+func TestShellDirRemoteForms(t *testing.T) {
+	ssh := remote.Path("box", "/home/me")
+	if got, want := shellDir(ssh, "/home/me/preview"), remote.Path("box", "/home/me/preview"); got != want {
+		t.Errorf("ssh: %q, want %q", got, want)
+	}
+	wsl := remote.WSLPath("Ubuntu", "/home/me")
+	if got, want := shellDir(wsl, "/tmp"), remote.WSLPath("Ubuntu", "/tmp"); got != want {
+		t.Errorf("wsl: %q, want %q", got, want)
+	}
+	if got := shellDir(ssh, ""); got != ssh {
+		t.Errorf("unreported: %q", got)
+	}
+	if got := sessionDir(&session{dir: wsl}); got != wsl {
+		t.Errorf("no terminal: %q", got)
 	}
 }

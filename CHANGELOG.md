@@ -7,6 +7,8 @@ needs a `## <version>` section here, or its build fails.
 
 - Fix rows of the GitHub checks popup growing taller and pushing others down on hover.
 - Quick open and search in files now find untracked files that only your global git excludes file ignores.
+- The editor and terminal font pickers now show all available font families.
+- **Only Show Monospaced Fonts** filters both pickers and keeps the selected family visible.
 
 ## 0.23.6
 
@@ -42,8 +44,6 @@ needs a `## <version>` section here, or its build fails.
 - A plugin theme can ship light and dark palettes under one entry with `darkPath`, following **Appearance**.
 - Set `columnGuides` to show vertical guides at chosen columns in the editor.
 - In a folder's settings, **Edit in settings.json** opens that folder's `.mayoi/settings.json`, not yours.
-- The editor and terminal font pickers now show all available font families.
-- **Only Show Monospaced Fonts** filters both pickers and keeps the selected family visible.
 
 ## 0.23.5
 

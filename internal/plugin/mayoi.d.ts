@@ -44,6 +44,8 @@ declare module "mayoi" {
     document?: DocumentRef;
     version?: number;
     position?: Position;
+    /** For a terminal link, the clicked terminal's folder. On an SSH host, /ssh:host/path; in WSL, /wsl:distro/path. */
+    cwd?: string;
   }
 
   export interface Document {

@@ -174,7 +174,7 @@ languages plugins declare.
 | `themes`          | Themes, in Mayoi's format or VS Code's                                                         |
 | `languages`       | File `extensions` and `filenames`, the Chroma `lexer` that highlights them, and `lineComment`  |
 | `snippets`        | Snippets in VS Code's format, for a `language` or `*`                                          |
-| `terminalLinks`   | A `pattern` of links clicked in a terminal (URLs and paths), which runs `command` with the match |
+| `terminalLinks`   | A `pattern` of links clicked in a terminal (URLs and paths), which runs `command` with the match and `context.cwd` |
 | `languageServers` | Language servers: a `command`, its `args` and `initializationOptions`, for `languages`         |
 | `agents`          | Coding agents whose sessions the **Sessions** view lists and resumes; see below                 |
 
@@ -297,6 +297,22 @@ The context includes `source`, `windowId` and, when known, `document`, `version`
 Sources are `command`, `tab/context`, `explorer/context`, `api` and `cli`.
 A tab action gets the tab right-clicked, which need not be the active tab. Existing string arguments,
 including paths from context menus and values from `mayoi run`, remain the first argument.
+
+A `terminalLinks` command also gets `cwd`: the folder of the clicked terminal's shell, or the folder
+it started in when the shell reports none, as Mayoi uses to open a printed path. The match stays the
+first argument, so a relative path resolves against `cwd`:
+
+```ts
+commands.register("example.openReport", async (match, context) => {
+  const cwd = context?.cwd;
+  if (!cwd || /^\/(ssh|wsl):/.test(cwd)) return;
+  const file = match.startsWith("/") ? match : `${cwd}/${match}`;
+  // Hand file to a browser, or workspace.open(file).
+});
+```
+
+In a terminal of an SSH host or WSL folder, `cwd` is Mayoi's path there, `/ssh:host/path` or
+`/wsl:distro/path`, never a path of this machine.
 
 ### Files and programs on SSH hosts
 

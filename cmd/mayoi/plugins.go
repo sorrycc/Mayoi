@@ -659,8 +659,9 @@ func (a *app) pluginMenuItems(m *ui.Menu, where, arg string, origins ...*plugin.
 var pluginLinkRes sync.Map // string -> *regexp.Regexp
 
 // pluginTerminalLink runs the command of a plugin's terminal link whose
-// pattern a link clicked in a terminal matches, with the match.
-func (a *app) pluginTerminalLink(link string) bool {
+// pattern a link clicked in s matches, with the match, and the folder of
+// s's shell as the context's cwd.
+func (a *app) pluginTerminalLink(s *session, link string) bool {
 	if plugins == nil {
 		return false
 	}
@@ -675,7 +676,13 @@ func (a *app) pluginTerminalLink(link string) bool {
 				v, _ = pluginLinkRes.LoadOrStore(l.Pattern, re)
 			}
 			if match := v.(*regexp.Regexp).FindString(link); match != "" {
-				plugins.runCommand(a, l.Command, match)
+				var doc *document
+				if ed := a.activeEditor(); ed != nil {
+					doc = ed.document
+				}
+				origin := a.pluginContext("command", doc)
+				origin.Cwd = sessionDir(s)
+				plugins.runCommandContext(a, l.Command, match, origin)
 				return true
 			}
 		}

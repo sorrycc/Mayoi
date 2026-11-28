@@ -6,6 +6,7 @@ needs a `## <version>` section here, or its build fails.
 ## Unreleased
 
 - Fix rows of the GitHub checks popup growing taller and pushing others down on hover.
+- Quick open and search in files now find untracked files that only your global git excludes file ignores.
 
 ## 0.23.6
 

@@ -30,18 +30,21 @@ func Index(root string) []string {
 	return walk(root)
 }
 
-// gitFiles lists the files Git tracks under root and those it does not
-// ignore, less those deleted, false when root is not in a work tree or
-// Git is missing.
+// gitFiles lists the files Git tracks under root and those the project
+// does not ignore, less those deleted, false when root is not in a work
+// tree or Git is missing. The global excludes file is the person's own
+// list, not the project's, so it hides nothing here; the untracked files
+// in the directories Skipped names stay out instead.
 func gitFiles(root string) ([]string, bool) {
 	list := func(args ...string) ([]byte, bool) {
-		out, err := vfs.Output(root, "git", append([]string{"ls-files", "-z"}, args...)...)
+		out, err := vfs.Output(root, "git", append([]string{"-c", "core.excludesFile=", "ls-files", "-z"}, args...)...)
 		return out, err == nil
 	}
-	out, ok := list("--cached", "--others", "--exclude-standard", "--deduplicate")
+	tracked, ok := list("--cached", "--deduplicate")
 	if !ok {
 		return nil, false
 	}
+	others, _ := list("--others", "--exclude-standard")
 	deleted := map[string]bool{}
 	if del, ok := list("--deleted"); ok {
 		for name := range bytes.SplitSeq(del, []byte{0}) {
@@ -49,19 +52,27 @@ func gitFiles(root string) ([]string, bool) {
 		}
 	}
 	var files []string
-	for name := range bytes.SplitSeq(out, []byte{0}) {
-		if len(name) == 0 || deleted[string(name)] {
-			continue
-		}
-		f := string(name)
-		if Hidden(f[strings.LastIndexByte(f, '/')+1:]) {
-			continue
-		}
-		files = append(files, f)
-		if len(files) >= MaxIndexed {
-			break
+	add := func(out []byte, untracked bool) {
+		for name := range bytes.SplitSeq(out, []byte{0}) {
+			if len(files) >= MaxIndexed {
+				return
+			}
+			if len(name) == 0 || deleted[string(name)] {
+				continue
+			}
+			f := string(name)
+			dir, base := "", f
+			if i := strings.LastIndexByte(f, '/'); i >= 0 {
+				dir, base = f[:i], f[i+1:]
+			}
+			if Hidden(base) || untracked && slices.ContainsFunc(strings.Split(dir, "/"), Skipped) {
+				continue
+			}
+			files = append(files, f)
 		}
 	}
+	add(tracked, false)
+	add(others, true)
 	return files, true
 }
 

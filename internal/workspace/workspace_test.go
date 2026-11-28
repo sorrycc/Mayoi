@@ -165,6 +165,38 @@ func TestIndexLeavesOutWhatGitIgnores(t *testing.T) {
 	}
 }
 
+func TestIndexKeepsWhatOnlyGlobalExcludesIgnore(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("no git")
+	}
+	home := t.TempDir()
+	excludes := filepath.Join(home, "excludes")
+	os.WriteFile(excludes, []byte("notes.md\nnode_modules/\ntarget/\n"), 0o644)
+	config := filepath.Join(home, "gitconfig")
+	os.WriteFile(config, []byte("[core]\n\texcludesFile = "+excludes+"\n"), 0o644)
+	t.Setenv("GIT_CONFIG_GLOBAL", config)
+	root := t.TempDir()
+	mkfiles(t, root, ".gitignore", "main.go", "target/keep.txt")
+	os.WriteFile(filepath.Join(root, ".gitignore"), []byte("build/\n"), 0o644)
+	git := func(args ...string) {
+		cmd := exec.Command("git", append([]string{"-C", root, "-c", "user.name=t", "-c", "user.email=t@t"}, args...)...)
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("git %v: %v\n%s", args, err, out)
+		}
+	}
+	git("init", "-q")
+	git("add", "-f", ".")
+	git("commit", "-qm", "x")
+	mkfiles(t, root, "notes.md", "sub/notes.md", "build/app.bin", "local.txt", "node_modules/x.js", "target/out.bin")
+	os.WriteFile(filepath.Join(root, ".git", "info", "exclude"), []byte("local.txt\n"), 0o644)
+	got := Index(root)
+	slices.Sort(got)
+	want := []string{".gitignore", "main.go", "notes.md", "sub/notes.md", "target/keep.txt"}
+	if !slices.Equal(got, want) {
+		t.Fatalf("Index = %v, want %v", got, want)
+	}
+}
+
 func TestSortEntriesKeepsRemoteSlashPaths(t *testing.T) {
 	dir := remote.Path("box", "/home/me/app")
 	kids, dirs := SortEntries(dir, []vfs.Entry{{Name: "src", Dir: true}, {Name: "a.go"}})

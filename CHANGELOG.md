@@ -3,6 +3,10 @@
 The update window shows the section of the version it offers. Every release
 needs a `## <version>` section here, or its build fails.
 
+## Unreleased
+
+- Fix rows of the GitHub checks popup growing taller and pushing others down on hover.
+
 ## 0.23.6
 
 - Choose Mayoi's icon in **Settings → Appearance → App Icon**: its own, or the new Amber.

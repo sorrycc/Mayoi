@@ -30,6 +30,7 @@ func resolvePluginLanguage(owner *plugin.Plugin, name string) (string, chroma.Le
 }
 
 func (a *app) setDocumentLanguage(d *document, owner *plugin.Plugin, name string) {
+	d.pastedLanguage = false
 	language, lexer, owner := resolvePluginLanguage(owner, name)
 	d.language, d.languageOwner, d.lexerOwner = language, "", owner
 	if owner != nil {
@@ -42,6 +43,7 @@ func (a *app) setDocumentLanguage(d *document, owner *plugin.Plugin, name string
 // clearDocumentLanguage has a document's language found by its file
 // again, as it was before one was set.
 func (a *app) clearDocumentLanguage(d *document) {
+	d.pastedLanguage = false
 	if d.language == "" {
 		return
 	}

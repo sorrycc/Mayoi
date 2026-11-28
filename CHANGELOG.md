@@ -5,6 +5,7 @@ needs a `## <version>` section here, or its build fails.
 
 ## Unreleased
 
+- Pasting into an empty, unrecognized document detects its language; clearing it allows a new detection.
 - Fix rows of the GitHub checks popup growing taller and pushing others down on hover.
 
 ## 0.23.6

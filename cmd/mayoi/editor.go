@@ -357,6 +357,7 @@ func (a *app) editorView(c *ui.Context, d *editor) {
 		// A paste goes to every selection, a line at each when it has as
 		// many lines as there are of them.
 		area.OnPaste(func(text string) bool {
+			a.detectPastedLanguage(d.document, text)
 			if len(d.cursors) == 0 || text == "" {
 				return false
 			}

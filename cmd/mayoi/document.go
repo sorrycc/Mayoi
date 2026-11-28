@@ -37,6 +37,8 @@ var (
 type document struct {
 	outputOwner, outputKey string
 
+	pastedLanguage bool // inferred by paste, cleared when the buffer becomes empty
+
 	language      string // explicit language, reset when saved under a new path
 	languageOwner string // retain the selected declaration across plugin reloads
 	lexerOwner    *plugin.Plugin

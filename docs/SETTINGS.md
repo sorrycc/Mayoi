@@ -71,6 +71,7 @@ takes its default.
 | `terminalCopyOnSelect`  | `true`        | `true`, `false`                                             |                                                |
 | `theme`                 | `""`          | `""` (Mayoi), `"matrix"`, `"claude"`, `"qoder"`, `"grokbot"`, `"cursor"`, `"purplegold"`, `"pumpkin"`, `"witchsbrew"`, `"bloodmoon"`, `"gtavi"` | **View → Theme**, **Color Theme…**             |
 | `appearance`            | `""`          | `""` (follow the system), `"light"`, `"dark"`               | **View → Theme**                               |
+| `appIcon`               | `""`          | `""` (Mayoi's own), `"amber"`                               | **Settings → Appearance → App Icon**           |
 | `sidebarRight`          | `false`       | `true`, `false`                                             | **View → Sidebar on Right**                    |
 | `panelPosition`         | `""`          | `""` (bottom), `"left"`, `"right"`                          | **View → Panel Position**                      |
 | `terminalLocation`      | `""`          | `""` (the panel), `"editor"`                                | **View → New Terminals in Editor Area**        |
@@ -176,6 +177,11 @@ differ in width lines them up only roughly.
 - **`theme`** is Mayoi's own theme, The Matrix, Claude, Qoder, Grok Bot, Cursor, Purple Gold, a Halloween theme:
   `"pumpkin"` for Jack-o'-Lantern, `"witchsbrew"` for Witch's Brew and `"bloodmoon"` for Blood Moon, or `"gtavi"` for
   GTA VI. The Matrix, Purple Gold, the Halloween themes and GTA VI are always dark, so they ignore `appearance`.
+- **`appIcon`** is the icon Mayoi shows while it runs: `""` for its own or `"amber"` for Amber. It changes at once.
+  On macOS it shows in the Dock and the app switcher. The Finder, Launchpad and a Dock icon of Mayoi while it is closed
+  keep Mayoi's own, and Mayoi's own shows for a moment as it starts. On Windows and Linux it shows on Mayoi's windows
+  and their taskbar buttons, where the desktop takes them from the window: Wayland desktops show the launcher's icon.
+  An icon Mayoi doesn't know shows as its own.
 - **`panelPosition`** is where the terminal panel is: `""` or `"bottom"` below the editors, `"left"` or `"right"` at a
   side of the window. At a side it sits past the sidebar, so with the sidebar on the same side the panel is the outer
   of the two.

@@ -6472,6 +6472,16 @@ func (msgs Messages) FailSave(name string, err string) string {
 	return Catalog.Format(msgs.locale, "failSave", map[string]any{"name": name, "err": err})
 }
 
+// FailAppIcon says "Could not show the icon: {err}. Mayoi shows its own."
+// in the language the app shows.
+func FailAppIcon(err string) string { return In(i18n.Locale()).FailAppIcon(err) }
+
+// FailAppIcon says "Could not show the icon: {err}. Mayoi shows its own."
+// in the language of msgs.
+func (msgs Messages) FailAppIcon(err string) string {
+	return Catalog.Format(msgs.locale, "failAppIcon", map[string]any{"err": err})
+}
+
 // FailStartHC says "Could not start the terminal in herdr-core, so it runs in Mayoi: {err}"
 // in the language the app shows.
 func FailStartHC(err string) string { return In(i18n.Locale()).FailStartHC(err) }
@@ -15236,6 +15246,26 @@ func (msgs Messages) PrefDescAppearance() string {
 	return Catalog.Format(msgs.locale, "prefDescAppearance", nil)
 }
 
+// PrefTitleAppIcon says "App Icon"
+// in the language the app shows.
+func PrefTitleAppIcon() string { return In(i18n.Locale()).PrefTitleAppIcon() }
+
+// PrefTitleAppIcon says "App Icon"
+// in the language of msgs.
+func (msgs Messages) PrefTitleAppIcon() string {
+	return Catalog.Format(msgs.locale, "prefTitleAppIcon", nil)
+}
+
+// PrefDescAppIcon says "Mayoi's icon in the Dock and app switcher, or on its windows and taskbar, while it runs."
+// in the language the app shows.
+func PrefDescAppIcon() string { return In(i18n.Locale()).PrefDescAppIcon() }
+
+// PrefDescAppIcon says "Mayoi's icon in the Dock and app switcher, or on its windows and taskbar, while it runs."
+// in the language of msgs.
+func (msgs Messages) PrefDescAppIcon() string {
+	return Catalog.Format(msgs.locale, "prefDescAppIcon", nil)
+}
+
 // PrefTitleZoomLevel says "Window Zoom"
 // in the language the app shows.
 func PrefTitleZoomLevel() string { return In(i18n.Locale()).PrefTitleZoomLevel() }
@@ -16360,6 +16390,16 @@ func (msgs Messages) PrefDefaultAppearance() string {
 	return Catalog.Format(msgs.locale, "prefDefaultAppearance", nil)
 }
 
+// PrefDefaultAppIcon says "Default"
+// in the language the app shows.
+func PrefDefaultAppIcon() string { return In(i18n.Locale()).PrefDefaultAppIcon() }
+
+// PrefDefaultAppIcon says "Default"
+// in the language of msgs.
+func (msgs Messages) PrefDefaultAppIcon() string {
+	return Catalog.Format(msgs.locale, "prefDefaultAppIcon", nil)
+}
+
 // PrefDefaultPanelPosition says "Bottom"
 // in the language the app shows.
 func PrefDefaultPanelPosition() string { return In(i18n.Locale()).PrefDefaultPanelPosition() }
@@ -16548,6 +16588,16 @@ func PrefOptThemeGtavi() string { return In(i18n.Locale()).PrefOptThemeGtavi() }
 // in the language of msgs.
 func (msgs Messages) PrefOptThemeGtavi() string {
 	return Catalog.Format(msgs.locale, "prefOptThemeGtavi", nil)
+}
+
+// PrefOptAppIconAmber says "Amber"
+// in the language the app shows.
+func PrefOptAppIconAmber() string { return In(i18n.Locale()).PrefOptAppIconAmber() }
+
+// PrefOptAppIconAmber says "Amber"
+// in the language of msgs.
+func (msgs Messages) PrefOptAppIconAmber() string {
+	return Catalog.Format(msgs.locale, "prefOptAppIconAmber", nil)
 }
 
 // PrefOptAppearanceLight says "Light"

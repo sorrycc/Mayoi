@@ -86,6 +86,9 @@ type mayoi struct {
 	// icons is the folder of the icons chosen for projects on the rail,
 	// beside the settings, "" without a settings file.
 	icons string
+	// appIconErr is why the app icon chosen couldn't show, nil when it
+	// shows.
+	appIconErr error
 	// updateFound is the newest version the last check found, "" when
 	// Mayoi is up to date, and update the one shown, "" when skipped.
 	updateFound string
@@ -511,6 +514,9 @@ func main() {
 			m.icons = filepath.Join(filepath.Dir(p), "project-icons")
 		}
 		mygo.Theme.SetSource(themeSource(m.s.Theme, m.s.Appearance))
+		if appIconID(m.s.AppIcon) != "" {
+			m.applyAppIcon()
+		}
 		// The language of the settings, unless MYGO_LOCALE (mygo dev -lang)
 		// chose one for the run.
 		if os.Getenv("MYGO_LOCALE") == "" {
@@ -822,6 +828,9 @@ func (m *mayoi) reload(p settings.Prefs) {
 	setHCConfig(p)
 	if p.Appearance != old.Appearance || p.Theme != old.Theme {
 		setThemeSource(themeSource(p.Theme, p.Appearance))
+	}
+	if appIconID(p.AppIcon) != appIconID(old.AppIcon) {
+		m.applyAppIcon()
 	}
 	if p.ProjectTabs != old.ProjectTabs {
 		m.projectTabsChanged()

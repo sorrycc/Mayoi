@@ -79,15 +79,7 @@ func (w *prefsWindow) themeTiles(c *ui.Context, chosen string, apply func(any)) 
 						Transition(hoverFade).
 						Draw(func(pt *ui.Painter, r ui.Rect) { paintSwatch(pt, r, q, m, themeTileH/float32(swatchH), false) })
 					if on {
-						ring := ui.Box(c.Key("ring")).Absolute().Left(-4).Top(-4).Right(-4).Bottom(-4).Radius(11).Border(2, p.accent)
-						if tile.FocusVisible() {
-							ring.Shadow(0, 0, 0, 3, p.accent.Alpha(0.25))
-						}
-						ring.Transition(ui.ElementTransition{Duration: motionMove, Ease: ui.EaseInOut, Match: themeRing{}})
-						ui.Box(c.Key("check")).Absolute().Top(-7).Right(-7).Size(18, 18).Radius(9).Background(p.fill).
-							Border(2, p.editor).Justify(ui.Center).AlignItems(ui.Center).Transition(dotPop).Children(func() {
-							ui.Icon(c, iconCheck).FontSize(10).TextColor(p.fillText)
-						})
+						w.chosenMarks(c, tile, 8, themeRing{})
 					}
 				})
 				col, weight := p.muted, 400
@@ -100,6 +92,85 @@ func (w *prefsWindow) themeTiles(c *ui.Context, chosen string, apply func(any)) 
 	})
 	if sel != was {
 		apply(allThemes()[sel].id)
+	}
+}
+
+// chosenMarks marks the tile chosen of a picker, whose frame of radius it
+// is in: an accent ring that slides from the tile chosen before, matched
+// by match, and a check.
+func (w *prefsWindow) chosenMarks(c *ui.Context, tile ui.Element, radius float32, match any) {
+	p := w.pal
+	ring := ui.Box(c.Key("ring")).Absolute().Left(-4).Top(-4).Right(-4).Bottom(-4).Radius(radius+3).Border(2, p.accent)
+	if tile.FocusVisible() {
+		ring.Shadow(0, 0, 0, 3, p.accent.Alpha(0.25))
+	}
+	ring.Transition(ui.ElementTransition{Duration: motionMove, Ease: ui.EaseInOut, Match: match})
+	ui.Box(c.Key("check")).Absolute().Top(-7).Right(-7).Size(18, 18).Radius(9).Background(p.fill).
+		Border(2, p.editor).Justify(ui.Center).AlignItems(ui.Center).Transition(dotPop).Children(func() {
+		ui.Icon(c, iconCheck).FontSize(10).TextColor(p.fillText)
+	})
+}
+
+// The size of an app icon's tile in the settings window, and of the icon
+// in it.
+const appIconTileW, appIconSize = 96, 64
+
+// appIconRing is the identity of the ring around the app icon chosen.
+type appIconRing struct{}
+
+// appIconTiles chooses the app icon from a tile of each, the one chosen
+// ringed as the themes' are; an icon this version doesn't know shows as
+// Mayoi's own. The arrows move the choice while a tile has the keyboard.
+func (w *prefsWindow) appIconTiles(c *ui.Context, chosen string, apply func(any)) {
+	p := w.pal
+	f, _ := settings.FieldOf("appIcon")
+	sel := max(slices.Index(f.Options, appIconID(chosen)), 0)
+	was := sel
+	tiles := ui.SegmentedBase(c.Key("prefs-app-icons"), &sel, len(f.Options))
+	tiles.Track.Wrap().Gap(10).Label(prefTitle("appIcon")).Children(func() {
+		for i, id := range f.Options {
+			on := i == sel
+			name := prefOption("appIcon", id)
+			tile := tiles.Segment(i).Column().Width(appIconTileW).Gap(7).AlignItems(ui.Center).Label(name).FocusRing(false)
+			if on {
+				w.first(tile)
+			}
+			hovered := tile.Hovered()
+			pose := ui.Pose{}
+			switch {
+			case tile.Pressed():
+				pose.Scale = 0.97
+			case hovered:
+				pose.Y = -2
+			}
+			tile.Children(func() {
+				frame := ui.Box(c.Key("frame")).Size(appIconTileW, appIconTileW).Shrink(0)
+				frame.AnimatePose(pose, ui.Snappy)
+				frame.Children(func() {
+					edge := p.border
+					if hovered && !on {
+						edge = p.muted.Alpha(0.6)
+					}
+					ui.Box(c.Key("card")).Size(appIconTileW, appIconTileW).Radius(12).Background(p.text.Alpha(0.04)).Border(1, edge).
+						Justify(ui.Center).AlignItems(ui.Center).Transition(hoverFade).Children(func() {
+						if b := appIconBitmaps()[id]; b != nil {
+							ui.Image(c.Key("icon"), b).Size(appIconSize, appIconSize)
+						}
+					})
+					if on {
+						w.chosenMarks(c, tile, 12, appIconRing{})
+					}
+				})
+				col, weight := p.muted, 400
+				if on {
+					col, weight = p.text, 600
+				}
+				ui.Text(c.Key("name"), name).FontSize(12).FontWeight(weight).TextColor(col).SingleLine().MaxWidth(appIconTileW)
+			})
+		}
+	})
+	if sel != was {
+		apply(f.Options[sel])
 	}
 }
 

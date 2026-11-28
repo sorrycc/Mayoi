@@ -325,7 +325,8 @@ func (a *app) prChecksView(c *ui.Context) {
 						ui.Text(c, locales.ChecksNoMatch()).FontSize(13).TextColor(p.muted).Padding(7, 10)
 					}
 					for i, ch := range choices {
-						row := ui.ButtonBase(c.Key("check:"+strconv.Itoa(i)+":"+ch.Link+":"+ch.Name)).FillWidth().Padding(5, 10).Gap(10).Radius(6).AlignItems(ui.Center).Label(ch.Title())
+						// As tall with actions as without.
+						row := ui.ButtonBase(c.Key("check:"+strconv.Itoa(i)+":"+ch.Link+":"+ch.Name)).FillWidth().MinHeight(30).Padding(5, 10).Gap(10).Radius(6).AlignItems(ui.Center).Label(ch.Title())
 						if i == pick.sel && pick.moved {
 							row.ScrollIntoView()
 						}

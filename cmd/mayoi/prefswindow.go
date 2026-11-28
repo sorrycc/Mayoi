@@ -681,7 +681,7 @@ func (w *prefsWindow) row(c *ui.Context, f settings.Field, scope *prefFolder) {
 			w.jump = ""
 		}
 	}
-	wide := f.Kind == settings.KindList || f.Kind == settings.KindStyles || f.Key == "theme"
+	wide := f.Kind == settings.KindList || f.Kind == settings.KindStyles || f.Key == "theme" || f.Key == "appIcon"
 	row.Children(func() {
 		ui.Row(c).Gap(12).AlignItems(ui.Center).Children(func() {
 			ui.Column(c).Gap(3).Grow(1).Shrink(1).MinWidth(0).Children(func() {
@@ -700,6 +700,10 @@ func (w *prefsWindow) row(c *ui.Context, f settings.Field, scope *prefFolder) {
 						}
 						ui.Text(c.Key("claude-theme-status"), msg).FontSize(12).LineHeight(1.4).TextColor(col).Transition(revealFade)
 					}
+				}
+				if f.Key == "appIcon" && m.appIconErr != nil {
+					ui.Text(c.Key("app-icon-status"), locales.FailAppIcon(m.appIconErr.Error())).FontSize(12).LineHeight(1.4).
+						TextColor(p.dangerFg).Transition(revealFade)
 				}
 				ui.Row(c).Gap(8).AlignItems(ui.Center).Children(func() {
 					ui.Text(c, f.Key).Font(w.monoFont()).FontSize(10.5).TextColor(p.faint).SingleLine().Shrink(1)
@@ -799,6 +803,10 @@ func (w *prefsWindow) control(c *ui.Context, f settings.Field, raw json.RawMessa
 		json.Unmarshal(raw, &v)
 		if f.Key == "theme" {
 			w.themeTiles(c, v, apply)
+			return
+		}
+		if f.Key == "appIcon" {
+			w.appIconTiles(c, v, apply)
 			return
 		}
 		labels := make([]string, len(f.Options))

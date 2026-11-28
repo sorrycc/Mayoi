@@ -5,6 +5,8 @@ needs a `## <version>` section here, or its build fails.
 
 ## Unreleased
 
+- Choose Mayoi's icon in **Settings → Appearance → App Icon**: its own, or the new Amber.
+- The icon chosen shows at once and on each launch: in the Dock on macOS, on windows and the taskbar elsewhere.
 - Hover over underlined code to read and copy diagnostics alongside symbol documentation.
 - Fix typing or pasting into the previous file after switching files in an editable diff.
 - Fix staged deletions offering to edit a later file in the diff.

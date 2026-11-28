@@ -726,15 +726,14 @@ func (a *app) saveDocElse(d *document, then, cancelled func()) {
 	// Saved by hand, a file that changed on its host asks again, unless
 	// its question is still waiting for an answer, as a save waits on it.
 	asked := d.sync == syncConflict && len(d.waiters) > 0
-	// A plugin's formatter first, as formatOnSave asks, for so long.
-	a.requestSave(d, saveWaiter{done: saved, failed: failed, format: a.formatsOnSave(d)})
+	// Save actions and formatting share one bounded preparation before writing.
+	a.requestSave(d, saveWaiter{done: saved, failed: failed, format: a.formatsOnSave(d), actions: len(a.saveActions(d)) > 0})
 	if d.sync == syncConflict && !asked {
 		a.saveConflict(d)
 	}
 }
 
-// formatOnSaveLimit is how long saving waits for a formatter, which
-// saves without its changes past it.
+// formatOnSaveLimit bounds save actions and formatting before writing the current text.
 const formatOnSaveLimit = 1500 * time.Millisecond
 
 // docEditor is an editor of a document, the one shown first, nil for none.

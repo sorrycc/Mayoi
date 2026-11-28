@@ -52,8 +52,9 @@ type Diagnostic struct {
 
 // TextEdit replaces a range with text.
 type TextEdit struct {
-	Range   Range  `json:"range"`
-	NewText string `json:"newText"`
+	Range        Range  `json:"range"`
+	NewText      string `json:"newText"`
+	AnnotationID string `json:"annotationId,omitempty"`
 }
 
 // CompletionItem is a completion a server offers.
@@ -99,11 +100,6 @@ type Options struct {
 	Handlers   Handlers
 }
 
-type openDocument struct {
-	version        int
-	language, text string
-}
-
 // Client is a running server.
 type Client struct {
 	cmd  *exec.Cmd
@@ -115,7 +111,9 @@ type Client struct {
 		Commands                                   []string
 		Experimental                               map[string]json.RawMessage
 		// Sync is the text document sync kind: 1 full, 2 incremental.
-		Sync int
+		Sync            int
+		CodeActions     bool
+		CodeActionKinds []string
 	}
 
 	wonce   sync.Once
@@ -125,9 +123,10 @@ type Client struct {
 	waiting map[int]chan response
 	done    chan struct{}
 	err     error
-	// Serialize document notifications so a skipped update cannot overtake a pending send.
-	opening            sync.Mutex
-	documents          map[string]openDocument
+
+	documents map[string]*syncedDocument
+	// opening serializes document notifications; acquiring it can be cancelled.
+	opening            chan struct{}
 	configuration      map[string]any
 	folders            []WorkspaceFolder
 	toServer, toClient []PathMapping
@@ -176,7 +175,7 @@ func Start(ctx context.Context, opts Options) (*Client, error) {
 		return nil, err
 	}
 	c := &Client{cmd: opts.Cmd, in: in, h: opts.Handlers, waiting: map[int]chan response{}, done: make(chan struct{}),
-		documents: map[string]openDocument{}, configuration: opts.Configuration, folders: opts.WorkspaceFolders,
+		documents: map[string]*syncedDocument{}, opening: make(chan struct{}, 1), configuration: opts.Configuration, folders: opts.WorkspaceFolders,
 		toServer: sortedMappings(opts.PathMappings, true), toClient: sortedMappings(opts.PathMappings, false)}
 	if c.folders == nil {
 		c.folders = []WorkspaceFolder{{URI: opts.RootURI, Name: filepath.Base(Path(opts.RootURI))}}
@@ -215,7 +214,8 @@ func Start(ctx context.Context, opts Options) (*Client, error) {
 			c.watches.close()
 		}
 	}()
-	workspaceCaps := map[string]any{"workspaceFolders": true, "configuration": true}
+	workspaceCaps := map[string]any{"workspaceFolders": true, "configuration": true,
+		"workspaceEdit": map[string]any{"documentChanges": true}}
 	if c.watches != nil && len(c.watches.roots) > 0 {
 		workspaceCaps["didChangeWatchedFiles"] = map[string]bool{"dynamicRegistration": true, "relativePatternSupport": true}
 	}
@@ -239,7 +239,10 @@ func Start(ctx context.Context, opts Options) (*Client, error) {
 				"references":         map[string]any{},
 				"completion":         map[string]any{"completionItem": map[string]any{"snippetSupport": true}},
 				"formatting":         map[string]any{},
-				"publishDiagnostics": map[string]any{"relatedInformation": false},
+				"publishDiagnostics": map[string]any{"relatedInformation": false, "versionSupport": true, "dataSupport": true},
+				"codeAction": map[string]any{"codeActionLiteralSupport": map[string]any{
+					"codeActionKind": map[string]any{"valueSet": []string{OrganizeImports, FixAll}},
+				}},
 			},
 			"workspace": workspaceCaps,
 		},
@@ -270,6 +273,7 @@ func Start(ctx context.Context, opts Options) (*Client, error) {
 			} `json:"executeCommandProvider"`
 			CompletionProvider         json.RawMessage `json:"completionProvider"`
 			DocumentFormattingProvider json.RawMessage `json:"documentFormattingProvider"`
+			CodeActionProvider         json.RawMessage `json:"codeActionProvider"`
 			TextDocumentSync           json.RawMessage `json:"textDocumentSync"`
 			Experimental               json.RawMessage `json:"experimental"`
 		} `json:"capabilities"`
@@ -282,6 +286,12 @@ func Start(ctx context.Context, opts Options) (*Client, error) {
 	c.caps.TypeDefinition = on(cp.TypeDefinitionProvider)
 	c.caps.Implementation = on(cp.ImplementationProvider)
 	c.caps.References = on(cp.ReferencesProvider)
+	c.caps.CodeActions = on(cp.CodeActionProvider)
+	var actions struct {
+		Kinds []string `json:"codeActionKinds"`
+	}
+	_ = json.Unmarshal(cp.CodeActionProvider, &actions)
+	c.caps.CodeActionKinds = actions.Kinds
 	c.caps.Commands = cp.ExecuteCommandProvider.Commands
 	_ = json.Unmarshal(cp.Experimental, &c.caps.Experimental)
 	c.caps.Sync = 1
@@ -428,7 +438,12 @@ func (c *Client) Call(ctx context.Context, method string, params any) (json.RawM
 	case r := <-ch:
 		return mapResult(method, r.result, c.toClient, false), r.err
 	case <-ctx.Done():
-		c.Notify("$/cancelRequest", map[string]any{"id": id})
+		// Cancellation must not turn a response deadline into an unbounded write.
+		go func() {
+			cancelCtx, cancel := context.WithTimeout(context.Background(), time.Second)
+			defer cancel()
+			_ = c.send(cancelCtx, "$/cancelRequest", map[string]any{"id": id}, nil)
+		}()
 		return nil, ctx.Err()
 	}
 }
@@ -547,13 +562,7 @@ func (c *Client) answer(id json.RawMessage, method string, params json.RawMessag
 func (c *Client) notified(method string, params json.RawMessage) {
 	switch method {
 	case "textDocument/publishDiagnostics":
-		var p struct {
-			URI         string       `json:"uri"`
-			Diagnostics []Diagnostic `json:"diagnostics"`
-		}
-		if json.Unmarshal(params, &p) == nil && c.h.Diagnostics != nil {
-			c.h.Diagnostics(p.URI, p.Diagnostics)
-		}
+		c.publishedDiagnostics(params)
 	case "window/logMessage", "window/showMessage":
 		var p struct {
 			Type    int    `json:"type"`
@@ -597,29 +606,7 @@ func LanguageID(language, uri string) string {
 
 // Open synchronizes a document with full-text updates, skipping unchanged text.
 func (c *Client) Open(uri, language, text string) {
-	c.opening.Lock()
-	defer c.opening.Unlock()
-	c.mu.Lock()
-	doc, open := c.documents[uri]
-	if open && doc.language == language && doc.text == text {
-		c.mu.Unlock()
-		return
-	}
-	doc.version++
-	doc.language, doc.text = language, text
-	c.documents[uri] = doc
-	c.mu.Unlock()
-	v := doc.version
-	if !open {
-		c.Notify("textDocument/didOpen", map[string]any{"textDocument": map[string]any{
-			"uri": uri, "languageId": LanguageID(language, uri), "version": v, "text": text,
-		}})
-		return
-	}
-	c.Notify("textDocument/didChange", map[string]any{
-		"textDocument":   map[string]any{"uri": uri, "version": v},
-		"contentChanges": []any{map[string]any{"text": text}},
-	})
+	_, _ = c.OpenContext(context.Background(), uri, language, text)
 }
 
 // IsOpen reports whether the server was told of a document.
@@ -639,11 +626,14 @@ func (c *Client) Saved(uri string) {
 
 // Closed tells the server a document closed.
 func (c *Client) Closed(uri string) {
-	c.opening.Lock()
-	defer c.opening.Unlock()
+	c.opening <- struct{}{}
+	defer func() { <-c.opening }()
 	c.mu.Lock()
-	_, open := c.documents[uri]
+	doc, open := c.documents[uri]
 	delete(c.documents, uri)
+	if open {
+		close(doc.changed)
+	}
 	c.mu.Unlock()
 	if open {
 		c.Notify("textDocument/didClose", map[string]any{"textDocument": map[string]any{"uri": uri}})

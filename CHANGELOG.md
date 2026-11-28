@@ -5,6 +5,8 @@ needs a `## <version>` section here, or its build fails.
 
 ## Unreleased
 
+- LSP: Enable `organizeImportsOnSave` to organize imports on manual saves.
+- LSP: Enable `fixAllOnSave` to apply automatic fixes on manual saves.
 - Fix rows of the GitHub checks popup growing taller and pushing others down on hover.
 
 ## 0.23.6

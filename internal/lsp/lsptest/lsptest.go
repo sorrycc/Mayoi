@@ -28,12 +28,18 @@ func Serve(in io.Reader, out io.Writer) {
 		fmt.Fprintf(out, "Content-Length: %d\r\n\r\n%s", len(data), data)
 	}
 	var initialize, document, navigation json.RawMessage
+	var codeActions []json.RawMessage
+	var events []string
+	versions := map[string]int{}
+	savedTexts := map[string]string{}
 	texts := map[string]string{} // by URI
 	languages := map[string]string{}
 	var late func() // the answer held back
 	var options struct {
 		HoverContents  json.RawMessage `json:"hoverContents"`
 		FailInitialize string          `json:"failInitialize"`
+		SourceActions  bool            `json:"sourceActions"`
+		ActionMode     string          `json:"actionMode"`
 	}
 	for {
 		n := -1
@@ -92,12 +98,19 @@ func Serve(in io.Reader, out io.Writer) {
 				send(map[string]any{"jsonrpc": "2.0", "id": *m.ID, "error": map[string]any{"code": -32603, "message": options.FailInitialize}})
 				return
 			}
-			reply(map[string]any{"capabilities": map[string]any{
+			caps := map[string]any{
 				"hoverProvider": true, "definitionProvider": true, "completionProvider": map[string]any{},
 				"documentFormattingProvider": true, "textDocumentSync": 1,
 				"typeDefinitionProvider": map[string]any{}, "implementationProvider": true, "referencesProvider": true,
 				"executeCommandProvider": map[string]any{"commands": []string{"fake.sourceDefinition"}},
-			}})
+			}
+			if options.SourceActions {
+				caps["codeActionProvider"] = map[string]any{"codeActionKinds": []string{"source.organizeImports", "source.fixAll"}}
+				if options.ActionMode == "booleanCapability" {
+					caps["codeActionProvider"] = true
+				}
+			}
+			reply(map[string]any{"capabilities": caps})
 		case "textDocument/didOpen", "textDocument/didChange":
 			document = append(json.RawMessage(nil), m.Params...)
 			var p struct {
@@ -105,6 +118,7 @@ func Serve(in io.Reader, out io.Writer) {
 					URI      string `json:"uri"`
 					Text     string `json:"text"`
 					Language string `json:"languageId"`
+					Version  int    `json:"version"`
 				} `json:"textDocument"`
 				ContentChanges []struct {
 					Text string `json:"text"`
@@ -119,16 +133,25 @@ func Serve(in io.Reader, out io.Writer) {
 				text = p.ContentChanges[0].Text
 			}
 			texts[p.TextDocument.URI] = text
+			versions[p.TextDocument.URI] = p.TextDocument.Version
+			events = append(events, m.Method)
 			var diags []any
 			for i, line := range strings.Split(text, "\n") {
 				if at := strings.Index(line, "bad"); at >= 0 {
 					diags = append(diags, map[string]any{"range": map[string]any{
 						"start": map[string]any{"line": i, "character": at}, "end": map[string]any{"line": i, "character": at + 3},
-					}, "severity": 1, "message": "bad word", "source": "fake"})
+					}, "severity": 1, "message": "bad word", "source": "fake", "data": map[string]any{"opaque": "kept"}})
 				}
 			}
-			send(map[string]any{"jsonrpc": "2.0", "method": "textDocument/publishDiagnostics",
-				"params": map[string]any{"uri": p.TextDocument.URI, "diagnostics": diags}})
+			if options.ActionMode != "noDiagnostics" {
+				send(map[string]any{"jsonrpc": "2.0", "method": "textDocument/publishDiagnostics",
+					"params": map[string]any{"uri": p.TextDocument.URI, "version": p.TextDocument.Version, "diagnostics": diags}})
+			}
+		case "textDocument/didSave":
+			var p struct{ TextDocument struct{ URI string } }
+			json.Unmarshal(m.Params, &p)
+			events = append(events, m.Method)
+			savedTexts[p.TextDocument.URI] = texts[p.TextDocument.URI]
 		case "textDocument/didClose":
 			var p struct{ TextDocument struct{ URI string } }
 			json.Unmarshal(m.Params, &p)
@@ -153,7 +176,33 @@ func Serve(in io.Reader, out io.Writer) {
 				answer(map[string]any{"contents": map[string]any{"kind": "markdown", "value": "**hello**"}})
 			}
 		case "test/snapshot":
-			reply(map[string]any{"initialize": initialize, "document": document, "navigation": navigation, "languages": languages})
+			reply(map[string]any{"initialize": initialize, "document": document, "navigation": navigation, "languages": languages,
+				"codeActions": codeActions, "events": events, "savedTexts": savedTexts})
+		case "textDocument/codeAction":
+			codeActions = append(codeActions, append(json.RawMessage(nil), m.Params...))
+			var p struct {
+				TextDocument struct{ URI string }
+				Context      struct {
+					Only        []string
+					Diagnostics []json.RawMessage
+				}
+			}
+			json.Unmarshal(m.Params, &p)
+			kind := p.Context.Only[0]
+			events = append(events, kind)
+			if options.ActionMode == "noReply" {
+				break
+			}
+			if options.ActionMode == "error" {
+				send(map[string]any{"jsonrpc": "2.0", "id": *m.ID, "error": map[string]any{"code": -32603, "message": "action failed"}})
+				break
+			}
+			actions := fakeSourceActions(texts[p.TextDocument.URI], p.TextDocument.URI, versions[p.TextDocument.URI], kind, len(p.Context.Diagnostics) > 0, options.ActionMode)
+			if options.ActionMode == "late" && len(codeActions) == 1 {
+				late = func() { reply(actions) }
+			} else {
+				reply(actions)
+			}
 		case "test/noReply":
 			// A response timeout must not disconnect an otherwise healthy client.
 		case "textDocument/definition":
@@ -191,6 +240,7 @@ func Serve(in io.Reader, out io.Writer) {
 		case "textDocument/completion":
 			answer(map[string]any{"isIncomplete": false, "items": []any{map[string]any{"label": "println", "insertText": "println()"}}})
 		case "textDocument/formatting":
+			events = append(events, m.Method)
 			reply([]any{map[string]any{"range": map[string]any{
 				"start": map[string]any{"line": 0, "character": 0}, "end": map[string]any{"line": 0, "character": 0}}, "newText": "// formatted\n"}})
 		case "shutdown":

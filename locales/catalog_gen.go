@@ -18144,6 +18144,110 @@ func (msgs Messages) PrefTitleFormatOnSave() string {
 	return Catalog.Format(msgs.locale, "prefTitleFormatOnSave", nil)
 }
 
+// PrefTitleOrganizeImportsOnSave says "LSP: Organize Imports on Save"
+// in the language the app shows.
+func PrefTitleOrganizeImportsOnSave() string {
+	return In(i18n.Locale()).PrefTitleOrganizeImportsOnSave()
+}
+
+// PrefTitleOrganizeImportsOnSave says "LSP: Organize Imports on Save"
+// in the language of msgs.
+func (msgs Messages) PrefTitleOrganizeImportsOnSave() string {
+	return Catalog.Format(msgs.locale, "prefTitleOrganizeImportsOnSave", nil)
+}
+
+// PrefDescOrganizeImportsOnSave says "Organizes imports through a supporting language server on manual saves, by language, as \"go\": true, or \"*\" for all la…"
+// in the language the app shows.
+func PrefDescOrganizeImportsOnSave() string { return In(i18n.Locale()).PrefDescOrganizeImportsOnSave() }
+
+// PrefDescOrganizeImportsOnSave says "Organizes imports through a supporting language server on manual saves, by language, as \"go\": true, or \"*\" for all la…"
+// in the language of msgs.
+func (msgs Messages) PrefDescOrganizeImportsOnSave() string {
+	return Catalog.Format(msgs.locale, "prefDescOrganizeImportsOnSave", nil)
+}
+
+// PrefTitleFixAllOnSave says "LSP: Fix All on Save"
+// in the language the app shows.
+func PrefTitleFixAllOnSave() string { return In(i18n.Locale()).PrefTitleFixAllOnSave() }
+
+// PrefTitleFixAllOnSave says "LSP: Fix All on Save"
+// in the language of msgs.
+func (msgs Messages) PrefTitleFixAllOnSave() string {
+	return Catalog.Format(msgs.locale, "prefTitleFixAllOnSave", nil)
+}
+
+// PrefDescFixAllOnSave says "Applies automatic fixes through a supporting language server on manual saves, by language, as \"go\": true, or \"*\" for …"
+// in the language the app shows.
+func PrefDescFixAllOnSave() string { return In(i18n.Locale()).PrefDescFixAllOnSave() }
+
+// PrefDescFixAllOnSave says "Applies automatic fixes through a supporting language server on manual saves, by language, as \"go\": true, or \"*\" for …"
+// in the language of msgs.
+func (msgs Messages) PrefDescFixAllOnSave() string {
+	return Catalog.Format(msgs.locale, "prefDescFixAllOnSave", nil)
+}
+
+// SaveActionOrganizeImports says "Organize Imports"
+// in the language the app shows.
+func SaveActionOrganizeImports() string { return In(i18n.Locale()).SaveActionOrganizeImports() }
+
+// SaveActionOrganizeImports says "Organize Imports"
+// in the language of msgs.
+func (msgs Messages) SaveActionOrganizeImports() string {
+	return Catalog.Format(msgs.locale, "saveActionOrganizeImports", nil)
+}
+
+// SaveActionFixAll says "Fix All"
+// in the language the app shows.
+func SaveActionFixAll() string { return In(i18n.Locale()).SaveActionFixAll() }
+
+// SaveActionFixAll says "Fix All"
+// in the language of msgs.
+func (msgs Messages) SaveActionFixAll() string {
+	return Catalog.Format(msgs.locale, "saveActionFixAll", nil)
+}
+
+// SaveActionFailed says "Could not run {action}: {err}"
+// in the language the app shows.
+func SaveActionFailed(action string, err string) string {
+	return In(i18n.Locale()).SaveActionFailed(action, err)
+}
+
+// SaveActionFailed says "Could not run {action}: {err}"
+// in the language of msgs.
+func (msgs Messages) SaveActionFailed(action string, err string) string {
+	return Catalog.Format(msgs.locale, "saveActionFailed", map[string]any{"action": action, "err": err})
+}
+
+// SaveActionUnavailable says "The language server is not ready or does not support this action"
+// in the language the app shows.
+func SaveActionUnavailable() string { return In(i18n.Locale()).SaveActionUnavailable() }
+
+// SaveActionUnavailable says "The language server is not ready or does not support this action"
+// in the language of msgs.
+func (msgs Messages) SaveActionUnavailable() string {
+	return Catalog.Format(msgs.locale, "saveActionUnavailable", nil)
+}
+
+// SaveActionInvalidEdits says "The language server returned invalid or overlapping edits"
+// in the language the app shows.
+func SaveActionInvalidEdits() string { return In(i18n.Locale()).SaveActionInvalidEdits() }
+
+// SaveActionInvalidEdits says "The language server returned invalid or overlapping edits"
+// in the language of msgs.
+func (msgs Messages) SaveActionInvalidEdits() string {
+	return Catalog.Format(msgs.locale, "saveActionInvalidEdits", nil)
+}
+
+// SaveActionTimeout says "The language server did not finish before the save deadline"
+// in the language the app shows.
+func SaveActionTimeout() string { return In(i18n.Locale()).SaveActionTimeout() }
+
+// SaveActionTimeout says "The language server did not finish before the save deadline"
+// in the language of msgs.
+func (msgs Messages) SaveActionTimeout() string {
+	return Catalog.Format(msgs.locale, "saveActionTimeout", nil)
+}
+
 // PrefDescFormatOnSave says "Formats a document with a plugin's formatter as you save it, by language, as \"go\": true, or \"*\" for every language."
 // in the language the app shows.
 func PrefDescFormatOnSave() string { return In(i18n.Locale()).PrefDescFormatOnSave() }

@@ -14746,6 +14746,26 @@ func (msgs Messages) PrefsFontsShow() string {
 	return Catalog.Format(msgs.locale, "prefsFontsShow", nil)
 }
 
+// PrefsFontsMonospacedOnly says "Only Show Monospaced Fonts"
+// in the language the app shows.
+func PrefsFontsMonospacedOnly() string { return In(i18n.Locale()).PrefsFontsMonospacedOnly() }
+
+// PrefsFontsMonospacedOnly says "Only Show Monospaced Fonts"
+// in the language of msgs.
+func (msgs Messages) PrefsFontsMonospacedOnly() string {
+	return Catalog.Format(msgs.locale, "prefsFontsMonospacedOnly", nil)
+}
+
+// PrefsFontsNoMatches says "No matching fonts"
+// in the language the app shows.
+func PrefsFontsNoMatches() string { return In(i18n.Locale()).PrefsFontsNoMatches() }
+
+// PrefsFontsNoMatches says "No matching fonts"
+// in the language of msgs.
+func (msgs Messages) PrefsFontsNoMatches() string {
+	return Catalog.Format(msgs.locale, "prefsFontsNoMatches", nil)
+}
+
 // KeysWereReset says "Keys of {command} reset to default"
 // in the language the app shows.
 func KeysWereReset(command string) string { return In(i18n.Locale()).KeysWereReset(command) }

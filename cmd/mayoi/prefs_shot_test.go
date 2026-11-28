@@ -90,7 +90,12 @@ func TestShotPrefs(t *testing.T) {
 		ph.shot("prefs-keys-conflicts" + suffix)
 		k.filter = keysAll
 		ph.w.section = settings.CatFonts
-		ph.w.families = []string{"Courier New", "Menlo", "Monaco", "PT Mono"}
+		ph.w.families = visibleFontNames([]ui.FontFamily{
+			{Name: "Courier New", Monospaced: true},
+			{Name: "Menlo", Monospaced: true},
+			{Name: "Monaco", Monospaced: true},
+			{Name: "PT Mono", Monospaced: true},
+		})
 		ph.frames()
 		ph.pt.Click("Show Fonts")
 		ph.frames()

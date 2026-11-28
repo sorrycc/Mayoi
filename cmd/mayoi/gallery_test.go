@@ -20,6 +20,8 @@ import (
 	"github.com/egoist/mygo/i18n"
 	"github.com/egoist/mygo/ui"
 	"mayoi/internal/git"
+	"mayoi/internal/settings"
+	"mayoi/locales"
 )
 
 // galleryThemes are the themes of the gallery, "" for Mayoi's own.
@@ -160,6 +162,22 @@ var galleryStates = []struct {
 	}},
 	{"palette", func(hs *harness) { hs.a.run("go.commands") }},
 	{"no-match", func(hs *harness) { hs.a.openQuick("zzzz-nothing") }},
+	{"font-picker-no-match", func(hs *harness) {
+		w := newPrefsWindow(&mayoi{s: hs.a.settings, keys: hs.a.keys})
+		w.section = settings.CatFonts
+		w.families = visibleFontNames([]ui.FontFamily{{Name: "Sample Mono", Monospaced: true}})
+		hs.tt = ui.NewTester(w.view, 940, 680)
+		hs.tt.SetDark(hs.a.pal.dark)
+		hs.tt.SetLocale(i18n.Locale())
+		step(hs.tt)
+		w.firstH.SelectAll()
+		step(hs.tt)
+		hs.tt.Type("zzzz")
+		hs.tt.Frame()
+		if !hs.tt.HasText(locales.PrefsFontsNoMatches()) {
+			hs.t.Fatal("the font picker did not show an empty list")
+		}
+	}},
 	{"path-pending", func(hs *harness) {
 		hs.a.openQuick(hs.path("pending.go"))
 		p := &hs.a.quick.probe

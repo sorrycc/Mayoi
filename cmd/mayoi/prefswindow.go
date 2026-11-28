@@ -75,10 +75,10 @@ type prefsWindow struct {
 	bindFirst bool
 	// finding asks for the keyboard to go to the search.
 	finding bool
-	// families are the monospaced font families installed, which the
-	// fonts offer once listed, as familiesAsked asked.
-	families      []string
-	familiesAsked bool
+	// families are the names offered by the font pickers once listed.
+	families            fontFamilyNames
+	familiesAsked       bool
+	monospacedFontsOnly bool
 	// peek is the font family the picker of the fonts is on, which the
 	// code of the fonts shows, "" for none.
 	peek string
@@ -715,7 +715,7 @@ func (w *prefsWindow) row(c *ui.Context, f settings.Field, scope *prefFolder) {
 			})
 			w.resetButton(c, f, scope, changed)
 			if !wide {
-				ui.Row(c).Shrink(0).Children(func() { w.control(c, f, raw, scope) })
+				ui.Row(c.Key("control")).Shrink(0).Children(func() { w.control(c, f, raw, scope) })
 			}
 		})
 		if wide {

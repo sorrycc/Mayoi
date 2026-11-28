@@ -8,6 +8,8 @@ needs a `## <version>` section here, or its build fails.
 - Fix rows of the GitHub checks popup growing taller and pushing others down on hover.
 - Quick open and search in files now find untracked files that only your global git excludes file ignores.
 - `terminalLinks` plugin commands get the clicked terminal's folder as `context.cwd` to resolve relative paths.
+- The editor and terminal font pickers now show all available font families.
+- **Only Show Monospaced Fonts** filters both pickers and keeps the selected family visible.
 
 ## 0.23.6
 

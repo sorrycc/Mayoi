@@ -1457,6 +1457,8 @@
   "prefsWasInherited": "{name} はユーザー設定に戻りました",
   "prefsDismiss": "閉じる",
   "prefsFontsShow": "フォントを表示",
+  "prefsFontsMonospacedOnly": "等幅フォントのみ表示",
+  "prefsFontsNoMatches": "一致するフォントがありません",
   "keysWereReset": "{command} のキーを既定に戻しました",
   "keysWereRemoved": "{command} のキーを削除しました",
   "prefsNoFolder": "このマシンのフォルダーを開くと、そのフォルダー専用の設定を作れます",
